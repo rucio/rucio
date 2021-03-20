@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,15 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 
 from __future__ import print_function
 
 import unittest
 from os import remove
+
+import pytest
 
 from rucio.common.utils import generate_uuid as uuid, execute
 
@@ -67,6 +70,7 @@ def delete_rules(did):
         exitcode, out, err = execute(cmd)
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 class TestRucioClient(unittest.TestCase):
     running_with_unittest = False
 

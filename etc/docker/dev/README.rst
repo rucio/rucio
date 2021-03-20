@@ -54,9 +54,9 @@ To verify that everything is in order, you can now either run the full unit test
 Alternatively, you can bootstrap the test environment once with the `-i` option and then selectively or repeatedly run test case modules, test case groups, or even single test cases, for example::
 
     tools/run_tests_docker.sh -i
-    pytest -vvvrxs lib/rucio/tests/test_replica.py
-    pytest -vvvrxs lib/rucio/tests/test_replica.py:TestReplicaCore
-    pytest -vvvrxs --full-trace lib/rucio/tests/test_replica.py:TestReplicaCore.test_delete_replicas_from_datasets
+    tools/pytest.sh test_replica.py
+    tools/pytest.sh -vvv test_replica.py::TestReplicaCore
+    tools/pytest.sh -vvv --full-trace test_replica.py::TestReplicaCore::test_delete_replicas_from_datasets
 
 Using the environment including storage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -161,7 +161,7 @@ If you edit server-side files, e.g. in `lib/rucio/web`, and your changes are not
 Database access
 ~~~~~~~~~~~~~~~
 
-The default database is PostgreSQL, and `docker-compose` is configured to open its port to the host machine. Using your favourite SQL navigator, e.g., `DBeaver <https://dbeaver.org>`_, you can connect to the database using the default access on `localhost:5432` to database name `rucio`, schema name `dev`, with username `rucio` and password `secret`.
+The default database is PostgreSQL, and `docker-compose` is configured to open its port to the host machine. Using your favourite SQL navigator, e.g., `DBeaver <https://dbeaver.io/>`_, you can connect to the database using the default access on `localhost:5432` to database name `rucio`, schema name `dev`, with username `rucio` and password `secret`.
 
 Docker is eating my disk space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

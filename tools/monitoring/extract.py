@@ -1,0 +1,106 @@
+ssl_key_file = ''
+ssl_cert_file = ''
+queue = '/topic/rucio.events'
+chunksize = 1
+subscription_id = 1
+consumer = ''
+consumer_port = 9200
+es_username = ""
+es_password = ""
+
+from time import sleep
+import elasticsearch as es
+from json import loads as jloads
+import stomp
+
+class ElasticConn():
+  def __init__(self, host_port, auth):
+    self.__es = es.Elasticsearch([host_port[0]],http_auth=auth,consumer_port=host_port[1])
+
+  def index_data(self, indexName, body):
+    res = self.__es.index(index=indexName, body=body)
+    print(res)
+    return res['result'] == 'created'
+
+class AMQConsumer(stomp.ConnectionListener):
+  def __init__(self, conn, chunksize, subscription_id):
+    self.__conn = conn
+    self.__chunksize = chunksize
+    self.__subscription_id = subscription_id
+    self.__ids = []
+    self.__reports = []
+    self.__esConn = ElasticConn(host_port = (consumer, consumer_port), auth = (es_username, es_password))
+
+  def on_error(self, headers, message):
+    pass
+    # Send message to StatsD
+
+  def on_message(self, headers, message):
+
+    # Send message to StatsD
+    # Sanity check
+    print(headers)
+    print(message)
+    msg_id = headers['message-id']
+
+    if 'resubmitted' in headers:
+      # Send message to StatsD
+      # Ignore resubmitted messages
+      return
+
+    try:
+        report = jloads(message)
+    except Exception:
+      # Corrupt message, ignore
+      # Send message to StatsD
+      self.__conn.ack(msg_id, self.__subscription_id)
+      return
+
+    try:
+      report['payload']['created_at'] = report['created_at']
+      report['payload']['event_type'] = report['event_type']
+      for k,v in report['payload'].items():
+        if k.endswith("_at"):
+          if v:
+            report['payload'][k] = v.split('.')[0]
+    except:
+      pass
+
+    self.__ids.append(msg_id)
+    self.__reports.append({'id': msg_id, 'body': report})
+
+    if len(self.__reports) >= self.__chunksize:
+      self.__send_to_es()
+      
+
+  def __send_to_es(self):
+    for msg in self.__reports:
+      event_type = str(msg['body']['event_type']).lower()
+      res = False
+      if event_type.startswith('transfer'):
+        res = self.__esConn.index_data('rucio_transfer', msg['body']['payload'])
+      elif event_type.startswith('deletion'):
+        res = self.__esConn.index_data('rucio_deletion', msg['body']['payload'])
+      else:
+        self.__conn.ack(msg['id'],self.__subscription_id)
+      if res:
+        self.__conn.ack(msg['id'],self.__subscription_id)
+    self.__reports = []
+    self.__ids = []
+
+if __name__ == "__main__":
+
+  logging.basicConfig(level=0)
+  if not borker_use_ssl:
+    conn = stomp.Connection(host_and_ports=[(broker,broker_port)],use_ssl=False,reconnect_attempts_max=5)
+  else:
+    conn = stomp.Connection(host_and_ports=[(broker,broker_port)],use_ssl=True,ssl_key_file=ssl_key_file, ssl_cert_file=ssl_cert_file,reconnect_attempts_max=1)
+    
+
+  conn.set_listener('', AMQConsumer(conn, chunksize, subscription_id))
+  conn.start()
+  conn.connect(wait=True)
+  conn.subscribe(destination=queue, ack='client-individual', id=subscription_id)
+  while True:
+    sleep(3600)
+  conn.disconnect()

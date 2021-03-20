@@ -1,0 +1,31 @@
+[
+  {
+    "_id": "94f32e60-9c07-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Total transfers",
+      "visState": "{\n  \"title\": \"[rucio] Total transfers\",\n  \"type\": \"metric\",\n  \"params\": {\n    \"addTooltip\": true,\n    \"addLegend\": false,\n    \"type\": \"metric\",\n    \"metric\": {\n      \"percentageMode\": false,\n      \"useRanges\": false,\n      \"colorSchema\": \"Green to Red\",\n      \"metricColorMode\": \"None\",\n      \"colorsRange\": [\n        {\n          \"from\": 0,\n          \"to\": 10000\n        }\n      ],\n      \"labels\": {\n        \"show\": true\n      },\n      \"invertColors\": false,\n      \"style\": {\n        \"bgFill\": \"#000\",\n        \"bgColor\": false,\n        \"labelColor\": false,\n        \"subText\": \"\",\n        \"fontSize\": 25\n      }\n    }\n  },\n  \"aggs\": [\n    {\n      \"id\": \"1\",\n      \"enabled\": true,\n      \"type\": \"count\",\n      \"schema\": \"metric\",\n      \"params\": {\n        \"customLabel\": \"Total Transfers\"\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"alias\": null,\n        \"negate\": false,\n        \"type\": \"phrase\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-done\",\n        \"params\": {\n          \"query\": \"transfer-done\"\n        },\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"match\": {\n          \"event_type\": {\n            \"query\": \"transfer-done\",\n            \"type\": \"phrase\"\n          }\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  }
+]

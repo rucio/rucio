@@ -1,4 +1,5 @@
-# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +16,15 @@
 # Authors:
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-
-from __future__ import print_function
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import datetime
 import json
-import sys
 import unittest
 from time import sleep
+from unittest.mock import MagicMock, patch
 
+import pytest
 from oic import rndstr
 from sqlalchemy import and_, or_
 from sqlalchemy.sql.expression import true
@@ -36,11 +36,6 @@ from rucio.common.types import InternalAccount
 from rucio.daemons.oauthmanager.oauthmanager import run, stop
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
-
-if sys.version_info >= (3, 3):
-    from unittest.mock import MagicMock, patch
-else:
-    from mock import MagicMock, patch
 
 new_token_dict = {'access_token': '',
                   'expires_in': 3599,
@@ -185,6 +180,7 @@ def side_effect(token_object, token_type):
     return {'client': MockClientOIDC(), 'state': token_object.refresh_token}
 
 
+@pytest.mark.dirty
 class TestOAuthManager(unittest.TestCase):
 
     def setUp(self):

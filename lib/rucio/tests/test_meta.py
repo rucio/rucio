@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,9 +18,7 @@
 # - Shreyansh Khajanchi <shreyansh_k@live.com>, 2018
 # - asket <asket.agarwal96@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import unittest
 
@@ -34,6 +32,7 @@ from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import DIDType, KeyType
 
 
+@pytest.mark.dirty
 class TestMetaClient(unittest.TestCase):
 
     def setUp(self):
@@ -119,36 +118,36 @@ class TestMetaClient(unittest.TestCase):
             self.meta_client.add_key('datatype', 'A')
 
 
-class TestMetaCore():
-    def test_add_key(self):
-        """ META (CORE): Add a new key """
-        types = [{'type': DIDType.FILE, 'expected': KeyType.FILE},
-                 {'type': DIDType.CONTAINER, 'expected': KeyType.CONTAINER},
-                 {'type': DIDType.DATASET, 'expected': KeyType.DATASET},
-                 {'type': KeyType.ALL, 'expected': KeyType.ALL},
-                 {'type': KeyType.DERIVED, 'expected': KeyType.DERIVED},
-                 {'type': KeyType.FILE, 'expected': KeyType.FILE},
-                 {'type': KeyType.COLLECTION, 'expected': KeyType.COLLECTION},
-                 {'type': KeyType.CONTAINER, 'expected': KeyType.CONTAINER},
-                 {'type': KeyType.DATASET, 'expected': KeyType.DATASET},
-                 {'type': 'FILE', 'expected': KeyType.FILE},
-                 {'type': 'ALL', 'expected': KeyType.ALL},
-                 {'type': 'COLLECTION', 'expected': KeyType.COLLECTION},
-                 {'type': 'DATASET', 'expected': KeyType.DATASET},
-                 {'type': 'D', 'expected': KeyType.DATASET},
-                 {'type': 'FILE', 'expected': KeyType.FILE},
-                 {'type': 'F', 'expected': KeyType.FILE},
-                 {'type': 'DERIVED', 'expected': KeyType.DERIVED},
-                 {'type': 'C', 'expected': KeyType.CONTAINER}]
+@pytest.mark.dirty
+def test_add_key():
+    """ META (CORE): Add a new key """
+    types = [{'type': DIDType.FILE, 'expected': KeyType.FILE},
+             {'type': DIDType.CONTAINER, 'expected': KeyType.CONTAINER},
+             {'type': DIDType.DATASET, 'expected': KeyType.DATASET},
+             {'type': KeyType.ALL, 'expected': KeyType.ALL},
+             {'type': KeyType.DERIVED, 'expected': KeyType.DERIVED},
+             {'type': KeyType.FILE, 'expected': KeyType.FILE},
+             {'type': KeyType.COLLECTION, 'expected': KeyType.COLLECTION},
+             {'type': KeyType.CONTAINER, 'expected': KeyType.CONTAINER},
+             {'type': KeyType.DATASET, 'expected': KeyType.DATASET},
+             {'type': 'FILE', 'expected': KeyType.FILE},
+             {'type': 'ALL', 'expected': KeyType.ALL},
+             {'type': 'COLLECTION', 'expected': KeyType.COLLECTION},
+             {'type': 'DATASET', 'expected': KeyType.DATASET},
+             {'type': 'D', 'expected': KeyType.DATASET},
+             {'type': 'FILE', 'expected': KeyType.FILE},
+             {'type': 'F', 'expected': KeyType.FILE},
+             {'type': 'DERIVED', 'expected': KeyType.DERIVED},
+             {'type': 'C', 'expected': KeyType.CONTAINER}]
 
-        for key_type in types:
-            key_name = 'datatype%s' % str(uuid())
-            add_key(key_name, key_type['type'])
-            stored_key_type = session.get_session().query(models.DIDKey).filter_by(key=key_name).one()['key_type']
-            assert stored_key_type, key_type['expected']
+    for key_type in types:
+        key_name = 'datatype%s' % str(uuid())
+        add_key(key_name, key_type['type'])
+        stored_key_type = session.get_session().query(models.DIDKey).filter_by(key=key_name).one()['key_type']
+        assert stored_key_type, key_type['expected']
 
-        with pytest.raises(UnsupportedKeyType):
-            add_key('datatype', DIDType.ARCHIVE)
+    with pytest.raises(UnsupportedKeyType):
+        add_key('datatype', DIDType.ARCHIVE)
 
-        with pytest.raises(UnsupportedKeyType):
-            add_key('datatype', 'A')
+    with pytest.raises(UnsupportedKeyType):
+        add_key('datatype', 'A')

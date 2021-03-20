@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,9 +19,8 @@
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 from __future__ import print_function
 
@@ -316,6 +315,7 @@ def importer_example_data(vo):
     return example_data
 
 
+@pytest.mark.noparallel(reason='resets pre-defined RSE, changes global configuration value')
 def test_importer_core(vo, importer_example_data, reset_rses):
     """ IMPORTER (CORE): test import. """
     import_data(data=deepcopy(importer_example_data.data1), vo=vo)
@@ -366,6 +366,7 @@ def test_importer_core(vo, importer_example_data, reset_rses):
     import_data(data=importer_example_data.data3, vo=vo)
 
 
+@pytest.mark.noparallel(reason='resets pre-defined RSE, changes global configuration value')
 def test_importer_client(vo, importer_example_data, reset_rses):
     """ IMPORTER (CLIENT): test import. """
     import_client = ImportClient()
@@ -415,6 +416,7 @@ def test_importer_client(vo, importer_example_data, reset_rses):
     import_client.import_data(data=importer_example_data.data3)
 
 
+@pytest.mark.noparallel(reason='resets pre-defined RSE, changes global configuration value')
 def test_importer_rest(vo, rest_client, auth_token, importer_example_data, reset_rses):
     """ IMPORTER (REST): test import. """
     headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
@@ -467,6 +469,7 @@ def test_importer_rest(vo, rest_client, auth_token, importer_example_data, reset
     assert response.status_code == 201
 
 
+@pytest.mark.noparallel(reason='fails when run in parallel')
 class TestImporterSyncModes(unittest.TestCase):
 
     def setUp(self):
@@ -1219,6 +1222,7 @@ def distances_data(vo):
     return {'distances': distances, 'rse_1': rse_1, 'rse_1_id': rse_1_id, 'rse_2': rse_2, 'rse_2_id': rse_2_id}
 
 
+@pytest.mark.noparallel(reason='modifies distance on pre-defined RSE')
 def test_export_core(vo, distances_data):
     """ EXPORT (CORE): Test the export of data."""
     data = export_data(vo=vo)
@@ -1231,6 +1235,7 @@ def test_export_core(vo, distances_data):
     assert distances_cmp == data['distances']
 
 
+@pytest.mark.noparallel(reason='modifies distance on pre-defined RSE')
 def test_export_client(vo, distances_data):
     """ EXPORT (CLIENT): Test the export of data."""
     export_client = ExportClient()
@@ -1249,6 +1254,7 @@ def test_export_client(vo, distances_data):
     assert parse_response(render_json(**distances_cmp)) == data['distances']
 
 
+@pytest.mark.noparallel(reason='modifies distance on pre-defined RSE')
 def test_export_rest(vo, rest_client, auth_token, distances_data):
     """ EXPORT (REST): Test the export of data."""
     headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
@@ -1269,6 +1275,7 @@ def test_export_rest(vo, rest_client, auth_token, distances_data):
     assert parse_response(render_json(**{'rses': rses, 'distances': distances_cmp})) == parse_response(response.get_data(as_text=True))
 
 
+@pytest.mark.noparallel(reason='resets pre-defined RSE, changes global configuration value')
 def test_export_import(vo, rest_client, auth_token, reset_rses):
     """ IMPORT/EXPORT (REST): Test the export and import of data together to check same syntax."""
     if not config_has_section('importer'):

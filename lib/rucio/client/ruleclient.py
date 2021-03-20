@@ -19,6 +19,7 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -46,8 +47,8 @@ class RuleClient(BaseClient):
 
     def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None,
                              locked=False, source_replica_expression=None, activity=None, notify='N', purge_replicas=False,
-                             ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, priority=3,
-                             meta=None):
+                             ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, delay_injection=None,
+                             priority=3, meta=None):
         """
         :param dids:                       The data identifier set.
         :param copies:                     The number of replicas.
@@ -78,7 +79,7 @@ class RuleClient(BaseClient):
                       'account': account, 'locked': locked, 'source_replica_expression': source_replica_expression,
                       'activity': activity, 'notify': notify, 'purge_replicas': purge_replicas,
                       'ignore_availability': ignore_availability, 'comment': comment, 'ask_approval': ask_approval,
-                      'asynchronous': asynchronous, 'priority': priority, 'meta': meta})
+                      'asynchronous': asynchronous, 'delay_injection': delay_injection, 'priority': priority, 'meta': meta})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return loads(r.text)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2018
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 
 """
@@ -62,6 +62,9 @@ author_map = {
     ("Lister", "<andrew.lister@stfc.ac.uk>"): ("Andrew Lister", "<andrew.lister@stfc.ac.uk>"),
     ("javor", "<33832672+TomasJavurek@users.noreply.github.com>"): ("Tomas Javurek", "<tomas.javurek@cern.ch>"),
     ("cserf", "<cedric.serfon@cern.ch>"): ("Cedric Serfon", "<cedric.serfon@cern.ch>"),
+    ("maatthias", "<maatthias@gmail.com>"): ("Matt Snyder", "<msnyder@bnl.gov>"),
+    ("maatthias", "<msnyder@bnl.gov>"): ("Matt Snyder", "<msnyder@bnl.gov>"),
+    ("Mario Lassnig", "<mlassnig@users.noreply.github.com>"): ("Mario Lassnig", "<mario.lassnig@cern.ch>"),
 }
 
 
@@ -193,7 +196,6 @@ def main(arguments):
                 header += '# - %(name)s %(mail)s, %(min)s\n' % authors[author]
             else:
                 header += '# - %(name)s %(mail)s, %(min)s-%(max)s\n' % authors[author]
-        header += '\n'
 
         if not arguments.dry_run:
             if not arguments.in_place:
@@ -201,7 +203,7 @@ def main(arguments):
                     data = original.read()
 
                 with open(MyFile, 'w') as modified:
-                    modified.write(header + data)
+                    modified.write(header + '\n' + data)
             else:
                 try:
                     with open(MyFile, 'r') as original:
@@ -210,7 +212,7 @@ def main(arguments):
                     raise RuntimeError('Cannot read file ' + str(MyFile)) from e
 
                 with open(MyFile, 'w') as modified:
-                    if lines[0].startswith('#!/usr/bin/env python'):
+                    if lines[0].startswith('#!/usr/bin/env'):
                         modified.write(lines[0])
                     elif lines[0].rstrip() == '#!/bin/bash':
                         modified.write(lines[0])
@@ -223,6 +225,7 @@ def main(arguments):
                         not_comment_line = not line.startswith('#') and len(line.lstrip()) != 0
                         if count != 0 and not_comment_line:
                             count = 0
+                            modified.write('\n')
                         if count == 0 or not_comment_line:
                             modified.write(line)
 

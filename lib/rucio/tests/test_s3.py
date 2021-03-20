@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,20 +15,24 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 import unittest
+
+import pytest
 
 from rucio.client import client
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replicas, delete_replicas
-from rucio.core.rule import add_rule
 from rucio.core.rse import add_rse, del_rse, add_protocol, add_rse_attribute
+from rucio.core.rule import add_rule
 from rucio.core.transfer import get_transfer_requests_and_source_replicas
 from rucio.tests.common import rse_name_generator
 
 
+@pytest.mark.noparallel(reason='fails when run in parallel')
 class TestS3(unittest.TestCase):
 
     def setUp(self):
