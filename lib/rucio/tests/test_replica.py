@@ -166,6 +166,13 @@ class TestReplicaCore(unittest.TestCase):
                 client_location={'site': 'BLACKMESA'}):
             assert list(rep['pfns'].keys())[0].count('root://') == 2
 
+        for rep in list_replicas(
+                dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                schemes=['root'],
+                domain='wan',
+                client_location={'site': rse}):
+            assert list(rep['pfns'].keys())[0].count('root://') == 1
+
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_update_replicas_paths(self):
