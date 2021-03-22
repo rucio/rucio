@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +16,7 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
 from requests.status_codes import codes
 
@@ -35,14 +35,16 @@ class ExportClient(BaseClient):
         super(ExportClient, self).__init__(rucio_host, auth_host, account, ca_cert,
                                            auth_type, creds, timeout, user_agent, vo=vo)
 
-    def export_data(self):
+    def export_data(self, distance=True):
         """
-        Export data.
+        Export RSE data (RSE, settings, attributes and distance).
+        :param distance: To include the distance.
 
         :returns: A dict containing data
         """
+        payload = {'distance': distance}
         path = '/'.join([self.EXPORT_BASEURL])
-        url = build_url(choice(self.list_hosts), path=path)
+        url = build_url(choice(self.list_hosts), path=path, params=payload)
 
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:

@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,10 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-#
-# PY3K COMPATIBLE
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
 from rucio.core import rse as rse_module, distance as distance_module
 from rucio.db.sqla.session import transactional_session
@@ -39,15 +39,21 @@ def export_rses(vo='def', session=None):
 
 
 @transactional_session
-def export_data(vo='def', session=None):
+def export_data(vo='def', distance=True, session=None):
     """
     Export data.
 
     :param vo: The VO to export.
+    :param distance: To enable the reporting of distance.
     :param session: database session in use.
     """
-    data = {
-        'rses': export_rses(vo=vo, session=session),
-        'distances': distance_module.export_distances(vo, session=session)
-    }
+    if distance:
+        data = {
+            'rses': export_rses(vo=vo, session=session),
+            'distances': distance_module.export_distances(vo, session=session)
+        }
+    else:
+        data = {
+            'rses': export_rses(vo=vo, session=session)
+        }
     return data
