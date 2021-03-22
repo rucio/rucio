@@ -1,0 +1,36 @@
+======
+1.25.1
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Clients: Add an option to export_data not to export distance `#4411 <https://github.com/rucio/rucio/issues/4411>`_
+- Consistency checks: The Dark Reaper should run continuously instead of exiting early when there’s nothing to do `#4377 <https://github.com/rucio/rucio/issues/4377>`_
+- Documentation: Fix broken link in Readme `#4407 <https://github.com/rucio/rucio/issues/4407>`_
+- Rules: update_requests_priority() does not actually update the request priority in Rucio `#4320 <https://github.com/rucio/rucio/issues/4320>`_
+- Testing: Parallelise unit tests `#4134 <https://github.com/rucio/rucio/issues/4134>`_
+- Testing: Unregistered test markers `#4432 <https://github.com/rucio/rucio/issues/4432>`_
+
+****
+Bugs
+****
+
+- Core & Internals: list-dids-extended with new metadata plugin currently fails `#4360 <https://github.com/rucio/rucio/issues/4360>`_
+- Testing: TestBinRucio.test_create_rule on master fails `#4438 <https://github.com/rucio/rucio/issues/4438>`_
+- Testing: Fix github workflow for py3 default Dockerfile `#4464 <https://github.com/rucio/rucio/issues/4464>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Base client should retry when receiving a 502 error `#4444 <https://github.com/rucio/rucio/issues/4444>`_
