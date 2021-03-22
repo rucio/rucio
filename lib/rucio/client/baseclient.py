@@ -34,7 +34,8 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 '''
  Client class for callers of the Rucio system
@@ -113,6 +114,20 @@ REGION = make_region(function_key_generator=my_key_generator).configure(
     'dogpile.cache.memory',
     expiration_time=60,
 )
+
+STATUS_CODES_TO_RETRY = [502, 503, 504]
+MAX_RETRY_BACK_OFF_SECONDS = 10
+
+
+def back_off(retry_number, reason):
+    """
+    Sleep a certain amount of time which increases with the retry count
+    :param retry_number: the retry iteration
+    :param reason: the reason to backoff which will be shown to the user
+    """
+    sleep_time = min(MAX_RETRY_BACK_OFF_SECONDS, 0.25 * 2 ** retry_number)
+    LOG.warning("Waiting {}s due to reason: {} ".format(sleep_time, reason))
+    time.sleep(sleep_time)
 
 
 @REGION.cache_on_arguments(namespace='host_to_choose')
@@ -402,6 +417,9 @@ class BaseClient(object):
                     result = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:
                     return
+                if result.status_code in STATUS_CODES_TO_RETRY:
+                    back_off(retry, reason='server returned {}'.format(result.status_code))
+                    continue
             except ConnectionError as error:
                 LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
@@ -437,7 +455,9 @@ class BaseClient(object):
         for retry in range(self.AUTH_RETRIES + 1):
             try:
                 result = self.session.get(url, headers=headers, verify=self.ca_cert)
-                break
+                if result.status_code in STATUS_CODES_TO_RETRY:
+                    back_off(retry, reason='server returned {}'.format(result.status_code))
+                    continue
             except ConnectionError as error:
                 LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
@@ -521,6 +541,9 @@ class BaseClient(object):
                         LOG.debug("No new token was received, possibly invalid/expired \
                                    \ntoken or a token with no refresh token in Rucio DB")
                         return False
+                elif refresh_result.status_code in STATUS_CODES_TO_RETRY:
+                    back_off(retry, reason='server returned {}'.format(refresh_result.status_code))
+                    continue
                 else:
                     print("Rucio Client did not succeed to contact the \
                            \nRucio Auth Server when attempting token refresh.")
@@ -705,6 +728,9 @@ class BaseClient(object):
         for retry in range(self.AUTH_RETRIES + 1):
             try:
                 result = self.session.get(url, headers=headers, cert=cert, verify=self.ca_cert)
+                if result.status_code in STATUS_CODES_TO_RETRY:
+                    back_off(retry, reason='server returned {}'.format(result.status_code))
+                    continue
                 break
             except ConnectionError as error:
                 if 'alert certificate expired' in str(error):
@@ -750,6 +776,9 @@ class BaseClient(object):
         for retry in range(self.AUTH_RETRIES + 1):
             try:
                 result = self.session.get(url, headers=headers, verify=self.ca_cert)
+                if result.status_code in STATUS_CODES_TO_RETRY:
+                    back_off(retry, reason='server returned {}'.format(result.status_code))
+                    continue
                 break
             except ConnectionError as error:
                 if 'alert certificate expired' in str(error):
@@ -783,6 +812,9 @@ class BaseClient(object):
         for retry in range(self.AUTH_RETRIES + 1):
             try:
                 result = self.session.get(url, headers=headers, verify=self.ca_cert)
+                if result.status_code in STATUS_CODES_TO_RETRY:
+                    back_off(retry, reason='server returned {}'.format(result.status_code))
+                    continue
                 break
             except ConnectionError as error:
                 if 'alert certificate expired' in str(error):
@@ -821,6 +853,9 @@ class BaseClient(object):
             try:
                 result = self.session.get(url, headers=headers,
                                           verify=self.ca_cert, auth=HTTPKerberosAuth())
+                if result.status_code in STATUS_CODES_TO_RETRY:
+                    back_off(retry, reason='server returned {}'.format(result.status_code))
+                    continue
                 break
             except ConnectionError as error:
                 LOG.error('ConnectionError: ' + str(error))
@@ -855,6 +890,9 @@ class BaseClient(object):
         for retry in range(self.AUTH_RETRIES + 1):
             try:
                 SAML_auth_result = self.session.get(url, headers=headers)
+                if SAML_auth_result.status_code in STATUS_CODES_TO_RETRY:
+                    back_off(retry, reason='server returned {}'.format(SAML_auth_result.status_code))
+                    continue
 
                 if SAML_auth_result.headers['X-Rucio-Auth-Token']:
                     return SAML_auth_result.headers['X-Rucio-Auth-Token']
