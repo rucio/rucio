@@ -21,7 +21,7 @@ import logging
 import operator
 import os
 import re
-import tabulate
+from tabulate import tabulate
 
 from rucio.common.dumper import DUMPS_CACHE_DIR
 from rucio.common.dumper import HTTPDownloadFailed
@@ -121,7 +121,7 @@ class DataModel(object):
 
     @classmethod
     def tabulate_from(cls, iter, format='simple', fields=None):
-        return tabulate.tabulate(
+        return tabulate(
             (row.formated_fields(fields) for row in iter),
             (t[0] for t in cls.SCHEMA),
             format,
