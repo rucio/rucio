@@ -42,7 +42,7 @@ COPY_ARGS = sys.argv[1:]
 NAME = 'rucio-clients'
 IS_RELEASE = False
 PACKAGES = ['rucio', 'rucio.client', 'rucio.common', 'rucio.common.schema', 
-            'rucio.rse.protocols', 'rucio.rse', 'rucio.tests']
+            'rucio.rse.protocols', 'rucio.rse']
 REQUIREMENTS_FILES = ['etc/pip-requires-client']
 DESCRIPTION = "Rucio Client Lite Package"
 DATA_FILES = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template', 'etc/rucio.cfg.atlas.client.template',
