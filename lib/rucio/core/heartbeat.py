@@ -1,17 +1,25 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
-#
-# PY3K COMPATIBLE
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2015
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2019
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import datetime
 import hashlib
@@ -25,9 +33,12 @@ from rucio.common.exception import DatabaseException
 from rucio.common.utils import pid_exists
 
 
+DEFAULT_EXPIRATION_DELAY = datetime.timedelta(days=1).total_seconds()
+
+
 @transactional_session
 def sanity_check(executable, hostname, hash_executable=None, pid=None, thread=None,
-                 session=None):
+                 expiration_delay=DEFAULT_EXPIRATION_DELAY, session=None):
     """
     sanity_check wrapper to ignore DatabaseException errors.
 
@@ -36,11 +47,12 @@ def sanity_check(executable, hostname, hash_executable=None, pid=None, thread=No
     :param hash_executable: Hash of the executable.
     :param pid: UNIX Process ID as a number, e.g., 1234.
     :param thread: Python Thread Object.
+    :param expiration_delay: time (in seconds) after which any inactive health check will be removed
     :param session: The database session in use.
     """
     try:
-        _sanity_check(executable=executable, hostname=hostname,
-                      hash_executable=hash_executable, session=session)
+        _sanity_check(executable=executable, hostname=hostname, hash_executable=hash_executable,
+                      expiration_delay=expiration_delay, session=session)
         if pid:
             live(executable=executable, hostname=hostname,
                  pid=pid, thread=thread, session=session)
@@ -49,13 +61,14 @@ def sanity_check(executable, hostname, hash_executable=None, pid=None, thread=No
 
 
 @transactional_session
-def _sanity_check(executable, hostname, hash_executable=None, session=None):
+def _sanity_check(executable, hostname, hash_executable=None, expiration_delay=DEFAULT_EXPIRATION_DELAY, session=None):
     """
     Check if processes on the host are still running.
 
     :param executable: Executable name as a string, e.g., conveyor-submitter.
     :param hostname: Hostname as a string, e.g., rucio-daemon-prod-01.cern.ch.
     :param hash_executable: Hash of the executable.
+    :param expiration_delay: time (in seconds) after which any inactive health check will be removed
     :param session: The database session in use.
     """
     if executable:
@@ -69,6 +82,9 @@ def _sanity_check(executable, hostname, hash_executable=None, session=None):
         for pid, in session.query(distinct(Heartbeats.pid)).filter_by(hostname=hostname):
             if not pid_exists(pid):
                 session.query(Heartbeats).filter_by(hostname=hostname, pid=pid).delete()
+
+    if expiration_delay:
+        cardiac_arrest(older_than=expiration_delay, session=session)
 
 
 @transactional_session

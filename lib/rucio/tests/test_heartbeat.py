@@ -19,14 +19,18 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import random
 import threading
 import unittest
+from datetime import datetime, timedelta
 
 import pytest
 
-from rucio.core.heartbeat import live, die, cardiac_arrest, list_payload_counts
+from rucio.core.heartbeat import live, die, cardiac_arrest, list_payload_counts, list_heartbeats, sanity_check
+from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.models import Heartbeats
 
 
 @pytest.mark.dirty
@@ -38,10 +42,12 @@ class TestHeartbeat(unittest.TestCase):
 
     def __thread(self):
         thread = threading.Thread()
+        self.created_threads.append(thread)
         thread.start()
         return thread
 
     def setUp(self):
+        self.created_threads = []
         cardiac_arrest()
 
     def test_heartbeat_0(self):
@@ -109,5 +115,37 @@ class TestHeartbeat(unittest.TestCase):
 
         assert list_payload_counts('test5') == {}
 
+    def test_old_heartbeat_cleanup(self):
+        pids = [self.__pid() for _ in range(2)]
+        thread = self.__thread()
+
+        live('test1', 'host0', pids[0], thread)
+        live('test2', 'host0', pids[1], thread)
+        live('test1', 'host1', pids[0], thread)
+        live('test2', 'host1', pids[1], thread)
+        live('test1', 'host2', pids[0], thread)
+        live('test2', 'host2', pids[1], thread)
+
+        assert len(list_heartbeats()) == 6
+
+        @transactional_session
+        def __forge_updated_at(session=None):
+            two_days_ago = datetime.utcnow() - timedelta(days=2)
+            a_dozen_hours_ago = datetime.utcnow() - timedelta(hours=12)
+            session.query(Heartbeats).filter_by(hostname='host1').update({'updated_at': two_days_ago})
+            session.query(Heartbeats).filter_by(hostname='host2').update({'updated_at': a_dozen_hours_ago})
+
+        __forge_updated_at()
+
+        # Default expiration delay. Host1 health checks should get removed.
+        sanity_check(executable=None, hostname=None)
+        assert len(list_heartbeats()) == 4
+
+        # Custom expiration delay. Host2 health checks should get removed too.
+        sanity_check('test2', 'host2', expiration_delay=timedelta(hours=5).total_seconds())
+        assert len(list_heartbeats()) == 2
+
     def tearDown(self):
         cardiac_arrest()
+        for thread in self.created_threads:
+            thread.join()
