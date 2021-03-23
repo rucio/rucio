@@ -25,7 +25,7 @@ auth_type = x509
 permission = atlas
 schema = atlas
 lfn2pfn_algorithm_default = hash
-support = hn-atlas-dist-analysis-help@cern.ch
+support = hn-atlas-dist-analysis-help@cernNOSPAMPLEASE.ch
 support_rucio = https://github.com/rucio/rucio/issues/
 
 [upload]
