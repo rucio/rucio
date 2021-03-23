@@ -1,0 +1,13 @@
+============
+1.25.1.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Clients: Remove pytest tests from clients package `#4478 <https://github.com/rucio/rucio/issues/4478>`_
