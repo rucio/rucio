@@ -246,7 +246,12 @@ def get_rses_to_hostname_mapping():
         result = {}
         all_rses = list_rses()
         for rse in all_rses:
-            rse_protocol = get_rse_protocols(rse_id=rse['id'])
+            try:
+                rse_protocol = get_rse_protocols(rse_id=rse['id'])
+            except RSENotFound:
+                logging.log(logging.WARNING, 'RSE deleted while constructing rse-to-hostname mapping. Skipping %s', rse['rse'])
+                continue
+
             for prot in rse_protocol['protocols']:
                 if prot['domains']['wan']['delete'] == 1:
                     result[rse['id']] = (prot['hostname'], rse_protocol)
