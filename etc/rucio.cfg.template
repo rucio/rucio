@@ -21,6 +21,7 @@ ssh_private_key = $HOME/.ssh/id_rsa
 account = root
 request_retries = 3
 protocol_stat_retries = 6
+ddm_support = First, please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> and be patient until it has been fully propagated through the system.<br><br>If it is still not working please contact <a href=\"atlas-adc-ddm-support@cernNOSPAMPLEASE.ch\">DDM Support</a>. 
 
 [upload]
 #transfer_timeout = 3600
