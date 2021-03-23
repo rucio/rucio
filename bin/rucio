@@ -70,9 +70,9 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, D
                                     RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
                                     RucioException, DuplicateRule, InvalidType)
+from rucio.common.test_rucio_server import TestRucioServer
 from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, \
     extract_scope, setup_logger
-from rucio.tests.test_rucio_server import TestRucioClient
 
 try:
     from ConfigParser import NoOptionError, NoSectionError
@@ -1666,8 +1666,7 @@ def test_server(args):
     %(prog)s test-server [options] <field1=value1 field2=value2 ...>
     Test the client against a server.
     """
-    TestRucioClient.running_with_unittest = True
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestRucioClient)
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestRucioServer)
     unittest.TextTestRunner(verbosity=2).run(suite)
     return SUCCESS
 
