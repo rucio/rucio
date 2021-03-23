@@ -36,6 +36,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -1462,62 +1463,107 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
                                                      'for deleting' % replica_rse.rse)
 
-    replica_condition, parent_condition, did_condition, src_condition = [], [], [], []
-    clt_replica_condition, dst_replica_condition = [], []
-    incomplete_condition, messages, archive_contents_condition = [], [], []
+    replica_condition, src_condition = [], []
     for file in files:
-        replica_condition.append(and_(models.RSEFileAssociation.scope == file['scope'],
-                                      models.RSEFileAssociation.name == file['name']))
+        replica_condition.append(
+            and_(models.RSEFileAssociation.scope == file['scope'],
+                 models.RSEFileAssociation.name == file['name']))
 
-        dst_replica_condition.\
-            append(and_(models.DataIdentifierAssociation.child_scope == file['scope'],
-                        models.DataIdentifierAssociation.child_name == file['name'],
-                        exists(select([1]).prefix_with("/*+ INDEX(COLLECTION_REPLICAS COLLECTION_REPLICAS_PK) */", dialect='oracle')).where(and_(models.CollectionReplica.scope == models.DataIdentifierAssociation.scope,
-                                                                                                                                                 models.CollectionReplica.name == models.DataIdentifierAssociation.name,
-                                                                                                                                                 models.CollectionReplica.rse_id == rse_id))))
-
-        parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == file['scope'],
-                                     models.DataIdentifierAssociation.child_name == file['name'],
-                                     ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(and_(models.DataIdentifier.scope == file['scope'],
-                                                                                                                                 models.DataIdentifier.name == file['name'],
-                                                                                                                                 models.DataIdentifier.availability == DIDAvailability.LOST)),
-                                     ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
-
-        did_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name'], models.DataIdentifier.availability != DIDAvailability.LOST,
-                                  ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name'])),
-                                  ~exists(select([1]).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(and_(models.ConstituentAssociation.child_scope == file['scope'],
-                                                                                                                                                   models.ConstituentAssociation.child_name == file['name']))))
-
-        archive_contents_condition.append(and_(models.ConstituentAssociation.scope == file['scope'],
-                                               models.ConstituentAssociation.name == file['name'],
-                                               ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(and_(models.DataIdentifier.scope == file['scope'],
-                                                                                                                                           models.DataIdentifier.name == file['name'],
-                                                                                                                                           models.DataIdentifier.availability == DIDAvailability.LOST)),
-                                               ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
-
-        src_condition.append(and_(models.Source.scope == file['scope'],
-                                  models.Source.name == file['name'],
-                                  models.Source.rse_id == rse_id))
+        src_condition.append(
+            and_(models.Source.scope == file['scope'],
+                 models.Source.name == file['name'],
+                 models.Source.rse_id == rse_id))
 
     delta, bytes, rowcount = 0, 0, 0
 
     # WARNING : This should not be necessary since that would mean the replica is used as a source.
     for chunk in chunks(src_condition, 10):
-        rowcount = session.query(models.Source).\
-            filter(or_(*chunk)).\
+        rowcount = session.query(models.Source). \
+            filter(or_(*chunk)). \
             delete(synchronize_session=False)
 
     rowcount = 0
     for chunk in chunks(replica_condition, 10):
-        for (scope, name, rid, replica_bytes) in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes).\
+        for (scope, name, rid, replica_bytes) in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes). \
                 with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*chunk)):
             bytes += replica_bytes
             delta += 1
 
-        rowcount += session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*chunk)).delete(synchronize_session=False)
+        rowcount += session.query(models.RSEFileAssociation). \
+            filter(models.RSEFileAssociation.rse_id == rse_id). \
+            filter(or_(*chunk)). \
+            delete(synchronize_session=False)
 
     if rowcount != len(files):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
+
+    __cleanup_after_replica_deletion(rse_id=rse_id, files=files, session=session)
+
+    # Decrease RSE counter
+    decrease(rse_id=rse_id, files=delta, bytes=bytes, session=session)
+
+
+@transactional_session
+def __cleanup_after_replica_deletion(rse_id, files, session=None):
+    """
+    Perform update of collections/archive associations/dids after the removal of their replicas
+    :param rse_id: the rse id
+    :param files: list of files whose replica got deleted
+    :param session: The database session in use.
+    """
+    parent_condition, did_condition = [], []
+    clt_replica_condition, dst_replica_condition = [], []
+    incomplete_condition, messages, archive_contents_condition = [], [], []
+    for file in files:
+
+        # Schedule update of all collections containing this file and having a collection replica in the RSE
+        dst_replica_condition.append(
+            and_(models.DataIdentifierAssociation.child_scope == file['scope'],
+                 models.DataIdentifierAssociation.child_name == file['name'],
+                 exists(select([1]).prefix_with("/*+ INDEX(COLLECTION_REPLICAS COLLECTION_REPLICAS_PK) */", dialect='oracle')).where(
+                     and_(models.CollectionReplica.scope == models.DataIdentifierAssociation.scope,
+                          models.CollectionReplica.name == models.DataIdentifierAssociation.name,
+                          models.CollectionReplica.rse_id == rse_id))))
+
+        # If the file doesn't have any replicas anymore, we should perform cleanups of objects
+        # related to this file. However, if the file is "lost", it's removal wasn't intentional,
+        # so we want to skip deleting the metadata here. Perform cleanups:
+
+        # 1) schedule removal of this file from all parent datasets
+        parent_condition.append(
+            and_(models.DataIdentifierAssociation.child_scope == file['scope'],
+                 models.DataIdentifierAssociation.child_name == file['name'],
+                 ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                     and_(models.DataIdentifier.scope == file['scope'],
+                          models.DataIdentifier.name == file['name'],
+                          models.DataIdentifier.availability == DIDAvailability.LOST)),
+                 ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
+                     and_(models.RSEFileAssociation.scope == file['scope'],
+                          models.RSEFileAssociation.name == file['name']))))
+
+        # 2) schedule removal of this file from the DID table
+        did_condition.append(
+            and_(models.DataIdentifier.scope == file['scope'],
+                 models.DataIdentifier.name == file['name'],
+                 models.DataIdentifier.availability != DIDAvailability.LOST,
+                 ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
+                     and_(models.RSEFileAssociation.scope == file['scope'],
+                          models.RSEFileAssociation.name == file['name'])),
+                 ~exists(select([1]).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(
+                     and_(models.ConstituentAssociation.child_scope == file['scope'],
+                          models.ConstituentAssociation.child_name == file['name']))))
+
+        # 3) if the file is an archive, schedule cleanup on the files from inside the archive
+        archive_contents_condition.append(
+            and_(models.ConstituentAssociation.scope == file['scope'],
+                 models.ConstituentAssociation.name == file['name'],
+                 ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                     and_(models.DataIdentifier.scope == file['scope'],
+                          models.DataIdentifier.name == file['name'],
+                          models.DataIdentifier.availability == DIDAvailability.LOST)),
+                 ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
+                     and_(models.RSEFileAssociation.scope == file['scope'],
+                          models.RSEFileAssociation.name == file['name']))))
 
     # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
     if dst_replica_condition:
@@ -1530,7 +1576,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                 models.UpdatedCollectionReplica(scope=parent_scope,
                                                 name=parent_name,
                                                 did_type=DIDType.DATASET,
-                                                rse_id=replica_rse.id).\
+                                                rse_id=rse_id).\
                     save(session=session, flush=False)
 
     # Delete did from the content for the last did
@@ -1544,21 +1590,47 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                 filter(or_(*chunk))
             for parent_scope, parent_name, did_type, child_scope, child_name in query:
 
-                child_did_condition.append(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name,
-                                                models.DataIdentifierAssociation.child_scope == child_scope, models.DataIdentifierAssociation.child_name == child_name))
+                # Schedule removal of child file/dataset/container from the parent dataset/container
+                child_did_condition.append(
+                    and_(models.DataIdentifierAssociation.scope == parent_scope,
+                         models.DataIdentifierAssociation.name == parent_name,
+                         models.DataIdentifierAssociation.child_scope == child_scope,
+                         models.DataIdentifierAssociation.child_name == child_name))
 
-                clt_replica_condition.append(and_(models.CollectionReplica.scope == parent_scope, models.CollectionReplica.name == parent_name,
-                                                  exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False)),  # NOQA
-                                                  ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(and_(models.DataIdentifierAssociation.scope == parent_scope,
-                                                                                                                                                      models.DataIdentifierAssociation.name == parent_name))))
+                # If the parent dataset/container becomes empty as a result of the child removal
+                # (it was the last children), metadata cleanup has to be done:
+                #
+                # 1) Schedule to remove the replicas of this empty collection
+                clt_replica_condition.append(
+                    and_(models.CollectionReplica.scope == parent_scope,
+                         models.CollectionReplica.name == parent_name,
+                         exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                             and_(models.DataIdentifier.scope == parent_scope,
+                                  models.DataIdentifier.name == parent_name,
+                                  models.DataIdentifier.is_open == False)),  # NOQA
+                         ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(
+                             and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                  models.DataIdentifierAssociation.name == parent_name))))
 
-                tmp_parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name,
-                                                 ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(and_(models.DataIdentifierAssociation.scope == parent_scope,
-                                                                                                                                                     models.DataIdentifierAssociation.name == parent_name))))
+                # 2) Schedule removal of this empty collection from its own parent collections
+                tmp_parent_condition.append(
+                    and_(models.DataIdentifierAssociation.child_scope == parent_scope,
+                         models.DataIdentifierAssociation.child_name == parent_name,
+                         ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(
+                             and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                  models.DataIdentifierAssociation.name == parent_name))))
 
-                did_condition.append(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False,
-                                          ~exists([1]).where(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name)),  # NOQA
-                                          ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
+                # 3) Schedule removal of the entry from the DIDs table
+                did_condition.append(
+                    and_(models.DataIdentifier.scope == parent_scope,
+                         models.DataIdentifier.name == parent_name,
+                         models.DataIdentifier.is_open == False,  # NOQA
+                         ~exists([1]).where(
+                             and_(models.DataIdentifierAssociation.child_scope == parent_scope,
+                                  models.DataIdentifierAssociation.child_name == parent_name)),
+                         ~exists([1]).where(
+                             and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                  models.DataIdentifierAssociation.name == parent_name))))
 
         if child_did_condition:
 
@@ -1568,12 +1640,10 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                                           models.DataIdentifierAssociation.name,
                                           models.DataIdentifierAssociation.did_type).\
                     distinct().\
-                    with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)",
-                              'oracle').\
+                    with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').\
                     filter(or_(*chunk)).\
                     filter(exists(select([1]).
-                                  prefix_with("/*+ INDEX(DIDS DIDS_PK) */",
-                                              dialect='oracle')).
+                                  prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).
                            where(and_(models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
                                       models.DataIdentifierAssociation.name == models.DataIdentifier.name,
                                       or_(models.DataIdentifier.complete == true(),
@@ -1585,27 +1655,27 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                                'event_type': 'INCOMPLETE'}
                     if message not in messages:
                         messages.append(message)
-                        incomplete_condition.\
-                            append(and_(models.DataIdentifier.scope == parent_scope,
-                                        models.DataIdentifier.name == parent_name,
-                                        models.DataIdentifier.did_type == parent_did_type))
+                        incomplete_condition.append(
+                            and_(models.DataIdentifier.scope == parent_scope,
+                                 models.DataIdentifier.name == parent_name,
+                                 models.DataIdentifier.did_type == parent_did_type))
 
             for chunk in chunks(child_did_condition, 10):
                 rucio.core.did.insert_content_history(content_clause=chunk, did_created_at=None, session=session)
-                rowcount = session.query(models.DataIdentifierAssociation).\
+                session.query(models.DataIdentifierAssociation).\
                     filter(or_(*chunk)).\
                     delete(synchronize_session=False)
 
         parent_condition = tmp_parent_condition
 
     for chunk in chunks(clt_replica_condition, 10):
-        rowcount = session.query(models.CollectionReplica).\
+        session.query(models.CollectionReplica).\
             filter(or_(*chunk)).\
             delete(synchronize_session=False)
 
     # Update incomplete state
     for chunk in chunks(incomplete_condition, 10):
-        rowcount = session.query(models.DataIdentifier).\
+        session.query(models.DataIdentifier).\
             with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
             filter(or_(*chunk)).\
             filter(models.DataIdentifier.complete != false()).\
@@ -1670,9 +1740,6 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
             delete(synchronize_session=False)
         if session.bind.dialect.name != 'oracle':
             rucio.core.did.insert_deleted_dids(chunk, session=session)
-
-    # Decrease RSE counter
-    decrease(rse_id=rse_id, files=delta, bytes=bytes, session=session)
 
 
 @transactional_session
