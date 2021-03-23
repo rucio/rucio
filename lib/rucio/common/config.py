@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +15,16 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2013
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Tobias Wegner <twegner@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """Provides functions to access the local configuration. The configuration locations are provided by get_config_dirs."""
 
@@ -222,9 +225,9 @@ class Config:
     """
     def __init__(self):
         if sys.version_info < (3, 2):
-            self.parser = ConfigParser.SafeConfigParser(os.environ)
+            self.parser = ConfigParser.SafeConfigParser()
         else:
-            self.parser = ConfigParser.ConfigParser(defaults=os.environ)
+            self.parser = ConfigParser.ConfigParser()
 
         # test to not fail when build the API doc
         builds_doc = 'sphinx' in sys.modules
