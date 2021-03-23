@@ -1,0 +1,13 @@
+=======
+1.20.14
+=======
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Transfers: Transfers without sources stall the conveyor submitter `#4386 <https://github.com/rucio/rucio/issues/4386>`_
