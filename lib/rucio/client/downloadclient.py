@@ -913,7 +913,7 @@ class DownloadClient:
                     skip_check = item.get('ignore_checksum', False)
                     rucio_checksum = 0 if skip_check else item.get('adler32')
                     local_checksum = 0 if skip_check else adler32(temp_file_path)
-                    if rucio_checksum == local_checksum:
+                    if str(rucio_checksum).lstrip('0') == str(local_checksum).lstrip('0'):
                         item['clientState'] = 'DONE'
                         trace['clientState'] = 'DONE'
                         # remove .part ending

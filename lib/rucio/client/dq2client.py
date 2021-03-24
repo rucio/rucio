@@ -1585,7 +1585,7 @@ class DQ2Client:
                     guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
                     if guid != did['meta']['guid']:
                         result[lfn] = {'status': False, 'error': FileConsistencyMismatch('guid mismatch DDM %s vs user %s' % (guid, did['meta']['guid']))}
-                    elif meta['adler32'] != did['adler32']:
+                    elif str(meta['adler32']).lstrip('0') != str(did['adler32']).lstrip('0'):
                         result[lfn] = {'status': False, 'error': FileConsistencyMismatch('adler32 mismatch DDM %s vs user %s' % (meta['adler32'], did['adler32']))}
                     elif meta['bytes'] != did['bytes']:
                         result[lfn] = {'status': False, 'error': FileConsistencyMismatch('filesize mismatch DDM %s vs user %s' % (meta['bytes'], did['bytes']))}
