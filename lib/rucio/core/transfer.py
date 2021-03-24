@@ -778,8 +778,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 reqs_scheme_mismatch.append(req_id)
             continue
 
-        source_protocol = list_hops[0]['source_scheme']
-        destination_protocol = list_hops[-1]['dest_scheme']
+        source_scheme = list_hops[0]['source_scheme']
+        dest_scheme = list_hops[-1]['dest_scheme']
         dest_scheme_priority = list_hops[-1]['dest_scheme_priority']
 
         transfer_src_type = "DISK"
@@ -790,9 +790,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 continue
 
             # Get source protocol
-            source_rse_id_key = 'read_%s_%s' % (source_rse_id, source_protocol)
+            source_rse_id_key = 'read_%s_%s' % (source_rse_id, source_scheme)
             if source_rse_id_key not in protocols:
-                protocols[source_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(source_rse_id), 'third_party_copy', source_protocol)
+                protocols[source_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(source_rse_id), 'third_party_copy', source_scheme)
 
             # If the request_id is not already in the transfer dictionary, need to compute the destination URL
             if req_id not in transfers:
@@ -803,9 +803,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # I - Here we will compute the destination URL
                 # I.1 - Get destination protocol
-                dest_rse_id_key = 'write_%s_%s' % (dest_rse_id, destination_protocol)
+                dest_rse_id_key = 'write_%s_%s' % (dest_rse_id, dest_scheme)
                 if dest_rse_id_key not in protocols:
-                    protocols[dest_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(dest_rse_id), 'third_party_copy', destination_protocol)
+                    protocols[dest_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(dest_rse_id), 'third_party_copy', dest_scheme)
 
                 # I.2 - Get dest space token
                 dest_spacetoken = None
@@ -854,15 +854,15 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if sign_url == 'gcs':
                     dest_url = re.sub('davs', 'gclouds', dest_url)
                     dest_url = re.sub('https', 'gclouds', dest_url)
-                    if source_protocol in ['davs', 'https']:
+                    if source_scheme in ['davs', 'https']:
                         source_url += '?copy_mode=push'
                 elif sign_url == 's3':
                     dest_url = re.sub('davs', 's3s', dest_url)
                     dest_url = re.sub('https', 's3s', dest_url)
-                    if source_protocol in ['davs', 'https']:
+                    if source_scheme in ['davs', 'https']:
                         source_url += '?copy_mode=push'
                 elif WEBDAV_TRANSFER_MODE:
-                    if source_protocol in ['davs', 'https']:
+                    if source_scheme in ['davs', 'https']:
                         source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
 
                 source_sign_url = ctx.rse_attrs(source_rse_id).get('sign_url', None)
@@ -950,7 +950,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     file_metadata['previous_attempt_id'] = previous_attempt_id
 
                 transfers[req_id] = {'request_id': req_id,
-                                     'schemes': __add_compatible_schemes(schemes=[destination_protocol], allowed_schemes=SUPPORTED_PROTOCOLS),
+                                     'schemes': __add_compatible_schemes(schemes=[dest_scheme], allowed_schemes=SUPPORTED_PROTOCOLS),
                                      'account': account,
                                      # 'src_urls': [source_url],
                                      'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0, link_ranking)],
@@ -997,15 +997,15 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if sign_url == 'gcs':
                     dest_url = re.sub('davs', 'gclouds', dest_url)
                     dest_url = re.sub('https', 'gclouds', dest_url)
-                    if source_protocol in ['davs', 'https']:
+                    if source_scheme in ['davs', 'https']:
                         source_url += '?copy_mode=push'
                 elif sign_url == 's3':
                     dest_url = re.sub('davs', 's3s', dest_url)
                     dest_url = re.sub('https', 's3s', dest_url)
-                    if source_protocol in ['davs', 'https']:
+                    if source_scheme in ['davs', 'https']:
                         source_url += '?copy_mode=push'
                 elif WEBDAV_TRANSFER_MODE:
-                    if source_protocol in ['davs', 'https']:
+                    if source_scheme in ['davs', 'https']:
                         source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
 
                 source_sign_url = ctx.rse_attrs(source_rse_id).get('sign_url', None)
@@ -1136,7 +1136,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
             for hop in list_multihop:
                 # hop = {'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}
-                source_protocol = hop['source_scheme']
+                source_scheme = hop['source_scheme']
                 source_rse_id = hop['source_rse_id']
                 dest_rse_id = hop['dest_rse_id']
                 source_rse_name = ctx.rse_name(source_rse_id)
@@ -1146,9 +1146,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 transfer_dst_type = "DISK"
                 allow_tape_source = True
                 # Compute the source URL. We don't need to fill the rse_mapping and rse_attrs for the intermediate RSEs cause it has already been done before
-                source_rse_id_key = 'read_%s_%s' % (source_rse_id, source_protocol)
+                source_rse_id_key = 'read_%s_%s' % (source_rse_id, source_scheme)
                 if source_rse_id_key not in protocols:
-                    protocols[source_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(source_rse_id), 'third_party_copy', source_protocol)
+                    protocols[source_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(source_rse_id), 'third_party_copy', source_scheme)
                 source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': None}).values())[0]
 
                 if transfers[req_id]['file_metadata']['dest_rse_id'] != hop['dest_rse_id']:
@@ -1209,10 +1209,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     # I - Here we will compute the destination URL
                     # I.1 - Get destination protocol
                     dest_rse_id = hop['dest_rse_id']
-                    destination_protocol = hop['dest_scheme']
-                    dest_rse_id_key = 'write_%s_%s' % (dest_rse_id, destination_protocol)
+                    dest_scheme = hop['dest_scheme']
+                    dest_rse_id_key = 'write_%s_%s' % (dest_rse_id, dest_scheme)
                     if dest_rse_id_key not in protocols:
-                        protocols[dest_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(dest_rse_id), 'third_party_copy', destination_protocol)
+                        protocols[dest_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(dest_rse_id), 'third_party_copy', dest_scheme)
 
                     # I.2 - Get dest space token
                     dest_spacetoken = None
@@ -1274,7 +1274,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                              'initial_request_id': req_id,
                                              'parent_request': parent_request,
                                              'account': InternalAccount('root'),
-                                             'schemes': __add_compatible_schemes(schemes=[destination_protocol], allowed_schemes=SUPPORTED_PROTOCOLS),
+                                             'schemes': __add_compatible_schemes(schemes=[dest_scheme], allowed_schemes=SUPPORTED_PROTOCOLS),
                                              # 'src_urls': [source_url],
                                              'sources': [(source_rse_name, source_url, source_rse_id, 0, 0)],
                                              'dest_urls': [dest_url],
