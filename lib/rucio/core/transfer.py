@@ -658,14 +658,47 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                                transfertool=transfertool,
                                                                session=session)
 
+    class _LocalContext:
+        def __init__(self, session):
+            self.session = session
+            self.rse_id_to_name_map = {}
+            self.rse_id_to_info_map = {}
+            self.rse_id_to_attrs_map = {}
+
+        def _ensure_rse_loaded(self, rse_id):
+            if rse_id not in self.rse_id_to_name_map:
+                rse_name = get_rse_name(rse_id=rse_id, session=self.session)
+                self.rse_id_to_name_map[rse_id] = rse_name
+                self.rse_id_to_info_map[rse_id] = rsemgr.get_rse_info(rse=rse_name,
+                                                                      vo=get_rse_vo(rse_id=rse_id, session=self.session),
+                                                                      session=self.session)
+                self.rse_id_to_attrs_map[rse_id] = get_rse_attributes(rse_id, session=self.session)
+
+        def rse_name(self, rse_id):
+            self._ensure_rse_loaded(rse_id)
+            return self.rse_id_to_name_map[rse_id]
+
+        def rse_info(self, rse_id):
+            self._ensure_rse_loaded(rse_id)
+            return self.rse_id_to_info_map[rse_id]
+
+        def rse_attrs(self, rse_id):
+            self._ensure_rse_loaded(rse_id)
+            return self.rse_id_to_attrs_map[rse_id]
+
+        def is_tape_rse(self, rse_id):
+            _rse_info = self.rse_info(rse_id)
+            if _rse_info['rse_type'] == RSEType.TAPE or _rse_info['rse_type'] == 'TAPE':
+                return True
+            return False
+
+    ctx = _LocalContext(session)
     unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
     unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
     bring_online_local = bring_online
-    transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], [], []
+    transfers, protocols, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, {}, [], [], []
     multi_hop_dict = {}
-
-    rse_mapping = {}
 
     multihop_rses = []
     try:
@@ -686,13 +719,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         if source_rse_id is None or rse is None:
             continue
 
-        # Get the mapping rse_id to RSE
-        if dest_rse_id not in rse_mapping:
-            rse_mapping[dest_rse_id] = get_rse_name(rse_id=dest_rse_id, session=session)
-        if source_rse_id not in rse_mapping:
-            rse_mapping[source_rse_id] = get_rse_name(rse_id=source_rse_id, session=session)
-        dest_rse_name = rse_mapping[dest_rse_id]
-        source_rse_name = rse_mapping[source_rse_id]
+        dest_rse_name = ctx.rse_name(dest_rse_id)
+        source_rse_name = ctx.rse_name(source_rse_id)
 
         dict_attributes = get_attributes(attributes)
 
@@ -750,18 +778,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 reqs_scheme_mismatch.append(req_id)
             continue
 
-        # This loop is to fill the rses_info and rse_mapping dictionary for the intermediate RSEs including the dest_rse_id
-        for hop in list_hops:
-            # hop = {'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm'}
-            if hop['dest_rse_id'] not in rse_mapping:
-                rse_mapping[hop['dest_rse_id']] = get_rse_name(rse_id=hop['dest_rse_id'], session=session)
-            if hop['dest_rse_id'] not in rses_info:
-                rses_info[hop['dest_rse_id']] = rsemgr.get_rse_info(rse=rse_mapping[hop['dest_rse_id']],
-                                                                    vo=get_rse_vo(rse_id=hop['dest_rse_id'], session=session),
-                                                                    session=session)
-            if hop['dest_rse_id'] not in rse_attrs:
-                rse_attrs[hop['dest_rse_id']] = get_rse_attributes(hop['dest_rse_id'], session=session)
-
         source_protocol = list_hops[0]['source_scheme']
         destination_protocol = list_hops[-1]['dest_scheme']
         dest_scheme_priority = list_hops[-1]['dest_scheme_priority']
@@ -773,17 +789,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             if rses and dest_rse_id not in rses:
                 continue
 
-            # Get the source rse information
-            if source_rse_id not in rses_info:
-                rses_info[source_rse_id] = rsemgr.get_rse_info(rse=source_rse_name,
-                                                               vo=get_rse_vo(rse_id=source_rse_id, session=session),
-                                                               session=session)
-            if source_rse_id not in rse_attrs:
-                rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
             # Get source protocol
             source_rse_id_key = 'read_%s_%s' % (source_rse_id, source_protocol)
             if source_rse_id_key not in protocols:
-                protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', source_protocol)
+                protocols[source_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(source_rse_id), 'third_party_copy', source_protocol)
 
             # If the request_id is not already in the transfer dictionary, need to compute the destination URL
             if req_id not in transfers:
@@ -796,7 +805,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # I.1 - Get destination protocol
                 dest_rse_id_key = 'write_%s_%s' % (dest_rse_id, destination_protocol)
                 if dest_rse_id_key not in protocols:
-                    protocols[dest_rse_id_key] = rsemgr.create_protocol(rses_info[dest_rse_id], 'third_party_copy', destination_protocol)
+                    protocols[dest_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(dest_rse_id), 'third_party_copy', destination_protocol)
 
                 # I.2 - Get dest space token
                 dest_spacetoken = None
@@ -807,16 +816,16 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     dest_spacetoken = protocols[dest_rse_id_key].attributes['extended_attributes']['space_token']
 
                 # I.3 - Compute the destination url
-                if rses_info[dest_rse_id]['deterministic']:
+                if ctx.rse_info(dest_rse_id)['deterministic']:
                     dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
                 else:
                     # compute dest url in case of non deterministic
                     # naming convention, etc.
                     dsn = get_dsn(scope, name, dict_attributes.get('dsn', None))
                     # DQ2 path always starts with /, but prefix might not end with /
-                    naming_convention = rse_attrs[dest_rse_id].get('naming_convention', None)
+                    naming_convention = ctx.rse_attrs(dest_rse_id).get('naming_convention', None)
                     dest_path = construct_surl(dsn, name, naming_convention)
-                    if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
+                    if ctx.is_tape_rse(dest_rse_id):
                         if retry_count or activity == 'Recovery':
                             dest_path = '%s_%i' % (dest_path, int(time.time()))
 
@@ -827,7 +836,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # III - Extend the metadata dictionary with request attributes
                 overwrite, bring_online = True, None
-                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE' or rse_attrs[source_rse_id].get('staging_required', False):
+                if ctx.is_tape_rse(source_rse_id) or ctx.rse_attrs(source_rse_id).get('staging_required', False):
                     bring_online = bring_online_local
                     transfer_src_type = "TAPE"
                     if not allow_tape_source:
@@ -837,11 +846,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                             reqs_no_source.remove(req_id)
                         continue
 
-                if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
+                if ctx.is_tape_rse(dest_rse_id):
                     overwrite = False
                     transfer_dst_type = "TAPE"
 
-                sign_url = rse_attrs[dest_rse_id].get('sign_url', None)
+                sign_url = ctx.rse_attrs(dest_rse_id).get('sign_url', None)
                 if sign_url == 'gcs':
                     dest_url = re.sub('davs', 'gclouds', dest_url)
                     dest_url = re.sub('https', 'gclouds', dest_url)
@@ -856,7 +865,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     if source_protocol in ['davs', 'https']:
                         source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
 
-                source_sign_url = rse_attrs[source_rse_id].get('sign_url', None)
+                source_sign_url = ctx.rse_attrs(source_rse_id).get('sign_url', None)
                 if source_sign_url == 'gcs':
                     source_url = re.sub('davs', 'gclouds', source_url)
                     source_url = re.sub('https', 'gclouds', source_url)
@@ -869,16 +878,16 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if destination_protocol == 'https+srm':
                     dest_url = re.sub('srm', 'https+srm', dest_url)
 
-                use_ipv4 = rse_attrs[source_rse_id].get('use_ipv4', False) or rse_attrs[dest_rse_id].get('use_ipv4', False)
+                use_ipv4 = ctx.rse_attrs(source_rse_id).get('use_ipv4', False) or ctx.rse_attrs(dest_rse_id).get('use_ipv4', False)
 
                 # IV - get external_host + strict_copy + archive timeout
-                strict_copy = rse_attrs[dest_rse_id].get('strict_copy', False)
-                fts_hosts = rse_attrs[dest_rse_id].get('fts', None)
-                archive_timeout = rse_attrs[dest_rse_id].get('archive_timeout', None)
+                strict_copy = ctx.rse_attrs(dest_rse_id).get('strict_copy', False)
+                fts_hosts = ctx.rse_attrs(dest_rse_id).get('fts', None)
+                archive_timeout = ctx.rse_attrs(dest_rse_id).get('archive_timeout', None)
                 if source_sign_url == 'gcs':
-                    fts_hosts = rse_attrs[source_rse_id].get('fts', None)
-                source_globus_endpoint_id = rse_attrs[source_rse_id].get('globus_endpoint_id', None)
-                dest_globus_endpoint_id = rse_attrs[dest_rse_id].get('globus_endpoint_id', None)
+                    fts_hosts = ctx.rse_attrs(source_rse_id).get('fts', None)
+                source_globus_endpoint_id = ctx.rse_attrs(source_rse_id).get('globus_endpoint_id', None)
+                dest_globus_endpoint_id = ctx.rse_attrs(dest_rse_id).get('globus_endpoint_id', None)
 
                 if transfertool == 'fts3' and not fts_hosts:
                     logger(logging.ERROR, 'Destination RSE %s FTS attribute not defined - SKIP REQUEST %s', dest_rse_name, req_id)
@@ -898,13 +907,13 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # V - Get the checksum validation strategy (none, source, destination or both)
                 verify_checksum = 'both'
-                if not rse_attrs[dest_rse_id].get('verify_checksum', True):
-                    if not rse_attrs[source_rse_id].get('verify_checksum', True):
+                if not ctx.rse_attrs(dest_rse_id).get('verify_checksum', True):
+                    if not ctx.rse_attrs(source_rse_id).get('verify_checksum', True):
                         verify_checksum = 'none'
                     else:
                         verify_checksum = 'source'
                 else:
-                    if not rse_attrs[source_rse_id].get('verify_checksum', True):
+                    if not ctx.rse_attrs(source_rse_id).get('verify_checksum', True):
                         verify_checksum = 'destination'
                     else:
                         verify_checksum = 'both'
@@ -926,8 +935,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                  'request_type': RequestType.TRANSFER,
                                  'src_type': transfer_src_type,
                                  'dst_type': transfer_dst_type,
-                                 'src_rse': rse,
-                                 'dst_rse': rses_info[dest_rse_id]['rse'],
+                                 'src_rse': source_rse_name,
+                                 'dst_rse': dest_rse_name,
                                  'src_rse_id': source_rse_id,
                                  'dest_rse_id': dest_rse_id,
                                  'filesize': bytes,
@@ -963,7 +972,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     transfers[req_id]['strict_copy'] = strict_copy
                 if use_ipv4:
                     transfers[req_id]['use_ipv4'] = True
-                if archive_timeout and (rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE'):
+                if archive_timeout and ctx.is_tape_rse(dest_rse_id):
                     try:
                         transfers[req_id]['archive_timeout'] = int(archive_timeout)
                         logger(logging.DEBUG, 'Added archive timeout to transfer.')
@@ -984,7 +993,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # II - Build the source URL
                 source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
-                sign_url = rse_attrs[dest_rse_id].get('sign_url', None)
+                sign_url = ctx.rse_attrs(dest_rse_id).get('sign_url', None)
                 if sign_url == 'gcs':
                     dest_url = re.sub('davs', 'gclouds', dest_url)
                     dest_url = re.sub('https', 'gclouds', dest_url)
@@ -999,7 +1008,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     if source_protocol in ['davs', 'https']:
                         source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
 
-                source_sign_url = rse_attrs[source_rse_id].get('sign_url', None)
+                source_sign_url = ctx.rse_attrs(source_rse_id).get('sign_url', None)
                 if source_sign_url == 'gcs':
                     source_url = re.sub('davs', 'gclouds', source_url)
                     source_url = re.sub('https', 'gclouds', source_url)
@@ -1023,7 +1032,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # TAPE should not mixed with Disk and should not use as first try
                 # If there is a source whose ranking is no less than the Tape ranking, Tape will not be used.
 
-                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE' or rse_attrs[source_rse_id].get('staging_required', False):
+                if ctx.is_tape_rse(source_rse_id) or ctx.rse_attrs(source_rse_id).get('staging_required', False):
                     # current src_rse is Tape
                     if not allow_tape_source:
                         continue
@@ -1087,7 +1096,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # transfers[id]['src_urls'].append((source_rse_id, source_url))
                 transfers[req_id]['sources'].append((rse, source_url, source_rse_id, ranking, link_ranking))
                 # if one source has force IPv4, force IPv4 for the whole job
-                use_ipv4 = rse_attrs[source_rse_id].get('use_ipv4', False)
+                use_ipv4 = ctx.rse_attrs(source_rse_id).get('use_ipv4', False)
                 if use_ipv4:
                     transfers[req_id]['use_ipv4'] = True
 
@@ -1100,15 +1109,15 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     for req_id in transfers:
         use_oidc = False
         dest_rse_id = transfers[req_id]['file_metadata']['dest_rse_id']
-        if dest_rse_id in rse_attrs and 'oidc_support' in rse_attrs[dest_rse_id]:
-            use_oidc = rse_attrs[dest_rse_id]['oidc_support']
+        if 'oidc_support' in ctx.rse_attrs(dest_rse_id):
+            use_oidc = ctx.rse_attrs(dest_rse_id)['oidc_support']
         else:
             transfers[req_id]['use_oidc'] = use_oidc
             continue
         for source in transfers[req_id]['sources']:
             source_rse_id = source[2]
-            if 'oidc_support' in rse_attrs[source_rse_id]:
-                use_oidc = use_oidc and rse_attrs[source_rse_id]['oidc_support']
+            if 'oidc_support' in ctx.rse_attrs(source_rse_id):
+                use_oidc = use_oidc and ctx.rse_attrs(source_rse_id)['oidc_support']
             else:
                 use_oidc = False
             if not use_oidc:
@@ -1130,8 +1139,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 source_protocol = hop['source_scheme']
                 source_rse_id = hop['source_rse_id']
                 dest_rse_id = hop['dest_rse_id']
-                source_rse_name = rse_mapping[source_rse_id]
-                dest_rse_name = rse_mapping[dest_rse_id]
+                source_rse_name = ctx.rse_name(source_rse_id)
+                dest_rse_name = ctx.rse_name(dest_rse_id)
                 dest_rse_vo = get_rse_vo(rse_id=hop['dest_rse_id'], session=session)
                 transfer_src_type = "DISK"
                 transfer_dst_type = "DISK"
@@ -1139,9 +1148,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # Compute the source URL. We don't need to fill the rse_mapping and rse_attrs for the intermediate RSEs cause it has already been done before
                 source_rse_id_key = 'read_%s_%s' % (source_rse_id, source_protocol)
                 if source_rse_id_key not in protocols:
-                    protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', source_protocol)
-                if hop['dest_rse_id'] not in rse_attrs:
-                    rse_attrs[dest_rse_id] = get_rse_attributes(hop['dest_rse_id'], session=session)
+                    protocols[source_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(source_rse_id), 'third_party_copy', source_protocol)
                 source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': None}).values())[0]
 
                 if transfers[req_id]['file_metadata']['dest_rse_id'] != hop['dest_rse_id']:
@@ -1205,7 +1212,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     destination_protocol = hop['dest_scheme']
                     dest_rse_id_key = 'write_%s_%s' % (dest_rse_id, destination_protocol)
                     if dest_rse_id_key not in protocols:
-                        protocols[dest_rse_id_key] = rsemgr.create_protocol(rses_info[dest_rse_id], 'third_party_copy', destination_protocol)
+                        protocols[dest_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(dest_rse_id), 'third_party_copy', destination_protocol)
 
                     # I.2 - Get dest space token
                     dest_spacetoken = None
@@ -1216,16 +1223,16 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         dest_spacetoken = protocols[dest_rse_id_key].attributes['extended_attributes']['space_token']
 
                     # I.3 - Compute the destination url
-                    if rses_info[dest_rse_id]['deterministic']:
+                    if ctx.rse_info(dest_rse_id)['deterministic']:
                         dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
                     else:
                         # compute dest url in case of non deterministic
                         # naming convention, etc.
                         dsn = get_dsn(scope, name, dict_attributes.get('dsn', None))
                         # DQ2 path always starts with /, but prefix might not end with /
-                        naming_convention = rse_attrs[dest_rse_id].get('naming_convention', None)
+                        naming_convention = ctx.rse_attrs(dest_rse_id).get('naming_convention', None)
                         dest_path = construct_surl(dsn, name, naming_convention)
-                        if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
+                        if ctx.is_tape_rse(dest_rse_id):
                             if retry_count or activity == 'Recovery':
                                 dest_path = '%s_%i' % (dest_path, int(time.time()))
 
@@ -1233,7 +1240,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                     # II - Extend the metadata dictionary with request attributes
                     overwrite, bring_online = True, None
-                    if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
+                    if ctx.is_tape_rse(source_rse_id):
                         bring_online = bring_online_local
                         transfer_src_type = "TAPE"
                         if not allow_tape_source:
@@ -1242,7 +1249,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                             if req_id in reqs_no_source:
                                 reqs_no_source.remove(req_id)
                             continue
-                    if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
+                    if ctx.is_tape_rse(dest_rse_id):
                         overwrite = False
                         transfer_dst_type = "TAPE"
 
@@ -1254,7 +1261,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                      'src_type': transfer_src_type,
                                      'dst_type': transfer_dst_type,
                                      'src_rse': source_rse_name,
-                                     'dst_rse': rses_info[dest_rse_id]['rse'],
+                                     'dst_rse': dest_rse_name,
                                      'src_rse_id': source_rse_id,
                                      'dest_rse_id': dest_rse_id,
                                      'filesize': transfers[req_id]['file_metadata']['filesize'],
