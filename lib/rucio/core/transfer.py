@@ -1032,71 +1032,46 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 if ranking is None:
                     ranking = 0
-                # TAPE should not mixed with Disk and should not use as first try
-                # If there is a source whose ranking is no less than the Tape ranking, Tape will not be used.
 
-                if ctx.is_tape_rse(source_rse_id) or ctx.rse_attrs(source_rse_id).get('staging_required', False):
-                    # current src_rse is Tape
-                    if not allow_tape_source:
-                        continue
-                    if not transfers[req_id]['bring_online']:
-                        # the sources already founded are disks.
+                current_source_is_tape = transfers[req_id]['bring_online']
+                new_source_is_tape = ctx.is_tape_rse(source_rse_id) or ctx.rse_attrs(source_rse_id).get('staging_required', False)
 
-                        avail_top_ranking = None
-                        # avail_top_ranking stays None if there are no sources (reset if multihop)
-                        founded_sources = transfers[req_id]['sources']
-                        for founded_source in founded_sources:
-                            if avail_top_ranking is None:
-                                avail_top_ranking = founded_source[3]
-                                continue
-                            if founded_source[3] is not None and founded_source[3] > avail_top_ranking:
-                                avail_top_ranking = founded_source[3]
+                if new_source_is_tape and not allow_tape_source:
+                    continue
 
-                        if avail_top_ranking is not None and avail_top_ranking >= ranking:
-                            # current Tape source is not the highest ranking, will use disk sources
+                if current_source_is_tape and not new_source_is_tape or \
+                        new_source_is_tape and not current_source_is_tape:
+                    # Tape and Disk sources must not be used at the same time.
+                    # Either keep existing sources unchanged, or substitute all existing source with the new source.
+
+                    # Find the best ranking among existing sources
+                    avail_top_ranking = None
+                    for founded_source in transfers[req_id]['sources']:
+                        if avail_top_ranking is None:
+                            avail_top_ranking = founded_source[3]
                             continue
-                        else:
-                            transfers[req_id]['sources'] = []
-                            transfers[req_id]['bring_online'] = bring_online_local
-                            transfer_src_type = "TAPE"
-                            transfers[req_id]['file_metadata']['src_type'] = transfer_src_type
-                            transfers[req_id]['file_metadata']['src_rse'] = rse
+                        if founded_source[3] is not None and founded_source[3] > avail_top_ranking:
+                            avail_top_ranking = founded_source[3]
+
+                    # If ranking of the new source is better. On equal ranking, prefer Disk over Tape.
+                    if avail_top_ranking is None or (ranking > avail_top_ranking) or (ranking >= avail_top_ranking and current_source_is_tape):
+                        transfers[req_id]['sources'] = []
+                        transfers[req_id]['bring_online'] = bring_online_local if new_source_is_tape else None
+                        transfers[req_id]['file_metadata']['src_type'] = 'TAPE' if new_source_is_tape else 'DISK'
+                        transfers[req_id]['file_metadata']['src_rse'] = rse
                     else:
-                        # the sources already founded is Tape too.
-                        # multiple Tape source replicas are not allowed in FTS3.
-                        if transfers[req_id]['sources'][0][3] > ranking or (transfers[req_id]['sources'][0][3] == ranking and transfers[req_id]['sources'][0][4] <= link_ranking):
-                            continue
-                        else:
-                            transfers[req_id]['sources'] = []
-                            transfers[req_id]['bring_online'] = bring_online_local
-                            transfers[req_id]['file_metadata']['src_rse'] = rse
-                else:
-                    # current src_rse is Disk
-                    if transfers[req_id]['bring_online']:
-                        # the founded sources are Tape
+                        continue
 
-                        avail_top_ranking = None
-                        # avail_top_ranking stays None if there are no sources (reset if multihop)
-                        founded_sources = transfers[req_id]['sources']
-                        for founded_source in founded_sources:
-                            if avail_top_ranking is None:
-                                avail_top_ranking = founded_source[3]
-                                continue
-                            if founded_source[3] is not None and founded_source[3] > avail_top_ranking:
-                                avail_top_ranking = founded_source[3]
+                if current_source_is_tape and new_source_is_tape:
+                    # multiple Tape source replicas are not allowed in FTS3.
+                    # Either keep the old source. Or substitute it with the new one.
+                    if ranking > transfers[req_id]['sources'][0][3] or (ranking == transfers[req_id]['sources'][0][3] and link_ranking < transfers[req_id]['sources'][0][4]):
+                        transfers[req_id]['sources'] = []
+                        transfers[req_id]['bring_online'] = bring_online_local
+                        transfers[req_id]['file_metadata']['src_rse'] = rse
+                    else:
+                        continue
 
-                        if avail_top_ranking is None or ranking >= avail_top_ranking:
-                            # current disk replica has higher ranking than founded sources
-                            # remove founded Tape sources
-                            transfers[req_id]['sources'] = []
-                            transfers[req_id]['bring_online'] = None
-                            transfer_src_type = "DISK"
-                            transfers[req_id]['file_metadata']['src_type'] = transfer_src_type
-                            transfers[req_id]['file_metadata']['src_rse'] = rse
-                        else:
-                            continue
-
-                # transfers[id]['src_urls'].append((source_rse_id, source_url))
                 transfers[req_id]['sources'].append((rse, source_url, source_rse_id, ranking, link_ranking))
                 # if one source has force IPv4, force IPv4 for the whole job
                 use_ipv4 = ctx.rse_attrs(source_rse_id).get('use_ipv4', False)
