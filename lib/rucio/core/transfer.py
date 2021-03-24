@@ -664,6 +664,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             self.rse_id_to_name_map = {}
             self.rse_id_to_info_map = {}
             self.rse_id_to_attrs_map = {}
+            self.protocols = {}
 
         def _ensure_rse_loaded(self, rse_id):
             if rse_id not in self.rse_id_to_name_map:
@@ -692,12 +693,20 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 return True
             return False
 
+        def protocol(self, rse_id, scheme, operation):
+            protocol_key = '%s_%s_%s' % (operation, rse_id, scheme)
+            protocol = self.protocols.get(protocol_key)
+            if not protocol:
+                protocol = rsemgr.create_protocol(self.rse_info(rse_id), 'third_party_copy', scheme)
+                self.protocols[protocol_key] = protocol
+            return protocol
+
     ctx = _LocalContext(session)
     unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
     unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
     bring_online_local = bring_online
-    transfers, protocols, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, {}, [], [], []
+    transfers, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, [], [], []
     multi_hop_dict = {}
 
     multihop_rses = []
@@ -790,9 +799,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 continue
 
             # Get source protocol
-            source_rse_id_key = 'read_%s_%s' % (source_rse_id, source_scheme)
-            if source_rse_id_key not in protocols:
-                protocols[source_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(source_rse_id), 'third_party_copy', source_scheme)
+            source_protocol = ctx.protocol(source_rse_id, source_scheme, 'read')
 
             # If the request_id is not already in the transfer dictionary, need to compute the destination URL
             if req_id not in transfers:
@@ -803,21 +810,17 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # I - Here we will compute the destination URL
                 # I.1 - Get destination protocol
-                dest_rse_id_key = 'write_%s_%s' % (dest_rse_id, dest_scheme)
-                if dest_rse_id_key not in protocols:
-                    protocols[dest_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(dest_rse_id), 'third_party_copy', dest_scheme)
+                dest_protocol = ctx.protocol(dest_rse_id, dest_scheme, 'write')
 
                 # I.2 - Get dest space token
                 dest_spacetoken = None
-                if protocols[dest_rse_id_key].attributes and \
-                   'extended_attributes' in protocols[dest_rse_id_key].attributes and \
-                   protocols[dest_rse_id_key].attributes['extended_attributes'] and \
-                   'space_token' in protocols[dest_rse_id_key].attributes['extended_attributes']:
-                    dest_spacetoken = protocols[dest_rse_id_key].attributes['extended_attributes']['space_token']
+                if dest_protocol.attributes and 'extended_attributes' in dest_protocol.attributes and \
+                        dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
+                    dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
 
                 # I.3 - Compute the destination url
                 if ctx.rse_info(dest_rse_id)['deterministic']:
-                    dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
+                    dest_url = list(dest_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
                 else:
                     # compute dest url in case of non deterministic
                     # naming convention, etc.
@@ -829,10 +832,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         if retry_count or activity == 'Recovery':
                             dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                    dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
+                    dest_url = list(dest_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
 
                 # II - Compute the source URL
-                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
+                source_url = list(source_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
 
                 # III - Extend the metadata dictionary with request attributes
                 overwrite, bring_online = True, None
@@ -992,7 +995,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # Deprecated, not necessary anymore #3682
 
                 # II - Build the source URL
-                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
+                source_url = list(source_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
                 sign_url = ctx.rse_attrs(dest_rse_id).get('sign_url', None)
                 if sign_url == 'gcs':
                     dest_url = re.sub('davs', 'gclouds', dest_url)
@@ -1146,10 +1149,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 transfer_dst_type = "DISK"
                 allow_tape_source = True
                 # Compute the source URL. We don't need to fill the rse_mapping and rse_attrs for the intermediate RSEs cause it has already been done before
-                source_rse_id_key = 'read_%s_%s' % (source_rse_id, source_scheme)
-                if source_rse_id_key not in protocols:
-                    protocols[source_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(source_rse_id), 'third_party_copy', source_scheme)
-                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': None}).values())[0]
+                source_protocol = ctx.protocol(source_rse_id, source_scheme, 'read')
+                source_url = list(source_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': None}).values())[0]
 
                 if transfers[req_id]['file_metadata']['dest_rse_id'] != hop['dest_rse_id']:
                     files = [{'scope': scope,
@@ -1210,21 +1211,17 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     # I.1 - Get destination protocol
                     dest_rse_id = hop['dest_rse_id']
                     dest_scheme = hop['dest_scheme']
-                    dest_rse_id_key = 'write_%s_%s' % (dest_rse_id, dest_scheme)
-                    if dest_rse_id_key not in protocols:
-                        protocols[dest_rse_id_key] = rsemgr.create_protocol(ctx.rse_info(dest_rse_id), 'third_party_copy', dest_scheme)
+                    dest_protocol = ctx.protocol(dest_rse_id, dest_scheme, 'write')
 
                     # I.2 - Get dest space token
                     dest_spacetoken = None
-                    if protocols[dest_rse_id_key].attributes and \
-                       'extended_attributes' in protocols[dest_rse_id_key].attributes and \
-                       protocols[dest_rse_id_key].attributes['extended_attributes'] and \
-                       'space_token' in protocols[dest_rse_id_key].attributes['extended_attributes']:
-                        dest_spacetoken = protocols[dest_rse_id_key].attributes['extended_attributes']['space_token']
+                    if dest_protocol.attributes and 'extended_attributes' in dest_protocol.attributes and \
+                            dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
+                        dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
 
                     # I.3 - Compute the destination url
                     if ctx.rse_info(dest_rse_id)['deterministic']:
-                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
+                        dest_url = list(dest_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
                     else:
                         # compute dest url in case of non deterministic
                         # naming convention, etc.
@@ -1236,7 +1233,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                             if retry_count or activity == 'Recovery':
                                 dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
+                        dest_url = list(dest_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
 
                     # II - Extend the metadata dictionary with request attributes
                     overwrite, bring_online = True, None
