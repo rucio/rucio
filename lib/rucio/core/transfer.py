@@ -777,6 +777,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
     for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, account, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
 
+        if ranking is None:
+            ranking = 0
+
         multihop = False
 
         # Add req to req_no_source list (Will be removed later if needed)
@@ -986,7 +989,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                      'schemes': __add_compatible_schemes(schemes=[dest_scheme], allowed_schemes=SUPPORTED_PROTOCOLS),
                                      'account': account,
                                      # 'src_urls': [source_url],
-                                     'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0, link_ranking)],
+                                     'sources': [(rse, source_url, source_rse_id, ranking, link_ranking)],
                                      'dest_urls': [dest_url],
                                      'src_spacetoken': None,
                                      'dest_spacetoken': dest_spacetoken,
@@ -1026,9 +1029,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if transfers[req_id].get('multihop', False):
                     transfers[req_id].pop('multihop', None)
                     transfers[req_id]['sources'] = []
-
-                if ranking is None:
-                    ranking = 0
 
                 current_source_is_tape = transfers[req_id]['bring_online']
                 new_source_is_tape = ctx.is_tape_rse(source_rse_id) or ctx.rse_attrs(source_rse_id).get('staging_required', False)
