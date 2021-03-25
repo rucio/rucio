@@ -33,6 +33,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import division
 
@@ -73,6 +74,7 @@ from rucio.db.sqla.constants import DIDType, RequestState, RSEType, RequestType,
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
+from rucio.transfertool.mock import MockTransfertool
 
 if TYPE_CHECKING:
     from typing import List, Tuple
@@ -100,7 +102,6 @@ Requests accessed by request_id  are covered in the core request.py
 REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        expiration_time=600,
                                        arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
-TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
 ALLOW_USER_OIDC_TOKENS = config_get('conveyor', 'allow_user_oidc_tokens', False, False)
 REQUEST_OIDC_SCOPE = config_get('conveyor', 'request_oidc_scope', False, 'fts:submit-transfer')
 REQUEST_OIDC_AUDIENCE = config_get('conveyor', 'request_oidc_audience', False, 'fts:example')
@@ -174,8 +175,7 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
         logger(logging.DEBUG, 'job_files: %s' % job_files)
         transfer_id = GlobusTransferTool(external_host=None).bulk_submit(submitjob=job_files, timeout=timeout)
     elif transfertool == 'mock':
-        import uuid
-        transfer_id = str(uuid.uuid1())
+        transfer_id = MockTransfertool(external_host=None).submit(files, None)
     return transfer_id
 
 
@@ -875,10 +875,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 source_globus_endpoint_id = rse_attrs[source_rse_id].get('globus_endpoint_id', None)
                 dest_globus_endpoint_id = rse_attrs[dest_rse_id].get('globus_endpoint_id', None)
 
-                if TRANSFER_TOOL == 'fts3' and not fts_hosts:
+                if transfertool == 'fts3' and not fts_hosts:
                     logger(logging.ERROR, 'Destination RSE %s FTS attribute not defined - SKIP REQUEST %s', dest_rse_name, req_id)
                     continue
-                if TRANSFER_TOOL == 'globus' and (not dest_globus_endpoint_id or not source_globus_endpoint_id):
+                if transfertool == 'globus' and (not dest_globus_endpoint_id or not source_globus_endpoint_id):
                     logger(logging.ERROR, 'Destination RSE %s Globus endpoint attributes not defined - SKIP REQUEST %s', dest_rse_name, req_id)
                     continue
                 if retry_count is None:
@@ -1323,12 +1323,14 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                                  models.Request.previous_attempt_id,
                                  models.Request.dest_rse_id,
                                  models.Request.retry_count,
-                                 models.Request.account) \
+                                 models.Request.account,
+                                 models.Request.created_at) \
         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle') \
         .filter(models.Request.state == request_state) \
         .filter(models.Request.request_type == RequestType.TRANSFER) \
         .join(models.RSE, models.RSE.id == models.Request.dest_rse_id) \
         .filter(models.RSE.deleted == false()) \
+        .order_by(models.Request.created_at) \
         .filter(models.RSE.availability.in_((2, 3, 6, 7)))
 
     if isinstance(older_than, datetime.datetime):
@@ -1372,6 +1374,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                           models.Source.url,
                           models.Source.ranking.label("source_ranking"),
                           models.Distance.ranking.label("distance_ranking")) \
+        .order_by(sub_requests.c.created_at) \
         .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
                                                    sub_requests.c.name == models.RSEFileAssociation.name,
                                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
