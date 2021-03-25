@@ -851,8 +851,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         dest_scheme = list_hops[-1]['dest_scheme']
         dest_scheme_priority = list_hops[-1]['dest_scheme_priority']
 
-        transfer_src_type = "DISK"
-        transfer_dst_type = "DISK"
         allow_tape_source = True
         try:
             if rses and dest_rse_id not in rses:
@@ -861,6 +859,13 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             # Get source protocol
             source_protocol = ctx.protocol(source_rse_id, source_scheme, 'read')
 
+            source_sign_url = ctx.rse_attrs(source_rse_id).get('sign_url', None)
+            dest_sign_url = ctx.rse_attrs(dest_rse_id).get('sign_url', None)
+
+            # Compute the source URL
+            source_url = __build_source_url(scope=scope, name=name, path=path, protocol=source_protocol)
+            source_url = __rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=source_scheme)
+
             # If the request_id is not already in the transfer dictionary, need to compute the destination URL
             if req_id not in transfers:
 
@@ -868,30 +873,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # allow_tape_source = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
                 allow_tape_source = True
 
-                # I - Here we will compute the destination URL
-                # I.1 - Get destination protocol
-                dest_protocol = ctx.protocol(dest_rse_id, dest_scheme, 'write')
-
-                # I.2 - Get dest space token
-                dest_spacetoken = None
-                if dest_protocol.attributes and 'extended_attributes' in dest_protocol.attributes and \
-                        dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
-                    dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
-
-                # I.3 - Compute the destination url
-                dest_url = __build_dest_url(scope=scope, name=name,
-                                            protocol=dest_protocol,
-                                            dest_rse_attrs=ctx.rse_attrs(dest_rse_id),
-                                            dest_is_deterministic=ctx.rse_info(dest_rse_id)['deterministic'],
-                                            dest_is_tape=ctx.is_tape_rse(dest_rse_id),
-                                            dict_attributes=dict_attributes,
-                                            retry_count=retry_count,
-                                            activity=activity)
-
-                # II - Compute the source URL
-                source_url = __build_source_url(scope=scope, name=name, path=path, protocol=source_protocol)
-
                 # III - Extend the metadata dictionary with request attributes
+                transfer_src_type = "DISK"
+                transfer_dst_type = "DISK"
                 overwrite, bring_online = True, None
                 if ctx.is_tape_rse(source_rse_id) or ctx.rse_attrs(source_rse_id).get('staging_required', False):
                     bring_online = bring_online_local
@@ -907,10 +891,25 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     overwrite = False
                     transfer_dst_type = "TAPE"
 
-                source_sign_url = ctx.rse_attrs(source_rse_id).get('sign_url', None)
-                dest_sign_url = ctx.rse_attrs(dest_rse_id).get('sign_url', None)
-                source_url = __rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=source_scheme)
+                # Get destination protocol
+                dest_protocol = ctx.protocol(dest_rse_id, dest_scheme, 'write')
+
+                # Compute the destination url
+                dest_url = __build_dest_url(scope=scope, name=name,
+                                            protocol=dest_protocol,
+                                            dest_rse_attrs=ctx.rse_attrs(dest_rse_id),
+                                            dest_is_deterministic=ctx.rse_info(dest_rse_id)['deterministic'],
+                                            dest_is_tape=ctx.is_tape_rse(dest_rse_id),
+                                            dict_attributes=dict_attributes,
+                                            retry_count=retry_count,
+                                            activity=activity)
                 dest_url = __rewrite_dest_url(dest_url, dest_sign_url=dest_sign_url, dest_scheme=dest_scheme)
+
+                # Get dest space token
+                dest_spacetoken = None
+                if dest_protocol.attributes and 'extended_attributes' in dest_protocol.attributes and \
+                        dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
+                    dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
 
                 use_ipv4 = ctx.rse_attrs(source_rse_id).get('use_ipv4', False) or ctx.rse_attrs(dest_rse_id).get('use_ipv4', False)
 
@@ -1021,16 +1020,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # TODO : Check if the current  transfer is better than the previous one
                 if multihop:
                     continue
-
-                # I - Check if there is already a transfer with a higher dest_scheme_priority
-                # Deprecated, not necessary anymore #3682
-
-                # II - Build the source URL
-                source_sign_url = ctx.rse_attrs(source_rse_id).get('sign_url', None)
-                dest_sign_url = ctx.rse_attrs(dest_rse_id).get('sign_url', None)
-
-                source_url = __build_source_url(scope=scope, name=name, path=path, protocol=source_protocol)
-                source_url = __rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=source_scheme)
 
                 # III - The transfer queued previously is a multihop, but this one is direct.
                 # Reset the sources, remove the multihop flag
