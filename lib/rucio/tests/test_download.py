@@ -33,6 +33,7 @@ import pytest
 from rucio.client.downloadclient import DownloadClient
 from rucio.common.exception import InputValidationError, NoFilesDownloaded
 from rucio.common.utils import generate_uuid
+from rucio.core import did as did_core
 from rucio.rse import rsemanager as rsemgr
 from rucio.rse.protocols.posix import Default as PosixProtocol
 
@@ -370,3 +371,22 @@ def test_trace_copy_out_and_checksum_validation(vo, rse_factory, file_factory, d
         traces = []
         download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'ignore_checksum': True}], traces_copy_out=traces)
         assert len(traces) == 1 and traces[0]['clientState'] == 'DONE'
+
+
+def test_norandom_respected(rse_factory, file_factory, download_client, root_account):
+    rse, _ = rse_factory.make_posix_rse()
+    did1 = file_factory.upload_test_file(rse)
+    did2 = file_factory.upload_test_file(rse)
+    dataset = file_factory.make_dataset()
+    did_core.attach_dids(dids=[did1, did2], account=root_account, **dataset)
+
+    dataset_did_str = '%s:%s' % (dataset['scope'], dataset['name'])
+
+    with TemporaryDirectory() as tmp_dir:
+        nrandom = 1
+        result = download_client.download_dids([{'did': dataset_did_str, 'nrandom': nrandom, 'base_dir': tmp_dir}])
+        assert len(result) == nrandom
+
+        nrandom = 2
+        result = download_client.download_dids([{'did': dataset_did_str, 'nrandom': nrandom, 'base_dir': tmp_dir}])
+        assert len(result) == nrandom

@@ -1110,13 +1110,13 @@ class DownloadClient:
 
             # filtering out tape sources
             if self.is_tape_excluded:
-                for item in file_items:
-                    sources = item['sources']
-                    for src in item['sources']:
+                for file_item in file_items:
+                    sources = file_item['sources']
+                    for src in file_item['sources']:
                         if src in tape_rses:
                             sources.remove(src)
                     if not sources:
-                        logger(logging.WARNING, 'Requested did {} has only replicas on tape. No files will be download.'.format(item['did']))
+                        logger(logging.WARNING, 'Requested did {} has only replicas on tape. No files will be download.'.format(file_item['did']))
 
             nrandom = item.get('nrandom')
             if nrandom:

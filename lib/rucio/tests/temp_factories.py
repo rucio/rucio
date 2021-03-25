@@ -178,11 +178,23 @@ class TemporaryFileFactory:
         for rse_id, dids in dids_by_rse.items():
             replica_core.delete_replicas(rse_id=rse_id, files=dids, session=session)
 
-    def upload_test_file(self, rse_name, scope=None, name=None, path=None, return_full_item=False):
+    def _sanitize_or_set_scope(self, scope):
         if not scope:
             scope = self.default_scope
         elif isinstance(scope, str):
             scope = InternalScope(scope, vo=self.vo)
+        return scope
+
+    def make_dataset(self, scope=None, name=None):
+        scope = self._sanitize_or_set_scope(scope)
+        if not name:
+            name = 'dataset_%s' % generate_uuid()
+        did = {'scope': scope, 'name': name}
+        self.client.add_dataset(scope.external, name)
+        return did
+
+    def upload_test_file(self, rse_name, scope=None, name=None, path=None, return_full_item=False):
+        scope = self._sanitize_or_set_scope(scope)
         if not path:
             path = file_generator()
         if not name:
