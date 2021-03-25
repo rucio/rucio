@@ -876,7 +876,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # allow_tape_source = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
                 allow_tape_source = True
 
-                # III - Extend the metadata dictionary with request attributes
+                # Extend the metadata dictionary with request attributes
                 transfer_src_type = "DISK"
                 transfer_dst_type = "DISK"
                 overwrite, bring_online = True, None
@@ -916,7 +916,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 use_ipv4 = ctx.rse_attrs(source_rse_id).get('use_ipv4', False) or ctx.rse_attrs(dest_rse_id).get('use_ipv4', False)
 
-                # IV - get external_host + strict_copy + archive timeout
+                # get external_host + strict_copy + archive timeout
                 strict_copy = ctx.rse_attrs(dest_rse_id).get('strict_copy', False)
                 fts_hosts = ctx.rse_attrs(dest_rse_id).get('fts', None)
                 archive_timeout = ctx.rse_attrs(dest_rse_id).get('archive_timeout', None)
@@ -941,7 +941,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if retry_other_fts:
                     external_host = fts_list[retry_count % len(fts_list)]
 
-                # V - Get the checksum validation strategy (none, source, destination or both)
+                # Get the checksum validation strategy (none, source, destination or both)
                 verify_checksum = 'both'
                 if not ctx.rse_attrs(dest_rse_id).get('verify_checksum', True):
                     if not ctx.rse_attrs(source_rse_id).get('verify_checksum', True):
@@ -963,7 +963,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     logger(logging.INFO, 'No common checksum method. Verifying destination only.')
                     verify_checksum = 'destination'
 
-                # VI - Fill the transfer dictionary including file_metadata
+                # Fill the transfer dictionary including file_metadata
                 file_metadata = {'request_id': req_id,
                                  'scope': scope,
                                  'name': name,
@@ -1024,7 +1024,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if multihop:
                     continue
 
-                # III - The transfer queued previously is a multihop, but this one is direct.
+                # The transfer queued previously is a multihop, but this one is direct.
                 # Reset the sources, remove the multihop flag
                 if transfers[req_id].get('multihop', False):
                     transfers[req_id].pop('multihop', None)
@@ -1179,19 +1179,19 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     set_requests_state(request_ids=[new_req_id, ], new_state=RequestState.QUEUED, session=session)
                     logger(logging.DEBUG, 'New request created for the transfer between %s and %s : %s', source_rse_name, dest_rse_name, new_req_id)
 
-                    # I - Here we will compute the destination URL
-                    # I.1 - Get destination protocol
+                    # Here we will compute the destination URL
+                    # Get destination protocol
                     dest_rse_id = hop['dest_rse_id']
                     dest_scheme = hop['dest_scheme']
                     dest_protocol = ctx.protocol(dest_rse_id, dest_scheme, 'write')
 
-                    # I.2 - Get dest space token
+                    # Get dest space token
                     dest_spacetoken = None
                     if dest_protocol.attributes and 'extended_attributes' in dest_protocol.attributes and \
                             dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
                         dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
 
-                    # I.3 - Compute the destination url
+                    # Compute the destination url
                     dest_url = __build_dest_url(scope=scope, name=name,
                                                 protocol=dest_protocol,
                                                 dest_rse_attrs=ctx.rse_attrs(dest_rse_id),
@@ -1201,7 +1201,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                 retry_count=retry_count,
                                                 activity=activity)
 
-                    # II - Extend the metadata dictionary with request attributes
+                    # Extend the metadata dictionary with request attributes
                     overwrite, bring_online = True, None
                     if ctx.is_tape_rse(source_rse_id):
                         bring_online = bring_online_local
