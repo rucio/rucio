@@ -627,6 +627,66 @@ def get_dsn(scope, name, dsn):
     return 'other'
 
 
+def __build_source_url(scope, name, path, protocol):
+    source_url = list(protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
+    return source_url
+
+
+def __build_dest_url(scope, name, protocol, dest_rse_attrs, dest_is_deterministic, dest_is_tape, dict_attributes, retry_count, activity):
+    # I.3 - Compute the destination url
+    if dest_is_deterministic:
+        dest_url = list(protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
+    else:
+        # compute dest url in case of non deterministic
+        # naming convention, etc.
+        dsn = get_dsn(scope, name, dict_attributes.get('dsn', None))
+        # DQ2 path always starts with /, but prefix might not end with /
+        naming_convention = dest_rse_attrs.get('naming_convention', None)
+        dest_path = construct_surl(dsn, name, naming_convention)
+        if dest_is_tape:
+            if retry_count or activity == 'Recovery':
+                dest_path = '%s_%i' % (dest_path, int(time.time()))
+
+        dest_url = list(protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
+
+    return dest_url
+
+
+def __rewrite_source_url(source_url, source_sign_url, dest_sign_url, source_scheme):
+    if dest_sign_url == 'gcs':
+        if source_scheme in ['davs', 'https']:
+            source_url += '?copy_mode=push'
+    elif dest_sign_url == 's3':
+        if source_scheme in ['davs', 'https']:
+            source_url += '?copy_mode=push'
+    elif WEBDAV_TRANSFER_MODE:
+        if source_scheme in ['davs', 'https']:
+            source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
+
+    if source_sign_url == 'gcs':
+        source_url = re.sub('davs', 'gclouds', source_url)
+        source_url = re.sub('https', 'gclouds', source_url)
+    elif source_sign_url == 's3':
+        source_url = re.sub('davs', 's3s', source_url)
+        source_url = re.sub('https', 's3s', source_url)
+
+    if source_scheme == 'https+srm':
+        source_url = re.sub('srm', 'https+srm', source_url)
+    return source_url
+
+
+def __rewrite_dest_url(dest_url, dest_sign_url, dest_scheme):
+    if dest_sign_url == 'gcs':
+        dest_url = re.sub('davs', 'gclouds', dest_url)
+        dest_url = re.sub('https', 'gclouds', dest_url)
+    elif dest_sign_url == 's3':
+        dest_url = re.sub('davs', 's3s', dest_url)
+        dest_url = re.sub('https', 's3s', dest_url)
+    if dest_scheme == 'https+srm':
+        dest_url = re.sub('srm', 'https+srm', dest_url)
+    return dest_url
+
+
 @transactional_session
 def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
                                               bring_online=43200, retry_other_fts=False, failover_schemes=None, transfertool=None, logger=logging.log, session=None):
@@ -819,23 +879,17 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
 
                 # I.3 - Compute the destination url
-                if ctx.rse_info(dest_rse_id)['deterministic']:
-                    dest_url = list(dest_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
-                else:
-                    # compute dest url in case of non deterministic
-                    # naming convention, etc.
-                    dsn = get_dsn(scope, name, dict_attributes.get('dsn', None))
-                    # DQ2 path always starts with /, but prefix might not end with /
-                    naming_convention = ctx.rse_attrs(dest_rse_id).get('naming_convention', None)
-                    dest_path = construct_surl(dsn, name, naming_convention)
-                    if ctx.is_tape_rse(dest_rse_id):
-                        if retry_count or activity == 'Recovery':
-                            dest_path = '%s_%i' % (dest_path, int(time.time()))
-
-                    dest_url = list(dest_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
+                dest_url = __build_dest_url(scope=scope, name=name,
+                                            protocol=dest_protocol,
+                                            dest_rse_attrs=ctx.rse_attrs(dest_rse_id),
+                                            dest_is_deterministic=ctx.rse_info(dest_rse_id)['deterministic'],
+                                            dest_is_tape=ctx.is_tape_rse(dest_rse_id),
+                                            dict_attributes=dict_attributes,
+                                            retry_count=retry_count,
+                                            activity=activity)
 
                 # II - Compute the source URL
-                source_url = list(source_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
+                source_url = __build_source_url(scope=scope, name=name, path=path, protocol=source_protocol)
 
                 # III - Extend the metadata dictionary with request attributes
                 overwrite, bring_online = True, None
@@ -853,33 +907,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     overwrite = False
                     transfer_dst_type = "TAPE"
 
-                sign_url = ctx.rse_attrs(dest_rse_id).get('sign_url', None)
-                if sign_url == 'gcs':
-                    dest_url = re.sub('davs', 'gclouds', dest_url)
-                    dest_url = re.sub('https', 'gclouds', dest_url)
-                    if source_scheme in ['davs', 'https']:
-                        source_url += '?copy_mode=push'
-                elif sign_url == 's3':
-                    dest_url = re.sub('davs', 's3s', dest_url)
-                    dest_url = re.sub('https', 's3s', dest_url)
-                    if source_scheme in ['davs', 'https']:
-                        source_url += '?copy_mode=push'
-                elif WEBDAV_TRANSFER_MODE:
-                    if source_scheme in ['davs', 'https']:
-                        source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
-
                 source_sign_url = ctx.rse_attrs(source_rse_id).get('sign_url', None)
-                if source_sign_url == 'gcs':
-                    source_url = re.sub('davs', 'gclouds', source_url)
-                    source_url = re.sub('https', 'gclouds', source_url)
-                elif source_sign_url == 's3':
-                    source_url = re.sub('davs', 's3s', source_url)
-                    source_url = re.sub('https', 's3s', source_url)
-
-                if source_protocol == 'https+srm':
-                    source_url = re.sub('srm', 'https+srm', source_url)
-                if destination_protocol == 'https+srm':
-                    dest_url = re.sub('srm', 'https+srm', dest_url)
+                dest_sign_url = ctx.rse_attrs(dest_rse_id).get('sign_url', None)
+                source_url = __rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=source_scheme)
+                dest_url = __rewrite_dest_url(dest_url, dest_sign_url=dest_sign_url, dest_scheme=dest_scheme)
 
                 use_ipv4 = ctx.rse_attrs(source_rse_id).get('use_ipv4', False) or ctx.rse_attrs(dest_rse_id).get('use_ipv4', False)
 
@@ -995,34 +1026,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # Deprecated, not necessary anymore #3682
 
                 # II - Build the source URL
-                source_url = list(source_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
-                sign_url = ctx.rse_attrs(dest_rse_id).get('sign_url', None)
-                if sign_url == 'gcs':
-                    dest_url = re.sub('davs', 'gclouds', dest_url)
-                    dest_url = re.sub('https', 'gclouds', dest_url)
-                    if source_scheme in ['davs', 'https']:
-                        source_url += '?copy_mode=push'
-                elif sign_url == 's3':
-                    dest_url = re.sub('davs', 's3s', dest_url)
-                    dest_url = re.sub('https', 's3s', dest_url)
-                    if source_scheme in ['davs', 'https']:
-                        source_url += '?copy_mode=push'
-                elif WEBDAV_TRANSFER_MODE:
-                    if source_scheme in ['davs', 'https']:
-                        source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
-
                 source_sign_url = ctx.rse_attrs(source_rse_id).get('sign_url', None)
-                if source_sign_url == 'gcs':
-                    source_url = re.sub('davs', 'gclouds', source_url)
-                    source_url = re.sub('https', 'gclouds', source_url)
-                elif source_sign_url == 's3':
-                    source_url = re.sub('davs', 's3s', source_url)
-                    source_url = re.sub('https', 's3s', source_url)
+                dest_sign_url = ctx.rse_attrs(dest_rse_id).get('sign_url', None)
 
-                if source_protocol == 'https+srm':
-                    source_url = re.sub('srm', 'https+srm', source_url)
-                if destination_protocol == 'https+srm':
-                    dest_url = re.sub('srm', 'https+srm', dest_url)
+                source_url = __build_source_url(scope=scope, name=name, path=path, protocol=source_protocol)
+                source_url = __rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=source_scheme)
 
                 # III - The transfer queued previously is a multihop, but this one is direct.
                 # Reset the sources, remove the multihop flag
@@ -1195,20 +1203,14 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
 
                     # I.3 - Compute the destination url
-                    if ctx.rse_info(dest_rse_id)['deterministic']:
-                        dest_url = list(dest_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
-                    else:
-                        # compute dest url in case of non deterministic
-                        # naming convention, etc.
-                        dsn = get_dsn(scope, name, dict_attributes.get('dsn', None))
-                        # DQ2 path always starts with /, but prefix might not end with /
-                        naming_convention = ctx.rse_attrs(dest_rse_id).get('naming_convention', None)
-                        dest_path = construct_surl(dsn, name, naming_convention)
-                        if ctx.is_tape_rse(dest_rse_id):
-                            if retry_count or activity == 'Recovery':
-                                dest_path = '%s_%i' % (dest_path, int(time.time()))
-
-                        dest_url = list(dest_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
+                    dest_url = __build_dest_url(scope=scope, name=name,
+                                                protocol=dest_protocol,
+                                                dest_rse_attrs=ctx.rse_attrs(dest_rse_id),
+                                                dest_is_deterministic=ctx.rse_info(dest_rse_id)['deterministic'],
+                                                dest_is_tape=ctx.is_tape_rse(dest_rse_id),
+                                                dict_attributes=dict_attributes,
+                                                retry_count=retry_count,
+                                                activity=activity)
 
                     # II - Extend the metadata dictionary with request attributes
                     overwrite, bring_online = True, None
