@@ -86,7 +86,7 @@ class BaseExtractionTool:
             self.logger(logging.DEBUG, '"%s" returned with exitcode %d' % (cmd, exitcode))
             self.is_usable_result = (exitcode == 0)
         except Exception as error:
-            self.logger(logging.DEBUG, 'Failed to execute: "%s"' % exitcode)
+            self.logger(logging.DEBUG, 'Failed to execute: "%s"' % cmd)
             self.logger(logging.DEBUG, error)
         return self.is_usable_result
 
@@ -113,7 +113,7 @@ class BaseExtractionTool:
             self.logger(logging.DEBUG, '"%s" returned with exitcode %d' % (cmd, exitcode))
             return (exitcode == 0)
         except Exception as error:
-            self.logger(logging.DEBUG, 'Failed to execute: "%s"' % exitcode)
+            self.logger(logging.DEBUG, 'Failed to execute: "%s"' % cmd)
             self.logger(logging.DEBUG, error)
         return False
 
