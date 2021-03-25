@@ -627,13 +627,11 @@ def get_dsn(scope, name, dsn):
     return 'other'
 
 
-def __build_source_url(scope, name, path, protocol):
-    source_url = list(protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
-    return source_url
-
-
 def __build_dest_url(scope, name, protocol, dest_rse_attrs, dest_is_deterministic, dest_is_tape, dict_attributes, retry_count, activity):
-    # I.3 - Compute the destination url
+    """
+    Private helper function to build destination URL when retrieving transfers to execute.
+    """
+
     if dest_is_deterministic:
         dest_url = list(protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
     else:
@@ -653,6 +651,9 @@ def __build_dest_url(scope, name, protocol, dest_rse_attrs, dest_is_deterministi
 
 
 def __rewrite_source_url(source_url, source_sign_url, dest_sign_url, source_scheme):
+    """
+    Parametrize source url for some special cases of source and destination schemes
+    """
     if dest_sign_url == 'gcs':
         if source_scheme in ['davs', 'https']:
             source_url += '?copy_mode=push'
@@ -676,6 +677,9 @@ def __rewrite_source_url(source_url, source_sign_url, dest_sign_url, source_sche
 
 
 def __rewrite_dest_url(dest_url, dest_sign_url, dest_scheme):
+    """
+    Parametrize destination url for some special cases of destination schemes
+    """
     if dest_sign_url == 'gcs':
         dest_url = re.sub('davs', 'gclouds', dest_url)
         dest_url = re.sub('https', 'gclouds', dest_url)
@@ -866,7 +870,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             dest_sign_url = ctx.rse_attrs(dest_rse_id).get('sign_url', None)
 
             # Compute the source URL
-            source_url = __build_source_url(scope=scope, name=name, path=path, protocol=source_protocol)
+            source_url = list(source_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
             source_url = __rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=source_scheme)
 
             # If the request_id is not already in the transfer dictionary, need to compute the destination URL
