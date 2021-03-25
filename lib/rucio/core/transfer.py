@@ -791,6 +791,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         if source_rse_id is None or rse is None:
             continue
 
+        if rses and dest_rse_id not in rses:
+            continue
+
         dest_rse_name = ctx.rse_name(dest_rse_id)
         source_rse_name = ctx.rse_name(source_rse_id)
 
@@ -856,9 +859,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
         allow_tape_source = True
         try:
-            if rses and dest_rse_id not in rses:
-                continue
-
             # Get source protocol
             source_protocol = ctx.protocol(source_rse_id, source_scheme, 'read')
 
