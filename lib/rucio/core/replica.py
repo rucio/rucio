@@ -822,8 +822,8 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
     for a givent cache site and filename, return address of the cache node that
     should be prefixed. 
 
-    param: cache_site - cache site
-    param: filename  - filename
+    :param cache_site: Cache site
+    :param filename:  Filename
     """
     vp_endpoint = get_vp_endpoint()
     if not vp_endpoint:
