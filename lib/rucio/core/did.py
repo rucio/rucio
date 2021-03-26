@@ -1416,11 +1416,11 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
                 continue
             if session.bind.dialect.name == 'postgresql':
                 query = query.filter(getattr(models.DataIdentifier, k).
-                                     like(v.replace('*', '%').replace('_', '\_'),  # NOQA: W605
+                                     like(v.replace('*', '%').replace('_', r'\_'),
                                           escape='\\'))
             else:
                 query = query.filter(getattr(models.DataIdentifier, k).
-                                     like(v.replace('*', '%').replace('_', '\_'), escape='\\'))  # NOQA: W605
+                                     like(v.replace('*', '%').replace('_', r'\_'), escape='\\'))
         elif k == 'created_before':
             created_before = str_to_date(v)
             query = query.filter(models.DataIdentifier.created_at <= created_before)
