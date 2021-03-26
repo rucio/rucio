@@ -810,7 +810,7 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updat
 
 def get_vp_endpoint():
     """
-    VP endpoint is the Virtual Placement server. 
+    VP endpoint is the Virtual Placement server.
     Once VP is integrated in Rucio it won't be needed.
     """
     vp_endpoint = config_get('virtual_placement', 'vp_endpoint', default='')
@@ -820,7 +820,7 @@ def get_vp_endpoint():
 def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
     """
     for a givent cache site and filename, return address of the cache node that
-    should be prefixed. 
+    should be prefixed.
 
     :param cache_site: Cache site
     :param filename:  Filename
