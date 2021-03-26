@@ -166,7 +166,7 @@ oracle_extras = ['cx_oracle==8.0.1']
 postgresql_extras = ['psycopg2-binary==2.8.6']
 mysql_extras = ['PyMySQL']
 kerberos_extras = ['kerberos>=1.3.0', 'pykerberos>=1.2.1', 'requests-kerberos>=0.12.0']
-globus_extras = ['PyYAML==5.1.1', 'globus-sdk==1.8.0']
+globus_extras = ['PyYAML==5.4', 'globus-sdk==1.8.0']
 saml_extras = ['python3-saml>=1.6.0']
 dev_extras = parse_requirements(requirements_files=['etc/pip-requires-test', ])
 requires = parse_requirements(requirements_files=requirements_files)
