@@ -2310,7 +2310,6 @@ can be found in ' + Color.BOLD + 'https://rucio.readthedocs.io/en/latest/rse_exp
 can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
     list_suspicious_replicas_parser.add_argument('--younger_than', dest='younger_than', action='store', help='List files that have been marked suspicious since the date "younger_than".')
     list_suspicious_replicas_parser.add_argument('--nattempts', dest='nattempts', action='store', help='Minimum number of failed attempts to access a suspicious file.')
-    list_suspicious_replicas_parser.add_argument('--state', dest='state', action='store', help='Either "BAD" or "SUSPICIOUS". If not specified, both bad and suspicious file are listed.')
 
     # The list-rses-attributes command
     list_rse_attributes_parser = subparsers.add_parser('list-rse-attributes', help='List the attributes of an RSE.', description='This command is useful to create RSE filter expressions.')
