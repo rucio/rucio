@@ -28,10 +28,10 @@
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from __future__ import print_function
-
 import hashlib
 import os
 import sys
@@ -40,15 +40,14 @@ import unittest
 from datetime import datetime, timedelta
 from json import dumps, loads
 from xml.etree import ElementTree
-
 import pytest
 import xmltodict
 from werkzeug.datastructures import MultiDict
-
 from rucio.client.baseclient import BaseClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
+from rucio.core.config import set as cconfig_set
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, UnsupportedOperation,
                                     RucioException, ReplicaIsLocked, ReplicaNotFound, ScopeNotFound,
@@ -69,10 +68,43 @@ from rucio.db.sqla.constants import DIDType, ReplicaState, BadPFNStatus, OBSOLET
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, rse_name_generator, headers, auth, Mime, accept
 
+
 if sys.version_info >= (3, 3):
     from unittest import mock
 else:
     import mock
+
+# This method will be used by the mock to replace requests.get to VP server
+
+
+def mocked_VP_requests_get(*args, **kwargs):
+    class MockResponse:
+        def __init__(self, json_data, status_code):
+            self.json_data = json_data
+            self.status_code = status_code
+            self.ok = True
+
+        def json(self):
+            return self.json_data
+
+    if args[0] == 'https://vps-mock.cern.ch/serverRanges':
+        return MockResponse({
+            "AGLT2": {
+                "servers": [
+                    ["192.41.231.239:1094", "100"],
+                    ["192.41.230.42:1094", "100"],
+                    ["192.41.230.43:1094", "100"]
+                ],
+                "ranges": [
+                    [1, 0.3333],
+                    [2, 0.6666],
+                    [0, 1]
+                ]
+            }}, 200)
+    if args[0] == 'https://vps-mock.cern.ch/ds/4/scope:name':
+        return MockResponse(["AGLT2_VP_DISK", "MWT2_VP_DISK", "NET2_VP_DISK"], 200)
+
+    return MockResponse(None, 404)
 
 
 class TestReplicaCore(unittest.TestCase):
@@ -82,6 +114,64 @@ class TestReplicaCore(unittest.TestCase):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
+
+    @mock.patch('rucio.core.replica.requests.get', side_effect=mocked_VP_requests_get)
+    def test_cache_replicas(self, mock_get):
+        """ REPLICA (CORE): Test listing replicas with cached root protocol """
+
+        rse = 'APERTURE_%s' % rse_name_generator()
+        rse_id = add_rse(rse, **self.vo)
+
+        add_protocol(rse_id, {'scheme': 'root',
+                              'hostname': 'root.aperture.com',
+                              'port': 1409,
+                              'prefix': '//test/chamber/',
+                              'impl': 'rucio.rse.protocols.xrootd.Default',
+                              'domains': {
+                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        add_protocol(rse_id, {'scheme': 'http',
+                              'hostname': 'root.aperture.com',
+                              'port': 1409,
+                              'prefix': '//test/chamber/',
+                              'impl': 'rucio.rse.protocols.xrootd.Default',
+                              'domains': {
+                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+
+        tmp_scope = InternalScope('mock', **self.vo)
+        root = InternalAccount('root', **self.vo)
+
+        files = []
+
+        name = 'file_%s' % generate_uuid()
+        hstr = hashlib.md5(('%s:%s' % (tmp_scope, name)).encode('utf-8')).hexdigest()
+        pfn = 'root://root.aperture.com:1409//test/chamber/mock/%s/%s/%s' % (hstr[0:2], hstr[2:4], name)
+        files.append({'scope': tmp_scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef', 'pfn': pfn})
+
+        name = 'element_%s' % generate_uuid()
+        hstr = hashlib.md5(('%s:%s' % (tmp_scope, name)).encode('utf-8')).hexdigest()
+        pfn = 'http://root.aperture.com:1409//test/chamber/mock/%s/%s/%s' % (hstr[0:2], hstr[2:4], name)
+        files.append({'scope': tmp_scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef', 'pfn': pfn})
+
+        add_replicas(rse_id=rse_id, files=files, account=root)
+
+        cconfig_set('clientcachemap', 'BLACKMESA', 'AGLT2')
+        cconfig_set('virtual_placement', 'vp_endpoint', 'https://vps-mock.cern.ch')
+
+        for rep in list_replicas(
+                dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                schemes=['root'],
+                domain='wan',
+                client_location={'site': 'BLACKMESA'}):
+            assert list(rep['pfns'].keys())[0].count('root://') == 2
+
+        for rep in list_replicas(
+                dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                schemes=['root'],
+                domain='wan',
+                client_location={'site': rse}):
+            assert list(rep['pfns'].keys())[0].count('root://') == 1
 
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
