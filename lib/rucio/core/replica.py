@@ -28,7 +28,7 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Ilija Vukotic <ivukotic@cern.ch>, 2020
+# - Ilija Vukotic <ivukotic@cern.ch>, 2020-2021
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
@@ -40,13 +40,17 @@
 
 from __future__ import print_function
 
+import logging
 from collections import defaultdict
 from copy import deepcopy
 from curses.ascii import isprint
 from datetime import datetime, timedelta
 from json import dumps
 from re import match
+import requests
 from traceback import format_exc
+from struct import unpack
+from hashlib import sha256
 
 from six import string_types
 from sqlalchemy import func, and_, or_, exists, not_, update
@@ -72,6 +76,11 @@ from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailab
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
                                    DEFAULT_SCHEMA_NAME, BASE)
 from rucio.rse import rsemanager as rsemgr
+
+from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
+
+REGION = make_region().configure('dogpile.cache.memory', expiration_time=60)
 
 
 @read_session
@@ -800,6 +809,54 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updat
             {'scope': scope, 'name': name} in files and files.remove({'scope': scope, 'name': name})
 
 
+def get_vp_endpoint():
+    """
+    VP endpoint is the Virtual Placement server.
+    Once VP is integrated in Rucio it won't be needed.
+    """
+    vp_endpoint = config_get('virtual_placement', 'vp_endpoint', default='')
+    return vp_endpoint
+
+
+def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
+    """
+    for a givent cache site and filename, return address of the cache node that
+    should be prefixed.
+
+    :param cache_site: Cache site
+    :param filename:  Filename
+    """
+    vp_endpoint = get_vp_endpoint()
+    if not vp_endpoint:
+        return ''
+
+    x_caches = REGION.get('CacheSites')
+    if x_caches is NO_VALUE:
+        try:
+            response = requests.get('{}/serverRanges'.format(vp_endpoint), verify=False)
+            if response.ok:
+                x_caches = response.json()
+                REGION.set('CacheSites', x_caches)
+            else:
+                REGION.set('CacheSites', {'could not reload': ''})
+                return ''
+        except requests.exceptions.RequestException as re:
+            REGION.set('CacheSites', {'could not reload': ''})
+            logger(logging.WARNING, 'In get_multi_cache_prefix, could not access {}. Excaption:{}'.format(vp_endpoint, re))
+            return ''
+
+    if cache_site not in x_caches:
+        return ''
+
+    xcache_site = x_caches[cache_site]
+    h = float(
+        unpack('Q', sha256(filename.encode('utf-8')).digest()[:8])[0]) / 2**64
+    for irange in xcache_site['ranges']:
+        if h < irange[1]:
+            return xcache_site['servers'][irange[0]][0]
+    return ''
+
+
 def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                    schemes, files, rse_clause, rse_expression, client_location, domain,
                    sign_urls, signature_lifetime, constituents, resolve_parents,
@@ -1013,7 +1070,6 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         if domain == 'wan' and protocol.attributes['scheme'] in ['root', 'http', 'https'] and client_location:
 
                             if 'site' in client_location and client_location['site']:
-
                                 # is the RSE site-configured?
                                 rse_site_attr = get_rse_attribute('site', rse_id, session=session)
                                 replica_site = ['']
@@ -1023,19 +1079,29 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 # does it match with the client? if not, it's an outgoing connection
                                 # therefore the internal proxy must be prepended
                                 if client_location['site'] != replica_site:
-                                    root_proxy_internal = config_get('root-proxy-internal',    # section
-                                                                     client_location['site'],  # option
-                                                                     default='',               # empty string to circumvent exception
-                                                                     session=session)
+                                    cache_site = config_get('clientcachemap', client_location['site'], default='', session=session)
+                                    if cache_site != '':
+                                        # print('client', client_location['site'], 'has cache:', cache_site)
+                                        # print('filename', name)
+                                        selected_prefix = get_multi_cache_prefix(cache_site, name)
+                                        if selected_prefix:
+                                            pfn = 'root://' + selected_prefix + '//' + pfn.replace('davs://', 'root://')
+                                    else:
+                                        # print('site:', client_location['site'], 'has no cache')
+                                        # print('lets check if it has defined an internal root proxy ')
+                                        root_proxy_internal = config_get('root-proxy-internal',    # section
+                                                                         client_location['site'],  # option
+                                                                         default='',               # empty string to circumvent exception
+                                                                         session=session)
 
-                                    if root_proxy_internal:
-                                        # TODO: XCache does not seem to grab signed URLs. Doublecheck with XCache devs.
-                                        #       For now -> skip prepending XCache for GCS.
-                                        if 'storage.googleapis.com' in pfn or 'atlas-google-cloud.cern.ch' in pfn or 'amazonaws.com' in pfn:
-                                            pass  # ATLAS HACK
-                                        else:
-                                            # don't forget to mangle gfal-style davs URL into generic https URL
-                                            pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
+                                        if root_proxy_internal:
+                                            # TODO: XCache does not seem to grab signed URLs. Doublecheck with XCache devs.
+                                            #       For now -> skip prepending XCache for GCS.
+                                            if 'storage.googleapis.com' in pfn or 'atlas-google-cloud.cern.ch' in pfn or 'amazonaws.com' in pfn:
+                                                pass  # ATLAS HACK
+                                            else:
+                                                # don't forget to mangle gfal-style davs URL into generic https URL
+                                                pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
 
                         # PFNs don't have concepts, therefore quickly encapsulate in a tuple
                         # ('pfn', 'domain', 'priority', 'client_extract')
@@ -2184,9 +2250,9 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                        'oracle')\
             .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
                          models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                         models.RSEFileAssociation.state != ReplicaState.BEING_DELETED)).\
-            filter(models.DataIdentifierAssociation.scope == scope,
-                   models.DataIdentifierAssociation.name == name)
+                         models.RSEFileAssociation.state != ReplicaState.BEING_DELETED))\
+            .filter(models.DataIdentifierAssociation.scope == scope,
+                    models.DataIdentifierAssociation.name == name)
 
         if restrict_rses is not None:
             if len(restrict_rses) < 10:
@@ -2584,7 +2650,7 @@ def list_dataset_replicas_bulk(names_by_intscope, session=None):
 
 
 @stream_session
-def list_dataset_replicas_vp(scope, name, deep=False, session=None):
+def list_dataset_replicas_vp(scope, name, deep=False, session=None, logger=logging.log):
     """
     List dataset replicas for a DID (scope:name) using the
     Virtual Placement service.
@@ -2598,20 +2664,23 @@ def list_dataset_replicas_vp(scope, name, deep=False, session=None):
 
     :returns: If VP exists and there is at least one non-TAPE replica, returns a list of dicts of sites
     """
-
+    vp_endpoint = get_vp_endpoint()
     vp_replies = ['other']
     nr_replies = 5  # force limit reply size
 
+    if not vp_endpoint:
+        return vp_replies
+
     try:
-        import requests
-        vp_replies = requests.get('http://vpservice.cern.ch/ds/%s/%s:%s' % (nr_replies, scope, name),
+        vp_replies = requests.get('{}/ds/{}/{}:{}'.format(vp_endpoint, nr_replies, scope, name),
+                                  verify=False,
                                   timeout=1)
         if vp_replies.status_code == 200:
             vp_replies = vp_replies.json()
         else:
             vp_replies = ['other']
-    except Exception as exc:
-        print(exc)
+    except requests.exceptions.RequestException as re:
+        logger(logging.ERROR, 'In list_dataset_replicas_vp, could not access {}. Error:{}'.format(vp_endpoint, re))
         vp_replies = ['other']
 
     if vp_replies != ['other']:
