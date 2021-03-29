@@ -1,0 +1,14 @@
+==============================
+1.25.1.post2 (Clients release)
+==============================
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: Use before assignment in downloadclient extractools `#4493 <https://github.com/rucio/rucio/issues/4493>`_
+- Clients: Regression in nrandom hadling for rucio download `#4496 <https://github.com/rucio/rucio/issues/4496>`_
