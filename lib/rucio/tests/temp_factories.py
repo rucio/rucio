@@ -98,9 +98,9 @@ class TemporaryRSEFactory:
             # So running test in parallel results in some tests failing on foreign key errors.
             rse_core.del_rse(rse_id)
 
-    def _make_rse(self, scheme, protocol_impl):
+    def _make_rse(self, scheme, protocol_impl, add_rse_kwargs):
         rse_name = rse_name_generator()
-        rse_id = rse_core.add_rse(rse_name, vo=self.vo)
+        rse_id = rse_core.add_rse(rse_name, vo=self.vo, **add_rse_kwargs)
         rse_core.add_protocol(rse_id=rse_id, parameter={
             'scheme': scheme,
             'hostname': 'host%d' % len(self.created_rses),
@@ -119,14 +119,14 @@ class TemporaryRSEFactory:
         self.created_rses.append(rse_id)
         return rse_name, rse_id
 
-    def make_posix_rse(self):
-        return self._make_rse(scheme='file', protocol_impl='rucio.rse.protocols.posix.Default')
+    def make_posix_rse(self, **kwargs):
+        return self._make_rse(scheme='file', protocol_impl='rucio.rse.protocols.posix.Default', add_rse_kwargs=kwargs)
 
-    def make_mock_rse(self):
-        return self._make_rse(scheme='MOCK', protocol_impl='rucio.rse.protocols.mock.Default')
+    def make_mock_rse(self, **kwargs):
+        return self._make_rse(scheme='MOCK', protocol_impl='rucio.rse.protocols.mock.Default', add_rse_kwargs=kwargs)
 
-    def make_xroot_rse(self):
-        return self._make_rse(scheme='root', protocol_impl='rucio.rse.protocols.xrootd.Default')
+    def make_xroot_rse(self, **kwargs):
+        return self._make_rse(scheme='root', protocol_impl='rucio.rse.protocols.xrootd.Default', add_rse_kwargs=kwargs)
 
 
 class TemporaryFileFactory:
