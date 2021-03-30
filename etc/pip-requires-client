@@ -3,7 +3,7 @@ setuptools>=36.8.0,<45.0.0; python_version < '3.0'          # Python packaging u
 setuptools>=45.0.0,<=50.3.2; python_version >= '3.0'        # Python packaging utilities
 argcomplete>=1.9.0,<=1.12.2                                 # Bash tab completion for argparse
 requests>=2.20.0,<=2.25.0                                   # Python HTTP for Humans.
-urllib3>=1.24.2,<=1.26.3                                    # HTTP library with thread-safe connection pooling, file post, etc.
+urllib3>=1.24.2,<=1.26.4                                    # HTTP library with thread-safe connection pooling, file post, etc.
 dogpile.cache>=0.6.5,<0.7.0; python_version < '3.0'         # Caching API plugins (0.7.0 only Py3 compatible)
 dogpile.cache>=0.6.5,<=1.1.1; python_version >= '3.0'       # Caching API plugins
 boto>=2.49.0,<2.50.0                                        # S3 boto protocol
