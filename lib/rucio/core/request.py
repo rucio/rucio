@@ -484,13 +484,11 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
         if err_msg:
             update_items['err_msg'] = err_msg
 
-        if transfer_id:
-            rowcount = session.query(models.Request).filter_by(id=request_id, external_id=transfer_id).update(update_items, synchronize_session=False)
+        request = get_request(request_id, session=session)
+        if new_state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST] and (request["external_id"] != transfer_id):
+            logger(logging.ERROR, "Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
         else:
-            if new_state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST]:
-                logger(logging.ERROR, "Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
-            else:
-                rowcount = session.query(models.Request).filter_by(id=request_id).update(update_items, synchronize_session=False)
+            rowcount = session.query(models.Request).filter_by(id=request_id).update(update_items, synchronize_session=False)
     except IntegrityError as error:
         raise RucioException(error.args)
 
