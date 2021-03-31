@@ -24,9 +24,11 @@
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Christoph Ames <christoph.ames@cern.ch>, 2021
 
 """
-Suspicious-Replica-Recoverer is a daemon that declares suspicious replicas as bad if they are found available on other RSE.
+Suspicious-Replica-Recoverer is a daemon that deals with suspicious replicas based on if they are found available on other RSEs
+or if they are the last remaining copy, on how many suspicious replicas are on a given RSE and on a replica's metadata.
 Consequently, automatic replica recovery is triggered via necromancer daemon, which creates a rule for such bad replica(s).
 """
 
@@ -42,30 +44,32 @@ from datetime import datetime, timedelta
 from re import match
 from sys import argv
 
+import json
+
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get_bool
-from rucio.common.exception import DatabaseException, VONotFound, InvalidRSEExpression
-from rucio.common.logging import setup_logging, formatted_logger
+from rucio.common.exception import DatabaseException, VONotFound
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.types import InternalAccount
 from rucio.common.utils import daemon_sleep
+from rucio.common.constants import SuspiciousAvailability
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
-from rucio.core.replica import list_replicas, declare_bad_file_replicas, get_suspicious_files
+from rucio.core.did import get_metadata
+from rucio.core.replica import list_replicas, get_suspicious_files, add_bad_pfns, declare_bad_file_replicas
 from rucio.core.rse_expression_parser import parse_expression
+
 from rucio.core.vo import list_vos
-from rucio.db.sqla.constants import BadFilesStatus
 from rucio.db.sqla.util import get_db_time
 
 GRACEFUL_STOP = threading.Event()
 
 
-def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=None,
-                                    max_replicas_per_rse=100, sleep_time=60):
-
+def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vos=None, limit_suspicious_files_on_rse=5, sleep_time=300):
     """
-    Main loop to check for available replicas which are labeled as suspicious
+    Main loop to check for available replicas which are labeled as suspicious.
 
     Gets a list of suspicious replicas that are listed as AVAILABLE in 'replicas' table
     and available on other RSE. Finds surls of these replicas and declares them as bad.
@@ -76,12 +80,13 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
                          but 'AVAILABLE' on other RSE(s).
     :param nattempts: The minimum number of appearances in the bad_replica DB table
                       in order to appear in the resulting list of replicas for recovery.
-    :param rse_expression: Search for suspicious replicas on RSEs matching the 'rse_expression'.
     :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
                 If None, we either use all VOs if run from "def",
-    :param max_replicas_per_rse: Maximum number of replicas which are allowed to be labeled as bad per RSE.
-                                 If more is found, processing is skipped and warning is printed.
-    :param sleep_time: Thread sleep time after each chunk of work.
+    :param limit_suspicious_files_on_rse: Maximum number of suspicious replicas on an RSE before that RSE
+                                          is considered problematic and the suspicious replicas on that RSE
+                                          are labeled as 'TEMPORARY_UNAVAILABLE'.
+    :param sleep_time: The daemon should not run too often. If the daemon's runtime is quicker than sleep_time, then
+                       it should sleep until sleep_time is over.
     :returns: None
     """
 
@@ -90,10 +95,13 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
 
     executable = argv[0]
 
+    prepend_str = 'replica_recoverer: '
+    logger = formatted_logger(logging.log, prepend_str + '%s')
+
     multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
     if not multi_vo:
         if vos:
-            logging.warning('Ignoring argument vos, this is only applicable in a multi-VO setup.')
+            logger(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')
         vos = ['def']
     else:
         if vos:
@@ -103,24 +111,7 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
                 raise VONotFound(msg)
         else:
             vos = [v['vo'] for v in list_vos()]
-        logging.info('replica_recoverer: This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
-
-    # Don't require a result from the expression at each VO, only raise if we can't get a result from any of them
-    rses = []
-    exceptions_raised = 0
-    for vo in vos:
-        try:
-            parsed_rses = parse_expression(expression=rse_expression, filter_={'vo': vo})
-        except InvalidRSEExpression:
-            exceptions_raised += 1
-            parsed_rses = []
-        for rse in parsed_rses:
-            rses.append(rse['id'])
-    if exceptions_raised == len(vos):
-        raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
-
-    rses.sort()
-    executable += ' --rse-expression ' + str(rses)
+        logger(logging.INFO, 'replica_recoverer: This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
 
     sanity_check(executable=executable, hostname=socket.gethostname())
 
@@ -138,113 +129,235 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
         try:
             # issuing the heartbeat for a second time to make all workers aware of each other (there is only 1 worker allowed for this daemon)
             heartbeat = live(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
-            prepend_str = 'replica_recoverer [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-            logger = formatted_logger(logging.log, prepend_str + '%s')
+            total_workers = heartbeat['nr_threads']
+            worker_number = heartbeat['assign_thread'] + 1
 
             # there is only 1 worker allowed for this daemon
-            if heartbeat['nr_threads'] != 1:
-                logger(logging.ERROR, 'Another running instance on %s has been detected. Stopping gracefully.', socket.gethostname())
+            if total_workers != 1:
+                logger(logging.ERROR, 'replica_recoverer: Another running instance on %s has been detected. Stopping gracefully.', socket.gethostname())
                 die(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
                 break
 
+            prepend_str = 'replica_recoverer[%s/%s]: ' % (worker_number, total_workers)
+            logger = formatted_logger(logging.log, prepend_str + '%s')
+
             start = time.time()
 
-            logger(logging.INFO, 'ready to query replicas at RSE %s,'
-                   + ' reported suspicious in the last %i days at least %i times which are available on other RSEs.',  # NOQA: W503
-                   rse_expression, younger_than, nattempts)
+            try:
+                json_file = open("/opt/rucio/etc/suspicious_replica_recoverer.json")
+            except:
+                logger(logging.WARNING, "An error occured whilst trying to open the JSON file.")
+                break
+
+            try:
+                json_data = json.load(json_file)
+            except ValueError:
+                logger(logging.WARNING, "No JSON object could be decoded.")
+
+            # Checking that the json file is formatedd properly.
+            for i, entry in enumerate(json_data):
+                if "datatype" not in entry or "action" not in entry:
+                    logger(logging.ERROR, 'Entry %s in the json file is incomplete (missing either "datatype" or "action").', i)
+                    break
+
+            logger(logging.INFO, 'Ready to query replicas that were reported as suspicious in the last %s days at least %s times.', younger_than, nattempts)
 
             getfileskwargs = {'younger_than': younger_than,
                               'nattempts': nattempts,
                               'exclude_states': ['B', 'R', 'D', 'L', 'T'],
-                              'available_elsewhere': True,
                               'is_suspicious': True}
 
-            # Don't require a result from the expression at each VO, only raise if we can't get a result from any of them
-            recoverable_replicas = []
-            exceptions_raised = 0
             for vo in vos:
-                try:
-                    recoverable_replicas.extend(get_suspicious_files(rse_expression, filter_={'vo': vo}, **getfileskwargs))
-                except InvalidRSEExpression:
-                    exceptions_raised += 1
-            if exceptions_raised == len(vos):
-                raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
+                logger(logging.INFO, 'Start replica recovery for VO: %s', vo)
+                recoverable_replicas = {}
+                if vo not in recoverable_replicas:
+                    recoverable_replicas[vo] = {}
 
-            logger(logging.INFO, 'suspicious replica query took %.2f seconds, total of %i replicas were found.',
-                   time.time() - start, len(recoverable_replicas))
+                # rse_list = sorted([rse for rse in parse_expression('enable_suspicious_file_recovery=true', filter={'vo': vo})], key=lambda k: k['rse'])
+                rse_list = sorted([rse for rse in parse_expression('enable_suspicious_file_recovery=true') if rse['vo'] == vo], key=lambda k: k['rse'])
 
-            if not recoverable_replicas and not once:
-                logger(logging.INFO, 'found %i recoverable suspicious replicas.', len(recoverable_replicas))
+                logger(logging.DEBUG, "List of RSEs with enable_suspicious_file_recovery = True:")
+                for i in rse_list:
+                    logger(logging.DEBUG, '%s', i)
+
+                for rse in rse_list:
+                    time_start_rse = time.time()
+                    rse_expr = rse['rse']
+                    cnt_surl_not_found = 0
+                    if rse_expr not in recoverable_replicas[vo]:
+                        recoverable_replicas[vo][rse_expr] = {}
+                    # Get a dictionary of the suspicious replicas on the RSE that have available copies on other RSEs
+                    suspicious_replicas_avail_elsewhere = get_suspicious_files(rse_expr, available_elsewhere=SuspiciousAvailability["EXIST_COPIES"].value, filter_={'vo': vo}, **getfileskwargs)
+                    # Get the suspicious replicas that are the last remaining copies
+                    suspicious_replicas_last_copy = get_suspicious_files(rse_expr, available_elsewhere=SuspiciousAvailability["LAST_COPY"].value, filter_={'vo': vo}, **getfileskwargs)
+
+                    logger(logging.DEBUG, 'Suspicious replicas on %s:', rse_expr)
+                    logger(logging.DEBUG, 'Replicas with copies on other RSEs (%s):', len(suspicious_replicas_avail_elsewhere))
+                    for i in suspicious_replicas_avail_elsewhere:
+                        logger(logging.DEBUG, '%s', i)
+                    logger(logging.DEBUG, 'Replicas that are the last remaining copy (%s):', len(suspicious_replicas_last_copy))
+                    for i in suspicious_replicas_last_copy:
+                        logger(logging.DEBUG, '%s', i)
+
+                    # RSEs that aren't available shouldn't have suspicious replicas showing up. Skip to next RSE.
+                    if (rse['availability'] not in {4, 5, 6, 7}) and ((len(suspicious_replicas_avail_elsewhere) > 0) or (len(suspicious_replicas_last_copy) > 0)):
+                        logger(logging.WARNING, "%s is not available (availability: %s), yet it has suspicious replicas. Please investigate. \n", rse_expr, rse['availability'])
+                        continue
+
+                    if suspicious_replicas_avail_elsewhere:
+                        for replica in suspicious_replicas_avail_elsewhere:
+                            if vo == replica['scope'].vo:
+                                scope = replica['scope']
+                                rep_name = replica['name']
+                                rse_id = replica['rse_id']
+                                surl_not_found = True
+                                for rep in list_replicas([{'scope': scope, 'name': rep_name}]):
+                                    for rse_ in rep['rses']:
+                                        if rse_ == rse_id:
+                                            recoverable_replicas[vo][rse_expr][rep_name] = {'name': rep_name, 'rse_id': rse_id, 'scope': scope, 'surl': rep['rses'][rse_][0], 'available_elsewhere': True}
+                                            surl_not_found = False
+                                if surl_not_found:
+                                    cnt_surl_not_found += 1
+                                    logger(logging.WARNING, 'Skipping suspicious replica %s on %s, no surls were found.', rep_name, rse_expr)
+
+                    if suspicious_replicas_last_copy:
+                        for replica in suspicious_replicas_last_copy:
+                            if vo == replica['scope'].vo:
+                                scope = replica['scope']
+                                rep_name = replica['name']
+                                rse_id = replica['rse_id']
+                                surl_not_found = True
+                                # Should only return one rse, as there is only one replica remaining
+                                for rep in list_replicas([{'scope': scope, 'name': rep_name}]):
+                                    recoverable_replicas[vo][rse_expr][rep_name] = {'name': rep_name, 'rse_id': rse_id, 'scope': scope, 'surl': rep['rses'][rse_id][0], 'available_elsewhere': False}
+                                    surl_not_found = False
+                                if surl_not_found:
+                                    cnt_surl_not_found += 1
+                                    logger(logging.WARNING, 'Skipping suspicious replica %s on %s, no surls were found.', rep_name, rse_expr)
+
+                    logger(logging.INFO, 'Suspicious replica query took %s seconds on %s and found %i suspicious replicas. The pfns for %s/%s replicas were found.',
+                           time.time() - time_start_rse, rse_expr, len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy),
+                           len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy) - cnt_surl_not_found, len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy))
+
+                    if len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy) != 0:
+                        logger(logging.DEBUG, 'List of replicas on %s for which the pfns have been found:', rse_expr)
+                        for i in recoverable_replicas[vo][rse_expr]:
+                            logger(logging.DEBUG, '%s', i)
+
+                # Log file is long and hard to read -> implement some spacing
+                logger(logging.INFO, 'All RSEs have been checked for suspicious replicas. Total time: %s seconds.', time.time() - start)
+                logger(logging.INFO, 'Begin check for problematic RSEs.')
+                time_start_check_probl = time.time()
+
+                # If an RSE has more than *limit_suspicious_files_on_rse* suspicious files, then there might be a problem with the RSE.
+                # The suspicious files are marked as temporarily unavailable.
+                list_problematic_rses = []
+                for rse_key in list(recoverable_replicas[vo].keys()):
+                    if len(recoverable_replicas[vo][rse_key].values()) > limit_suspicious_files_on_rse:
+                        list_problematic_rses.append(rse_key)
+                        surls_list = []
+                        for replica_value in recoverable_replicas[vo][rse_key].values():
+                            surls_list.append(replica_value['surl'])
+
+                        add_bad_pfns(pfns=surls_list, account=InternalAccount('root', vo=vo), state='TEMPORARY_UNAVAILABLE')
+
+                        logger(logging.INFO, "%s is problematic (more than %s suspicious replicas). Send a Jira ticket for the RSE (to be implemented).", rse_key, limit_suspicious_files_on_rse)
+                        logger(logging.INFO, "The following files on %s have been marked as TEMPORARILY UNAVAILABLE:", rse_key)
+                        for rse_values in recoverable_replicas[vo][rse_key].values():
+                            logger(logging.INFO, 'Scope: %s    Name: %s', rse_values['scope'], rse_values['name'])
+                        # Remove the RSE from the dictionary as it has been dealt with.
+                        del recoverable_replicas[vo][rse_key]
+
+                logger(logging.INFO, "Following RSEs were deemed problematic (total: %s)", len(list_problematic_rses))
+                for rse in list_problematic_rses:
+                    logger(logging.INFO, "%s", rse)
+
+                # Label suspicious replicas as bad if they have oher copies on other RSEs (that aren't also marked as suspicious).
+                # If they are the last remaining copies, deal with them differently.
+                for rse_key in list(recoverable_replicas[vo].keys()):
+                    files_to_be_declared_bad = []
+                    files_to_be_ignored = []
+                    # Remove RSEs from dictionary that don't have any suspicious replicas
+                    if len(recoverable_replicas[vo][rse_key]) == 0:
+                        del recoverable_replicas[vo][rse_key]
+                        continue
+                    # Get the rse_id by going to one of the suspicious replicas from that RSE and reading it from there
+                    rse_id = list(recoverable_replicas[vo][rse_key].values())[0]['rse_id']
+                    for replica_key in list(recoverable_replicas[vo][rse_key].keys()):
+                        if recoverable_replicas[vo][rse_key][replica_key]['available_elsewhere'] is True:
+                            # Replicas with other copies on at least one other RSE can safely be labeled as bad
+                            files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key]['surl'])
+                            # Remove replica from dictionary
+                            del recoverable_replicas[vo][rse_key][replica_key]
+                        elif recoverable_replicas[vo][rse_key][replica_key]['available_elsewhere'] is False:
+                            if (recoverable_replicas[vo][rse_key][replica_key]['name'].startswith("log.")) or (recoverable_replicas[vo][rse_key][replica_key]['name'].startswith("user")):
+                                # Don't keep log files or user files
+                                files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key]['surl'])
+                                del recoverable_replicas[vo][rse_key][replica_key]
+                            else:
+                                # Deal with replicas based on their metadata.
+                                file_metadata = get_metadata(recoverable_replicas[vo][rse_key][replica_key]["scope"], recoverable_replicas[vo][rse_key][replica_key]["name"])
+                                if file_metadata["datatype"] is None:  # "None" type has no function "split()"
+                                    files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key]['surl'])
+                                    continue
+                                for i in json_data:
+                                    if i["datatype"] == file_metadata["datatype"].split("_")[-1]:
+                                        action = i["action"]
+                                        if action == "ignore":
+                                            files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key]['surl'])
+                                        elif action == "declare bad":
+                                            files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key]['surl'])
+                                        else:
+                                            logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Match for the metadata 'datatype' (%s) of replica found in json file, but no match for 'action' (%s)", rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'], i["datatype"], i["action"])
+                                        break
+                                    else:
+                                        # If no policy has be set, default to ignoring the file (no action taken).
+                                        files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key]['surl'])
+
+                    logger(logging.INFO, '(%s) Remaining replicas (pfns) that will be ignored:', rse_key)
+                    for i in files_to_be_ignored:
+                        logger(logging.INFO, '%s', i)
+                    logger(logging.INFO, '(%s) Remaining replica (pfns) that will be declared BAD:', rse_key)
+                    for i in files_to_be_declared_bad:
+                        logger(logging.INFO, '%s', i)
+                    logger(logging.INFO, 'Ready to declare %s bad replica(s) on %s (RSE id: %s).', len(files_to_be_declared_bad), rse_key, str(rse_id))
+
+                    declare_bad_file_replicas(pfns=files_to_be_declared_bad, reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), session=None)
+
+                    logger(logging.INFO, 'Finished declaring bad replicas on %s.\n', rse_key)
+
+                logger(logging.INFO, 'Finished checking for problematic RSEs and declaring bad replicas. Total time: %s seconds.', time.time() - time_start_check_probl)
+
+                time_passed = time.time() - start
+                logger(logging.INFO, 'Total time: %s seconds', time_passed)
                 daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
-            else:
-                logger(logging.INFO, 'looking for replica surls.')
-
-                start = time.time()
-                surls_to_recover = {}  # dictionary of { vo1: {rse1: [surl1, surl2, ... ], rse2: ...}, vo2:... }
-                cnt_surl_not_found = 0
-                for replica in recoverable_replicas:
-                    scope = replica['scope']
-                    name = replica['name']
-                    vo = scope.vo
-                    rse = replica['rse']
-                    rse_id = replica['rse_id']
-                    if GRACEFUL_STOP.is_set():
-                        break
-                    if vo not in surls_to_recover:
-                        surls_to_recover[vo] = {}
-                    if rse_id not in surls_to_recover[vo]:
-                        surls_to_recover[vo][rse_id] = []
-                    # for each suspicious replica, we get its surl through the list_replicas function
-                    surl_not_found = True
-                    for rep in list_replicas([{'scope': scope, 'name': name}]):
-                        for site in rep['rses']:
-                            if site == rse_id:
-                                surls_to_recover[vo][rse_id].append(rep['rses'][site][0])
-                                surl_not_found = False
-                    if surl_not_found:
-                        cnt_surl_not_found += 1
-                        logger(logging.WARNING, 'skipping suspicious replica %s on %s, no surls were found.', name, rse)
-
-                logger(logging.INFO, 'found %i/%i surls (took %.2f seconds), declaring them as bad replicas now.',
-                       len(recoverable_replicas) - cnt_surl_not_found, len(recoverable_replicas), time.time() - start)
-
-                for vo in surls_to_recover:
-                    for rse_id in surls_to_recover[vo]:
-                        logger(logging.INFO, 'ready to declare %i bad replica(s) on %s: %s.',
-                               len(surls_to_recover[vo][rse_id]), rse, str(surls_to_recover[vo][rse_id]))
-                        if len(surls_to_recover[vo][rse_id]) > max_replicas_per_rse:
-                            logger(logging.WARNING, 'encountered more than %i suspicious replicas (%s) on %s. Please investigate.',
-                                   max_replicas_per_rse, str(len(surls_to_recover[vo][rse_id])), rse)
-                        else:
-                            declare_bad_file_replicas(pfns=surls_to_recover[vo][rse_id], reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), status=BadFilesStatus.BAD, session=None)
-                            logger(logging.INFO, 'finished declaring bad replicas on %s.', rse)
 
         except (DatabaseException, DatabaseError) as err:
             if match('.*QueuePool.*', str(err.args[0])):
                 logger(logging.WARNING, traceback.format_exc())
-                record_counter('replica.recoverer.exceptions.{exception}', labels={'exception': err.__class__.__name__})
+                record_counter('replica.recoverer.exceptions.' + err.__class__.__name__)
             elif match('.*ORA-03135.*', str(err.args[0])):
                 logger(logging.WARNING, traceback.format_exc())
-                record_counter('replica.recoverer.exceptions.{exception}', labels={'exception': err.__class__.__name__})
+                record_counter('replica.recoverer.exceptions.' + err.__class__.__name__)
             else:
                 logger(logging.CRITICAL, traceback.format_exc())
-                record_counter('replica.recoverer.exceptions.{exception}', labels={'exception': err.__class__.__name__})
+                record_counter('replica.recoverer.exceptions.' + err.__class__.__name__)
         except Exception as err:
             logger(logging.CRITICAL, traceback.format_exc())
-            record_counter('replica.recoverer.exceptions.{exception}', labels={'exception': err.__class__.__name__})
+            record_counter('replica.recoverer.exceptions.' + err.__class__.__name__)
         if once:
             break
 
     die(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
-    logger(logging.INFO, 'graceful stop done')
+    logger(logging.INFO, 'Graceful stop done.')
 
 
-def run(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=None, max_replicas_per_rse=100,
-        sleep_time=60):
+def run(once=False, younger_than=3, nattempts=10, vos=None, limit_suspicious_files_on_rse=5):
     """
     Starts up the Suspicious-Replica-Recoverer threads.
     """
     setup_logging()
+    logger = formatted_logger(logging.log)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
@@ -253,22 +366,23 @@ def run(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=Non
     max_offset = timedelta(hours=1, seconds=10)
     if isinstance(db_time, datetime):
         if db_time - client_time > max_offset or client_time - db_time > max_offset:
-            logging.critical('Offset between client and db time too big. Stopping Suspicious-Replica-Recoverer.')
+            logger(logging.CRITICAL, 'Offset between client and db time too big. Stopping Suspicious-Replica-Recoverer.')
             return
 
     sanity_check(executable='rucio-replica-recoverer', hostname=socket.gethostname())
 
     if once:
-        declare_suspicious_replicas_bad(once, younger_than, nattempts, rse_expression, vos, max_replicas_per_rse)
+        declare_suspicious_replicas_bad(once, younger_than, nattempts, vos, limit_suspicious_files_on_rse)
     else:
-        logging.info('Suspicious file replicas recovery starting 1 worker.')
+        logger(logging.INFO, 'Suspicious file replicas recovery starting 1 worker.')
         t = threading.Thread(target=declare_suspicious_replicas_bad,
-                             kwargs={'once': once, 'younger_than': younger_than,
-                                     'nattempts': nattempts, 'rse_expression': rse_expression,
-                                     'vos': vos, 'max_replicas_per_rse': max_replicas_per_rse,
-                                     'sleep_time': sleep_time})
+                             kwargs={'once': once,
+                                     'younger_than': younger_than,
+                                     'nattempts': nattempts,
+                                     'vos': vos,
+                                     'limit_suspicious_files_on_rse': limit_suspicious_files_on_rse})
         t.start()
-        logging.info('waiting for interrupts')
+        logger(logging.INFO, 'Waiting for interrupts')
 
         # Interruptible joins require a timeout.
         while t.is_alive():

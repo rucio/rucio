@@ -24,6 +24,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Christoph Ames <christoph.ames@cern.ch>, 2021
 
 from collections import namedtuple
 from enum import Enum
@@ -72,8 +73,14 @@ FTS_COMPLETE_STATE = namedtuple('FTS_COMPLETE_STATE', ['OK', 'ERROR'])('Ok', 'Er
 FTS_JOB_TYPE = namedtuple('FTS_JOB_TYPE', ['MULTIPLE_REPLICA', 'MULTI_HOP', 'SESSION_REUSE', 'REGULAR'])('R', 'H', 'Y', 'N')
 
 
+class SuspiciousAvailability(Enum):
+    ALL = 0
+    EXIST_COPIES = 1
+    LAST_COPY = 2
+
+
 class ReplicaState(Enum):
-    # From rucio.db.sqla.constants, update that file at the same time than this
+    # From rucio.db.sqla.constants, update that file at the same time as this
     AVAILABLE = 'A'
     UNAVAILABLE = 'U'
     COPYING = 'C'
