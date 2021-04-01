@@ -17,4 +17,3 @@ oic==1.2.1                                        # for authentication via OpenI
 prometheus_client==0.9.0                          # Python client for the Prometheus monitoring system
 python-magic>=0.4.15,<0.5.0                       # File type identification using libmagic
 boto3>=1.9.130,<1.17.0                            # S3 boto protocol (new version)
-jsonschema>=3.2.0                                 # For JSON schema validation (Policy modules)
