@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
@@ -27,6 +27,7 @@
 import unittest
 
 import pytest
+from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
@@ -35,7 +36,7 @@ from rucio.common.config import config_get_bool
 from rucio.common.exception import InvalidObject
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.core.did import attach_dids, add_did, add_dids
+from rucio.core.did import attach_dids, add_dids
 from rucio.core.replica import list_datasets_per_rse, update_collection_replica, \
     get_cleaned_updated_collection_replicas, delete_replicas, add_replicas
 from rucio.core.rse import add_rse, del_rse, add_protocol, get_rse_id
@@ -234,7 +235,7 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
         files = [{'name': 'file_%s' % generate_uuid(), 'scope': self.scope, 'bytes': file_size} for i in range(0, 2)]
         dataset_name = 'dataset_test_%s' % generate_uuid()
         add_replicas(rse_id=self.rse_id, files=files, account=self.account, session=self.db_session)
-        add_did(scope=self.scope, name=dataset_name, did_type=constants.DIDType.DATASET, account=self.account, session=self.db_session)
+        add_dids([{'scope': self.scope, 'name': dataset_name, 'type': constants.DIDType.DATASET}], account=self.account, session=self.db_session)
         attach_dids(scope=self.scope, name=dataset_name, dids=files, account=self.account, session=self.db_session)
         models.CollectionReplica(rse_id=self.rse_id, scope=self.scope, state=constants.ReplicaState.AVAILABLE, name=dataset_name, did_type=constants.DIDType.DATASET, bytes=len(files) * file_size, length=len(files), available_replicas_cnt=0)\
               .save(session=self.db_session)
@@ -277,14 +278,15 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
         assert dataset_replica['available_replicas_cnt'] == len(files)
         assert dataset_replica['state'] == ReplicaState.AVAILABLE
 
+        # Old behaviour, open empty datasets are not deleted
         # Delete all file replicas -> dataset replica should be deleted
         delete_replicas(rse_id=self.rse_id, files=files, session=self.db_session)
-        update_request = self.db_session.query(models.UpdatedCollectionReplica).filter_by(rse_id=self.rse_id, scope=self.scope, name=dataset_name).one()  # pylint: disable=no-member
-        update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
-        dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name).all()  # pylint: disable=no-member
-        assert len(dataset_replica) == 0
+        with pytest.raises(NoResultFound):
+            update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
 
         # Update request without rse_id - using two replicas per file -> total 4 replicas
+        dataset_name = 'dataset_test_%s' % generate_uuid()
+        add_dids([{'scope': self.scope, 'name': dataset_name, 'type': constants.DIDType.DATASET}], account=self.account, session=self.db_session)
         add_replicas(rse_id=self.rse_id, files=files, account=self.account, session=self.db_session)
         add_replicas(rse_id=self.rse2_id, files=files, account=self.account, session=self.db_session)
         attach_dids(scope=self.scope, name=dataset_name, dids=files, account=self.account, session=self.db_session)

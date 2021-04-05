@@ -19,6 +19,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
 """
 Abacus-Collection-Replica is a daemon to update collection replica.
