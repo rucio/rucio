@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2021
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
@@ -27,9 +27,10 @@ KEY_TYPES = ['ALL', 'COLLECTION', 'FILE', 'DERIVED']
 
 SCHEME_MAP = {'srm': ['srm', 'gsiftp'],
               'gsiftp': ['srm', 'gsiftp'],
-              'https': ['https', 'davs', 's3'],
-              'davs': ['https', 'davs', 's3'],
+              'https': ['https', 'davs', 's3', 'srm+https'],
+              'davs': ['https', 'davs', 's3', 'srm+https'],
               'root': ['root'],
-              's3': ['https', 'davs', 's3']}
+              's3': ['https', 'davs', 's3', 'srm+https'],
+              'srm+https': ['https', 'davs', 's3', 'srm+https']}
 
-SUPPORTED_PROTOCOLS = ['gsiftp', 'srm', 'root', 'davs', 'http', 'https', 'file', 's3', 's3+rucio', 's3+https', 'storm']
+SUPPORTED_PROTOCOLS = ['gsiftp', 'srm', 'root', 'davs', 'http', 'https', 'file', 's3', 's3+rucio', 's3+https', 'storm', 'srm+https']
