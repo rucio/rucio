@@ -18,7 +18,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2021
 # - dciangot <diego.ciangottini@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
@@ -62,6 +62,7 @@ from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.types import InternalAccount
 from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
+from rucio.core.account import list_accounts
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.oidc import get_token_for_account_operation
@@ -664,6 +665,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     bring_online_local = bring_online
     transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], [], []
     multi_hop_dict = {}
+    admin_accounts = [acc['account'].external for acc in list_accounts(filter={'admin': True}, session=session)]
 
     rse_mapping = {}
 
@@ -672,6 +674,18 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         multihop_rses = [rse['id'] for rse in parse_expression('available_for_multihop=true')]
     except InvalidRSEExpression:
         multihop_rses = []
+
+    restricted_rses_read = []
+    try:
+        restricted_rses_read = [rse['id'] for rse in parse_expression('restricted_read=true')]
+    except InvalidRSEExpression:
+        restricted_rses_read = []
+
+    restricted_rses_write = []
+    try:
+        restricted_rses_write = [rse['id'] for rse in parse_expression('restricted_write=true')]
+    except InvalidRSEExpression:
+        restricted_rses_write = []
 
     for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, account, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
 
@@ -695,6 +709,13 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         source_rse_name = rse_mapping[source_rse_id]
 
         dict_attributes = get_attributes(attributes)
+
+        # Check if the source and destination RSEs are restricted
+        if account not in admin_accounts:
+            if source_rse_id in restricted_rses_read:
+                continue
+            if dest_rse_id in restricted_rses_write:
+                continue
 
         # Check if the source and destination are blocked
         if source_rse_id in unavailable_read_rse_ids:
