@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
@@ -249,10 +249,11 @@ class TestReplicaCore:
         for file in files2:
             get_did(scope=file['scope'], name=file['name'])
 
-    def test_delete_replicas_from_datasets(self, rse_factory, mock_scope, root_account):
+    def test_delete_replicas_from_datasets_old(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): Delete replicas from dataset """
         _, rse_id = rse_factory.make_mock_rse()
 
+        cconfig_set(section='reaper', option='remove_open_did', value=False)
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
         nbfiles = 5
@@ -606,6 +607,32 @@ class TestReplicaCore:
         assert cov[rse1_id] == 700
         assert cov[rse2_id] == 300
         assert cov[rse3_id] == 500
+
+
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('reaper', 'remove_open_did', True)
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.config', 'rucio.core.replica'
+]}], indirect=True)
+def test_delete_replicas_from_datasets_new(core_config_mock, caches_mock, rse_factory, mock_scope, root_account):
+    """ REPLICA (CORE): Delete replicas from dataset """
+    _, rse_id = rse_factory.make_mock_rse()
+
+    tmp_dsn1 = 'dsn_%s' % generate_uuid()
+    nbfiles = 5
+    files1 = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+
+    add_did(scope=mock_scope, name=tmp_dsn1, did_type=DIDType.DATASET, account=root_account)
+
+    attach_dids(scope=mock_scope, name=tmp_dsn1, rse_id=rse_id, dids=files1, account=root_account)
+
+    set_status(scope=mock_scope, name=tmp_dsn1, open=False)
+
+    delete_replicas(rse_id=rse_id, files=files1)
+
+    with pytest.raises(DataIdentifierNotFound):
+        get_did(scope=mock_scope, name=tmp_dsn1)
 
 
 @pytest.mark.noparallel(reason='calls list_bad_replicas() and runs necromancer. Both act on all bad replicas without any filtering')
