@@ -25,6 +25,7 @@
 
 import logging
 import shutil
+from unittest.mock import patch, MagicMock, ANY
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
@@ -392,3 +393,61 @@ def test_norandom_respected(rse_factory, file_factory, download_client, root_acc
         nrandom = 2
         result = download_client.download_dids([{'did': dataset_did_str, 'nrandom': nrandom, 'base_dir': tmp_dir}])
         assert len(result) == nrandom
+
+
+def test_transfer_timeout(rse_factory, file_factory, download_client):
+    rse, _ = rse_factory.make_posix_rse()
+    did = file_factory.upload_test_file(rse)
+    did_str = '%s:%s' % (did['scope'], did['name'])
+
+    mocks_get = []
+
+    # Wraps PosixProtocol and allows to verify with which parameters get() was called
+    class CallCounterPosixProtocol(PosixProtocol):
+        def __init__(self, *args, mocks_get=mocks_get, **kwargs):
+            super(CallCounterPosixProtocol, self).__init__(*args, **kwargs)
+            # Every instance of the class will now have its `get` method wrapped in a MagicMock
+            self.get = MagicMock(wraps=self.get)
+            mocks_get.append(self.get)
+
+    with patch('rucio.rse.protocols.posix.Default', CallCounterPosixProtocol):
+        # if none of timeout parameters set, the default value is used
+        with TemporaryDirectory() as tmp_dir:
+            mocks_get.clear()
+            download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir}])
+            mocks_get[0].assert_called_with(ANY, ANY, transfer_timeout=360)
+
+        with TemporaryDirectory() as tmp_dir:
+            mocks_get.clear()
+            download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'transfer_timeout': 10}])
+            mocks_get[0].assert_called_with(ANY, ANY, transfer_timeout=10)
+
+        # transfer_timeout set. transfer_speed_timeout is ignored.
+        with TemporaryDirectory() as tmp_dir:
+            mocks_get.clear()
+            download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'transfer_timeout': 5, 'transfer_speed_timeout': 1}])
+            mocks_get[0].assert_called_with(ANY, ANY, transfer_timeout=5)
+
+        # 60s static + 2bytes(file size) at 1bps = 62s
+        with TemporaryDirectory() as tmp_dir:
+            mocks_get.clear()
+            download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'transfer_speed_timeout': 1}])
+            mocks_get[0].assert_called_with(ANY, ANY, transfer_timeout=62)
+
+        # 60s static + 2bytes(file size) at high speed = 60s
+        with TemporaryDirectory() as tmp_dir:
+            mocks_get.clear()
+            download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'transfer_speed_timeout': 10000}])
+            mocks_get[0].assert_called_with(ANY, ANY, transfer_timeout=60)
+
+        # transfer_timeout=0 means no timeout
+        with TemporaryDirectory() as tmp_dir:
+            mocks_get.clear()
+            download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'transfer_timeout': 0}])
+            mocks_get[0].assert_called_with(ANY, ANY, transfer_timeout=0)
+
+        # transfer_speed_timeout=0 is ignored
+        with TemporaryDirectory() as tmp_dir:
+            mocks_get.clear()
+            download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'transfer_speed_timeout': 0}])
+            mocks_get[0].assert_called_with(ANY, ANY, transfer_timeout=60)
