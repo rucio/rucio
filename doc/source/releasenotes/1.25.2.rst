@@ -1,0 +1,68 @@
+======
+1.25.2
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: Fix Docstring in core/quarantined_replica.py `#4417 <https://github.com/rucio/rucio/issues/4417>`_
+- Core & Internals: Heartbeat cleanup `#4459 <https://github.com/rucio/rucio/issues/4459>`_
+- Documentation: Documentation: Advance Usage & Client Pages Not Working as intended `#4435 <https://github.com/rucio/rucio/issues/4435>`_
+- Release management: Update urllib3 to 1.26.4 `#4489 <https://github.com/rucio/rucio/issues/4489>`_
+- Testing: W605 invalid escape sequence  `#4430 <https://github.com/rucio/rucio/issues/4430>`_
+- Transfers: Implement http-srm protocol `#4506 <https://github.com/rucio/rucio/issues/4506>`_
+
+****
+Bugs
+****
+
+- Documentation: Links to disappeared documentation pages. `#2634 <https://github.com/rucio/rucio/issues/2634>`_
+- Transfers: Bug in transfer core when no outbound distances `#4132 <https://github.com/rucio/rucio/issues/4132>`_
+
+-------
+Clients
+-------
+
+********
+Features
+********
+
+- Clients: Relative transfer timeout for downloads `#4374 <https://github.com/rucio/rucio/issues/4374>`_
+
+************
+Enhancements
+************
+
+- Clients: API: Remove line in list-suspicious-replicas help text `#4485 <https://github.com/rucio/rucio/issues/4485>`_
+- Rules: Allow updating rule comment `#4116 <https://github.com/rucio/rucio/issues/4116>`_
+
+****
+Bugs
+****
+
+- Clients: list-rse-attributes crashes cli for staging endpoints `#2258 <https://github.com/rucio/rucio/issues/2258>`_
+- Clients: Checksum display uses scientific notation `#3365 <https://github.com/rucio/rucio/issues/3365>`_
+- Clients: STORM-Rucio checksum mismatch when adler32 has leading `0`(s) #3494 #3538 `#4127 <https://github.com/rucio/rucio/issues/4127>`_
+- Clients: Configparser loads entire ENV space `#4410 <https://github.com/rucio/rucio/issues/4410>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Remove "old" dashboard link from Rucio UI `#3691 <https://github.com/rucio/rucio/issues/3691>`_
+- WebUI: Remove reference to JIRA from Web UI `#4426 <https://github.com/rucio/rucio/issues/4426>`_
+
+****
+Bugs
+****
+
+- WebUI: Rule page shows RSE IDs instead of names `#2830 <https://github.com/rucio/rucio/issues/2830>`_
