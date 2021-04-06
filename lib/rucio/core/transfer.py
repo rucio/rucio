@@ -18,7 +18,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2021
 # - dciangot <diego.ciangottini@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
@@ -864,6 +864,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     source_url = re.sub('davs', 's3s', source_url)
                     source_url = re.sub('https', 's3s', source_url)
 
+                if source_protocol == 'https+srm':
+                    source_url = re.sub('srm', 'https+srm', source_url)
+                if destination_protocol == 'https+srm':
+                    dest_url = re.sub('srm', 'https+srm', dest_url)
+
                 use_ipv4 = rse_attrs[source_rse_id].get('use_ipv4', False) or rse_attrs[dest_rse_id].get('use_ipv4', False)
 
                 # IV - get external_host + strict_copy + archive timeout
@@ -1001,6 +1006,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 elif source_sign_url == 's3':
                     source_url = re.sub('davs', 's3s', source_url)
                     source_url = re.sub('https', 's3s', source_url)
+
+                if source_protocol == 'https+srm':
+                    source_url = re.sub('srm', 'https+srm', source_url)
+                if destination_protocol == 'https+srm':
+                    dest_url = re.sub('srm', 'https+srm', dest_url)
 
                 # III - The transfer queued previously is a multihop, but this one is direct.
                 # Reset the sources, remove the multihop flag
