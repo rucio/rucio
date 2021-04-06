@@ -731,6 +731,32 @@ class TestBinRucio(unittest.TestCase):
         print(out, err)
         assert re.search(tmp_file1[5:], out) is not None
 
+    def test_download_timeout_options_accepted(self):
+        """CLIENT(USER): Rucio download timeout options """
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # download files
+        cmd = 'rucio download --dir /tmp --transfer-timeout 3 --transfer-speed-timeout 1000 {0}:{1}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert not err
+        # search for the files with ls
+        cmd = 'ls /tmp/'    # search in /tmp/
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+
+        # Check that PFN the transfer-speed-timeout option is not accepted for --pfn
+        cmd = 'rucio -v download --rse {0} --transfer-speed-timeout 1 --pfn http://a.b.c/ {1}:{2}'.format(self.def_rse, self.user, tmp_file1)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert "Download with --pfn doesn't support --transfer-speed-timeout" in err
+
     def test_download_metalink_file(self):
         """CLIENT(USER): Rucio download with metalink file"""
         metalink_file_path = generate_uuid()
