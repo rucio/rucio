@@ -586,7 +586,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
         limit_dest_schemes = []
 
     # Check if there is a cached result
-    result = REGION_SHORT.get('get_hops_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))))
+    result = REGION_SHORT.get('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))))
     if not isinstance(result, NoValue):
         return result
 
@@ -616,8 +616,9 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                      'dest_scheme': matching_scheme[0],
                      'source_scheme_priority': matching_scheme[3],
                      'dest_scheme_priority': matching_scheme[2]}]
-            REGION_SHORT.set('get_hops_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), path)
-            return path
+            result = path, distance_graph[source_rse_id][dest_rse_id]
+            REGION_SHORT.set('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), result)
+            return result
         except RSEProtocolNotSupported as error:
             if include_multihop:
                 # Delete the edge from the graph
@@ -683,8 +684,9 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                     except RSEProtocolNotSupported:
                         pass
     if dest_rse_id in visited_nodes:
-        REGION_SHORT.set('get_hops_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), visited_nodes[dest_rse_id]['path'])
-        return visited_nodes[dest_rse_id]['path']
+        result = visited_nodes[dest_rse_id]['path'], visited_nodes[dest_rse_id]['distance']
+        REGION_SHORT.set('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), result)
+        return result
     else:
         raise NoDistance()
 
@@ -837,7 +839,8 @@ def __prepare_source_dest_config(ctx, request_id, src_rse_id, dest_rse_id, sourc
 
 
 @transactional_session
-def __prepare_transfer_definition(ctx, rws, source, source_scheme, dest_scheme, dest_scheme_priority, dict_attributes, transfertool, retry_other_fts, multihop, activity,
+def __prepare_transfer_definition(ctx, rws, source, source_scheme, dest_scheme, computed_distance, dest_scheme_priority,
+                                  dict_attributes, transfertool, retry_other_fts, multihop, activity,
                                   reqs_only_tape_source, reqs_no_source, bring_online_local, logger, session=None):
     source_rse_name = ctx.rse_name(source.rse_id)
     dest_rse_name = ctx.rse_name(rws.dest_rse_id)
@@ -925,7 +928,7 @@ def __prepare_transfer_definition(ctx, rws, source, source_scheme, dest_scheme, 
                 'schemes': __add_compatible_schemes(schemes=[dest_scheme], allowed_schemes=SUPPORTED_PROTOCOLS),
                 'account': rws.account,
                 # 'src_urls': [source_url],
-                'sources': [(source_rse_name, source_url, source.rse_id, source.source_ranking, source.distance_ranking)],
+                'sources': [(source_rse_name, source_url, source.rse_id, source.source_ranking, computed_distance)],
                 'dest_urls': [dest_url],
                 'src_spacetoken': None,
                 'dest_spacetoken': dest_spacetoken,
@@ -966,7 +969,7 @@ def __merge_or_discard_tranfer_definitions(candidate_transfers):
         return (
             - transfer['sources'][0][3],
             transfer['file_metadata']['src_type'].lower(),  # rely on the fact that "disk" < "tape" in string order
-            transfer['sources'][0][4] or 0,
+            transfer['sources'][0][4],
             transfer.get('multihop', False),  # rely on the fact that False < True
         )
 
@@ -977,12 +980,21 @@ def __merge_or_discard_tranfer_definitions(candidate_transfers):
         # Don't add any additional sources
         return best_candidate
 
+    if best_candidate.get('multihop'):
+        # only one source is allowed for multihop transfers to avoid spawning
+        # intermediate transfers all over the place
+        return best_candidate
+
     for candidate in candidate_transfers:
         if candidate is best_candidate:
             continue
 
         if best_candidate['file_metadata']['src_type'] != candidate['file_metadata']['src_type']:
             # Tape and Disk sources must not be used at the same time.
+            continue
+
+        if candidate.get('multihop'):
+            # do not add multihop sources
             continue
 
         if not set(best_candidate['schemes']).intersection(candidate['schemes']):
@@ -1099,11 +1111,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
             try:
                 multihop = False
-                list_hops = get_hops(source.rse_id,
-                                     rws.dest_rse_id,
-                                     include_multihop=include_multihop,
-                                     multihop_rses=multihop_rses,
-                                     session=session)
+                list_hops, distance = get_hops(source.rse_id,
+                                               rws.dest_rse_id,
+                                               include_multihop=include_multihop,
+                                               multihop_rses=multihop_rses,
+                                               session=session)
                 if len(list_hops) > 1:
                     logger(logging.DEBUG, 'From %s to %s requires multihop: %s', source.rse_id, rws.dest_rse_id, list_hops)
                     multihop = True
@@ -1128,7 +1140,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             dest_scheme_priority = list_hops[-1]['dest_scheme_priority']
 
             try:
-                transfer = __prepare_transfer_definition(ctx, rws=rws, source=source, source_scheme=source_scheme, dest_scheme=dest_scheme,
+                transfer = __prepare_transfer_definition(ctx, rws=rws, source=source, source_scheme=source_scheme, dest_scheme=dest_scheme, computed_distance=distance,
                                                          dest_scheme_priority=dest_scheme_priority, dict_attributes=dict_attributes, transfertool=transfertool,
                                                          retry_other_fts=retry_other_fts, multihop=multihop, activity=activity, logger=logger, session=session,
                                                          reqs_no_source=reqs_no_source, reqs_only_tape_source=reqs_only_tape_source, bring_online_local=bring_online_local)
