@@ -169,7 +169,7 @@ def select_protocol(rse_settings, operation, scheme=None, domain='wan'):
     return min(candidates, key=lambda k: k['domains'][domain][operation])
 
 
-def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_token=None, logger=logging.log, protocol_attr=None):
+def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_token=None, protocol_attr=None, logger=logging.log):
     """
     Instanciates the protocol defined for the given operation.
 
@@ -178,6 +178,7 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_tok
     :param scheme:        Optional filter if no specific protocol is defined in rse_setting for the provided operation
     :param domain:        Optional specification of the domain
     :param auth_token:    Optionally passing JSON Web Token (OIDC) string for authentication
+    :param protocol_attr: Optionally passing the full protocol availability information to correctly select WAN/LAN
     :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:             An instance of the requested protocol
     """
