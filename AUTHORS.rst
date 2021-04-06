@@ -51,7 +51,7 @@ Individual contributors to the source code
 - Mayank Sharma <mayank.sharma@cern.ch>, 2020
 - Ian Johnson, <ian.johnson@stfc.ac.uk>, 2021
 - Radu Carpa <radu.carpa@cern.ch>, 2021
-- Rizart Dona <rizart.dona@cern.ch>, 2021
+- Dhruv Sondhi <dhruvsondhi05@gmail.com>, 2021
 
 
 Organisations employing contributors

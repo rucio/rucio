@@ -90,22 +90,22 @@ There are 3 CLI login methods. Two were introduced in order to avoid typing the 
 
 1. Login via user's browser + fetch code::
 
-  rucio -a=<rucio_account_name> -S=OIDC -v whoami
+    rucio -a=<rucio_account_name> -S=OIDC -v whoami
 
 2. Login via user's browser + polling Rucio auth server::
 
-  rucio -a=<rucio_account_name> -S=OIDC --oidc-polling -v whoami
+    rucio -a=<rucio_account_name> -S=OIDC --oidc-polling -v whoami
 
 3. Automatic login::
 
-  rucio -a=<rucio_account_name> -S=OIDC --oidc-user=<idp_username> --oidc-password=<idp_password> --oidc-auto -v whoami
+    rucio -a=<rucio_account_name> -S=OIDC --oidc-user=<idp_username> --oidc-password=<idp_password> --oidc-auto -v whoami
 
 We strongly discourage this approach, typing your password in CLI does not comply with OAuth2/OIDC standard !
 
 
 Options for automatic token refresh: Assuming the rucio-oauth-manager daemon is running on the Rucio server side, one can also grant Rucio a refresh token and specify the time for which Rucio should act on behalf of the user (in hours) using the ``--refresh-lifetime`` option::
 
-  rucio -a=<rucio_account_name> -S=OIDC --oidc-scope="openid profile offline_access" --oidc-refresh-lifetime=24 -v whoami
+    rucio -a=<rucio_account_name> -S=OIDC --oidc-scope="openid profile offline_access" --oidc-refresh-lifetime=24 -v whoami
 
 If Rucio Server is granted a user both valid access and refresh tokens, it is also possible to configure Rucio Client to ask Rucio Server for token refresh. Assuming user used one of the 3 CLI authentication methods above + requested offline_access in the scope, rucio.cfg file can be configured with the following parameters in the [client] section::
 
