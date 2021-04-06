@@ -81,9 +81,9 @@ def test_get_hops(rse_factory):
     with pytest.raises(NoDistance):
         get_hops(source_rse_id=rse1_id, dest_rse_id=rse0_id)
     with pytest.raises(NoDistance):
-        get_hops(source_rse_id=rse0_id, dest_rse_id=rse1_id, include_multihop=True, multihop_rses=all_rses)
+        get_hops(source_rse_id=rse0_id, dest_rse_id=rse1_id, use_multihop=True, multihop_rses=all_rses)
     with pytest.raises(NoDistance):
-        get_hops(source_rse_id=rse1_id, dest_rse_id=rse0_id, include_multihop=True, multihop_rses=all_rses)
+        get_hops(source_rse_id=rse1_id, dest_rse_id=rse0_id, use_multihop=True, multihop_rses=all_rses)
 
     # A single hop path must be found between two directly connected RSE
     [hop] = get_hops(source_rse_id=rse1_id, dest_rse_id=rse2_id)
@@ -96,49 +96,49 @@ def test_get_hops(rse_factory):
 
     # Multihop_rses argument empty (not set), no path will be computed
     with pytest.raises(NoDistance):
-        get_hops(source_rse_id=rse3_id, dest_rse_id=rse2_id, include_multihop=True)
+        get_hops(source_rse_id=rse3_id, dest_rse_id=rse2_id, use_multihop=True)
 
     # The shortest multihop path will be computed
-    [hop1, hop2] = get_hops(source_rse_id=rse3_id, dest_rse_id=rse2_id, include_multihop=True, multihop_rses=all_rses)
+    [hop1, hop2] = get_hops(source_rse_id=rse3_id, dest_rse_id=rse2_id, use_multihop=True, multihop_rses=all_rses)
     assert hop1['source_rse_id'] == rse3_id
     assert hop1['dest_rse_id'] == rse4_id
     assert hop2['source_rse_id'] == rse4_id
     assert hop2['dest_rse_id'] == rse2_id
 
     # multihop_rses doesn't contain the RSE needed for the shortest path. Return a longer path
-    [hop1, hop2] = get_hops(source_rse_id=rse1_id, dest_rse_id=rse4_id, include_multihop=True, multihop_rses=[rse3_id])
+    [hop1, hop2] = get_hops(source_rse_id=rse1_id, dest_rse_id=rse4_id, use_multihop=True, multihop_rses=[rse3_id])
     assert hop1['source_rse_id'] == rse1_id
     assert hop1['dest_rse_id'] == rse3_id
     assert hop2['source_rse_id'] == rse3_id
     assert hop2['dest_rse_id'] == rse4_id
 
     # A direct connection is preferred over a multihop one with smaller cost
-    [hop] = get_hops(source_rse_id=rse3_id, dest_rse_id=rse5_id, include_multihop=True, multihop_rses=all_rses)
+    [hop] = get_hops(source_rse_id=rse3_id, dest_rse_id=rse5_id, use_multihop=True, multihop_rses=all_rses)
     assert hop['source_rse_id'] == rse3_id
     assert hop['dest_rse_id'] == rse5_id
 
     # A link with cost only in one direction will not be used in the opposite direction
     with pytest.raises(NoDistance):
-        get_hops(source_rse_id=rse6_id, dest_rse_id=rse5_id, include_multihop=True, multihop_rses=all_rses)
-    [hop1, hop2] = get_hops(source_rse_id=rse4_id, dest_rse_id=rse3_id, include_multihop=True, multihop_rses=all_rses)
+        get_hops(source_rse_id=rse6_id, dest_rse_id=rse5_id, use_multihop=True, multihop_rses=all_rses)
+    [hop1, hop2] = get_hops(source_rse_id=rse4_id, dest_rse_id=rse3_id, use_multihop=True, multihop_rses=all_rses)
     assert hop1['source_rse_id'] == rse4_id
     assert hop2['source_rse_id'] == rse5_id
     assert hop2['dest_rse_id'] == rse3_id
 
     # A longer path is preferred over a shorter one with high intermediate cost
-    [hop1, hop2, hop3] = get_hops(source_rse_id=rse3_id, dest_rse_id=rse6_id, include_multihop=True, multihop_rses=all_rses)
+    [hop1, hop2, hop3] = get_hops(source_rse_id=rse3_id, dest_rse_id=rse6_id, use_multihop=True, multihop_rses=all_rses)
     assert hop1['source_rse_id'] == rse3_id
     assert hop2['source_rse_id'] == rse4_id
     assert hop3['source_rse_id'] == rse5_id
     assert hop3['dest_rse_id'] == rse6_id
 
     # A link with no cost is ignored. Both for direct connection and multihop paths
-    [hop1, hop2, hop3] = get_hops(source_rse_id=rse2_id, dest_rse_id=rse6_id, include_multihop=True, multihop_rses=all_rses)
+    [hop1, hop2, hop3] = get_hops(source_rse_id=rse2_id, dest_rse_id=rse6_id, use_multihop=True, multihop_rses=all_rses)
     assert hop1['source_rse_id'] == rse2_id
     assert hop2['source_rse_id'] == rse4_id
     assert hop3['source_rse_id'] == rse5_id
     assert hop3['dest_rse_id'] == rse6_id
-    [hop1, hop2, hop3, hop4] = get_hops(source_rse_id=rse1_id, dest_rse_id=rse6_id, include_multihop=True, multihop_rses=all_rses)
+    [hop1, hop2, hop3, hop4] = get_hops(source_rse_id=rse1_id, dest_rse_id=rse6_id, use_multihop=True, multihop_rses=all_rses)
     assert hop1['source_rse_id'] == rse1_id
     assert hop2['source_rse_id'] == rse2_id
     assert hop3['source_rse_id'] == rse4_id

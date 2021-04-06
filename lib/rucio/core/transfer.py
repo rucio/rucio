@@ -483,13 +483,13 @@ def update_transfer_state(external_host, transfer_id, state, session=None, logge
 
 
 @transactional_session
-def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=None, limit_dest_schemes=None, session=None):
+def get_hops(source_rse_id, dest_rse_id, use_multihop=False, multihop_rses=None, limit_dest_schemes=None, session=None):
     """
     Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
     Ideally, the list will only include one item (dest_rse_id) since no hops are needed.
     :param source_rse_id:       Source RSE id of the transfer.
     :param dest_rse_id:         Dest RSE id of the transfer.
-    :param include_multihop:    If no direct link can be made, also include multihop transfers.
+    :param use_multihop:        If no direct link can be made, also include multihop transfers.
     :param multihop_rses:       List of RSE ids that can be used for multihop.
     :param limit_dest_schemes:  List of destination schemes the matching scheme algorithm should be limited to for a single hop.
     :returns:                   List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}]
@@ -532,13 +532,13 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
             REGION_SHORT.set('get_hops_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), path)
             return path
         except RSEProtocolNotSupported as error:
-            if include_multihop:
+            if use_multihop:
                 # Delete the edge from the graph
                 del distance_graph[source_rse_id][dest_rse_id]
             else:
                 raise error
 
-    if not include_multihop:
+    if not use_multihop:
         raise NoDistance()
 
     # 2. There is no connection or no scheme match --> Try a multi hop --> Dijkstra algorithm
@@ -692,7 +692,7 @@ def __rewrite_dest_url(dest_url, dest_sign_url, dest_scheme):
 
 
 @transactional_session
-def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
+def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None, use_multihop=False,
                                               bring_online=43200, retry_other_fts=False, failover_schemes=None, transfertool=None, logger=logging.log, session=None):
     """
     Get transfer requests and the associated source replicas
@@ -703,6 +703,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     :param older_than:            Get transfers older than.
     :param rses:                  Include RSES.
     :param schemes:               Include schemes.
+    :param use_multihop:      Whether we should allow multihop transfers or not.
     :param bring_online:          Bring online timeout.
     :param retry_other_fts:       Retry other fts servers.
     :param failover_schemes:      Failover schemes.
@@ -827,14 +828,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # In case the source_rse and the dest_rse are connected, the list contains only the destination RSE
         # In case of non-connected, the list contains all the intermediary RSEs
         list_hops = []
-        include_multihop = False
-        if transfertool in ['fts3', None]:
-            include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
 
         try:
             list_hops = get_hops(source_rse_id,
                                  dest_rse_id,
-                                 include_multihop=include_multihop,
+                                 use_multihop=use_multihop,
                                  multihop_rses=multihop_rses,
                                  limit_dest_schemes=transfers.get(req_id, {}).get('schemes', None),
                                  session=session)
