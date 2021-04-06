@@ -25,6 +25,7 @@
 # - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020-2021
 from json import dumps
 
 from flask import Flask, Blueprint, Response, request

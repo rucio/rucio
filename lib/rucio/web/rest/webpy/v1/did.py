@@ -30,6 +30,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 
 from __future__ import print_function
 
@@ -145,8 +146,9 @@ class Search(RucioController):
         """
 
         header('Content-Type', 'application/x-json-stream')
-        filters = {}
+        filters = None
         limit = None
+        type = None
         long = False
         recursive = False
         if ctx.query:
@@ -160,12 +162,20 @@ class Search(RucioController):
                     long = v[0] in ['True', '1']
                 elif k == 'recursive':
                     recursive = v[0] == 'True'
+                elif k == 'filters':
+                    filters = v[0]
                 else:
+                    if not filters:
+                        filters = {}
                     filters[k] = v[0]
 
         try:
-            for did in list_dids(scope=scope, filters=filters, type=type, limit=limit, long=long, recursive=recursive, vo=ctx.env.get('vo')):
-                yield dumps(did) + '\n'
+            if type:
+                for did in list_dids(scope=scope, filters=filters, type=type, limit=limit, long=long, recursive=recursive, vo=ctx.env.get('vo'),):
+                    yield dumps(did) + '\n'
+            else:
+                for did in list_dids(scope=scope, filters=filters, limit=limit, long=long, recursive=recursive, vo=ctx.env.get('vo'),):
+                    yield dumps(did) + '\n'
         except UnsupportedOperation as error:
             raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
         except KeyNotFound as error:

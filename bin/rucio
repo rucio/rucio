@@ -43,6 +43,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020-2021
 
 from __future__ import print_function
 
@@ -535,26 +536,18 @@ def detach(args):
 @exception_handler
 def list_dids(args):
     """
-    %(prog)s list-dids scope[:*|:name] [--filter 'key=value' | --recursive]
+    %(prog)s list-dids scope[:*|:name] [--filter 'value' | --recursive]
 
     List the data identifiers for a given scope.
     """
     client = get_client(args)
-    filters = {}
+    filters = args.filter
+
+    if not filters:
+        filters = ''
+
     type = 'collection'
     table = []
-    if args.filter:
-        try:
-            filters, type = parse_did_filter_from_string(args.filter)
-        except InvalidType as error:
-            logger.error(error)
-            return FAILURE
-        except ValueError as error:
-            logger.error(error)
-            return FAILURE
-        except Exception:
-            logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
-            return FAILURE
 
     try:
         scope, name = get_scope(args.did[0], client)
@@ -570,10 +563,17 @@ def list_dids(args):
     if args.recursive and '*' in name:
         logger.error('Option recursive cannot be used with wildcards')
         return FAILURE
-    elif ('name' in filters) and (name != '*'):
-        logger.error('You cannot use a wildcard query and a filter by name')
-        return FAILURE
-    filters['name'] = name
+    else:
+        if filters:
+            if ('name' in filters) and (name != '*'):
+                logger.error('You cannot use a wildcard query and a filter by name')
+                return FAILURE
+
+    if name:
+        if ';' in filters:
+            filters.replace(';', ', name == {};'.format(name))
+        else:
+            filters += ', name == {}'.format(name)
 
     for did in client.list_dids(scope, filters=filters, type=type, long=True, recursive=args.recursive):
         table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
@@ -2005,7 +2005,7 @@ You can filter by key/value, e.g.::
 
     list_parser.set_defaults(function=list_dids)
     list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
-    list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key>=next_value`. Valid keys are type and length. Use `type` to specify a DID type to search for. Valid values are `ALL`, `COLLECTION`, `CONTAINER`, `DATASET`, `FILE`. Use `length` to filter for an amount of corresponding Data IDentifiers. Valid operators are `=`, `>`, `>=`, `<`, `<=`.')  # noqa: E501
+    list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form suported by inequality-engine.')
     list_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
     list_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern')
 
