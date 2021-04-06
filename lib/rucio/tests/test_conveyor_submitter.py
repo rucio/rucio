@@ -78,7 +78,7 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
         # Record the order of requests passed to MockTranfertool.submit()
         mock_transfertool_submit.side_effect = lambda jobs, _: requests_id_in_submission_order.extend([j['metadata']['request_id'] for j in jobs])
 
-        submitter(once=True, rses=[{'id': rse_id} for _, rse_id in dst_rses], mock=True, transfertool='mock', transfertype='single', filter_transfertool=None)
+        submitter(once=True, rses=[{'id': rse_id} for _, rse_id in dst_rses], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
 
     for request in requests:
         assert request_core.get_request(request_id=request['id'])['state'] == RequestState.SUBMITTED
