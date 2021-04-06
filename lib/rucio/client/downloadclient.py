@@ -275,9 +275,7 @@ class DownloadClient:
         trace_custom_fields['uuid'] = generate_uuid()
 
         logger(logging.INFO, 'Processing %d item(s) for input' % len(items))
-        download_info = self._resolve_and_merge_input_items(copy.deepcopy(items))
-        did_to_options = download_info['did_to_options']
-        merged_items = download_info['merged_items']
+        did_to_options, merged_items = self._resolve_and_merge_input_items(copy.deepcopy(items))
 
         self.logger(logging.DEBUG, 'num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
 
@@ -428,6 +426,34 @@ class DownloadClient:
                 logger(logging.ERROR, '%sFailed to download item' % log_prefix)
                 logger(logging.DEBUG, error)
 
+    @staticmethod
+    def _compute_actual_transfer_timeout(item):
+        """
+        Merge the two options related to timeout into the value which will be used for protocol download.
+        :param item: dictionary that describes the item to download
+        :return: timeout in seconds
+        """
+        default_transfer_timeout = 360
+        default_transfer_speed_timeout = 1000000  # 1Mbps
+        # Static additive increment of the speed timeout. To include the static cost of
+        # establishing connections and download of small files
+        transfer_speed_timeout_static_increment = 60
+
+        transfer_timeout = item.get('merged_options', {}).get('transfer_timeout')
+        if transfer_timeout is not None:
+            return transfer_timeout
+
+        transfer_speed_timeout = item.get('merged_options', {}).get('transfer_speed_timeout')
+        bytes = item.get('bytes')
+        if not bytes or transfer_speed_timeout is None:
+            return default_transfer_timeout
+
+        if not transfer_speed_timeout > 0:
+            transfer_speed_timeout = default_transfer_speed_timeout
+
+        timeout = bytes // transfer_speed_timeout + transfer_speed_timeout_static_increment
+        return timeout
+
     def _download_item(self, item, trace, traces_copy_out, log_prefix=''):
         """
         Downloads the given item and sends traces for success/failure.
@@ -576,7 +602,7 @@ class DownloadClient:
                 start_time = time.time()
 
                 try:
-                    protocol.get(pfn, temp_file_path, transfer_timeout=item.get('merged_options', {}).get('transfer_timeout'))
+                    protocol.get(pfn, temp_file_path, transfer_timeout=self._compute_actual_transfer_timeout(item))
                     success = True
                 except Exception as error:
                     logger(logging.DEBUG, error)
@@ -705,9 +731,7 @@ class DownloadClient:
             item['force_scheme'] = ['https', 'davs']
 
         logger(logging.INFO, 'Processing %d item(s) for input' % len(items))
-        download_info = self._resolve_and_merge_input_items(copy.deepcopy(items))
-        did_to_options = download_info['did_to_options']
-        merged_items = download_info['merged_items']
+        did_to_options, merged_items = self._resolve_and_merge_input_items(copy.deepcopy(items))
 
         self.logger(logging.DEBUG, 'num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
 
@@ -952,6 +976,34 @@ class DownloadClient:
 
         return items
 
+    def _resolve_one_item_dids(self, item):
+        """
+        Resolve scopes or wildcard DIDs to lists of full did names:
+        :param item: One input item
+        """
+        dids = item.get('did')
+        filters = item.get('filters', {})
+        if filters:
+            filters = copy.copy(filters)
+
+        if dids is None:
+            self.logger(logging.DEBUG, 'Resolving DIDs by using filter options')
+            scope = filters.pop('scope')
+            yield scope, list(self.client.list_dids(scope, filters=filters, type='all'))
+            return
+
+        if not isinstance(dids, list):
+            dids = [dids]
+
+        for did_str in dids:
+            scope, did_name = self._split_did_str(did_str)
+            if '*' in did_name:
+                filters['name'] = did_name
+                resolved_dids = list(self.client.list_dids(scope, filters=filters, type='all'))
+                yield scope, resolved_dids
+            else:
+                yield scope, [did_name]
+
     def _resolve_and_merge_input_items(self, items):
         """
         This function takes the input items given to download_dids etc. and merges them
@@ -960,7 +1012,7 @@ class DownloadClient:
 
         :param items: List of dictionaries. Each dictionary describing an input item
 
-        :returns: a dictionary with a dictionary that maps the input DIDs to options
+        :returns: a dictionary that maps the input DIDs to options
                   and a list with a dictionary for each merged download item
 
         :raises InputValidationError: if one of the input items is in the wrong format
@@ -973,70 +1025,51 @@ class DownloadClient:
                 logger(logging.WARNING, 'resolve_archives option is deprecated and will be removed in a future release.')
                 item.setdefault('no_resolve_archives', not item.pop('resolve_archives'))
 
-            did = item.get('did', [])
-            if len(did) == 0:
+            if not item.get('did'):
                 if not item.get('filters', {}).get('scope'):
                     logger(logging.DEBUG, item)
                     raise InputValidationError('Item without did and filter/scope')
-                item['did'] = [None]
-            elif not isinstance(did, list):
-                item['did'] = [did]
 
         distinct_keys = ['rse', 'force_scheme', 'nrandom']
         all_resolved_did_strs = set()
 
         did_to_options = {}
         merged_items = []
-        download_info = {'did_to_options': did_to_options,
-                         'merged_items': merged_items}
 
-        while len(items) > 0:
-            item = items.pop()
-
-            filters = item.get('filters', {})
-            item_dids = item.pop('did')
-            if item_dids[0] is None:
-                logger(logging.DEBUG, 'Resolving DIDs by using filter options')
-                item_dids = []
-                scope = filters.pop('scope')
-                for did_name in self.client.list_dids(scope, filters=filters, type='all'):
-                    item_dids.append('%s:%s' % (scope, did_name))
-
+        for item in items:
             base_dir = item.pop('base_dir', '.')
             no_subdir = item.pop('no_subdir', False)
             ignore_checksum = item.pop('ignore_checksum', False)
             new_transfer_timeout = item.pop('transfer_timeout', None)
-            resolved_dids = item.setdefault('dids', [])
-            for did_str in item_dids:
-                did_scope, did_name = self._split_did_str(did_str)
-                tmp_did_names = []
-                if '*' in did_name:
-                    filters['name'] = did_name
-                    tmp_did_names = list(self.client.list_dids(did_scope, filters=filters, type='all'))
-                else:
-                    tmp_did_names = [did_name]
+            new_transfer_speed_timeout = item.pop('transfer_speed_timeout', None)
 
-                for did_name in tmp_did_names:
+            resolved_dids = item.setdefault('dids', [])
+
+            for did_scope, did_names in self._resolve_one_item_dids(item):
+                for did_name in did_names:
                     resolved_did_str = '%s:%s' % (did_scope, did_name)
                     options = did_to_options.setdefault(resolved_did_str, {})
                     options.setdefault('destinations', set()).add((base_dir, no_subdir))
 
-                    if resolved_did_str in all_resolved_did_strs:
-                        # in this case the DID was already given in another item
-                        # the options of this DID will be ignored and the options of the first item that contained the DID will be used
-                        # another approach would be to compare the options and apply the more relaxed options
-                        logger(logging.DEBUG, 'Ignoring further options of DID: %s' % resolved_did_str)
-                        continue
-
+                    # Merge some options
+                    # The other options of this DID will be inherited from the first item that contained the DID
                     options['ignore_checksum'] = (options.get('ignore_checksum') or ignore_checksum)
+
                     cur_transfer_timeout = options.setdefault('transfer_timeout', None)
                     if cur_transfer_timeout is not None and new_transfer_timeout is not None:
                         options['transfer_timeout'] = max(int(cur_transfer_timeout), int(new_transfer_timeout))
                     elif new_transfer_timeout is not None:
                         options['transfer_timeout'] = int(new_transfer_timeout)
 
-                    resolved_dids.append({'scope': did_scope, 'name': did_name})
-                    all_resolved_did_strs.add(resolved_did_str)
+                    cur_transfer_speed_timeout = options.setdefault('transfer_speed_timeout', None)
+                    if cur_transfer_speed_timeout is not None and new_transfer_speed_timeout is not None:
+                        options['transfer_speed_timeout'] = min(int(cur_transfer_speed_timeout), int(new_transfer_speed_timeout))
+                    elif new_transfer_speed_timeout is not None:
+                        options['transfer_speed_timeout'] = int(new_transfer_speed_timeout)
+
+                    if resolved_did_str not in all_resolved_did_strs:
+                        resolved_dids.append({'scope': did_scope, 'name': did_name})
+                        all_resolved_did_strs.add(resolved_did_str)
 
             if len(resolved_dids) == 0:
                 logger(logging.WARNING, 'An item didnt have any DIDs after resolving the input. Ignoring it.')
@@ -1052,7 +1085,7 @@ class DownloadClient:
             if not was_merged:
                 item['dids'] = resolved_dids
                 merged_items.append(item)
-        return download_info
+        return did_to_options, merged_items
 
     def _get_sources(self, merged_items, resolve_archives=True):
         """
