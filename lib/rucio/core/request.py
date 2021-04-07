@@ -62,7 +62,7 @@ from rucio.transfertool.fts3 import FTS3Transfertool
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
-    from rucio.core.transfer import RequestWithSource
+    from rucio.core.transfer import RequestWithSources
     from typing import Any, Dict, Iterable, Iterator, List, Optional, Callable, Set, Union
     from sqlalchemy.orm import Session
 
@@ -1614,7 +1614,7 @@ def __throttler_request_state(activity, source_rse_id, dest_rse_id, session: "Op
 
 
 def reduce_requests(
-    req_sources: "List[RequestWithSource]", sort_reduce_funcs: "List[ReduceFunction]", logger: "Callable",
+    req_sources: "List[RequestWithSources]", sort_reduce_funcs: "List[ReduceFunction]", logger: "Callable",
 ) -> "Iterator[RequestResultOrState]":
     """
     Reduces the passed requests & sources objects by using the sort-reduce
@@ -1624,11 +1624,17 @@ def reduce_requests(
     """
     assert len(req_sources) != 0, 'parameter request sources must be non-empty'
 
-    # sort by Request.id for partitioning later
-    req_sources.sort(key=lambda rws: rws.request_id)
-
-    def pick_result(items: "List[RequestWithSource]") -> "Optional[RequestResult]":
-        result = [item._asdict() for item in items]
+    def pick_result(rws: "RequestWithSources") -> "Optional[RequestResult]":
+        result = [
+            {
+                'request_id': rws.request_id,
+                'dest_rse_id': rws.dest_rse_id,
+                'activity': rws.activity,
+                'src_rse_id': source.rse_id,
+                'distance_ranking': source.distance_ranking
+            }
+            for source in rws.sources
+        ]
         debug_log = []
         for sort_reduce in sort_reduce_funcs:
             newresult = list(sort_reduce(result))
@@ -1636,7 +1642,7 @@ def reduce_requests(
             result = newresult
 
         if len(result) == 0:
-            logger(logging.WARNING, 'all available sources were filtered for requests with id %s', items[0].request_id)
+            logger(logging.WARNING, 'all available sources were filtered for requests with id %s', rws.request_id)
             logger(logging.DEBUG, 'the following filters ran:\n' + '\n'.join(debug_log))
         else:
             return result[0]
@@ -1647,17 +1653,9 @@ def reduce_requests(
         else:
             return result
 
-    cur_request_id = req_sources[0].request_id
-
-    # partition the req_sources by request_id and yield the best result from each group
-    current_items = [req_sources[0]]
-    for idx in range(1, len(req_sources)):
-        if cur_request_id != req_sources[idx].request_id:
-            yield result_or_no_sources(pick_result(current_items))
-            cur_request_id = req_sources[idx].request_id
-            current_items.clear()
-        current_items.append(req_sources[idx])
-    yield result_or_no_sources(pick_result(current_items))
+    for rws in req_sources:
+        cur_request_id = rws.request_id
+        yield result_or_no_sources(pick_result(rws))
 
 
 def get_supported_transfertools(rse_id: str, session=None) -> "Set[str]":
