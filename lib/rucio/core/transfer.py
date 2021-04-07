@@ -733,8 +733,8 @@ def __rewrite_dest_url(dest_url, dest_sign_url, dest_scheme):
 
 
 @transactional_session
-def __prepare_transfer(ctx, rws, source, source_scheme, dest_scheme, dest_scheme_priority, dict_attributes, transfertool, retry_other_fts, multihop, activity,
-                       reqs_only_tape_source, reqs_no_source, bring_online_local, logger, session=None):
+def __prepare_transfer_definition(ctx, rws, source, source_scheme, dest_scheme, dest_scheme_priority, dict_attributes, transfertool, retry_other_fts, multihop, activity,
+                                  reqs_only_tape_source, reqs_no_source, bring_online_local, logger, session=None):
     source_rse_name = ctx.rse_name(source.rse_id)
     dest_rse_name = ctx.rse_name(rws.dest_rse_id)
 
@@ -893,6 +893,48 @@ def __prepare_transfer(ctx, rws, source, source_scheme, dest_scheme, dest_scheme
     return transfer
 
 
+def __merge_or_discard_tranfer_definitions(candidate_transfers):
+    if not candidate_transfers:
+        return
+
+    def __transfer_order_key(transfer):
+        # higher source_ranking first,
+        # on equal source_ranking, prefer DISK over TAPE
+        # on equal type, prefer lower distance_ranking
+        # on equal distance, prefer single hop
+        return (
+            - transfer['sources'][0][3],
+            transfer['file_metadata']['src_type'].lower(),  # rely on the fact that "disk" < "tape" in string order
+            transfer['sources'][0][4] or 0,
+            transfer.get('multihop', False),  # rely on the fact that False < True
+        )
+
+    best_candidate = min(candidate_transfers, key=__transfer_order_key)
+
+    if best_candidate['file_metadata']['src_type'] == 'TAPE':
+        # multiple Tape source replicas are not allowed in FTS3.
+        # Don't add any additional sources
+        return best_candidate
+
+    for candidate in candidate_transfers:
+        if candidate is best_candidate:
+            continue
+
+        if best_candidate['file_metadata']['src_type'] != candidate['file_metadata']['src_type']:
+            # Tape and Disk sources must not be used at the same time.
+            continue
+
+        if not set(best_candidate['schemes']).intersection(candidate['schemes']):
+            # new sources are not compatible with old ones
+            continue
+
+        best_candidate['sources'].extend(candidate['sources'])
+        # If one source has force ipv4, force it for all sources
+        if best_candidate.get('use_ipv4') or candidate.get('use_ipv4'):
+            best_candidate['use_ipv4'] = True
+
+    return best_candidate
+
 
 @transactional_session
 def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
@@ -1015,6 +1057,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             else:
                 allowed_source_rses = [x['id'] for x in parsed_rses]
 
+        candidate_transfers = []
         for source in rws.sources:
             if allowed_source_rses is not None and source.rse_id not in allowed_source_rses:
                 continue
@@ -1042,7 +1085,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                      rws.dest_rse_id,
                                      include_multihop=include_multihop,
                                      multihop_rses=multihop_rses,
-                                     limit_dest_schemes=transfers.get(rws.request_id, {}).get('schemes', None),
                                      session=session)
                 if len(list_hops) > 1:
                     logger(logging.DEBUG, 'From %s to %s requires multihop: %s', source.rse_id, rws.dest_rse_id, list_hops)
@@ -1068,92 +1110,19 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             dest_scheme_priority = list_hops[-1]['dest_scheme_priority']
 
             try:
-                # If the request_id is not already in the transfer dictionary, need to compute the destination URL
-                if rws.request_id not in transfers:
-                    transfer = __prepare_transfer(ctx, rws=rws, source=source, source_scheme=source_scheme, dest_scheme=dest_scheme,
-                                                  dest_scheme_priority=dest_scheme_priority, dict_attributes=dict_attributes, transfertool=transfertool,
-                                                  retry_other_fts=retry_other_fts, multihop=multihop, activity=activity, logger=logger, session=session,
-                                                  reqs_no_source=reqs_no_source, reqs_only_tape_source=reqs_only_tape_source, bring_online_local=bring_online_local)
-                    if transfer:
-                        transfers[rws.request_id] = transfer
-                else:
-                    # Get source protocol
-                    source_protocol = ctx.protocol(source.rse_id, source_scheme, 'read')
-
-                    source_sign_url = ctx.rse_attrs(source.rse_id).get('sign_url', None)
-                    dest_sign_url = ctx.rse_attrs(rws.dest_rse_id).get('sign_url', None)
-
-                    # Compute the source URL
-                    source_url = list(source_protocol.lfns2pfns(lfns={'scope': rws.scope.external, 'name': rws.name, 'path': source.file_path}).values())[0]
-                    source_url = __rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=source_scheme)
-
-                    # parse allow tape source expression, not finally version.
-                    allow_tape_source = dict_attributes.get('allow_tape_source', None)
-
-                    # No check yet if the previous one is a multihop or not.
-                    # TODO : Check if the current  transfer is better than the previous one
-                    if multihop:
-                        continue
-
-                    current_source_is_tape = transfers[rws.request_id]['bring_online']
-                    new_source_is_tape = ctx.is_tape_rse(source.rse_id) or ctx.rse_attrs(source.rse_id).get('staging_required', False)
-
-                    if new_source_is_tape and not allow_tape_source:
-                        continue
-
-                    if current_source_is_tape and not new_source_is_tape or \
-                            new_source_is_tape and not current_source_is_tape:
-                        # Tape and Disk sources must not be used at the same time.
-                        # Either keep existing sources unchanged, or substitute all existing source with the new source.
-
-                        # Find the best ranking among existing sources
-                        avail_top_ranking = None
-                        for founded_source in transfers[rws.request_id]['sources']:
-                            if avail_top_ranking is None:
-                                avail_top_ranking = founded_source[3]
-                                continue
-                            if founded_source[3] is not None and founded_source[3] > avail_top_ranking:
-                                avail_top_ranking = founded_source[3]
-
-                        # If ranking of the new source is better. On equal ranking, prefer Disk over Tape.
-                        if avail_top_ranking is None or\
-                                (source.source_ranking > avail_top_ranking) or\
-                                (source.source_ranking >= avail_top_ranking and current_source_is_tape):
-                            transfers[rws.request_id]['sources'] = []
-                            transfers[rws.request_id]['bring_online'] = bring_online_local if new_source_is_tape else None
-                            transfers[rws.request_id]['file_metadata']['src_type'] = 'TAPE' if new_source_is_tape else 'DISK'
-                            transfers[rws.request_id]['file_metadata']['src_rse'] = source_rse_name
-                        else:
-                            continue
-
-                    if current_source_is_tape and new_source_is_tape:
-                        # multiple Tape source replicas are not allowed in FTS3.
-                        # Either keep the old source. Or substitute it with the new one.
-                        prev_is_multihop =  transfers[rws.request_id]['sources'][0][4] is None  # will be None if the previous transfer is multihop
-                        if source.source_ranking > transfers[rws.request_id]['sources'][0][3] \
-                                or (source.source_ranking == transfers[rws.request_id]['sources'][0][3] and (prev_is_multihop
-                                                                                                             or source.distance_ranking < transfers[rws.request_id]['sources'][0][4])):
-                            transfers[rws.request_id]['sources'] = []
-                            transfers[rws.request_id]['bring_online'] = bring_online_local
-                            transfers[rws.request_id]['file_metadata']['src_rse'] = source_rse_name
-                        else:
-                            continue
-
-                    # The transfer queued previously is a multihop, but this one is direct.
-                    # Reset the sources, remove the multihop flag
-                    if transfers[rws.request_id].get('multihop', False):
-                        transfers[rws.request_id].pop('multihop', None)
-                        transfers[rws.request_id]['sources'] = []
-
-                    transfers[rws.request_id]['sources'].append((source_rse_name, source_url, source.rse_id, source.source_ranking, source.distance_ranking))
-                    # if one source has force IPv4, force IPv4 for the whole job
-                    use_ipv4 = ctx.rse_attrs(source.rse_id).get('use_ipv4', False)
-                    if use_ipv4:
-                        transfers[rws.request_id]['use_ipv4'] = True
-
-            except Exception as e:
+                transfer = __prepare_transfer_definition(ctx, rws=rws, source=source, source_scheme=source_scheme, dest_scheme=dest_scheme,
+                                                         dest_scheme_priority=dest_scheme_priority, dict_attributes=dict_attributes, transfertool=transfertool,
+                                                         retry_other_fts=retry_other_fts, multihop=multihop, activity=activity, logger=logger, session=session,
+                                                         reqs_no_source=reqs_no_source, reqs_only_tape_source=reqs_only_tape_source, bring_online_local=bring_online_local)
+                if transfer:
+                    candidate_transfers.append(transfer)
+            except Exception:
                 logger(logging.CRITICAL, "Exception happened when trying to get transfer for request %s:" % rws.request_id, exc_info=True)
                 break
+
+        merged_transfer = __merge_or_discard_tranfer_definitions(candidate_transfers)
+        if merged_transfer:
+            transfers[rws.request_id] = merged_transfer
 
     # checking OIDC AuthN/Z support per destination and soucre RSEs;
     # assumes use of boolean 'oidc_support' RSE attribute
