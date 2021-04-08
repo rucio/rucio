@@ -1163,7 +1163,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # OIDC token will be requested for the account of this tranfer
         transfers[req_id]['use_oidc'] = use_oidc
 
-    for req_id in copy.deepcopy(transfers):
+    for req_id in list(transfers):
         # If the transfer is a multihop, need to create the intermediate replicas, intermediate requests and the transfers
         if transfers[req_id].get('multihop', False):
             parent_request = None
