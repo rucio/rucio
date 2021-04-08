@@ -149,6 +149,53 @@ class RequestWithSources:
         self.sources = []
 
 
+class _RseLoaderContext:
+    """
+    Helper private class used to dynamically load and cache the rse information
+    """
+    def __init__(self, session):
+        self.session = session
+        self.rse_id_to_name_map = {}
+        self.rse_id_to_info_map = {}
+        self.rse_id_to_attrs_map = {}
+        self.protocols = {}
+
+    def _ensure_rse_loaded(self, rse_id):
+        if rse_id not in self.rse_id_to_name_map:
+            rse_name = get_rse_name(rse_id=rse_id, session=self.session)
+            self.rse_id_to_name_map[rse_id] = rse_name
+            self.rse_id_to_info_map[rse_id] = rsemgr.get_rse_info(rse=rse_name,
+                                                                  vo=get_rse_vo(rse_id=rse_id, session=self.session),
+                                                                  session=self.session)
+            self.rse_id_to_attrs_map[rse_id] = get_rse_attributes(rse_id, session=self.session)
+
+    def rse_name(self, rse_id):
+        self._ensure_rse_loaded(rse_id)
+        return self.rse_id_to_name_map[rse_id]
+
+    def rse_info(self, rse_id):
+        self._ensure_rse_loaded(rse_id)
+        return self.rse_id_to_info_map[rse_id]
+
+    def rse_attrs(self, rse_id):
+        self._ensure_rse_loaded(rse_id)
+        return self.rse_id_to_attrs_map[rse_id]
+
+    def is_tape_rse(self, rse_id):
+        _rse_info = self.rse_info(rse_id)
+        if _rse_info['rse_type'] == RSEType.TAPE or _rse_info['rse_type'] == 'TAPE':
+            return True
+        return False
+
+    def protocol(self, rse_id, scheme, operation):
+        protocol_key = '%s_%s_%s' % (operation, rse_id, scheme)
+        protocol = self.protocols.get(protocol_key)
+        if not protocol:
+            protocol = rsemgr.create_protocol(self.rse_info(rse_id), 'third_party_copy', scheme)
+            self.protocols[protocol_key] = protocol
+        return protocol
+
+
 def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False, logger=logging.log):
     """
     Submit transfer request to a transfertool.
@@ -983,50 +1030,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         session=session,
     )
 
-    class _LocalContext:
-        def __init__(self, session):
-            self.session = session
-            self.rse_id_to_name_map = {}
-            self.rse_id_to_info_map = {}
-            self.rse_id_to_attrs_map = {}
-            self.protocols = {}
-
-        def _ensure_rse_loaded(self, rse_id):
-            if rse_id not in self.rse_id_to_name_map:
-                rse_name = get_rse_name(rse_id=rse_id, session=self.session)
-                self.rse_id_to_name_map[rse_id] = rse_name
-                self.rse_id_to_info_map[rse_id] = rsemgr.get_rse_info(rse=rse_name,
-                                                                      vo=get_rse_vo(rse_id=rse_id, session=self.session),
-                                                                      session=self.session)
-                self.rse_id_to_attrs_map[rse_id] = get_rse_attributes(rse_id, session=self.session)
-
-        def rse_name(self, rse_id):
-            self._ensure_rse_loaded(rse_id)
-            return self.rse_id_to_name_map[rse_id]
-
-        def rse_info(self, rse_id):
-            self._ensure_rse_loaded(rse_id)
-            return self.rse_id_to_info_map[rse_id]
-
-        def rse_attrs(self, rse_id):
-            self._ensure_rse_loaded(rse_id)
-            return self.rse_id_to_attrs_map[rse_id]
-
-        def is_tape_rse(self, rse_id):
-            _rse_info = self.rse_info(rse_id)
-            if _rse_info['rse_type'] == RSEType.TAPE or _rse_info['rse_type'] == 'TAPE':
-                return True
-            return False
-
-        def protocol(self, rse_id, scheme, operation):
-            protocol_key = '%s_%s_%s' % (operation, rse_id, scheme)
-            protocol = self.protocols.get(protocol_key)
-            if not protocol:
-                protocol = rsemgr.create_protocol(self.rse_info(rse_id), 'third_party_copy', scheme)
-                self.protocols[protocol_key] = protocol
-            return protocol
-
-    ctx = _LocalContext(session)
+    ctx = _RseLoaderContext(session)
     unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
     unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
