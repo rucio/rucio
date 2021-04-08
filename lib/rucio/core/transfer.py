@@ -732,19 +732,16 @@ def __rewrite_dest_url(dest_url, dest_sign_url, dest_scheme):
     return dest_url
 
 
-@transactional_session
-def __prepare_transfer_definition(ctx, rws, source, source_scheme, dest_scheme, dest_scheme_priority, dict_attributes, transfertool, retry_other_fts, multihop, activity,
-                                  reqs_only_tape_source, reqs_no_source, bring_online_local, logger, session=None):
-    source_rse_name = ctx.rse_name(source.rse_id)
-    dest_rse_name = ctx.rse_name(rws.dest_rse_id)
+def __prepare_source_dest_config(ctx, request_id, src_rse_id, dest_rse_id, source_scheme, dest_scheme, dict_attributes, activity,
+                                 scope, name, file_path, retry_count, reqs_only_tape_source, reqs_no_source, bring_online_local):
 
     # Get source protocol
-    source_protocol = ctx.protocol(source.rse_id, source_scheme, 'read')
-    source_sign_url = ctx.rse_attrs(source.rse_id).get('sign_url', None)
-    dest_sign_url = ctx.rse_attrs(rws.dest_rse_id).get('sign_url', None)
+    source_protocol = ctx.protocol(src_rse_id, source_scheme, 'read')
+    source_sign_url = ctx.rse_attrs(src_rse_id).get('sign_url', None)
+    dest_sign_url = ctx.rse_attrs(dest_rse_id).get('sign_url', None)
 
     # Compute the source URL
-    source_url = list(source_protocol.lfns2pfns(lfns={'scope': rws.scope.external, 'name': rws.name, 'path': source.file_path}).values())[0]
+    source_url = list(source_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': file_path}).values())[0]
     source_url = __rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=source_scheme)
 
     # parse allow tape source expression, not finally version.
@@ -755,31 +752,31 @@ def __prepare_transfer_definition(ctx, rws, source, source_scheme, dest_scheme, 
     transfer_src_type = "DISK"
     transfer_dst_type = "DISK"
     overwrite, bring_online = True, None
-    if ctx.is_tape_rse(source.rse_id) or ctx.rse_attrs(source.rse_id).get('staging_required', False):
+    if ctx.is_tape_rse(src_rse_id) or ctx.rse_attrs(src_rse_id).get('staging_required', False):
         bring_online = bring_online_local
         transfer_src_type = "TAPE"
         if not allow_tape_source:
-            if rws.request_id not in reqs_only_tape_source:
-                reqs_only_tape_source.append(rws.request_id)
-            if rws.request_id in reqs_no_source:
-                reqs_no_source.remove(rws.request_id)
+            if request_id not in reqs_only_tape_source:
+                reqs_only_tape_source.append(request_id)
+            if request_id in reqs_no_source:
+                reqs_no_source.remove(request_id)
             return
 
-    if ctx.is_tape_rse(rws.dest_rse_id):
+    if ctx.is_tape_rse(dest_rse_id):
         overwrite = False
         transfer_dst_type = "TAPE"
 
     # Get destination protocol
-    dest_protocol = ctx.protocol(rws.dest_rse_id, dest_scheme, 'write')
+    dest_protocol = ctx.protocol(dest_rse_id, dest_scheme, 'write')
 
     # Compute the destination url
-    dest_url = __build_dest_url(scope=rws.scope, name=rws.name,
+    dest_url = __build_dest_url(scope=scope, name=name,
                                 protocol=dest_protocol,
-                                dest_rse_attrs=ctx.rse_attrs(rws.dest_rse_id),
-                                dest_is_deterministic=ctx.rse_info(rws.dest_rse_id)['deterministic'],
-                                dest_is_tape=ctx.is_tape_rse(rws.dest_rse_id),
+                                dest_rse_attrs=ctx.rse_attrs(dest_rse_id),
+                                dest_is_deterministic=ctx.rse_info(dest_rse_id)['deterministic'],
+                                dest_is_tape=ctx.is_tape_rse(dest_rse_id),
                                 dict_attributes=dict_attributes,
-                                retry_count=rws.retry_count,
+                                retry_count=retry_count,
                                 activity=activity)
     dest_url = __rewrite_dest_url(dest_url, dest_sign_url=dest_sign_url, dest_scheme=dest_scheme)
 
@@ -788,6 +785,23 @@ def __prepare_transfer_definition(ctx, rws, source, source_scheme, dest_scheme, 
     if dest_protocol.attributes and 'extended_attributes' in dest_protocol.attributes and \
             dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
         dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
+
+    return transfer_src_type, transfer_dst_type, source_url, dest_url, dest_spacetoken, overwrite, bring_online
+
+
+@transactional_session
+def __prepare_transfer_definition(ctx, rws, source, source_scheme, dest_scheme, dest_scheme_priority, dict_attributes, transfertool, retry_other_fts, multihop, activity,
+                                  reqs_only_tape_source, reqs_no_source, bring_online_local, logger, session=None):
+    source_rse_name = ctx.rse_name(source.rse_id)
+    dest_rse_name = ctx.rse_name(rws.dest_rse_id)
+    source_sign_url = ctx.rse_attrs(source.rse_id).get('sign_url', None)
+
+    transfer_src_type, transfer_dst_type, source_url, dest_url, dest_spacetoken, overwrite, bring_online = __prepare_source_dest_config(
+        ctx, request_id=rws.request_id, src_rse_id=source.rse_id, dest_rse_id=rws.dest_rse_id, source_scheme=source_scheme,
+        dest_scheme=dest_scheme, dict_attributes=dict_attributes, activity=rws.activity, scope=rws.scope, name=rws.name,
+        file_path=source.file_path, retry_count=rws.retry_count, reqs_only_tape_source=reqs_only_tape_source, reqs_no_source=reqs_no_source,
+        bring_online_local=bring_online_local
+    )
 
     use_ipv4 = ctx.rse_attrs(source.rse_id).get('use_ipv4', False) or ctx.rse_attrs(rws.dest_rse_id).get('use_ipv4', False)
 
@@ -1158,16 +1172,18 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # hop = {'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}
                 source_scheme = hop['source_scheme']
                 source_rse_id = hop['source_rse_id']
+                dest_scheme = hop['dest_scheme']
                 dest_rse_id = hop['dest_rse_id']
                 source_rse_name = ctx.rse_name(source_rse_id)
                 dest_rse_name = ctx.rse_name(dest_rse_id)
                 dest_rse_vo = get_rse_vo(rse_id=hop['dest_rse_id'], session=session)
-                transfer_src_type = "DISK"
-                transfer_dst_type = "DISK"
-                allow_tape_source = True
-                # Compute the source URL. We don't need to fill the rse_mapping and rse_attrs for the intermediate RSEs cause it has already been done before
-                source_protocol = ctx.protocol(source_rse_id, source_scheme, 'read')
-                source_url = list(source_protocol.lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': None}).values())[0]
+
+                transfer_src_type, transfer_dst_type, source_url, dest_url, dest_spacetoken, overwrite, bring_online = __prepare_source_dest_config(
+                    ctx, request_id=req_id, src_rse_id=source_rse_id, dest_rse_id=dest_rse_id, source_scheme=source_scheme,
+                    dest_scheme=dest_scheme, dict_attributes=dict_attributes, activity=activity, scope=scope, name=name,
+                    file_path=None, retry_count=retry_count, reqs_only_tape_source=reqs_only_tape_source, reqs_no_source=reqs_no_source,
+                    bring_online_local=bring_online_local
+                )
 
                 if transfers[req_id]['file_metadata']['dest_rse_id'] != hop['dest_rse_id']:
                     files = [{'scope': scope,
@@ -1219,47 +1235,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         for cur_req_id in parent_requests:
                             transfers.pop(cur_req_id, None)
                         break
+
                     new_req_id = new_req[0]['id']
                     parent_requests.append(new_req_id)
                     set_requests_state(request_ids=[new_req_id, ], new_state=RequestState.QUEUED, session=session)
                     logger(logging.DEBUG, 'New request created for the transfer between %s and %s : %s', source_rse_name, dest_rse_name, new_req_id)
-
-                    # Here we will compute the destination URL
-                    # Get destination protocol
-                    dest_rse_id = hop['dest_rse_id']
-                    dest_scheme = hop['dest_scheme']
-                    dest_protocol = ctx.protocol(dest_rse_id, dest_scheme, 'write')
-
-                    # Get dest space token
-                    dest_spacetoken = None
-                    if dest_protocol.attributes and 'extended_attributes' in dest_protocol.attributes and \
-                            dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
-                        dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
-
-                    # Compute the destination url
-                    dest_url = __build_dest_url(scope=scope, name=name,
-                                                protocol=dest_protocol,
-                                                dest_rse_attrs=ctx.rse_attrs(dest_rse_id),
-                                                dest_is_deterministic=ctx.rse_info(dest_rse_id)['deterministic'],
-                                                dest_is_tape=ctx.is_tape_rse(dest_rse_id),
-                                                dict_attributes=dict_attributes,
-                                                retry_count=retry_count,
-                                                activity=activity)
-
-                    # Extend the metadata dictionary with request attributes
-                    overwrite, bring_online = True, None
-                    if ctx.is_tape_rse(source_rse_id):
-                        bring_online = bring_online_local
-                        transfer_src_type = "TAPE"
-                        if not allow_tape_source:
-                            if req_id not in reqs_only_tape_source:
-                                reqs_only_tape_source.append(req_id)
-                            if req_id in reqs_no_source:
-                                reqs_no_source.remove(req_id)
-                            continue
-                    if ctx.is_tape_rse(dest_rse_id):
-                        overwrite = False
-                        transfer_dst_type = "TAPE"
 
                     file_metadata = {'request_id': new_req_id,
                                      'scope': scope,
