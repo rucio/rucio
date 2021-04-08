@@ -347,35 +347,35 @@ class TestInequalityEngineOnline(unittest.TestCase):
 
         self.assertEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
 
-    @read_session
-    def test_InequalityEngineRetrocompatibilityLength(self, session=None):
-        did_name = 'inequality_test_did_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=did_name, type='DATASET', account=self.root)
-        set_metadata(scope=self.tmp_scope, name=did_name, key='length', value='4242')
+    # @read_session
+    # def test_InequalityEngineRetrocompatibilityLength(self, session=None):
+    #     did_name = 'inequality_test_did_%s' % generate_uuid()
+    #     add_did(scope=self.tmp_scope, name=did_name, type='DATASET', account=self.root)
+    #     set_metadata(scope=self.tmp_scope, name=did_name, key='length', value='4242')
 
-        dids = []
-        for q in inequality_engine("length.gte=4242").createQueries():
-            dids += [did for did in q.yield_per(5)]
+    #     dids = []
+    #     for q in inequality_engine("length.gte=4242").createQueries():
+    #         dids += [did for did in q.yield_per(5)]
 
-        self.assertEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
+    #     self.assertEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
 
-        dids = []
-        for q in inequality_engine("length.gt=4241").createQueries():
-            dids += [did for did in q.yield_per(5)]
+    #     dids = []
+    #     for q in inequality_engine("length.gt=4241").createQueries():
+    #         dids += [did for did in q.yield_per(5)]
 
-        self.assertEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
+    #     self.assertEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
 
-        dids = []
-        for q in inequality_engine("length.lte=4242").createQueries():
-            dids += [did for did in q.yield_per(5)]
+    #     dids = []
+    #     for q in inequality_engine("length.lte=4242").createQueries():
+    #         dids += [did for did in q.yield_per(5)]
 
-        self.assertEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
+    #     self.assertEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
 
-        dids = []
-        for q in inequality_engine("length.lt=4243").createQueries():
-            dids += [did for did in q.yield_per(5)]
+    #     dids = []
+    #     for q in inequality_engine("length.lt=4243").createQueries():
+    #         dids += [did for did in q.yield_per(5)]
 
-        self.assertEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
+    #     self.assertEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
 
     @read_session
     def test_InequalityEngineRetrocompatibilityCreatedAfter(self, session=None):
