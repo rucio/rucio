@@ -84,7 +84,7 @@ class AMQConsumer(object):
         self.__logger = logger
 
     def on_heartbeat_timeout(self):
-        self.__logger(logging.INFO, 'Heartbeat lost [%s]', self.__broker)
+        record_counter('daemons.tracer.kronos.heartbeat.lost')
         self.__conn.disconnect()
 
     def on_error(self, frame):
