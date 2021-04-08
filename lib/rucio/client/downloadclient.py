@@ -249,17 +249,18 @@ class DownloadClient:
         Download items with given DIDs. This function can also download datasets and wildcarded DIDs.
 
         :param items: List of dictionaries. Each dictionary describing an item to download. Keys:
-            did                 - DID string of this file (e.g. 'scope:file.name')
-            filters             - Filter to select DIDs for download. Optional if DID is given
-            rse                 - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
-            no_resolve_archives - Optional: bool indicating whether archives should not be considered for download (Default: False)
-            resolve_archives    - Deprecated: Use no_resolve_archives instead
-            force_scheme        - Optional: force a specific scheme to download this item. (Default: None)
-            base_dir            - Optional: base directory where the downloaded files will be stored. (Default: '.')
-            no_subdir           - Optional: If true, files are written directly into base_dir. (Default: False)
-            nrandom             - Optional: if the DID addresses a dataset, nrandom files will be randomly choosen for download from the dataset
-            ignore_checksum     - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
-            transfer_timeout    - Optional: Timeout time for the download protocols. (Default: None)
+            did                    - DID string of this file (e.g. 'scope:file.name')
+            filters                - Filter to select DIDs for download. Optional if DID is given
+            rse                    - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
+            no_resolve_archives    - Optional: bool indicating whether archives should not be considered for download (Default: False)
+            resolve_archives       - Deprecated: Use no_resolve_archives instead
+            force_scheme           - Optional: force a specific scheme to download this item. (Default: None)
+            base_dir               - Optional: base directory where the downloaded files will be stored. (Default: '.')
+            no_subdir              - Optional: If true, files are written directly into base_dir. (Default: False)
+            nrandom                - Optional: if the DID addresses a dataset, nrandom files will be randomly choosen for download from the dataset
+            ignore_checksum        - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
+            transfer_timeout       - Optional: Timeout time for the download protocols. (Default: None)
+            transfer_speed_timeout - Optional: Minimum allowed transfer speed (in KBps). Ignored if transfer_timeout set. Otherwise, used to compute default timeout (Default: 500)
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces.
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
@@ -434,7 +435,7 @@ class DownloadClient:
         :return: timeout in seconds
         """
         default_transfer_timeout = 360
-        default_transfer_speed_timeout = 1000000  # 1Mbps
+        default_transfer_speed_timeout = 500  # KBps
         # Static additive increment of the speed timeout. To include the static cost of
         # establishing connections and download of small files
         transfer_speed_timeout_static_increment = 60
@@ -451,6 +452,8 @@ class DownloadClient:
         if not transfer_speed_timeout > 0:
             transfer_speed_timeout = default_transfer_speed_timeout
 
+        # Convert from KBytes/s to bytes/s
+        transfer_speed_timeout = transfer_speed_timeout * 1000
         timeout = bytes // transfer_speed_timeout + transfer_speed_timeout_static_increment
         return timeout
 
@@ -1068,9 +1071,9 @@ class DownloadClient:
 
                     cur_transfer_speed_timeout = options.setdefault('transfer_speed_timeout', None)
                     if cur_transfer_speed_timeout is not None and new_transfer_speed_timeout is not None:
-                        options['transfer_speed_timeout'] = min(int(cur_transfer_speed_timeout), int(new_transfer_speed_timeout))
+                        options['transfer_speed_timeout'] = min(float(cur_transfer_speed_timeout), float(new_transfer_speed_timeout))
                     elif new_transfer_speed_timeout is not None:
-                        options['transfer_speed_timeout'] = int(new_transfer_speed_timeout)
+                        options['transfer_speed_timeout'] = float(new_transfer_speed_timeout)
 
                     if resolved_did_str not in all_resolved_did_strs:
                         resolved_dids.append({'scope': did_scope, 'name': did_name})
