@@ -92,7 +92,6 @@ class AMQConsumer(object):
         self.__logger(logging.ERROR, 'Message receive error: [%s] %s' % (self.__broker, frame.body))
 
     def on_message(self, frame):
-        headers = frame.headers
         record_counter('daemons.tracer.kronos.reports')
 
         appversion = 'dq2'
@@ -327,7 +326,7 @@ def __get_broker_conns(brokers, port, use_ssl, vhost, reconnect_attempts, ssl_ke
                                     use_ssl=False,
                                     vhost=vhost,
                                     timeout=timeout,
-                                    heartbeats=(0,1000),
+                                    heartbeats=(0, 1000),
                                     reconnect_attempts_max=reconnect_attempts))
         else:
             conns.append(Connection(host_and_ports=[(broker, port)],
@@ -336,7 +335,7 @@ def __get_broker_conns(brokers, port, use_ssl, vhost, reconnect_attempts, ssl_ke
                                     ssl_cert_file=ssl_cert_file,
                                     vhost=vhost,
                                     timeout=timeout,
-                                    heartbeats=(0,1000),
+                                    heartbeats=(0, 1000),
                                     reconnect_attempts_max=reconnect_attempts))
     return conns
 
