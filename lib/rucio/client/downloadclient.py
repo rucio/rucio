@@ -577,7 +577,12 @@ class DownloadClient:
             trace['clientState'] = 'DOWNLOAD_ATTEMPT'
             trace['protocol'] = scheme
 
-            logger(logging.INFO, '%sTrying to download with %s from %s: %s ' % (log_prefix, scheme, rse_name, did_str))
+            transfer_timeout = self._compute_actual_transfer_timeout(item)
+            timeout_log_string = ""
+            if transfer_timeout:
+                timeout_log_string = " and timeout of %ds" % transfer_timeout
+
+            logger(logging.INFO, '%sTrying to download with %s%s from %s: %s ' % (log_prefix, scheme, timeout_log_string, rse_name, did_str))
 
             try:
                 protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, auth_token=self.auth_token, logger=logger)
@@ -602,7 +607,7 @@ class DownloadClient:
                 start_time = time.time()
 
                 try:
-                    protocol.get(pfn, temp_file_path, transfer_timeout=self._compute_actual_transfer_timeout(item))
+                    protocol.get(pfn, temp_file_path, transfer_timeout=transfer_timeout)
                     success = True
                 except Exception as error:
                     logger(logging.DEBUG, error)
