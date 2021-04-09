@@ -297,7 +297,6 @@ def test_download_from_archive_on_xrd(file_factory, download_client, did_client)
 
 
 @pytest.mark.dirty
-@pytest.mark.noparallel(reason='Deadlock found when trying to get lock')  # TODO: verify if it really fails
 def test_trace_copy_out_and_checksum_validation(vo, rse_factory, file_factory, download_client):
     rse, _ = rse_factory.make_posix_rse()
     scope = str(file_factory.default_scope)

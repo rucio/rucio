@@ -48,23 +48,32 @@ class TemporaryRSEFactory:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.cleanup()
 
-    @transactional_session
-    def cleanup(self, session=None):
+    def cleanup(self):
         if not self.created_rses:
             return
+        self.__cleanup_transfers()
+        self.__cleanup_locks_and_rules()
+        self.__cleanup_replicas()
+        self.__cleanup_rse_attributes()
+
+    @transactional_session
+    def __cleanup_transfers(self, session=None):
         # Cleanup Transfers
         session.query(models.Source).filter(or_(models.Source.dest_rse_id.in_(self.created_rses),
                                                 models.Source.rse_id.in_(self.created_rses))).delete(synchronize_session=False)
         session.query(models.Request).filter(or_(models.Request.dest_rse_id.in_(self.created_rses),
                                                  models.Request.source_rse_id.in_(self.created_rses))).delete(synchronize_session=False)
 
-        # Cleanup Locks and Rules
+    @transactional_session
+    def __cleanup_locks_and_rules(self, session=None):
         query = session.query(models.ReplicationRule.id). \
             join(models.ReplicaLock, models.ReplicationRule.id == models.ReplicaLock.rule_id). \
             filter(models.ReplicaLock.rse_id.in_(self.created_rses)).distinct()
         for rule_id, in query:
             rule_core.delete_rule(rule_id, session=session)
 
+    @transactional_session
+    def __cleanup_replicas(self, session=None):
         # Cleanup Replicas and Parent Datasets
         query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id). \
             filter(models.RSEFileAssociation.rse_id.in_(self.created_rses))
@@ -74,17 +83,20 @@ class TemporaryRSEFactory:
         for rse_id, dids in dids_by_rse.items():
             replica_core.delete_replicas(rse_id=rse_id, files=dids, session=session)
 
-        # Cleanup RSEs
+    @transactional_session
+    def __cleanup_rse_attributes(self, session=None):
         for model in (models.RSEAttrAssociation, models.RSEProtocols, models.UpdatedRSECounter,
                       models.RSEUsage, models.RSELimit, models.RSETransferLimit, models.RSEQoSAssociation):
             session.query(model).filter(model.rse_id.in_(self.created_rses)).delete(synchronize_session=False)
 
         session.query(models.Distance).filter(or_(models.Distance.src_rse_id.in_(self.created_rses),
                                                   models.Distance.dest_rse_id.in_(self.created_rses))).delete(synchronize_session=False)
+
+    def __cleanup_rses(self):
         for rse_id in self.created_rses:
             # Only archive RSE instead of deleting. Account handling code doesn't expect RSEs to ever be deleted.
             # So running test in parallel results in some tests failing on foreign key errors.
-            rse_core.del_rse(rse_id, session=session)
+            rse_core.del_rse(rse_id)
 
     def _make_rse(self, scheme, protocol_impl):
         rse_name = rse_name_generator()
@@ -128,7 +140,6 @@ class TemporaryFileFactory:
         self._client = None
         self._upload_client = None
 
-        self.created_rses = []
         self.created_dids = []
 
     def __enter__(self):
