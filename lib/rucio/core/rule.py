@@ -1628,7 +1628,8 @@ def get_rules_beyond_eol(date_check, worker_number, total_workers, session):
                           models.ReplicationRule.locked,
                           models.ReplicationRule.id,
                           models.ReplicationRule.eol_at,
-                          models.ReplicationRule.expires_at).\
+                          models.ReplicationRule.expires_at,
+                          models.ReplicationRule.account).\
         filter(models.ReplicationRule.eol_at < date_check)
 
     query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
