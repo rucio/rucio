@@ -481,7 +481,7 @@ def execute(cmd, blocking=True):
         result = process.communicate()
         (out, err) = result
         exitcode = process.returncode
-        return exitcode, out.decode(), err.decode()
+        return exitcode, out.decode(encoding='utf-8'), err.decode(encoding='utf-8')
     return process
 
 
