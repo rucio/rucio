@@ -56,6 +56,7 @@ try:
 except AttributeError:
     pass
 
+import errno
 import os
 import random
 import sys
@@ -422,6 +423,15 @@ class BaseClient(object):
                     continue
             except ConnectionError as error:
                 LOG.error('ConnectionError: ' + str(error))
+                if retry > self.request_retries:
+                    raise
+                continue
+            except IOError as error:
+                # Handle Broken Pipe
+                # While in python3 we can directly catch 'BrokenPipeError', in python2 it doesn't exist.
+                if getattr(error, 'errno') != errno.EPIPE:
+                    raise
+                LOG.error('BrokenPipe: ' + str(error))
                 if retry > self.request_retries:
                     raise
                 continue
