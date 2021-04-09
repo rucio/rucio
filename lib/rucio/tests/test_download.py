@@ -428,10 +428,10 @@ def test_transfer_timeout(rse_factory, file_factory, download_client):
             download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'transfer_timeout': 5, 'transfer_speed_timeout': 1}])
             mocks_get[0].assert_called_with(ANY, ANY, transfer_timeout=5)
 
-        # 60s static + 2bytes(file size) at 1bps = 62s
+        # 60s static + 2bytes(file size) at 1Bps = 62s
         with TemporaryDirectory() as tmp_dir:
             mocks_get.clear()
-            download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'transfer_speed_timeout': 1}])
+            download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'transfer_speed_timeout': 0.001}])
             mocks_get[0].assert_called_with(ANY, ANY, transfer_timeout=62)
 
         # 60s static + 2bytes(file size) at high speed = 60s
