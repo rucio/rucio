@@ -17,7 +17,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2014
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2015-2021
 # - Wen Guan <wen.guan@cern.ch>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
@@ -83,19 +83,23 @@ class AMQConsumer(object):
         self.__bad_files_patterns = bad_files_patterns
         self.__logger = logger
 
-    def on_error(self, headers, message):
-        record_counter('daemons.tracer.kronos.error')
-        self.__logger(logging.ERROR, 'Message receive error: [%s] %s' % (self.__broker, message))
+    def on_heartbeat_timeout(self):
+        record_counter('daemons.tracer.kronos.heartbeat.lost')
+        self.__conn.disconnect()
 
-    def on_message(self, headers, message):
+    def on_error(self, frame):
+        record_counter('daemons.tracer.kronos.error')
+        self.__logger(logging.ERROR, 'Message receive error: [%s] %s' % (self.__broker, frame.body))
+
+    def on_message(self, frame):
         record_counter('daemons.tracer.kronos.reports')
 
         appversion = 'dq2'
-        msg_id = headers['message-id']
-        if 'appversion' in headers:
-            appversion = headers['appversion']
+        msg_id = frame.headers['message-id']
+        if 'appversion' in frame.headers:
+            appversion = frame.headers['appversion']
 
-        if 'resubmitted' in headers:
+        if 'resubmitted' in frame.headers:
             record_counter('daemons.tracer.kronos.received_resubmitted')
             self.__logger(logging.WARNING, 'got a resubmitted report')
 
@@ -104,7 +108,7 @@ class AMQConsumer(object):
                 self.__conn.ack(msg_id, self.__subscription_id)
                 return
             else:
-                report = jloads(message)
+                report = jloads(frame.body)
         except Exception:
             # message is corrupt, not much to do here
             # send count to graphite, send ack to broker and return
@@ -306,7 +310,7 @@ class AMQConsumer(object):
         self.__logger(logging.INFO, 'updated %d replica(s)' % len(replicas))
 
 
-def __get_broker_conns(brokers, port, use_ssl, vhost, reconnect_attempts, ssl_key_file, ssl_cert_file, logger=logging.log):
+def __get_broker_conns(brokers, port, use_ssl, vhost, reconnect_attempts, ssl_key_file, ssl_cert_file, timeout, logger=logging.log):
     logger(logging.DEBUG, 'resolving broker dns alias: %s' % brokers)
 
     brokers_resolved = []
@@ -321,6 +325,8 @@ def __get_broker_conns(brokers, port, use_ssl, vhost, reconnect_attempts, ssl_ke
             conns.append(Connection(host_and_ports=[(broker, port)],
                                     use_ssl=False,
                                     vhost=vhost,
+                                    timeout=timeout,
+                                    heartbeats=(0, 1000),
                                     reconnect_attempts_max=reconnect_attempts))
         else:
             conns.append(Connection(host_and_ports=[(broker, port)],
@@ -328,16 +334,18 @@ def __get_broker_conns(brokers, port, use_ssl, vhost, reconnect_attempts, ssl_ke
                                     ssl_key_file=ssl_key_file,
                                     ssl_cert_file=ssl_cert_file,
                                     vhost=vhost,
+                                    timeout=timeout,
+                                    heartbeats=(0, 1000),
                                     reconnect_attempts_max=reconnect_attempts))
     return conns
 
 
-def kronos_file(once=False, thread=0, dataset_queue=None, sleep_time=60):
+def kronos_file(thread=0, dataset_queue=None, sleep_time=60):
     """
     Main loop to consume tracer reports.
     """
 
-    logging.info('kronos_file[%i/?] starting')
+    logging.info('kronos_file[%i/?] starting', thread)
 
     executable = 'kronos-file'
     hostname = socket.gethostname()
@@ -392,6 +400,7 @@ def kronos_file(once=False, thread=0, dataset_queue=None, sleep_time=60):
                                    reconnect_attempts=reconnect_attempts,
                                    ssl_key_file=ssl_key_file,
                                    ssl_cert_file=ssl_cert_file,
+                                   timeout=sleep_time,
                                    logger=logger)
         for conn in conns:
             if not conn.is_connected():
@@ -406,12 +415,12 @@ def kronos_file(once=False, thread=0, dataset_queue=None, sleep_time=60):
                                                                      dataset_queue=dataset_queue,
                                                                      bad_files_patterns=bad_files_patterns,
                                                                      logger=logger))
-                conn.start()
                 if not use_ssl:
                     conn.connect(username, password)
                 else:
                     conn.connect()
                 conn.subscribe(destination=config_get('tracer-kronos', 'queue'), ack='client-individual', id=subscription_id, headers={'activemq.prefetchSize': prefetch_size})
+
         tottime = time() - start_time
         if tottime < sleep_time:
             logger(logging.INFO, 'Will sleep for %s seconds' % (sleep_time - tottime))
@@ -429,7 +438,7 @@ def kronos_file(once=False, thread=0, dataset_queue=None, sleep_time=60):
     logger(logging.INFO, 'graceful stop done')
 
 
-def kronos_dataset(once=False, thread=0, dataset_queue=None, sleep_time=60):
+def kronos_dataset(thread=0, dataset_queue=None, sleep_time=60):
     logging.info('kronos-dataset[%d/?] starting', thread)
 
     executable = 'kronos-dataset'
@@ -448,12 +457,15 @@ def kronos_dataset(once=False, thread=0, dataset_queue=None, sleep_time=60):
         if (datetime.now() - start).seconds > dataset_wait:
             __update_datasets(dataset_queue, logger=logger)
             start = datetime.now()
+
         tottime = time() - start_time
         if tottime < sleep_time:
             logger(logging.INFO, 'Will sleep for %s seconds' % (sleep_time - tottime))
             sleep(sleep_time - tottime)
-    # once again for the backlog
+
     die(executable=executable, hostname=hostname, pid=pid, thread=thread)
+
+    # once again for the backlog
     logger(logging.INFO, 'cleaning dataset backlog before shutdown...')
     __update_datasets(dataset_queue)
 
@@ -529,7 +541,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1, sleep_time_datasets=60, sleep_time_files=60):
+def run(threads=1, sleep_time_datasets=60, sleep_time_files=60):
     """
     Starts up the consumer threads
     """
