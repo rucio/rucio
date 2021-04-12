@@ -16,3 +16,5 @@ pycodestyle==2.5.0                                # New package replacing pep8
 mock==3.0.5; python_version < '3.3'               # Mock package needed for readthedocs build for mocking pycurls (mock seems to break SQLAlchemy in Python 3 tests + since Python 3.3 there is unittest.mock)
 s3cmd==2.0.2                                      # Used for testing of S3
 PyYAML==5.4                                       # Used for reading test configuration files (also in globus_extras)
+pydoc-markdown~=3.10.0; python_version >= '3.5'   # Used for generating Markdown documentation for docusaurus
+sh~=1.14.1                                        # Convenience library for running subprocesses in Python
