@@ -20,10 +20,8 @@
 # PY3K COMPATIBLE
 
 import json
-import logging
 import logging.handlers
 import random
-import sys
 import socket
 
 import stomp
@@ -49,36 +47,27 @@ LOGGER.setLevel(CONFIG_COMMON_LOGLEVEL)
 ROTATING_LOGGER = logging.getLogger('nongrid_trace_buffer')
 ROTATING_LOGGER.setLevel(CONFIG_TRACE_LOGLEVEL)
 
-try:
-    HANDLER = logging.StreamHandler()
-    FORMATTER = logging.Formatter(CONFIG_COMMON_LOGFORMAT)
-    HANDLER.setFormatter(FORMATTER)
-    LOGGER.addHandler(HANDLER)
+HANDLER = logging.StreamHandler()
+FORMATTER = logging.Formatter(CONFIG_COMMON_LOGFORMAT)
+HANDLER.setFormatter(FORMATTER)
+LOGGER.addHandler(HANDLER)
 
-    ROTATING_HANDLER = logging.handlers.RotatingFileHandler(filename='%s/trace' % CONFIG_TRACE_TRACEDIR, maxBytes=CONFIG_TRACE_MAXBYTES, backupCount=CONFIG_TRACE_BACKUPCOUNT)
-    ROTATING_LOGFORMATTER = logging.Formatter(CONFIG_TRACE_LOGFORMAT)
-    ROTATING_HANDLER.setFormatter(ROTATING_LOGFORMATTER)
-    ROTATING_LOGGER.addHandler(ROTATING_HANDLER)
-except:
-    if 'sphinx' not in sys.modules:
-        raise
+ROTATING_HANDLER = logging.handlers.RotatingFileHandler(filename='%s/trace' % CONFIG_TRACE_TRACEDIR, maxBytes=CONFIG_TRACE_MAXBYTES, backupCount=CONFIG_TRACE_BACKUPCOUNT)
+ROTATING_LOGFORMATTER = logging.Formatter(CONFIG_TRACE_LOGFORMAT)
+ROTATING_HANDLER.setFormatter(ROTATING_LOGFORMATTER)
+ROTATING_LOGGER.addHandler(ROTATING_HANDLER)
 
 BROKERS_ALIAS, BROKERS_RESOLVED = [], []
 try:
     BROKERS_ALIAS = [b.strip() for b in config_get('nongrid-trace', 'brokers').split(',')]
 except:
-    if 'sphinx' not in sys.modules:
-        raise Exception('Could not load brokers from configuration')
+    raise Exception('Could not load brokers from configuration')
 
-try:
-    PORT = config_get_int('nongrid-trace', 'port')
-    TOPIC = config_get('nongrid-trace', 'topic')
-    USERNAME = config_get('nongrid-trace', 'username')
-    PASSWORD = config_get('nongrid-trace', 'password')
-    VHOST = config_get('nongrid-trace', 'broker_virtual_host', raise_exception=False)
-except:
-    if 'sphinx' not in sys.modules:
-        raise
+PORT = config_get_int('nongrid-trace', 'port')
+TOPIC = config_get('nongrid-trace', 'topic')
+USERNAME = config_get('nongrid-trace', 'username')
+PASSWORD = config_get('nongrid-trace', 'password')
+VHOST = config_get('nongrid-trace', 'broker_virtual_host', raise_exception=False)
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 

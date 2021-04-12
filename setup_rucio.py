@@ -106,19 +106,6 @@ else:
 
 cmdclass = {}
 
-try:
-    from sphinx.setup_command import BuildDoc
-
-    class local_BuildDoc(BuildDoc):
-        def run(self):
-            for builder in ['html']:   # 'man','latex'
-                self.builder = builder
-                self.finalize_options()
-                BuildDoc.run(self)
-    cmdclass['build_sphinx'] = local_BuildDoc
-except:
-    pass
-
 
 def get_reqs_from_file(requirements_file):
     if os.path.exists(requirements_file):
@@ -208,7 +195,6 @@ setup(
     cmdclass=cmdclass,
     include_package_data=True,
     scripts=scripts,
-    # doc=cmdclass,
     author="Rucio",
     author_email="rucio-dev@cern.ch",
     description=description,
