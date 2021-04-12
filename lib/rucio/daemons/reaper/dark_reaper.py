@@ -62,11 +62,11 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 GRACEFUL_STOP = threading.Event()
 
 
-def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False, scheme=None):
+def reaper(rses, worker_number=0, total_workers=1, chunk_size=100, once=False, scheme=None):
     """
     Main loop to select and delete files.
 
-    :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs.
+    :param rses: List of RSEs the reaper should work against.
     :param worker_number: The worker number.
     :param total_workers:  The total number of workers.
     :param chunk_size: the size of chunk for deletion.
@@ -91,9 +91,9 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                          .format(locals()))
             nothing_to_do = True
 
-            rses = list(set(rses) & set(list_rses()))
-            random.shuffle(rses)
-            for rse_id in rses:
+            rses_to_process = list(set(rses) & set(list_rses()))
+            random.shuffle(rses_to_process)
+            for rse_id in rses_to_process:
                 replicas = list_quarantined_replicas(rse_id=rse_id,
                                                      limit=chunk_size, worker_number=worker_number,
                                                      total_workers=total_workers)
