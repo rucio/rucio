@@ -1,5 +1,6 @@
-#!/usr/bin/env python
-# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +18,7 @@
 # - Wen Guan <wen.guan@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2021
 # - nataliaratnikova <natasha@fnal.gov>, 2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2019
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
@@ -89,7 +90,6 @@ def cache_operation(args):
         validate(payload, get_schema_value('CACHE_DELETE_REPLICAS'))
     conn = stomp.Connection([(args.broker, args.port)], use_ssl=True, ssl_key_file=args.ssl_key_file, ssl_cert_file=args.ssl_cert_file, ssl_version=ssl.PROTOCOL_TLSv1)
 
-    conn.start()
     conn.connect()
     message = {'id': int(random.random() * 1000), 'payload': payload}
     conn.send(destination=args.destination, body=json.dumps(message), id='rucio-cache-messaging', ack='auto', headers={'vo': 'atlas'})
