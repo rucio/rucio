@@ -47,7 +47,7 @@ try:
     import gfal2
 except ImportError as e:
     import sys
-    if 'nose' not in sys.modules and 'py.test' not in sys.modules and 'sphinx' not in sys.modules:
+    if 'pytest' not in sys.modules and 'py.test' not in sys.modules:
         raise e
 
 CHUNK_SIZE = 10485760

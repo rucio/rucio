@@ -42,24 +42,6 @@ data_files = []
 description = "Rucio WebUI Package"
 IsRelease = True
 
-# If Sphinx is installed on the box running setup.py,
-# enable setup.py to build the documentation, otherwise,
-# just ignore it
-cmdclass = {}
-
-try:
-    from sphinx.setup_command import BuildDoc
-
-    class local_BuildDoc(BuildDoc):
-        def run(self):
-            for builder in ['html']:   # 'man','latex'
-                self.builder = builder
-                self.finalize_options()
-                BuildDoc.run(self)
-    cmdclass['build_sphinx'] = local_BuildDoc
-except:
-    pass
-
 
 class CustomSdist(_sdist):
 
@@ -77,7 +59,7 @@ class CustomSdist(_sdist):
         _sdist.get_file_list(self)
 
 
-cmdclass['sdist'] = CustomSdist
+cmdclass = {'sdist': CustomSdist}
 
 setup(
     name=name,
@@ -89,7 +71,6 @@ setup(
     cmdclass=cmdclass,
     include_package_data=True,
     scripts=None,
-    # doc=cmdclass,
     author="Rucio",
     author_email="rucio-dev@cern.ch",
     description=description,

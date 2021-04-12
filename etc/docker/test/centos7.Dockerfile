@@ -113,7 +113,6 @@ RUN if [ "$PYTHON" == "2.7" ] ; then \
 COPY .flake8 .pep8 .pycodestyle pylintrc setup.py setup_rucio.py setup_rucio_client.py setup_webui.py ./
 COPY tools tools
 COPY bin bin
-COPY doc doc
 COPY lib lib
 
 # Install Rucio server + dependencies

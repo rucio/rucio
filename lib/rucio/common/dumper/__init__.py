@@ -39,7 +39,7 @@ try:
     import gfal2
     from gfal2 import GError
 except ImportError as e:
-    if 'nose' not in sys.modules and 'py.test' not in sys.modules and 'sphinx' not in sys.modules:
+    if 'pytest' not in sys.modules and 'py.test' not in sys.modules:
         raise e
 
 # bz2 module doesn't support multi-stream files in Python < 3.3

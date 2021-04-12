@@ -26,7 +26,6 @@ function srchome() {
 if [ "$SUITE" == "syntax" ]; then
     srchome
     tools/test/check_syntax.sh
-    tools/test/sphinx_build.sh
 
 elif [[ "$SUITE" =~ ^client.* ]]; then
     if [ "$SUITE" == "client" ]; then
