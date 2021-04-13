@@ -327,7 +327,7 @@ class TestBinRucio(unittest.TestCase):
             db_session = session.get_session()
             internal_scope = InternalScope(self.user, **self.vo)
             db_session.query(models.RSEFileAssociation).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
-            db_session.query(models.ReplicaLock).delete()
+            db_session.query(models.ReplicaLock).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
             db_session.query(models.ReplicationRule).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
             db_session.query(models.DidMeta).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
             db_session.query(models.DataIdentifier).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
