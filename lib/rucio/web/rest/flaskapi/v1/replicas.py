@@ -889,7 +889,7 @@ def blueprint(no_doc=True):
         bp.add_url_rule('', view_func=replicas_view, methods=['post', 'put', 'delete'])
     bp.add_url_rule('/', view_func=replicas_view, methods=['post', 'put', 'delete'])
     suspicious_replicas_view = SuspiciousReplicas.as_view('suspicious_replicas')
-    bp.add_url_rule('/suspicious', view_func=suspicious_replicas_view, methods=['post', ])
+    bp.add_url_rule('/suspicious', view_func=suspicious_replicas_view, methods=['get', 'post'])
     bad_replicas_states_view = BadReplicasStates.as_view('bad_replicas_states')
     bp.add_url_rule('/bad/states', view_func=bad_replicas_states_view, methods=['get', ])
     bad_replicas_summary_view = BadReplicasSummary.as_view('bad_replicas_summary')
@@ -915,7 +915,7 @@ def blueprint(no_doc=True):
 
     if no_doc:
         bp.add_url_rule('/list/', view_func=list_replicas_view, methods=['post', ])
-        bp.add_url_rule('/suspicious/', view_func=suspicious_replicas_view, methods=['post', ])
+        bp.add_url_rule('/suspicious/', view_func=suspicious_replicas_view, methods=['get', 'post'])
         bp.add_url_rule('/bad/states/', view_func=bad_replicas_states_view, methods=['get', ])
         bp.add_url_rule('/bad/summary/', view_func=bad_replicas_summary_view, methods=['get', ])
         bp.add_url_rule('/bad/pfns/', view_func=bad_replicas_pfn_view, methods=['post', ])

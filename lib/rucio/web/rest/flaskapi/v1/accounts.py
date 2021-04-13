@@ -597,6 +597,10 @@ def blueprint(no_doc=True):
     usage_view = LocalUsage.as_view('usage')
     bp.add_url_rule('/<account>/usage/local', view_func=usage_view, methods=['get', ])
     bp.add_url_rule('/<account>/usage', view_func=usage_view, methods=['get', ])
+    if no_doc:
+        # for backwards-compatibility
+        # rule without trailing slash needs to be added before rule with trailing slash
+        bp.add_url_rule('/<account>/usage/', view_func=usage_view, methods=['get', ])
     bp.add_url_rule('/<account>/usage/local/<rse>', view_func=usage_view, methods=['get', ])
     bp.add_url_rule('/<account>/usage/<rse>', view_func=usage_view, methods=['get', ])
     global_usage_view = GlobalUsage.as_view('global_usage')
