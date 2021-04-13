@@ -58,7 +58,7 @@ rucio-admin account set-limits root XRD3 -1
 rucio-admin scope add --account root --scope test
 
 # Delegate credentials to FTS
-fts-rest-delegate -vf -s https://fts:8446 -H 9999
+/usr/bin/python2.7 /usr/bin/fts-rest-delegate -vf -s https://fts:8446 -H 9999
 
 # Create initial transfer testing data
 dd if=/dev/urandom of=file1 bs=10M count=1
