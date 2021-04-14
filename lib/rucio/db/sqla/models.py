@@ -18,7 +18,7 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
 # - Wen Guan <wen.guan@cern.ch>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2020
 # - asket <asket.agarwal96@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
@@ -1235,8 +1235,8 @@ class Subscription(BASE, ModelBase, Versioned):
     __tablename__ = 'subscriptions'
     id = Column(GUID(), default=utils.generate_uuid)
     name = Column(String(64))
-    filter = Column(String(2048))
-    replication_rules = Column(String(1024))
+    filter = Column(String(4000))
+    replication_rules = Column(String(4000))
     policyid = Column(SmallInteger, server_default='0')
     state = Column(Enum(SubscriptionState, name='SUBSCRIPTIONS_STATE_CHK',
                         values_callable=lambda obj: [e.value for e in obj]),
