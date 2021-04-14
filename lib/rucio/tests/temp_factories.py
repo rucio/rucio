@@ -51,10 +51,23 @@ class TemporaryRSEFactory:
     def cleanup(self):
         if not self.created_rses:
             return
+        rules_to_remove = self.__get_rules_to_remove()
         self.__cleanup_transfers()
-        self.__cleanup_locks_and_rules()
+        self.__cleanup_locks_and_rules(rules_to_remove)
         self.__cleanup_replicas()
         self.__cleanup_rse_attributes()
+
+    @transactional_session
+    def __get_rules_to_remove(self, session=None):
+        # Retrieve the list of rules to be cleaned up
+        rules_from_requests = session.query(models.ReplicationRule.id). \
+            join(models.Request, models.ReplicationRule.id == models.Request.rule_id). \
+            filter(or_(models.Request.dest_rse_id.in_(self.created_rses),
+                       models.Request.source_rse_id.in_(self.created_rses)))
+        rules_from_locks = session.query(models.ReplicationRule.id). \
+            join(models.ReplicaLock, models.ReplicationRule.id == models.ReplicaLock.rule_id). \
+            filter(models.ReplicaLock.rse_id.in_(self.created_rses))
+        return list(rules_from_requests.union(rules_from_locks).distinct())
 
     @transactional_session
     def __cleanup_transfers(self, session=None):
@@ -65,11 +78,8 @@ class TemporaryRSEFactory:
                                                  models.Request.source_rse_id.in_(self.created_rses))).delete(synchronize_session=False)
 
     @transactional_session
-    def __cleanup_locks_and_rules(self, session=None):
-        query = session.query(models.ReplicationRule.id). \
-            join(models.ReplicaLock, models.ReplicationRule.id == models.ReplicaLock.rule_id). \
-            filter(models.ReplicaLock.rse_id.in_(self.created_rses)).distinct()
-        for rule_id, in query:
+    def __cleanup_locks_and_rules(self, rules_to_remove, session=None):
+        for rule_id, in rules_to_remove:
             rule_core.delete_rule(rule_id, session=session)
 
     @transactional_session
@@ -98,9 +108,9 @@ class TemporaryRSEFactory:
             # So running test in parallel results in some tests failing on foreign key errors.
             rse_core.del_rse(rse_id)
 
-    def _make_rse(self, scheme, protocol_impl):
+    def _make_rse(self, scheme, protocol_impl, add_rse_kwargs):
         rse_name = rse_name_generator()
-        rse_id = rse_core.add_rse(rse_name, vo=self.vo)
+        rse_id = rse_core.add_rse(rse_name, vo=self.vo, **add_rse_kwargs)
         rse_core.add_protocol(rse_id=rse_id, parameter={
             'scheme': scheme,
             'hostname': 'host%d' % len(self.created_rses),
@@ -119,14 +129,14 @@ class TemporaryRSEFactory:
         self.created_rses.append(rse_id)
         return rse_name, rse_id
 
-    def make_posix_rse(self):
-        return self._make_rse(scheme='file', protocol_impl='rucio.rse.protocols.posix.Default')
+    def make_posix_rse(self, **kwargs):
+        return self._make_rse(scheme='file', protocol_impl='rucio.rse.protocols.posix.Default', add_rse_kwargs=kwargs)
 
-    def make_mock_rse(self):
-        return self._make_rse(scheme='MOCK', protocol_impl='rucio.rse.protocols.mock.Default')
+    def make_mock_rse(self, **kwargs):
+        return self._make_rse(scheme='MOCK', protocol_impl='rucio.rse.protocols.mock.Default', add_rse_kwargs=kwargs)
 
-    def make_xroot_rse(self):
-        return self._make_rse(scheme='root', protocol_impl='rucio.rse.protocols.xrootd.Default')
+    def make_xroot_rse(self, **kwargs):
+        return self._make_rse(scheme='root', protocol_impl='rucio.rse.protocols.xrootd.Default', add_rse_kwargs=kwargs)
 
 
 class TemporaryFileFactory:

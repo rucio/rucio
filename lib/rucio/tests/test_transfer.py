@@ -19,8 +19,15 @@
 import pytest
 
 from rucio.common.exception import NoDistance
-from rucio.core.distance import add_distance
-from rucio.core.transfer import get_hops
+from rucio.core.distance import add_distance, update_distances
+from rucio.core.replica import add_replicas
+from rucio.core.transfer import get_hops, get_transfer_requests_and_source_replicas
+from rucio.core import rule as rule_core
+from rucio.core import request as request_core
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import RSEType
+from rucio.db.sqla.session import transactional_session
+from rucio.common.utils import generate_uuid
 
 
 def test_get_hops(rse_factory):
@@ -137,3 +144,74 @@ def test_get_hops(rse_factory):
     assert hop3['source_rse_id'] == rse4_id
     assert hop4['source_rse_id'] == rse5_id
     assert hop4['dest_rse_id'] == rse6_id
+
+
+def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
+    tape1_rse_name, tape1_rse_id = rse_factory.make_posix_rse(rse_type=RSEType.TAPE)
+    tape2_rse_name, tape2_rse_id = rse_factory.make_posix_rse(rse_type=RSEType.TAPE)
+    disk1_rse_name, disk1_rse_id = rse_factory.make_posix_rse(rse_type=RSEType.DISK)
+    disk2_rse_name, disk2_rse_id = rse_factory.make_posix_rse(rse_type=RSEType.DISK)
+    dst_rse_name, dst_rse_id = rse_factory.make_posix_rse()
+    source_rses = [tape1_rse_id, tape2_rse_id, disk1_rse_id, disk2_rse_id]
+    all_rses = source_rses + [dst_rse_id]
+
+    # add same file to all source RSEs
+    file = {'scope': mock_scope, 'name': 'lfn.' + generate_uuid(), 'type': 'FILE', 'bytes': 1, 'adler32': 'beefdead'}
+    did = {'scope': file['scope'], 'name': file['name']}
+    for rse_id in source_rses:
+        add_replicas(rse_id=rse_id, files=[file], account=root_account)
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+
+    @transactional_session
+    def __fake_source_ranking(source_rse_id, new_ranking, session=None):
+        rowcount = session.query(models.Source).filter(models.Source.rse_id == source_rse_id).update({'ranking': new_ranking})
+        if not rowcount:
+            models.Source(request_id=request['id'],
+                          scope=request['scope'],
+                          name=request['name'],
+                          rse_id=source_rse_id,
+                          dest_rse_id=request['dest_rse_id'],
+                          ranking=new_ranking,
+                          bytes=request['bytes'],
+                          url=None,
+                          is_using=False). \
+                save(session=session, flush=False)
+
+    # Init all distances to the same value
+    for rse_id in source_rses:
+        add_distance(rse_id, dst_rse_id, ranking=10)
+
+    # On equal priority and distance, disk should be preferred over tape. Both disk sources will be returned
+    transfers, _reqs_no_source, _reqs_scheme_mismatch, _reqs_only_tape_source = get_transfer_requests_and_source_replicas(rses=all_rses)
+    assert len(transfers) == 1
+    transfer = next(iter(transfers.values()))
+    assert len(transfer['sources']) == 2
+    assert transfer['sources'][0][0] in (disk1_rse_name, disk2_rse_name)
+
+    # Change the rating of the disk RSEs. Tape RSEs must now be preferred.
+    # Multiple tape sources are not allowed. Only one tape RSE source must be returned.
+    __fake_source_ranking(disk1_rse_id, -1)
+    __fake_source_ranking(disk2_rse_id, -1)
+    transfers, _reqs_no_source, _reqs_scheme_mismatch, _reqs_only_tape_source = get_transfer_requests_and_source_replicas(rses=all_rses)
+    assert len(transfers) == 1
+    transfer = next(iter(transfers.values()))
+    assert len(transfer['sources']) == 1
+    assert transfer['sources'][0][0] in (tape1_rse_name, tape2_rse_name)
+
+    # On equal source ranking, but different distance; the smaller distance is preferred
+    update_distances(tape1_rse_id, dst_rse_id, parameters={'ranking': 15})
+    transfers, _reqs_no_source, _reqs_scheme_mismatch, _reqs_only_tape_source = get_transfer_requests_and_source_replicas(rses=all_rses)
+    assert len(transfers) == 1
+    transfer = next(iter(transfers.values()))
+    assert len(transfer['sources']) == 1
+    assert transfer['sources'][0][0] == tape2_rse_name
+
+    # On different source ranking, the bigger ranking is preferred
+    __fake_source_ranking(tape2_rse_id, -1)
+    transfers, _reqs_no_source, _reqs_scheme_mismatch, _reqs_only_tape_source = get_transfer_requests_and_source_replicas(rses=all_rses)
+    assert len(transfers) == 1
+    transfer = next(iter(transfers.values()))
+    assert len(transfer['sources']) == 1
+    assert transfer['sources'][0][0] == tape1_rse_name
