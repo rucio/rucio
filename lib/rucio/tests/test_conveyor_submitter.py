@@ -30,7 +30,7 @@ from rucio.db.sqla.constants import RequestState
 from rucio.db.sqla.session import transactional_session
 
 
-def test_request_submitted_in_order(rse_factory, file_factory, root_account):
+def test_request_submitted_in_order(rse_factory, did_factory, root_account):
 
     src_rses = [rse_factory.make_posix_rse() for _ in range(2)]
     dst_rses = [rse_factory.make_posix_rse() for _ in range(3)]
@@ -48,7 +48,7 @@ def test_request_submitted_in_order(rse_factory, file_factory, root_account):
     for _ in range(nb_files):
         src_rse_name, src_rse_id = next(src_rses_iterator)
         dst_rse_name, dst_rse_id = next(dst_rses_iterator)
-        did = file_factory.upload_test_file(rse_name=src_rse_name)
+        did = did_factory.upload_test_file(rse_name=src_rse_name)
         rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
         requests.append(request_core.get_request_by_did(rse_id=dst_rse_id, **did))
         dids.append(did)

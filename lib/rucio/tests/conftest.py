@@ -168,8 +168,8 @@ def rse_factory(vo):
 
 
 @pytest.fixture
-def file_factory(vo, mock_scope):
-    from rucio.tests.temp_factories import TemporaryFileFactory
+def did_factory(vo, mock_scope):
+    from rucio.tests.temp_factories import TemporaryDidFactory
 
-    with TemporaryFileFactory(vo=vo, default_scope=mock_scope) as factory:
+    with TemporaryDidFactory(vo=vo, default_scope=mock_scope) as factory:
         yield factory

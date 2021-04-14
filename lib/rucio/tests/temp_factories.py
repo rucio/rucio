@@ -153,9 +153,9 @@ class TemporaryRSEFactory:
         return self._make_rse(scheme='srm', protocol_impl='rucio.rse.protocols.srm.Default', parameters=parameters, add_rse_kwargs=kwargs)
 
 
-class TemporaryFileFactory:
+class TemporaryDidFactory:
     """
-    Factory which keeps track of uploaded files and cleans up everything related to these files at the end.
+    Factory which keeps track of created dids and cleans up everything related to these dids at the end.
     All files related to the same test will have the same uuid in the name for easier debugging.
     """
     def __init__(self, default_scope, vo):
