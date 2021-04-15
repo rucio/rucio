@@ -323,6 +323,13 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
     except IntegrityError as error:
         raise exception.RucioException(error.args)
 
+    # mark tha archive file as is_archive
+    session.query(models.DataIdentifier). \
+        filter(models.DataIdentifier.did_type == DIDType.FILE). \
+        filter(models.DataIdentifier.scope == scope). \
+        filter(models.DataIdentifier.name == name). \
+        update({'is_archive': True})
+
 
 @transactional_session
 def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate=False, session=None):
@@ -516,13 +523,6 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
                                            account=account,
                                            ignore_duplicate=ignore_duplicate,
                                            session=session)
-
-                    # mark parent dataset as is_archive
-                    session.query(models.DataIdentifier).\
-                        filter(models.DataIdentifier.did_type == DIDType.FILE).\
-                        filter(models.DataIdentifier.scope == attachment['scope']).\
-                        filter(models.DataIdentifier.name == attachment['name']).\
-                        update({'is_archive': True})
                     return
                 raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is a file" % attachment)
 
