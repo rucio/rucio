@@ -974,13 +974,9 @@ def declare_bad_file_replicas(args):
 
     """
     client = get_client(args)
-    bad_files = []
     if args.inputfile:
         with open(args.inputfile) as infile:
-            for line in infile:
-                bad_file = line.rstrip('\n')
-                if bad_file != '':
-                    bad_files.append(bad_file)
+            bad_files = list(filter(None, [line.strip() for line in infile]))
     else:
         bad_files = args.listbadfiles
 
