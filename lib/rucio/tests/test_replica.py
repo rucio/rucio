@@ -494,34 +494,28 @@ class TestReplicaCore(unittest.TestCase):
             assert '/i/prefer/the/wan' in stdout
             assert '/i/prefer/the/lan' in stdout
 
-    @pytest.mark.dirty
-    def test_list_replica_with_schemes(self):
-        """ REPLICA (CORE): Add and list file replicas forcing schemes"""
 
-        rc = ReplicaClient()
+def test_list_replica_with_schemes(rse_factory, mock_scope, root_account, replica_client):
+    """ REPLICA (CORE): Add and list file replicas forcing schemes"""
 
-        rse = 'APERTURE_%s' % rse_name_generator()
-        rse_id = add_rse(rse, **self.vo)
+    rse, rse_id = rse_factory.make_rse()
 
-        add_protocol(rse_id, {'scheme': 'http',
-                              'hostname': 'http.aperture.com',
-                              'port': 80,
-                              'prefix': '//test/chamber/',
-                              'impl': 'rucio.rse.protocols.gfalv2.Default',
-                              'domains': {
-                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+    add_protocol(rse_id, {'scheme': 'http',
+                          'hostname': 'http.aperture.com',
+                          'port': 80,
+                          'prefix': '//test/chamber/',
+                          'impl': 'rucio.rse.protocols.gfalv2.Default',
+                          'domains': {
+                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
-        scope = InternalScope('mock', **self.vo)
-        root = InternalAccount('root', **self.vo)
+    name = 'element_%s' % generate_uuid()
+    file_item = {'scope': mock_scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef'}
 
-        name = 'element_%s' % generate_uuid()
-        file_item = {'scope': scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef'}
+    add_replicas(rse_id=rse_id, files=[file_item], account=root_account)
 
-        add_replicas(rse_id=rse_id, files=[file_item], account=root)
-
-        replicas = list(rc.list_replicas([{'scope': scope.external, 'name': name}]))
-        assert 'http://' in list(replicas[0]['pfns'].keys())[0]
+    replicas = list(replica_client.list_replicas([{'scope': mock_scope.external, 'name': name}]))
+    assert 'http://' in list(replicas[0]['pfns'].keys())[0]
 
 
 def test_replica_no_site(rse_factory, mock_scope, root_account, replica_client):
