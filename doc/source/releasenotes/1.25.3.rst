@@ -1,0 +1,47 @@
+======
+1.25.3
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Docker & Kubernetes: FTS transfers in rucio-dev container fail `#4525 <https://github.com/rucio/rucio/issues/4525>`_
+- Policies: New scope in extract_scope_belleii method `#4549 <https://github.com/rucio/rucio/issues/4549>`_
+
+****
+Bugs
+****
+
+- Core & Internals: add_replicas with PFN does not consider lower-priority protocols `#3940 <https://github.com/rucio/rucio/issues/3940>`_
+- Life time model: Atropos can’t fetch the list of rules beyond EOL `#4519 <https://github.com/rucio/rucio/issues/4519>`_
+- REST & API: Account RSE Usage page occasionally does not work `#4532 <https://github.com/rucio/rucio/issues/4532>`_
+- Traces: Kronos: Properly close ActiveMQ connections `#4527 <https://github.com/rucio/rucio/issues/4527>`_
+
+-------
+Clients
+-------
+
+********
+Features
+********
+
+- Clients: Relative transfer timeout for downloads `#4374 <https://github.com/rucio/rucio/issues/4374>`_
+
+************
+Enhancements
+************
+
+- Clients: The client should gracefully handle a broken pipe `#4482 <https://github.com/rucio/rucio/issues/4482>`_
+
+****
+Bugs
+****
+
+- Clients: The client suggests that an invalid DID has replicas on tape `#4492 <https://github.com/rucio/rucio/issues/4492>`_
+- Clients: Client/Common utils: correctly handle utf locales `#4503 <https://github.com/rucio/rucio/issues/4503>`_
+- Clients: Declaring bad file replicas does not work with CRLF line terminators in Python 2 `#4544 <https://github.com/rucio/rucio/issues/4544>`_
