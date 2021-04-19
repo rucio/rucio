@@ -667,36 +667,34 @@ class TestReplicaCore(unittest.TestCase):
         assert len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t2))) == 1
         assert len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t3))) == 0
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_get_RSE_coverage_of_dataset(self):
-        """ REPLICA (CORE): test RSE coverage retrieval """
-        scope = InternalScope('mock', **self.vo)
-        root = InternalAccount('root', **self.vo)
-        mock1 = get_rse_id(rse='MOCK', **self.vo)
-        mock3 = get_rse_id(rse='MOCK3', **self.vo)
-        mock4 = get_rse_id(rse='MOCK4', **self.vo)
-        dsn = 'ds_cov_test_%s' % generate_uuid()
-        add_did(scope=scope, name=dsn, type='DATASET', account=root)
 
-        # test empty dataset
-        cov = get_RSEcoverage_of_dataset(scope=scope, name=dsn)
-        print(cov)
-        assert cov == {}
-        # add files/replicas
-        for i in range(1, 8):
-            add_replica(rse_id=mock1, scope=scope, name=dsn + '_%06d.data' % i, bytes=100, account=root)
-        for i in range(8, 11):
-            add_replica(rse_id=mock3, scope=scope, name=dsn + '_%06d.data' % i, bytes=100, account=root)
-        for i in range(11, 16):
-            add_replica(rse_id=mock4, scope=scope, name=dsn + '_%06d.data' % i, bytes=100, account=root)
+def test_get_RSE_coverage_of_dataset(rse_factory, mock_scope, root_account):
+    """ REPLICA (CORE): test RSE coverage retrieval """
+    _, rse1_id = rse_factory.make_mock_rse()
+    _, rse2_id = rse_factory.make_mock_rse()
+    _, rse3_id = rse_factory.make_mock_rse()
 
-        attach_dids(scope=scope, name=dsn, dids=[{'scope': scope, 'name': dsn + '_%06d.data' % i} for i in range(1, 16)], account=root)
-        cov = get_RSEcoverage_of_dataset(scope=scope, name=dsn)
-        print(cov)
-        assert cov[mock1] == 700
-        assert cov[mock3] == 300
-        assert cov[mock4] == 500
+    dsn = 'ds_cov_test_%s' % generate_uuid()
+    add_did(scope=mock_scope, name=dsn, type='DATASET', account=root_account)
+
+    # test empty dataset
+    cov = get_RSEcoverage_of_dataset(scope=mock_scope, name=dsn)
+    print(cov)
+    assert cov == {}
+    # add files/replicas
+    for i in range(1, 8):
+        add_replica(rse_id=rse1_id, scope=mock_scope, name=dsn + '_%06d.data' % i, bytes=100, account=root_account)
+    for i in range(8, 11):
+        add_replica(rse_id=rse2_id, scope=mock_scope, name=dsn + '_%06d.data' % i, bytes=100, account=root_account)
+    for i in range(11, 16):
+        add_replica(rse_id=rse3_id, scope=mock_scope, name=dsn + '_%06d.data' % i, bytes=100, account=root_account)
+
+    attach_dids(scope=mock_scope, name=dsn, dids=[{'scope': mock_scope, 'name': dsn + '_%06d.data' % i} for i in range(1, 16)], account=root_account)
+    cov = get_RSEcoverage_of_dataset(scope=mock_scope, name=dsn)
+    print(cov)
+    assert cov[rse1_id] == 700
+    assert cov[rse2_id] == 300
+    assert cov[rse3_id] == 500
 
 
 @pytest.mark.dirty
