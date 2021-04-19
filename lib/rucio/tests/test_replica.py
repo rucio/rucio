@@ -302,34 +302,32 @@ class TestReplicaCore(unittest.TestCase):
         for file in files2:
             get_did(scope=file['scope'], name=file['name'])
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_delete_replicas_from_datasets(self):
-        """ REPLICA (CORE): Delete replicas from dataset """
-        tmp_scope = InternalScope('mock', **self.vo)
-        root = InternalAccount('root', **self.vo)
-        tmp_dsn1 = 'dsn_%s' % generate_uuid()
-        tmp_dsn2 = 'dsn_%s' % generate_uuid()
-        nbfiles = 5
-        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        rse_id = get_rse_id(rse='MOCK', **self.vo)
 
-        add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account=root)
-        add_did(scope=tmp_scope, name=tmp_dsn2, type=DIDType.DATASET, account=root)
+def test_delete_replicas_from_datasets(rse_factory, mock_scope, root_account):
+    """ REPLICA (CORE): Delete replicas from dataset """
+    _, rse_id = rse_factory.make_mock_rse()
 
-        attach_dids(scope=tmp_scope, name=tmp_dsn1, rse_id=rse_id, dids=files1, account=root)
-        attach_dids(scope=tmp_scope, name=tmp_dsn2, dids=files1, account=root)
+    tmp_dsn1 = 'dsn_%s' % generate_uuid()
+    tmp_dsn2 = 'dsn_%s' % generate_uuid()
+    nbfiles = 5
+    files1 = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
 
-        set_status(scope=tmp_scope, name=tmp_dsn1, open=False)
+    add_did(scope=mock_scope, name=tmp_dsn1, type=DIDType.DATASET, account=root_account)
+    add_did(scope=mock_scope, name=tmp_dsn2, type=DIDType.DATASET, account=root_account)
 
-        delete_replicas(rse_id=rse_id, files=files1)
+    attach_dids(scope=mock_scope, name=tmp_dsn1, rse_id=rse_id, dids=files1, account=root_account)
+    attach_dids(scope=mock_scope, name=tmp_dsn2, dids=files1, account=root_account)
 
-        with pytest.raises(DataIdentifierNotFound):
-            get_did(scope=tmp_scope, name=tmp_dsn1)
+    set_status(scope=mock_scope, name=tmp_dsn1, open=False)
 
-        get_did(scope=tmp_scope, name=tmp_dsn2)
+    delete_replicas(rse_id=rse_id, files=files1)
 
-        assert [f for f in list_files(scope=tmp_scope, name=tmp_dsn2)] == []
+    with pytest.raises(DataIdentifierNotFound):
+        get_did(scope=mock_scope, name=tmp_dsn1)
+
+    get_did(scope=mock_scope, name=tmp_dsn2)
+
+    assert [f for f in list_files(scope=mock_scope, name=tmp_dsn2)] == []
 
 
 def test_update_lock_counter(vo, rse_factory, mock_scope):
