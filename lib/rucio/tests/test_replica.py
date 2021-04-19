@@ -185,6 +185,7 @@ def test_core_update_replicas_paths(rse_factory, mock_scope, root_account):
         assert replica['rses'][rse_id][0] == 'srm://host0/srm/managerv2?SFN=/test/some/other/path'
 
 
+@pytest.mark.noparallel(reason='calls list_bad_replicas() which acts on all bad replicas without any filtering')
 def test_core_add_list_bad_replicas(rse_factory, mock_scope, root_account):
     """ REPLICA (CORE): Add bad replicas and list them"""
 
@@ -642,6 +643,7 @@ def test_core_get_RSE_coverage_of_dataset(rse_factory, mock_scope, root_account)
     assert cov[rse3_id] == 500
 
 
+@pytest.mark.noparallel(reason='calls list_bad_replicas() and runs necromancer. Both act on all bad replicas without any filtering')
 def test_client_add_list_bad_replicas(rse_factory, replica_client, did_client):
     """ REPLICA (CLIENT): Add bad replicas"""
     tmp_scope = 'mock'
@@ -745,7 +747,7 @@ def test_client_add_suspicious_replicas(rse_factory, replica_client):
     assert r == {rse2: output}
 
 
-@pytest.mark.noparallel(reason='fails when run in parallel')
+@pytest.mark.noparallel(reason='Lists bad replicas multiple times. If the list changes between calls, test fails.')
 def test_rest_bad_replica_methods_for_ui(rest_client, auth_token):
     __test_rest_bad_replica_methods_for_ui(rest_client, auth_token, list_pfns=False)
     __test_rest_bad_replica_methods_for_ui(rest_client, auth_token, list_pfns=True)
@@ -912,6 +914,8 @@ def test_client_access_denied_on_delete_replicas(rse_factory, mock_scope, replic
         assert len(replicas) == 1
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='runs minos, which acts on all bad pfns')
 def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_client):
     """ REPLICA (CLIENT): Add temporary unavailable PFNs"""
     rse, rse_id = rse_factory.make_posix_rse()
