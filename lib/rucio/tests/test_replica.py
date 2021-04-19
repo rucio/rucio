@@ -1025,32 +1025,27 @@ def test_add_temporary_unavailable_pfns(vo, replica_client):
         assert list(rep.keys())[0] == ReplicaState.AVAILABLE
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-def test_set_tombstone2(vo, replica_client):
+def test_set_tombstone_via_client(rse_factory, mock_scope, root_account, replica_client):
     """ REPLICA (CLIENT): set tombstone on replica """
     # Set tombstone on one replica
-    rse = 'MOCK4'
-    rse_id = get_rse_id(rse=rse, vo=vo)
-    scope = InternalScope('mock', vo=vo)
-    user = InternalAccount('root', vo=vo)
+    rse, rse_id = rse_factory.make_mock_rse()
     name = generate_uuid()
-    add_replica(rse_id, scope, name, 4, user)
-    assert get_replica(rse_id, scope, name)['tombstone'] is None
-    replica_client.set_tombstone([{'rse': rse, 'scope': scope.external, 'name': name}])
-    assert get_replica(rse_id, scope, name)['tombstone'] == OBSOLETE
+    add_replica(rse_id, mock_scope, name, 4, root_account)
+    assert get_replica(rse_id, mock_scope, name)['tombstone'] is None
+    replica_client.set_tombstone([{'rse': rse, 'scope': mock_scope.external, 'name': name}])
+    assert get_replica(rse_id, mock_scope, name)['tombstone'] == OBSOLETE
 
     # Set tombstone on locked replica
     name = generate_uuid()
-    add_replica(rse_id, scope, name, 4, user)
-    RuleClient().add_replication_rule([{'name': name, 'scope': scope.external}], 1, rse, locked=True)
+    add_replica(rse_id, mock_scope, name, 4, root_account)
+    RuleClient().add_replication_rule([{'name': name, 'scope': mock_scope.external}], 1, rse, locked=True)
     with pytest.raises(ReplicaIsLocked):
-        replica_client.set_tombstone([{'rse': rse, 'scope': scope.external, 'name': name}])
+        replica_client.set_tombstone([{'rse': rse, 'scope': mock_scope.external, 'name': name}])
 
     # Set tombstone on not found replica
     name = generate_uuid()
     with pytest.raises(ReplicaNotFound):
-        replica_client.set_tombstone([{'rse': rse, 'scope': scope.external, 'name': name}])
+        replica_client.set_tombstone([{'rse': rse, 'scope': mock_scope.external, 'name': name}])
 
 
 @pytest.mark.dirty
