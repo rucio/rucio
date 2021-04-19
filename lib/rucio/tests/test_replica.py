@@ -712,42 +712,42 @@ def test_client_add_list_bad_replicas(rse_factory, replica_client, did_client):
     assert r == {rse2: output}
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-def test_add_suspicious_replicas(replica_client):
+def test_client_add_suspicious_replicas(rse_factory, replica_client):
     """ REPLICA (CLIENT): Add suspicious replicas"""
     tmp_scope = 'mock'
     nbfiles = 5
     # Adding replicas to deterministic RSE
+    rse1, _ = rse_factory.make_srm_rse(deterministic=True)
     files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-    replica_client.add_replicas(rse='MOCK', files=files)
+    replica_client.add_replicas(rse=rse1, files=files)
 
     # Listing replicas on deterministic RSE
     replicas = []
     list_rep = []
     for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
-        replicas.extend(replica['rses']['MOCK'])
+        replicas.extend(replica['rses'][rse1])
         list_rep.append(replica)
     r = replica_client.declare_suspicious_file_replicas(replicas, 'This is a good reason')
     assert r == {}
     # Adding replicas to non-deterministic RSE
     files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-              'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
-    replica_client.add_replicas(rse='MOCK2', files=files)
+              'pfn': 'srm://host1/srm/managerv2?SFN=/test/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
 
     # Listing replicas on non-deterministic RSE
+    rse2, _ = rse_factory.make_srm_rse(deterministic=False)
+    replica_client.add_replicas(rse=rse2, files=files)
     replicas = []
     list_rep = []
     for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
-        replicas.extend(replica['rses']['MOCK2'])
+        replicas.extend(replica['rses'][rse2])
         list_rep.append(replica)
     r = replica_client.declare_suspicious_file_replicas(replicas, 'This is a good reason')
     assert r == {}
     # Now adding non-existing bad replicas
-    files = ['srm://mock2.com/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), ]
+    files = ['srm://host1/test/%s/%s' % (tmp_scope, generate_uuid()), ]
     r = replica_client.declare_suspicious_file_replicas(files, 'This is a good reason')
     output = ['%s Unknown replica' % rep for rep in files]
-    assert r == {'MOCK2': output}
+    assert r == {rse2: output}
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel')
