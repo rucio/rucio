@@ -30,28 +30,6 @@ from rucio.db.sqla.constants import RequestState
 from rucio.db.sqla.session import transactional_session
 
 
-def test_request_submitted(rse_factory, file_factory, root_account):
-    """ Conveyor (DAEMON): Test the submitter"""
-    src_rse_name, src_rse_id = rse_factory.make_posix_rse()
-    dst_rse_name, dst_rse_id = rse_factory.make_posix_rse()
-    distance_core.add_distance(src_rse_id=src_rse_id, dest_rse_id=dst_rse_id, ranking=10)
-    distance_core.add_distance(src_rse_id=dst_rse_id, dest_rse_id=src_rse_id, ranking=10)
-    did = file_factory.upload_test_file(rse_name=src_rse_name)
-
-    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
-    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-    assert request['state'] == RequestState.QUEUED
-
-    # run submitter with a RSE filter which doesn't contain the needed one
-    submitter(once=True, rses=[{'id': src_rse_id}], mock=True, transfertool='mock', transfertype='bulk', filter_transfertool=None, bulk=None)
-    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-    assert request['state'] == RequestState.QUEUED
-
-    submitter(once=True, rses=[{'id': dst_rse_id}], mock=True, transfertool='mock', transfertype='bulk', filter_transfertool=None, bulk=None)
-    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-    assert request['state'] == RequestState.SUBMITTED
-
-
 def test_request_submitted_in_order(rse_factory, file_factory, root_account):
 
     src_rses = [rse_factory.make_posix_rse() for _ in range(2)]
@@ -92,14 +70,18 @@ def test_request_submitted_in_order(rse_factory, file_factory, root_account):
     _forge_requests_creation_time()
     requests = sorted(requests, key=lambda r: r['created_at'])
 
+    for request in requests:
+        assert request_core.get_request(request_id=request['id'])['state'] == RequestState.QUEUED
+
     requests_id_in_submission_order = []
     with patch('rucio.transfertool.mock.MockTransfertool.submit') as mock_transfertool_submit:
         # Record the order of requests passed to MockTranfertool.submit()
         mock_transfertool_submit.side_effect = lambda jobs, _: requests_id_in_submission_order.extend([j['metadata']['request_id'] for j in jobs])
 
         submitter(once=True, rses=[{'id': rse_id} for _, rse_id in dst_rses], mock=True, transfertool='mock', transfertype='single', filter_transfertool=None)
-    # Requests must be submitted in the order of their creation
-    assert requests_id_in_submission_order == [r['id'] for r in requests]
 
     for request in requests:
         assert request_core.get_request(request_id=request['id'])['state'] == RequestState.SUBMITTED
+
+    # Requests must be submitted in the order of their creation
+    assert requests_id_in_submission_order == [r['id'] for r in requests]
