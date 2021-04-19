@@ -664,12 +664,12 @@ def __rewrite_source_url(source_url, source_sign_url, dest_sign_url, source_sche
         if source_scheme in ['davs', 'https']:
             source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
 
-    if source_sign_url == 'gcs':
-        source_url = re.sub('davs', 'gclouds', source_url)
-        source_url = re.sub('https', 'gclouds', source_url)
-    elif source_sign_url == 's3':
-        source_url = re.sub('davs', 's3s', source_url)
-        source_url = re.sub('https', 's3s', source_url)
+    source_sign_url_map = {'gcs': 'gclouds', 's3': 's3s'}
+    if source_sign_url in source_sign_url_map:
+        if source_url[:7] == 'davs://':
+            source_url = source_sign_url_map[source_sign_url] + source_url[4:]
+        if source_url[:8] == 'https://':
+            source_url = source_sign_url_map[source_sign_url] + source_url[5:]
 
     if source_url[:12] == 'srm+https://':
         source_url = 'srm' + source_url[10:]
