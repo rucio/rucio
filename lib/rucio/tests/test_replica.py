@@ -993,40 +993,25 @@ def test_set_tombstone_via_client(rse_factory, mock_scope, root_account, replica
 
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='uses pre-defined RSE')
-class TestReplicaMetalink(unittest.TestCase):
+def test_list_replicas_metalink_4(did_client, replica_client):
+    """ REPLICA (METALINK): List replicas as metalink version 4 """
+    fname = generate_uuid()
 
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-        else:
-            self.vo = {}
+    rses = ['MOCK', 'MOCK3', 'MOCK4']
+    dsn = generate_uuid()
+    files = [{'scope': 'mock', 'name': fname, 'bytes': 1, 'adler32': '0cc737eb'}]
 
-        self.did_client = DIDClient()
-        self.replica_client = ReplicaClient()
-        self.base_client = BaseClient(account='root',
-                                      ca_cert=config_get('client', 'ca_cert'),
-                                      auth_type='x509')
-        self.token = self.base_client.headers['X-Rucio-Auth-Token']
+    did_client.add_dataset(scope='mock', name=dsn)
+    did_client.add_files_to_dataset('mock', name=dsn, files=files, rse='MOCK')
+    for r in rses:
+        replica_client.add_replicas(r, files)
 
-        self.fname = generate_uuid()
-
-        rses = ['MOCK', 'MOCK3', 'MOCK4']
-        dsn = generate_uuid()
-        self.files = [{'scope': 'mock', 'name': self.fname, 'bytes': 1, 'adler32': '0cc737eb'}]
-
-        self.did_client.add_dataset(scope='mock', name=dsn)
-        self.did_client.add_files_to_dataset('mock', name=dsn, files=self.files, rse='MOCK')
-        for r in rses:
-            self.replica_client.add_replicas(r, self.files)
-
-    def test_list_replicas_metalink_4(self):
-        """ REPLICA (METALINK): List replicas as metalink version 4 """
-        ml = xmltodict.parse(self.replica_client.list_replicas(self.files,
-                                                               metalink=4,
-                                                               unavailable=True,
-                                                               schemes=['https', 'sftp', 'file']),
-                             xml_attribs=False)
-        assert 3 == len(ml['metalink']['file']['url'])
+    ml = xmltodict.parse(replica_client.list_replicas(files,
+                                                      metalink=4,
+                                                      unavailable=True,
+                                                      schemes=['https', 'sftp', 'file']),
+                         xml_attribs=False)
+    assert 3 == len(ml['metalink']['file']['url'])
 
 
 def test_get_did_from_pfns_nondeterministic(vo, rse_factory, mock_scope, root_account, replica_client):
