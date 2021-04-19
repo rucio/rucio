@@ -746,9 +746,20 @@ def test_client_add_suspicious_replicas(rse_factory, replica_client):
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel')
-def test_rest_bad_replica_methods_for_UI(rest_client, auth_token):
+def test_rest_bad_replica_methods_for_ui(rest_client, auth_token):
+    __test_rest_bad_replica_methods_for_ui(rest_client, auth_token, list_pfns=False)
+    __test_rest_bad_replica_methods_for_ui(rest_client, auth_token, list_pfns=True)
+
+
+def __test_rest_bad_replica_methods_for_ui(rest_client, auth_token, list_pfns):
     """ REPLICA (REST): Test the listing of bad and suspicious replicas """
-    response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)))
+    if list_pfns:
+        common_data = {'list_pfns': 'True'}
+    else:
+        common_data = {}
+
+    data = {**common_data}
+    response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
     assert response.status_code == 200
     tot_files = []
     for line in response.get_data(as_text=True).split('\n'):
@@ -756,7 +767,7 @@ def test_rest_bad_replica_methods_for_UI(rest_client, auth_token):
             tot_files.append(dumps(line))
     nb_tot_files = len(tot_files)
 
-    data = {'state': 'B'}
+    data = {'state': 'B', **common_data}
     response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
     assert response.status_code == 200
     tot_bad_files = []
@@ -765,7 +776,7 @@ def test_rest_bad_replica_methods_for_UI(rest_client, auth_token):
             tot_bad_files.append(dumps(line))
     nb_tot_bad_files1 = len(tot_bad_files)
 
-    data = {'state': 'S', 'list_pfns': 'True'}
+    data = {'state': 'S', **common_data}
     response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
     assert response.status_code == 200
     tot_suspicious_files = []
@@ -774,7 +785,7 @@ def test_rest_bad_replica_methods_for_UI(rest_client, auth_token):
             tot_suspicious_files.append(dumps(line))
     nb_tot_suspicious_files = len(tot_suspicious_files)
 
-    data = {'state': 'T', 'list_pfns': 'True'}
+    data = {'state': 'T', **common_data}
     response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
     assert response.status_code == 200
     tot_temporary_unavailable_files = []
@@ -786,7 +797,7 @@ def test_rest_bad_replica_methods_for_UI(rest_client, auth_token):
     assert nb_tot_files == nb_tot_bad_files1 + nb_tot_suspicious_files + nb_tot_temporary_unavailable_files
 
     tomorrow = datetime.utcnow() + timedelta(days=1)
-    data = {'state': 'B', 'younger_than': tomorrow.isoformat()}
+    data = {'state': 'B', 'younger_than': tomorrow.isoformat(), **common_data}
     response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
     assert response.status_code == 200
     tot_bad_files = []
@@ -796,14 +807,15 @@ def test_rest_bad_replica_methods_for_UI(rest_client, auth_token):
     nb_tot_bad_files = len(tot_bad_files)
     assert nb_tot_bad_files == 0
 
-    response = rest_client.get('/replicas/bad/summary', headers=headers(auth(auth_token)))
-    assert response.status_code == 200
-    nb_tot_bad_files2 = 0
-    for line in response.get_data(as_text=True).split('\n'):
-        if line != '':
-            line = loads(line)
-            nb_tot_bad_files2 += int(line.get('BAD', 0))
-    assert nb_tot_bad_files1 == nb_tot_bad_files2
+    if not list_pfns:
+        response = rest_client.get('/replicas/bad/summary', headers=headers(auth(auth_token)))
+        assert response.status_code == 200
+        nb_tot_bad_files2 = 0
+        for line in response.get_data(as_text=True).split('\n'):
+            if line != '':
+                line = loads(line)
+                nb_tot_bad_files2 += int(line.get('BAD', 0))
+        assert nb_tot_bad_files1 == nb_tot_bad_files2
 
 
 def test_rest_list_replicas_content_type(rse_factory, mock_scope, replica_client, rest_client, auth_token):
