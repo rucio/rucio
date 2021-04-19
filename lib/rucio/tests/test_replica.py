@@ -331,27 +331,24 @@ class TestReplicaCore(unittest.TestCase):
 
         assert [f for f in list_files(scope=tmp_scope, name=tmp_dsn2)] == []
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_update_lock_counter(self):
-        """ RSE (CORE): Test the update of a replica lock counter """
-        rse = 'MOCK'
-        rse_id = get_rse_id(rse=rse, **self.vo)
 
-        tmp_scope = InternalScope('mock', **self.vo)
-        tmp_file = 'file_%s' % generate_uuid()
-        add_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_file, bytes=1, adler32='0cc737eb', account=InternalAccount('jdoe', **self.vo))
+def test_update_lock_counter(vo, rse_factory, mock_scope):
+    """ RSE (CORE): Test the update of a replica lock counter """
+    rse, rse_id = rse_factory.make_mock_rse()
 
-        values = (1, 1, 1, -1, -1, -1, 1, 1, -1)
-        tombstones = (True, True, True, True, True, False, True, True, True)
-        lock_counters = (1, 2, 3, 2, 1, 0, 1, 2, 1)
-        for value, tombstone, lock_counter in zip(values, tombstones, lock_counters):
-            status = update_replica_lock_counter(rse_id=rse_id, scope=tmp_scope, name=tmp_file, value=value)
-            assert status is True
-            replica = get_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_file)
-            value = replica['tombstone'] is None
-            assert value is tombstone
-            assert lock_counter == replica['lock_cnt']
+    tmp_file = 'file_%s' % generate_uuid()
+    add_replica(rse_id=rse_id, scope=mock_scope, name=tmp_file, bytes=1, adler32='0cc737eb', account=InternalAccount('jdoe', vo=vo))
+
+    values = (1, 1, 1, -1, -1, -1, 1, 1, -1)
+    tombstones = (True, True, True, True, True, False, True, True, True)
+    lock_counters = (1, 2, 3, 2, 1, 0, 1, 2, 1)
+    for value, tombstone, lock_counter in zip(values, tombstones, lock_counters):
+        status = update_replica_lock_counter(rse_id=rse_id, scope=mock_scope, name=tmp_file, value=value)
+        assert status is True
+        replica = get_replica(rse_id=rse_id, scope=mock_scope, name=tmp_file)
+        value = replica['tombstone'] is None
+        assert value is tombstone
+        assert lock_counter == replica['lock_cnt']
 
 
 def test_touch_replicas(rse_factory, mock_scope, root_account):
