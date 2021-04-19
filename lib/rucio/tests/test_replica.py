@@ -604,32 +604,28 @@ class TestReplicaCore(unittest.TestCase):
 
         add_replicas(rse_id=rse_id, files=files, account=root)
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_set_tombstone(self):
-        """ REPLICA (CORE): set tombstone on replica """
-        # Set tombstone on one replica
-        rse = 'MOCK4'
-        rse_id = get_rse_id(rse=rse, **self.vo)
-        scope = InternalScope('mock', **self.vo)
-        user = InternalAccount('root', **self.vo)
-        name = generate_uuid()
-        add_replica(rse_id, scope, name, 4, user)
-        assert get_replica(rse_id, scope, name)['tombstone'] is None
-        set_tombstone(rse_id, scope, name)
-        assert get_replica(rse_id, scope, name)['tombstone'] == OBSOLETE
 
-        # Set tombstone on locked replica
-        name = generate_uuid()
-        add_replica(rse_id, scope, name, 4, user)
-        RuleClient().add_replication_rule([{'name': name, 'scope': scope.external}], 1, rse, locked=True)
-        with pytest.raises(ReplicaIsLocked):
-            set_tombstone(rse_id, scope, name)
+def test_set_tombstone_via_core(rse_factory, mock_scope, root_account):
+    """ REPLICA (CORE): set tombstone on replica """
+    # Set tombstone on one replica
+    rse, rse_id = rse_factory.make_mock_rse()
+    name = generate_uuid()
+    add_replica(rse_id, mock_scope, name, 4, root_account)
+    assert get_replica(rse_id, mock_scope, name)['tombstone'] is None
+    set_tombstone(rse_id, mock_scope, name)
+    assert get_replica(rse_id, mock_scope, name)['tombstone'] == OBSOLETE
 
-        # Set tombstone on not found replica
-        name = generate_uuid()
-        with pytest.raises(ReplicaNotFound):
-            set_tombstone(rse_id, scope, name)
+    # Set tombstone on locked replica
+    name = generate_uuid()
+    add_replica(rse_id, mock_scope, name, 4, root_account)
+    RuleClient().add_replication_rule([{'name': name, 'scope': mock_scope.external}], 1, rse, locked=True)
+    with pytest.raises(ReplicaIsLocked):
+        set_tombstone(rse_id, mock_scope, name)
+
+    # Set tombstone on not found replica
+    name = generate_uuid()
+    with pytest.raises(ReplicaNotFound):
+        set_tombstone(rse_id, mock_scope, name)
 
 
 def test_list_replicas_with_updated_after(rse_factory, mock_scope, root_account):
