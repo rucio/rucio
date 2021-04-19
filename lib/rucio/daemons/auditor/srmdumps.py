@@ -43,12 +43,7 @@ import os
 import re
 import requests
 
-try:
-    import gfal2
-except ImportError as e:
-    import sys
-    if 'pytest' not in sys.modules and 'py.test' not in sys.modules:
-        raise e
+import gfal2
 
 CHUNK_SIZE = 10485760
 

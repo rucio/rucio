@@ -21,32 +21,27 @@
 #
 # PY3K COMPATIBLE
 
-from rucio.common import config
-
 import contextlib
 import datetime
 import gzip
 import json
 import logging
-import magic
 import os
 import re
-import requests
 import sys
 import tempfile
 
-try:
-    import gfal2
-    from gfal2 import GError
-except ImportError as e:
-    if 'pytest' not in sys.modules and 'py.test' not in sys.modules:
-        raise e
+import gfal2
+import magic
+import requests
 
 # bz2 module doesn't support multi-stream files in Python < 3.3
 # https://bugs.python.org/issue1625
 # using bz2file (a backport from the lastest CPython bz2 implementation)
 # fixes this problem
 import bz2file
+
+from rucio.common import config
 
 
 class HTTPDownloadFailed(Exception):
@@ -333,7 +328,7 @@ def gfal_download_to_file(url, file_):
 
     try:
         chunk = infile.read(CHUNK_SIZE)
-    except GError as e:
+    except gfal2.GError as e:
         if e.code == 70:
             logger.debug('GError(70) raised, using GRIDFTP PLUGIN:STAT_ON_OPEN=False workarround to download %s', url)
             ctx.set_opt_boolean('GRIDFTP PLUGIN', 'STAT_ON_OPEN', False)
