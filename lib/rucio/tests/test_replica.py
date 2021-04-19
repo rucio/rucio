@@ -902,18 +902,17 @@ def test_list_replicas_content_type(replica_client, rest_client, auth_token):
     assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == Mime.JSON_STREAM
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-def test_add_list_replicas(replica_client):
+def test_add_list_replicas_via_client(rse_factory, replica_client, mock_scope):
     """ REPLICA (CLIENT): Add, change state and list file replicas """
-    tmp_scope = 'mock'
+    rse1, _ = rse_factory.make_posix_rse()
+    rse2, _ = rse_factory.make_posix_rse()
     nbfiles = 5
 
-    files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-    replica_client.add_replicas(rse='MOCK', files=files1)
+    files1 = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    replica_client.add_replicas(rse=rse1, files=files1)
 
-    files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-    replica_client.add_replicas(rse='MOCK3', files=files2)
+    files2 = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    replica_client.add_replicas(rse=rse2, files=files2)
 
     replicas = [r for r in replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files1])]
     assert len(replicas) == len(files1)
@@ -924,8 +923,8 @@ def test_add_list_replicas(replica_client):
     replicas = [r for r in replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files2], schemes=['srm'])]
     assert len(replicas) == 5
 
-    files3 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'state': 'U', 'meta': {'events': 10}} for _ in range(nbfiles)]
-    replica_client.add_replicas(rse='MOCK3', files=files3)
+    files3 = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'state': 'U', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    replica_client.add_replicas(rse=rse2, files=files3)
     replicas = [r for r in replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files3], schemes=['file'])]
     for i in range(nbfiles):
         assert replicas[i]['rses'] == {}
@@ -933,11 +932,11 @@ def test_add_list_replicas(replica_client):
     for file in files3:
         file['state'] = 'A'
         files4.append(file)
-    replica_client.update_replicas_states('MOCK3', files=files4)
+    replica_client.update_replicas_states(rse2, files=files4)
     replicas = [r for r in replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files3], schemes=['file'], unavailable=True)]
     assert len(replicas) == 5
     for i in range(nbfiles):
-        assert 'MOCK3' in replicas[i]['rses']
+        assert rse2 in replicas[i]['rses']
 
 
 def test_add_replica_scope_not_found(replica_client):
