@@ -631,41 +631,38 @@ class TestReplicaCore(unittest.TestCase):
         with pytest.raises(ReplicaNotFound):
             set_tombstone(rse_id, scope, name)
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_list_replicas_with_updated_after(self):
-        """ REPLICA (CORE): Add and list file replicas with updated_after filter """
-        scope = InternalScope('mock', **self.vo)
-        root = InternalAccount('root', **self.vo)
-        mock = get_rse_id(rse='MOCK', **self.vo)
-        dsn = 'ds_ua_test_%s' % generate_uuid()
-        add_did(scope=scope, name=dsn, type='DATASET', account=root)
-        #
-        t0 = datetime.utcnow()
-        time.sleep(2)
-        lfn = '%s._%s.data' % (dsn, '0001')
-        add_replica(rse_id=mock, scope=scope, name=lfn, bytes=12345, account=root)
-        attach_dids(scope=scope, name=dsn, dids=[{'scope': scope, 'name': lfn}], account=root)
-        time.sleep(2)
-        t1 = datetime.utcnow()
-        time.sleep(2)
-        lfn = '%s._%s.data' % (dsn, '0002')
-        add_replica(rse_id=mock, scope=scope, name=lfn, bytes=12345, account=root)
-        attach_dids(scope=scope, name=dsn, dids=[{'scope': scope, 'name': lfn}], account=root)
-        time.sleep(2)
-        t2 = datetime.utcnow()
-        time.sleep(2)
-        lfn = '%s._%s.data' % (dsn, '0003')
-        add_replica(rse_id=mock, scope=scope, name=lfn, bytes=12345, account=root)
-        attach_dids(scope=scope, name=dsn, dids=[{'scope': scope, 'name': lfn}], account=root)
-        time.sleep(2)
-        t3 = datetime.utcnow()
-        #
-        assert len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=None))) == 3
-        assert len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t0))) == 3
-        assert len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t1))) == 2
-        assert len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t2))) == 1
-        assert len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t3))) == 0
+
+def test_list_replicas_with_updated_after(rse_factory, mock_scope, root_account):
+    """ REPLICA (CORE): Add and list file replicas with updated_after filter """
+    _, rse_id = rse_factory.make_mock_rse()
+    dsn = 'ds_ua_test_%s' % generate_uuid()
+    add_did(scope=mock_scope, name=dsn, type='DATASET', account=root_account)
+    #
+    t0 = datetime.utcnow()
+    time.sleep(2)
+    lfn = '%s._%s.data' % (dsn, '0001')
+    add_replica(rse_id=rse_id, scope=mock_scope, name=lfn, bytes=12345, account=root_account)
+    attach_dids(scope=mock_scope, name=dsn, dids=[{'scope': mock_scope, 'name': lfn}], account=root_account)
+    time.sleep(2)
+    t1 = datetime.utcnow()
+    time.sleep(2)
+    lfn = '%s._%s.data' % (dsn, '0002')
+    add_replica(rse_id=rse_id, scope=mock_scope, name=lfn, bytes=12345, account=root_account)
+    attach_dids(scope=mock_scope, name=dsn, dids=[{'scope': mock_scope, 'name': lfn}], account=root_account)
+    time.sleep(2)
+    t2 = datetime.utcnow()
+    time.sleep(2)
+    lfn = '%s._%s.data' % (dsn, '0003')
+    add_replica(rse_id=rse_id, scope=mock_scope, name=lfn, bytes=12345, account=root_account)
+    attach_dids(scope=mock_scope, name=dsn, dids=[{'scope': mock_scope, 'name': lfn}], account=root_account)
+    time.sleep(2)
+    t3 = datetime.utcnow()
+    #
+    assert len(list(list_replicas([{'scope': mock_scope, 'name': dsn}], updated_after=None))) == 3
+    assert len(list(list_replicas([{'scope': mock_scope, 'name': dsn}], updated_after=t0))) == 3
+    assert len(list(list_replicas([{'scope': mock_scope, 'name': dsn}], updated_after=t1))) == 2
+    assert len(list(list_replicas([{'scope': mock_scope, 'name': dsn}], updated_after=t2))) == 1
+    assert len(list(list_replicas([{'scope': mock_scope, 'name': dsn}], updated_after=t3))) == 0
 
 
 def test_get_RSE_coverage_of_dataset(rse_factory, mock_scope, root_account):
