@@ -173,31 +173,33 @@ class TestReplicaCore(unittest.TestCase):
                 client_location={'site': rse}):
             assert list(rep['pfns'].keys())[0].count('root://') == 1
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_update_replicas_paths(self):
-        """ REPLICA (CORE): Force update the replica path """
-        tmp_scope = InternalScope('mock', **self.vo)
-        root = InternalAccount('root', **self.vo)
-        nbfiles = 5
-        rse_id = get_rse_id(rse='MOCK', **self.vo)
-        rse_id2 = get_rse_id(rse='MOCK2', **self.vo)
-        files = [{'scope': tmp_scope,
-                  'name': 'file_%s' % generate_uuid(),
-                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/does/not/really/matter/where',
-                  'bytes': 1,
-                  'adler32': '0cc737eb',
-                  'meta': {'events': 10},
-                  'rse_id': rse_id,
-                  'path': '/does/not/really/matter/where'} for _ in range(nbfiles)]
-        add_replicas(rse_id=rse_id2, files=files, account=root, ignore_availability=True)
-        update_replicas_paths(files)
-        for replica in list_replicas(dids=[{'scope': f['scope'],
-                                            'name': f['name'],
-                                            'type': DIDType.FILE} for f in files],
-                                     schemes=['srm']):
-            # force the changed string - if we look it up from the DB, then we're not testing anything :-D
-            assert replica['rses'][rse_id2][0] == 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/does/not/really/matter/where'
+
+def test_update_replicas_paths(rse_factory, mock_scope, root_account):
+    """ REPLICA (CORE): Force update the replica path """
+    _, rse_id = rse_factory.make_srm_rse(deterministic=False)
+
+    nbfiles = 5
+    files = [{'scope': mock_scope,
+              'name': 'file_%s' % generate_uuid(),
+              'pfn': 'srm://host0/srm/managerv2?SFN=/test/does/not/really/matter/where/initially',
+              'bytes': 1,
+              'adler32': '0cc737eb',
+              'meta': {'events': 10},
+              'rse_id': rse_id,
+              'path': '/does/not/really/matter/where/initially'} for _ in range(nbfiles)]
+
+    add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
+
+    for file in files:
+        file['path'] = '/some/other/path'
+    update_replicas_paths(files)
+
+    for replica in list_replicas(dids=[{'scope': f['scope'],
+                                        'name': f['name'],
+                                        'type': DIDType.FILE} for f in files],
+                                 schemes=['srm']):
+        # force the changed string - if we look it up from the DB, then we're not testing anything :-D
+        assert replica['rses'][rse_id][0] == 'srm://host0/srm/managerv2?SFN=/test/some/other/path'
 
 
 def test_core_add_list_bad_replicas(rse_factory, mock_scope, root_account):
