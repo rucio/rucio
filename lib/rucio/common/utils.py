@@ -34,7 +34,6 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Anil Panta <anil.panta@desy.de>, 2021
 
-
 from __future__ import absolute_import, print_function
 
 try:
