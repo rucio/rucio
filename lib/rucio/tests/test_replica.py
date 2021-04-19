@@ -947,19 +947,18 @@ def test_add_replica_scope_not_found(replica_client):
         replica_client.add_replicas(rse='MOCK', files=files)
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-def test_delete_replicas(replica_client):
-    """ REPLICA (CLIENT): Add and delete file replicas """
-    tmp_scope = 'mock'
+def test_access_denied_on_delete_replicas(rse_factory, mock_scope, replica_client):
+    """ REPLICA (CLIENT): Access denied on delete file replicas """
+    rse, _ = rse_factory.make_mock_rse()
     nbfiles = 5
-    files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-    replica_client.add_replicas(rse='MOCK', files=files)
+    files = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    replica_client.add_replicas(rse=rse, files=files)
     with pytest.raises(AccessDenied):
-        replica_client.delete_replicas(rse='MOCK', files=files)
+        replica_client.delete_replicas(rse=rse, files=files)
 
-    # replicas = [r for r in replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files])]
-    # assert len(replicas) == 0
+    for f in files:
+        replicas = list(replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']}]))
+        assert len(replicas) == 1
 
 
 def test_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_client):
