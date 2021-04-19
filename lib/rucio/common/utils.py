@@ -32,6 +32,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Anil Panta <anil.panta@desy.de>, 2021
 
 from __future__ import absolute_import, print_function
 
@@ -765,6 +766,8 @@ def extract_scope_belleii(did, scopes):
         return 'test', did
     if did.startswith('/belle/BG/'):
         return 'data', did
+    if did.startswith('/belle/collection'):
+        return 'collection', did
     return 'other', did
 
 
