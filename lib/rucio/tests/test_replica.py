@@ -647,21 +647,19 @@ def test_get_RSE_coverage_of_dataset(rse_factory, mock_scope, root_account):
     assert cov[rse3_id] == 500
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-def test_add_list_bad_replicas(vo, replica_client, did_client):
+def test_client_add_list_bad_replicas(rse_factory, replica_client, did_client):
     """ REPLICA (CLIENT): Add bad replicas"""
     tmp_scope = 'mock'
     nbfiles = 5
     # Adding replicas to deterministic RSE
     files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-    rse_id1 = get_rse_id('MOCK', vo=vo)
-    replica_client.add_replicas(rse='MOCK', files=files)
+    rse1, rse_id1 = rse_factory.make_srm_rse(deterministic=True)
+    replica_client.add_replicas(rse=rse1, files=files)
 
     # Listing replicas on deterministic RSE
     replicas, list_rep = [], []
     for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
-        replicas.extend(replica['rses']['MOCK'])
+        replicas.extend(replica['rses'][rse1])
         list_rep.append(replica)
     r = replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
     assert r == {}
@@ -681,18 +679,18 @@ def test_add_list_bad_replicas(vo, replica_client, did_client):
     tmp_dsn = 'dataset_%s' % generate_uuid()
     did_client.add_dataset(scope=tmp_scope, name=tmp_dsn)
     with pytest.raises(UnsupportedOperation):
-        did_client.add_files_to_dataset(tmp_scope, name=tmp_dsn, files=files, rse='MOCK')
+        did_client.add_files_to_dataset(tmp_scope, name=tmp_dsn, files=files, rse=rse1)
 
     # Adding replicas to non-deterministic RSE
     files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-              'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
-    rse_id2 = get_rse_id('MOCK2', vo=vo)
-    replica_client.add_replicas(rse='MOCK2', files=files)
+              'pfn': 'srm://host1/srm/managerv2?SFN=/test/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
+    rse2, rse_id2 = rse_factory.make_srm_rse(deterministic=False)
+    replica_client.add_replicas(rse=rse2, files=files)
 
     # Listing replicas on non-deterministic RSE
     replicas, list_rep = [], []
     for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
-        replicas.extend(replica['rses']['MOCK2'])
+        replicas.extend(replica['rses'][rse2])
         list_rep.append(replica)
     print(replicas, list_rep)
     r = replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
@@ -708,10 +706,10 @@ def test_add_list_bad_replicas(vo, replica_client, did_client):
     assert len(replicas) == nbbadrep
 
     # Now adding non-existing bad replicas
-    files = ['srm://mock2.com/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), ]
+    files = ['srm://host1/test/%s/%s' % (tmp_scope, generate_uuid()), ]
     r = replica_client.declare_bad_file_replicas(files, 'This is a good reason')
     output = ['%s Unknown replica' % rep for rep in files]
-    assert r == {'MOCK2': output}
+    assert r == {rse2: output}
 
 
 @pytest.mark.dirty
