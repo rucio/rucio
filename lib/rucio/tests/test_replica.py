@@ -387,29 +387,28 @@ class TestReplicaCore(unittest.TestCase):
         for i in range(0, nbfiles - 1):
             assert get_replica_atime({'scope': files2[i]['scope'], 'name': files2[i]['name'], 'rse_id': rse_id}) is None
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_list_replicas_all_states(self):
-        """ REPLICA (CORE): list file replicas with all_states"""
-        tmp_scope = InternalScope('mock', **self.vo)
-        root = InternalAccount('root', **self.vo)
-        nbfiles = 13
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        rses = [get_rse_id(rse='MOCK', **self.vo), get_rse_id(rse='MOCK3', **self.vo)]
-        for rse_id in rses:
-            add_replicas(rse_id=rse_id, files=files, account=root, ignore_availability=True)
 
-        for file in files:
-            update_replica_state(rses[0], tmp_scope, file['name'], ReplicaState.COPYING)
+def test_list_replicas_all_states(rse_factory, mock_scope, root_account):
+    """ REPLICA (CORE): list file replicas with all_states"""
+    _, rse1_id = rse_factory.make_mock_rse()
+    _, rse2_id = rse_factory.make_mock_rse()
+    nbfiles = 13
+    files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    rses = [rse1_id, rse2_id]
+    for rse_id in rses:
+        add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
 
-        replica_cpt = 0
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm'], all_states=True):
-            assert 'states' in replica
-            assert replica['states'][rses[0]] == str(ReplicaState.COPYING.name)
-            assert replica['states'][rses[1]] == str(ReplicaState.AVAILABLE.name)
-            replica_cpt += 1
+    for file in files:
+        update_replica_state(rses[0], mock_scope, file['name'], ReplicaState.COPYING)
 
-        assert nbfiles == replica_cpt
+    replica_cpt = 0
+    for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm'], all_states=True):
+        assert 'states' in replica
+        assert replica['states'][rses[0]] == str(ReplicaState.COPYING.name)
+        assert replica['states'][rses[1]] == str(ReplicaState.AVAILABLE.name)
+        replica_cpt += 1
+
+    assert nbfiles == replica_cpt
 
 
 def test_list_replica_with_domain(rse_factory, mock_scope, root_account):
