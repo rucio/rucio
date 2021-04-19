@@ -111,23 +111,27 @@ class TemporaryRSEFactory:
     def _make_rse(self, scheme, protocol_impl, add_rse_kwargs):
         rse_name = rse_name_generator()
         rse_id = rse_core.add_rse(rse_name, vo=self.vo, **add_rse_kwargs)
-        rse_core.add_protocol(rse_id=rse_id, parameter={
-            'scheme': scheme,
-            'hostname': 'host%d' % len(self.created_rses),
-            'port': 0,
-            'prefix': '/test',
-            'impl': protocol_impl,
-            'domains': {
-                'wan': {
-                    'read': 1,
-                    'write': 1,
-                    'delete': 1,
-                    'third_party_copy': 1
+        if scheme and protocol_impl:
+            rse_core.add_protocol(rse_id=rse_id, parameter={
+                'scheme': scheme,
+                'hostname': 'host%d' % len(self.created_rses),
+                'port': 0,
+                'prefix': '/test',
+                'impl': protocol_impl,
+                'domains': {
+                    'wan': {
+                        'read': 1,
+                        'write': 1,
+                        'delete': 1,
+                        'third_party_copy': 1
+                    }
                 }
-            }
-        })
+            })
         self.created_rses.append(rse_id)
         return rse_name, rse_id
+
+    def make_rse(self, **kwargs):
+        return self._make_rse(scheme=None, protocol_impl=None, add_rse_kwargs=kwargs)
 
     def make_posix_rse(self, **kwargs):
         return self._make_rse(scheme='file', protocol_impl='rucio.rse.protocols.posix.Default', add_rse_kwargs=kwargs)
