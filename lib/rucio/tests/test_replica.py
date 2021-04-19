@@ -36,23 +36,18 @@ import hashlib
 import os
 import sys
 import time
-import unittest
 from datetime import datetime, timedelta
 from json import dumps, loads
 from xml.etree import ElementTree
 import pytest
 import xmltodict
 from werkzeug.datastructures import MultiDict
-from rucio.client.baseclient import BaseClient
-from rucio.client.didclient import DIDClient
-from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.core.config import set as cconfig_set
-from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, UnsupportedOperation,
                                     RucioException, ReplicaIsLocked, ReplicaNotFound, ScopeNotFound,
                                     DatabaseException)
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid, clean_surls, parse_response
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
 from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_replicas_state,
@@ -60,13 +55,13 @@ from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_
                                 declare_bad_file_replicas, list_bad_replicas,
                                 update_replicas_paths, update_replica_state, get_RSEcoverage_of_dataset,
                                 get_replica_atime, touch_replica, get_bad_pfns, set_tombstone)
-from rucio.core.rse import add_rse, add_protocol, add_rse_attribute, del_rse_attribute, get_rse_id
+from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
 from rucio.daemons.badreplicas.necromancer import run as necromancer_run
 from rucio.db.sqla.constants import DIDType, ReplicaState, BadPFNStatus, OBSOLETE
 from rucio.rse import rsemanager as rsemgr
-from rucio.tests.common import execute, rse_name_generator, headers, auth, Mime, accept
+from rucio.tests.common import execute, headers, auth, Mime, accept
 
 
 if sys.version_info >= (3, 3):
