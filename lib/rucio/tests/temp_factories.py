@@ -80,7 +80,7 @@ class TemporaryRSEFactory:
     @transactional_session
     def __cleanup_locks_and_rules(self, rules_to_remove, session=None):
         for rule_id, in rules_to_remove:
-            rule_core.delete_rule(rule_id, session=session)
+            rule_core.delete_rule(rule_id, session=session, ignore_rule_lock=True)
 
     @transactional_session
     def __cleanup_replicas(self, session=None):
@@ -199,7 +199,7 @@ class TemporaryFileFactory:
                                                                          models.ReplicationRule.name == did['name'])
                                                                     for did in self.created_dids))
         for rule_id, in query:
-            rule_core.delete_rule(rule_id, session=session)
+            rule_core.delete_rule(rule_id, session=session, ignore_rule_lock=True)
 
         # Cleanup Replicas and Parent Datasets
         dids_by_rse = {}
