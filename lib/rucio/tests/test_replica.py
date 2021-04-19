@@ -257,24 +257,22 @@ class TestReplicaCore(unittest.TestCase):
         output = ['%s Unknown replica' % rep for rep in files]
         assert r == {rse_id2: output}
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_add_list_replicas(self):
-        """ REPLICA (CORE): Add and list file replicas """
-        tmp_scope = InternalScope('mock', **self.vo)
-        root = InternalAccount('root', **self.vo)
-        nbfiles = 13
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        rses = ['MOCK', 'MOCK3']
-        for rse in rses:
-            rse_id = get_rse_id(rse=rse, **self.vo)
-            add_replicas(rse_id=rse_id, files=files, account=root, ignore_availability=True)
 
-        replica_cpt = 0
-        for _ in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
-            replica_cpt += 1
+def test_add_list_replicas_via_core(rse_factory, mock_scope, root_account):
+    """ REPLICA (CORE): Add and list file replicas """
+    _, rse1_id = rse_factory.make_mock_rse()
+    _, rse2_id = rse_factory.make_mock_rse()
 
-        assert nbfiles == replica_cpt
+    nbfiles = 13
+    files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    for rse_id in [rse1_id, rse2_id]:
+        add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
+
+    replica_cpt = 0
+    for _ in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
+        replica_cpt += 1
+
+    assert nbfiles == replica_cpt
 
 
 def test_delete_replicas(rse_factory, mock_scope, root_account):
