@@ -1428,8 +1428,8 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     :returns: True is successful.
     """
 
-    def _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan'):
-        p = rsemgr.create_protocol(rse_settings=rse_settings, operation='write', scheme=scheme, domain=domain)
+    def _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan', protocol_attr=None):
+        p = rsemgr.create_protocol(rse_settings=rse_settings, operation='write', scheme=scheme, domain=domain, protocol_attr=protocol_attr)
         expected_pfns = p.lfns2pfns(lfns)
         return clean_surls(expected_pfns.values())
 
@@ -1468,12 +1468,30 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
                 # Check that the pfns match to the expected pfns
                 lfns = [{'scope': i['scope'].external, 'name': i['name']} for i in files if i['pfn'].startswith(scheme)]
                 pfns[scheme] = clean_surls(pfns[scheme])
-                expected_pfns_wan = _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan')
+
                 # Check wan first
-                if expected_pfns_wan != pfns[scheme]:
-                    expected_pfns_lan = _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='lan')
+                found_on_wan = False
+                available_wan_protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=scheme, domain='wan')
+                expected_pfns_wan = None
+                for protocol_attr in available_wan_protocols:
+                    pfns_wan_buffer = _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan', protocol_attr=protocol_attr)
+                    if not expected_pfns_wan and pfns_wan_buffer:
+                        expected_pfns_wan = pfns_wan_buffer
+                    found_on_wan = found_on_wan or (pfns_wan_buffer == pfns[scheme])
+                    if found_on_wan:
+                        break
+
+                if not found_on_wan:
                     # Check lan
-                    if expected_pfns_lan == pfns[scheme]:
+                    found_on_lan = False
+                    available_lan_protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=scheme, domain='lan')
+                    for protocol_attr in available_lan_protocols:
+                        pfns_lan_buffer = _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='lan', protocol_attr=protocol_attr)
+                        found_on_lan = found_on_lan or (pfns_lan_buffer == pfns[scheme])
+                        if found_on_lan:
+                            break
+
+                    if found_on_lan == pfns[scheme]:
                         # Registration always with wan
                         pfns[scheme] = expected_pfns_wan
                     else:
