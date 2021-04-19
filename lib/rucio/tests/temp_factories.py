@@ -92,6 +92,8 @@ class TemporaryRSEFactory:
             dids_by_rse.setdefault(rse_id, []).append({'scope': scope, 'name': name})
         for rse_id, dids in dids_by_rse.items():
             replica_core.delete_replicas(rse_id=rse_id, files=dids, session=session)
+        # Cleanup BadReplicas
+        session.query(models.BadReplicas).filter(models.BadReplicas.rse_id.in_(self.created_rses)).delete(synchronize_session=False)
 
     @transactional_session
     def __cleanup_rse_attributes(self, session=None):
@@ -209,6 +211,10 @@ class TemporaryFileFactory:
                 dids_by_rse.setdefault(rse_id, []).append({'scope': replica['scope'], 'name': replica['name']})
         for rse_id, dids in dids_by_rse.items():
             replica_core.delete_replicas(rse_id=rse_id, files=dids, session=session)
+        # Cleanup BadReplicas
+        session.query(models.BadReplicas).filter(or_(and_(models.BadReplicas.scope == did['scope'],
+                                                          models.BadReplicas.name == did['name'])
+                                                     for did in self.created_dids)).delete(synchronize_session=False)
 
     def _sanitize_or_set_scope(self, scope):
         if not scope:
