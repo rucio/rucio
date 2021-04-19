@@ -1028,28 +1028,26 @@ class TestReplicaMetalink(unittest.TestCase):
                              xml_attribs=False)
         assert 3 == len(ml['metalink']['file']['url'])
 
-    def test_get_did_from_pfns_nondeterministic(self):
-        """ REPLICA (CLIENT): Get list of DIDs associated to PFNs for non-deterministic sites"""
-        rse = 'MOCK2'
-        rse_id = get_rse_id(rse=rse, **self.vo)
-        tmp_scope = InternalScope('mock', **self.vo)
-        root = InternalAccount('root', **self.vo)
-        nbfiles = 3
-        pfns = []
-        input = {}
-        rse_info = rsemgr.get_rse_info(rse=rse, **self.vo)
-        assert rse_info['deterministic'] is False
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
-        for f in files:
-            input[f['pfn']] = {'scope': f['scope'].external, 'name': f['name']}
-        add_replicas(rse_id=rse_id, files=files, account=root, ignore_availability=True)
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm'], ignore_availability=True):
-            for r in replica['rses']:
-                pfns.extend(replica['rses'][r])
-        for result in self.replica_client.get_did_from_pfns(pfns, rse):
-            pfn = list(result.keys())[0]
-            assert input[pfn] == list(result.values())[0]
+
+def test_get_did_from_pfns_nondeterministic(vo, rse_factory, mock_scope, root_account, replica_client):
+    """ REPLICA (CLIENT): Get list of DIDs associated to PFNs for non-deterministic sites"""
+    rse, rse_id = rse_factory.make_srm_rse(deterministic=False)
+    nbfiles = 3
+    pfns = []
+    input = {}
+    rse_info = rsemgr.get_rse_info(rse=rse, vo=vo)
+    assert rse_info['deterministic'] is False
+    files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
+              'pfn': 'srm://host0/srm/managerv2?SFN=/test/%s/%s' % (mock_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
+    for f in files:
+        input[f['pfn']] = {'scope': f['scope'].external, 'name': f['name']}
+    add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
+    for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm'], ignore_availability=True):
+        for r in replica['rses']:
+            pfns.extend(replica['rses'][r])
+    for result in replica_client.get_did_from_pfns(pfns, rse):
+        pfn = list(result.keys())[0]
+        assert input[pfn] == list(result.values())[0]
 
 
 def test_get_did_from_pfns_deterministic(vo, rse_factory, mock_scope, root_account, replica_client):
