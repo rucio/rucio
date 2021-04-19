@@ -116,7 +116,7 @@ class TemporaryRSEFactory:
         if scheme and protocol_impl:
             rse_core.add_protocol(rse_id=rse_id, parameter={
                 'scheme': scheme,
-                'hostname': 'host%d' % len(self.created_rses),
+                'hostname': '%s.cern.ch' % rse_id,
                 'port': 0,
                 'prefix': '/test/',
                 'impl': protocol_impl,

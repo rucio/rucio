@@ -164,7 +164,7 @@ def test_core_update_replicas_paths(rse_factory, mock_scope, root_account):
     nbfiles = 5
     files = [{'scope': mock_scope,
               'name': 'file_%s' % generate_uuid(),
-              'pfn': 'srm://host0/srm/managerv2?SFN=/test/does/not/really/matter/where/initially',
+              'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test/does/not/really/matter/where/initially' % rse_id,
               'bytes': 1,
               'adler32': '0cc737eb',
               'meta': {'events': 10},
@@ -182,7 +182,7 @@ def test_core_update_replicas_paths(rse_factory, mock_scope, root_account):
                                         'type': DIDType.FILE} for f in files],
                                  schemes=['srm']):
         # force the changed string - if we look it up from the DB, then we're not testing anything :-D
-        assert replica['rses'][rse_id][0] == 'srm://host0/srm/managerv2?SFN=/test/some/other/path'
+        assert replica['rses'][rse_id][0] == 'srm://%s.cern.ch/srm/managerv2?SFN=/test/some/other/path' % rse_id
 
 
 @pytest.mark.noparallel(reason='calls list_bad_replicas() which acts on all bad replicas without any filtering')
@@ -215,7 +215,7 @@ def test_core_add_list_bad_replicas(rse_factory, mock_scope, root_account):
     # Adding replicas to non-deterministic RSE
     _, rse2_id = rse_factory.make_srm_rse(deterministic=False)
     files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-              'pfn': 'srm://host1/srm/managerv2?SFN=/test/%s/%s' % (mock_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
+              'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test/%s/%s' % (rse2_id, mock_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
     add_replicas(rse_id=rse2_id, files=files, account=root_account, ignore_availability=True)
 
     # Listing replicas on non-deterministic RSE
@@ -236,7 +236,7 @@ def test_core_add_list_bad_replicas(rse_factory, mock_scope, root_account):
     assert len(replicas) == nbbadrep
 
     # Now adding non-existing bad replicas
-    files = ['srm://host1/test/%s/%s' % (mock_scope, generate_uuid()), ]
+    files = ['srm://%s.cern.ch/test/%s/%s' % (rse2_id, mock_scope, generate_uuid()), ]
     r = declare_bad_file_replicas(files, 'This is a good reason', root_account)
     output = ['%s Unknown replica' % rep for rep in files]
     assert r == {rse2_id: output}
@@ -650,7 +650,7 @@ def test_client_add_list_bad_replicas(rse_factory, replica_client, did_client):
     nbfiles = 5
     # Adding replicas to deterministic RSE
     files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-    rse1, rse_id1 = rse_factory.make_srm_rse(deterministic=True)
+    rse1, rse1_id = rse_factory.make_srm_rse(deterministic=True)
     replica_client.add_replicas(rse=rse1, files=files)
 
     # Listing replicas on deterministic RSE
@@ -664,7 +664,7 @@ def test_client_add_list_bad_replicas(rse_factory, replica_client, did_client):
     nbbadrep = 0
     for rep in list_rep:
         for badrep in bad_replicas:
-            if badrep['rse_id'] == rse_id1:
+            if badrep['rse_id'] == rse1_id:
                 if badrep['scope'].external == rep['scope'] and badrep['name'] == rep['name']:
                     nbbadrep += 1
     assert len(replicas) == nbbadrep
@@ -679,9 +679,9 @@ def test_client_add_list_bad_replicas(rse_factory, replica_client, did_client):
         did_client.add_files_to_dataset(tmp_scope, name=tmp_dsn, files=files, rse=rse1)
 
     # Adding replicas to non-deterministic RSE
+    rse2, rse2_id = rse_factory.make_srm_rse(deterministic=False)
     files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-              'pfn': 'srm://host1/srm/managerv2?SFN=/test/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
-    rse2, rse_id2 = rse_factory.make_srm_rse(deterministic=False)
+              'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test/%s/%s' % (rse2_id, tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
     replica_client.add_replicas(rse=rse2, files=files)
 
     # Listing replicas on non-deterministic RSE
@@ -697,13 +697,13 @@ def test_client_add_list_bad_replicas(rse_factory, replica_client, did_client):
     nbbadrep = 0
     for rep in list_rep:
         for badrep in bad_replicas:
-            if badrep['rse_id'] == rse_id2:
+            if badrep['rse_id'] == rse2_id:
                 if badrep['scope'].external == rep['scope'] and badrep['name'] == rep['name']:
                     nbbadrep += 1
     assert len(replicas) == nbbadrep
 
     # Now adding non-existing bad replicas
-    files = ['srm://host1/test/%s/%s' % (tmp_scope, generate_uuid()), ]
+    files = ['srm://%s.cern.ch/test/%s/%s' % (rse2_id, tmp_scope, generate_uuid()), ]
     r = replica_client.declare_bad_file_replicas(files, 'This is a good reason')
     output = ['%s Unknown replica' % rep for rep in files]
     assert r == {rse2: output}
@@ -726,13 +726,14 @@ def test_client_add_suspicious_replicas(rse_factory, replica_client):
         list_rep.append(replica)
     r = replica_client.declare_suspicious_file_replicas(replicas, 'This is a good reason')
     assert r == {}
+
     # Adding replicas to non-deterministic RSE
+    rse2, rse2_id = rse_factory.make_srm_rse(deterministic=False)
     files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-              'pfn': 'srm://host1/srm/managerv2?SFN=/test/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
+              'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test/%s/%s' % (rse2_id, tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
+    replica_client.add_replicas(rse=rse2, files=files)
 
     # Listing replicas on non-deterministic RSE
-    rse2, _ = rse_factory.make_srm_rse(deterministic=False)
-    replica_client.add_replicas(rse=rse2, files=files)
     replicas = []
     list_rep = []
     for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
@@ -741,7 +742,7 @@ def test_client_add_suspicious_replicas(rse_factory, replica_client):
     r = replica_client.declare_suspicious_file_replicas(replicas, 'This is a good reason')
     assert r == {}
     # Now adding non-existing bad replicas
-    files = ['srm://host1/test/%s/%s' % (tmp_scope, generate_uuid()), ]
+    files = ['srm://%s.cern.ch/test/%s/%s' % (rse2_id, tmp_scope, generate_uuid()), ]
     r = replica_client.declare_suspicious_file_replicas(files, 'This is a good reason')
     output = ['%s Unknown replica' % rep for rep in files]
     assert r == {rse2: output}
@@ -1032,7 +1033,7 @@ def test_client_get_did_from_pfns_nondeterministic(vo, rse_factory, mock_scope, 
     rse_info = rsemgr.get_rse_info(rse=rse, vo=vo)
     assert rse_info['deterministic'] is False
     files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-              'pfn': 'srm://host0/srm/managerv2?SFN=/test/%s/%s' % (mock_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
+              'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test/%s/%s' % (rse_id, mock_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
     for f in files:
         input[f['pfn']] = {'scope': f['scope'].external, 'name': f['name']}
     add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
