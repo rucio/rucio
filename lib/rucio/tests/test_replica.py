@@ -865,14 +865,13 @@ def test_bad_replica_methods_for_UI(rest_client, auth_token):
     assert nb_tot_bad_files1 == nb_tot_bad_files2
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-def test_list_replicas_content_type(replica_client, rest_client, auth_token):
+def test_list_replicas_content_type(rse_factory, mock_scope, replica_client, rest_client, auth_token):
     """ REPLICA (REST): send a GET to list replicas with specific ACCEPT header."""
-    scope = 'mock'
+    rse, _ = rse_factory.make_mock_rse()
+    scope = mock_scope.external
     name = 'file_%s' % generate_uuid()
     files1 = [{'scope': scope, 'name': name, 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}}]
-    replica_client.add_replicas(rse='MOCK', files=files1)
+    replica_client.add_replicas(rse=rse, files=files1)
 
     # unsupported requested content type
     response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token), accept('application/unsupported')))
