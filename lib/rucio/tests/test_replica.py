@@ -962,19 +962,17 @@ def test_delete_replicas(replica_client):
     # assert len(replicas) == 0
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-def test_add_temporary_unavailable_pfns(vo, replica_client):
+def test_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_client):
     """ REPLICA (CLIENT): Add temporary unavailable PFNs"""
-    tmp_scope = 'mock'
+    rse, rse_id = rse_factory.make_posix_rse()
     nbfiles = 5
     # Adding replicas to deterministic RSE
-    files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-    replica_client.add_replicas(rse='MOCK', files=files)
+    files = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    replica_client.add_replicas(rse=rse, files=files)
 
     # Listing replicas on deterministic RSE
     list_rep = []
-    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
+    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['file'], unavailable=True):
         pfn = list(replica['pfns'].keys())[0]
         list_rep.append(pfn)
 
@@ -1000,7 +998,7 @@ def test_add_temporary_unavailable_pfns(vo, replica_client):
     # Run minos once
     minos_run(threads=1, bulk=10000, once=True)
     result = get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None)
-    pfns = [res['pfn'] for res in result]
+    pfns = [res['pfn'] for res in result if res['pfn'] in bad_pfns]
     res_pfns = []
     for replica in list_rep:
         if replica in pfns:
@@ -1009,7 +1007,7 @@ def test_add_temporary_unavailable_pfns(vo, replica_client):
 
     # Check the state in the replica table
     for did in files:
-        rep = get_replicas_state(scope=InternalScope(did['scope'], vo=vo), name=did['name'])
+        rep = get_replicas_state(scope=mock_scope, name=did['name'])
         assert list(rep.keys())[0] == ReplicaState.TEMPORARY_UNAVAILABLE
 
     rep = []
@@ -1021,7 +1019,7 @@ def test_add_temporary_unavailable_pfns(vo, replica_client):
     minos_temp_run(threads=1, once=True)
     # Check the state in the replica table
     for did in files:
-        rep = get_replicas_state(scope=InternalScope(did['scope'], vo=vo), name=did['name'])
+        rep = get_replicas_state(scope=mock_scope, name=did['name'])
         assert list(rep.keys())[0] == ReplicaState.AVAILABLE
 
 
