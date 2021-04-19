@@ -276,31 +276,29 @@ class TestReplicaCore(unittest.TestCase):
 
         assert nbfiles == replica_cpt
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_delete_replicas(self):
-        """ REPLICA (CORE): Delete replicas """
-        tmp_scope = InternalScope('mock', **self.vo)
-        root = InternalAccount('root', **self.vo)
-        nbfiles = 5
-        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        rse_id1 = get_rse_id(rse='MOCK', **self.vo)
-        rse_id2 = get_rse_id(rse='MOCK3', **self.vo)
 
-        add_replicas(rse_id=rse_id1, files=files1, account=root, ignore_availability=True)
+def test_delete_replicas(rse_factory, mock_scope, root_account):
+    """ REPLICA (CORE): Delete replicas """
+    _, rse1_id = rse_factory.make_mock_rse()
+    _, rse2_id = rse_factory.make_mock_rse()
 
-        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        add_replicas(rse_id=rse_id1, files=files2, account=root, ignore_availability=True)
-        add_replicas(rse_id=rse_id2, files=files2, account=root, ignore_availability=True)
+    nbfiles = 5
+    files1 = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
 
-        delete_replicas(rse_id=rse_id1, files=files1 + files2)
+    add_replicas(rse_id=rse1_id, files=files1, account=root_account, ignore_availability=True)
 
-        for file in files1:
-            with pytest.raises(DataIdentifierNotFound):
-                print(get_did(scope=file['scope'], name=file['name']))
+    files2 = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    add_replicas(rse_id=rse1_id, files=files2, account=root_account, ignore_availability=True)
+    add_replicas(rse_id=rse2_id, files=files2, account=root_account, ignore_availability=True)
 
-        for file in files2:
-            get_did(scope=file['scope'], name=file['name'])
+    delete_replicas(rse_id=rse1_id, files=files1 + files2)
+
+    for file in files1:
+        with pytest.raises(DataIdentifierNotFound):
+            print(get_did(scope=file['scope'], name=file['name']))
+
+    for file in files2:
+        get_did(scope=file['scope'], name=file['name'])
 
 
 def test_delete_replicas_from_datasets(rse_factory, mock_scope, root_account):
