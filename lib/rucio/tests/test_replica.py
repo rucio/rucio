@@ -411,88 +411,84 @@ class TestReplicaCore(unittest.TestCase):
 
         assert nbfiles == replica_cpt
 
-    @pytest.mark.dirty
-    def test_list_replica_with_domain(self):
-        """ REPLICA (CORE): Add and list file replicas forcing domain"""
 
-        tmp_scope = InternalScope('mock', **self.vo)
-        root = InternalAccount('root', **self.vo)
+def test_list_replica_with_domain(rse_factory, mock_scope, root_account):
+    """ REPLICA (CORE): Add and list file replicas forcing domain"""
 
-        tmp_rse = rse_name_generator()
-        tmp_rse_id = add_rse(tmp_rse, **self.vo)
+    rse, rse_id = rse_factory.make_rse()
 
-        protocols = [{'scheme': 'MOCK',
-                      'hostname': 'localhost',
-                      'port': 17,
-                      'prefix': '/i/prefer/the/lan',
-                      'impl': 'rucio.rse.protocols.mock.Default',
-                      'domains': {
-                          'lan': {'read': 1,
-                                  'write': 1,
-                                  'delete': 1},
-                          'wan': {'read': 2,
-                                  'write': 2,
-                                  'delete': 2}}},
-                     {'scheme': 'MOCK',
-                      'hostname': 'localhost',
-                      'port': 18,
-                      'prefix': '/i/prefer/the/wan',
-                      'impl': 'rucio.rse.protocols.mock.Default',
-                      'domains': {
-                          'lan': {'read': 2,
-                                  'write': 2,
-                                  'delete': 2},
-                          'wan': {'read': 1,
-                                  'write': 1,
-                                  'delete': 1}}}, ]
-        for p in protocols:
-            add_protocol(tmp_rse_id, p)
+    protocols = [{'scheme': 'MOCK',
+                  'hostname': 'localhost',
+                  'port': 17,
+                  'prefix': '/i/prefer/the/lan',
+                  'impl': 'rucio.rse.protocols.mock.Default',
+                  'domains': {
+                      'lan': {'read': 1,
+                              'write': 1,
+                              'delete': 1},
+                      'wan': {'read': 2,
+                              'write': 2,
+                              'delete': 2}}},
+                 {'scheme': 'MOCK',
+                  'hostname': 'localhost',
+                  'port': 18,
+                  'prefix': '/i/prefer/the/wan',
+                  'impl': 'rucio.rse.protocols.mock.Default',
+                  'domains': {
+                      'lan': {'read': 2,
+                              'write': 2,
+                              'delete': 2},
+                      'wan': {'read': 1,
+                              'write': 1,
+                              'delete': 1}}}, ]
+    for p in protocols:
+        add_protocol(rse_id, p)
 
-        nbfiles = 3
-        files = [{'scope': tmp_scope,
-                  'name': 'file_%s' % generate_uuid(),
-                  'bytes': 1234,
-                  'adler32': '01234567',
-                  'meta': {'events': 1234}} for _ in range(nbfiles)]
+    nbfiles = 3
+    files = [{'scope': mock_scope,
+              'name': 'file_%s' % generate_uuid(),
+              'bytes': 1234,
+              'adler32': '01234567',
+              'meta': {'events': 1234}} for _ in range(nbfiles)]
 
-        add_replicas(rse_id=tmp_rse_id, files=files, account=root, ignore_availability=True)
+    add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
 
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
-                                     schemes=['MOCK'],
-                                     domain='wan'):
-            assert '/i/prefer/the/wan' in list(replica['pfns'].keys())[0]
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
-                                     schemes=['MOCK'],
-                                     domain='lan'):
-            assert '/i/prefer/the/lan' in list(replica['pfns'].keys())[0]
-        # test old client behaviour - get all WAN answers
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
-                                     schemes=['MOCK']):
-            cmd = 'rucio list-file-replicas --pfns %s:%s' % (replica['scope'], replica['name'])
-            _, stdout, _ = execute(cmd)
-            assert '/i/prefer/the/wan' in stdout
+    for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                                 schemes=['MOCK'],
+                                 domain='wan'):
+        assert '/i/prefer/the/wan' in list(replica['pfns'].keys())[0]
+    for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                                 schemes=['MOCK'],
+                                 domain='lan'):
+        assert '/i/prefer/the/lan' in list(replica['pfns'].keys())[0]
+    # test old client behaviour - get all WAN answers
+    for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                                 schemes=['MOCK']):
+        cmd = 'rucio list-file-replicas --pfns %s:%s' % (replica['scope'], replica['name'])
+        _, stdout, _ = execute(cmd)
+        assert '/i/prefer/the/wan' in stdout
 
-        # # force all LAN
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
-                                     schemes=['MOCK'], domain='lan'):
-            cmd = 'rucio list-file-replicas --pfns --domain=lan %s:%s' % (replica['scope'], replica['name'])
-            errno, stdout, stderr = execute(cmd)
-            assert '/i/prefer/the/lan' in stdout
+    # # force all LAN
+    for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                                 schemes=['MOCK'], domain='lan'):
+        cmd = 'rucio list-file-replicas --pfns --domain=lan %s:%s' % (replica['scope'], replica['name'])
+        errno, stdout, stderr = execute(cmd)
+        assert '/i/prefer/the/lan' in stdout
 
-        # # force all WAN
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
-                                     schemes=['MOCK'], domain='wan'):
-            cmd = 'rucio list-file-replicas --pfns --domain=wan %s:%s' % (replica['scope'], replica['name'])
-            errno, stdout, stderr = execute(cmd)
-            assert '/i/prefer/the/wan' in stdout
+    # # force all WAN
+    for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                                 schemes=['MOCK'], domain='wan'):
+        cmd = 'rucio list-file-replicas --pfns --domain=wan %s:%s' % (replica['scope'], replica['name'])
+        errno, stdout, stderr = execute(cmd)
+        assert '/i/prefer/the/wan' in stdout
 
-        # # force both WAN and LAN
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
-                                     schemes=['MOCK'], domain='all'):
-            cmd = 'rucio list-file-replicas --pfns --domain=all %s:%s' % (replica['scope'], replica['name'])
-            errno, stdout, stderr = execute(cmd)
-            assert '/i/prefer/the/wan' in stdout
-            assert '/i/prefer/the/lan' in stdout
+    # # force both WAN and LAN
+    for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
+                                 schemes=['MOCK'], domain='all'):
+        cmd = 'rucio list-file-replicas --pfns --domain=all %s:%s' % (replica['scope'], replica['name'])
+        errno, stdout, stderr = execute(cmd)
+        assert '/i/prefer/the/wan' in stdout
+        assert '/i/prefer/the/lan' in stdout
 
 
 def test_list_replica_with_schemes(rse_factory, mock_scope, root_account, replica_client):
