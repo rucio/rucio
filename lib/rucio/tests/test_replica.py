@@ -199,63 +199,61 @@ class TestReplicaCore(unittest.TestCase):
             # force the changed string - if we look it up from the DB, then we're not testing anything :-D
             assert replica['rses'][rse_id2][0] == 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/does/not/really/matter/where'
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_add_list_bad_replicas(self):
-        """ REPLICA (CORE): Add bad replicas and list them"""
-        tmp_scope = InternalScope('mock', **self.vo)
-        root = InternalAccount('root', **self.vo)
-        nbfiles = 5
-        # Adding replicas to deterministic RSE
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        rse_id1 = get_rse_id(rse='MOCK', **self.vo)
-        add_replicas(rse_id=rse_id1, files=files, account=root, ignore_availability=True)
 
-        # Listing replicas on deterministic RSE
-        replicas = []
-        list_rep = []
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
-            replicas.extend(replica['rses'][rse_id1])
-            list_rep.append(replica)
-        r = declare_bad_file_replicas(replicas, 'This is a good reason', root)
-        assert r == {}
-        bad_replicas = list_bad_replicas()
-        nbbadrep = 0
-        for rep in list_rep:
-            for badrep in bad_replicas:
-                if badrep['rse_id'] == rse_id1:
-                    if badrep['scope'] == rep['scope'] and badrep['name'] == rep['name']:
-                        nbbadrep += 1
-        assert len(replicas) == nbbadrep
+def test_core_add_list_bad_replicas(rse_factory, mock_scope, root_account):
+    """ REPLICA (CORE): Add bad replicas and list them"""
 
-        # Adding replicas to non-deterministic RSE
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
-        rse_id2 = get_rse_id(rse='MOCK2', **self.vo)
-        add_replicas(rse_id=rse_id2, files=files, account=root, ignore_availability=True)
+    nbfiles = 5
+    # Adding replicas to deterministic RSE
+    _, rse1_id = rse_factory.make_srm_rse(deterministic=True)
+    files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    add_replicas(rse_id=rse1_id, files=files, account=root_account, ignore_availability=True)
 
-        # Listing replicas on non-deterministic RSE
-        replicas = []
-        list_rep = []
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
-            replicas.extend(replica['rses'][rse_id2])
-            list_rep.append(replica)
-        r = declare_bad_file_replicas(replicas, 'This is a good reason', root)
-        assert r == {}
-        bad_replicas = list_bad_replicas()
-        nbbadrep = 0
-        for rep in list_rep:
-            for badrep in bad_replicas:
-                if badrep['rse_id'] == rse_id2:
-                    if badrep['scope'] == rep['scope'] and badrep['name'] == rep['name']:
-                        nbbadrep += 1
-        assert len(replicas) == nbbadrep
+    # Listing replicas on deterministic RSE
+    replicas = []
+    list_rep = []
+    for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
+        replicas.extend(replica['rses'][rse1_id])
+        list_rep.append(replica)
+    r = declare_bad_file_replicas(replicas, 'This is a good reason', root_account)
+    assert r == {}
+    bad_replicas = list_bad_replicas()
+    nbbadrep = 0
+    for rep in list_rep:
+        for badrep in bad_replicas:
+            if badrep['rse_id'] == rse1_id:
+                if badrep['scope'] == rep['scope'] and badrep['name'] == rep['name']:
+                    nbbadrep += 1
+    assert len(replicas) == nbbadrep
 
-        # Now adding non-existing bad replicas
-        files = ['srm://mock2.com/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), ]
-        r = declare_bad_file_replicas(files, 'This is a good reason', root)
-        output = ['%s Unknown replica' % rep for rep in files]
-        assert r == {rse_id2: output}
+    # Adding replicas to non-deterministic RSE
+    _, rse2_id = rse_factory.make_srm_rse(deterministic=False)
+    files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
+              'pfn': 'srm://host1/srm/managerv2?SFN=/test/%s/%s' % (mock_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
+    add_replicas(rse_id=rse2_id, files=files, account=root_account, ignore_availability=True)
+
+    # Listing replicas on non-deterministic RSE
+    replicas = []
+    list_rep = []
+    for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
+        replicas.extend(replica['rses'][rse2_id])
+        list_rep.append(replica)
+    r = declare_bad_file_replicas(replicas, 'This is a good reason', root_account)
+    assert r == {}
+    bad_replicas = list_bad_replicas()
+    nbbadrep = 0
+    for rep in list_rep:
+        for badrep in bad_replicas:
+            if badrep['rse_id'] == rse2_id:
+                if badrep['scope'] == rep['scope'] and badrep['name'] == rep['name']:
+                    nbbadrep += 1
+    assert len(replicas) == nbbadrep
+
+    # Now adding non-existing bad replicas
+    files = ['srm://host1/test/%s/%s' % (mock_scope, generate_uuid()), ]
+    r = declare_bad_file_replicas(files, 'This is a good reason', root_account)
+    output = ['%s Unknown replica' % rep for rep in files]
+    assert r == {rse2_id: output}
 
 
 def test_add_list_replicas_via_core(rse_factory, mock_scope, root_account):
