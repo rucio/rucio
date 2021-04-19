@@ -523,45 +523,39 @@ class TestReplicaCore(unittest.TestCase):
         replicas = list(rc.list_replicas([{'scope': scope.external, 'name': name}]))
         assert 'http://' in list(replicas[0]['pfns'].keys())[0]
 
-    @pytest.mark.dirty
-    def test_replica_no_site(self):
-        """ REPLICA (CORE): Test listing replicas without site attribute """
 
-        rc = ReplicaClient()
+def test_replica_no_site(rse_factory, mock_scope, root_account, replica_client):
+    """ REPLICA (CORE): Test listing replicas without site attribute """
 
-        rse = 'APERTURE_%s' % rse_name_generator()
-        rse_id = add_rse(rse, **self.vo)
+    rse, rse_id = rse_factory.make_rse()
 
-        add_protocol(rse_id, {'scheme': 'root',
-                              'hostname': 'root.aperture.com',
-                              'port': 1409,
-                              'prefix': '//test/chamber/',
-                              'impl': 'rucio.rse.protocols.xrootd.Default',
-                              'domains': {
-                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+    add_protocol(rse_id, {'scheme': 'root',
+                          'hostname': 'root.aperture.com',
+                          'port': 1409,
+                          'prefix': '//test/chamber/',
+                          'impl': 'rucio.rse.protocols.xrootd.Default',
+                          'domains': {
+                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
-        add_rse_attribute(rse_id=rse_id, key='site', value='APERTURE')
+    add_rse_attribute(rse_id=rse_id, key='site', value='APERTURE')
 
-        tmp_scope = InternalScope('mock', **self.vo)
-        root = InternalAccount('root', **self.vo)
+    files = [{'scope': mock_scope, 'name': 'element_%s' % generate_uuid(),
+              'bytes': 1234, 'adler32': 'deadbeef'}]
+    add_replicas(rse_id=rse_id, files=files, account=root_account)
 
-        files = [{'scope': tmp_scope, 'name': 'element_%s' % generate_uuid(),
-                  'bytes': 1234, 'adler32': 'deadbeef'}]
-        add_replicas(rse_id=rse_id, files=files, account=root)
+    replicas = [r for r in replica_client.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files])]
+    assert 'root://' in list(replicas[0]['pfns'].keys())[0]
+    replicas = [r for r in replica_client.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files],
+                                                        client_location={'site': 'SOMEWHERE'})]
+    assert 'root://' in list(replicas[0]['pfns'].keys())[0]
+    del_rse_attribute(rse_id=rse_id, key='site')
 
-        replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files])]
-        assert 'root://' in list(replicas[0]['pfns'].keys())[0]
-        replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files],
-                                                client_location={'site': 'SOMEWHERE'})]
-        assert 'root://' in list(replicas[0]['pfns'].keys())[0]
-        del_rse_attribute(rse_id=rse_id, key='site')
-
-        replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files])]
-        assert 'root://' in list(replicas[0]['pfns'].keys())[0]
-        replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files],
-                                                client_location={'site': 'SOMEWHERE'})]
-        assert 'root://' in list(replicas[0]['pfns'].keys())[0]
+    replicas = [r for r in replica_client.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files])]
+    assert 'root://' in list(replicas[0]['pfns'].keys())[0]
+    replicas = [r for r in replica_client.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files],
+                                                        client_location={'site': 'SOMEWHERE'})]
+    assert 'root://' in list(replicas[0]['pfns'].keys())[0]
 
 
 def test_replica_mixed_protocols(rse_factory, mock_scope, root_account):
