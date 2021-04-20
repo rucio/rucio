@@ -1874,55 +1874,6 @@ def get_replica(rse_id, scope, name, session=None):
         raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
 
 
-@read_session
-def list_unlocked_replicas(rse_id, limit, bytes=None, worker_number=None, total_workers=None, delay_seconds=0, session=None):
-    """
-    List RSE File replicas with no locks.
-
-    :param rse_id: the rse id.
-    :param bytes: the amount of needed bytes.
-    :param session: The database session in use.
-
-    :returns: a list of dictionary replica.
-    """
-
-    # filter(models.RSEFileAssociation.state != ReplicaState.BEING_DELETED).\
-    none_value = None  # Hack to get pep8 happy...
-    query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.path, models.RSEFileAssociation.bytes, models.RSEFileAssociation.tombstone, models.RSEFileAssociation.state).\
-        with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
-        filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
-        filter(models.RSEFileAssociation.lock_cnt == 0).\
-        filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
-        filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
-                   and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
-        order_by(models.RSEFileAssociation.tombstone)
-
-    # do no delete files used as sources
-    stmt = exists(select([1]).prefix_with("/*+ INDEX(requests REQUESTS_SCOPE_NAME_RSE_IDX) */", dialect='oracle')).\
-        where(and_(models.RSEFileAssociation.scope == models.Request.scope,
-                   models.RSEFileAssociation.name == models.Request.name))
-    query = query.filter(not_(stmt))
-    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
-    needed_space = bytes
-    total_bytes, total_files = 0, 0
-    rows = []
-    for (scope, name, path, bytes, tombstone, state) in query.yield_per(1000):
-        if state != ReplicaState.UNAVAILABLE:
-
-            if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
-                break
-            total_bytes += bytes
-
-            total_files += 1
-            if total_files > limit:
-                break
-
-        rows.append({'scope': scope, 'name': name, 'path': path,
-                     'bytes': bytes, 'tombstone': tombstone,
-                     'state': state})
-    return rows
-
-
 @transactional_session
 def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_seconds=600, only_delete_obsolete=False, session=None):
     """
@@ -2015,23 +1966,6 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
             update({'updated_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED, 'tombstone': datetime(1970, 1, 1)}, synchronize_session=False)
 
     return rows
-
-
-@read_session
-def get_sum_count_being_deleted(rse_id, session=None):
-    """
-
-    :param rse_id: The id of the RSE.
-    :param session: The database session in use.
-
-    :returns: A dictionary with total and bytes.
-    """
-    none_value = None
-    total, bytes = session.query(func.count(models.RSEFileAssociation.tombstone), func.sum(models.RSEFileAssociation.bytes)).filter_by(rse_id=rse_id).\
-        filter(models.RSEFileAssociation.tombstone != none_value).\
-        filter(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED).\
-        one()
-    return {'bytes': bytes or 0, 'total': total or 0}
 
 
 @transactional_session
@@ -2155,42 +2089,6 @@ def update_replica_state(rse_id, scope, name, state, session=None):
     :param session: The database session in use.
     """
     return update_replicas_states(replicas=[{'scope': scope, 'name': name, 'state': state, 'rse_id': rse_id}], session=session)
-
-
-@transactional_session
-def update_replica_lock_counter(rse_id, scope, name, value, session=None):
-    """
-    Update File replica lock counters.
-
-    :param rse_id: The id of the RSE.
-    :param scope: the tag name.
-    :param name: The data identifier name.
-    :param value: The number of created/deleted locks.
-    :param session: The database session in use.
-
-    :returns: True or False.
-    """
-
-    # WTF BUG in the mysql-driver: lock_cnt uses the already updated value! ACID? Never heard of it!
-
-    if session.bind.dialect.name == 'mysql':
-        rowcount = session.query(models.RSEFileAssociation).\
-            filter_by(rse_id=rse_id, scope=scope, name=name).\
-            update({'lock_cnt': models.RSEFileAssociation.lock_cnt + value,
-                    'tombstone': case([(models.RSEFileAssociation.lock_cnt + value < 0,
-                                        datetime.utcnow()), ],
-                                      else_=None)},
-                   synchronize_session=False)
-    else:
-        rowcount = session.query(models.RSEFileAssociation).\
-            filter_by(rse_id=rse_id, scope=scope, name=name).\
-            update({'lock_cnt': models.RSEFileAssociation.lock_cnt + value,
-                    'tombstone': case([(models.RSEFileAssociation.lock_cnt + value == 0,
-                                        datetime.utcnow()), ],
-                                      else_=None)},
-                   synchronize_session=False)
-
-    return bool(rowcount)
 
 
 @transactional_session
@@ -2445,23 +2343,6 @@ def get_source_replicas_for_dataset(scope, name, source_rses=None,
                 replicas[(child_scope, child_name)].append(rse_id)
 
     return replicas
-
-
-@transactional_session
-def update_replicas_paths(replicas, session=None):
-    """
-    Update the path for the given replicas.
-    Primarily useful for nondeterministic replicas.
-
-    :param replicas: List of dictionaries {scope, name, rse_id, path}
-    :param session: Database session to use.
-    """
-
-    for replica in replicas:
-        session.query(models.RSEFileAssociation).filter_by(scope=replica['scope'],
-                                                           name=replica['name'],
-                                                           rse_id=replica['rse_id']).update({'path': replica['path']},
-                                                                                            synchronize_session=False)
 
 
 @read_session
@@ -2801,49 +2682,6 @@ def list_datasets_per_rse(rse_id, filters=None, limit=None, session=None):
 
     for row in query:
         yield row._asdict()
-
-
-@transactional_session
-def mark_unlocked_replicas(rse_id, bytes, session=None):
-    """
-    Mark unlocked replicas as obsolete to release space quickly.
-
-    :param rse_id: the rse id.
-    :param bytes: the amount of needed bytes.
-    :param session: The database session in use.
-
-    :returns: The list of marked replicas.
-    """
-    none_value = None  # Hack to get pep8 happy...
-#    query = session.query( func.count(), func.sum(models.RSEFileAssociation.bytes)).\
-    query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.bytes).\
-        with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
-        filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
-        filter(models.RSEFileAssociation.lock_cnt == 0).\
-        filter(models.RSEFileAssociation.tombstone != OBSOLETE).\
-        filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
-        filter(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD))).\
-        order_by(models.RSEFileAssociation.bytes.desc())
-
-    rows = []
-    needed_space, total_bytes = bytes, 0
-    for (scope, name, bytes) in query.yield_per(1000):
-
-        if total_bytes > needed_space:
-            break
-
-        rowcount = session.query(models.RSEFileAssociation).\
-            filter_by(rse_id=rse_id, scope=scope, name=name).\
-            with_hint(models.RSEFileAssociation,
-                      "index(REPLICAS REPLICAS_PK)",
-                      'oracle').\
-            filter(models.RSEFileAssociation.tombstone != none_value).\
-            update({'tombstone': OBSOLETE}, synchronize_session=False)
-
-        if rowcount:
-            total_bytes += bytes
-            rows.append({'scope': scope, 'name': name})
-    return rows
 
 
 @transactional_session
