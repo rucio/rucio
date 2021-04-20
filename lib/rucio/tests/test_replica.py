@@ -30,6 +30,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
 import hashlib
@@ -47,14 +48,12 @@ from rucio.core.config import set as cconfig_set
 from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, UnsupportedOperation,
                                     RucioException, ReplicaIsLocked, ReplicaNotFound, ScopeNotFound,
                                     DatabaseException)
-from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid, clean_surls, parse_response
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
 from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_replicas_state,
-                                update_replica_lock_counter, get_replica, list_replicas,
-                                declare_bad_file_replicas, list_bad_replicas,
-                                update_replicas_paths, update_replica_state, get_RSEcoverage_of_dataset,
-                                get_replica_atime, touch_replica, get_bad_pfns, set_tombstone)
+                                get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas,
+                                update_replica_state, get_RSEcoverage_of_dataset, get_replica_atime,
+                                touch_replica, get_bad_pfns, set_tombstone)
 from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
@@ -157,33 +156,6 @@ class TestReplicaCore:
                 domain='wan',
                 client_location={'site': rse}):
             assert list(rep['pfns'].keys())[0].count('root://') == 1
-
-    def test_update_replicas_paths(self, rse_factory, mock_scope, root_account):
-        """ REPLICA (CORE): Force update the replica path """
-        _, rse_id = rse_factory.make_srm_rse(deterministic=False)
-
-        nbfiles = 5
-        files = [{'scope': mock_scope,
-                  'name': 'file_%s' % generate_uuid(),
-                  'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test/does/not/really/matter/where/initially' % rse_id,
-                  'bytes': 1,
-                  'adler32': '0cc737eb',
-                  'meta': {'events': 10},
-                  'rse_id': rse_id,
-                  'path': '/does/not/really/matter/where/initially'} for _ in range(nbfiles)]
-
-        add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
-
-        for file in files:
-            file['path'] = '/some/other/path'
-        update_replicas_paths(files)
-
-        for replica in list_replicas(dids=[{'scope': f['scope'],
-                                            'name': f['name'],
-                                            'type': DIDType.FILE} for f in files],
-                                     schemes=['srm']):
-            # force the changed string - if we look it up from the DB, then we're not testing anything :-D
-            assert replica['rses'][rse_id][0] == 'srm://%s.cern.ch/srm/managerv2?SFN=/test/some/other/path' % rse_id
 
     @pytest.mark.noparallel(reason='calls list_bad_replicas() which acts on all bad replicas without any filtering')
     def test_add_list_bad_replicas(self, rse_factory, mock_scope, root_account):
@@ -305,24 +277,6 @@ class TestReplicaCore:
         get_did(scope=mock_scope, name=tmp_dsn2)
 
         assert [f for f in list_files(scope=mock_scope, name=tmp_dsn2)] == []
-
-    def test_update_lock_counter(self, vo, rse_factory, mock_scope):
-        """ RSE (CORE): Test the update of a replica lock counter """
-        rse, rse_id = rse_factory.make_mock_rse()
-
-        tmp_file = 'file_%s' % generate_uuid()
-        add_replica(rse_id=rse_id, scope=mock_scope, name=tmp_file, bytes=1, adler32='0cc737eb', account=InternalAccount('jdoe', vo=vo))
-
-        values = (1, 1, 1, -1, -1, -1, 1, 1, -1)
-        tombstones = (True, True, True, True, True, False, True, True, True)
-        lock_counters = (1, 2, 3, 2, 1, 0, 1, 2, 1)
-        for value, tombstone, lock_counter in zip(values, tombstones, lock_counters):
-            status = update_replica_lock_counter(rse_id=rse_id, scope=mock_scope, name=tmp_file, value=value)
-            assert status is True
-            replica = get_replica(rse_id=rse_id, scope=mock_scope, name=tmp_file)
-            value = replica['tombstone'] is None
-            assert value is tombstone
-            assert lock_counter == replica['lock_cnt']
 
     def test_touch_replicas(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): Touch replicas accessed_at timestamp"""

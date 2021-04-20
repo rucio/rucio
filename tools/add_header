@@ -67,6 +67,7 @@ author_map = {
     ("maatthias", "<maatthias@gmail.com>"): ("Matt Snyder", "<msnyder@bnl.gov>"),
     ("maatthias", "<msnyder@bnl.gov>"): ("Matt Snyder", "<msnyder@bnl.gov>"),
     ("Mario Lassnig", "<mlassnig@users.noreply.github.com>"): ("Mario Lassnig", "<mario.lassnig@cern.ch>"),
+    ("rcarpa", "<2905943+rcarpa@users.noreply.github.com>"): ("Radu Carpa", "<radu.carpa@cern.ch>"),
 }
 
 
