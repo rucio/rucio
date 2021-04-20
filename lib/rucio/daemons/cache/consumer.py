@@ -142,7 +142,6 @@ def consumer(id, num_thread=1):
                 record_counter('daemons.messaging.cache.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
 
                 conn.set_listener('rucio-cache-messaging', conns[conn])
-                conn.start()
                 conn.connect()
                 conn.subscribe(destination=config_get('messaging-cache', 'destination'),
                                id='rucio-cache-messaging',

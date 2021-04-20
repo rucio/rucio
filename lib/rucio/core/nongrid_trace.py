@@ -1,4 +1,5 @@
-# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +15,10 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2015-2021
-# - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
-#
-# PY3K COMPATIBLE
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2021
 
 import json
 import logging
@@ -119,7 +120,6 @@ def trace(payload):
                 conn = random.sample(t_conns, 1)[0]
                 if not conn.is_connected():
                     LOGGER.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
-                    conn.start()
                     conn.connect(USERNAME, PASSWORD)
             except stomp.exception.NotConnectedException:
                 LOGGER.warning('Could not connect to broker %s, try another one' %

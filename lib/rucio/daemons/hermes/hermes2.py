@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020-2021
 # - Eric Vaandering <ewv@fnal.gov>, 2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
@@ -174,7 +174,6 @@ def deliver_to_activemq(messages, conns, destination, username, password, use_ss
                 record_counter('daemons.hermes.reconnect.%s' % host_and_ports.split('.')[0])
                 labels = {'host': host_and_ports.split('.')[0]}
                 RECONNECT_COUNTER.labels(**labels).inc()
-                conn.start()
                 if not use_ssl:
                     logging.info('%s [broker] - connecting with USERPASS to %s',
                                  prepend_str,

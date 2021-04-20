@@ -71,7 +71,7 @@ class AMQConsumer(stomp.ConnectionListener):
 
     if len(self.__reports) >= self.__chunksize:
       self.__send_to_es()
-      
+
 
   def __send_to_es(self):
     for msg in self.__reports:
@@ -95,10 +95,9 @@ if __name__ == "__main__":
     conn = stomp.Connection(host_and_ports=[(broker,broker_port)],use_ssl=False,reconnect_attempts_max=5)
   else:
     conn = stomp.Connection(host_and_ports=[(broker,broker_port)],use_ssl=True,ssl_key_file=ssl_key_file, ssl_cert_file=ssl_cert_file,reconnect_attempts_max=1)
-    
+
 
   conn.set_listener('', AMQConsumer(conn, chunksize, subscription_id))
-  conn.start()
   conn.connect(wait=True)
   conn.subscribe(destination=queue, ack='client-individual', id=subscription_id)
   while True:

@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Wen Guan <wen.guan@cern.ch>, 2015-2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2015-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
@@ -250,7 +250,6 @@ def receiver(id, total_threads=1, full_mode=False):
                 record_counter('daemons.messaging.fts3.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
 
                 conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id=id, total_threads=total_threads, full_mode=full_mode))
-                conn.start()
                 if not use_ssl:
                     conn.connect(username, password, wait=True)
                 else:
