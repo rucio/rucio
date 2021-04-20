@@ -51,6 +51,7 @@ class TestAccountCoreApi(unittest.TestCase):
         else:
             self.vo = {}
 
+    @pytest.mark.noparallel(reason='Acts on all RSEs, so creates deadlocks in tests')
     def test_create_and_check_for_user(self):
         """ ACCOUNT (CORE): Test the creation, query, and deletion of an account """
         usr = account_name_generator()
@@ -60,6 +61,7 @@ class TestAccountCoreApi(unittest.TestCase):
         assert not account_exists(invalid_usr, **self.vo)
         del_account(usr, 'root', **self.vo)
 
+    @pytest.mark.noparallel(reason='Acts on all RSEs, so creates deadlocks in tests')
     def test_update_account(self):
         """ ACCOUNT (CORE): Test changing and quering account parameters """
         usr = account_name_generator()
@@ -95,6 +97,7 @@ class TestAccountCoreApi(unittest.TestCase):
             add_account_attribute(account, key, value)
 
 
+@pytest.mark.noparallel(reason='Acts on all RSEs, so creates deadlocks in tests')
 def test_create_user_success(rest_client, auth_token):
     """ ACCOUNT (REST): send a POST to create a new user """
     acntusr = account_name_generator()
@@ -137,6 +140,7 @@ def test_create_user_not_json_dict(rest_client, auth_token):
     assert loads(response.get_data(as_text=True)) == {"ExceptionMessage": "body must be a json dictionary", "ExceptionClass": "TypeError"}
 
 
+@pytest.mark.noparallel(reason='Acts on all RSEs, so creates deadlocks in tests')
 def test_get_user_success(rest_client, auth_token):
     """ ACCOUNT (REST): send a GET to retrieve the infos of the new user """
     acntusr = account_name_generator()
@@ -156,6 +160,7 @@ def test_get_user_failure(rest_client, auth_token):
     assert reponse.status_code == 404
 
 
+@pytest.mark.noparallel(reason='Acts on all RSEs, so creates deadlocks in tests')
 def test_del_user_success(rest_client, auth_token):
     """ ACCOUNT (REST): send a DELETE to disable the new user """
     acntusr = account_name_generator()
@@ -184,6 +189,7 @@ def test_whoami_account(rest_client, auth_token):
     assert response.status_code == 303
 
 
+@pytest.mark.noparallel(reason='Acts on all RSEs, so creates deadlocks in tests')
 def test_add_attribute(rest_client, auth_token):
     """ ACCOUNT (REST): add/get/delete attribute."""
     acntusr = account_name_generator()
@@ -204,6 +210,7 @@ def test_add_attribute(rest_client, auth_token):
     assert response.status_code == 200
 
 
+@pytest.mark.noparallel(reason='Acts on all RSEs, so creates deadlocks in tests')
 def test_update_account(rest_client, auth_token):
     """ ACCOUNT (REST): send a PUT to update an account."""
     acntusr = account_name_generator()
@@ -222,6 +229,7 @@ def test_update_account(rest_client, auth_token):
     assert body['email'] == 'test'
 
 
+@pytest.mark.noparallel(reason='Acts on all RSEs, so creates deadlocks in tests')
 def test_delete_identity_of_account(vo, rest_client):
     """ ACCOUNT (REST): send a DELETE to remove an identity of an account."""
     account = account_name_generator()
@@ -248,6 +256,7 @@ def test_delete_identity_of_account(vo, rest_client):
     assert response.status_code == 401
 
 
+@pytest.mark.noparallel(reason='Acts on all RSEs, so creates deadlocks in tests')
 def test_add_identity_to_account(rest_client, auth_token):
     """ ACCOUNT (REST): send a POST to add an identity to an account."""
     identity = uuid()
@@ -273,6 +282,7 @@ class TestAccountClient(unittest.TestCase):
     def setUp(self):
         self.client = AccountClient()
 
+    @pytest.mark.noparallel(reason='Acts on all RSEs, so creates deadlocks in tests')
     def test_add_account_success(self):
         """ ACCOUNT (CLIENTS): create a new account and get information about account."""
         account = account_name_generator()
@@ -312,6 +322,7 @@ class TestAccountClient(unittest.TestCase):
         for account in acc_list:
             assert account in svr_list
 
+    @pytest.mark.noparallel(reason='Acts on all RSEs, so creates deadlocks in tests')
     def test_update_account(self):
         """ ACCOUNT (CLIENTS): create a new account and update it."""
         account = account_name_generator()
