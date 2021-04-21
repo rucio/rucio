@@ -66,17 +66,17 @@ class Receiver(object):
         self.__total_threads = total_threads
         self.__full_mode = full_mode
 
-    def on_error(self, headers, message):
+    def on_error(self, frame):
         record_counter('daemons.conveyor.receiver.error')
-        logging.error('[%s] %s' % (self.__broker, message))
+        logging.error('[%s] %s' % (self.__broker, frame.body))
 
-    def on_message(self, headers, message):
+    def on_message(self, frame):
         record_counter('daemons.conveyor.receiver.message_all')
 
         try:
-            msg = json.loads(message)
+            msg = json.loads(frame.body)
         except Exception:
-            msg = json.loads(message[:-1])  # Note: I am not sure if this is needed anymore, this was due to an unparsable EOT character
+            msg = json.loads(frame.body[:-1])  # Note: I am not sure if this is needed anymore, this was due to an unparsable EOT character
 
         if 'vo' not in msg or msg['vo'] != get_policy():
             return
