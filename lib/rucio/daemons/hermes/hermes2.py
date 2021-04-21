@@ -77,11 +77,11 @@ class HermesListener(stomp.ConnectionListener):
         '''
         self.__broker = broker
 
-    def on_error(self, headers, body):
+    def on_error(self, frame):
         '''
         Error handler
         '''
-        logging.error('[broker] [%s]: %s', self.__broker, body)
+        logging.error('[broker] [%s]: %s', self.__broker, frame.body)
 
 
 def setup_activemq(prepend_str):

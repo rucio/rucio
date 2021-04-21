@@ -31,25 +31,24 @@ class AMQConsumer(stomp.ConnectionListener):
     self.__reports = []
     self.__esConn = ElasticConn(host_port = (consumer, consumer_port), auth = (es_username, es_password))
 
-  def on_error(self, headers, message):
+  def on_error(self, frame):
     pass
     # Send message to StatsD
 
-  def on_message(self, headers, message):
+  def on_message(self, frame):
 
     # Send message to StatsD
     # Sanity check
-    print(headers)
-    print(message)
-    msg_id = headers['message-id']
+    print(frame)
+    msg_id = frame.headers['message-id']
 
-    if 'resubmitted' in headers:
+    if 'resubmitted' in frame.headers:
       # Send message to StatsD
       # Ignore resubmitted messages
       return
 
     try:
-        report = jloads(message)
+        report = jloads(frame.body)
     except Exception:
       # Corrupt message, ignore
       # Send message to StatsD
