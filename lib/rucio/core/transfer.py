@@ -671,8 +671,8 @@ def __rewrite_source_url(source_url, source_sign_url, dest_sign_url, source_sche
         source_url = re.sub('davs', 's3s', source_url)
         source_url = re.sub('https', 's3s', source_url)
 
-    if source_scheme == 'https+srm':
-        source_url = re.sub('srm', 'https+srm', source_url)
+    if source_scheme == 'srm+https':
+        source_url = re.sub('^srm', 'srm+https', source_url)
     return source_url
 
 
@@ -686,8 +686,8 @@ def __rewrite_dest_url(dest_url, dest_sign_url, dest_scheme):
     elif dest_sign_url == 's3':
         dest_url = re.sub('davs', 's3s', dest_url)
         dest_url = re.sub('https', 's3s', dest_url)
-    if dest_scheme == 'https+srm':
-        dest_url = re.sub('srm', 'https+srm', dest_url)
+    if dest_scheme == 'srm+https':
+        dest_url = re.sub('^srm', 'srm+https', dest_url)
     return dest_url
 
 
