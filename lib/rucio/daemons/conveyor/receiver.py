@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Wen Guan <wen.guan@cern.ch>, 2015-2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2015-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
@@ -65,17 +65,17 @@ class Receiver(object):
         self.__total_threads = total_threads
         self.__full_mode = full_mode
 
-    def on_error(self, headers, message):
+    def on_error(self, frame):
         record_counter('daemons.conveyor.receiver.error')
-        logging.error('[%s] %s' % (self.__broker, message))
+        logging.error('[%s] %s' % (self.__broker, frame.body))
 
-    def on_message(self, headers, message):
+    def on_message(self, frame):
         record_counter('daemons.conveyor.receiver.message_all')
 
         try:
-            msg = json.loads(message)
+            msg = json.loads(frame.body)
         except Exception:
-            msg = json.loads(message[:-1])  # Note: I am not sure if this is needed anymore, this was due to an unparsable EOT character
+            msg = json.loads(frame.body[:-1])  # Note: I am not sure if this is needed anymore, this was due to an unparsable EOT character
 
         if 'vo' not in msg or msg['vo'] != get_policy():
             return
@@ -249,7 +249,6 @@ def receiver(id, total_threads=1, full_mode=False):
                 record_counter('daemons.messaging.fts3.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
 
                 conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id=id, total_threads=total_threads, full_mode=full_mode))
-                conn.start()
                 if not use_ssl:
                     conn.connect(username, password, wait=True)
                 else:
