@@ -16,7 +16,7 @@
 # Authors:
 # - Wen Guan <wen.guan@cern.ch>, 2014
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2021
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -63,20 +63,20 @@ class Consumer(object):
         self.__id = id
         self.__num_thread = num_thread
 
-    def on_error(self, headers, message):
+    def on_error(self, frame):
         '''
         on_error
         '''
         record_counter('daemons.cache.consumer.error')
-        logging.error('[%s] %s' % (self.__broker, message))
+        logging.error('[%s] %s' % (self.__broker, frame.body))
 
-    def on_message(self, headers, message):
+    def on_message(self, frame):
         '''
         on_message
         '''
         record_counter('daemons.cache.consumer2.message')
         try:
-            msg = json.loads(message)
+            msg = json.loads(frame.body)
             if isinstance(msg, dict) and 'operation' in msg.keys():
                 for f in msg['files']:
                     f['scope'] = InternalScope(f['scope'])
@@ -142,7 +142,6 @@ def consumer(id, num_thread=1):
                 record_counter('daemons.messaging.cache.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
 
                 conn.set_listener('rucio-cache-messaging', conns[conn])
-                conn.start()
                 conn.connect()
                 conn.subscribe(destination=config_get('messaging-cache', 'destination'),
                                id='rucio-cache-messaging',
