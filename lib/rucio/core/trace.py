@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
@@ -125,7 +125,6 @@ def trace(payload):
                 conn = random.sample(t_conns, 1)[0]
                 if not conn.is_connected():
                     LOGGER.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
-                    conn.start()
                     conn.connect(USERNAME, PASSWORD)
             except stomp.exception.NotConnectedException:
                 LOGGER.warning('Could not connect to broker %s, try another one' %
