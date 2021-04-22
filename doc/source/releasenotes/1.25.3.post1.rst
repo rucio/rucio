@@ -1,0 +1,13 @@
+============
+1.25.3.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Messaging: Fix connection handling with new stomp.py version `#4560 <https://github.com/rucio/rucio/issues/4560>`_
