@@ -56,10 +56,10 @@ def _check_download_result(actual_result, expected_result):
             assert param_name and actual_result[i][param_name] == expected[param_name]
 
 
-def test_download_without_base_dir(rse_factory, file_factory, download_client):
-    scope = str(file_factory.default_scope)
+def test_download_without_base_dir(rse_factory, did_factory, download_client):
+    scope = str(did_factory.default_scope)
     rse, _ = rse_factory.make_posix_rse()
-    did = file_factory.upload_test_file(rse)
+    did = did_factory.upload_test_file(rse)
     did_str = '%s:%s' % (did['scope'], did['name'])
     try:
         # download to the default location, i.e. to ./
@@ -89,13 +89,13 @@ def test_download_without_base_dir(rse_factory, file_factory, download_client):
         shutil.rmtree(scope)
 
 
-def test_download_to_two_paths(rse_factory, file_factory, download_client):
-    scope = str(file_factory.default_scope)
+def test_download_to_two_paths(rse_factory, did_factory, download_client):
+    scope = str(did_factory.default_scope)
     rse, _ = rse_factory.make_posix_rse()
     base_name = generate_uuid()
-    item000 = file_factory.upload_test_file(rse, name=base_name + '.000', return_full_item=True)
-    item001 = file_factory.upload_test_file(rse, name=base_name + '.001', return_full_item=True)
-    item100 = file_factory.upload_test_file(rse, name=base_name + '.100', return_full_item=True)
+    item000 = did_factory.upload_test_file(rse, name=base_name + '.000', return_full_item=True)
+    item001 = did_factory.upload_test_file(rse, name=base_name + '.001', return_full_item=True)
+    item100 = did_factory.upload_test_file(rse, name=base_name + '.100', return_full_item=True)
     did000_str = '%s:%s' % (item000['did_scope'], item000['did_name'])
     did001_str = '%s:%s' % (item001['did_scope'], item001['did_name'])
     did100_str = '%s:%s' % (item100['did_scope'], item100['did_name'])
@@ -120,13 +120,13 @@ def test_download_to_two_paths(rse_factory, file_factory, download_client):
         assert paths100[0].startswith(tmp_dir1)
 
 
-def test_download_multiple(rse_factory, file_factory, download_client):
-    scope = str(file_factory.default_scope)
+def test_download_multiple(rse_factory, did_factory, download_client):
+    scope = str(did_factory.default_scope)
     rse, _ = rse_factory.make_posix_rse()
     base_name = generate_uuid()
-    item000 = file_factory.upload_test_file(rse, name=base_name + '.000', return_full_item=True)
-    item001 = file_factory.upload_test_file(rse, name=base_name + '.001', return_full_item=True)
-    item100 = file_factory.upload_test_file(rse, name=base_name + '.100', return_full_item=True)
+    item000 = did_factory.upload_test_file(rse, name=base_name + '.000', return_full_item=True)
+    item001 = did_factory.upload_test_file(rse, name=base_name + '.001', return_full_item=True)
+    item100 = did_factory.upload_test_file(rse, name=base_name + '.100', return_full_item=True)
     did000_str = '%s:%s' % (item000['did_scope'], item000['did_name'])
     did001_str = '%s:%s' % (item001['did_scope'], item001['did_name'])
     did100_str = '%s:%s' % (item100['did_scope'], item100['did_name'])
@@ -223,7 +223,7 @@ def test_download_multiple(rse_factory, file_factory, download_client):
 @pytest.mark.xfail(reason='XRD1 must be initialized https://github.com/rucio/rucio/pull/4165/')
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='uses pre-defined XRD1 RSE, may fails when run in parallel')  # TODO: verify if it really fails
-def test_download_from_archive_on_xrd(file_factory, download_client, did_client):
+def test_download_from_archive_on_xrd(did_factory, download_client, did_client):
     scope = 'test'
     rse = 'XRD1'
     base_name = 'testDownloadArchive' + generate_uuid()
@@ -240,7 +240,7 @@ def test_download_from_archive_on_xrd(file_factory, download_client, did_client)
         with ZipFile(zip_path, 'w') as myzip:
             myzip.writestr(name000, data=data000)
             myzip.writestr(name001, data=data001)
-        file_factory.upload_test_file(rse, scope=scope, name=zip_name, path=zip_path)
+        did_factory.upload_test_file(rse, scope=scope, name=zip_name, path=zip_path)
         did_client.add_files_to_archive(
             scope,
             zip_name,
@@ -297,10 +297,10 @@ def test_download_from_archive_on_xrd(file_factory, download_client, did_client)
 
 
 @pytest.mark.dirty
-def test_trace_copy_out_and_checksum_validation(vo, rse_factory, file_factory, download_client):
+def test_trace_copy_out_and_checksum_validation(vo, rse_factory, did_factory, download_client):
     rse, _ = rse_factory.make_posix_rse()
-    scope = str(file_factory.default_scope)
-    did = file_factory.upload_test_file(rse)
+    scope = str(did_factory.default_scope)
+    did = did_factory.upload_test_file(rse)
     did_str = '%s:%s' % (did['scope'], did['name'])
 
     with TemporaryDirectory() as tmp_dir:
@@ -375,11 +375,11 @@ def test_trace_copy_out_and_checksum_validation(vo, rse_factory, file_factory, d
         assert len(traces) == 1 and traces[0]['clientState'] == 'DONE'
 
 
-def test_norandom_respected(rse_factory, file_factory, download_client, root_account):
+def test_norandom_respected(rse_factory, did_factory, download_client, root_account):
     rse, _ = rse_factory.make_posix_rse()
-    did1 = file_factory.upload_test_file(rse)
-    did2 = file_factory.upload_test_file(rse)
-    dataset = file_factory.make_dataset()
+    did1 = did_factory.upload_test_file(rse)
+    did2 = did_factory.upload_test_file(rse)
+    dataset = did_factory.make_dataset()
     did_core.attach_dids(dids=[did1, did2], account=root_account, **dataset)
 
     dataset_did_str = '%s:%s' % (dataset['scope'], dataset['name'])
@@ -394,9 +394,9 @@ def test_norandom_respected(rse_factory, file_factory, download_client, root_acc
         assert len(result) == nrandom
 
 
-def test_transfer_timeout(rse_factory, file_factory, download_client):
+def test_transfer_timeout(rse_factory, did_factory, download_client):
     rse, _ = rse_factory.make_posix_rse()
-    did = file_factory.upload_test_file(rse)
+    did = did_factory.upload_test_file(rse)
     did_str = '%s:%s' % (did['scope'], did['name'])
 
     mocks_get = []
