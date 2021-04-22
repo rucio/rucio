@@ -134,10 +134,8 @@ class Replicas(ErrorHandlingMethodView):
                         yield f'  <glfn name="/atlas/rucio/{rfile["scope"]}:{rfile["name"]}">'
                         yield '</glfn>\n'
 
-                        idx = 0
-                        for replica in replicas:
-                            yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + escape(replica) + '</url>\n'
-                            idx += 1
+                        for idx, replica in enumerate(replicas, start=1):
+                            yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx) + '">' + escape(replica) + '</url>\n'
                             if limit and limit == idx:
                                 break
                         yield ' </file>\n'
@@ -389,10 +387,11 @@ class ListReplicas(ErrorHandlingMethodView):
                         yield f'  <glfn name="/{policy_schema}/rucio/{rfile["scope"]}:{rfile["name"]}"></glfn>\n'
 
                         lanreplicas = [replica for replica, v in dictreplica.items() if v[0] == 'lan']
+                        # sort lan by priority
+                        lanreplicas.sort(key=lambda rep: dictreplica[rep][1])
                         replicas = lanreplicas + sort_replicas({k: v for k, v in dictreplica.items() if v[0] != 'lan'}, client_location, selection=select)
 
-                        idx = 1
-                        for replica in replicas:
+                        for idx, replica in enumerate(replicas, start=1):
                             yield '  <url location="' + str(dictreplica[replica][2]) \
                                 + '" domain="' + str(dictreplica[replica][0]) \
                                 + '" priority="' + str(idx) \
@@ -400,7 +399,6 @@ class ListReplicas(ErrorHandlingMethodView):
                                 + '">' + escape(replica) + '</url>\n'
                             if limit and limit == idx:
                                 break
-                            idx += 1
                         yield ' </file>\n'
 
                 if metalink:
