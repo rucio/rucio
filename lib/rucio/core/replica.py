@@ -1623,7 +1623,10 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
                           models.DataIdentifier.availability == DIDAvailability.LOST)),
                  ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
                      and_(models.RSEFileAssociation.scope == file['scope'],
-                          models.RSEFileAssociation.name == file['name']))))
+                          models.RSEFileAssociation.name == file['name'])),
+                 ~exists(select([1]).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(
+                     and_(models.ConstituentAssociation.child_scope == file['scope'],
+                          models.ConstituentAssociation.child_name == file['name']))))
 
         # 2) schedule removal of this file from the DID table
         did_condition.append(
@@ -1793,11 +1796,34 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
                                              models.DidMeta.name == name))
 
     # Remove Archive Constituents
+    removed_constituents = []
     for chunk in chunks(archive_contents_condition, 30):
+        query = session.query(models.ConstituentAssociation). \
+            with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_CHILD_IDX)", 'oracle'). \
+            filter(or_(*chunk))
+        for constituent in query:
+            removed_constituents.append({'scope': constituent.child_scope, 'name': constituent.child_name})
+
+            models.ConstituentAssociationHistory(
+                child_scope=constituent.child_scope,
+                child_name=constituent.child_name,
+                scope=constituent.scope,
+                name=constituent.name,
+                bytes=constituent.bytes,
+                adler32=constituent.adler32,
+                md5=constituent.md5,
+                guid=constituent.guid,
+                length=constituent.length,
+                updated_at=constituent.updated_at,
+                created_at=constituent.created_at,
+            ).save(session=session, flush=False)
+
         session.query(models.ConstituentAssociation).\
             with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_CHILD_IDX)", 'oracle').\
             filter(or_(*chunk)).\
             delete(synchronize_session=False)
+    for chunk in chunks(removed_constituents, 200):
+        __cleanup_after_replica_deletion(rse_id=rse_id, files=chunk, session=session)
 
     # Remove rules in Waiting for approval or Suspended
     for chunk in chunks(deleted_rules, 100):
