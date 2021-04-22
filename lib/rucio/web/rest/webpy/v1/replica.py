@@ -460,6 +460,8 @@ class ListReplicas(RucioController):
                                                                         rfile['name'])
 
                     lanreplicas = [replica for replica, v in dictreplica.items() if v[0] == 'lan']
+                    # sort lan by priority
+                    lanreplicas.sort(key=lambda rep: dictreplica[rep][1])
                     replicas = lanreplicas + sort_replicas({k: v for k, v in dictreplica.items() if v[0] != 'lan'}, client_location, selection=select)
 
                     idx = 1

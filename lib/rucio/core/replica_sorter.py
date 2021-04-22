@@ -33,6 +33,7 @@ import random
 import socket
 import tarfile
 import time
+from collections import OrderedDict
 from math import asin, cos, radians, sin, sqrt
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
@@ -179,9 +180,19 @@ def sort_replicas(dictreplica: "Dict", client_location: "Dict", selection: "Opti
     :param default: the default sorting algorithm (random, if not defined).
     :returns: the keys of dictreplica in a sorted list.
     """
+    if len(dictreplica) == 0:
+        return []
     if not selection:
         selection = 'geoip'
 
+    items = [(key, value) for key, value in dictreplica.items()]
+    # safety check, TODO: remove if all dictreplica values are 4-tuple with priority as second item
+    if isinstance(items[0][1], tuple) and len(items[0][1]) == 4:
+        # sort by value[1], which is the priority
+        items.sort(key=lambda item: item[1][1])
+    dictreplica = OrderedDict(items)
+
+    # all sorts must be stable to preserve the priority (the Python standard sorting functions always are stable)
     if selection == 'geoip':
         replicas = sort_geoip(dictreplica, client_location, ignore_error=True)
     elif selection == 'closeness':
