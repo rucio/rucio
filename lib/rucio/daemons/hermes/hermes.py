@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
 # - Wen Guan <wen.guan@cern.ch>, 2014-2015
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
@@ -160,11 +160,11 @@ class HermesListener(stomp.ConnectionListener):
         '''
         self.__broker = broker
 
-    def on_error(self, headers, body):
+    def on_error(self, frame):
         '''
         Error handler
         '''
-        logging.error('[broker] [%s]: %s', self.__broker, body)
+        logging.error('[broker] [%s]: %s', self.__broker, frame.body)
 
 
 def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=10,
@@ -257,7 +257,6 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                             record_counter('daemons.hermes.reconnect.%s' % host_and_ports.split('.')[0])
                             labels = {'host': host_and_ports.split('.')[0]}
                             RECONNECT_COUNTER.labels(**labels).inc()
-                            conn.start()
                             if not use_ssl:
                                 logging.info('[broker] %i:%i - connecting with USERPASS to %s',
                                              heartbeat['assign_thread'],

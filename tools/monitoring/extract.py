@@ -31,25 +31,24 @@ class AMQConsumer(stomp.ConnectionListener):
     self.__reports = []
     self.__esConn = ElasticConn(host_port = (consumer, consumer_port), auth = (es_username, es_password))
 
-  def on_error(self, headers, message):
+  def on_error(self, frame):
     pass
     # Send message to StatsD
 
-  def on_message(self, headers, message):
+  def on_message(self, frame):
 
     # Send message to StatsD
     # Sanity check
-    print(headers)
-    print(message)
-    msg_id = headers['message-id']
+    print(frame)
+    msg_id = frame.headers['message-id']
 
-    if 'resubmitted' in headers:
+    if 'resubmitted' in frame.headers:
       # Send message to StatsD
       # Ignore resubmitted messages
       return
 
     try:
-        report = jloads(message)
+        report = jloads(frame.body)
     except Exception:
       # Corrupt message, ignore
       # Send message to StatsD
@@ -71,7 +70,7 @@ class AMQConsumer(stomp.ConnectionListener):
 
     if len(self.__reports) >= self.__chunksize:
       self.__send_to_es()
-      
+
 
   def __send_to_es(self):
     for msg in self.__reports:
@@ -95,10 +94,9 @@ if __name__ == "__main__":
     conn = stomp.Connection(host_and_ports=[(broker,broker_port)],use_ssl=False,reconnect_attempts_max=5)
   else:
     conn = stomp.Connection(host_and_ports=[(broker,broker_port)],use_ssl=True,ssl_key_file=ssl_key_file, ssl_cert_file=ssl_cert_file,reconnect_attempts_max=1)
-    
+
 
   conn.set_listener('', AMQConsumer(conn, chunksize, subscription_id))
-  conn.start()
   conn.connect(wait=True)
   conn.subscribe(destination=queue, ack='client-individual', id=subscription_id)
   while True:
