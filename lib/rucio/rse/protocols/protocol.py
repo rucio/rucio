@@ -203,6 +203,7 @@ class RSEDeterministicTranslation(object):
         cls.register(cls.__hash, "hash")
         cls.register(cls.__identity, "identity")
         cls.register(cls.__ligo, "ligo")
+        cls.register(cls.__xenon, "xenon")
         policy_module = None
         try:
             policy_module = config.config_get('policy', 'lfn2pfn_module')
