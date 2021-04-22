@@ -211,7 +211,7 @@ def test_reaper_multi_vo(vo):
     assert len(list(replica_core.list_replicas(dids=dids2, rse_expression=both_rses))) == 200
 
 
-def test_archive_removal_impact_on_constituents(rse_factory, file_factory, mock_scope, root_account):
+def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_scope, root_account):
     rse_name, rse_id = rse_factory.make_mock_rse()
     scope = mock_scope
     account = root_account
@@ -228,7 +228,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, file_factory, mock_
     archive_size = 1000
     uuid = str(generate_uuid())
     constituents = [{'scope': scope, 'name': 'lfn.%s.%d' % (uuid, i)} for i in range(nb_constituents)]
-    file_factory.register_dids(constituents)
+    did_factory.register_dids(constituents)
     c_first_archive_only, c_with_replica, c_with_expired_replica, c_with_replica_and_rule = constituents
 
     replica_core.add_replica(rse_id=rse_id, account=account, bytes=constituent_size, **c_with_replica)
