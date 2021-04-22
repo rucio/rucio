@@ -228,6 +228,12 @@ class TemporaryDidFactory:
                                                           models.BadReplicas.name == did['name'])
                                                      for did in self.created_dids)).delete(synchronize_session=False)
 
+    def register_dids(self, dids):
+        """
+        Register the provided dids to be cleaned up on teardown
+        """
+        self.created_dids.extend(dids)
+
     def _sanitize_or_set_scope(self, scope):
         if not scope:
             scope = self.default_scope
