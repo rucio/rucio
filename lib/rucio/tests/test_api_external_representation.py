@@ -48,7 +48,7 @@ from rucio.core.rse import get_rse_id
 from rucio.core.vo import add_vo, vo_exists
 from rucio.daemons.abacus import rse as abacus_rse
 from rucio.daemons.judge import cleaner
-from rucio.daemons.reaper import reaper2
+from rucio.daemons.reaper import reaper
 from rucio.db.sqla import constants
 from rucio.tests.common import rse_name_generator
 
@@ -372,9 +372,9 @@ class TestApiExternalRepresentation(unittest.TestCase):
         # clean up files
         cleaner.run(once=True)
         if self.multi_vo:
-            reaper2.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], rse_mock), greedy=True)
+            reaper.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], rse_mock), greedy=True)
         else:
-            reaper2.run(once=True, include_rses=rse_mock, greedy=True)
+            reaper.run(once=True, include_rses=rse_mock, greedy=True)
         abacus_rse.run(once=True)
 
         out = api_rse.parse_rse_expression('%s|%s' % (self.rse_name, self.rse2_name), **self.vo)
