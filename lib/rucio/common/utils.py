@@ -1241,6 +1241,9 @@ def run_cmd_process(cmd, timeout=3600):
         process.kill()
 
     stdout, stderr = process.communicate()
+    if isinstance(stdout, bytes):
+        stdout = stdout.decode()
+        stderr = stderr.decode()
     if not stderr:
         stderr = ''
     if not stdout:

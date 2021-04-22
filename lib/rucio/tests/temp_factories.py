@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
-# - Mayank Sharma <mayank.sharma@cern.ch> 2020-2021
+# - Mayank Sharma <mayank.sharma@cern.ch> 2021
 
 import os
 
@@ -34,6 +34,7 @@ from rucio.tests.common import file_generator
 from rucio.tests.common import rse_name_generator
 from rucio.db.sqla.constants import DIDType
 from rucio.common.utils import execute
+from rucio.client.rseclient import RSEClient
 
 
 class TemporaryRSEFactory:
@@ -42,7 +43,7 @@ class TemporaryRSEFactory:
     """
     def __init__(self, vo, **kwargs):
         self.vo = vo
-
+        self._rse_client = RSEClient()
         self.created_rses = []
         self.containerized_rses = []
 
@@ -155,26 +156,18 @@ class TemporaryRSEFactory:
         }
         return self._make_rse(scheme='srm', protocol_impl='rucio.rse.protocols.srm.Default', parameters=parameters, add_rse_kwargs=kwargs)
 
-    def fetch_containerized_rse(self, rse):
+    def fetch_containerized_rse(self, rse_name):
         """
         Detects if containerized rses for xrootd are available in the testing environment.
         :param rse: rse_id of containerzed rse to be used for lookup
         :return: rse_id if containerized rse was found else None
         """
-        # return rse if already cached
-        if rse in self.containerized_rses:
-            return rse
-
-        # lookup rse
-        cmd = "rucio list-rses --expression 'test_container_xrd=True'"
-        exitcode, out, err = execute(cmd)
-        rses = out.split()
-
-        if len(rses) != 0 and rse in rses:
-            self.containerized_rses.append(rse)
-            return rse
+        rse = self._rse_client.get_rse(rse_name)
+        rse_id = rse['id']
+        if rse is not None:
+            return rse_name, rse_id
         else:
-            return None
+            return None, None
 
 
 class TemporaryDidFactory:
