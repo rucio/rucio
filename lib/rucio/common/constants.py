@@ -1,15 +1,25 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2021
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
-#
-# PY3K COMPATIBLE
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2021
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 
 from collections import namedtuple
 
@@ -41,4 +51,4 @@ FTS_STATE = namedtuple('FTS_STATE', ['SUBMITTED', 'READY', 'ACTIVE', 'FAILED', '
                                      'CANCELED'])('SUBMITTED', 'READY', 'ACTIVE', 'FAILED', 'FINISHED', 'FINISHEDDIRTY',
                                                   'CANCELED')
 
-FTS_COMPLETE_STATE = namedtuple('FTS_COMPLETE_STATE', ['OK', 'ERROR'])('OK', 'ERROR')
+FTS_COMPLETE_STATE = namedtuple('FTS_COMPLETE_STATE', ['OK', 'ERROR'])('Ok', 'Error')

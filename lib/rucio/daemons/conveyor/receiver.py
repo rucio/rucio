@@ -144,9 +144,9 @@ class Receiver(object):
                                 'details': {'files': msg['file_metadata']}}
 
                 record_counter('daemons.conveyor.receiver.message_rucio')
-                if str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.OK:
+                if str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.OK:  # pylint:disable=no-member
                     response['new_state'] = RequestState.DONE
-                elif str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.ERROR:
+                elif str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.ERROR:  # pylint:disable=no-member
                     response['new_state'] = RequestState.FAILED
 
                 try:
