@@ -3,14 +3,6 @@
 pytest==4.6.11; python_version < '3.6'            # Used for running tests
 pytest==6.1.2; python_version >= '3.6'
 pytest-xdist~=2.2.0; python_version >= '3.6'      # Used for parallel testing on Python 3.6+
-Sphinx==1.8.5; python_version < '3.5'             # required to build documentation (1.8.5 last Py27 compatible version)
-Sphinx==3.3.1; python_version >= '3.5'
-sphinx-rtd-theme==0.4.3; python_version < '3.5'   # Read the Docs theme for Sphinx
-sphinx-rtd-theme==0.5.0; python_version >= '3.5'
-sphinxcontrib-httpdomain==1.7.0                   # Provides a Sphinx domain for describing RESTful HTTP APIs
-Pygments==2.5.2; python_version < '3.5'           # Python Syntax highlighter (2.5.2 last Py27 compatible version)
-Pygments==2.7.4; python_version >= '3.5'
-docutils>=0.15,<=0.16                             # Needed for sphinx
 pyflakes==2.1.1                                   # Passive checker of Python programs
 flake8==3.7.8                                     # Wrapper around PyFlakes&pep8
 pylint==1.9.4; python_version < '3.6'             # static code analysis. 1.9.5 last 2.7 compatible release
@@ -19,9 +11,10 @@ isort>=4.2.5,<5                                   # pylint up to now (2.5.3) doe
 virtualenv==20.2.1                                # Virtual Python Environment builder
 xmltodict==0.12.0                                 # Makes working with XML feel like you are working with JSON
 pytz==2020.4                                      # World timezone definitions, modern and historical
-Babel==2.9.0                                      # Internationalization utilities - Dependency of sphinx
 subprocess32==3.5.4; python_version <= '3.0'      # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
 pycodestyle==2.5.0                                # New package replacing pep8
 mock==3.0.5; python_version < '3.3'               # Mock package needed for readthedocs build for mocking pycurls (mock seems to break SQLAlchemy in Python 3 tests + since Python 3.3 there is unittest.mock)
 s3cmd==2.0.2                                      # Used for testing of S3
 PyYAML==5.4                                       # Used for reading test configuration files (also in globus_extras)
+pydoc-markdown~=3.10.0; python_version >= '3.5'   # Used for generating Markdown documentation for docusaurus
+sh~=1.14.1                                        # Convenience library for running subprocesses in Python

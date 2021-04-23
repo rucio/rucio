@@ -40,7 +40,6 @@ lib/rucio_clients.egg-info
 build/
 covhtml
 dist/
-doc/build/
 examples/whip/results/
 lib/rucio.egg-info/
 cache/

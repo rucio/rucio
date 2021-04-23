@@ -26,17 +26,14 @@ Core tracer module
 """
 
 import json
-import logging
 import logging.handlers
 import random
-import sys
 import socket
 
 import stomp
 
 from rucio.common.config import config_get, config_get_int
 from rucio.core.monitor import record_counter
-
 
 CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
 CONFIG_COMMON_LOGFORMAT = config_get('common', 'logformat', raise_exception=False, default='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
@@ -56,36 +53,27 @@ LOGGER.setLevel(CONFIG_COMMON_LOGLEVEL)
 ROTATING_LOGGER = logging.getLogger('trace_buffer')
 ROTATING_LOGGER.setLevel(CONFIG_TRACE_LOGLEVEL)
 
-try:
-    HANDLER = logging.StreamHandler()
-    FORMATTER = logging.Formatter(CONFIG_COMMON_LOGFORMAT)
-    HANDLER.setFormatter(FORMATTER)
-    LOGGER.addHandler(HANDLER)
+HANDLER = logging.StreamHandler()
+FORMATTER = logging.Formatter(CONFIG_COMMON_LOGFORMAT)
+HANDLER.setFormatter(FORMATTER)
+LOGGER.addHandler(HANDLER)
 
-    ROTATING_HANDLER = logging.handlers.RotatingFileHandler(filename='%s/trace' % CONFIG_TRACE_TRACEDIR, maxBytes=CONFIG_TRACE_MAXBYTES, backupCount=CONFIG_TRACE_BACKUPCOUNT)
-    ROTATING_LOGFORMATTER = logging.Formatter(CONFIG_TRACE_LOGFORMAT)
-    ROTATING_HANDLER.setFormatter(ROTATING_LOGFORMATTER)
-    ROTATING_LOGGER.addHandler(ROTATING_HANDLER)
-except:
-    if 'sphinx' not in sys.modules:
-        raise
+ROTATING_HANDLER = logging.handlers.RotatingFileHandler(filename='%s/trace' % CONFIG_TRACE_TRACEDIR, maxBytes=CONFIG_TRACE_MAXBYTES, backupCount=CONFIG_TRACE_BACKUPCOUNT)
+ROTATING_LOGFORMATTER = logging.Formatter(CONFIG_TRACE_LOGFORMAT)
+ROTATING_HANDLER.setFormatter(ROTATING_LOGFORMATTER)
+ROTATING_LOGGER.addHandler(ROTATING_HANDLER)
 
 BROKERS_ALIAS, BROKERS_RESOLVED = [], []
 try:
     BROKERS_ALIAS = [b.strip() for b in config_get('trace', 'brokers').split(',')]
 except:
-    if 'sphinx' not in sys.modules:
-        raise Exception('Could not load brokers from configuration')
+    raise Exception('Could not load brokers from configuration')
 
-try:
-    PORT = config_get_int('trace', 'port')
-    TOPIC = config_get('trace', 'topic')
-    USERNAME = config_get('trace', 'username')
-    PASSWORD = config_get('trace', 'password')
-    VHOST = config_get('trace', 'broker_virtual_host', raise_exception=False)
-except:
-    if 'sphinx' not in sys.modules:
-        raise
+PORT = config_get_int('trace', 'port')
+TOPIC = config_get('trace', 'topic')
+USERNAME = config_get('trace', 'username')
+PASSWORD = config_get('trace', 'password')
+VHOST = config_get('trace', 'broker_virtual_host', raise_exception=False)
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
