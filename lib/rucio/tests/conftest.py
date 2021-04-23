@@ -238,3 +238,32 @@ def core_config_mock(request):
 
     with mock.patch('rucio.core.config.models.Config', new=InMemoryConfig):
         yield
+
+
+@pytest.fixture
+def caches_mock(request):
+    """
+    Fixture which overrides the different internal caches with in-memory ones for the duration
+    of a particular test.
+
+    This override works only in tests which use core function calls directly, not in the ones
+    working via API.
+
+    The fixture acts by by mock.patch the REGION object in the provided list of modules to mock.
+    """
+
+    from unittest import mock
+    from contextlib import ExitStack
+    from dogpile.cache import make_region
+
+    caches_to_mock = []
+    params = __get_fixture_param(request)
+    if params:
+        caches_to_mock = params.get("caches_to_mock", caches_to_mock)
+
+    with ExitStack() as stack:
+        for module in caches_to_mock:
+            region = make_region().configure('dogpile.cache.memory', expiration_time=600)
+            stack.enter_context(mock.patch('{}.{}'.format(module, 'REGION'), new=region))
+
+        yield
