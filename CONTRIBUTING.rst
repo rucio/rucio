@@ -25,7 +25,7 @@ Generally all `pull requests <https://github.com/rucio/rucio/pulls>`_ are to be 
 
 The following figure might help you with an overview:
 
-.. image:: https://raw.githubusercontent.com/rucio/rucio/master/doc/source/images/branching_strategy.svg
+.. image:: https://rucio.cern.ch/documentation/img/branching_strategy.svg
 
 
 Getting started
