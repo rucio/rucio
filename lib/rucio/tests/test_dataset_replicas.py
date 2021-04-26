@@ -22,6 +22,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import unittest
 
@@ -30,7 +31,7 @@ import pytest
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.exception import InvalidObject
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
@@ -41,13 +42,14 @@ from rucio.core.rse import add_rse, del_rse, add_protocol, get_rse_id
 from rucio.db.sqla import session, models, constants
 from rucio.db.sqla.constants import ReplicaState
 from rucio.tests.common import rse_name_generator
+from rucio.tests.common_server import get_vo
 
 
 class TestDatasetReplicaClient(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_vo()}
         else:
             self.vo = {}
 
@@ -181,7 +183,7 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_vo()}
         else:
             self.vo = {}
 

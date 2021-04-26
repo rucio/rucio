@@ -19,16 +19,18 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import pytest
 
 from rucio.client.didclient import DIDClient
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import get_rse_id
 from rucio.core.temporary_did import (add_temporary_dids, compose, delete_temporary_dids,
                                       list_expired_temporary_dids)
+from rucio.tests.common_server import get_vo
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE')
@@ -36,7 +38,7 @@ def test_core_temporary_dids():
     """ TMP DATA IDENTIFIERS (CORE): """
 
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        vo = {'vo': get_vo()}
     else:
         vo = {}
     scope = InternalScope('mock', **vo)

@@ -25,6 +25,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import base64
 import unittest
@@ -34,13 +35,14 @@ from requests import session
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token, \
     get_auth_token_saml
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.exception import Duplicate, AccessDenied
 from rucio.common.types import InternalAccount
 from rucio.common.utils import ssh_sign
 from rucio.core.identity import add_account_identity, del_account_identity
 from rucio.db.sqla.constants import IdentityType
 from rucio.tests.common import headers, hdrdict, loginhdr, vohdr
+from rucio.tests.common_server import get_vo
 
 PUBLIC_KEY = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL"\
              "614sulXQ7wnIr1aGhGtl8b+HCB/0FhMSMTHwSjX78UbfqEorZ"\
@@ -97,7 +99,7 @@ class TestAuthCoreApi(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_vo()}
         else:
             self.vo = {}
 

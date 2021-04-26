@@ -17,23 +17,28 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 from __future__ import print_function
 
 import traceback
+
 import pytest
+
 
 # local imports in the fixtures to make this file loadable in e.g. client tests
 
 
 @pytest.fixture(scope='session')
 def vo():
-    from rucio.common.config import config_get_bool, config_get
+    from rucio.tests.common_server import get_vo
+    return get_vo()
 
-    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        return config_get('client', 'vo', raise_exception=False, default='tst')
-    else:
-        return 'def'
+
+@pytest.fixture(scope='session')
+def long_vo():
+    from rucio.tests.common import get_long_vo
+    return get_long_vo()
 
 
 @pytest.fixture(scope='module')
@@ -86,10 +91,10 @@ def rest_client():
 
 
 @pytest.fixture
-def auth_token(rest_client, vo):
+def auth_token(rest_client, long_vo):
     from rucio.tests.common import vohdr, headers, loginhdr
 
-    auth_response = rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(vo)))
+    auth_response = rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(long_vo)))
     assert auth_response.status_code == 200
     token = auth_response.headers.get('X-Rucio-Auth-Token')
     assert token

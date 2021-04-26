@@ -1,4 +1,5 @@
-# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,15 +19,14 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import unittest
 
 import pytest
 
 from rucio.client.didclient import DIDClient
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.exception import InvalidObject
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
@@ -35,6 +35,7 @@ from rucio.core.naming_convention import (add_naming_convention,
                                           list_naming_conventions,
                                           delete_naming_convention)
 from rucio.db.sqla.constants import KeyType
+from rucio.tests.common_server import get_vo
 
 
 @pytest.mark.noparallel(reason='changes global naming conventions, breaks other tests')
@@ -46,7 +47,7 @@ class TestNamingConventionCore(unittest.TestCase):
     def setUp(self):
         """ Constructor."""
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_vo()}
         else:
             self.vo = {}
 

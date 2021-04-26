@@ -52,6 +52,7 @@ Individual contributors to the source code
 - Ian Johnson, <ian.johnson@stfc.ac.uk>, 2021
 - Radu Carpa <radu.carpa@cern.ch>, 2021
 - Dhruv Sondhi <dhruvsondhi05@gmail.com>, 2021
+- Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 
 Organisations employing contributors
@@ -77,3 +78,4 @@ Organisations employing contributors
 - Science and Technology Facilities Council (UK)
 - Brookhaven National Laboratory (USA)
 - Institut Teknologi Bandung (Indonesia)
+- Imperial College London (UK)
