@@ -72,7 +72,7 @@ class CustomSdist(_sdist):
         self.packaging = "default value for this option"
 
     def get_file_list(self):
-        print "Chosen packaging option: " + name
+        print("Chosen packaging option: " + name)
         self.distribution.data_files = data_files
         _sdist.get_file_list(self)
 
