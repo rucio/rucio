@@ -20,6 +20,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import unittest
 
@@ -29,7 +30,7 @@ from rucio.client.baseclient import BaseClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid
-from rucio.tests.common import execute
+from rucio.tests.common import execute, get_long_vo
 
 
 @pytest.mark.dirty
@@ -38,7 +39,7 @@ class TestReplicaHeaderRedirection(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = '-H "X-Rucio-VO: %s"' % config_get('client', 'vo', raise_exception=False, default='tst')
+            self.vo_header = '-H "X-Rucio-VO: %s"' % get_long_vo()
         else:
             self.vo_header = ''
 
@@ -82,7 +83,7 @@ class TestReplicaMetalinkRedirection(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = '-H "X-Rucio-VO: %s"' % config_get('client', 'vo', raise_exception=False, default='tst')
+            self.vo_header = '-H "X-Rucio-VO: %s"' % get_long_vo()
         else:
             self.vo_header = ''
 

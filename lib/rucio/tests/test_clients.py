@@ -25,11 +25,13 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 from __future__ import print_function
 
 import unittest
 from datetime import datetime, timedelta
+
 try:
     from SimpleHTTPServer import SimpleHTTPRequestHandler
 except ImportError:
@@ -48,6 +50,7 @@ from rucio.client.client import Client
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, RucioException
 from rucio.common.utils import get_tmp_dir
+from rucio.tests.common import get_long_vo
 
 
 class MockServer:
@@ -93,7 +96,7 @@ class TestBaseClient(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_long_vo()}
             try:
                 remove(get_tmp_dir() + '/.rucio_root@%s/auth_token_root' % self.vo['vo'])
             except OSError as error:
@@ -191,7 +194,7 @@ class TestRucioClients(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_long_vo()}
         else:
             self.vo = {}
 

@@ -22,6 +22,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import itertools
 import json
@@ -41,6 +42,7 @@ from rucio.api.authentication import validate_auth_token
 from rucio.common.exception import RucioException, CannotAuthenticate, UnsupportedRequestedContentType
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, render_json
+from rucio.core.vo import map_vo
 
 if TYPE_CHECKING:
     from typing import Optional, Union, Dict, Sequence, Tuple, Callable, Any, List
@@ -325,3 +327,18 @@ def param_get(parameters: "Dict", name: "str", **kwargs):
                 )
             )
         return parameters[name]
+
+
+def extract_vo(headers: "HeadersType") -> "str":
+    """ Extract the VO name from the given request.headers object and
+        does any name mapping. Returns the short VO name or raise a
+        flask.abort if the VO name doesn't meet the name specification.
+
+    :papam headers: The request.headers object for the current request.
+    :returns: a string containing the short VO name.
+    """
+    try:
+        return map_vo(headers.get('X-Rucio-VO', default='def'))
+    except RucioException as err:
+        # VO Name doesn't match allowed spec
+        flask.abort(generate_http_error_flask(status_code=400, exc=err))

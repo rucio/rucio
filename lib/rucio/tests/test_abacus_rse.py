@@ -20,6 +20,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import os
 import unittest
@@ -27,7 +28,7 @@ import unittest
 import pytest
 
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import get_rse_id, get_rse_usage
 from rucio.daemons.abacus import rse
@@ -37,6 +38,7 @@ from rucio.daemons.undertaker import undertaker
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
 from rucio.tests.common import file_generator
+from rucio.tests.common_server import get_vo
 
 
 @pytest.mark.noparallel(reason='uses daemon, failing in parallel to other tests, updates account')
@@ -53,7 +55,7 @@ class TestAbacusRSE(unittest.TestCase):
         cls.session = get_session()
 
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
 
         cls.rse_id = get_rse_id(cls.rse, session=cls.session, **cls.vo)
 

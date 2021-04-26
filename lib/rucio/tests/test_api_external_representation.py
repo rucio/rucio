@@ -19,6 +19,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import random
 import string
@@ -41,7 +42,7 @@ from rucio.api.rule import add_replication_rule
 from rucio.api.scope import add_scope, list_scopes, get_scopes
 from rucio.api.subscription import add_subscription, list_subscriptions, list_subscription_rule_states, \
     get_subscription_by_id
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict, generate_uuid
 from rucio.core.rse import get_rse_id
@@ -51,6 +52,7 @@ from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
 from rucio.db.sqla import constants
 from rucio.tests.common import rse_name_generator
+from rucio.tests.common_server import get_vo
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE, fails when run in parallel')
@@ -59,7 +61,7 @@ class TestApiExternalRepresentation(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
             cls.new_vo = {'vo': 'new'}
             cls.multi_vo = True
             if not vo_exists(**cls.new_vo):

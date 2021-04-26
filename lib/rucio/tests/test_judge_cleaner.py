@@ -21,12 +21,13 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import unittest
 
 import pytest
 
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_local_account_limit
@@ -36,6 +37,7 @@ from rucio.core.rse import add_rse_attribute, get_rse_id
 from rucio.core.rule import add_rule, update_rule
 from rucio.daemons.judge.cleaner import rule_cleaner
 from rucio.db.sqla.constants import DIDType
+from rucio.tests.common_server import get_vo
 from rucio.tests.test_rule import create_files, tag_generator
 
 
@@ -45,7 +47,7 @@ class TestJudgeCleaner(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 

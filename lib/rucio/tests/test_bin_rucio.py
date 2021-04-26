@@ -32,6 +32,7 @@
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 from __future__ import print_function
 
@@ -52,23 +53,29 @@ from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import generate_uuid, get_tmp_dir, md5, render_json
 from rucio.rse import rsemanager as rsemgr
-from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
+from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator, get_long_vo
 
 
 class TestBinRucio(unittest.TestCase):
 
-    def setUp(self):
+    def conf_vo(self):
+        self.vo = {}
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            if environ.get('SUITE', 'all') != 'client':
+                # Server test, we can use short VO via DB for internal tests
+                from rucio.tests.common_server import get_vo
+                self.vo = {'vo': get_vo()}
+            else:
+                # Client-only test, only use config with no DB config
+                self.vo = {'vo': get_long_vo()}
             try:
                 remove(get_tmp_dir() + '/.rucio_root@%s/auth_token_root' % self.vo['vo'])
             except OSError as error:
                 if error.args[0] != 2:
                     raise error
 
-        else:
-            self.vo = {}
-
+    def setUp(self):
+        self.conf_vo()
         try:
             remove(get_tmp_dir() + '/.rucio_root/auth_token_root')
         except OSError as e:

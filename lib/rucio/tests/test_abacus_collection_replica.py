@@ -21,6 +21,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import os
 import unittest
@@ -31,7 +32,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did
@@ -44,6 +45,7 @@ from rucio.daemons.undertaker import undertaker
 from rucio.db.sqla import models, session
 from rucio.db.sqla.constants import DIDType, ReplicaState
 from rucio.tests.common import file_generator, rse_name_generator
+from rucio.tests.common_server import get_vo
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE, fails when run in parallel')
@@ -64,7 +66,7 @@ class TestAbacusCollectionReplica(unittest.TestCase):
         cls.upload_client = UploadClient()
 
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
 
         cls.rse_id = get_rse_id(rse=cls.rse, **cls.vo)
 

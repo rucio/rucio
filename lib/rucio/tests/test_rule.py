@@ -29,6 +29,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import json
 import random
@@ -45,7 +46,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.lockclient import LockClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEWriteBlocked,
                                     RSEOverQuota,
                                     RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError,
@@ -70,6 +71,7 @@ from rucio.db.sqla import models, session
 from rucio.db.sqla.constants import DIDType, OBSOLETE, RuleState, LockState
 from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import rse_name_generator, account_name_generator
+from rucio.tests.common_server import get_vo
 
 LOG = getLogger(__name__)
 
@@ -85,7 +87,7 @@ def create_files(nrfiles, scope, rse_id, bytes=1):
     :returns:        List of dict
     """
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        vo = {'vo': get_vo()}
     else:
         vo = {}
 
@@ -145,7 +147,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         cls.db_session = session.get_session()
 
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 
@@ -1193,7 +1195,7 @@ class TestReplicationRuleClient(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 
