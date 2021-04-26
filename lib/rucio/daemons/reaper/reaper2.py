@@ -28,6 +28,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Matt Snyder <msnyder@bnl.gov>, 2021
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -145,11 +146,13 @@ def get_rses_to_process(rses, include_rses, exclude_rses, vos):
     return rses
 
 
-def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_threshold, logger=logging.log):
+def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_threshold, bulk, logger=logging.log):
     deleted_files = []
     rse_name = rse_info['rse']
     rse_id = rse_info['id']
     noaccess_attempts = 0
+    if bulk: 
+        replicas_to_bulk_delete = []
     try:
         prot.connect()
         for replica in replicas:
@@ -177,7 +180,10 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
                     # sign the URL if necessary
                     if prot.attributes['scheme'] == 'https' and rse_info['sign_url'] is not None:
                         pfn = get_signed_url(rse_id, rse_info['sign_url'], 'delete', pfn)
-                    prot.delete(pfn)
+                    if not bulk:
+                        prot.delete(pfn)
+                    else:
+                        replicas_to_bulk_delete.append(replica)
                 else:
                     logger(logging.WARNING, 'Deletion UNAVAILABLE of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
 
@@ -231,6 +237,9 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
         labels = {'rse': rse_name}
         EXCLUDED_RSE_GAUGE.labels(**labels).set(1)
     finally:
+        if bulk and replicas_to_bulk_delete:
+            logger(logging.DEBUG, 'Attempting bulk delete on RSE %s for scheme %s', rse_name, prot.attributes['scheme'])
+            prot.bulk_delete(replicas_to_bulk_delete)
         prot.close()
     return deleted_files
 
@@ -376,7 +385,7 @@ def __check_rse_usage(rse, rse_id, greedy=False, logger=logging.log):
 
 
 def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=False, greedy=False,
-           scheme=None, delay_seconds=0, sleep_time=60, auto_exclude_threshold=100, auto_exclude_timeout=600):
+           scheme=None, delay_seconds=0, sleep_time=60, auto_exclude_threshold=100, auto_exclude_timeout=600, bulk=False):
     """
     Main loop to select and delete files.
 
@@ -393,6 +402,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     :param sleep_time:             Time between two cycles.
     :param auto_exclude_threshold: Number of service unavailable exceptions after which the RSE gets temporarily excluded.
     :param auto_exclude_timeout:   Timeout for temporarily excluded RSEs.
+    :param bulk:                   If True, use chunk_size to collect list of files for async job to bulk delete.
     """
     hostname = socket.getfqdn()
     executable = 'reaper2'
@@ -586,7 +596,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                             except Exception:
                                 logger(logging.CRITICAL, 'Exception', exc_info=True)
 
-                        deleted_files = delete_from_storage(file_replicas, prot, rse_info, staging_areas, auto_exclude_threshold, logger=logger)
+                        deleted_files = delete_from_storage(file_replicas, prot, rse_info, staging_areas, auto_exclude_threshold, bulk, logger=logger)
                         logger(logging.INFO, '%i files processed in %s seconds', len(file_replicas), time.time() - del_start_time)
 
                         # Then finally delete the replicas
@@ -628,7 +638,7 @@ def stop(signum=None, frame=None):
     GRACEFUL_STOP.set()
 
 
-def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=None, exclude_rses=None, include_rses=None, vos=None, delay_seconds=0, sleep_time=60, auto_exclude_threshold=100, auto_exclude_timeout=600):
+def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=None, exclude_rses=None, include_rses=None, vos=None, delay_seconds=0, sleep_time=60, auto_exclude_threshold=100, auto_exclude_timeout=600, bulk=False):
     """
     Starts up the reaper threads.
 
@@ -649,6 +659,7 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
     :param sleep_time:             Time between two cycles.
     :param auto_exclude_threshold: Number of service unavailable exceptions after which the RSE gets temporarily excluded.
     :param auto_exclude_timeout:   Timeout for temporarily excluded RSEs.
+    :param bulk:                   If True, use chunk_size to collect list of files for async job to bulk delete.
     """
     setup_logging()
 
@@ -678,7 +689,8 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
                                                             'delay_seconds': delay_seconds,
                                                             'scheme': scheme,
                                                             'auto_exclude_threshold': auto_exclude_threshold,
-                                                            'auto_exclude_timeout': auto_exclude_timeout}) for _ in range(0, threads)]
+                                                            'auto_exclude_timeout': auto_exclude_timeout,
+                                                            'bulk': bulk}) for _ in range(0, threads)]
 
     for thread in threads_list:
         thread.start()

@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019
+# - Matt Snyder <msnyder@bnl.gov>, 2019-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
 
 import imp
@@ -178,3 +178,14 @@ def send_delete_task(endpoint_id=None, path=None):
     delete_result = tc.submit_delete(ddata)
 
     return delete_result
+
+
+def send_bulk_delete_task(endpoint_id=None, replicas=None):
+    tc = getTransferClient()
+    ddata = DeleteData(tc, endpoint_id, recursive=True)
+    for replica in replicas:
+        logging.debug('replica: %s' % replica)
+        ddata.add_item(replica['pfn'])
+    bulk_delete_result = tc.submit_delete(ddata)
+
+    return bulk_delete_result

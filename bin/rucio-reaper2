@@ -17,6 +17,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Matt Snyder <msnyder@bnl.gov>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -60,6 +61,8 @@ def get_parser():
                         help='Number of service unavailable exceptions after which the RSE gets temporarily excluded.')
     parser.add_argument("--auto_exclude_timeout", action="store", default=600, type=int,
                         help='Timeout for temporarily excluded RSEs.')
+    parser.add_argument("--bulk", action="store_true", default=False,
+                        help='Bulk delete.')
 
     return parser
 
@@ -84,6 +87,7 @@ if __name__ == "__main__":
             delay_seconds=args.delay_seconds,
             sleep_time=args.sleep_time,
             auto_exclude_threshold=args.auto_exclude_threshold,
-            auto_exclude_timeout=args.auto_exclude_timeout)
+            auto_exclude_timeout=args.auto_exclude_timeout,
+            bulk=args.bulk)
     except KeyboardInterrupt:
         stop()
