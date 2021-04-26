@@ -28,31 +28,31 @@ if __name__ == "__main__":
 
 COMPONENT_COLOR = 'd4c5f9'
 
-option_rst = False
+option_doc = False
 option_backport = False
 
 if len(sys.argv) == 1:
-    print('generate-release-notes VERSION [--rst] [--backport]')
+    print('generate-release-notes VERSION [--doc] [--backport]')
     sys.exit(-1)
 for arg in sys.argv:
-    if arg == '--rst':
-        option_rst = True
+    if arg == '--doc':
+        option_doc = True
     elif arg == '--backport':
         option_backport = True
     else:
         milestone_title = arg
 
-def format_issue(issue, rst=False):
-    if not rst:
+def format_issue(issue, doc=False):
+    if not doc:
         if issue['component']:
             return '- %s: %s #%s' % (issue['component'], issue['title'], issue['number'])
         else:
             return '- %s #%s' % (issue['title'], issue['number'])
     else:
         if issue['component']:
-            return '- %s: %s `#%s <https://github.com/rucio/rucio/issues/%s>`_' % (issue['component'], issue['title'], issue['number'], issue['number'])
+            return '- %s: %s [#%s](https://github.com/rucio/rucio/issues/%s)' % (issue['component'], issue['title'], issue['number'], issue['number'])
         else:
-            return '- %s `#%s <https://github.com/rucio/rucio/issues/%s>`_' % (issue['title'], issue['number'], issue['number'])
+            return '- %s [#%s](https://github.com/rucio/rucio/issues/%s)' % (issue['title'], issue['number'], issue['number'])
 
 
 def load_milestones(github_token, page=1):
@@ -134,7 +134,7 @@ enhancements = sorted(enhancements, key=lambda k: "%s %d" % (k['component'], k['
 features = [issue for issue in issues if issue['type'] == 'feature']
 features = sorted(features, key=lambda k: "%s %d" % (k['component'], k['number']))
 
-if not option_rst:
+if not option_doc:
     if features:
         print('## Features\n')
         for issue in features:
@@ -151,22 +151,16 @@ if not option_rst:
             print(format_issue(issue))
 else:
     if features:
-        print('********')
-        print('Features')
-        print('********\n')
+        print('### Features')
         for issue in features:
-            print(format_issue(issue, rst=True))
+            print(format_issue(issue, doc=True))
         print('')
     if enhancements:
-        print('************')
-        print('Enhancements')
-        print('************\n')
+        print('### Enhancements')
         for issue in enhancements:
-            print(format_issue(issue, rst=True))
+            print(format_issue(issue, doc=True))
         print('')
     if bugs:
-        print('****')
-        print('Bugs')
-        print('****\n')
+        print('### Bugs')
         for issue in bugs:
-            print(format_issue(issue, rst=True))
+            print(format_issue(issue, doc=True))
