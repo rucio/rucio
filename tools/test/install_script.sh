@@ -29,7 +29,7 @@ if [ "$SUITE" == "client" -o "$SUITE" == "client_syntax" ]; then
     python setup_rucio_client.py install
     cp etc/docker/test/extra/rucio_client.cfg etc/rucio.cfg
 
-elif [ "$SUITE" == "syntax" ]; then
+elif [ "$SUITE" == "syntax" -o "$SUITE" == "docs" ]; then
     cd /usr/local/src/rucio
     cp etc/docker/test/extra/rucio_syntax.cfg etc/rucio.cfg
 fi

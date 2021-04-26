@@ -26,7 +26,14 @@ function srchome() {
 if [ "$SUITE" == "syntax" ]; then
     srchome
     tools/test/check_syntax.sh
-    tools/test/sphinx_build.sh
+
+elif [ "$SUITE" == "docs" ]; then
+    srchome
+    export RUCIO_CLIENT_API_OUTPUT="rucio_client_api.md"
+    export RUCIO_REST_API_OUTPUT="rucio_rest_api.md"
+    tools/generate_doc.py
+    test -s $RUCIO_CLIENT_API_OUTPUT
+    test -s $RUCIO_REST_API_OUTPUT
 
 elif [[ "$SUITE" =~ ^client.* ]]; then
     if [ "$SUITE" == "client" ]; then
