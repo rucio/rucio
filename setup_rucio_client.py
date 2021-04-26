@@ -68,31 +68,6 @@ if '--release' in COPY_ARGS:
     COPY_ARGS.remove('--release')
 
 
-# If Sphinx is installed on the box running setup.py,
-# enable setup.py to build the documentation, otherwise,
-# just ignore it
-cmdclass = {}
-
-try:
-    from sphinx.setup_command import BuildDoc
-
-    class local_BuildDoc(BuildDoc):
-        '''
-        local_BuildDoc
-        '''
-        def run(self):
-            '''
-            run
-            '''
-            for builder in ['html']:   # 'man','latex'
-                self.builder = builder
-                self.finalize_options()
-                BuildDoc.run(self)
-    cmdclass['build_sphinx'] = local_BuildDoc
-except Exception:
-    pass
-
-
 def get_reqs_from_file(requirements_file):
     '''
     get_reqs_from_file
@@ -173,7 +148,7 @@ class CustomSdist(_sdist):
         _sdist.get_file_list(self)
 
 
-cmdclass['sdist'] = CustomSdist
+cmdclass = {'sdist': CustomSdist}
 
 # For using SSO login option, install these RPM packages: libxml2-devel xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel
 
@@ -187,7 +162,6 @@ setup(
     cmdclass=cmdclass,
     include_package_data=True,
     scripts=SCRIPTS,
-    # doc=cmdclass,
     author="Rucio",
     author_email="rucio-dev@cern.ch",
     description=DESCRIPTION,

@@ -11,7 +11,7 @@ prune examples
 prune .coverage
 prune build/
 prune covhtml
-prune doc/build/
+prune doc/
 prune lib/rucio*egg-info/
 prune tools/patches
 prune .venv
