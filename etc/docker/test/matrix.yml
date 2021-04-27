@@ -34,20 +34,7 @@ suites:
       - postgres9
       - postgres12
       - sqlite
-    REST_BACKEND:
-      - webpy
-      - flask
-    deny:
-      REST_BACKEND: webpy
-      RDBMS:
-        - mysql5
-        - postgres9
-        - postgres12
-        - sqlite
   - id: multi_vo
     RDBMS: postgres12
-    REST_BACKEND:
-      - webpy
-      - flask
 image_identifier:
   - autotest
