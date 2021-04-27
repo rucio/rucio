@@ -218,6 +218,10 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
                 deletion_dict['reason'] = str(error)
                 add_message('deletion-failed', deletion_dict)
 
+        if bulk and replicas_to_bulk_delete:
+            logger(logging.DEBUG, 'Attempting bulk delete on RSE %s for scheme %s', rse_name, prot.attributes['scheme'])
+            prot.bulk_delete(replicas_to_bulk_delete)
+
     except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
         for replica in replicas:
             logger(logging.WARNING, 'Deletion NOACCESS of %s:%s as %s on %s: %s', replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
@@ -237,9 +241,6 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
         labels = {'rse': rse_name}
         EXCLUDED_RSE_GAUGE.labels(**labels).set(1)
     finally:
-        if bulk and replicas_to_bulk_delete:
-            logger(logging.DEBUG, 'Attempting bulk delete on RSE %s for scheme %s', rse_name, prot.attributes['scheme'])
-            prot.bulk_delete(replicas_to_bulk_delete)
         prot.close()
     return deleted_files
 

@@ -25,7 +25,7 @@ from six import string_types
 from rucio.common import exception
 from rucio.core.rse import get_rse_attribute
 from rucio.rse.protocols.protocol import RSEProtocol
-from rucio.transfertool.globusLibrary import getTransferClient, send_delete_task, send_bulk_delete_task
+from rucio.transfertool.globus_library import getTransferClient, send_delete_task, send_bulk_delete_task
 
 # Extra modules: Only imported if available
 EXTRA_MODULES = {'globus_sdk': False}
