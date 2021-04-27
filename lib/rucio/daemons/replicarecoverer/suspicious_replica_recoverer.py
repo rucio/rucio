@@ -52,7 +52,7 @@ from rucio.core.monitor import record_counter
 from rucio.core.replica import list_replicas, declare_bad_file_replicas, get_suspicious_files
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
-from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
+from rucio.db.sqla.constants import BadFilesStatus
 from rucio.db.sqla.util import get_db_time
 
 from rucio.core.rse import list_rses
@@ -228,6 +228,10 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
                             declare_bad_file_replicas(pfns=surls_to_recover[vo][rse_id], reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), status=BadFilesStatus.BAD, session=None)
                             logging.info('replica_recoverer[%i/%i]: finished declaring bad replicas on %s.', worker_number, total_workers, rse)
 
+
+            # Sticking this here for now, as I'm not sure what the best way to integrate/call this function is yet.
+            recover_suspicious_replicas(vos, younger_than, nattempts)
+
         except (DatabaseException, DatabaseError) as err:
             if match('.*QueuePool.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
@@ -274,7 +278,7 @@ def recover_suspicious_replicas(vos, younger_than, nattempts):
                         'is_suspicious': True}
 
     recoverable_replicas = {}
-    # Goal: {vo1: {site1: {rse1: [surl1, surl2, ...], rse_2: [...], ...}, site2: {...}  },    vo2: {...}}
+    # Goal: {vo1: {site1: {rse1: {replica1_name:{scope:scope1, surl:surl1}, replica2_name:{...}, ...], rse_2: {...}, ...}, site2: {...}  },    vo2: {...}}
     # Each surl describes a replica
     for vo in vos:
         if vo not in recoverable_replicas:
@@ -288,7 +292,7 @@ def recover_suspicious_replicas(vos, younger_than, nattempts):
             if site not in recoverable_replicas[vo]:
                 recoverable_replicas[vo][site] = {}
             if rse not in recoverable_replicas[vo][site]:
-                recoverable_replicas[vo][site][rse] = []
+                recoverable_replicas[vo][site][rse] = {}
             # recoverable_replicas should now look like this:
             # {vo1: {site1: {rse1: [], rse_2: [], ...}, site2: {...}  },    vo2: {...}}
 
@@ -317,7 +321,7 @@ def recover_suspicious_replicas(vos, younger_than, nattempts):
                             for rse_ in rep['rses']:
                                 if rse_ == rse_id: ###### What is he difference between rse and rse_id?
                                     # Add the surl to the list
-                                    recoverable_replicas[vo][site][rse].append(rep['rses'][site][0])
+                                    recoverable_replicas[vo][site][rse][name] = {'scope':scope, 'surl':rep['rses'][site][0]}
                                     surl_not_found = False
                 # if surl_not_found:
                     # cnt_surl_not_found += 1
@@ -329,8 +333,9 @@ def recover_suspicious_replicas(vos, younger_than, nattempts):
             # At this point in time there will be RSEs with empty lists, as they have no suspicious replicas
 
 
-
+        # Not sure what this returns
         down_sites = requests.get('https://atlas-cric.cern.ch/api/core/downtime/query/?json&preset=sites', headers=headers)
+
         for site in recoverable_replicas[vo].keys():
         # Deleting dictionary elements whilst iterating over the dict will cause an error
         # Workaround is to use keys() (apparently)
@@ -343,7 +348,7 @@ def recover_suspicious_replicas(vos, younger_than, nattempts):
             for rse in site:
                 if len(rse) == 0: # If RSE has no suspicious replicas
                     clean_rses += 1
-            # Remove sites where all RSEs have empty lists (these sites have no suspicious replicas)
+            # Remove sites where all RSEs have no suspicious replicas
             if len(site) == clean_rses:
                 del recoverable_replicas[vo][site]
 
@@ -356,18 +361,25 @@ def recover_suspicious_replicas(vos, younger_than, nattempts):
         limit_suspicious_files_on_rse = 5 # Filler value. Probably shouldn't be hard-coded.
 
         for site in recoverable_replicas[vo]:
-            count_problematic_rse = 0 # Number of RSEs with a total count less than limit_suspicious_files_on_rse
-            list_problematic_rse = [] # Dict with the RSEs as the keys and their total number of counts as the values
+            count_problematic_rse = 0 # Number of RSEs with less than *limit_suspicious_files_on_rse* suspicious replicas
+            list_problematic_rses = [] # List of RSEs that are deemed problematic
             for rse in site:
                 if len(rse) > limit_suspicious_files_on_rse:
                     count_problematic_rse += 1
-                    list_problematic_rse.append(rse.key())
-            if len(site) == problematic_rse:
+                    list_problematic_rses.append(rse.key())
+            if len(site) == count_problematic_rse:
                 # Site has a problem
                 # Set all of the replicas on the site as TEMPORARY_UNAVAILABLE
                 for rse in site:
-                    add_bad_pfns(pfns=recoverable_replicas[vo][site][rse], account=ACCOUNT?, state=TEMPORARY_UNAVAILABLE)
+                    surls_list = []
+                    for replica in rse: # replica = replica1_name:{scope:scope1, surl:surl1}
+                        surls_list.append(replica['surl'])
+
+                    # REMOVED FOR TEST:
+                    # add_bad_pfns(pfns=surls_list, account=ACCOUNT?, state=TEMPORARY_UNAVAILABLE) # What is an account in this case?
+
                 print("All RSEs on site %s are problematic. Send a Jira ticket for the site." % site)
+                continue # Move on to next site
 
                 # Send a ticket
                 # tickets = requests.get('https://its.cern.ch/jira/projects/ALARMTESTING') # Url used for testing, not the final solution
@@ -399,10 +411,61 @@ def recover_suspicious_replicas(vos, younger_than, nattempts):
 
 
             # Only specific RSEs of a site have a problem. Check RSEs individually
-            for rse in list_problematic_rse:
-                if len(rse) > limit_suspicious_files_on_rse:
-                    add_bad_pfns(pfns=recoverable_replicas[vo][site][rse], account=ACCOUNT?, state=TEMPORARY_UNAVAILABLE)
-                    print("RSE %s of site %s are problematic. Send a Jira ticket for the RSE." % (rse, site))
+            for rse in list_problematic_rses:
+                RSE_type = rse.split('_')[-1]
+                if (RSE_type == "SCRATCHDISK" || RSE_type == "LOCALGROUPDISK"): # These storage types need to be handled differently
+                    # To be implemented
+                    continue
+
+                elif len(recoverable_replicas[vo][site][rse]) > limit_suspicious_files_on_rse: # If too many suspicious replicas
+
+                    # REMOVED FOR TEST:
+                    # add_bad_pfns(pfns=recoverable_replicas[vo][site][rse], account=ACCOUNT?, state=TEMPORARY_UNAVAILABLE)
+
+                    print("RSE %s of site %s is problematic. Send a Jira ticket for the RSE." % (rse, site))
+
+                # # Check replicas individually
+                # elif:
+                #     for replica in rse:
+                #         # Beginning of file name indicates what type of file the replica is
+                #         file_type = replica.key().split('.')[0]
+                #
+                #         # Just keeping a list of the file types I've seen
+                #         if file_type == "log":
+                #             # Don't care about log files, declare lost
+                #             continue
+                #         elif file_type == "HITS":
+                #             # MC file?
+                #             continue
+                #         elif file_type == "AOD":
+                #             # MC file?
+                #             continue
+                #         elif file_type.split('_')[0] == "DAOD":
+                #             # MC file?
+                #             continue
+                #         elif file_type == "EVNT":
+                #             # MC file?
+                #             continue
+                #         elif file_type.split('_')[0] == "DRAW":
+                #             # Data file?
+                #             continue
+                #         elif file_type == "user":
+                #             # Replica is in a user's scope.
+                #             # NTUP
+                #             continue
+                #         elif file_type == "group":
+                #             # Replica is in a group's scope.
+                #             continue
+                #
+                #         elif file_type == "TXT":
+                #             continue
+                #         elif file_type.split('_')[0] == "RDO":
+                #             # MC file?
+                #             continue
+
+
+
+
 
     return
 
