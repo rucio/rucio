@@ -28,7 +28,6 @@ import pytest
 from rucio.common.config import config_get, config_get_bool, config_set, config_remove_option
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.core.config import set
 from rucio.core.did import attach_dids, add_did
 from rucio.core.replica import add_replica
 from rucio.core.request import queue_requests, get_request_by_did, release_waiting_requests_per_deadline, release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo, release_waiting_requests_per_free_volume
@@ -41,6 +40,10 @@ from rucio.tests.common import skiplimitedsql
 
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
+@pytest.mark.usefixtures("core_config_mock")
+@pytest.mark.parametrize("core_config_mock", [{
+    "table_content": [('throttler', 'mode', 'DEST_PER_ALL_ACT')]
+}], indirect=True)
 class TestThrottlerGroupedFIFO(unittest.TestCase):
     """Throttler per destination RSE and on all activites per grouped FIFO
     """
@@ -54,8 +57,6 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
         else:
             cls.vo = {}
 
-        cls.db_session = session.get_session()
-        cls.dialect = cls.db_session.bind.dialect.name
         cls.dest_rse = 'MOCK'
         cls.source_rse = 'MOCK4'
         cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
@@ -67,17 +68,19 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
         config_set('conveyor', 'use_preparer', 'true')
 
     def setUp(self):
+        self.db_session = session.get_session()
+        self.dialect = self.db_session.bind.dialect.name
         self.db_session.query(models.Request).delete()
         self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.query(models.Config).delete()
-        set('throttler', 'mode', 'DEST_PER_ALL_ACT', session=self.db_session)
         self.db_session.commit()
+
+    def tearDown(self):
+        self.db_session.commit()
+        self.db_session.close()
 
     @classmethod
     def tearDownClass(cls):
         config_remove_option('conveyor', 'use_preparer')
-        cls.db_session.commit()
-        cls.db_session.close()
 
     def test_preparer_throttler_grouped_fifo_all(self):
         """ THROTTLER (CLIENTS): throttler release all waiting requests (DEST - ALL ACT - GFIFO). """
@@ -411,6 +414,10 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
 
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
+@pytest.mark.usefixtures("core_config_mock")
+@pytest.mark.parametrize("core_config_mock", [{
+    "table_content": [('throttler', 'mode', 'DEST_PER_ACT')]
+}], indirect=True)
 class TestThrottlerFIFO(unittest.TestCase):
     """Throttler per destination RSE and on each activites per FIFO
     """
@@ -423,8 +430,6 @@ class TestThrottlerFIFO(unittest.TestCase):
         else:
             cls.vo = {}
 
-        cls.db_session = session.get_session()
-        cls.dialect = cls.db_session.bind.dialect.name
         cls.dest_rse = 'MOCK'
         cls.source_rse = 'MOCK4'
         cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
@@ -436,17 +441,19 @@ class TestThrottlerFIFO(unittest.TestCase):
         config_set('conveyor', 'use_preparer', 'true')
 
     def setUp(self):
+        self.db_session = session.get_session()
+        self.dialect = self.db_session.bind.dialect.name
         self.db_session.query(models.Request).delete()
         self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.query(models.Config).delete()
-        set('throttler', 'mode', 'DEST_PER_ACT', session=self.db_session)
         self.db_session.commit()
+
+    def tearDown(self):
+        self.db_session.commit()
+        self.db_session.close()
 
     @classmethod
     def tearDownClass(cls):
         config_remove_option('conveyor', 'use_preparer')
-        cls.db_session.commit()
-        cls.db_session.close()
 
     def test_throttler_fifo_release_all(self):
         """ THROTTLER (CLIENTS): throttler release all waiting requests (DEST - ACT - FIFO). """
@@ -660,6 +667,10 @@ class TestThrottlerFIFO(unittest.TestCase):
 
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
+@pytest.mark.usefixtures("core_config_mock")
+@pytest.mark.parametrize("core_config_mock", [{
+    "table_content": [('throttler', 'mode', 'SRC_PER_ACT')]
+}], indirect=True)
 class TestThrottlerFIFOSRCACT(unittest.TestCase):
     """Throttler per source RSE and on each activites per FIFO."""
 
@@ -672,8 +683,6 @@ class TestThrottlerFIFOSRCACT(unittest.TestCase):
         else:
             cls.vo = {}
 
-        cls.db_session = session.get_session()
-        cls.dialect = cls.db_session.bind.dialect.name
         cls.dest_rse = 'MOCK'
         cls.dest_rse2 = 'MOCK5'
         cls.dest_rse3 = 'MOCK3'
@@ -690,17 +699,19 @@ class TestThrottlerFIFOSRCACT(unittest.TestCase):
         config_set('conveyor', 'use_preparer', 'true')
 
     def setUp(self):
+        self.db_session = session.get_session()
+        self.dialect = self.db_session.bind.dialect.name
         self.db_session.query(models.Request).delete()
         self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.query(models.Config).delete()
-        set('throttler', 'mode', 'SRC_PER_ACT', session=self.db_session)
         self.db_session.commit()
+
+    def tearDown(self):
+        self.db_session.commit()
+        self.db_session.close()
 
     @classmethod
     def tearDownClass(cls):
         config_remove_option('conveyor', 'use_preparer')
-        cls.db_session.commit()
-        cls.db_session.close()
 
     def test_throttler_fifo_release_subset(self):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (SRC - ACT - FIFO). """
@@ -785,6 +796,10 @@ class TestThrottlerFIFOSRCACT(unittest.TestCase):
 
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
+@pytest.mark.usefixtures("core_config_mock")
+@pytest.mark.parametrize("core_config_mock", [{
+    "table_content": [('throttler', 'mode', 'SRC_PER_ALL_ACT')]
+}], indirect=True)
 class TestThrottlerFIFOSRCALLACT(unittest.TestCase):
     """Throttler per source RSE and on all activites per FIFO."""
 
@@ -797,8 +812,6 @@ class TestThrottlerFIFOSRCALLACT(unittest.TestCase):
         else:
             cls.vo = {}
 
-        cls.db_session = session.get_session()
-        cls.dialect = cls.db_session.bind.dialect.name
         cls.dest_rse = 'MOCK'
         cls.source_rse = 'MOCK4'
         cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
@@ -810,17 +823,19 @@ class TestThrottlerFIFOSRCALLACT(unittest.TestCase):
         config_set('conveyor', 'use_preparer', 'true')
 
     def setUp(self):
+        self.db_session = session.get_session()
+        self.dialect = self.db_session.bind.dialect.name
         self.db_session.query(models.Request).delete()
         self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.query(models.Config).delete()
-        set('throttler', 'mode', 'SRC_PER_ALL_ACT', session=self.db_session)
         self.db_session.commit()
+
+    def tearDown(self):
+        self.db_session.commit()
+        self.db_session.close()
 
     @classmethod
     def tearDownClass(cls):
         config_remove_option('conveyor', 'use_preparer')
-        cls.db_session.commit()
-        cls.db_session.close()
 
     def test_throttler_fifo_release_subset(self):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (SRC - ALL ACT - FIFO). """
@@ -882,6 +897,10 @@ class TestThrottlerFIFOSRCALLACT(unittest.TestCase):
 
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
+@pytest.mark.usefixtures("core_config_mock")
+@pytest.mark.parametrize("core_config_mock", [{
+    "table_content": [('throttler', 'mode', 'DEST_PER_ALL_ACT')]
+}], indirect=True)
 class TestThrottlerFIFODESTALLACT(unittest.TestCase):
     """Throttler per destination RSE and on all activites per FIFO."""
 
@@ -894,8 +913,6 @@ class TestThrottlerFIFODESTALLACT(unittest.TestCase):
         else:
             cls.vo = {}
 
-        cls.db_session = session.get_session()
-        cls.dialect = cls.db_session.bind.dialect.name
         cls.dest_rse = 'MOCK'
         cls.dest_rse2 = 'MOCK5'
         cls.source_rse = 'MOCK4'
@@ -912,17 +929,19 @@ class TestThrottlerFIFODESTALLACT(unittest.TestCase):
         config_set('conveyor', 'use_preparer', 'true')
 
     def setUp(self):
+        self.db_session = session.get_session()
+        self.dialect = self.db_session.bind.dialect.name
         self.db_session.query(models.Request).delete()
         self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.query(models.Config).delete()
-        set('throttler', 'mode', 'DEST_PER_ALL_ACT', session=self.db_session)
         self.db_session.commit()
+
+    def tearDown(self):
+        self.db_session.commit()
+        self.db_session.close()
 
     @classmethod
     def tearDownClass(cls):
         config_remove_option('conveyor', 'use_preparer')
-        cls.db_session.commit()
-        cls.db_session.close()
 
     def test_throttler_fifo_release_subset(self):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (DEST - ALL ACT - FIFO). """
@@ -1009,6 +1028,10 @@ class TestThrottlerFIFODESTALLACT(unittest.TestCase):
 
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
+@pytest.mark.usefixtures("core_config_mock")
+@pytest.mark.parametrize("core_config_mock", [{
+    "table_content": [('throttler', 'mode', 'SRC_PER_ALL_ACT')]
+}], indirect=True)
 class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
     """Throttler per source RSE and on all activites per grouped FIFO."""
 
@@ -1021,8 +1044,6 @@ class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
         else:
             cls.vo = {}
 
-        cls.db_session = session.get_session()
-        cls.dialect = cls.db_session.bind.dialect.name
         cls.dest_rse = 'MOCK'
         cls.source_rse = 'MOCK4'
         cls.dest_rse_2 = 'MOCK3'
@@ -1036,17 +1057,19 @@ class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
         config_set('conveyor', 'use_preparer', 'true')
 
     def setUp(self):
+        self.db_session = session.get_session()
+        self.dialect = self.db_session.bind.dialect.name
         self.db_session.query(models.Request).delete()
         self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.query(models.Config).delete()
-        set('throttler', 'mode', 'SRC_PER_ALL_ACT', session=self.db_session)
         self.db_session.commit()
+
+    def tearDown(self):
+        self.db_session.commit()
+        self.db_session.close()
 
     @classmethod
     def tearDownClass(cls):
         config_remove_option('conveyor', 'use_preparer')
-        cls.db_session.commit()
-        cls.db_session.close()
 
     @skiplimitedsql
     def test_preparer_throttler_grouped_fifo_subset(self):
@@ -1168,6 +1191,10 @@ class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
 
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
+@pytest.mark.usefixtures("core_config_mock")
+@pytest.mark.parametrize("core_config_mock", [{
+    "table_content": [('throttler', 'mode', 'DEST_PER_ACT')]
+}], indirect=True)
 class TestRequestCoreRelease(unittest.TestCase):
     """Test release methods used in throttler."""
 
@@ -1180,8 +1207,6 @@ class TestRequestCoreRelease(unittest.TestCase):
         else:
             cls.vo = {}
 
-        cls.db_session = session.get_session()
-        cls.dialect = cls.db_session.bind.dialect.name
         cls.dest_rse = 'MOCK'
         cls.source_rse = 'MOCK4'
         cls.source_rse2 = 'MOCK5'
@@ -1195,15 +1220,15 @@ class TestRequestCoreRelease(unittest.TestCase):
         config_set('conveyor', 'use_preparer', 'true')
 
     def setUp(self):
+        self.db_session = session.get_session()
+        self.dialect = self.db_session.bind.dialect.name
         self.db_session.query(models.Request).delete()
         self.db_session.query(models.RSETransferLimit).delete()
         self.db_session.query(models.Distance).delete()
-        self.db_session.query(models.Config).delete()
         # set transfer limits to put requests in waiting state
         set_rse_transfer_limits(self.dest_rse_id, self.user_activity, max_transfers=1, session=self.db_session)
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, max_transfers=1, session=self.db_session)
         set_rse_transfer_limits(self.dest_rse_id, 'ignore', max_transfers=1, session=self.db_session)
-        set('throttler', 'mode', 'DEST_PER_ACT', session=self.db_session)
         self.db_session.commit()
 
     def tearDown(self):
