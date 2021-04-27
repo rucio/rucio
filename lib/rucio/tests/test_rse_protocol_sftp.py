@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
-import json
 import os
 import shutil
 import tempfile
@@ -33,7 +33,7 @@ import pytest
 
 from rucio.common import exception
 from rucio.rse import rsemanager as mgr
-from rucio.tests.common import skip_rse_tests_with_accounts
+from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 from rucio.tests.rsemgr_api_test import MgrTestCases
 
 
@@ -56,12 +56,10 @@ class TestRseSFTP(unittest.TestCase):
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, fil))
 
         # Load local credentials from file
-        with open('etc/rse-accounts.cfg') as fil:
-            data = json.load(fil)
+        data = load_test_conf_file('rse-accounts.cfg')
         credentials = data['LXPLUS']
         lxplus = pysftp.Connection(**credentials)
-        with open('etc/rse_repository.json') as fil:
-            prefix = json.load(fil)['LXPLUS']['protocols']['supported']['sftp']['prefix']
+        prefix = load_test_conf_file('rse_repository.json')['LXPLUS']['protocols']['supported']['sftp']['prefix']
         lxplus.execute('mkdir %s' % prefix)
         lxplus.execute('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         cls.static_file = 'sftp://lxplus.cern.ch:22%sdata.raw' % prefix
@@ -77,12 +75,10 @@ class TestRseSFTP(unittest.TestCase):
         """SFTP (RSE/PROTOCOLS): Removing created directorie s and files """
         # Load local creditentials from file
         credentials = {}
-        with open('etc/rse-accounts.cfg') as fil:
-            data = json.load(fil)
+        data = load_test_conf_file('rse-accounts.cfg')
         credentials = data['LXPLUS']
         lxplus = pysftp.Connection(**credentials)
-        with open('etc/rse_repository.json') as fil:
-            prefix = json.load(fil)['LXPLUS']['protocols']['supported']['sftp']['prefix']
+        prefix = load_test_conf_file('rse_repository.json')['LXPLUS']['protocols']['supported']['sftp']['prefix']
         lxplus.execute('rm -rf %s' % prefix)
         lxplus.close()
         shutil.rmtree(cls.tmpdir)
