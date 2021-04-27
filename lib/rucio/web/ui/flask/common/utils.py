@@ -100,24 +100,26 @@ def html_escape(s, quote=True):
     return escapefunc(s, quote)
 
 
-def prepare_saml_request():
+def prepare_saml_request(environ, data):
     """
     TODO: Validate for Flask
     Prepare a webpy request for SAML
-    :param request: webpy request object
+    :param environ: Flask request.environ object
     :param data: GET or POST data
     """
-    if request.environ('mod_wsgi.url_scheme') == 'https':
-        return {
-            'https': 'on' if request.environ.get('modwsgi.url_scheme') == 'https' else 'off',
-            'http_host': request.environ.get('HTTP_HOST'),
-            'server_port': request.environ.get('SERVER_PORT'),
-            'script_name': request.environ.get('SCRIPT_NAME'),
-            'get_data': request.data,
+    if environ.get('mod_wsgi.url_scheme') == 'https':
+        ret = {
+            'https': 'on' if environ.get('modwsgi.url_scheme') == 'https' else 'off',
+            'http_host': environ.get('HTTP_HOST'),
+            'server_port': environ.get('SERVER_PORT'),
+            'script_name': environ.get('SCRIPT_NAME'),
             # Uncomment if using ADFS as IdP
             # 'lowercase_urlencoding': True,
-            'post_data': request.data
         }
+        if data:
+            ret['get_data'] = data
+            ret['post_data'] = data
+        return ret
 
     return None
 
@@ -436,7 +438,7 @@ def saml_auth(method, data=None):
     :returns: rendered final page or a page with error message
     """
     SAML_PATH = join(dirname(__file__), 'saml/')
-    req = prepare_saml_request()
+    req = prepare_saml_request(request.environ, data)
     samlauth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
     saml_user_data = request.cookies.get('saml-user-data')
     if not MULTI_VO:

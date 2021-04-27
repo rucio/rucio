@@ -20,8 +20,8 @@
 
 from flask import Flask
 
+from rucio.common.logging import setup_logging
 from rucio.web.ui.flask import bp
-
 
 application = Flask(__name__)
 
@@ -29,4 +29,5 @@ application.register_blueprint(bp.blueprint())
 
 
 if __name__ == '__main__':
+    setup_logging()
     application.run()

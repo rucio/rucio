@@ -19,8 +19,6 @@
 
 from __future__ import print_function
 
-import importlib
-import os
 import traceback
 
 import pytest
@@ -57,81 +55,29 @@ def did_client():
 def rest_client():
     from rucio.tests.common import print_response
 
-    backend = os.environ.get('REST_BACKEND', 'webpy')
-    if backend == 'flask':
-        from flask.testing import FlaskClient
-        from rucio.web.rest.flaskapi.v1.main import application
+    from flask.testing import FlaskClient
+    from rucio.web.rest.flaskapi.v1.main import application
 
-        class WrappedFlaskClient(FlaskClient):
-            def __init__(self, *args, **kwargs):
-                super(WrappedFlaskClient, self).__init__(*args, **kwargs)
+    class WrappedFlaskClient(FlaskClient):
+        def __init__(self, *args, **kwargs):
+            super(WrappedFlaskClient, self).__init__(*args, **kwargs)
 
-            def open(self, path='/', *args, **kwargs):
-                print(kwargs.get('method', 'GET'), path)
-                response = super(WrappedFlaskClient, self).open(path, *args, **kwargs)
-                try:
-                    print_response(response)
-                except Exception:
-                    traceback.print_exc()
-                return response
+        def open(self, path='/', *args, **kwargs):
+            print(kwargs.get('method', 'GET'), path)
+            response = super(WrappedFlaskClient, self).open(path, *args, **kwargs)
+            try:
+                print_response(response)
+            except Exception:
+                traceback.print_exc()
+            return response
 
-        _testing = application.testing
-        application.testing = True
-        application.test_client_class = WrappedFlaskClient
-        with application.test_client() as client:
-            yield client
-        application.test_client_class = None
-        application.testing = _testing
-    elif backend == 'webpy':
-        from werkzeug.test import Client as TestClient
-        from werkzeug.wrappers import BaseResponse
-        from rucio.web.rest.main import application as main_application
-
-        def _path_matches_endpoint(path, endpoint):
-            return path.startswith(endpoint + '/') or path.startswith(endpoint + '?') or path == endpoint
-
-        class WrappedTestClient(TestClient):
-            special_endpoints = {
-                '/auth': ('rucio.web.rest.authentication', None),
-                '/credentials': ('rucio.web.rest.credential', None),
-                '/nongrid_traces': ('rucio.web.rest.nongrid_trace', None),
-                '/ping': ('rucio.web.rest.ping', None),
-                '/redirect': ('rucio.web.rest.redirect', None),
-                '/traces': ('rucio.web.rest.trace', None),
-            }
-
-            def __init__(self, *args, **kwargs):
-                super(WrappedTestClient, self).__init__(*args, **kwargs)
-
-            def _endpoint_specials(self, path):
-                for endpoint_path in self.special_endpoints:
-                    if _path_matches_endpoint(path, endpoint_path):
-                        endpoint_module, endpoint_client = self.special_endpoints[endpoint_path]
-                        if endpoint_client is None:
-                            module = importlib.import_module(endpoint_module)
-                            endpoint_client = TestClient(getattr(module, 'application'), BaseResponse)
-                            self.special_endpoints[endpoint_path] = (module, endpoint_client)
-
-                        path = path[len(endpoint_path):]
-                        if not path.startswith('/'):
-                            path = '/' + path
-
-                        return path, endpoint_client.open
-                return path, super(WrappedTestClient, self).open
-
-            def open(self, path='/', *args, **kwargs):
-                newpath, open_method = self._endpoint_specials(path)
-                print(kwargs.get('method', 'GET'), path)
-                response = open_method(newpath, *args, **kwargs)
-                try:
-                    print_response(response)
-                except Exception:
-                    traceback.print_exc()
-                return response
-
-        yield WrappedTestClient(main_application, BaseResponse)
-    else:
-        raise RuntimeError('Unknown rest backend ' + backend)
+    _testing = application.testing
+    application.testing = True
+    application.test_client_class = WrappedFlaskClient
+    with application.test_client() as client:
+        yield client
+    application.test_client_class = None
+    application.testing = _testing
 
 
 @pytest.fixture

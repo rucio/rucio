@@ -32,6 +32,7 @@ from time import time
 from typing import TYPE_CHECKING
 
 import flask
+import six
 from flask.views import MethodView
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException
@@ -40,7 +41,6 @@ from rucio.api.authentication import validate_auth_token
 from rucio.common.exception import RucioException, CannotAuthenticate, UnsupportedRequestedContentType
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, render_json
-from rucio.web.rest.utils import _error_response
 
 if TYPE_CHECKING:
     from typing import Optional, Union, Dict, Sequence, Tuple, Callable, Any, List
@@ -185,6 +185,38 @@ def try_stream(generator, content_type=None) -> "flask.Response":
         return flask.Response(itertools.chain((peek,), it), content_type=content_type)
     except StopIteration:
         return flask.Response('', content_type=content_type)
+
+
+def error_headers(exc_cls: str, exc_msg):
+    def strip_newlines(msg):
+        if msg is None:
+            return None
+        elif isinstance(msg, six.binary_type):
+            msg = six.ensure_text(msg, errors='replace')
+        elif not isinstance(msg, six.string_types):
+            # any objects will be converted to their string representation in unicode
+            msg = six.ensure_text(str(msg), errors='replace')
+        return msg.replace('\n', ' ').replace('\r', ' ')
+
+    exc_msg = strip_newlines(exc_msg)
+    if exc_msg:
+        # Truncate too long exc_msg
+        oldlen = len(exc_msg)
+        exc_msg = exc_msg[:min(oldlen, 125)]
+        if len(exc_msg) != oldlen:
+            exc_msg = exc_msg + '...'
+    return {
+        'ExceptionClass': strip_newlines(exc_cls),
+        'ExceptionMessage': exc_msg
+    }
+
+
+def _error_response(exc_cls, exc_msg):
+    data = {'ExceptionClass': exc_cls,
+            'ExceptionMessage': exc_msg}
+    headers = {'Content-Type': 'application/octet-stream'}
+    headers.update(error_headers(exc_cls=exc_cls, exc_msg=exc_msg))
+    return data, headers
 
 
 def generate_http_error_flask(

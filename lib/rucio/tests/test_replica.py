@@ -33,22 +33,24 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
+
 import hashlib
-import os
-import sys
 import time
 from datetime import datetime, timedelta
 from json import dumps, loads
+from unittest import mock
 from xml.etree import ElementTree
+
 import pytest
 import xmltodict
 from werkzeug.datastructures import MultiDict
+
 from rucio.client.ruleclient import RuleClient
-from rucio.core.config import set as cconfig_set
 from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, UnsupportedOperation,
                                     RucioException, ReplicaIsLocked, ReplicaNotFound, ScopeNotFound,
                                     DatabaseException)
 from rucio.common.utils import generate_uuid, clean_surls, parse_response
+from rucio.core.config import set as cconfig_set
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
 from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_replicas_state,
                                 get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas,
@@ -63,15 +65,8 @@ from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, headers, auth, Mime, accept
 
 
-if sys.version_info >= (3, 3):
-    from unittest import mock
-else:
-    import mock
-
-# This method will be used by the mock to replace requests.get to VP server
-
-
 def mocked_VP_requests_get(*args, **kwargs):
+    """This method will be used by the mock to replace requests.get to VP server."""
     class MockResponse:
         def __init__(self, json_data, status_code):
             self.json_data = json_data
@@ -1077,88 +1072,52 @@ def test_client_list_replicas_streaming_error(content_type, vo, did_client, repl
         raise DatabaseException('Database error for testing')
 
     json_data = dumps({'dids': [{'scope': 'mock', 'name': generate_uuid()}]})
-    rest_backend = os.environ.get('REST_BACKEND', 'webpy')
-    if rest_backend == 'webpy':
-        def list_replicas_on_api():
-            class MockedHTTPError(Exception):
-                def __init__(self, status_code, exc_cls, exc_msg):
-                    super(MockedHTTPError, self).__init__("MockedHTTPError %s, %s: %s" % (status_code, exc_cls, exc_msg))
 
-                @classmethod
-                def generate(cls, *args, **kwargs):
-                    raise cls(*args, **kwargs)
+    def list_replicas_on_api():
+        from werkzeug.datastructures import Headers
 
-            class FakeCtx:
-                env = {
-                    'issuer': 'root',
-                    'vo': vo,
-                    'request_id': generate_uuid(),
-                    'HTTP_ACCEPT': content_type,
-                }
-                query = None
-                ip = '127.0.0.1'
+        class FakeRequest:
+            class FakeAcceptMimetypes:
+                provided = False
+                best_match = mock.MagicMock(return_value=content_type)
 
-            with mock.patch('rucio.web.rest.common.ctx', new=FakeCtx()), \
-                    mock.patch('rucio.web.rest.replica.ctx', new=FakeCtx()), \
-                    mock.patch('rucio.web.rest.replica.data', return_value=json_data), \
-                    mock.patch('rucio.web.rest.replica.header'), \
-                    mock.patch('rucio.web.rest.replica.generate_http_error', side_effect=MockedHTTPError.generate), \
-                    mock.patch('rucio.web.rest.replica.list_replicas', side_effect=api_returns):
-                from rucio.web.rest.replica import ListReplicas
-                list_replicas_restapi = ListReplicas()
-                with pytest.raises(MockedHTTPError, match='MockedHTTPError 500, DatabaseException: Database error for testing'):
-                    for element in list_replicas_restapi.POST():
-                        yield element
+            environ = {
+                'issuer': 'root',
+                'vo': vo,
+                'request_id': generate_uuid(),
+            }
+            query_string = None
+            args = MultiDict()
+            data = json_data
+            get_data = mock.MagicMock(return_value=json_data)
+            headers = Headers()
+            accept_mimetypes = FakeAcceptMimetypes()
+            remote_addr = '127.0.0.1'
 
-    elif rest_backend == 'flask':
-        def list_replicas_on_api():
-            from werkzeug.datastructures import Headers
+        response_mock = mock.Mock(return_value=None)
 
-            class FakeRequest:
-                class FakeAcceptMimetypes:
-                    provided = False
-                    best_match = mock.MagicMock(return_value=content_type)
+        class FakeFlask:
+            request = FakeRequest()
+            abort = mock.MagicMock()
+            Response = response_mock
 
-                environ = {
-                    'issuer': 'root',
-                    'vo': vo,
-                    'request_id': generate_uuid(),
-                }
-                query_string = None
-                args = MultiDict()
-                data = json_data
-                get_data = mock.MagicMock(return_value=json_data)
-                headers = Headers()
-                accept_mimetypes = FakeAcceptMimetypes()
-                remote_addr = '127.0.0.1'
-
-            response_mock = mock.Mock(return_value=None)
-
-            class FakeFlask:
-                request = FakeRequest()
-                abort = mock.MagicMock()
-                Response = response_mock
-
-            with mock.patch('rucio.web.rest.flaskapi.v1.common.flask', new=FakeFlask()), \
-                    mock.patch('rucio.web.rest.flaskapi.v1.replicas.request', new=FakeRequest()), \
-                    mock.patch('rucio.web.rest.flaskapi.v1.replicas.list_replicas', side_effect=api_returns):
-                from rucio.web.rest.flaskapi.v1.replicas import ListReplicas
-                list_replicas_restapi = ListReplicas()
-                list_replicas_restapi.post()
-                # for debugging when this test fails
-                print(f'Response({response_mock.call_args})')
-                print(f'  args = {response_mock.call_args[0]}')
-                print(f'kwargs = {response_mock.call_args[1]}')
-                assert response_mock.call_args[1]['content_type'] == content_type
-                response_iter = response_mock.call_args[0][0]
-                assert response_iter != '', 'unexpected empty response'
-                # since we're directly accessing the generator for Flask, there is no error handling
-                with pytest.raises(DatabaseException, match='Database error for testing'):
-                    for element in response_iter:
-                        yield element
-
-    else:
-        return pytest.xfail('unknown REST_BACKEND: ' + rest_backend)
+        with mock.patch('rucio.web.rest.flaskapi.v1.common.flask', new=FakeFlask()), \
+                mock.patch('rucio.web.rest.flaskapi.v1.replicas.request', new=FakeRequest()), \
+                mock.patch('rucio.web.rest.flaskapi.v1.replicas.list_replicas', side_effect=api_returns):
+            from rucio.web.rest.flaskapi.v1.replicas import ListReplicas
+            list_replicas_restapi = ListReplicas()
+            list_replicas_restapi.post()
+            # for debugging when this test fails
+            print(f'Response({response_mock.call_args})')
+            print(f'  args = {response_mock.call_args[0]}')
+            print(f'kwargs = {response_mock.call_args[1]}')
+            assert response_mock.call_args[1]['content_type'] == content_type
+            response_iter = response_mock.call_args[0][0]
+            assert response_iter != '', 'unexpected empty response'
+            # since we're directly accessing the generator for Flask, there is no error handling
+            with pytest.raises(DatabaseException, match='Database error for testing'):
+                for element in response_iter:
+                    yield element
 
     if content_type == Mime.METALINK:
         # for metalink, this builds the incomplete XML that should be returned by the API on error
