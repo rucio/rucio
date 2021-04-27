@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,11 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
 
+import json
 import contextlib
 import itertools
 import os
@@ -38,8 +40,10 @@ import pytest
 from six import PY3
 
 from rucio.common.utils import generate_uuid as uuid, execute
+from rucio.common.config import get_config_dirs
 
-skip_rse_tests_with_accounts = pytest.mark.skipif(not os.path.exists('etc/rse-accounts.cfg'), reason='fails if no rse-accounts.cfg found')
+skip_rse_tests_with_accounts = pytest.mark.skipif(not any(os.path.exists(os.path.join(d, 'rse-accounts.cfg')) for d in get_config_dirs()),
+                                                  reason='fails if no rse-accounts.cfg found')
 skiplimitedsql = pytest.mark.skipif('RDBMS' in os.environ and (os.environ['RDBMS'] == 'sqlite' or os.environ['RDBMS'] == 'mysql5'),
                                     reason="does not work in SQLite or MySQL 5, because of missing features")
 
@@ -164,3 +168,9 @@ class Mime:
     JSON = 'application/json'
     JSON_STREAM = 'application/x-json-stream'
     BINARY = 'application/octet-stream'
+
+
+def load_test_conf_file(file_name):
+    config_dir = next(filter(lambda d: os.path.exists(os.path.join(d, file_name)), get_config_dirs()))
+    with open(os.path.join(config_dir, file_name)) as f:
+        return json.load(f)

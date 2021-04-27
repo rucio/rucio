@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,17 +22,18 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
 
-import json
 import os
 import os.path
 import tempfile
 
 from rucio.common.utils import adler32
 from rucio.rse import rsemanager as mgr
-from rucio.tests.common import skip_rse_tests_with_accounts
+from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 
 try:
     from exceptions import NotImplementedError
@@ -55,8 +56,7 @@ class MgrTestCases:
     def __init__(self, tmpdir, rse_tag, user, static_file, vo='def'):
         self.rse_settings = mgr.get_rse_info(rse=rse_tag, vo=vo)
         try:
-            with open('etc/rse-accounts.cfg') as f:
-                data = json.load(f)
+            data = load_test_conf_file('rse-accounts.cfg')
             self.rse_settings['credentials'] = data[rse_tag]
         except KeyError:
             print('No credentials found for this RSE.')
