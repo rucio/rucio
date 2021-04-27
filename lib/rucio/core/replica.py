@@ -81,6 +81,7 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
 REGION = make_region().configure('dogpile.cache.memory', expiration_time=60)
+DEFAULT_TOMBSTONE_DELAY = timedelta(weeks=2)
 
 
 @read_session
@@ -1358,6 +1359,20 @@ def __bulk_add_file_dids(files, account, dataset_meta=None, session=None):
     return new_files + available_files
 
 
+def tombstone_from_delay(tombstone_delay):
+    tombstone = None
+
+    if isinstance(tombstone_delay, timedelta):
+        tombstone_delay = tombstone_delay.total_seconds()
+
+    if tombstone_delay:
+        try:
+            tombstone = datetime.utcnow() + timedelta(seconds=int(tombstone_delay))
+        except ValueError:
+            pass
+    return tombstone
+
+
 @transactional_session
 def __bulk_add_replicas(rse_id, files, account, session=None):
     """
@@ -1380,6 +1395,9 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
         filter(condition)
     available_replicas = [dict([(column, getattr(row, column)) for column in row._fields]) for row in query]
 
+    default_tombstone_delay = next(iter(get_rse_attribute('tombstone_delay', rse_id=rse_id, session=session)), DEFAULT_TOMBSTONE_DELAY)
+    default_tombstone = tombstone_from_delay(default_tombstone_delay)
+
     new_replicas = []
     for file in files:
         found = False
@@ -1396,7 +1414,7 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
                                  'state': ReplicaState(file.get('state', 'A')),
                                  'md5': file.get('md5'), 'adler32': file.get('adler32'),
                                  'lock_cnt': file.get('lock_cnt', 0),
-                                 'tombstone': file.get('tombstone')})
+                                 'tombstone': file.get('tombstone') or default_tombstone})
     try:
         new_replicas and session.bulk_insert_mappings(models.RSEFileAssociation,
                                                       new_replicas)
@@ -1927,6 +1945,10 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
         filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
         filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
                    and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
+        filter(~exists(select([1]).prefix_with("/*+ INDEX(SOURCES SOURCES_SC_NM_DST_IDX) */", dialect='oracle')
+                       .where(and_(models.RSEFileAssociation.scope == models.Source.scope,
+                                   models.RSEFileAssociation.name == models.Source.name,
+                                   models.RSEFileAssociation.rse_id == models.Source.rse_id)))).\
         with_for_update(skip_locked=True).\
         order_by(models.RSEFileAssociation.tombstone)
 
@@ -1994,25 +2016,20 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
 
 
 @transactional_session
-def update_replicas_states(replicas, nowait=False, add_tombstone=False, session=None):
+def update_replicas_states(replicas, nowait=False, session=None):
     """
     Update File replica information and state.
 
     :param replicas:        The list of replicas.
     :param nowait:          Nowait parameter for the for_update queries.
-    :param add_tombstone:   To set a tombstone in case there is no lock on the replica.
     :param session:         The database session in use.
     """
 
     for replica in replicas:
         query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
-        lock_cnt = 0
         try:
             if nowait:
-                rep = query.with_for_update(nowait=True).one()
-            else:
-                rep = query.one()
-            lock_cnt = rep.lock_cnt
+                query.with_for_update(nowait=True).one()
         except NoResultFound:
             # remember scope, name and rse
             raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (replica['scope'], replica['name'], get_rse_name(replica['rse_id'], session=session)))
@@ -2031,19 +2048,12 @@ def update_replicas_states(replicas, nowait=False, add_tombstone=False, session=
             values['tombstone'] = OBSOLETE
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
-            # If No locks we set a tombstone in the future
-            if add_tombstone and lock_cnt == 0:
-                set_tombstone(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'], tombstone=datetime.utcnow() + timedelta(hours=2), session=session)
-
         elif replica['state'] == ReplicaState.UNAVAILABLE:
             rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'],
                                             error_message=replica.get('error_message', None),
                                             broken_rule_id=replica.get('broken_rule_id', None),
                                             broken_message=replica.get('broken_message', None),
                                             nowait=nowait, session=session)
-            # If No locks we set a tombstone in the future
-            if add_tombstone and lock_cnt == 0:
-                set_tombstone(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'], tombstone=datetime.utcnow() + timedelta(hours=2), session=session)
         elif replica['state'] == ReplicaState.TEMPORARY_UNAVAILABLE:
             query = query.filter(or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.TEMPORARY_UNAVAILABLE))
 

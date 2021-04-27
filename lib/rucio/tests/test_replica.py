@@ -53,7 +53,7 @@ from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files
 from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_replicas_state,
                                 get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas,
                                 update_replica_state, get_RSEcoverage_of_dataset, get_replica_atime,
-                                touch_replica, get_bad_pfns, set_tombstone)
+                                touch_replica, get_bad_pfns, set_tombstone, DEFAULT_TOMBSTONE_DELAY)
 from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
@@ -507,7 +507,7 @@ class TestReplicaCore:
         rse, rse_id = rse_factory.make_mock_rse()
         name = generate_uuid()
         add_replica(rse_id, mock_scope, name, 4, root_account)
-        assert get_replica(rse_id, mock_scope, name)['tombstone'] is None
+        assert get_replica(rse_id, mock_scope, name)['tombstone'] > datetime.utcnow()
         set_tombstone(rse_id, mock_scope, name)
         assert get_replica(rse_id, mock_scope, name)['tombstone'] == OBSOLETE
 
@@ -522,6 +522,35 @@ class TestReplicaCore:
         name = generate_uuid()
         with pytest.raises(ReplicaNotFound):
             set_tombstone(rse_id, mock_scope, name)
+
+    def test_core_default_tombstone_correctly_set(self, rse_factory, did_factory, root_account):
+        """ REPLICA (CORE): Per-RSE default tombstone is correctly taken into consideration"""
+
+        # One RSE has an attribute set, the other uses the default value for tombstone
+        rse1, rse1_id = rse_factory.make_mock_rse()
+        rse2, rse2_id = rse_factory.make_mock_rse()
+        tombstone_delay = 3600
+        add_rse_attribute(rse_id=rse2_id, key='tombstone_delay', value=tombstone_delay)
+
+        # Will use the default tombstone delay
+        did1 = did_factory.random_did()
+        add_replica(rse1_id, bytes=4, account=root_account, **did1)
+        tombstone = get_replica(rse1_id, **did1)['tombstone']
+        expected_tombstone = datetime.utcnow() + DEFAULT_TOMBSTONE_DELAY
+        assert expected_tombstone - timedelta(minutes=5) < tombstone < expected_tombstone + timedelta(minutes=5)
+
+        # Will use the configured value on the RSE
+        did2 = did_factory.random_did()
+        add_replica(rse2_id, bytes=4, account=root_account, **did2)
+        tombstone = get_replica(rse2_id, **did2)['tombstone']
+        expected_tombstone = datetime.utcnow() + timedelta(seconds=tombstone_delay)
+        assert expected_tombstone - timedelta(minutes=5) < tombstone < expected_tombstone + timedelta(minutes=5)
+
+        # Adding rule removes the tombstone
+        RuleClient().add_replication_rule([{'name': did1['name'], 'scope': did1['scope'].external}], 1, rse1, locked=True)
+        assert get_replica(rse1_id, **did1)['tombstone'] is None
+        RuleClient().add_replication_rule([{'name': did2['name'], 'scope': did2['scope'].external}], 1, rse2, locked=True)
+        assert get_replica(rse2_id, **did2)['tombstone'] is None
 
     def test_list_replicas_with_updated_after(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): Add and list file replicas with updated_after filter """
@@ -925,7 +954,7 @@ def test_client_set_tombstone(rse_factory, mock_scope, root_account, replica_cli
     rse, rse_id = rse_factory.make_mock_rse()
     name = generate_uuid()
     add_replica(rse_id, mock_scope, name, 4, root_account)
-    assert get_replica(rse_id, mock_scope, name)['tombstone'] is None
+    assert get_replica(rse_id, mock_scope, name)['tombstone'] > datetime.utcnow()
     replica_client.set_tombstone([{'rse': rse, 'scope': mock_scope.external, 'name': name}])
     assert get_replica(rse_id, mock_scope, name)['tombstone'] == OBSOLETE
 

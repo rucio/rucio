@@ -65,12 +65,12 @@ from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.oidc import get_token_for_account_operation
-from rucio.core.replica import add_replicas
+from rucio.core.replica import add_replicas, tombstone_from_delay
 from rucio.core.request import queue_requests, set_requests_state
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rses, get_rse_supported_checksums
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import DIDType, RequestState, RSEType, RequestType, ReplicaState
+from rucio.db.sqla.constants import DIDType, RequestState, RSEType, RequestType, ReplicaState, OBSOLETE
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -1135,6 +1135,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                               'bytes': transfers[req_id]['file_metadata']['filesize'],
                               'adler32': transfers[req_id]['file_metadata']['adler32'],
                               'md5': transfers[req_id]['file_metadata']['md5'],
+                              'tombstone': tombstone_from_delay(ctx.rse_attrs(dest_rse_id).get('multihop_tombstone_delay')) or OBSOLETE,
                               'state': 'C'}]
                     try:
                         add_replicas(rse_id=hop['dest_rse_id'],
