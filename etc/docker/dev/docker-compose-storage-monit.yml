@@ -9,6 +9,7 @@ services:
       - "xrd1:127.0.0.1"
       - "xrd2:127.0.0.1"
       - "xrd3:127.0.0.1"
+      - "xrd4:127.0.0.1"
       - "minio:127.0.0.1"
       - "activemq:127.0.0.1"
       - "elasticsearch:127.0.0.1"
@@ -25,6 +26,7 @@ services:
       - "1094:1094"
       - "1095:1095"
       - "1096:1096"
+      - "1097:1097"
       - "9000:9000"
       - "61613:61613"
       - "8161:8161"
@@ -88,6 +90,14 @@ services:
     volumes:
       - ../../certs/hostcert_xrd3.pem:/tmp/xrdcert.pem:Z
       - ../../certs/hostcert_xrd3.key.pem:/tmp/xrdkey.pem:Z
+  xrd4:
+    image: docker.io/rucio/xrootd
+    network_mode: "service:rucio"
+    environment:
+      - XRDPORT=1097
+    volumes:
+      - ../../certs/hostcert_xrd4.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd4.key.pem:/tmp/xrdkey.pem:Z
   minio:
     image: docker.io/minio/minio
     network_mode: "service:rucio"
