@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 # - Wen Guan <wen.guan@cern.ch>, 2014
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2015
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
-import json
 import os
 import shutil
 import tempfile
@@ -30,7 +30,7 @@ import pytest
 from rucio.common import exception
 from rucio.common.utils import execute
 from rucio.rse import rsemanager as mgr
-from rucio.tests.common import skip_rse_tests_with_accounts
+from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 from rucio.tests.rsemgr_api_test import MgrTestCases
 
 
@@ -52,8 +52,7 @@ class TestRseGFAL2(unittest.TestCase):
         for f in MgrTestCases.files_local:
             shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        with open('etc/rse_repository.json') as f:
-            data = json.load(f)
+        data = load_test_conf_file('rse_repository.json')
         prefix = data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['prefix']
         hostname = data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['hostname']
         if hostname.count("://"):
@@ -90,8 +89,7 @@ class TestRseGFAL2(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         """GFAL2 (RSE/PROTOCOLS): Removing created directorie s and files"""
-        with open('etc/rse_repository.json') as f:
-            data = json.load(f)
+        data = load_test_conf_file('rse_repository.json')
         prefix = data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['prefix']
         hostname = data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['hostname']
         if hostname.count("://"):

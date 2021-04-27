@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,11 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
 
-import json
 import os
 import shutil
 import tempfile
@@ -35,10 +36,11 @@ import pytest
 from rucio.common import exception
 from rucio.common.utils import execute
 from rucio.rse import rsemanager
-from rucio.tests.common import skip_rse_tests_with_accounts
+from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 from rucio.tests.rsemgr_api_test import MgrTestCases
 
 
+@pytest.mark.noparallel(reason='creates and removes a test directory with a fixed name')
 @skip_rse_tests_with_accounts
 class TestRseXROOTD(unittest.TestCase):
     tmpdir = None
@@ -56,8 +58,7 @@ class TestRseXROOTD(unittest.TestCase):
         print(out, err)
         rses = out.split()
 
-        with open('etc/rse_repository.json') as f:
-            data = json.load(f)
+        data = load_test_conf_file('rse_repository.json')
         prefix = data['WJ-XROOTD']['protocols']['supported']['xroot']['prefix']
         port = data['WJ-XROOTD']['protocols']['supported']['xroot']['port']
 
