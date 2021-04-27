@@ -173,3 +173,97 @@ def did_factory(vo, mock_scope):
 
     with TemporaryDidFactory(vo=vo, default_scope=mock_scope) as factory:
         yield factory
+
+
+def __get_fixture_param(request):
+    fixture_param = getattr(request, "param", None)
+    if not fixture_param:
+        # Parametrize support is incomplete for legacy unittest test cases
+        # Manually retrieve the parameters from the list of marks:
+        mark = next(iter(filter(lambda m: m.name == 'parametrize', request.instance.pytestmark)), None)
+        if mark:
+            fixture_param = mark.args[1][0]
+    return fixture_param
+
+
+@pytest.fixture
+def core_config_mock(request):
+    """
+    Fixture to allow having per-test core.config tables without affecting the other parallel tests.
+
+    This override works only in tests which use core function calls directly, not in the ones working
+    via the API, because the normal config table is not touched and the rucio instance answering API
+    calls is not aware of this mock.
+
+    This fixture acts by creating a new copy of the "config" sql table using the :memory: sqlite engine.
+    Accesses to the "models.Config" table are then redirected to this temporary table via mock.patch().
+    """
+    from unittest import mock
+    from rucio.common.utils import generate_uuid
+    from sqlalchemy.pool import StaticPool
+    from rucio.db.sqla.models import ModelBase, BASE, Column, String, PrimaryKeyConstraint
+    from rucio.db.sqla.session import get_session, get_maker, get_engine, create_engine, declarative_base
+
+    # Get the fixture parameters
+    table_content = []
+    params = __get_fixture_param(request)
+    if params:
+        table_content = params.get("table_content", table_content)
+
+    # Create an in-memory dropdown replacement table for the "models.Config" table
+    engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
+    InMemoryBase = declarative_base(bind=engine)
+
+    class InMemoryConfig(InMemoryBase, ModelBase):
+        __tablename__ = 'configs_' + generate_uuid()
+        section = Column(String(128))
+        opt = Column(String(128))
+        value = Column(String(4000))
+        _table_args = (PrimaryKeyConstraint('section', 'opt', name='CONFIGS_PK'), )
+
+    InMemoryBase.metadata.create_all()
+
+    # Register the new table with the associated engine into the sqlalchemy sessionmaker
+    # In theory, this code must be protected by rucio.db.scla.session._LOCK, but this code will be executed
+    # during test case initialization, so there is no risk here to have concurrent calls from within the
+    # same process
+    current_engine = get_engine()
+    get_maker().configure(binds={BASE: current_engine, InMemoryBase: engine})
+
+    # Fill the table with the requested mock data
+    session = get_session()()
+    for section, option, value in (table_content or []):
+        InMemoryConfig(section=section, opt=option, value=value).save(flush=True, session=session)
+    session.commit()
+
+    with mock.patch('rucio.core.config.models.Config', new=InMemoryConfig):
+        yield
+
+
+@pytest.fixture
+def caches_mock(request):
+    """
+    Fixture which overrides the different internal caches with in-memory ones for the duration
+    of a particular test.
+
+    This override works only in tests which use core function calls directly, not in the ones
+    working via API.
+
+    The fixture acts by by mock.patch the REGION object in the provided list of modules to mock.
+    """
+
+    from unittest import mock
+    from contextlib import ExitStack
+    from dogpile.cache import make_region
+
+    caches_to_mock = []
+    params = __get_fixture_param(request)
+    if params:
+        caches_to_mock = params.get("caches_to_mock", caches_to_mock)
+
+    with ExitStack() as stack:
+        for module in caches_to_mock:
+            region = make_region().configure('dogpile.cache.memory', expiration_time=600)
+            stack.enter_context(mock.patch('{}.{}'.format(module, 'REGION'), new=region))
+
+        yield
