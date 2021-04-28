@@ -323,6 +323,24 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
     except IntegrityError as error:
         raise exception.RucioException(error.args)
 
+    archive_did = session.query(models.DataIdentifier). \
+        filter(models.DataIdentifier.did_type == DIDType.FILE). \
+        filter(models.DataIdentifier.scope == scope). \
+        filter(models.DataIdentifier.name == name).\
+        first()
+    if not archive_did.is_archive:
+        # mark tha archive file as is_archive
+        archive_did.is_archive = True
+
+        # mark parent datasets as is_archive = True
+        session.query(models.DataIdentifier).filter(
+            exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect="oracle")).where(
+                and_(models.DataIdentifierAssociation.child_scope == scope,
+                     models.DataIdentifierAssociation.child_name == name,
+                     models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
+                     models.DataIdentifierAssociation.name == models.DataIdentifier.name))
+        ).update({"is_archive": True}, synchronize_session=False)
+
 
 @transactional_session
 def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate=False, session=None):
@@ -366,6 +384,7 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
             existing_content.append(row)
 
     contents = []
+    added_archives_condition = []
     for file in files:
         if not existing_content or (scope, name, file['scope'], file['name']) not in existing_content:
             contents.append({'scope': scope, 'name': name, 'child_scope': file['scope'],
@@ -374,6 +393,20 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
                              'guid': file['guid'], 'events': file['events'],
                              'md5': file.get('md5'), 'did_type': DIDType.DATASET,
                              'child_type': DIDType.FILE, 'rule_evaluation': True})
+            added_archives_condition.append(
+                and_(models.DataIdentifier.scope == file['scope'],
+                     models.DataIdentifier.name == file['name'],
+                     models.DataIdentifier.is_archive == true()))
+
+    # if any of the attached files is an archive, set is_archive = True on the dataset
+    if session.query(models.DataIdentifier). \
+            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'). \
+            filter(or_(*added_archives_condition)). \
+            first() is not None:
+        session.query(models.DataIdentifier). \
+            filter(models.DataIdentifier.scope == scope). \
+            filter(models.DataIdentifier.name == name). \
+            update({'is_archive': True})
 
     try:
         contents and session.bulk_insert_mappings(models.DataIdentifierAssociation, contents)
@@ -516,13 +549,6 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
                                            account=account,
                                            ignore_duplicate=ignore_duplicate,
                                            session=session)
-
-                    # mark parent dataset as is_archive
-                    session.query(models.DataIdentifier).\
-                        filter(models.DataIdentifier.did_type == DIDType.FILE).\
-                        filter(models.DataIdentifier.scope == attachment['scope']).\
-                        filter(models.DataIdentifier.name == attachment['name']).\
-                        update({'is_archive': True})
                     return
                 raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is a file" % attachment)
 
