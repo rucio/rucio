@@ -944,6 +944,7 @@ def add_protocol(rse_id, parameter, session=None):
                 or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', error.args[0]) \
                 or match('.*IntegrityError.*Column.*cannot be null.*', error.args[0]) \
                 or match('.*IntegrityError.*null value in column.*violates not-null constraint.*', error.args[0]) \
+                or match('.*IntegrityError.*NOT NULL constraint failed.*', error.args[0]) \
                 or match('.*NotNullViolation.*null value in column.*violates not-null constraint.*', error.args[0]) \
                 or match('.*OperationalError.*cannot be null.*', error.args[0]):
             raise exception.InvalidObject('Missing values!')
