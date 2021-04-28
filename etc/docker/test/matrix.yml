@@ -5,6 +5,14 @@ dists:
         - "2.7"
         - "3.6"
         - "3.7"
+  - id: fedora32
+    allow:
+      python:
+        - "3.8"
+  - id: fedora33
+    allow:
+      python:
+        - "3.9"
 python:
   - id: "2.7"
     allow:
@@ -14,6 +22,7 @@ python:
   - "3.6"
   - "3.7"
   - "3.8"
+  - "3.9"
 suites:
   - id: syntax
     SYNTAX_REPORT: 1

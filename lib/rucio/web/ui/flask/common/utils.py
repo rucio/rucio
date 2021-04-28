@@ -49,13 +49,16 @@ if sys.version_info > (3, 0):
     long = int
     unicode = str
 
-escapefunc = None
-try:
+if sys.version_info > (3, 2):
     import html
-    escapefunc = html.escape
-except ImportError:
+
+    def html_escape(s, quote=True):
+        return html.escape(s, quote)
+else:
     import cgi
-    escapefunc = cgi.escape
+
+    def html_escape(s, quote=True):
+        return cgi.escape(s, quote)  # pylint: disable-msg=E1101
 
 try:
     from onelogin.saml2.auth import OneLogin_Saml2_Auth
@@ -94,10 +97,6 @@ VARIABLE_VALUE_REGEX = re.compile(r"^[\w\- /=,.+*#()\[\]]*$", re.UNICODE)
 # will allow to remove also lines around each use of select_account_name
 
 COOKIES = []
-
-
-def html_escape(s, quote=True):
-    return escapefunc(s, quote)
 
 
 def prepare_saml_request(environ, data):
