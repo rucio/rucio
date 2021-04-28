@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2013
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
 # - Wen Guan <wen.guan@cern.ch>, 2014-2015
@@ -1440,7 +1440,7 @@ class TestRSEClient(unittest.TestCase):
         info = get_rse_protocols(rse_id)
 
         assert 'verify_checksum' in info
-        assert info['verify_checksum']is True
+        assert info['verify_checksum'] is True
         del_rse(rse_id)
 
     @pytest.mark.dirty

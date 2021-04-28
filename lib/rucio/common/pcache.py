@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +18,7 @@
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2019
 # - Boris Bauermeister <boris.bauermeister@fysik.su.se>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import sys
@@ -723,9 +724,9 @@ class Pcache:
                  unitize(self.get_cache_size()),
                  self.get_disk_usage())
 
-        for l in self.list_by_mru():
+        for link in self.list_by_mru():
             try:
-                d = os.readlink(l)
+                d = os.readlink(link)
 
             except OSError as e:
                 self.log(ERROR, "readlink: %s", e)
@@ -745,7 +746,7 @@ class Pcache:
             # backlink
 
             try:
-                os.unlink(l)
+                os.unlink(link)
 
             except OSError as e:
                 if e.errno != errno.ENOENT:

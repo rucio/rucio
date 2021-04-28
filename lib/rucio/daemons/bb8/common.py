@@ -1,4 +1,5 @@
-# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,18 +14,16 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
-# - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
-# - Tomas Javurek <tomas.javurek@cern.ch>, 2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2017-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function, division
 
@@ -183,9 +182,9 @@ def _list_rebalance_rule_candidates_dump(rse_id, mode=None):
         return candidates
 
     # looping over the dump and selecting the rules
-    for l in r.iter_lines():
-        if l:
-            file_scope, file_name, rule_id, rse_expression, account, file_size, state = l.split('\t')
+    for line in r.iter_lines():
+        if line:
+            file_scope, file_name, rule_id, rse_expression, account, file_size, state = line.split('\t')
             if rule_id not in rules:
                 rule_info = {}
                 try:

@@ -20,7 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Tobias Wegner <twegner@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -31,8 +31,12 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - root <root@escape-rucio-dev-oidc-r.cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Anil Panta <anil.panta@desy.de>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Anil Panta <47672624+panta-123@users.noreply.github.com>, 2021
 
 from __future__ import absolute_import, print_function
 
@@ -219,8 +223,7 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         required_scope = ""
     if not required_audience:
         required_audience = ""
-    if (isinstance(scope, list) and isinstance(audience, list)  # NOQA: W504
-        and isinstance(required_scope, list) and isinstance(required_audience, list)):
+    if (isinstance(scope, list) and isinstance(audience, list) and isinstance(required_scope, list) and isinstance(required_audience, list)):
         scope = [str(it) for it in scope]
         audience = [str(it) for it in audience]
         required_scope = [str(it) for it in required_scope]
@@ -434,10 +437,10 @@ def render_json(**data):
     return json.dumps(data, cls=APIEncoder)
 
 
-def render_json_list(l):
+def render_json_list(list):
     """ JSON render function for list
     """
-    return json.dumps(l, cls=APIEncoder)
+    return json.dumps(list, cls=APIEncoder)
 
 
 def datetime_parser(dct):
@@ -503,12 +506,12 @@ def grouper(iterable, n, fillvalue=None):
     return izip_longest(*args, fillvalue=fillvalue)
 
 
-def chunks(l, n):
+def chunks(list, n):
     """
     Yield successive n-sized chunks from l.
     """
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
+    for i in range(0, len(list), n):
+        yield list[i:i + n]
 
 
 def my_key_generator(namespace, fn, **kw):

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - David Cameron <david.cameron@cern.ch>, 2014
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
@@ -24,14 +24,17 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019-2021
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020-2021
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 
 from __future__ import division
 
@@ -55,7 +58,7 @@ from six import string_types
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import and_, or_, text, true, null, tuple_
+from sqlalchemy.sql.expression import and_, or_, text, true, null, tuple_, false
 
 from rucio.core.account import has_account_attribute
 from rucio.core.config import get as core_config_get
@@ -1348,9 +1351,9 @@ def update_rule(rule_id, options, session=None):
                     rule_ids_to_stuck = set()
                     for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
                         # Set locks to stuck:
-                        for l in session.query(models.ReplicaLock).filter_by(scope=lock.scope, name=lock.name, rse_id=lock.rse_id, state=LockState.REPLICATING).all():
-                            l.state = LockState.STUCK
-                            rule_ids_to_stuck.add(l.rule_id)
+                        for lock2 in session.query(models.ReplicaLock).filter_by(scope=lock.scope, name=lock.name, rse_id=lock.rse_id, state=LockState.REPLICATING).all():
+                            lock2.state = LockState.STUCK
+                            rule_ids_to_stuck.add(lock2.rule_id)
                         request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
                         replica = session.query(models.RSEFileAssociation).filter(
                             models.RSEFileAssociation.scope == lock.scope,
@@ -1649,7 +1652,7 @@ def get_expired_rules(total_workers, worker_number, limit=100, blacklisted_rules
     """
 
     query = session.query(models.ReplicationRule.id, models.ReplicationRule.rse_expression).filter(models.ReplicationRule.expires_at < datetime.utcnow(),
-                                                                                                   models.ReplicationRule.locked == False,
+                                                                                                   models.ReplicationRule.locked == false(),
                                                                                                    models.ReplicationRule.child_rule_id == None).\
         with_hint(models.ReplicationRule, "index(rules RULES_EXPIRES_AT_IDX)", 'oracle').\
         order_by(models.ReplicationRule.expires_at)  # NOQA
