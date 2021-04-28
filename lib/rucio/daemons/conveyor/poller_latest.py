@@ -19,8 +19,9 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2021
+# - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -158,4 +159,4 @@ def run(once=False, last_nhours=1, external_hosts=None, fts_wait=1800, total_thr
 
         # Interruptible joins require a timeout.
         while threads:
-            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.isAlive()]
+            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]

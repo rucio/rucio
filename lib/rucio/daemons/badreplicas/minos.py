@@ -15,13 +15,13 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2018-2021
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2021
 
 from __future__ import division
@@ -276,7 +276,7 @@ def run(threads=1, bulk=100, once=False, sleep_time=60):
         logging.info('waiting for interrupts')
         # Interruptible joins require a timeout.
         while thread_list:
-            thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.isAlive()]
+            thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.is_alive()]
 
 
 def stop(signum=None, frame=None):

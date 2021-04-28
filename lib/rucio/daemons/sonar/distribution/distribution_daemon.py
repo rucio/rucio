@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2017-2020 CERN
+# Copyright 2017-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Eric Vaandering <ewv@fnal.gov>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 """
@@ -137,7 +137,7 @@ def run():
 
     thread = threading.Thread(target=run_distribution, kwargs={})
     thread.start()
-    while thread and thread.isAlive():
+    while thread and thread.is_alive():
         thread.join(timeout=3.14)
 
 

@@ -15,10 +15,12 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020-2021
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020-2021
-# - Eric Vaandering <ewv@fnal.gov>, 2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Eric Vaandering <ewv@fnal.gov>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 
 '''
    Hermes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).
@@ -579,4 +581,4 @@ def run(once=False, threads=1, bulk=1000, sleep_time=10, broker_timeout=3):
     logging.debug(thread_list)
     # Interruptible joins require a timeout.
     while thread_list:
-        thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.isAlive()]
+        thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.is_alive()]
