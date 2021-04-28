@@ -1597,7 +1597,7 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
     """
     parent_condition, did_condition = [], []
     clt_replica_condition, dst_replica_condition = [], []
-    incomplete_condition, messages, archive_contents_condition = [], [], []
+    incomplete_condition, messages, clt_is_not_archive_condition, archive_contents_condition = [], [], [], []
     for file in files:
 
         # Schedule update of all collections containing this file and having a collection replica in the RSE
@@ -1683,6 +1683,15 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
                          models.DataIdentifierAssociation.name == parent_name,
                          models.DataIdentifierAssociation.child_scope == child_scope,
                          models.DataIdentifierAssociation.child_name == child_name))
+
+                # Schedule setting is_archive = False on parents which don't have any children with is_archive == True anymore
+                clt_is_not_archive_condition.append(
+                    and_(models.DataIdentifierAssociation.scope == parent_scope,
+                         models.DataIdentifierAssociation.name == parent_name,
+                         ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                             and_(models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
+                                  models.DataIdentifier.name == models.DataIdentifierAssociation.child_name,
+                                  models.DataIdentifier.is_archive == true()))))
 
                 # If the parent dataset/container becomes empty as a result of the child removal
                 # (it was the last children), metadata cleanup has to be done:
@@ -1850,6 +1859,22 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
             delete(synchronize_session=False)
         if session.bind.dialect.name != 'oracle':
             rucio.core.did.insert_deleted_dids(chunk, session=session)
+
+    # Set is_archive = false on collections which don't have archive children anymore
+    for chunk in chunks(clt_is_not_archive_condition, 100):
+        clt_to_update = list(session
+                             .query(models.DataIdentifierAssociation.scope,
+                                    models.DataIdentifierAssociation.name)
+                             .with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
+                             .filter(or_(*chunk)))
+        if clt_to_update:
+            session.query(models.DataIdentifier).\
+                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+                filter(or_(and_(models.DataIdentifier.scope == scope,
+                                models.DataIdentifier.name == name,
+                                models.DataIdentifier.is_archive == true())
+                           for scope, name in clt_to_update)).\
+                update({'is_archive': False}, synchronize_session=False)
 
 
 @transactional_session
