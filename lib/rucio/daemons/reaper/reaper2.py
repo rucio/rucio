@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -26,8 +26,9 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -687,4 +688,4 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
 
     # Interruptible joins require a timeout.
     while threads_list:
-        threads_list = [thread.join(timeout=3.14) for thread in threads_list if thread and thread.isAlive()]
+        threads_list = [thread.join(timeout=3.14) for thread in threads_list if thread and thread.is_alive()]
