@@ -933,9 +933,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         archive['md5'] = constituent_meta['md5']
                         archive['bytes'] = constituent_meta['bytes']
 
-                        for tmp_archive in archive['pfns']:
-                            # declare the constituent as being in a zip file
-                            archive['pfns'][tmp_archive]['domain'] = 'zip'
+                        for tmp_archive in list(archive['pfns']):
                             # at this point we don't know the protocol of the parent, so we have to peek
                             if tmp_archive.startswith('root://') and 'xrdcl.unzip' not in tmp_archive:
                                 # use direct addressable path for root
@@ -946,6 +944,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 archive['pfns'][tmp_archive]['priority'] -= 99
                             if 'xrdcl.unzip' not in tmp_archive:
                                 archive['pfns'][tmp_archive]['client_extract'] = True
+
+                            # declare the constituent as being in a zip file
+                            archive['pfns'][tmp_archive]['domain'] = 'zip'
 
                             pfns.append((tmp_archive, 'zip',
                                          archive['pfns'][tmp_archive]['priority'],
