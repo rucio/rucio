@@ -69,7 +69,7 @@ graceful_stop = threading.Event()
 region = make_region().configure('dogpile.cache.memory', expiration_time=3600)
 
 
-def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000):
+def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000, partition_wait_time=10):
     """
     Main loop to update the replicas and rules based on finished requests.
     """
@@ -103,7 +103,8 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
     logger = formatted_logger(logging.log, prefix + '%s')
     logger(logging.INFO, 'Finisher starting - db_bulk(%i) bulk (%i)', db_bulk, bulk)
 
-    graceful_stop.wait(10)
+    if partition_wait_time:
+        graceful_stop.wait(partition_wait_time)
     while not graceful_stop.is_set():
 
         start_time = time.time()
@@ -154,7 +155,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
             logger(logging.CRITICAL, 'Exception', exc_info=True)
 
         if once:
-            return
+            break
 
         end_time = time.time()
         time_diff = end_time - start_time

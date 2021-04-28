@@ -37,6 +37,11 @@ openssl req -new -newkey rsa:2048 -nodes -keyout hostcert_xrd3.key.pem -subj "/C
 openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:xrd3,DNS:localhost,DNS:xrd3.default.svc.cluster.local") -in hostcert_xrd3.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_xrd3.pem -passin env:PASSPHRASE
 
 
+# XrootD Server 4
+openssl req -new -newkey rsa:2048 -nodes -keyout hostcert_xrd4.key.pem -subj "/CN=xrd4" > hostcert_xrd4.csr
+openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:xrd4,DNS:localhost,DNS:xrd4.default.svc.cluster.local") -in hostcert_xrd4.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_xrd4.pem -passin env:PASSPHRASE
+
+
 # MinIO Server
 openssl req -new -newkey rsa:2048 -nodes -keyout hostcert_minio.key.pem -subj "/CN=minio" > hostcert_minio.csr
 openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:minio,DNS:localhost") -in hostcert_minio.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_minio.pem -passin env:PASSPHRASE

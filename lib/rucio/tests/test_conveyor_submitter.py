@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+import pytest
 
 import itertools
 from datetime import datetime, timedelta
@@ -23,13 +24,15 @@ from unittest.mock import patch
 
 from rucio.core import distance as distance_core
 from rucio.core import request as request_core
+from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
 from rucio.daemons.conveyor.submitter import submitter
-from rucio.db.sqla.models import Request
+from rucio.db.sqla.models import Request, Source
 from rucio.db.sqla.constants import RequestState
-from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.session import read_session, transactional_session
 
 
+@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
 def test_request_submitted_in_order(rse_factory, did_factory, root_account):
 
     src_rses = [rse_factory.make_posix_rse() for _ in range(2)]
@@ -78,10 +81,61 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
         # Record the order of requests passed to MockTranfertool.submit()
         mock_transfertool_submit.side_effect = lambda jobs, _: requests_id_in_submission_order.extend([j['metadata']['request_id'] for j in jobs])
 
-        submitter(once=True, rses=[{'id': rse_id} for _, rse_id in dst_rses], mock=True, transfertool='mock', transfertype='single', filter_transfertool=None)
+        submitter(once=True, rses=[{'id': rse_id} for _, rse_id in dst_rses], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
 
     for request in requests:
         assert request_core.get_request(request_id=request['id'])['state'] == RequestState.SUBMITTED
 
     # Requests must be submitted in the order of their creation
     assert requests_id_in_submission_order == [r['id'] for r in requests]
+
+
+@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', True)
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
+    'rucio.core.config',
+]}], indirect=True)
+def test_multihop_sources_created(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
+    """
+    Ensure that multihop transfers are handled and intermediate request correctly created
+    """
+    src_rse_name, src_rse_id = rse_factory.make_posix_rse()
+    _, jump_rse1_id = rse_factory.make_posix_rse()
+    _, jump_rse2_id = rse_factory.make_posix_rse()
+    _, jump_rse3_id = rse_factory.make_posix_rse()
+    dst_rse_name, dst_rse_id = rse_factory.make_posix_rse()
+
+    jump_rses = [jump_rse1_id, jump_rse2_id, jump_rse3_id]
+    all_rses = jump_rses + [src_rse_id, dst_rse_id]
+
+    for rse_id in jump_rses:
+        rse_core.add_rse_attribute(rse_id, 'available_for_multihop', True)
+
+    distance_core.add_distance(src_rse_id, jump_rse1_id, ranking=10)
+    distance_core.add_distance(jump_rse1_id, jump_rse2_id, ranking=10)
+    distance_core.add_distance(jump_rse2_id, jump_rse3_id, ranking=10)
+    distance_core.add_distance(jump_rse3_id, dst_rse_id, ranking=10)
+
+    did = did_factory.upload_test_file(src_rse_name)
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
+
+    # Ensure that each intermediate request was correctly created
+    for rse_id in jump_rses:
+        assert request_core.get_request_by_did(rse_id=rse_id, **did)
+
+    @read_session
+    def __ensure_source_exists(rse_id, scope, name, session=None):
+        return session.query(Source). \
+            filter(Source.rse_id == rse_id). \
+            filter(Source.scope == scope). \
+            filter(Source.name == name). \
+            one()
+
+    # Ensure that sources where created for transfers
+    for rse_id in jump_rses + [src_rse_id]:
+        __ensure_source_exists(rse_id, **did)
