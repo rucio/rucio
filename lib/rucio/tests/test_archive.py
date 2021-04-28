@@ -25,7 +25,8 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from rucio.common.utils import generate_uuid
-from rucio.core.replica import add_replicas
+from rucio.core.replica import add_replicas, delete_replicas
+from rucio.core.did import attach_dids, get_metadata
 
 
 def test_add_and_list_archive(rse_factory, replica_client, did_client, mock_scope):
@@ -130,3 +131,45 @@ def test_list_archive_contents_at_rse(rse_factory, mock_scope, root_account, did
     res = replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in archived_file], metalink=True, rse_expression=rse2, resolve_archives=True)
     assert rse1 not in res
     assert rse2 in res
+
+
+def test_archive_on_dataset_level(rse_factory, did_factory, root_account):
+    rse_name, rse_id = rse_factory.make_xroot_rse()
+
+    dataset1 = did_factory.make_dataset()
+    dataset2 = did_factory.make_dataset()
+    container = did_factory.make_container()
+    attach_dids(dids=[dataset1, dataset2], account=root_account, **container)
+
+    # Add a random file to the datasets to avoid dataset deletion when the archive is deleted
+    a_file = did_factory.random_did()
+    add_replicas(rse_id=rse_id, files=[{**a_file, 'bytes': 500, 'type': 'FILE', 'adler32': 'beefbeef'}], account=root_account)
+    attach_dids(dids=[a_file], account=root_account, **dataset1)
+    attach_dids(dids=[a_file], account=root_account, **dataset2)
+    # adding a non-archive file should not set is_archive=True
+    metadata = get_metadata(**dataset1)
+    assert not metadata['is_archive']
+
+    # Create an archive and its constituents, attach the archive to datasets
+    archive = did_factory.random_did(name_prefix='archive', name_suffix='.zip')
+    add_replicas(rse_id=rse_id, files=[{**archive, 'bytes': 500, 'type': 'FILE', 'adler32': 'beefbeef'}], account=root_account)
+    constituents = [did_factory.random_did() for _ in range(2)]
+    # Add archive to one dataset _before_ attaching files to the archive (before is_archive is set on the archive did)
+    attach_dids(dids=[archive], account=root_account, **dataset1)
+    attach_dids(dids=[{**c, 'bytes': 200, 'adler32': 'ababbaba'} for c in constituents], account=root_account, **archive)
+    # Attach to another dataset _after_ attaching files to the archive
+    attach_dids(dids=[archive], account=root_account, **dataset2)
+
+    # Both datasets must have is_archive = True
+    metadata = get_metadata(**dataset1)
+    assert metadata['is_archive'] is True
+    metadata = get_metadata(**dataset2)
+    assert metadata['is_archive'] is True
+
+    # Delete the archive, the datasets must now have is_archive == false
+    delete_replicas(rse_id=rse_id, files=[archive])
+
+    metadata = get_metadata(**dataset1)
+    assert not metadata['is_archive']
+    metadata = get_metadata(**dataset2)
+    assert not metadata['is_archive']
