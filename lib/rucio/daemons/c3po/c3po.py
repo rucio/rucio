@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 '''
 Dynamic data placement daemon.
@@ -327,6 +327,6 @@ def run(once=False,
         logging.info('waiting for interrupts')
 
         while len(thread_list) > 0:
-            [t.join(timeout=3) for t in thread_list if t and t.isAlive()]
+            [t.join(timeout=3) for t in thread_list if t and t.is_alive()]
     except Exception as error:
         logging.critical(error)

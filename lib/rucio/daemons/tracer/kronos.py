@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 """
 This daemon consumes tracer messages from ActiveMQ and updates the atime for replicas.
@@ -567,4 +567,4 @@ def run(threads=1, sleep_time_datasets=60, sleep_time_files=60):
     logging.info('waiting for interrupts')
 
     while len(thread_list) > 0:
-        thread_list = [thread.join(timeout=3) for thread in thread_list if thread and thread.isAlive()]
+        thread_list = [thread.join(timeout=3) for thread in thread_list if thread and thread.is_alive()]

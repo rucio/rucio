@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from __future__ import division
 
@@ -163,7 +163,7 @@ def run(threads=1, bulk=100, once=False):
 
         # Interruptible joins require a timeout.
         while thread_list:
-            thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.isAlive()]
+            thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.is_alive()]
 
 
 def stop(signum=None, frame=None):
