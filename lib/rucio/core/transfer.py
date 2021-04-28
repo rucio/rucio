@@ -842,119 +842,121 @@ def __prepare_source_dest_config(ctx, request_id, src_rse_id, dest_rse_id, sourc
 def __prepare_transfer_definition(ctx, rws, source, source_scheme, dest_scheme, computed_distance, dest_scheme_priority,
                                   dict_attributes, transfertool, retry_other_fts, multihop, activity,
                                   reqs_only_tape_source, reqs_no_source, bring_online_local, logger, session=None):
-    source_rse_name = ctx.rse_name(source.rse_id)
-    dest_rse_name = ctx.rse_name(rws.dest_rse_id)
-    source_sign_url = ctx.rse_attrs(source.rse_id).get('sign_url', None)
 
-    transfer_src_type, transfer_dst_type, source_url, dest_url, dest_spacetoken, overwrite, bring_online = __prepare_source_dest_config(
-        ctx, request_id=rws.request_id, src_rse_id=source.rse_id, dest_rse_id=rws.dest_rse_id, source_scheme=source_scheme,
-        dest_scheme=dest_scheme, dict_attributes=dict_attributes, activity=rws.activity, scope=rws.scope, name=rws.name,
-        file_path=source.file_path, retry_count=rws.retry_count, reqs_only_tape_source=reqs_only_tape_source, reqs_no_source=reqs_no_source,
-        bring_online_local=bring_online_local
-    )
+    if True:
+        source_rse_name = ctx.rse_name(source.rse_id)
+        dest_rse_name = ctx.rse_name(rws.dest_rse_id)
+        source_sign_url = ctx.rse_attrs(source.rse_id).get('sign_url', None)
 
-    use_ipv4 = ctx.rse_attrs(source.rse_id).get('use_ipv4', False) or ctx.rse_attrs(rws.dest_rse_id).get('use_ipv4', False)
+        transfer_src_type, transfer_dst_type, source_url, dest_url, dest_spacetoken, overwrite, bring_online = __prepare_source_dest_config(
+            ctx, request_id=rws.request_id, src_rse_id=source.rse_id, dest_rse_id=rws.dest_rse_id, source_scheme=source_scheme,
+            dest_scheme=dest_scheme, dict_attributes=dict_attributes, activity=rws.activity, scope=rws.scope, name=rws.name,
+            file_path=source.file_path, retry_count=rws.retry_count, reqs_only_tape_source=reqs_only_tape_source, reqs_no_source=reqs_no_source,
+            bring_online_local=bring_online_local
+        )
 
-    # get external_host + strict_copy + archive timeout
-    strict_copy = ctx.rse_attrs(rws.dest_rse_id).get('strict_copy', False)
-    fts_hosts = ctx.rse_attrs(rws.dest_rse_id).get('fts', None)
-    archive_timeout = ctx.rse_attrs(rws.dest_rse_id).get('archive_timeout', None)
-    if source_sign_url == 'gcs':
-        fts_hosts = ctx.rse_attrs(source.rse_id).get('fts', None)
-    source_globus_endpoint_id = ctx.rse_attrs(source.rse_id).get('globus_endpoint_id', None)
-    dest_globus_endpoint_id = ctx.rse_attrs(rws.dest_rse_id).get('globus_endpoint_id', None)
+        use_ipv4 = ctx.rse_attrs(source.rse_id).get('use_ipv4', False) or ctx.rse_attrs(rws.dest_rse_id).get('use_ipv4', False)
 
-    if transfertool == 'fts3' and not fts_hosts:
-        logger(logging.ERROR, 'Destination RSE %s FTS attribute not defined - SKIP REQUEST %s', dest_rse_name, rws.request_id)
-        return
-    if transfertool == 'globus' and (not dest_globus_endpoint_id or not source_globus_endpoint_id):
-        logger(logging.ERROR, 'Destination RSE %s Globus endpoint attributes not defined - SKIP REQUEST %s', dest_rse_name, rws.request_id)
-        return
-    if rws.retry_count is None:
-        rws.retry_count = 0
-    external_host = ''
-    if fts_hosts:
-        fts_list = fts_hosts.split(",")
-        external_host = fts_list[0]
+        # get external_host + strict_copy + archive timeout
+        strict_copy = ctx.rse_attrs(rws.dest_rse_id).get('strict_copy', False)
+        fts_hosts = ctx.rse_attrs(rws.dest_rse_id).get('fts', None)
+        archive_timeout = ctx.rse_attrs(rws.dest_rse_id).get('archive_timeout', None)
+        if source_sign_url == 'gcs':
+            fts_hosts = ctx.rse_attrs(source.rse_id).get('fts', None)
+        source_globus_endpoint_id = ctx.rse_attrs(source.rse_id).get('globus_endpoint_id', None)
+        dest_globus_endpoint_id = ctx.rse_attrs(rws.dest_rse_id).get('globus_endpoint_id', None)
 
-    if retry_other_fts:
-        external_host = fts_list[rws.retry_count % len(fts_list)]
+        if transfertool == 'fts3' and not fts_hosts:
+            logger(logging.ERROR, 'Destination RSE %s FTS attribute not defined - SKIP REQUEST %s', dest_rse_name, rws.request_id)
+            return
+        if transfertool == 'globus' and (not dest_globus_endpoint_id or not source_globus_endpoint_id):
+            logger(logging.ERROR, 'Destination RSE %s Globus endpoint attributes not defined - SKIP REQUEST %s', dest_rse_name, rws.request_id)
+            return
+        if rws.retry_count is None:
+            rws.retry_count = 0
+        external_host = ''
+        if fts_hosts:
+            fts_list = fts_hosts.split(",")
+            external_host = fts_list[0]
 
-    # Get the checksum validation strategy (none, source, destination or both)
-    verify_checksum = 'both'
-    if not ctx.rse_attrs(rws.dest_rse_id).get('verify_checksum', True):
-        if not ctx.rse_attrs(source.rse_id).get('verify_checksum', True):
-            verify_checksum = 'none'
+        if retry_other_fts:
+            external_host = fts_list[rws.retry_count % len(fts_list)]
+
+        # Get the checksum validation strategy (none, source, destination or both)
+        verify_checksum = 'both'
+        if not ctx.rse_attrs(rws.dest_rse_id).get('verify_checksum', True):
+            if not ctx.rse_attrs(source.rse_id).get('verify_checksum', True):
+                verify_checksum = 'none'
+            else:
+                verify_checksum = 'source'
         else:
-            verify_checksum = 'source'
-    else:
-        if not ctx.rse_attrs(source.rse_id).get('verify_checksum', True):
+            if not ctx.rse_attrs(source.rse_id).get('verify_checksum', True):
+                verify_checksum = 'destination'
+            else:
+                verify_checksum = 'both'
+
+        source_rse_checksums = get_rse_supported_checksums(source.rse_id, session=session)
+        dest_rse_checksums = get_rse_supported_checksums(rws.dest_rse_id, session=session)
+
+        common_checksum_names = set(source_rse_checksums).intersection(dest_rse_checksums)
+
+        if len(common_checksum_names) == 0:
+            logger(logging.INFO, 'No common checksum method. Verifying destination only.')
             verify_checksum = 'destination'
-        else:
-            verify_checksum = 'both'
 
-    source_rse_checksums = get_rse_supported_checksums(source.rse_id, session=session)
-    dest_rse_checksums = get_rse_supported_checksums(rws.dest_rse_id, session=session)
+        # Fill the transfer dictionary including file_metadata
+        file_metadata = {'request_id': rws.request_id,
+                         'scope': rws.scope,
+                         'name': rws.name,
+                         'activity': activity,
+                         'request_type': RequestType.TRANSFER,
+                         'src_type': transfer_src_type,
+                         'dst_type': transfer_dst_type,
+                         'src_rse': source_rse_name,
+                         'dst_rse': dest_rse_name,
+                         'src_rse_id': source.rse_id,
+                         'dest_rse_id': rws.dest_rse_id,
+                         'filesize': rws.byte_count,
+                         'md5': rws.md5,
+                         'adler32': rws.adler32,
+                         'verify_checksum': verify_checksum,
+                         'source_globus_endpoint_id': source_globus_endpoint_id,
+                         'dest_globus_endpoint_id': dest_globus_endpoint_id}
 
-    common_checksum_names = set(source_rse_checksums).intersection(dest_rse_checksums)
+        if rws.previous_attempt_id:
+            file_metadata['previous_attempt_id'] = rws.previous_attempt_id
 
-    if len(common_checksum_names) == 0:
-        logger(logging.INFO, 'No common checksum method. Verifying destination only.')
-        verify_checksum = 'destination'
-
-    # Fill the transfer dictionary including file_metadata
-    file_metadata = {'request_id': rws.request_id,
-                     'scope': rws.scope,
-                     'name': rws.name,
-                     'activity': activity,
-                     'request_type': RequestType.TRANSFER,
-                     'src_type': transfer_src_type,
-                     'dst_type': transfer_dst_type,
-                     'src_rse': source_rse_name,
-                     'dst_rse': dest_rse_name,
-                     'src_rse_id': source.rse_id,
-                     'dest_rse_id': rws.dest_rse_id,
-                     'filesize': rws.byte_count,
-                     'md5': rws.md5,
-                     'adler32': rws.adler32,
-                     'verify_checksum': verify_checksum,
-                     'source_globus_endpoint_id': source_globus_endpoint_id,
-                     'dest_globus_endpoint_id': dest_globus_endpoint_id}
-
-    if rws.previous_attempt_id:
-        file_metadata['previous_attempt_id'] = rws.previous_attempt_id
-
-    transfer = {'request_id': rws.request_id,
-                'schemes': __add_compatible_schemes(schemes=[dest_scheme], allowed_schemes=SUPPORTED_PROTOCOLS),
-                'account': rws.account,
-                # 'src_urls': [source_url],
-                'sources': [(source_rse_name, source_url, source.rse_id, source.source_ranking, computed_distance)],
-                'dest_urls': [dest_url],
-                'src_spacetoken': None,
-                'dest_spacetoken': dest_spacetoken,
-                'overwrite': overwrite,
-                'bring_online': bring_online,
-                'copy_pin_lifetime': dict_attributes.get('lifetime', 172800),
-                'external_host': external_host,
-                'selection_strategy': 'auto',
-                'rule_id': rws.rule_id,
-                'file_metadata': file_metadata,
-                'dest_scheme_priority': dest_scheme_priority}
-    if multihop:
-        transfer['multihop'] = True
-        transfer['initial_request_id'] = rws.request_id
-    if strict_copy:
-        transfer['strict_copy'] = strict_copy
-    if use_ipv4:
-        transfer['use_ipv4'] = True
-    if archive_timeout and ctx.is_tape_rse(rws.dest_rse_id):
-        try:
-            transfer['archive_timeout'] = int(archive_timeout)
-            logger(logging.DEBUG, 'Added archive timeout to transfer.')
-        except ValueError:
-            logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', dest_url)
-            pass
-    return transfer
+        transfer = {'request_id': rws.request_id,
+                    'schemes': __add_compatible_schemes(schemes=[dest_scheme], allowed_schemes=SUPPORTED_PROTOCOLS),
+                    'account': rws.account,
+                    # 'src_urls': [source_url],
+                    'sources': [(source_rse_name, source_url, source.rse_id, source.source_ranking, computed_distance)],
+                    'dest_urls': [dest_url],
+                    'src_spacetoken': None,
+                    'dest_spacetoken': dest_spacetoken,
+                    'overwrite': overwrite,
+                    'bring_online': bring_online,
+                    'copy_pin_lifetime': dict_attributes.get('lifetime', 172800),
+                    'external_host': external_host,
+                    'selection_strategy': 'auto',
+                    'rule_id': rws.rule_id,
+                    'file_metadata': file_metadata,
+                    'dest_scheme_priority': dest_scheme_priority}
+        if multihop:
+            transfer['multihop'] = True
+            transfer['initial_request_id'] = rws.request_id
+        if strict_copy:
+            transfer['strict_copy'] = strict_copy
+        if use_ipv4:
+            transfer['use_ipv4'] = True
+        if archive_timeout and ctx.is_tape_rse(rws.dest_rse_id):
+            try:
+                transfer['archive_timeout'] = int(archive_timeout)
+                logger(logging.DEBUG, 'Added archive timeout to transfer.')
+            except ValueError:
+                logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', dest_url)
+                pass
+        return transfer
 
 
 def __merge_or_discard_tranfer_definitions(candidate_transfers):
