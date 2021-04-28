@@ -254,7 +254,7 @@ class GlobusRSEProtocol(RSEProtocol):
         pass
 
     def close(self):
-        """ 
+        """
             Closes the connection to RSE.
 
             reaper2 daemon requires implementation of protocol.close
