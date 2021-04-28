@@ -15,44 +15,71 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
+
+# Create the following topology:
+# +------+   1   +------+
+# |      |<----->|      |
+# | XRD1 |       | XRD2 |
+# |      |   +-->|      |
+# +------+   |   +------+
+#    ^       |
+#    | 1     | 1
+#    v       |
+# +------+   |   +------+
+# |      |<--+   |      |
+# | XRD3 |       | XRD4 |
+# |      |<----->|      |
+# +------+   1   +------+
 
 # First, create the RSEs
 rucio-admin rse add XRD1
 rucio-admin rse add XRD2
 rucio-admin rse add XRD3
+rucio-admin rse add XRD4
 
 # Add the protocol definitions for the storage servers
 rucio-admin rse add-protocol --hostname xrd1 --scheme root --prefix //rucio --port 1094 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD1
 rucio-admin rse add-protocol --hostname xrd2 --scheme root --prefix //rucio --port 1095 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD2
 rucio-admin rse add-protocol --hostname xrd3 --scheme root --prefix //rucio --port 1096 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD3
+rucio-admin rse add-protocol --hostname xrd4 --scheme root --prefix //rucio --port 1097 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD4
 
 # Set test_container_xrd attribute for xrd containers
 rucio-admin rse set-attribute --rse XRD1 --key test_container_xrd --value True
 rucio-admin rse set-attribute --rse XRD2 --key test_container_xrd --value True
 rucio-admin rse set-attribute --rse XRD3 --key test_container_xrd --value True
+rucio-admin rse set-attribute --rse XRD4 --key test_container_xrd --value True
 
 # Workaround, xrootd.py#connect returns with Auth Failed due to execution of the command in subprocess
 XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd1:1094 query config xrd1:1094
 XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd2:1095 query config xrd2:1095
 XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd3:1096 query config xrd3:1096
+XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd3:1096 query config xrd4:1097
 
 # Enable FTS
 rucio-admin rse set-attribute --rse XRD1 --key fts --value https://fts:8446
 rucio-admin rse set-attribute --rse XRD2 --key fts --value https://fts:8446
 rucio-admin rse set-attribute --rse XRD3 --key fts --value https://fts:8446
+rucio-admin rse set-attribute --rse XRD4 --key fts --value https://fts:8446
 
-# Fake a full mesh network
+# Enable multihop transfers via XRD3
+rucio-admin rse set-attribute --rse XRD3 --key available_for_multihop --value True
+
+# Connect the RSEs
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD1 XRD2
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD1 XRD3
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD2 XRD1
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD2 XRD3
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD3 XRD1
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD3 XRD2
+rucio-admin rse add-distance --distance 1 --ranking 1 XRD3 XRD4
+rucio-admin rse add-distance --distance 1 --ranking 1 XRD4 XRD3
 
 # Indefinite limits for root
 rucio-admin account set-limits root XRD1 -1
 rucio-admin account set-limits root XRD2 -1
 rucio-admin account set-limits root XRD3 -1
+rucio-admin account set-limits root XRD4 -1
 
 # Create a default scope for testing
 rucio-admin scope add --account root --scope test

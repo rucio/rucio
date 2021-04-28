@@ -68,7 +68,7 @@ FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)
 
 
 def poller(once=False, activities=None, sleep_time=60,
-           fts_bulk=100, db_bulk=1000, older_than=60, activity_shares=None):
+           fts_bulk=100, db_bulk=1000, older_than=60, activity_shares=None, partition_wait_time=10):
     """
     Main loop to check the status of a transfer primitive with a transfertool.
     """
@@ -98,7 +98,8 @@ def poller(once=False, activities=None, sleep_time=60,
     logger = formatted_logger(logging.log, prefix + '%s')
     logger(logging.INFO, 'Poller starting - db_bulk (%i) fts_bulk (%i) timeout (%s)' % (db_bulk, fts_bulk, timeout))
 
-    time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
+    if partition_wait_time:
+        time.sleep(partition_wait_time)  # To prevent running on the same partition if all the poller restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
     prefix = 'conveyor-poller[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logger = formatted_logger(logging.log, prefix + '%s')
