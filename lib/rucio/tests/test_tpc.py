@@ -14,10 +14,10 @@ from rucio.common.utils import run_cmd_process
 
 
 @pytest.fixture
-def file_factory(vo, test_scope):
-    from rucio.tests.temp_factories import TemporaryFileFactory
+def did_factory(vo, test_scope):
+    from rucio.tests.temp_factories import TemporaryDidFactory
 
-    with TemporaryFileFactory(vo=vo, default_scope=test_scope) as factory:
+    with TemporaryDidFactory(vo=vo, default_scope=test_scope) as factory:
         yield factory
 
 
@@ -84,9 +84,9 @@ def poll_fts_transfer_status(request_id, timeout=30):
     return transfer_status
 
 
-def test_tpc(rse1, rse2, root_account, test_scope, file_factory, rse_client, rule_client, artifact):
+def test_tpc(rse1, rse2, root_account, test_scope, did_factory, rse_client, rule_client, artifact):
     base_file_name = generate_uuid()
-    test_file = file_factory.upload_test_file(rse1['rse_name'], name=base_file_name + '.000', return_full_item=True)
+    test_file = did_factory.upload_test_file(rse1['rse_name'], name=base_file_name + '.000', return_full_item=True)
     test_file_did_str = '%s:%s' % (test_file['did_scope'], test_file['did_name'])
     test_file_did = {
         'scope': test_scope,
