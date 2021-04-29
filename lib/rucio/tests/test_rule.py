@@ -909,6 +909,8 @@ class TestReplicationRuleCore(unittest.TestCase):
         assert(get_rule(rule_id2)['state'] == RuleState.REPLICATING)
         assert(get_rule(rule_id)['child_rule_id'] == rule_id2)
 
+        pytest.raises(RuleReplaceFailed, move_rule, rule_id, self.rse4)
+
     def test_add_rule_with_scratchdisk(self):
         """ REPLICATION RULE (CORE): Add a replication rule for scratchdisk"""
         if get_policy() != 'atlas':

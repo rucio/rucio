@@ -1484,8 +1484,8 @@ def move_rule(rule_id, rse_expression, session=None):
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
 
-        if rule.state != RuleState.OK:
-            raise RuleReplaceFailed('The source rule must be in state OK.')
+        if rule.child_rule_id:
+            raise RuleReplaceFailed('The rule must not have a child rule.')
 
         grouping = {RuleGrouping.ALL: 'ALL', RuleGrouping.NONE: 'NONE'}.get(rule.grouping, 'DATASET')
 
