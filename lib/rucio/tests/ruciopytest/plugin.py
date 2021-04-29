@@ -53,18 +53,21 @@ if sys.version_info >= (3, 6):
             "--save-artifacts-from",
             action="append",
             dest="artifacts",
-            default = [],
+            default=[],
             help="A csv string with test names that should persist their artifacts"
         )
 
     def pytest_generate_tests(metafunc):
         tests_with_artifacts = metafunc.config.getoption('artifacts')
         if len(tests_with_artifacts) > 1:
-                raise pytest.UsageError('--save-artifacts-from must be used only one. It should contain a CSV string of test names that can manage artifacts.')
+            raise pytest.UsageError('--save-artifacts-from must be used only one. It should contain a CSV string of test names that can manage artifacts.')
         tests_with_artifacts = tests_with_artifacts[0].split(',')
         test_function_name = metafunc.function.__name__
-        if "artifact" in metafunc.fixturenames and test_function_name in tests_with_artifacts:
-            metafunc.parametrize("artifact", [f'/tmp/{test_function_name}.artifact'])
+        if "artifact" in metafunc.fixturenames:
+            if test_function_name in tests_with_artifacts:
+                metafunc.parametrize("artifact", [f'/tmp/{test_function_name}.artifact'])
+            else:
+                metafunc.parametrize("artifact", [None])
 
 
 def pytest_cmdline_main(config):

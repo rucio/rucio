@@ -20,6 +20,7 @@ def file_factory(vo, test_scope):
     with TemporaryFileFactory(vo=vo, default_scope=test_scope) as factory:
         yield factory
 
+
 @pytest.fixture
 def rse_client():
     return RSEClient()
@@ -83,7 +84,7 @@ def poll_fts_transfer_status(request_id, timeout=30):
     return transfer_status
 
 
-def test_tpc(rse1, rse2, root_account, test_scope, file_factory, rse_client, rule_client):
+def test_tpc(rse1, rse2, root_account, test_scope, file_factory, rse_client, rule_client, artifact):
     base_file_name = generate_uuid()
     test_file = file_factory.upload_test_file(rse1['rse_name'], name=base_file_name + '.000', return_full_item=True)
     test_file_did_str = '%s:%s' % (test_file['did_scope'], test_file['did_name'])
@@ -106,12 +107,12 @@ def test_tpc(rse1, rse2, root_account, test_scope, file_factory, rse_client, rul
     assert rule['locks_ok_cnt'] == 0
     assert rule['locks_replicating_cnt'] == 1
 
-    requestss = get_transfer_requests_and_source_replicas(rses=[rse1['rse_id'], rse2['rse_id']])
-    for requests in requestss:
-        for request in requests:
-            if requests[request]['rule_id'] == rule_id[0]:
-                src_url = requests[request]['sources'][0][1]
-                dest_url = requests[request]['dest_urls'][0]
+    transfer_requestss = get_transfer_requests_and_source_replicas(rses=[rse1['rse_id'], rse2['rse_id']])
+    for transfer_requests in transfer_requestss:
+        for transfer_request in transfer_requests:
+            if transfer_requests[transfer_request]['rule_id'] == rule_id[0]:
+                src_url = transfer_requests[transfer_request]['sources'][0][1]
+                dest_url = transfer_requests[transfer_request]['dest_urls'][0]
                 check_url(src_url, rse1_hostname, test_file_expected_pfn)
                 check_url(dest_url, rse2_hostname, test_file_expected_pfn)
 
@@ -133,3 +134,7 @@ def test_tpc(rse1, rse2, root_account, test_scope, file_factory, rse_client, rul
     rule = rule_client.get_replication_rule(rule_id[0])
     assert rule['locks_ok_cnt'] == 1
     assert rule['locks_replicating_cnt'] == 0
+
+    if artifact is not None:
+        with open(artifact, 'w') as artifact_file:
+            artifact_file.write(fts_transfer_id)
