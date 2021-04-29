@@ -95,7 +95,7 @@ jobs:
         shell: bash
         run: |
           FTS_LOG_FILE=${{ steps.tpc.outputs.fts3log }}
-          if grep -Fq "3rd pull" $FTS_LOG_FILE
+          if docker exec -t dev_fts_1 grep -Fq "3rd pull" $FTS_LOG_FILE
           then
             echo "TPC verified"
           else
