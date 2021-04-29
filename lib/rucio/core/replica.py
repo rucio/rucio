@@ -704,7 +704,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
     return file_clause, dataset_clause, state_clause, files, constituents
 
 
-def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, updated_after, session):
+def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session):
     """
     List file replicas for a list of datasets.
 
@@ -733,6 +733,9 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, update
         order_by(models.DataIdentifierAssociation.child_scope,
                  models.DataIdentifierAssociation.child_name)
 
+    if not ignore_availability:
+        replica_query = replica_query.filter(models.RSE.availability.in_((4, 5, 6, 7)))
+
     if state_clause is not None:
         replica_query = replica_query.filter(and_(state_clause))
 
@@ -746,7 +749,7 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, update
         yield replica
 
 
-def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updated_after, session):
+def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, ignore_availability, updated_after, session):
     """
     List file replicas for a list of files.
 
@@ -758,6 +761,9 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updat
                    models.RSE.deleted == false(),
                    or_(*replica_condition),
                    ]
+
+        if not ignore_availability:
+            filters.append(models.RSE.availability.in_((4, 5, 6, 7)))
 
         if state_clause is not None:
             filters.append(state_clause)
@@ -860,11 +866,11 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
 def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                    schemes, files, rse_clause, rse_expression, client_location, domain,
                    sign_urls, signature_lifetime, constituents, resolve_parents,
-                   updated_after, filters,
+                   updated_after, filters, ignore_availability,
                    session):
 
-    files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, updated_after, session),
-             file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updated_after, session)]
+    files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session),
+             file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, ignore_availability, updated_after, session)]
 
     # we need to retain knowledge of the original domain selection by the user
     # in case we have to loop over replicas with a potential outgoing proxy
@@ -905,6 +911,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 archive_result = list_replicas(dids=constituents['%s:%s' % (scope.internal, name)],
                                                schemes=schemes, client_location=client_location,
                                                domain=domain, sign_urls=sign_urls,
+                                               ignore_availability=ignore_availability,
                                                rse_expression=rse_expression,
                                                signature_lifetime=signature_lifetime,
                                                updated_after=updated_after,
@@ -1272,7 +1279,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     for f in _list_replicas(dataset_clause, file_clause, state_clause, pfns,
                             schemes, files, rse_clause, rse_expression, client_location, domain,
                             sign_urls, signature_lifetime, constituents, resolve_parents,
-                            updated_after, filter,
+                            updated_after, filter, ignore_availability,
                             session):
         yield f
 
