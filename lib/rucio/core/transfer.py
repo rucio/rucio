@@ -1190,82 +1190,80 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         transfers[rws.request_id]['request_id'] = rws.request_id
 
         # If the transfer is a multihop, need to create the intermediate replicas, intermediate requests and the transfers
-        if len(transfer_path) > 1:
-            parent_request = None
-            parent_requests = []
+        parent_request = None
+        parent_requests = []
+        for transfer in transfer_path[:-1]:
+            # hop = {'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}
+            source_rse_id = transfer['file_metadata']['src_rse_id']
+            dest_rse_id = transfer['file_metadata']['dest_rse_id']
+            source_rse_name = ctx.rse_name(source_rse_id)
+            dest_rse_name = ctx.rse_name(dest_rse_id)
+            dest_rse_vo = get_rse_vo(rse_id=dest_rse_id, session=session)
 
-            for transfer in transfer_path[:-1]:
-                # hop = {'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}
-                source_rse_id = transfer['file_metadata']['src_rse_id']
-                dest_rse_id = transfer['file_metadata']['dest_rse_id']
-                source_rse_name = ctx.rse_name(source_rse_id)
-                dest_rse_name = ctx.rse_name(dest_rse_id)
-                dest_rse_vo = get_rse_vo(rse_id=dest_rse_id, session=session)
+            files = [{'scope': rws.scope,
+                      'name': rws.name,
+                      'bytes': rws.byte_count,
+                      'adler32': rws.adler32,
+                      'md5': rws.md5,
+                      'state': 'C'}]
+            try:
+                add_replicas(rse_id=dest_rse_id,
+                             files=files,
+                             account=InternalAccount('root', vo=dest_rse_vo),
+                             ignore_availability=False,
+                             dataset_meta=None,
+                             session=session)
+            except Exception as error:
+                logger(logging.ERROR, 'Problem adding replicas %s:%s on %s : %s', rws.scope, rws.name, dest_rse_name, str(error))
 
-                if True:  # to keep the commit diff more or less lisible. Will be removed and de-indented in next commit
-                    files = [{'scope': rws.scope,
-                              'name': rws.name,
+            req_attributes = {'activity': rws.activity,
+                              'source_replica_expression': None,
+                              'lifetime': None,
+                              'ds_scope': None,
+                              'ds_name': None,
                               'bytes': rws.byte_count,
-                              'adler32': rws.adler32,
                               'md5': rws.md5,
-                              'state': 'C'}]
-                    try:
-                        add_replicas(rse_id=dest_rse_id,
-                                     files=files,
-                                     account=InternalAccount('root', vo=dest_rse_vo),
-                                     ignore_availability=False,
-                                     dataset_meta=None,
-                                     session=session)
-                    except Exception as error:
-                        logger(logging.ERROR, 'Problem adding replicas %s:%s on %s : %s', rws.scope, rws.name, dest_rse_name, str(error))
+                              'adler32': rws.adler32,
+                              'priority': None,
+                              'allow_tape_source': True}
+            new_req = queue_requests(requests=[{'dest_rse_id': dest_rse_id,
+                                                'scope': rws.scope,
+                                                'name': rws.name,
+                                                'rule_id': '00000000000000000000000000000000',  # Dummy Rule ID used for multihop. TODO: Replace with actual rule_id once we can flag intermediate requests
+                                                'attributes': req_attributes,
+                                                'request_type': RequestType.TRANSFER,
+                                                'retry_count': rws.retry_count,
+                                                'account': InternalAccount('root', vo=dest_rse_vo),
+                                                'requested_at': datetime.datetime.now()}], session=session)
+            # If a request already exists, new_req will be an empty list.
+            if not new_req:
+                # Need to fail all the intermediate requests + the initial one and exit the multihop loop
+                logger(logging.WARNING, 'Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests', source_rse_name, dest_rse_name)
+                parent_requests.append(rws.request_id)
+                try:
+                    set_requests_state(request_ids=parent_requests, new_state=RequestState.FAILED, session=session)
+                except UnsupportedOperation:
+                    logger(logging.ERROR, 'Multihop : Cannot cancel all the parent requests : %s', str(parent_requests))
 
-                    req_attributes = {'activity': rws.activity,
-                                      'source_replica_expression': None,
-                                      'lifetime': None,
-                                      'ds_scope': None,
-                                      'ds_name': None,
-                                      'bytes': rws.byte_count,
-                                      'md5': rws.md5,
-                                      'adler32': rws.adler32,
-                                      'priority': None,
-                                      'allow_tape_source': True}
-                    new_req = queue_requests(requests=[{'dest_rse_id': dest_rse_id,
-                                                        'scope': rws.scope,
-                                                        'name': rws.name,
-                                                        'rule_id': '00000000000000000000000000000000',  # Dummy Rule ID used for multihop. TODO: Replace with actual rule_id once we can flag intermediate requests
-                                                        'attributes': req_attributes,
-                                                        'request_type': RequestType.TRANSFER,
-                                                        'retry_count': rws.retry_count,
-                                                        'account': InternalAccount('root', vo=dest_rse_vo),
-                                                        'requested_at': datetime.datetime.now()}], session=session)
-                    # If a request already exists, new_req will be an empty list.
-                    if not new_req:
-                        # Need to fail all the intermediate requests + the initial one and exit the multihop loop
-                        logger(logging.WARNING, 'Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests', source_rse_name, dest_rse_name)
-                        parent_requests.append(rws.request_id)
-                        try:
-                            set_requests_state(request_ids=parent_requests, new_state=RequestState.FAILED, session=session)
-                        except UnsupportedOperation:
-                            logger(logging.ERROR, 'Multihop : Cannot cancel all the parent requests : %s', str(parent_requests))
+                # Remove from the transfer dictionary all the requests
+                for cur_req_id in parent_requests:
+                    transfers.pop(cur_req_id, None)
+                break
 
-                        # Remove from the transfer dictionary all the requests
-                        for cur_req_id in parent_requests:
-                            transfers.pop(cur_req_id, None)
-                        break
+            new_req_id = new_req[0]['id']
+            parent_requests.append(new_req_id)
+            set_requests_state(request_ids=[new_req_id, ], new_state=RequestState.QUEUED, session=session)
+            logger(logging.DEBUG, 'New request created for the transfer between %s and %s : %s', source_rse_name, dest_rse_name, new_req_id)
 
-                    new_req_id = new_req[0]['id']
-                    parent_requests.append(new_req_id)
-                    set_requests_state(request_ids=[new_req_id, ], new_state=RequestState.QUEUED, session=session)
-                    logger(logging.DEBUG, 'New request created for the transfer between %s and %s : %s', source_rse_name, dest_rse_name, new_req_id)
+            transfers[new_req_id] = transfer
+            transfers[new_req_id]['file_metadata']['request_id'] = new_req_id
+            transfers[new_req_id]['request_id'] = new_req_id
+            transfers[new_req_id]['initial_request_id'] = rws.request_id
+            transfers[new_req_id]['parent_request'] = parent_request
+            transfers[new_req_id]['account'] = InternalAccount('root')
 
-                    transfers[new_req_id] = transfer
-                    transfers[new_req_id]['file_metadata']['request_id'] = new_req_id
-                    transfers[new_req_id]['request_id'] = new_req_id
-                    transfers[new_req_id]['initial_request_id'] = rws.request_id
-                    transfers[new_req_id]['parent_request'] = parent_request
-                    transfers[new_req_id]['account'] = InternalAccount('root')
-
-                    parent_request = new_req_id
+            parent_request = new_req_id
+        if len(transfer_path) > 1:
             # Add parent to the last hop
             transfers[rws.request_id]['parent_request'] = parent_request
 
