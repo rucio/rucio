@@ -64,7 +64,3 @@ tools/test.file.1G
 
 # autotest logs/data
 /.autotest
-
-.idea
-.virtualenv
-.vscode

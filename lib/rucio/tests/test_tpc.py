@@ -136,5 +136,8 @@ def test_tpc(rse1, rse2, root_account, test_scope, did_factory, rse_client, rule
     assert rule['locks_replicating_cnt'] == 0
 
     if artifact is not None:
+        date = datetime.date.today().strftime("%Y-%m-%d")
         with open(artifact, 'w') as artifact_file:
-            artifact_file.write(fts_transfer_id)
+            artifact_file.write(
+                f"/var/log/fts3/{date}/{rse1['rse_name']}__{rse2['rse_name']}/*__{fts_transfer_id}"
+            )

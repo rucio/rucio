@@ -85,5 +85,24 @@ jobs:
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_rse_protocol_xrootd.py
       - name: Test Conveyor
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_conveyor.py::test_multihop_intermediate_replica_lifecycle
+      - name: Test TPC with artifacts
+        id: tpc
+        shell: bash
+        run: |
+          docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short --save-artifacts-from="test_tpc" test_tpc.py
+          echo "Fetch artifact created by test_tpc.py"
+          FTS_LOG_FILE=$(docker exec -t dev_rucio_1 cat /tmp/test_tpc.artifact)
+          echo "::set-output name=fts3log::$FTS_LOG_FILE"
+      - name: Verify TPC transfers from FTS logs
+        shell: bash
+        run: |
+          FTS_LOG_FILE=${{ steps.tpc.outputs.fts3log }}
+          if grep -Fq "3rd pull" $FTS_LOG_FILE
+          then
+            echo "TPC verified"
+          else
+            echo "TPC failed"
+            exit 1
+          fi
       - name: Stop containers
         run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml down
