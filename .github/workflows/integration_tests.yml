@@ -77,8 +77,6 @@ jobs:
           docker exec -t dev_rucio_1 tools/run_tests_docker.sh -ir
       - name: File Upload/Download Test
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_rucio_server.py
-      - name: Archive Upload/Download Test
-        run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_download.py::test_download_from_archive_on_xrd
       - name: UploadClient Test
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_upload.py
       - name: Test Protocol XrootD
@@ -104,5 +102,7 @@ jobs:
             echo "TPC failed"
             exit 1
           fi
+      - name: Archive Upload/Download Test
+        run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_download.py::test_download_from_archive_on_xrd
       - name: Stop containers
         run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml down
