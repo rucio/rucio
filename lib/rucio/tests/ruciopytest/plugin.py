@@ -66,7 +66,10 @@ if sys.version_info >= (3, 6):
             test_function_name = metafunc.function.__name__
             if "artifact" in metafunc.fixturenames:
                 if test_function_name in tests_with_artifacts:
-                    metafunc.parametrize("artifact", [f'/tmp/{test_function_name}.artifact'])
+                    metafunc.parametrize(
+                        "artifact",
+                        ['/tmp/{function}.artifact'.format(function=test_function_name)]
+                    )
                 else:
                     metafunc.parametrize("artifact", [None])
 
