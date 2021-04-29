@@ -139,5 +139,5 @@ def test_tpc(rse1, rse2, root_account, test_scope, did_factory, rse_client, rule
         date = datetime.date.today().strftime("%Y-%m-%d")
         with open(artifact, 'w') as artifact_file:
             artifact_file.write(
-                f"/var/log/fts3/{date}/{rse1['rse_name']}__{rse2['rse_name']}/*__{fts_transfer_id}"
+                f"/var/log/fts3/{date}/{rse1['rse_name'].lower()}__{rse2['rse_name'].lower()}/*__{fts_transfer_id}"
             )
