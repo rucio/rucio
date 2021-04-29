@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch> 2020-2021
 
 import os
 
@@ -32,6 +33,7 @@ from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import file_generator
 from rucio.tests.common import rse_name_generator
 from rucio.db.sqla.constants import DIDType
+from rucio.common.utils import execute
 
 
 class TemporaryRSEFactory:
@@ -42,6 +44,7 @@ class TemporaryRSEFactory:
         self.vo = vo
 
         self.created_rses = []
+        self.containerized_rses = []
 
     def __enter__(self):
         return self
@@ -151,6 +154,27 @@ class TemporaryRSEFactory:
             "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "RUCIODISK"},
         }
         return self._make_rse(scheme='srm', protocol_impl='rucio.rse.protocols.srm.Default', parameters=parameters, add_rse_kwargs=kwargs)
+
+    def fetch_containerized_rse(self, rse):
+        """
+        Detects if containerized rses for xrootd are available in the testing environment.
+        :param rse: rse_id of containerzed rse to be used for lookup
+        :return: rse_id if containerized rse was found else None
+        """
+        # return rse if already cached
+        if rse in self.containerized_rses:
+            return rse
+
+        # lookup rse
+        cmd = "rucio list-rses --expression 'test_container_xrd=True'"
+        exitcode, out, err = execute(cmd)
+        rses = out.split()
+
+        if len(rses) != 0 and rse in rses:
+            self.containerized_rses.append(rse)
+            return rse
+        else:
+            return None
 
 
 class TemporaryDidFactory:

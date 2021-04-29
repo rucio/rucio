@@ -16,6 +16,7 @@
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch> 2021
 
 from __future__ import print_function
 
@@ -96,6 +97,13 @@ def mock_scope(vo):
     from rucio.common.types import InternalScope
 
     return InternalScope('mock', vo=vo)
+
+
+@pytest.fixture(scope='module')
+def test_scope(vo):
+    from rucio.common.types import InternalScope
+
+    return InternalScope('test', vo=vo)
 
 
 @pytest.fixture(scope='module')
