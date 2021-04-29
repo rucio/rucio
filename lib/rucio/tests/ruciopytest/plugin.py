@@ -48,6 +48,23 @@ if sys.version_info >= (3, 6):
 
             if not option_appended:
                 raise pytest.UsageError('rucio pytest plugin must be loaded after xdist plugin')
+        # Initialization hook to add --artifacts option, used by integration or TPC tests
+        parser.addoption(
+            "--save-artifacts-from",
+            action="append",
+            dest="artifacts",
+            default = [],
+            help="A csv string with test names that should persist their artifacts"
+        )
+
+    def pytest_generate_tests(metafunc):
+        tests_with_artifacts = metafunc.config.getoption('artifacts')
+        if len(tests_with_artifacts) > 1:
+                raise pytest.UsageError('--save-artifacts-from must be used only one. It should contain a CSV string of test names that can manage artifacts.')
+        tests_with_artifacts = tests_with_artifacts[0].split(',')
+        test_function_name = metafunc.function.__name__
+        if "artifact" in metafunc.fixturenames and test_function_name in tests_with_artifacts:
+            metafunc.parametrize("artifact", [f'/tmp/{test_function_name}.artifact'])
 
 
 def pytest_cmdline_main(config):
