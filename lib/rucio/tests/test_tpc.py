@@ -12,7 +12,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.utils import run_cmd_process
 
-
+# Fixtures
 @pytest.fixture
 def did_factory(vo, test_scope):
     from rucio.tests.temp_factories import TemporaryDidFactory
@@ -33,28 +33,26 @@ def rule_client():
 
 @pytest.fixture
 def rse1(rse_factory):
-    xrd1, xrd1_id = rse_factory.fetch_containerized_rse('XRD1')
-    if xrd1 is not None:
-        return {
-            'rse_name': xrd1,
-            'rse_id': xrd1_id,
+    rse, rse_id = rse_factory.fetch_containerized_rse('XRD1')
+    if rse is None:
+        rse, rse_id = rse_factory.make_posix_rse()
+    return {
+            'rse_name': rse,
+            'rse_id': rse_id,
         }
-    rse, _ = rse_factory.make_posix_rse()
-    return rse
 
 
 @pytest.fixture
 def rse2(rse_factory):
-    xrd2, xrd2_id = rse_factory.fetch_containerized_rse('XRD2')
-    if xrd2 is not None:
-        return {
-            'rse_name': xrd2,
-            'rse_id': xrd2_id
+    rse, rse_id = rse_factory.fetch_containerized_rse('XRD2')
+    if rse is None:
+        rse, rse_id = rse_factory.make_posix_rse()
+    return {
+            'rse_name': rse,
+            'rse_id': rse_id,
         }
-    rse, _ = rse_factory.make_posix_rse()
-    return rse
 
-
+# Utility functions
 def check_url(pfn, hostname, path):
     assert hostname in pfn
     assert path in pfn
@@ -83,7 +81,8 @@ def poll_fts_transfer_status(request_id, timeout=30):
         transfer_status = re.search("Status: (.*)", out).group(1)
     return transfer_status
 
-
+# TPC tests
+@pytest.mark.integration_test_only
 def test_tpc(rse1, rse2, root_account, test_scope, did_factory, rse_client, rule_client, artifact):
     base_file_name = generate_uuid()
     test_file = did_factory.upload_test_file(rse1['rse_name'], name=base_file_name + '.000', return_full_item=True)

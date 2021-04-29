@@ -42,16 +42,17 @@ def download_client():
 
 @pytest.fixture
 def rse(rse_factory):
-    xrd1 = rse_factory.fetch_containerized_rse('XRD1')
+    xrd1, xrd1_id = rse_factory.fetch_containerized_rse('XRD1')
     if xrd1 is not None:
         return xrd1
-    rse, _ = rse_factory.make_posix_rse()
-    return rse
+    else:
+        rse, _ = rse_factory.make_posix_rse()
+        return rse
 
 
 @pytest.fixture
 def scope(vo, rse_factory, test_scope, mock_scope):
-    xrd1 = rse_factory.fetch_containerized_rse('XRD1')
+    xrd1, xrd1_id = rse_factory.fetch_containerized_rse('XRD1')
     if xrd1 is not None:
         return str(test_scope)
     else:
@@ -66,7 +67,7 @@ def test_upload_single(rse, scope, upload_client, download_client):
     status = upload_client.upload([{
         'path': local_file,
         'rse': rse,
-        'did_scope': str(scope),
+        'did_scope': scope,
         'did_name': fn,
         'guid': generate_uuid()
     }])
