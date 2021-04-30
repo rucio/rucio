@@ -21,7 +21,7 @@ IFS=$'\n\t'
 
 RUCIO_LIB="$(dirname "$0")/../lib"
 cd "$RUCIO_LIB/rucio/tests"
-if [ ${#@} -eq 0 ]; then
+if [[ ${#@} -eq 0 ]]; then
   # no extra arguments
   echo "Running pytest in lib/rucio/tests"
   ARGS=(".")
@@ -34,31 +34,34 @@ export PYTHONPATH="$RUCIO_LIB"
 export PYTEST_DISABLE_PLUGIN_AUTOLOAD="True"
 
 NO_XDIST="${NO_XDIST:-False}"
-if [ "${RDBMS:-}" == "sqlite" ]; then
+if [[ "${RDBMS:-}" == "sqlite" ]]; then
   # no parallel tests on sqlite, because of random "sqlite3.OperationalError: database is locked"
+  echo "Disabling parallel testing for sqlite"
   NO_XDIST="True"
-elif [ "${RDBMS:-}" == "mysql5" ]; then
-  # no parallel tests on mysql5, because of random "pymysql.err.OperationalError:
+elif [[ "${RDBMS:-}" =~ mysql.* ]]; then
+  # no parallel tests on mysql, because of random "pymysql.err.OperationalError:
   # (1213, 'Deadlock found when trying to get lock; try restarting transaction')"
+  echo "Disabling parallel testing for mysql"
   NO_XDIST="True"
-elif [ "${RDBMS:-}" == "oracle" ]; then
+elif [[ "${RDBMS:-}" == "oracle" ]]; then
   # no parallel tests on oracle, because of random "cx_Oracle.DatabaseError:
   # ORA-00060: deadlock detected while waiting for resource"
+  echo "Disabling parallel testing for oracle"
   NO_XDIST="True"
 fi
 
-if [ "$NO_XDIST" == "False" ]; then
+if [[ "$NO_XDIST" == "False" ]]; then
   NO_XDIST="$(python -c 'import xdist; print(False)' ||:)"
 fi
 
-if [ "$NO_XDIST" == "False" ]; then
+if [[ "$NO_XDIST" == "False" ]]; then
   # do not run xdist below Python 3.6
   NO_XDIST="$(python -c 'import sys; print(sys.version_info < (3, 6))' ||:)"
 fi
 
 XDIST_ARGS=("-p" "ruciopytest.plugin")
-if [ "$NO_XDIST" == "False" ]; then
-  if [ "${GITHUB_ACTIONS:-false}" == "true" ]; then
+if [[ "$NO_XDIST" == "False" ]]; then
+  if [[ "${GITHUB_ACTIONS:-false}" == "true" ]]; then
     # run on 3 processes instead of 2 on GitHub Actions
     PROCESS_COUNT="3"
   else
