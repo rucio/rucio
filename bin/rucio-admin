@@ -37,12 +37,14 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import division
 from __future__ import print_function
 
 import argparse
 import datetime
+import errno
 import json
 import logging
 import math
@@ -181,6 +183,15 @@ def exception_handler(function):
             logger.error('This means that no scopes were found for the specified account ID.')
             return FAILURE
         except Exception as error:
+            if isinstance(error, IOError) and getattr(error, 'errno', None) == errno.EPIPE:
+                # Ignore Broken Pipe
+                # While in python3 we can directly catch 'BrokenPipeError', in python2 it doesn't exist.
+
+                # Python flushes standard streams on exit; redirect remaining output
+                # to devnull to avoid another BrokenPipeError at shutdown
+                devnull = os.open(os.devnull, os.O_WRONLY)
+                os.dup2(devnull, sys.stdout.fileno())
+                return SUCCESS
             logger.error(error)
             logger.error('Rucio exited with an unexpected/unknown error, please provide the traceback below to the developers.')
             logger.debug(traceback.format_exc())
