@@ -856,6 +856,42 @@ def test_client_access_denied_on_delete_replicas(rse_factory, mock_scope, replic
         assert len(replicas) == 1
 
 
+def test_client_list_blacklisted_replicas(rse_factory, did_factory, replica_client, did_client):
+    """ REPLICA (CLIENT): Blacklisted replicas are filtered in list replicas"""
+
+    rse, _ = rse_factory.make_posix_rse()
+    file = did_factory.upload_test_file(rse)
+    dataset = did_factory.make_dataset()
+    container = did_factory.make_container()
+
+    # make all scopes external
+    file, dataset, container = ({'scope': did['scope'].external, 'name': did['name']} for did in (file, dataset, container))
+
+    did_client.add_files_to_dataset(files=[file], **dataset)
+    did_client.add_datasets_to_container(dsns=[dataset], **container)
+
+    # availability_write will not have any impact on listing replicas
+    did_factory.client.update_rse(rse, {'availability_write': False})
+    for did in (file, dataset, container):
+        replicas = list(replica_client.list_replicas(dids=[did]))
+        assert len(replicas) == 1
+        assert len(replicas[0]['rses']) == 1
+
+    # if availability_read is set to false, the replicas from the given rse will not be listed
+    did_factory.client.update_rse(rse, {'availability_read': False})
+    replicas = list(replica_client.list_replicas(dids=[file]))
+    assert len(replicas) == 1
+    assert not replicas[0]['rses'] and not replicas[0]['pfns']
+    for did in (dataset, container):
+        replicas = list(replica_client.list_replicas(dids=[did]))
+        assert len(replicas) == 0
+    # Explicitly requesting unavailable replicas will return them
+    for did in (file, dataset, container):
+        replicas = list(replica_client.list_replicas(dids=[did], unavailable=True))
+        assert len(replicas) == 1
+        assert len(replicas[0]['rses']) == 1
+
+
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='runs minos, which acts on all bad pfns')
 def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_client):
