@@ -38,8 +38,8 @@ def render_pydoc_markdown(rucio_src: str):
         return inner
 
     def print_line(par: RenderParams):
-        def inner(line):
-            print(line, end="", file=par.fh)
+        def inner(line: str):
+            print(line.replace('<', r'\<').replace('>', r'\>'), end="", file=par.fh)
 
         return inner
 
