@@ -68,13 +68,13 @@ def minos(bulk=1000, once=False, sleep_time=60):
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prefix = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    prefix = 'minos[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logger = formatted_logger(logging.log, prefix + '%s')
     logger(logging.INFO, 'Minos starting')
 
     time.sleep(10)  # To prevent running on the same partition if all the daemons restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prefix = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    prefix = 'minos[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logger = formatted_logger(logging.log, prefix + '%s')
 
     states_mapping = {BadPFNStatus.BAD: BadFilesStatus.BAD,
@@ -87,7 +87,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
     while not GRACEFUL_STOP.is_set():
         start_time = time.time()
         heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-        prefix = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+        prefix = 'minos[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
         logger = formatted_logger(logging.log, prefix + '%s')
         pfns = []
         try:
