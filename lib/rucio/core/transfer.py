@@ -1029,12 +1029,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if multihop:
                     continue
 
-                # The transfer queued previously is a multihop, but this one is direct.
-                # Reset the sources, remove the multihop flag
-                if transfers[req_id].get('multihop', False):
-                    transfers[req_id].pop('multihop', None)
-                    transfers[req_id]['sources'] = []
-
                 current_source_is_tape = transfers[req_id]['bring_online']
                 new_source_is_tape = ctx.is_tape_rse(source_rse_id) or ctx.rse_attrs(source_rse_id).get('staging_required', False)
 
@@ -1073,6 +1067,12 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         transfers[req_id]['file_metadata']['src_rse'] = rse
                     else:
                         continue
+
+                # The transfer queued previously is a multihop, but this one is direct.
+                # Reset the sources, remove the multihop flag
+                if transfers[req_id].get('multihop', False):
+                    transfers[req_id].pop('multihop', None)
+                    transfers[req_id]['sources'] = []
 
                 transfers[req_id]['sources'].append((rse, source_url, source_rse_id, ranking, link_ranking))
                 # if one source has force IPv4, force IPv4 for the whole job
