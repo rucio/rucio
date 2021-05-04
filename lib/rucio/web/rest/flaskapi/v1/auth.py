@@ -737,6 +737,7 @@ class SSH(ErrorHandlingMethodView):
 
         # decode the signature which must come in base64 encoded
         try:
+            signature += '=' * ((4 - len(signature) % 4) % 4)  # adding required padding
             signature = base64.b64decode(signature)
         except TypeError:
             return generate_http_error_flask(
