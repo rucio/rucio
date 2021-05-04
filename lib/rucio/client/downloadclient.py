@@ -1130,6 +1130,7 @@ class DownloadClient:
 
             metalink_str = self.client.list_replicas(item['dids'],
                                                      schemes=schemes,
+                                                     ignore_availability=False,
                                                      rse_expression=rse_expression,
                                                      client_location=self.client_location,
                                                      resolve_archives=resolve_archives,

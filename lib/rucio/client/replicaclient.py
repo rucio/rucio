@@ -118,7 +118,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_replicas(self, dids, schemes=None, unavailable=False,
+    def list_replicas(self, dids, schemes=None, unavailable=False, ignore_availability=True,
                       all_states=False, metalink=False, rse_expression=None,
                       client_location=None, sort=None, domain=None,
                       signature_lifetime=None,
@@ -130,7 +130,8 @@ class ReplicaClient(BaseClient):
         :param dids: The list of data identifiers (DIDs) like :
             [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
         :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
-        :param unavailable: Also include unavailable replicas in the list.
+        :param unavailable: Also include unavailable replicas in the list (deprecated)
+        :param ignore_availability: Also include blacklisted replicas into the list
         :param metalink: ``False`` (default) retrieves as JSON,
                          ``True`` retrieves as metalink4+xml.
         :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
@@ -154,6 +155,8 @@ class ReplicaClient(BaseClient):
             data['schemes'] = schemes
         if unavailable:
             data['unavailable'] = True
+        if ignore_availability is not None:
+            data['ignore_availability'] = ignore_availability
         data['all_states'] = all_states
 
         if rse_expression:
