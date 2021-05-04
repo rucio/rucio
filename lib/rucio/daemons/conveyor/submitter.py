@@ -30,7 +30,7 @@
 # - Nick Smith <nick.smith@cern.ch>, 2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
@@ -313,7 +313,7 @@ def run(once=False, group_bulk=1, group_policy='rule', mock=False,
 
     # Interruptible joins require a timeout.
     while threads:
-        threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.isAlive()]
+        threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
 
 
 def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, limit=None, activity=None, older_than=None,

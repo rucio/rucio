@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 """
@@ -262,7 +262,7 @@ def run(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=Non
         logging.info('waiting for interrupts')
 
         # Interruptible joins require a timeout.
-        while t.isAlive():
+        while t.is_alive():
             t.join(timeout=3.14)
 
 

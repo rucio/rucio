@@ -23,7 +23,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
@@ -485,7 +485,7 @@ def run(threads=1, bulk=100, once=False, sleep_time=60):
         logging.info('waiting for interrupts')
         # Interruptible joins require a timeout.
         while thread_list:
-            thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.isAlive()]
+            thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.is_alive()]
 
 
 def stop(signum=None, frame=None):

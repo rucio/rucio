@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 """
 Conveyor stager is a daemon to manage stagein file transfers.
@@ -242,7 +242,7 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule', mock=Fal
 
         # Interruptible joins require a timeout.
         while threads:
-            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.isAlive()]
+            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
 
 
 def __get_stagein_transfers(total_workers=0, worker_number=0, failover_schemes=None, limit=None, activity=None, older_than=None,
