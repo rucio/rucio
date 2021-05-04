@@ -54,7 +54,7 @@ def config_get(section, option, raise_exception=True, default=None, clean_cached
     global __CONFIG
     try:
         return get_config().get(section, option)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
         if raise_exception and default is None:
             raise err
         if clean_cached:
