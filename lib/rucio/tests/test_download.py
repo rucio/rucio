@@ -395,6 +395,18 @@ def test_norandom_respected(rse_factory, did_factory, download_client, root_acco
         assert len(result) == nrandom
 
 
+def test_download_blacklisted_replicas(rse_factory, did_factory, download_client):
+    rse, _ = rse_factory.make_posix_rse()
+    did = did_factory.upload_test_file(rse)
+    did_str = '%s:%s' % (did['scope'], did['name'])
+
+    did_factory.client.update_rse(rse, {'availability_read': False})
+
+    with TemporaryDirectory() as tmp_dir:
+        with pytest.raises(NoFilesDownloaded):
+            download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir}])
+
+
 def test_transfer_timeout(rse_factory, did_factory, download_client):
     rse, _ = rse_factory.make_posix_rse()
     did = did_factory.upload_test_file(rse)
