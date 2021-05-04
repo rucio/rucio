@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2020 CERN
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import datetime
 import logging
@@ -226,7 +226,7 @@ def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
 
     # Interruptible joins require a timeout.
     while thread_list:
-        thread_list = [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
+        thread_list = [t.join(timeout=3.14) for t in thread_list if t and t.is_alive()]
 
 
 def stop(signum=None, frame=None):

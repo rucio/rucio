@@ -18,11 +18,11 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
 # - Wen Guan <wen.guan@cern.ch>, 2014-2015
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Eric Vaandering <ewv@fnal.gov>, 2019-2021
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 '''
    Hermes is a daemon to deliver messages: to a messagebroker via STOMP, or emails via SMTP.
@@ -449,4 +449,4 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_time
 
         # Interruptible joins require a timeout.
         while thread_list:
-            thread_list = [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]
+            thread_list = [t.join(timeout=3.14) for t in thread_list if t and t.is_alive()]

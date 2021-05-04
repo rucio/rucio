@@ -137,7 +137,7 @@ def run(once=False, sleep_time=600):
 
         # Interruptible joins require a timeout.
         while threads:
-            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.isAlive()]
+            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
 
 
 def __get_request_stats(all_activities=False, direction='destination'):

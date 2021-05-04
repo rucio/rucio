@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,8 +25,9 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
 Conveyor finisher is a daemon to update replicas and rules based on requests.
@@ -205,7 +206,7 @@ def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, d
 
         # Interruptible joins require a timeout.
         while threads:
-            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.isAlive()]
+            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
 
 
 def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logger=logging.log):
