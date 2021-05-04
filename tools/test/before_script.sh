@@ -33,10 +33,6 @@ env
 echo
 
 RESTART_HTTPD=0
-if [ "$REST_BACKEND" == "flask" ]; then
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO sed -i 's;Include /opt/rucio/etc/web/aliases\.conf;WSGIScriptAlias /  /opt/rucio/lib/rucio/web/rest/flaskapi/v1/main\.py;' /etc/httpd/conf.d/rucio.conf
-    RESTART_HTTPD=1
-fi
 
 if [ $RDBMS == "oracle" ]; then
     CON_ORACLE=$(docker $CONTAINER_RUNTIME_ARGS run --no-healthcheck -d $CONTAINER_RUN_ARGS -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true -e ORACLE_DISABLE_ASYNCH_IO=true docker.io/wnameless/oracle-xe-11g-r2)

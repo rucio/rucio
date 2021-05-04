@@ -39,9 +39,8 @@ from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gs
 from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, CannotAuthenticate, CannotAuthorize
 from rucio.common.utils import date_to_str, urlparse
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, generate_http_error_flask, \
-    ErrorHandlingMethodView
-from rucio.web.rest.utils import error_headers
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, error_headers, \
+    generate_http_error_flask, ErrorHandlingMethodView
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -59,8 +58,7 @@ for extra_module in EXTRA_MODULES:
 
 if EXTRA_MODULES['onelogin']:
     from onelogin.saml2.auth import OneLogin_Saml2_Auth
-    from web import cookies
-    from rucio.web.ui.common.utils import prepare_saml_request
+    from rucio.web.ui.flask.common.utils import prepare_saml_request
 
 
 class UserPass(ErrorHandlingMethodView):
@@ -885,7 +883,7 @@ class SAML(ErrorHandlingMethodView):
         if not EXTRA_MODULES['onelogin']:
             return "SAML not configured on the server side.", 400, headers
 
-        saml_nameid = cookies().get('saml-nameid')
+        saml_nameid = request.cookies.get('saml-nameid', default=None)
         vo = request.headers.get('X-Rucio-VO', default='def')
         account = request.headers.get('X-Rucio-Account', default=None)
         appid = request.headers.get('X-Rucio-AppID', default='unknown')

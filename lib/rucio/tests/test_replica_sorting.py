@@ -22,7 +22,6 @@
 
 import copy
 import json
-import os
 from unittest import mock
 from urllib.parse import urlparse
 
@@ -286,14 +285,6 @@ def test_not_sorting_lan_replicas(vo, rest_client, auth_token, protocols_setup, 
         'schemes': schemes,
     }
 
-    rest_backend = os.environ.get('REST_BACKEND', 'webpy')
-    if rest_backend == 'webpy':
-        sort_replicas_mock_target = 'rucio.web.rest.replica.sort_replicas'
-    elif rest_backend == 'flask':
-        sort_replicas_mock_target = 'rucio.web.rest.flaskapi.v1.replicas.sort_replicas'
-    else:
-        return pytest.xfail('unknown REST_BACKEND: ' + rest_backend)
-
     def fake_sort_replicas(dictreplica, *args, **kwargs):
         # test that nothing is passed to sort_replicas
         assert not dictreplica
@@ -302,7 +293,7 @@ def test_not_sorting_lan_replicas(vo, rest_client, auth_token, protocols_setup, 
     # invalidate cache for parse_expression('site=…')
     rse_expression_parser.REGION.invalidate()
 
-    with mock.patch(sort_replicas_mock_target, side_effect=fake_sort_replicas):
+    with mock.patch('rucio.web.rest.flaskapi.v1.replicas.sort_replicas', side_effect=fake_sort_replicas):
         response = rest_client.post(
             '/replicas/list',
             headers=headers(auth(auth_token), vohdr(vo), accept(content_type)),
