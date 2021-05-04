@@ -50,6 +50,15 @@ PUBLIC_KEY = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL"\
              "lnvFLTlDI5Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT"\
              "4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ== test_comment"
 
+INVALID_PADDED_PUBLIC_KEY = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL"\
+    "614sulXQ7wnIr1aGhGtl8b+HCB/0FhMSMTHwSjX78UbfqEorZ"\
+    "V16rXrWPgUpvcbp2hqctw6eCbxwqcgu3uGWaeS5A0iWRw7oXU"\
+    "h6ydnVy89zGzX1FJFFDZ+AgiZ3ytp55tg1bjqqhK1OSC0pJxd"\
+    "Ne878TRVVo5MLI0S/rZY2UovCSGFaQG2iLj14wz/YqI7NFMUu"\
+    "JFR4e6xmNsOP7fCZ4bGMsmnhR0GmY0dWYTupNiP5WdYXAfKEx"\
+    "lnvFLTlDI5Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT"\
+    "4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ test_comment"  # padding removed
+
 PRIVATE_KEY = """-----BEGIN RSA PRIVATE KEY-----
 MIIEoQIBAAKCAQEAq5LySllrQFpPL614sulXQ7wnIr1aGhGtl8b+HCB/0FhMSMTH
 wSjX78UbfqEorZV16rXrWPgUpvcbp2hqctw6eCbxwqcgu3uGWaeS5A0iWRw7oXUh
@@ -84,6 +93,7 @@ class TestAuthCoreApi(unittest.TestCase):
     '''
     TestAuthCoreApi
     '''
+
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
@@ -135,6 +145,24 @@ class TestAuthCoreApi(unittest.TestCase):
         assert result is None
 
         del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
+
+    def test_invalid_padding(self):
+        """AUTHENTICATION (CORE): SSH RSA public key exchange (public key with invalid padding)."""
+
+        root = InternalAccount('root', **self.vo)
+        try:
+            add_account_identity(INVALID_PADDED_PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
+        except Duplicate:
+            pass  # might already exist, can skip
+
+        challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', **self.vo).token
+
+        ssh_sign_string = ssh_sign(PRIVATE_KEY, challenge_token)
+        signature = base64.b64decode(ssh_sign_string)
+        result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1', **self.vo)
+        assert result is not None
+
+        del_account_identity(INVALID_PADDED_PUBLIC_KEY, IdentityType.SSH, root)
 
     def test_get_auth_token_saml_success(self):
         """AUTHENTICATION (CORE): SAML NameID (correct credentials)."""
