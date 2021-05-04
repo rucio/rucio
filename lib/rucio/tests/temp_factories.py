@@ -215,8 +215,8 @@ class TemporaryDidFactory:
     @transactional_session
     def __cleanup_replicas(self, session=None):
         query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id). \
-            filter(or_(and_(models.ReplicationRule.scope == did['scope'],
-                            models.ReplicationRule.name == did['name'])
+            filter(or_(and_(models.RSEFileAssociation.scope == did['scope'],
+                            models.RSEFileAssociation.name == did['name'])
                        for did in self.created_dids))
         dids_by_rse = {}
         for scope, name, rse_id in query:
