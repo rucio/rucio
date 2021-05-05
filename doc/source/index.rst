@@ -1,3 +1,7 @@
+.. note::
+   The Rucio documentation has been migrated to `https://rucio.cern.ch/documentation <https://rucio.cern.ch/documentation>`_.
+   The readthedocs pages will stay available for the foreseeable future, but they will not be updated with new information. Please consult the new documentation instead.
+
 Welcome to Rucio's documentation!
 =================================
 
