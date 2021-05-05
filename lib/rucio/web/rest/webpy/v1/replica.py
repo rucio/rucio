@@ -351,6 +351,8 @@ class ListReplicas(RucioController):
             if 'unavailable' in params:
                 unavailable = params['unavailable']
                 ignore_availability = True
+            if 'ignore_availability' in params:
+                ignore_availability = params['ignore_availability']
             if 'all_states' in params:
                 all_states = params['all_states']
             if 'rse_expression' in params:

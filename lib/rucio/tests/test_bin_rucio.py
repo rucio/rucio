@@ -894,6 +894,61 @@ class TestBinRucio(unittest.TestCase):
         search = '{0} successfully downloaded'.format(tmp_file1[5:])  # triming '/tmp/' from filename
         assert re.search(search, err) is not None
 
+    def test_list_blacklisted_replicas(self):
+        """CLIENT(USER): Rucio list replicas"""
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        cmd = 'rucio-admin rse add-protocol --hostname blacklistreplica --scheme file --prefix /rucio --port 0 --impl rucio.rse.protocols.posix.Default ' \
+              '--domain-json \'{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}}\' %s' % tmp_rse
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+
+        # add files
+        tmp_file1 = file_generator()
+        file_name = tmp_file1[5:]  # triming '/tmp/' from filename
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(tmp_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+
+        # create dataset
+        tmp_dataset = self.user + ':DSet' + rse_name_generator()
+        cmd = 'rucio add-dataset ' + tmp_dataset
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add files to dataset
+        cmd = 'rucio attach {0} {1}:{2}'.format(tmp_dataset, self.user, file_name)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+
+        # Listing the replica should work before blacklisting the RSE
+        cmd = 'rucio list-file-replicas {}'.format(tmp_dataset)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert tmp_rse in out
+
+        # Blacklist the rse
+        cmd = 'rucio-admin rse update --rse {} --setting availability_read --value False'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert not err
+
+        # list-file-replicas should, by default, list replicas from blacklisted rses
+        cmd = 'rucio list-file-replicas {}'.format(tmp_dataset)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert tmp_rse in out
+
     def test_create_rule(self):
         """CLIENT(USER): Rucio add rule"""
         tmp_file1 = file_generator()
