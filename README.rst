@@ -6,7 +6,7 @@ Rucio is a software framework that provides functionality to organize, manage, a
 Documentation
 -------------
 
-General information and latest documentation about Rucio can be found at `readthedocs <https://rucio.readthedocs.io>`_ or on our `webpage <https://rucio.cern.ch>`_.
+General information, API/REST description and guides can be found in our `documentation <https://rucio.cern.ch/documentation>`_ or on our `webpage <https://rucio.cern.ch>`_.
 
 Try it out
 ----------
@@ -21,7 +21,7 @@ For information on how to contribute to Rucio, please refer and follow our `CONT
 Operators
 ----------
 
-To learn how to deploy and configure Rucio, consult the `documentation <http://rucio.readthedocs.io/#operator-documentation>`_ available online.
+To learn how to deploy and configure Rucio, consult the `documentation <https://rucio.cern.ch/documentation>`_ available online.
 
 Getting Support
 ----------------
