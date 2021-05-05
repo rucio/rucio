@@ -301,7 +301,7 @@ class ListReplicas(ErrorHandlingMethodView):
         schemes = param_get(parameters, 'schemes', default=None)
         select = param_get(parameters, 'sort', default=None)
         unavailable = param_get(parameters, 'unavailable', default=False)
-        ignore_availability = 'unavailable' in parameters
+        ignore_availability = param_get(parameters, 'ignore_availability', default='unavailable' in parameters)
         rse_expression = param_get(parameters, 'rse_expression', default=None)
         all_states = param_get(parameters, 'all_states', default=False)
         domain = param_get(parameters, 'domain', default=None)

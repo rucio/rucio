@@ -137,10 +137,11 @@ def test_list_archive_contents_at_rse(rse_factory, mock_scope, root_account, did
     both_rses = rse1 + '|' + rse2
     update_rse(rse1_id, {'availability_read': False})
     update_rse(rse2_id, {'availability_read': False})
-    res = replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in archived_file], metalink=True, rse_expression=both_rses, resolve_archives=True)
+    res = replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in archived_file],
+                                       metalink=True, rse_expression=both_rses, resolve_archives=True, ignore_availability=False)
     assert rse1 not in res
     assert rse2 not in res
-    res = replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in archived_file], metalink=True, rse_expression=both_rses, resolve_archives=True, unavailable=True)
+    res = replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in archived_file], metalink=True, rse_expression=both_rses, resolve_archives=True)
     assert rse1 in res
     assert rse2 in res
 

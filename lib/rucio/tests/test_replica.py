@@ -874,15 +874,15 @@ def test_client_list_blacklisted_replicas(rse_factory, did_factory, replica_clie
 
     # if availability_read is set to false, the replicas from the given rse will not be listed
     did_factory.client.update_rse(rse, {'availability_read': False})
-    replicas = list(replica_client.list_replicas(dids=[file]))
+    replicas = list(replica_client.list_replicas(dids=[file], ignore_availability=False))
     assert len(replicas) == 1
     assert not replicas[0]['rses'] and not replicas[0]['pfns']
     for did in (dataset, container):
-        replicas = list(replica_client.list_replicas(dids=[did]))
+        replicas = list(replica_client.list_replicas(dids=[did], ignore_availability=False))
         assert len(replicas) == 0
-    # Explicitly requesting unavailable replicas will return them
+    # By default unavailable replicas will be returned
     for did in (file, dataset, container):
-        replicas = list(replica_client.list_replicas(dids=[did], unavailable=True))
+        replicas = list(replica_client.list_replicas(dids=[did]))
         assert len(replicas) == 1
         assert len(replicas[0]['rses']) == 1
 

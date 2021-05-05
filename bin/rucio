@@ -388,6 +388,7 @@ def list_file_replicas(args):
         option_deprecation_message("--rse", "--rses")
 
     replicas = client.list_replicas(dids, schemes=protocols,
+                                    ignore_availability=True,
                                     all_states=args.all_states,
                                     rse_expression=args.rses,
                                     metalink=args.metalink,
