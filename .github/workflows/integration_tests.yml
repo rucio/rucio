@@ -32,6 +32,7 @@ jobs:
       - name: Checkout rucio containers repository
         uses: actions/checkout@v2
         with:
+          ref: a51596415bf19027a9a22930b046c443917caa2c
           repository: rucio/containers
       - uses: actions/checkout@v2
         name: Checkout rucio source
