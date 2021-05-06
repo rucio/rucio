@@ -106,10 +106,10 @@ def poll_fts_transfer_status(request_id, timeout=30):
 # TPC tests
 
 
-@pytest.mark.skipif(rse1 is None or rse2 is None, reason="TPC tests need at least 2 containerized xrd rse's for execution")
+@pytest.mark.dirty(reason="Creates artifact /tmp/test_tpc.artifact in dev_rucio_1 container")
 def test_tpc(rse1, rse2, root_account, test_scope, did_factory, rse_client, rule_client, artifact):
     if rse1 is None or rse2 is None:
-        pytest.skip("TPC tests need at least 2 containerized xrd rse's for execution. Found {rse1} {rse2}")
+        pytest.skip("TPC tests need at least 2 containerized rse's for execution}")
     base_file_name = generate_uuid()
     test_file = did_factory.upload_test_file(rse1['rse_name'], name=base_file_name + '.000', return_full_item=True)
     test_file_did_str = '%s:%s' % (test_file['did_scope'], test_file['did_name'])
