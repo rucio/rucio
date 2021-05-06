@@ -15,7 +15,6 @@
 #
 # Authors:
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
-# - Mayank Sharma <mayank.sharma@cern.ch> 2021
 
 import os
 
@@ -33,7 +32,6 @@ from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import file_generator
 from rucio.tests.common import rse_name_generator
 from rucio.db.sqla.constants import DIDType
-from rucio.client.rseclient import RSEClient
 
 
 class TemporaryRSEFactory:
@@ -43,9 +41,7 @@ class TemporaryRSEFactory:
 
     def __init__(self, vo, **kwargs):
         self.vo = vo
-        self._rse_client = RSEClient()
         self.created_rses = []
-        self.containerized_rses = []
 
     def __enter__(self):
         return self
@@ -162,7 +158,6 @@ class TemporaryDidFactory:
     Factory which keeps track of created dids and cleans up everything related to these dids at the end.
     All files related to the same test will have the same uuid in the name for easier debugging.
     """
-
     def __init__(self, default_scope, vo):
         self.default_scope = default_scope
         self.vo = vo

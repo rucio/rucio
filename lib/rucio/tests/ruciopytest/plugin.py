@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 
 import os
 import sys
@@ -32,14 +33,6 @@ def pytest_configure(config):
         from rucio.tests.ruciopytest.rucioxdist import NoParallelXDist
 
         config.pluginmanager.register(NoParallelXDist(config))
-    # set env variables
-
-
-def set_test_environment():
-    """
-    Sets additional environment variables for testing environment, depending on where tests are executed (containerized, standalone, GH_Actions)
-    """
-    pass
 
 
 if sys.version_info >= (3, 6):
