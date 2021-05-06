@@ -41,19 +41,17 @@ def download_client():
 
 
 @pytest.fixture
-def rse(rse_factory):
-    xrd1, xrd1_id = rse_factory.fetch_containerized_rse('XRD1')
-    if xrd1 is not None:
-        return xrd1
+def rse(containerized_rses, rse_factory):
+    if len(containerized_rses) > 0:
+        rse, _ = containerized_rses[0]
     else:
         rse, _ = rse_factory.make_posix_rse()
-        return rse
+    return rse
 
 
 @pytest.fixture
-def scope(vo, rse_factory, test_scope, mock_scope):
-    xrd1, xrd1_id = rse_factory.fetch_containerized_rse('XRD1')
-    if xrd1 is not None:
+def scope(vo, containerized_rses, test_scope, mock_scope):
+    if len(containerized_rses) > 0:
         return str(test_scope)
     else:
         return str(mock_scope)

@@ -33,7 +33,6 @@ from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import file_generator
 from rucio.tests.common import rse_name_generator
 from rucio.db.sqla.constants import DIDType
-from rucio.common.utils import execute
 from rucio.client.rseclient import RSEClient
 
 
@@ -41,6 +40,7 @@ class TemporaryRSEFactory:
     """
     Factory which keeps track of created RSEs and cleans up everything related to these RSEs at the end
     """
+
     def __init__(self, vo, **kwargs):
         self.vo = vo
         self._rse_client = RSEClient()
@@ -156,25 +156,13 @@ class TemporaryRSEFactory:
         }
         return self._make_rse(scheme='srm', protocol_impl='rucio.rse.protocols.srm.Default', parameters=parameters, add_rse_kwargs=kwargs)
 
-    def fetch_containerized_rse(self, rse_name):
-        """
-        Detects if containerized rses for xrootd are available in the testing environment.
-        :param rse: rse_id of containerzed rse to be used for lookup
-        :return: rse_id if containerized rse was found else None
-        """
-        rse = self._rse_client.get_rse(rse_name)
-        rse_id = rse['id']
-        if rse is not None:
-            return rse_name, rse_id
-        else:
-            return None, None
-
 
 class TemporaryDidFactory:
     """
     Factory which keeps track of created dids and cleans up everything related to these dids at the end.
     All files related to the same test will have the same uuid in the name for easier debugging.
     """
+
     def __init__(self, default_scope, vo):
         self.default_scope = default_scope
         self.vo = vo

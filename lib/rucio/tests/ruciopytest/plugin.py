@@ -32,6 +32,14 @@ def pytest_configure(config):
         from rucio.tests.ruciopytest.rucioxdist import NoParallelXDist
 
         config.pluginmanager.register(NoParallelXDist(config))
+    # set env variables
+
+
+def set_test_environment():
+    """
+    Sets additional environment variables for testing environment, depending on where tests are executed (containerized, standalone, GH_Actions)
+    """
+    pass
 
 
 if sys.version_info >= (3, 6):
@@ -49,7 +57,7 @@ if sys.version_info >= (3, 6):
             if not option_appended:
                 raise pytest.UsageError('rucio pytest plugin must be loaded after xdist plugin')
 
-        # Initialization hook to add --artifacts option, used by integration or TPC tests
+        # Initialization hook to add --artifacts option, can be used by integration or TPC tests to further check non-dev container states
         parser.addoption(
             "--export-artifacts-from",
             action="append",
@@ -62,7 +70,8 @@ if sys.version_info >= (3, 6):
         tests_with_artifacts = metafunc.config.getoption('artifacts')
         if len(tests_with_artifacts) > 1:
             raise pytest.UsageError('--export-artifacts-from must be used only once. It should contain a CSV string of test names that can manage artifacts.')
-        elif len(tests_with_artifacts) == 1:
+
+        if len(tests_with_artifacts) == 1:
             tests_with_artifacts = tests_with_artifacts[0].split(',')
             test_function_name = metafunc.function.__name__
             if "artifact" in metafunc.fixturenames:
@@ -73,6 +82,9 @@ if sys.version_info >= (3, 6):
                     )
                 else:
                     metafunc.parametrize("artifact", [None])
+        else:
+            if "artifact" in metafunc.fixturenames:
+                metafunc.parametrize("artifact", [None])
 
 
 def pytest_cmdline_main(config):

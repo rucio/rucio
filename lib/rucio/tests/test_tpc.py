@@ -1,3 +1,21 @@
+# -*- coding: utf-8 -*-
+# Copyright 2012-2021 CERN
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+
 import datetime
 import pytest
 import hashlib
@@ -13,6 +31,8 @@ from rucio.client.ruleclient import RuleClient
 from rucio.common.utils import run_cmd_process
 
 # Fixtures
+
+
 @pytest.fixture
 def did_factory(vo, test_scope):
     from rucio.tests.temp_factories import TemporaryDidFactory
@@ -32,27 +52,29 @@ def rule_client():
 
 
 @pytest.fixture
-def rse1(rse_factory):
-    rse, rse_id = rse_factory.fetch_containerized_rse('XRD1')
-    if rse is None:
-        rse, rse_id = rse_factory.make_posix_rse()
-    return {
+def rse1(containerized_rses):
+    if len(containerized_rses) > 1:
+        rse, rse_id = containerized_rses[0]
+        return {
             'rse_name': rse,
             'rse_id': rse_id,
         }
+    return None
 
 
 @pytest.fixture
-def rse2(rse_factory):
-    rse, rse_id = rse_factory.fetch_containerized_rse('XRD2')
-    if rse is None:
-        rse, rse_id = rse_factory.make_posix_rse()
-    return {
+def rse2(containerized_rses):
+    if len(containerized_rses) > 1:
+        rse, rse_id = containerized_rses[1]
+        return {
             'rse_name': rse,
             'rse_id': rse_id,
         }
+    return None
 
 # Utility functions
+
+
 def check_url(pfn, hostname, path):
     assert hostname in pfn
     assert path in pfn
@@ -82,8 +104,12 @@ def poll_fts_transfer_status(request_id, timeout=30):
     return transfer_status
 
 # TPC tests
-@pytest.mark.integration_test_only
+
+
+@pytest.mark.skipif(rse1 is None or rse2 is None, reason="TPC tests need at least 2 containerized xrd rse's for execution")
 def test_tpc(rse1, rse2, root_account, test_scope, did_factory, rse_client, rule_client, artifact):
+    if rse1 is None or rse2 is None:
+        pytest.skip("TPC tests need at least 2 containerized xrd rse's for execution. Found {rse1} {rse2}")
     base_file_name = generate_uuid()
     test_file = did_factory.upload_test_file(rse1['rse_name'], name=base_file_name + '.000', return_full_item=True)
     test_file_did_str = '%s:%s' % (test_file['did_scope'], test_file['did_name'])
@@ -119,7 +145,7 @@ def test_tpc(rse1, rse2, root_account, test_scope, did_factory, rse_client, rule
     submitter.run(once=True)
 
     # Get FTS transfer job info
-    fts_transfer_id, fts_transfer_status = list_fts_transfer(timeout=30)
+    fts_transfer_id, fts_transfer_status = list_fts_transfer(timeout=40)
 
     # Check FTS transfer job
     assert fts_transfer_id is not None and fts_transfer_status is not None
