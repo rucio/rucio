@@ -27,8 +27,10 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 
-import sys
 import os.path
+import sys
+import time
+
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
@@ -36,7 +38,7 @@ os.chdir(base_path)
 from rucio.api.vo import add_vo  # noqa: E402
 from rucio.client import Client  # noqa: E402
 from rucio.common.config import config_get, config_get_bool  # noqa: E402
-from rucio.common.exception import Duplicate  # noqa: E402
+from rucio.common.exception import Duplicate, RucioException  # noqa: E402
 from rucio.core.account import add_account_attribute  # noqa: E402
 from rucio.common.types import InternalAccount  # noqa: E402
 
@@ -51,7 +53,20 @@ if __name__ == '__main__':
     else:
         vo = {}
 
-    c = Client()
+    try:
+        c = Client()
+    except RucioException as e:
+        error_msg = str(e)
+        print('Creating client failed:', error_msg)
+        if 'Internal Server Error' in error_msg:
+            server_log = '/var/log/rucio/httpd_error_log'
+            if os.path.exists(server_log):
+                # wait for the server to write the error to log
+                time.sleep(5)
+                with open(server_log, 'r') as fhandle:
+                    print(fhandle.readlines()[-200:], file=sys.stderr)
+        sys.exit(1)
+
     try:
         c.add_account('jdoe', 'SERVICE', 'jdoe@email.com')
     except Duplicate:

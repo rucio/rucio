@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +15,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
+import json
 import sys
 import urllib.request
 
@@ -35,3 +37,12 @@ def get_next_link(answer):
             if 'rel="next"' in parts:
                 return parts[0][1:-1]
     return False
+
+
+def all_branches(branches_url: str):
+    while branches_url:
+        with urllib.request.urlopen(req_json(branches_url)) as answer:
+            branches = json.load(answer)
+            branches = map(lambda b: b["name"], branches)
+            branches_url = get_next_link(answer)
+        yield from branches
