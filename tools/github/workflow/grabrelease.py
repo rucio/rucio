@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,33 +15,60 @@
 # limitations under the License.
 #
 # Authors:
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
+import itertools
 import json
 import sys
-import urllib.request
+from typing import List
 
-from util import req_json, get_next_link
+from util import all_branches
+
+
+def branches_to_add() -> "List[str]":
+    add_branches = []
+    idx = 0
+    while True:
+        try:
+            if idx + 1 >= len(sys.argv):
+                break
+
+            idx = sys.argv.index('--add', idx + 1) + 1
+            if idx >= len(sys.argv):
+                print("--add was used without argument", file=sys.stderr)
+                sys.exit(2)
+            add_branches.append(sys.argv[idx])
+        except ValueError:
+            break
+    return add_branches
 
 
 def main():
+    # input: https://api.github.com/repos/rucio/rucio/branches{/branch}
     branches_url = sys.stdin.read().strip().rstrip("{/branch}")
 
-    def allbranches():
-        next_link = branches_url
-        while next_link:
-            with urllib.request.urlopen(req_json(next_link)) as answer:
-                branches = json.load(answer)
-                branches = map(lambda b: b["name"], branches)
-                next_link = get_next_link(answer)
-            yield from branches
+    branches = itertools.chain(
+        branches_to_add(),
+        filter(lambda b: b.startswith("release"), all_branches(branches_url)),
+    )
 
-    latest_release = max(filter(lambda b: b.startswith("release"), allbranches()), default=None)
-    if latest_release is None:
-        print("Could not find any release branches", file=sys.stderr)
-        sys.exit(2)
+    if '--all' in sys.argv:
+        branches = list(branches)
+        if not branches:
+            print("Could not find any branches", file=sys.stderr)
+            sys.exit(2)
 
-    print(latest_release)
+        if '--json' in sys.argv:
+            print(json.dumps(branches))
+        else:
+            print('\n'.join(branches))
+    else:
+        latest = max(branches, default=None)
+        if latest is None:
+            print("Could not find any branches", file=sys.stderr)
+            sys.exit(2)
+
+        print(latest)
 
 
 if __name__ == "__main__":

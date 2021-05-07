@@ -13,12 +13,14 @@ jobs:
         run: python3 -m pip install -U pip setuptools
       - name: Install python requirements for matrix_parser.py
         run: python3 -m pip install -U PyYAML
+      - name: Identify branch
+        id: branch
+        run: python3 -c 'from os import environ as env; print("::set-output name=branch::" + (env.get("GITHUB_BASE_REF", None) if env.get("GITHUB_BASE_REF", None) else env.get("GITHUB_REF", "master")))'
       - name: Identify Matrix
         id: matrix
         run: echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix_integration_tests.yml)"
-      - name: test output
-        run: echo "${{ steps.matrix.outputs.matrix }}"
     outputs:
+      branch: ${{ steps.branch.outputs.branch }}
       matrix: ${{ steps.matrix.outputs.matrix }}
 
   integration-tests:
@@ -47,9 +49,11 @@ jobs:
         shell: bash
         run: |
           docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml pull
           i=0; until [ "$i" -ge 3 ]; do
-            IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | $GITHUB_WORKSPACE/dev/rucio/tools/test/build_images.py \
-                --cache-repo docker.pkg.github.com/${{ github.repository }} $GITHUB_WORKSPACE/dev || echo "")
+            IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | $GITHUB_WORKSPACE/dev/rucio/tools/test/build_images.py --output list \
+                --cache-repo docker.pkg.github.com/${{ github.repository }} --branch "${{ needs.setup.outputs.branch }}" \
+                $GITHUB_WORKSPACE/dev || echo "")
             if [[ -n $IMAGES ]]; then break;
             else
               i=$((i+1)); sleep 5;
@@ -57,18 +61,16 @@ jobs:
             fi
           done
           docker logout https://docker.pkg.github.com
-          if [[ -z $IMAGES ]]; then exit 1; fi
+          if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
           echo "::set-output name=images::$IMAGES"
       - name: Prepare Docker Compose
         shell: bash
         run: |
           docker image ls
-          sed -i 's;image: docker.io/rucio/rucio-dev.*;image: docker\.pkg\.github\.com/${{ github.repository }}/rucio-integration-test:centos7-python3.6;' \
+          sed -i 's;image: docker.io/rucio/rucio-dev.*;image: ${{ fromJSON(steps.images.outputs.images)[0] }};' \
               $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml
       - name: Start containers
-        run: |
-          docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-          docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml up -d
+        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml up -d
       - name: Initialize tests
         shell: bash
         run: |

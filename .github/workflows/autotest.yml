@@ -13,10 +13,14 @@ jobs:
         run: python3 -m pip install -U pip setuptools
       - name: Install python requirements for matrix_parser.py
         run: python3 -m pip install -U PyYAML
+      - name: Identify branch
+        id: branch
+        run: python3 -c 'from os import environ as env; print("::set-output name=branch::" + (env.get("GITHUB_BASE_REF", None) if env.get("GITHUB_BASE_REF", None) else env.get("GITHUB_REF", "master")))'
       - name: Identify Matrix
         id: matrix
         run: echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)"
     outputs:
+      branch: ${{ steps.branch.outputs.branch }}
       matrix: ${{ steps.matrix.outputs.matrix }}
   test:
     needs: setup
@@ -34,7 +38,8 @@ jobs:
           docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           i=0; until [ "$i" -ge 3 ]; do
             IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
-                --cache-repo docker.pkg.github.com/${{ github.repository }} ./etc/docker/test || echo "")
+                --cache-repo docker.pkg.github.com/${{ github.repository }} \
+                --branch "${{ needs.setup.outputs.branch }}" ./etc/docker/test || echo "")
             if [[ -n $IMAGES ]]; then break;
             else
               i=$((i+1)); sleep 5;
@@ -42,7 +47,7 @@ jobs:
             fi
           done
           docker logout https://docker.pkg.github.com
-          if [[ -z $IMAGES ]]; then exit 1; fi
+          if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
           echo "::set-output name=images::$IMAGES"
       - name: Run test with cfg
         run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
@@ -106,7 +111,8 @@ jobs:
           docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           i=0; until [ "$i" -ge 3 ]; do
             IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
-                --cache-repo docker.pkg.github.com/${{ github.repository }} ./etc/docker/test || echo "")
+                --cache-repo docker.pkg.github.com/${{ github.repository }} \
+                --branch "${{ needs.release-patch-setup.outputs.release_branch }}" ./etc/docker/test || echo "")
             if [[ -n $IMAGES ]]; then break;
             else
               i=$((i+1)); sleep 5;
@@ -114,7 +120,7 @@ jobs:
             fi
           done
           docker logout https://docker.pkg.github.com
-          if [[ -z $IMAGES ]]; then exit 1; fi
+          if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
           echo "::set-output name=images::$IMAGES"
       - name: Run test with cfg
         run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
