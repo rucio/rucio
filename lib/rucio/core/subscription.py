@@ -43,7 +43,7 @@ from rucio.db.sqla.session import transactional_session, stream_session, read_se
 
 
 @transactional_session
-def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, priority=3, session=None, logger=logging.log):
+def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, priority=3, session=None):
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
@@ -67,7 +67,6 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     :param priority:           The priority of the subscription
     :type priority:            Integer
     :param session:            The database session in use.
-    :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
 
     :returns:                  The subscriptionid
     """
@@ -121,7 +120,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
 
 
 @transactional_session
-def update_subscription(name, account, metadata=None, session=None, logger=logging.log):
+def update_subscription(name, account, metadata=None, session=None):
     """
     Updates a subscription
 
@@ -132,7 +131,6 @@ def update_subscription(name, account, metadata=None, session=None, logger=loggi
     :param metadata:           Dictionary of metadata to update. Supported keys : filter, replication_rules, comments, lifetime, retroactive, dry_run, priority, last_processed
     :type metadata:            Dict
     :param session:            The database session in use.
-    :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
 
     :raises: SubscriptionNotFound if subscription is not found
     """
@@ -275,13 +273,12 @@ def list_subscription_rule_states(name=None, account=None, session=None, logger=
 
 
 @read_session
-def get_subscription_by_id(subscription_id, session=None, logger=logging.log):
+def get_subscription_by_id(subscription_id, session=None):
     """
     Get a specific subscription by id.
 
     :param subscription_id:    The subscription_id to select.
     :param session:            The database session in use.
-    :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
 
     :raises:                   SubscriptionNotFound if no Subscription can be found.
     """

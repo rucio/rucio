@@ -419,8 +419,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                         except Exception:
                                             # Unexpected errors
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.unknown', delta=1)
-                                            exc_type, exc_value, exc_traceback = exc_info()
-                                            logger(logging.CRITICAL, ''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
+                                            logger(logging.ERROR, "Unexpected error", exc_info=True)
 
                                     did_success = (did_success and success)
                                     if (attemptnr + 1) == nattempt and not success:
@@ -455,8 +454,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
             monitor.record_counter(counters='transmogrifier.job.done', delta=1)
             monitor.record_timer(stat='transmogrifier.job.duration', time=1000 * tottime)
         except Exception:
-            exc_type, exc_value, exc_traceback = exc_info()
-            logger(logging.CRITICAL, ''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
+            logger(logging.ERROR, "Failed to run transmogrifier", exc_info=True)
             monitor.record_counter(counters='transmogrifier.job.error', delta=1)
             monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
         if once is True:
