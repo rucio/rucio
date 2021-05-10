@@ -1696,6 +1696,10 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
                 clt_is_not_archive_condition.append(
                     and_(models.DataIdentifierAssociation.scope == parent_scope,
                          models.DataIdentifierAssociation.name == parent_name,
+                         exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                             and_(models.DataIdentifier.scope == models.DataIdentifierAssociation.scope,
+                                  models.DataIdentifier.name == models.DataIdentifierAssociation.name,
+                                  models.DataIdentifier.is_archive == true())),
                          ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
                              and_(models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
                                   models.DataIdentifier.name == models.DataIdentifierAssociation.child_name,
@@ -1873,6 +1877,8 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
         clt_to_update = list(session
                              .query(models.DataIdentifierAssociation.scope,
                                     models.DataIdentifierAssociation.name)
+                             .distinct(models.DataIdentifierAssociation.scope,
+                                       models.DataIdentifierAssociation.name)
                              .with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
                              .filter(or_(*chunk)))
         if clt_to_update:
