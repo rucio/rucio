@@ -138,7 +138,7 @@ def bulk_submit_xfer(submitjob, recursive=False):
 
     # logging.info('submitting transfer...')
     transfer_result = tc.submit_transfer(tdata)
-    # logging.info("task_id =", transfer_result["task_id"])
+    logging.info("transfer_result: %s" % transfer_result)
 
     return transfer_result["task_id"]
 
@@ -180,12 +180,12 @@ def send_delete_task(endpoint_id=None, path=None):
     return delete_result
 
 
-def send_bulk_delete_task(endpoint_id=None, replicas=None):
+def send_bulk_delete_task(endpoint_id=None, pfns=None):
     tc = getTransferClient()
     ddata = DeleteData(tc, endpoint_id, recursive=True)
-    for replica in replicas:
-        logging.debug('replica: %s' % replica)
-        ddata.add_item(replica['pfn'])
+    for pfn in pfns:
+        logging.debug('pfn: %s' % pfn)
+        ddata.add_item(pfn)
     bulk_delete_result = tc.submit_delete(ddata)
 
     return bulk_delete_result

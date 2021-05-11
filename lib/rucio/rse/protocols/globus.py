@@ -225,9 +225,9 @@ class GlobusRSEProtocol(RSEProtocol):
             print('delete_task not accepted by Globus')
             print('delete_response: %s' % delete_response)
 
-    def bulk_delete(self, replicas):
+    def bulk_delete(self, pfns):
         """
-            Submits a task to bulk delete files on globus endpoint.
+            Submits an async task to bulk delete files on globus endpoint.
 
             :param replicas: list of file replicas to delete
 
@@ -235,7 +235,7 @@ class GlobusRSEProtocol(RSEProtocol):
         """
         if self.globus_endpoint_id:
             try:
-                bulk_delete_response = send_bulk_delete_task(endpoint_id=self.globus_endpoint_id[0], replicas=replicas)
+                bulk_delete_response = send_bulk_delete_task(endpoint_id=self.globus_endpoint_id[0], pfns=pfns)
             except TransferAPIError as err:
                 self.logger(logging.WARNING, str(err))
         else:

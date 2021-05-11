@@ -492,6 +492,14 @@ class RSEProtocol(object):
         """
         raise NotImplementedError
 
+    def bulk_delete(self, pfns):
+        """
+            Submits an async task to bulk delete files.
+
+            :param pfns: list of pfns to delete
+        """
+        raise NotImplementedError
+
     def rename(self, path, new_path):
         """ Allows to rename a file stored inside the connected RSE.
 

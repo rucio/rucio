@@ -152,7 +152,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
     rse_id = rse_info['id']
     noaccess_attempts = 0
     if bulk:
-        replicas_to_bulk_delete = []
+        pfns_to_bulk_delete = []
     try:
         prot.connect()
         for replica in replicas:
@@ -183,7 +183,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
                     if not bulk:
                         prot.delete(pfn)
                     else:
-                        replicas_to_bulk_delete.append(replica)
+                        pfns_to_bulk_delete.append(replica['pfn'])
                 else:
                     logger(logging.WARNING, 'Deletion UNAVAILABLE of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
 
@@ -218,9 +218,9 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
                 deletion_dict['reason'] = str(error)
                 add_message('deletion-failed', deletion_dict)
 
-        if bulk and replicas_to_bulk_delete:
+        if bulk and pfns_to_bulk_delete:
             logger(logging.DEBUG, 'Attempting bulk delete on RSE %s for scheme %s', rse_name, prot.attributes['scheme'])
-            prot.bulk_delete(replicas_to_bulk_delete)
+            prot.bulk_delete(pfns_to_bulk_delete)
 
     except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
         for replica in replicas:
