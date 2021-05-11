@@ -852,12 +852,13 @@ class BulkMeta(RucioController):
         try:
             params = parse_response(json_data)
             dids = params['dids']
+            inherit = params.get('inherit', False)
         except KeyError as error:
             raise generate_http_error(400, 'ValueError', 'Cannot find mandatory parameter : %s' % str(error))
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
-            for meta in get_metadata_bulk(dids, vo=ctx.env.get('vo')):
+            for meta in get_metadata_bulk(dids, inherit=inherit, vo=ctx.env.get('vo')):
                 yield render_json(**meta) + '\n'
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')

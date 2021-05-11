@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
@@ -1288,26 +1288,95 @@ def get_metadata(scope, name, plugin='DID_COLUMN', session=None):
 
 
 @stream_session
-def get_metadata_bulk(dids, session=None):
+def list_parent_dids_bulk(dids, session=None):
     """
-    Get metadata for a list of dids
-    :param dids: A list of dids.
-    :param session: The database session in use.
+    List parent datasets and containers of a did.
+
+    :param dids:               A list of dids.
+    :param session:            The database session in use.
+    :returns:                  List of dids.
+    :rtype:                    Generator.
     """
     condition = []
     for did in dids:
-        condition.append(and_(models.DataIdentifier.scope == did['scope'],
-                              models.DataIdentifier.name == did['name']))
+        condition.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'],
+                              models.DataIdentifierAssociation.child_name == did['name']))
 
     try:
         for chunk in chunks(condition, 50):
-            for row in session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(or_(*chunk)):
-                data = {}
-                for column in row.__table__.columns:
-                    data[column.name] = getattr(row, column.name)
-                yield data
+            query = session.query(models.DataIdentifierAssociation.child_scope,
+                                  models.DataIdentifierAssociation.child_name,
+                                  models.DataIdentifierAssociation.scope,
+                                  models.DataIdentifierAssociation.name,
+                                  models.DataIdentifierAssociation.did_type).filter(or_(*chunk))
+            for did_chunk in query.yield_per(5):
+                yield {'scope': did_chunk.scope, 'name': did_chunk.name, 'child_scope': did_chunk.child_scope, 'child_name': did_chunk.child_name, 'type': did_chunk.did_type}
     except NoResultFound:
         raise exception.DataIdentifierNotFound('No Data Identifiers found')
+
+
+@stream_session
+def get_metadata_bulk(dids, inherit=False, session=None):
+    """
+    Get metadata for a list of dids
+    :param dids:               A list of dids.
+    :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
+    :param session:            The database session in use.
+    """
+    if inherit:
+        parent_list = []
+        unique_dids = []
+        parents = [1, ]
+        depth = 0
+        for did in dids:
+            unique_dids.append((did['scope'], did['name']))
+            parent_list.append([(did['scope'], did['name']), ])
+
+        while parents and depth < 20:
+            parents = []
+            for did in list_parent_dids_bulk(dids, session=session):
+                scope = did['scope']
+                name = did['name']
+                child_scope = did['child_scope']
+                child_name = did['child_name']
+                if (scope, name) not in unique_dids:
+                    unique_dids.append((scope, name))
+                if (scope, name) not in parents:
+                    parents.append((scope, name))
+                for entry in parent_list:
+                    if entry[-1] == (child_scope, child_name):
+                        entry.append((scope, name))
+            dids = [{'scope': did[0], 'name': did[1]} for did in parents]
+            depth += 1
+        unique_dids = [{'scope': did[0], 'name': did[1]} for did in unique_dids]
+        meta_dict = {}
+        for did in unique_dids:
+            try:
+                meta = get_metadata(did['scope'], did['name'], plugin='JSON', session=session)
+            except exception.DataIdentifierNotFound:
+                meta = {}
+            meta_dict[(did['scope'], did['name'])] = meta
+        for dids in parent_list:
+            result = {'scope': dids[0][0], 'name': dids[0][1]}
+            for did in dids:
+                for key in meta_dict[did]:
+                    if key not in result:
+                        result[key] = meta_dict[did][key]
+            yield result
+    else:
+        condition = []
+        for did in dids:
+            condition.append(and_(models.DataIdentifier.scope == did['scope'],
+                                  models.DataIdentifier.name == did['name']))
+        try:
+            for chunk in chunks(condition, 50):
+                for row in session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(or_(*chunk)):
+                    data = {}
+                    for column in row.__table__.columns:
+                        data[column.name] = getattr(row, column.name)
+                    yield data
+        except NoResultFound:
+            raise exception.DataIdentifierNotFound('No Data Identifiers found')
 
 
 @transactional_session
