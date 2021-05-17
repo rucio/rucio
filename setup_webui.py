@@ -76,7 +76,7 @@ setup(
     description=description,
     license="Apache License, Version 2.0",
     url="http://rucio.cern.ch/",
-    python_requires=">=3.6, !=3.9.*, <4",
+    python_requires=">=3.6, <4",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: Apache Software License',
