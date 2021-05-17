@@ -1818,12 +1818,18 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
 
     # Remove Archive Constituents
     removed_constituents = []
+    constituents_to_delete_condition = []
     for chunk in chunks(archive_contents_condition, 30):
         query = session.query(models.ConstituentAssociation). \
             with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_CHILD_IDX)", 'oracle'). \
             filter(or_(*chunk))
         for constituent in query:
             removed_constituents.append({'scope': constituent.child_scope, 'name': constituent.child_name})
+            constituents_to_delete_condition.append(
+                and_(models.ConstituentAssociation.scope == constituent.scope,
+                     models.ConstituentAssociation.name == constituent.name,
+                     models.ConstituentAssociation.child_scope == constituent.child_scope,
+                     models.ConstituentAssociation.child_name == constituent.child_name))
 
             models.ConstituentAssociationHistory(
                 child_scope=constituent.child_scope,
@@ -1839,12 +1845,21 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
                 created_at=constituent.created_at,
             ).save(session=session, flush=False)
 
-        session.query(models.ConstituentAssociation).\
-            with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_CHILD_IDX)", 'oracle').\
-            filter(or_(*chunk)).\
+            if len(constituents_to_delete_condition) > 200:
+                session.query(models.ConstituentAssociation).\
+                    with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle').\
+                    filter(or_(*constituents_to_delete_condition)).\
+                    delete(synchronize_session=False)
+                constituents_to_delete_condition.clear()
+
+                __cleanup_after_replica_deletion(rse_id=rse_id, files=removed_constituents, session=session)
+                removed_constituents.clear()
+    if constituents_to_delete_condition:
+        session.query(models.ConstituentAssociation). \
+            with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle'). \
+            filter(or_(*constituents_to_delete_condition)). \
             delete(synchronize_session=False)
-    for chunk in chunks(removed_constituents, 200):
-        __cleanup_after_replica_deletion(rse_id=rse_id, files=chunk, session=session)
+        __cleanup_after_replica_deletion(rse_id=rse_id, files=removed_constituents, session=session)
 
     # Remove rules in Waiting for approval or Suspended
     for chunk in chunks(deleted_rules, 100):
