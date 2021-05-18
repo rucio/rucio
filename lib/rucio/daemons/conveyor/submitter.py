@@ -349,9 +349,9 @@ def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, lim
                                                                                                                                      retry_other_fts=retry_other_fts,
                                                                                                                                      failover_schemes=failover_schemes,
                                                                                                                                      transfertool=transfertool)
-    request_core.set_requests_state(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
-    request_core.set_requests_state(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
-    request_core.set_requests_state(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
+    request_core.set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
+    request_core.set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
+    request_core.set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
 
     for request_id in transfers:
         sources = transfers[request_id]['sources']
