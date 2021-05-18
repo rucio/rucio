@@ -58,7 +58,9 @@ from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
 from rucio.daemons.badreplicas.necromancer import run as necromancer_run
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, ReplicaState, BadPFNStatus, OBSOLETE
+from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, headers, auth, Mime, accept
 
@@ -854,6 +856,34 @@ def test_client_access_denied_on_delete_replicas(rse_factory, mock_scope, replic
     for f in files:
         replicas = list(replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']}]))
         assert len(replicas) == 1
+
+
+def test_client_list_replicas_on_did_without_replicas(rse_factory, did_factory, replica_client, did_client, root_account):
+    """ REPLICA (CLIENT): dids of type FILE, but without replicas, must be listed with empty pfns and rses"""
+    rse, _ = rse_factory.make_posix_rse()
+    file = did_factory.random_did()
+    dataset = did_factory.make_dataset()
+    container = did_factory.make_container()
+
+    @transactional_session
+    def __add_file_did_without_replica(session=None):
+        models.DataIdentifier(scope=file['scope'], name=file['name'], did_type=DIDType.FILE, bytes=1, adler32='0cc737eb', account=root_account).save(session=session, flush=False)
+
+    __add_file_did_without_replica()
+
+    # make all scopes external
+    file, dataset, container = ({'scope': did['scope'].external, 'name': did['name']} for did in (file, dataset, container))
+
+    did_client.add_files_to_dataset(files=[file], **dataset)
+    did_client.add_datasets_to_container(dsns=[dataset], **container)
+
+    replicas = list(replica_client.list_replicas(dids=[file]))
+    assert len(replicas) == 1
+    assert not replicas[0]['rses']
+    assert not replicas[0]['pfns']
+    # TODO: fix listing dids without replicas from datasets and containers and uncomment the following 2 asserts
+    # assert list(replica_client.list_replicas(dids=[dataset]))
+    # assert list(replica_client.list_replicas(dids=[container]))
 
 
 def test_client_list_blacklisted_replicas(rse_factory, did_factory, replica_client, did_client):

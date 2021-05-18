@@ -25,6 +25,7 @@
 
 import logging
 import shutil
+import tarfile
 from unittest.mock import patch, MagicMock, ANY
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
@@ -295,6 +296,37 @@ def test_download_from_archive_on_xrd(did_factory, download_client, did_client):
                 },
             ],
         )
+
+
+def test_download_archive_client_extract(rse_factory, did_factory, download_client, did_client, mock_scope):
+    """
+    Verify that client extraction works correctly for files inside archives
+    """
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
+    base_name = 'testDownloadClientExtract' + generate_uuid()
+    with TemporaryDirectory() as tmp_dir:
+        # Create a tar archive with a file inside and upload it
+        name = base_name + '.000'
+        data = '000'
+        adler32 = '01230091'
+        tar_name = base_name + '.tar.gz'
+        tar_path = '%s/%s' % (tmp_dir, tar_name)
+        with tarfile.open(tar_path, 'w:gz') as tar:
+            file_path = "%s/%s" % (tmp_dir, name)
+            with open(file_path, 'w') as file:
+                file.write(data)
+            tar.add(file_path, arcname=name)
+        did_factory.upload_test_file(rse, scope=scope, name=tar_name, path=tar_path)
+        did_client.add_files_to_archive(scope, tar_name, [
+            {'scope': scope, 'name': name, 'bytes': len(data), 'type': 'FILE', 'adler32': adler32, 'meta': {'guid': str(generate_uuid())}},
+        ])
+
+    with TemporaryDirectory() as tmp_dir:
+        result = download_client.download_dids([{'did': '%s:%s' % (scope, name), 'base_dir': tmp_dir}])
+        assert len(result) == 1
+        with open('%s/%s/%s' % (tmp_dir, scope, name), 'r') as file:
+            assert file.read() == data
 
 
 @pytest.mark.dirty
