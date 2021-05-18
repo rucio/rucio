@@ -444,7 +444,7 @@ def query_request_details(request_id, transfertool='fts3', session=None, logger=
 @transactional_session
 def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, staging_started_at=None, staging_finished_at=None, src_rse_id=None, err_msg=None, session=None, logger=logging.log):
     """
-    Update the state of a request. Fails silently if the request_id does not exist.
+    Update the state of a request.
 
     :param request_id:           Request-ID as a 32 character hex string.
     :param new_state:            New state as string.
@@ -494,7 +494,7 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
 @transactional_session
 def set_requests_state(request_ids, new_state, session=None, logger=logging.log):
     """
-    Bulk update the state of requests. Fails silently if the request_id does not exist.
+    Bulk update the state of requests.
 
     :param request_ids:  List of (Request-ID as a 32 character hex string).
     :param new_state:    New state as string.
@@ -507,6 +507,29 @@ def set_requests_state(request_ids, new_state, session=None, logger=logging.log)
     try:
         for request_id in request_ids:
             set_request_state(request_id, new_state, session=session, logger=logger)
+    except IntegrityError as error:
+        raise RucioException(error.args)
+
+
+@transactional_session
+def set_requests_state_if_possible(request_ids, new_state, session=None, logger=logging.log):
+    """
+    Bulk update the state of requests. Skips silently if the request_id does not exist.
+
+    :param request_ids:  List of (Request-ID as a 32 character hex string).
+    :param new_state:    New state as string.
+    :param session:      Database session to use.
+    :param logger:       Optional decorated logger that can be passed from the calling daemons or servers.
+    """
+
+    record_counter('core.request.set_requests_state_if_possible')
+
+    try:
+        for request_id in request_ids:
+            try:
+                set_request_state(request_id, new_state, session=session, logger=logger)
+            except UnsupportedOperation:
+                continue
     except IntegrityError as error:
         raise RucioException(error.args)
 
