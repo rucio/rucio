@@ -1071,7 +1071,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if current_source_is_tape and new_source_is_tape:
                     # multiple Tape source replicas are not allowed in FTS3.
                     # Either keep the old source. Or substitute it with the new one.
-                    if ranking > transfers[req_id]['sources'][0][3] or (ranking == transfers[req_id]['sources'][0][3] and link_ranking < transfers[req_id]['sources'][0][4]):
+                    prev_is_multihop = transfers[req_id]['sources'][0][4] is None  # will be None if the previous transfer is multihop
+                    if ranking > transfers[req_id]['sources'][0][3]\
+                            or (ranking == transfers[req_id]['sources'][0][3] and (prev_is_multihop
+                                                                                   or link_ranking < transfers[req_id]['sources'][0][4])):
                         transfers[req_id]['sources'] = []
                         transfers[req_id]['bring_online'] = bring_online_local
                         transfers[req_id]['file_metadata']['src_rse'] = rse
