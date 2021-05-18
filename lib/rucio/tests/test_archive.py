@@ -26,7 +26,7 @@
 
 from rucio.common.utils import generate_uuid
 from rucio.core.replica import add_replicas, delete_replicas
-from rucio.core.rse import update_rse
+from rucio.core.rse import add_protocol, update_rse
 from rucio.core.did import attach_dids, get_metadata
 
 
@@ -186,3 +186,63 @@ def test_archive_on_dataset_level(rse_factory, did_factory, root_account):
     assert not metadata['is_archive']
     metadata = get_metadata(**dataset2)
     assert not metadata['is_archive']
+
+
+def test_root_priority_is_highest(rse_factory, mock_scope, root_account, did_client, replica_client):
+    """ ARCHIVE (CORE): Ensure that the root protocol is prioritized for archives"""
+
+    # Add 2 RSEs. Set the root protocol to have the lowest priority overall
+    rse1, rse1_id = rse_factory.make_rse()
+    rse2, rse2_id = rse_factory.make_rse()
+    add_protocol(rse1_id, {'scheme': 'file',
+                           'hostname': 'xrootpriority1.aperture.com',
+                           'port': 1409,
+                           'prefix': '/prefix1/',
+                           'impl': 'rucio.rse.protocols.posix.Default',
+                           'domains': {
+                               'lan': {'read': 1, 'write': 1, 'delete': 1},
+                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+    add_protocol(rse1_id, {'scheme': 'root',
+                           'hostname': 'xrootpriority1.aperture.com',
+                           'port': 1410,
+                           'prefix': '/prefix2/',
+                           'impl': 'rucio.rse.protocols.xrootd.Default',
+                           'domains': {
+                               'lan': {'read': 2, 'write': 2, 'delete': 2},
+                               'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+    add_protocol(rse2_id, {'scheme': 'file',
+                           'hostname': 'xrootpriority2.aperture.com',
+                           'port': 1409,
+                           'prefix': '/prefix3/',
+                           'impl': 'rucio.rse.protocols.posix.Default',
+                           'domains': {
+                               'lan': {'read': 1, 'write': 1, 'delete': 1},
+                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+
+    # register archive
+    archive = {'scope': mock_scope, 'name': 'cube.1.zip', 'type': 'FILE', 'bytes': 2596, 'adler32': 'beefdead'}
+    add_replicas(rse_id=rse1_id, files=[archive], account=root_account)
+    add_replicas(rse_id=rse2_id, files=[archive], account=root_account)
+
+    # archived files with replicas
+    archived_file = [{'scope': mock_scope, 'name': 'zippedfile-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
+                      'bytes': 4322, 'adler32': 'beefbeef'} for i in range(2)]
+    did_client.add_files_to_archive(scope=mock_scope.external, name=archive['name'], files=archived_file)
+
+    both_rses = '%s|%s' % (rse1, rse2)
+    replicas = list(replica_client.list_replicas(dids=[{'scope': f['scope'].external, 'name': f['name']} for f in archived_file], rse_expression=both_rses))
+
+    for replica in replicas:
+        # The root protocol pfn must have the smallest (best) priority
+        assert len(replica['pfns']) == 3
+        root_pfn = next(filter(lambda pfn: pfn.startswith('root'), replica['pfns']))
+        posix_pfn = next(filter(lambda pfn: pfn.startswith('file'), replica['pfns']))
+        assert replica['pfns'][root_pfn]['priority'] == 1
+        assert replica['pfns'][root_pfn]['priority'] < replica['pfns'][posix_pfn]['priority']
+
+        # The root protocol supports downloading files directly from archives. Client_extract must be false
+        assert not replica['pfns'][root_pfn]['client_extract']
+        assert replica['pfns'][posix_pfn]['client_extract']
+
+        assert replica['pfns'][root_pfn]['domain'] == 'zip'
+        assert replica['pfns'][posix_pfn]['domain'] == 'zip'
