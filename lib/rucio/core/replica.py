@@ -641,10 +641,14 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
     :param resolve_archives: When set to true, find archives which contain the replicas.
     :param session: The database session in use.
     """
-    did_clause, dataset_clause, file_clause, files, constituents = [], [], [], [], {}
+    did_clause, dataset_clause, file_clause, constituent_clause = [], [], [], []
+    # Accumulate all the dids which were requested explicitly (not via a container/dataset).
+    # If any replicas for these dids will be found latter, the associated did will be removed from the list,
+    # leaving, at the end, only the requested dids which didn't have any replicas at all.
+    files_wo_replica = []
     for did in [dict(tupleized) for tupleized in set(tuple(item.items()) for item in dids)]:
         if 'type' in did and did['type'] in (DIDType.FILE, DIDType.FILE.value) or 'did_type' in did and did['did_type'] in (DIDType.FILE, DIDType.FILE.value):  # pylint: disable=no-member
-            files.append({'scope': did['scope'], 'name': did['name']})
+            files_wo_replica.append({'scope': did['scope'], 'name': did['name']})
             file_clause.append(and_(models.RSEFileAssociation.scope == did['scope'],
                                     models.RSEFileAssociation.name == did['name']))
 
@@ -660,17 +664,11 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
                                                          .with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')\
                                                          .filter(or_(*did_clause)):
             if resolve_archives and constituent:
-                # file is a constituent, resolve to parent archives if necessary
-                archive = session.query(models.ConstituentAssociation.scope,
-                                        models.ConstituentAssociation.name)\
-                                 .filter(models.ConstituentAssociation.child_scope == scope,
-                                         models.ConstituentAssociation.child_name == name)\
-                                 .with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle')\
-                                 .all()
-                constituents['%s:%s' % (scope.internal, name)] = [{'scope': tmp[0], 'name': tmp[1]} for tmp in archive]
+                constituent_clause.append(and_(models.ConstituentAssociation.child_scope == scope,
+                                               models.ConstituentAssociation.child_name == name))
 
             if did_type == DIDType.FILE:
-                files.append({'scope': scope, 'name': name})
+                files_wo_replica.append({'scope': scope, 'name': name})
                 file_clause.append(and_(models.RSEFileAssociation.scope == scope,
                                         models.RSEFileAssociation.name == name))
 
@@ -704,7 +702,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
                                models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
                                models.RSEFileAssociation.state == ReplicaState.COPYING)
 
-    return file_clause, dataset_clause, state_clause, files, constituents
+    return file_clause, dataset_clause, state_clause, constituent_clause, files_wo_replica
 
 
 def _pick_n_random(nrandom, generator):
@@ -786,11 +784,62 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore
     if updated_after:
         replica_query = replica_query.filter(models.RSEFileAssociation.updated_at >= updated_after)
 
-    for replica in replica_query.yield_per(500):
+    for scope, name, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_query.yield_per(500):
+        yield scope, name, None, None, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile
+
+
+def _list_replicas_for_constituents(constituent_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session):
+    """
+    List file replicas for archive constituents.
+    """
+    if not constituent_clause:
+        return
+
+    constituent_query = session.query(models.ConstituentAssociation.child_scope,
+                                      models.ConstituentAssociation.child_name,
+                                      models.ConstituentAssociation.scope,
+                                      models.ConstituentAssociation.name,
+                                      models.ConstituentAssociation.bytes,
+                                      models.ConstituentAssociation.md5,
+                                      models.ConstituentAssociation.adler32,
+                                      models.RSEFileAssociation.path,
+                                      models.RSEFileAssociation.state,
+                                      models.RSE.id,
+                                      models.RSE.rse,
+                                      models.RSE.rse_type,
+                                      models.RSE.volatile). \
+        with_hint(models.RSEFileAssociation,
+                  text="INDEX_RS_ASC(CONTENTS CONTENTS_PK) INDEX_RS_ASC(REPLICAS REPLICAS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                  dialect_name='oracle'). \
+        with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle'). \
+        outerjoin(models.RSEFileAssociation,
+                  and_(models.ConstituentAssociation.scope == models.RSEFileAssociation.scope,
+                       models.ConstituentAssociation.name == models.RSEFileAssociation.name)). \
+        join(models.RSE, models.RSE.id == models.RSEFileAssociation.rse_id). \
+        filter(models.RSE.deleted == false()). \
+        filter(or_(*constituent_clause)). \
+        order_by(models.ConstituentAssociation.child_scope,
+                 models.ConstituentAssociation.child_name)
+
+    if not ignore_availability:
+        constituent_query = constituent_query.filter(models.RSE.availability.in_((4, 5, 6, 7)))
+
+    if state_clause is not None:
+        constituent_query = constituent_query.filter(and_(state_clause))
+
+    if rse_clause is not None:
+        constituent_query = constituent_query.filter(or_(*rse_clause))
+
+    if updated_after:
+        constituent_query = constituent_query.filter(models.RSEFileAssociation.updated_at >= updated_after)
+
+    for replica in constituent_query.yield_per(500):
+        scope, name = replica[0], replica[1]
+        {'scope': scope, 'name': name} in files_wo_replica and files_wo_replica.remove({'scope': scope, 'name': name})
         yield replica
 
 
-def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, ignore_availability, updated_after, session):
+def _list_replicas_for_files(file_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session):
     """
     List file replicas for a list of files.
 
@@ -837,13 +886,15 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, ignor
             with_hint(models.RSEFileAssociation.scope, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
             compile()
 
-        for replica in session.execute(replica_query.statement, replica_query.params).fetchall():
-            {'scope': replica[0], 'name': replica[1]} in files and files.remove({'scope': replica[0], 'name': replica[1]})
-            yield replica
+        for scope, name, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile in session.execute(replica_query.statement, replica_query.params).fetchall():
+            {'scope': scope, 'name': name} in files_wo_replica and files_wo_replica.remove({'scope': scope, 'name': name})
+            yield scope, name, None, None, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile
 
-    if files:
+
+def _list_files_wo_replicas(files_wo_replica, session):
+    if files_wo_replica:
         file_wo_clause = []
-        for file in files:
+        for file in sorted(files_wo_replica, key=lambda f: (f['scope'], f['name'])):
             file_wo_clause.append(and_(models.DataIdentifier.scope == file['scope'],
                                        models.DataIdentifier.name == file['name']))
         files_wo_replicas_query = session.query(models.DataIdentifier.scope,
@@ -855,8 +906,7 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, ignor
             with_hint(models.DataIdentifier, text="INDEX(DIDS DIDS_PK)", dialect_name='oracle')
 
         for scope, name, bytes, md5, adler32 in files_wo_replicas_query:
-            yield scope, name, bytes, md5, adler32, None, None, None, None, None, None
-            {'scope': scope, 'name': name} in files and files.remove({'scope': scope, 'name': name})
+            yield scope, name, bytes, md5, adler32
 
 
 def get_vp_endpoint():
@@ -908,15 +958,16 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
 
 
 def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
-                   schemes, files, rse_clause, rse_expression, client_location, domain,
-                   sign_urls, signature_lifetime, constituents, resolve_parents,
+                   schemes, files_wo_replica, rse_clause, client_location, domain,
+                   sign_urls, signature_lifetime, constituent_clause, resolve_parents,
                    updated_after, filters, ignore_availability,
                    session):
 
     # iterator which merges multiple sorted replica sources into a combine sorted result without loading everything into the memory
     replicas = heapq.merge(
         _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session),
-        _list_replicas_for_files(file_clause, state_clause, files, rse_clause, ignore_availability, updated_after, session),
+        _list_replicas_for_files(file_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session),
+        _list_replicas_for_constituents(constituent_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session),
         key=lambda t: (t[0], t[1]),  # sort by scope, name
     )
 
@@ -935,102 +986,12 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
     file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
 
-    for scope, name, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replicas:
+    for scope, name, archive_scope, archive_name, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replicas:
 
         pfns = []
 
         # reset the domain selection to original user's choice (as this could get overwritten each iteration)
         domain = deepcopy(original_domain)
-
-        # if the file is a constituent, find the available archives and add them to the list of possible PFNs
-        # taking into account the original rse_expression
-        if '%s:%s' % (scope.internal, name) in constituents:
-
-            # special protocol handling for constituents
-            # force the use of root if client didn't specify
-            if not schemes:
-                schemes = ['root']
-            else:
-                # always add root for archives
-                schemes.append('root')
-                schemes = list(set(schemes))
-
-            archive_result = list_replicas(dids=constituents['%s:%s' % (scope.internal, name)],
-                                           schemes=schemes, client_location=client_location,
-                                           domain=domain, sign_urls=sign_urls,
-                                           ignore_availability=ignore_availability,
-                                           rse_expression=rse_expression,
-                                           signature_lifetime=signature_lifetime,
-                                           updated_after=updated_after,
-                                           session=session)
-
-            # is it the only instance (i.e., no RSE for the replica)?
-            # then yield and continue as the replica does not exist and we don't want to return
-            # an additional empty pfn to the client
-            if rse_id is None:
-
-                # retrieve the constituents metadata so we can downport it later
-                # otherwise the zip meta will be used which won't match the actual file
-                # full name used due to circular import dependency between modules
-                constituent_meta = rucio.core.did.get_metadata(scope, name, session=session)
-
-                for archive in archive_result:
-                    # RSE expression might limit the archives we're allowed to use
-                    # if it's empty due to non-matching RSE expression we must skip
-                    if archive['pfns'] == {}:
-                        continue
-
-                    # downport the constituents meta, we are not interested in the archives meta
-                    archive['scope'] = scope
-                    archive['name'] = name
-                    archive['adler32'] = constituent_meta['adler32']
-                    archive['md5'] = constituent_meta['md5']
-                    archive['bytes'] = constituent_meta['bytes']
-
-                    for tmp_archive in list(archive['pfns']):
-                        # at this point we don't know the protocol of the parent, so we have to peek
-                        if tmp_archive.startswith('root://') and 'xrdcl.unzip' not in tmp_archive:
-                            # use direct addressable path for root
-                            new_pfn = add_url_query(tmp_archive, {'xrdcl.unzip': name})
-                            archive['pfns'][new_pfn] = archive['pfns'].pop(tmp_archive)
-                            tmp_archive = new_pfn
-                            # any number larger than the number of availabe protocols is fine
-                            archive['pfns'][tmp_archive]['priority'] -= 99
-                        if 'xrdcl.unzip' not in tmp_archive:
-                            archive['pfns'][tmp_archive]['client_extract'] = True
-
-                        # declare the constituent as being in a zip file
-                        archive['pfns'][tmp_archive]['domain'] = 'zip'
-
-                        pfns.append((tmp_archive, 'zip',
-                                     archive['pfns'][tmp_archive]['priority'],
-                                     archive['pfns'][tmp_archive]['client_extract'],
-                                     archive['pfns'][tmp_archive]))
-
-            # now, repeat the procedure slightly different in case if there are replicas available
-            # and make the archive just an additional available PFN
-            available_archives = [r['pfns'] for r in archive_result if r['pfns'] != {}]
-
-            for archive in available_archives:
-                for archive_pfn in archive:
-                    # at this point we don't know the protocol of the parent, so we have to peek
-                    if archive_pfn.startswith('root://'):
-                        # use direct addressable path for root
-                        pfn = add_url_query(archive_pfn, {'xrdcl.unzip': name})
-                        # any number larger than the number of availabe protocols is fine
-                        archive[archive_pfn]['priority'] -= 99
-                        priority = archive[archive_pfn]['priority']
-                        client_extract = False
-                    else:
-                        # otherwise just use the zip and tell the client to extract
-                        pfn = archive_pfn
-                        priority = archive[archive_pfn]['priority']
-                        client_extract = True
-
-                    # use zip domain for sorting, and pass through all the information
-                    # we need it later to reconstruct the final PFNS
-                    # ('pfn', 'domain', 'priority', 'client_extract', archive-passthrough)
-                    pfns.append((pfn, 'zip', priority, client_extract, archive[archive_pfn]))
 
         if show_pfns and rse_id:
             if rse_id not in rse_info:
@@ -1068,6 +1029,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     except Exception:
                         print(format_exc())
 
+                if archive_scope and archive_name and 'root' not in rse_schemes:
+                    rse_schemes.append('root')
+
                 protocols = []
                 for s in rse_schemes:
                     try:
@@ -1097,17 +1061,25 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
             # get pfns
             for tmp_protocol in tmp_protocols[rse_id]:
+                # If the current "replica" is a constituent inside an archive, we must construct the pfn for the
+                # parent (archive) file and append the xrdcl.unzip query string to it.
+                if archive_scope and archive_name:
+                    t_scope = archive_scope
+                    t_name = archive_name
+                else:
+                    t_scope = scope
+                    t_name = name
                 protocol = tmp_protocol[1]
                 if 'determinism_type' in protocol.attributes:  # PFN is cachable
                     try:
-                        path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope.internal, name)]
+                        path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], t_scope.internal, t_name)]
                     except KeyError:  # No cache entry scope:name found for this protocol
-                        path = protocol._get_path(scope, name)
-                        pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope.internal, name)] = path
+                        path = protocol._get_path(t_scope, t_name)
+                        pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], t_scope.internal, t_name)] = path
 
                 try:
-                    pfn = list(protocol.lfns2pfns(lfns={'scope': scope.external,
-                                                        'name': name,
+                    pfn = list(protocol.lfns2pfns(lfns={'scope': t_scope.external,
+                                                        'name': t_name,
                                                         'path': path}).values())[0]
 
                     # do we need to sign the URLs?
@@ -1138,7 +1110,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 if cache_site != '':
                                     # print('client', client_location['site'], 'has cache:', cache_site)
                                     # print('filename', name)
-                                    selected_prefix = get_multi_cache_prefix(cache_site, name)
+                                    selected_prefix = get_multi_cache_prefix(cache_site, t_name)
                                     if selected_prefix:
                                         pfn = 'root://' + selected_prefix + '//' + pfn.replace('davs://', 'root://')
                                 else:
@@ -1160,7 +1132,19 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
                     # PFNs don't have concepts, therefore quickly encapsulate in a tuple
                     # ('pfn', 'domain', 'priority', 'client_extract')
-                    pfns.append((pfn, tmp_protocol[0], tmp_protocol[2], False))
+                    t_domain = tmp_protocol[0]
+                    t_priority = tmp_protocol[2]
+                    t_client_extract = False
+                    if archive_scope and archive_name:
+                        t_domain = 'zip'
+                        pfn = add_url_query(pfn, {'xrdcl.unzip': name})
+                        if protocol.attributes['scheme'] == 'root':
+                            # xroot supports downloading files directly from inside an archive. Disable client_extract and prioritize xroot.
+                            t_client_extract = False
+                            t_priority = -1
+                        else:
+                            t_client_extract = True
+                    pfns.append((pfn, t_domain, t_priority, t_client_extract))
                 except Exception:
                     # never end up here
                     print(format_exc())
@@ -1182,10 +1166,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                        for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
 
                 for tmp_pfn in pfns:
-                    file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'] if tmp_pfn[1] == 'zip' else rse_id,
-                                                'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
-                                                'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type.name),
-                                                'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
+                    file['pfns'][tmp_pfn[0]] = {'rse_id': rse_id,
+                                                'rse': rse,
+                                                'type': str(rse_type.name),
+                                                'volatile': volatile,
                                                 'domain': tmp_pfn[1],
                                                 'priority': tmp_pfn[2],
                                                 'client_extract': tmp_pfn[3]}
@@ -1231,20 +1215,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 # extract properly the pfn from the tuple
                 file['rses'][rse_id] = list(set([tmp_pfn[0] for tmp_pfn in pfns]))
                 for tmp_pfn in pfns:
-                    file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'] if tmp_pfn[1] == 'zip' else rse_id,
-                                                'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
-                                                'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type.name),
-                                                'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
-                                                'domain': tmp_pfn[1],
-                                                'priority': tmp_pfn[2],
-                                                'client_extract': tmp_pfn[3]}
-            else:
-                # extract properly the pfn from the tuple of the rse-expression restricted archive
-                for tmp_pfn in pfns:
-                    file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'],
-                                                'rse': tmp_pfn[4]['rse'],
-                                                'type': tmp_pfn[4]['type'],
-                                                'volatile': tmp_pfn[4]['volatile'],
+                    file['pfns'][tmp_pfn[0]] = {'rse_id': rse_id,
+                                                'rse': rse,
+                                                'type': str(rse_type.name),
+                                                'volatile': volatile,
                                                 'domain': tmp_pfn[1],
                                                 'priority': tmp_pfn[2],
                                                 'client_extract': tmp_pfn[3]}
@@ -1280,6 +1254,17 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
         yield file
         file = {}
 
+    for scope, name, bytes, md5, adler32 in _list_files_wo_replicas(files_wo_replica, session):
+        yield {
+            'scope': scope,
+            'name': name,
+            'bytes': bytes,
+            'md5': md5,
+            'adler32': adler32,
+            'pfns': {},
+            'rses': defaultdict(list)
+        }
+
 
 @stream_session
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
@@ -1313,11 +1298,14 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     else:
         filter = {'vo': 'def'}
 
-    file_clause, dataset_clause, state_clause, files, constituents = _resolve_dids(dids=dids, unavailable=unavailable,
-                                                                                   ignore_availability=ignore_availability,
-                                                                                   all_states=all_states,
-                                                                                   resolve_archives=resolve_archives,
-                                                                                   session=session)
+    file_clause, dataset_clause, state_clause, constituent_clause, files_wo_replica = _resolve_dids(
+        dids=dids,
+        unavailable=unavailable,
+        ignore_availability=ignore_availability,
+        all_states=all_states,
+        resolve_archives=resolve_archives,
+        session=session
+    )
 
     rse_clause = []
     if rse_expression:
@@ -1327,8 +1315,8 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     yield from _pick_n_random(
         nrandom,
         _list_replicas(dataset_clause, file_clause, state_clause, pfns,
-                       schemes, files, rse_clause, rse_expression, client_location, domain,
-                       sign_urls, signature_lifetime, constituents, resolve_parents,
+                       schemes, files_wo_replica, rse_clause, client_location, domain,
+                       sign_urls, signature_lifetime, constituent_clause, resolve_parents,
                        updated_after, filter, ignore_availability,
                        session)
     )
