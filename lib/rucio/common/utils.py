@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
@@ -1366,7 +1366,7 @@ def setup_logger(module_name=None, logger_name=None, logger_level=None, verbose=
 
     # extracting the log level
     if not logger_level:
-        logger_level = logging.WARNING
+        logger_level = logging.INFO
         if verbose:
             logger_level = logging.DEBUG
 
