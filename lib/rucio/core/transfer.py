@@ -65,7 +65,7 @@ from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.oidc import get_token_for_account_operation
-from rucio.core.replica import add_replicas
+from rucio.core.replica import add_replicas, tombstone_from_delay
 from rucio.core.request import queue_requests, set_requests_state
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rses, get_rse_supported_checksums
 from rucio.core.rse_expression_parser import parse_expression
@@ -117,6 +117,8 @@ REQUEST_OIDC_SCOPE = config_get('conveyor', 'request_oidc_scope', False, 'fts:su
 REQUEST_OIDC_AUDIENCE = config_get('conveyor', 'request_oidc_audience', False, 'fts:example')
 
 WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
+
+DEFAULT_MULTIHOP_TOMBSTONE_DELAY = datetime.timedelta(hours=2)
 
 
 class RseData:
@@ -1213,6 +1215,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     if transfertool in ['fts3', None]:
         include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
 
+    default_tombstone_delay = core_config_get('transfers', 'multihop_tombstone_delay', default=DEFAULT_MULTIHOP_TOMBSTONE_DELAY, expiration_time=600, session=session)
+
     multihop_rses = []
     if include_multihop:
         try:
@@ -1339,11 +1343,16 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             dest_rse = transfer.dst.rse
             dest_rse_vo = get_rse_vo(rse_id=dest_rse.id, session=session)
 
+            if 'multihop_tombstone_delay' in dest_rse.attributes:
+                tombstone = tombstone_from_delay(dest_rse.attributes['multihop_tombstone_delay'])
+            else:
+                tombstone = tombstone_from_delay(default_tombstone_delay)
             files = [{'scope': rws.scope,
                       'name': rws.name,
                       'bytes': rws.byte_count,
                       'adler32': rws.adler32,
                       'md5': rws.md5,
+                      'tombstone': tombstone,
                       'state': 'C'}]
             try:
                 add_replicas(rse_id=dest_rse.id,
