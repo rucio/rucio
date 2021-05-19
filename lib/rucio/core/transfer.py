@@ -39,10 +39,10 @@ from __future__ import division
 
 import copy
 import datetime
-import imp
 import json
 import logging
 import re
+import sys
 import time
 from typing import TYPE_CHECKING
 
@@ -83,11 +83,21 @@ if TYPE_CHECKING:
 EXTRA_MODULES = {'globus_sdk': False}
 
 for extra_module in EXTRA_MODULES:
-    try:
-        imp.find_module(extra_module)
-        EXTRA_MODULES[extra_module] = True
-    except ImportError:
-        EXTRA_MODULES[extra_module] = False
+    if sys.version_info < (3, 5):
+        try:
+            import imp
+            imp.find_module(extra_module)
+            EXTRA_MODULES[extra_module] = True
+        except ImportError:
+            EXTRA_MODULES[extra_module] = False
+
+    else:
+        try:
+            import importlib
+            importlib.util.find_spec(extra_module)
+            EXTRA_MODULES[extra_module] = True
+        except ModuleNotFoundError:
+            EXTRA_MODULES[extra_module] = False
 
 if EXTRA_MODULES['globus_sdk']:
     from rucio.transfertool.globus import GlobusTransferTool  # pylint: disable=import-error
