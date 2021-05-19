@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2021
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
@@ -744,7 +744,7 @@ class TestBinRucio(unittest.TestCase):
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert not err
+        assert 'successfully downloaded' in err
         # search for the files with ls
         cmd = 'ls /tmp/'    # search in /tmp/
         print(self.marker + cmd)
