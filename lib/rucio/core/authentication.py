@@ -223,7 +223,9 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
     # try all available SSH identities for the account with the provided signature
     match = False
     for identity in identities:
-        pub_k = paramiko.RSAKey(data=b64decode(identity['identity'].split()[1]))
+        data = identity['identity'].split()[1]
+        data += '=' * ((4 - len(data) % 4) % 4)  # adding required padding
+        pub_k = paramiko.RSAKey(data=b64decode(data))
         for challenge_token in active_challenge_tokens:
             if pub_k.verify_ssh_sig(str(challenge_token['token']).encode(),
                                     paramiko.Message(signature)):
