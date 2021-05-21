@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 import argparse
 import collections
@@ -26,6 +28,10 @@ import pathlib
 import subprocess
 import sys
 from functools import partial
+from typing import Tuple
+
+# mostly for checking the version in automated scripts, similar to sys.version_info
+VERSION: "Tuple[int]" = (2, )
 
 DIST_KEY = "DIST"
 BUILD_ARG_KEYS = ["PYTHON", "IMAGE_IDENTIFIER"]
@@ -58,7 +64,12 @@ def build_images(matrix, script_args):
                                           filtered_buildargs.items()))
             if buildargs_tags:
                 buildargs_tags = '-' + buildargs_tags
-            imagetag = f'rucio-{buildargs.IMAGE_IDENTIFIER}:{dist.lower()}{buildargs_tags}'
+            image_identifier = buildargs.IMAGE_IDENTIFIER
+            if script_args.branch:
+                branch = str(script_args.branch).lstrip('refs/heads/')
+                if branch != 'master':
+                    image_identifier += '-' + branch.lstrip('release-')
+            imagetag = f'rucio-{image_identifier}:{dist.lower()}{buildargs_tags}'
             if script_args.cache_repo:
                 imagetag = script_args.cache_repo.lower() + '/' + imagetag
             cache_args = ()
@@ -66,30 +77,48 @@ def build_images(matrix, script_args):
                 cache_args = ('--no-cache', '--pull-always' if use_podman else '--pull')
             elif script_args.cache_repo:
                 args = ('docker', 'pull', imagetag)
-                print("Running", " ".join(args), file=sys.stderr)
+                print("Running", " ".join(args), file=sys.stderr, flush=True)
                 subprocess.run(args, stdout=sys.stderr, check=False)
                 cache_args = ('--cache-from', imagetag)
+            args = ()
             if buildargs.IMAGE_IDENTIFIER == 'integration-test':
                 if buildargs.PYTHON == '3.6':
                     buildfile = pathlib.Path(script_args.buildfiles_dir) / 'Dockerfile'
-                    args = ('docker', 'build', *cache_args, '--file', str(buildfile), '--tag', imagetag,
-                            *itertools.chain(
-                                *map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), filtered_buildargs.items())),
-                            f'{script_args.buildfiles_dir}')
+                    args = (
+                        'docker',
+                        'build',
+                        *cache_args,
+                        '--file',
+                        str(buildfile),
+                        '--tag',
+                        imagetag,
+                        *itertools.chain(*map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), filtered_buildargs.items())),
+                        f'{script_args.buildfiles_dir}',
+                    )
             elif buildargs.IMAGE_IDENTIFIER == 'autotest':
                 buildfile = pathlib.Path(script_args.buildfiles_dir) / f'{dist}.Dockerfile'
-                args = ('docker', 'build', *cache_args, '--file', str(buildfile), '--tag', imagetag,
-                        *itertools.chain(
-                            *map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), buildargs._asdict().items())),
-                        '.')
+                args = (
+                    'docker',
+                    'build',
+                    *cache_args,
+                    '--file',
+                    str(buildfile),
+                    '--tag',
+                    imagetag,
+                    *itertools.chain(*map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), filtered_buildargs.items())),
+                    '.'
+                )
+            if not args:
+                print("Error defining build arguments from", buildargs, file=sys.stderr, flush=True)
+                sys.exit(1)
 
-            print("Running", " ".join(args), file=sys.stderr)
+            print("Running", " ".join(args), file=sys.stderr, flush=True)
             subprocess.run(args, stdout=sys.stderr, check=True)
-            print("Finished building image", imagetag, file=sys.stderr)
+            print("Finished building image", imagetag, file=sys.stderr, flush=True)
 
             if script_args.push_cache:
                 args = ('docker', 'push', imagetag)
-                print("Running", " ".join(args), file=sys.stderr)
+                print("Running", " ".join(args), file=sys.stderr, flush=True)
                 subprocess.run(args, stdout=sys.stderr, check=True)
 
             images[imagetag] = {DIST_KEY: dist, **buildargs._asdict()}
@@ -97,12 +126,27 @@ def build_images(matrix, script_args):
     return images
 
 
-def main():
-    matrix = json.load(sys.stdin)
-    matrix = (matrix,) if isinstance(matrix, dict) else matrix
+def output_version():
+    print("Rucio tool: build_images.py, copyright 2020 CERN, version", '.'.join(map(str, VERSION)))
+    sys.exit(0)
 
+
+def test_version(args):
+    try:
+        parsed_version = tuple(map(int, str(args.version_test).split('.')))
+    except ValueError:
+        print("Cannot parse version:", args.version_test)
+        sys.exit(1)
+
+    if parsed_version <= VERSION:
+        sys.exit(0)
+    else:
+        sys.exit(1)
+
+
+def main():
     parser = argparse.ArgumentParser(description='Build images according to the test matrix read from stdin.')
-    parser.add_argument('buildfiles_dir', metavar='build directory', type=str, default='.',
+    parser.add_argument('buildfiles_dir', metavar='build directory', type=str, nargs='?', default='.',
                         help='the directory of Dockerfiles')
     parser.add_argument('-o', '--output', dest='output', type=str, choices=['list', 'dict'], default='dict',
                         help='the output of this command')
@@ -112,7 +156,21 @@ def main():
                         help='use the following cache repository, like docker.pkg.github.com/USER/REPO')
     parser.add_argument('-p', '--push-cache', dest='push_cache', action='store_true',
                         help='push the images to the cache repo')
+    parser.add_argument('-b', '--branch', dest='branch', type=str, default='master',
+                        help='the branch used to build the images from (used for the image name)')
+    parser.add_argument('-v', '--version', dest='version', action='store_true',
+                        help='returns the version and exits')
+    parser.add_argument('--version-test', dest='version_test', type=str, required=False,
+                        help='tests if the scripts version is equal or higher than the given version and exits with code 0 if true, 1 otherwise')
     script_args = parser.parse_args()
+
+    if script_args.version:
+        output_version()
+    elif script_args.version_test:
+        test_version(script_args)
+
+    matrix = json.load(sys.stdin)
+    matrix = (matrix,) if isinstance(matrix, dict) else matrix
 
     images = build_images(matrix, script_args)
 
