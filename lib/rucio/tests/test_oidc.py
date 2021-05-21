@@ -18,6 +18,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 import time
 import traceback
@@ -171,6 +172,7 @@ def get_token_row(access_token, account=None, session=None):
 class MockADMINClientISSOIDC(MagicMock):
     # pylint: disable=unused-argument
     client_secret = 'topsecret_nr1'
+
     @classmethod
     def do_any(cls, request=None, request_args=None, response=None):
         oidc_tokens = EXCHANGED_TOKEN_DICT.copy()
@@ -218,6 +220,7 @@ class MockClientOIDC(MagicMock):
         return None
 
     client_secret = 'topsecret_nr1'
+
     @classmethod
     def do_any(cls, Message, endpoint=None, state=None, request_args=None, authn_method=None):
         oidc_tokens = EXCHANGED_TOKEN_DICT.copy()
@@ -237,6 +240,7 @@ class MockClientOIDC(MagicMock):
 class MockADMINClientOtherISSOIDC(MagicMock):
     # pylint: disable=unused-argument
     client_secret = 'topsecret_nr2'
+
     @classmethod
     def do_any(cls, request=None, request_args=None, response=None):
         oidc_tokens = EXCHANGED_TOKEN_DICT.copy()
@@ -1115,7 +1119,7 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         # ---------------------------
         # Check hat the final result has issuer same as admin OIDC identity issuer of the subject token
         assert (('https://test_issuer/' in new_token_dict['identity']) and (self.adminClientSUB in new_token_dict['identity'])
-                    or (('https://test_other_issuer/' in new_token_dict['identity']) and (self.adminClientSUB_otherISS in new_token_dict['identity'])))  # NOQA: W503
+                or (('https://test_other_issuer/' in new_token_dict['identity']) and (self.adminClientSUB_otherISS in new_token_dict['identity'])))  # NOQA: W503
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
         assert req_scope == new_token_dict['oidc_scope']
@@ -1411,7 +1415,7 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         # ---------------------------
         # Check hat the final result has issuer same as admin OIDC identity issuer of the subject token
         assert (('https://test_issuer/' in new_token_dict['identity']) and (self.adminClientSUB in new_token_dict['identity'])
-                    or (('https://test_other_issuer/' in new_token_dict['identity']) and (self.adminClientSUB_otherISS in new_token_dict['identity'])))  # NOQA: W503
+                or (('https://test_other_issuer/' in new_token_dict['identity']) and (self.adminClientSUB_otherISS in new_token_dict['identity'])))  # NOQA: W503
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
         assert req_scope == new_token_dict['oidc_scope']

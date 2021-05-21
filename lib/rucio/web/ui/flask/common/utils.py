@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,15 +15,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
-# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 import re
 import sys
@@ -587,8 +582,10 @@ def oidc_auth(account, issuer, ui_vo=None):
               'webhome': realhome + '/oidc_final'}
     auth_url = auth.get_auth_oidc(account, vo=ui_vo, **kwargs)
     if not auth_url:
-        return render_template("problem.html", msg="It was not possible to get the OIDC authentication url from the Rucio auth server. "
-                                + "In case you provided your account name, make sure it is known to Rucio.")   # NOQA: W503
+        return render_template("problem.html", msg=("It was not possible to get the OIDC authentication url "
+                                                    "from the Rucio auth server. "
+                                                    "In case you provided your account name, make sure it is "
+                                                    "known to Rucio."))
     return redirect(auth_url, code=303)
 
 

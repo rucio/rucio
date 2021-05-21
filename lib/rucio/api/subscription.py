@@ -1,22 +1,29 @@
-"""
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-              http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
- - Martin Barisits, <martin.barisits@cern.ch>, 2012
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015, 2017
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
- - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
- - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
-
- PY3K COMPATIBLE
-"""
+# -*- coding: utf-8 -*-
+# Copyright 2012-2021 CERN
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2012-2021
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 
 from json import dumps, loads
 from sqlalchemy.util import KeyedTuple
@@ -198,7 +205,7 @@ def list_subscription_rule_states(name=None, account=None, vo='def'):
         labels = sub._fields
         d = sub._asdict()
         d['account'] = d['account'].external
-        yield KeyedTuple([d[l] for l in labels], labels=labels)
+        yield KeyedTuple([d[label] for label in labels], labels=labels)
 
 
 def delete_subscription(subscription_id, vo='def'):

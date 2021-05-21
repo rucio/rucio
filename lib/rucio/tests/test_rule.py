@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2019
@@ -833,8 +833,8 @@ class TestReplicationRuleCore(unittest.TestCase):
 
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True)[0]
         for file in files:
-            for l in [lock for lock in get_replica_locks(scope=file['scope'], name=file['name'])]:
-                assert(l['state'] == LockState.STUCK)
+            for filtered_lock in [lock for lock in get_replica_locks(scope=file['scope'], name=file['name'])]:
+                assert(filtered_lock['state'] == LockState.STUCK)
 
     def test_delete_rule_country_admin(self):
         """ REPLICATION RULE (CORE): Delete a rule with a country admin account"""
