@@ -19,7 +19,7 @@ import time
 
 import pytest
 
-import rucio.daemons.reaper.reaper2
+import rucio.daemons.reaper.reaper
 from rucio.core import replica as replica_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
@@ -27,7 +27,7 @@ from rucio.core import rule as rule_core
 from rucio.daemons.conveyor.finisher import finisher
 from rucio.daemons.conveyor.poller import poller
 from rucio.daemons.conveyor.submitter import submitter
-from rucio.daemons.reaper.reaper2 import reaper
+from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, ReplicaState
 from rucio.db.sqla.session import transactional_session
@@ -58,7 +58,7 @@ def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=10):
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
     'rucio.core.config',
-    'rucio.daemons.reaper.reaper2',
+    'rucio.daemons.reaper.reaper',
 ]}], indirect=True)
 def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, core_config_mock, caches_mock):
     """
@@ -99,7 +99,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         assert replica['state'] == ReplicaState.COPYING
 
         # The intermediate replica is protected by its state (Copying)
-        rucio.daemons.reaper.reaper2.REGION.invalidate()
+        rucio.daemons.reaper.reaper.REGION.invalidate()
         reaper(once=True, rses=[], include_rses=jump_rse_name, exclude_rses=None)
         replica = replica_core.get_replica(rse_id=jump_rse_id, **did)
         assert replica['state'] == ReplicaState.COPYING
@@ -112,7 +112,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         # Reaper must not remove this replica, even if it has an obsolete tombstone
         #
         # TODO: Uncomment following lines
-        # rucio.daemons.reaper.reaper2.REGION.invalidate()
+        # rucio.daemons.reaper.reaper.REGION.invalidate()
         # reaper(once=True, rses=[], include_rses=jump_rse_name, exclude_rses=None)
         # replica = replica_core.get_replica(rse_id=jump_rse_id, **did)
         # assert replica
@@ -124,7 +124,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, **did)
         assert replica['state'] == ReplicaState.AVAILABLE
 
-        rucio.daemons.reaper.reaper2.REGION.invalidate()
+        rucio.daemons.reaper.reaper.REGION.invalidate()
         reaper(once=True, rses=[], include_rses='test_container_xrd=True', exclude_rses=None)
 
         # TODO: reaper must delete this replica. It is not a source anymore.

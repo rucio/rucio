@@ -36,8 +36,8 @@ from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
 from rucio.core import scope as scope_core
 from rucio.core import vo as vo_core
-from rucio.daemons.reaper.reaper2 import reaper, REGION
-from rucio.daemons.reaper.reaper2 import run as run_reaper
+from rucio.daemons.reaper.reaper import reaper, REGION
+from rucio.daemons.reaper.reaper import run as run_reaper
 from rucio.db.sqla.models import ConstituentAssociationHistory
 from rucio.db.sqla.session import read_session
 from rucio.tests.common import rse_name_generator
@@ -95,7 +95,7 @@ def __setup_scopes_for_vos(*vos):
 
 @pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
 def test_reaper(vo):
-    """ REAPER2 (DAEMON): Test the reaper2 daemon."""
+    """ REAPER (DAEMON): Test the reaper daemon."""
     scope = InternalScope('data13_hip', vo=vo)
 
     nb_files = 250
@@ -186,7 +186,7 @@ def test_reaper_affect_other_vo_via_run(vo):
 
 @pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
 def test_reaper_multi_vo(vo):
-    """ REAPER2 (DAEMON): Test the reaper2 daemon with multiple vo."""
+    """ REAPER (DAEMON): Test the reaper daemon with multiple vo."""
     new_vo = __setup_new_vo()
     _, [scope_tst, scope_new] = __setup_scopes_for_vos(vo, new_vo)
 

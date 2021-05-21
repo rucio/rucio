@@ -396,12 +396,12 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     :param auto_exclude_timeout:   Timeout for temporarily excluded RSEs.
     """
     hostname = socket.getfqdn()
-    executable = 'reaper2'
+    executable = 'reaper'
     pid = os.getpid()
     hb_thread = threading.current_thread()
     sanity_check(executable=executable, hostname=hostname)
     heart_beat = live(executable, hostname, pid, hb_thread)
-    prepend_str = 'reaper2[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    prepend_str = 'reaper[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logger = formatted_logger(logging.log, prepend_str + '%s')
 
     logger(logging.INFO, 'Reaper starting')
@@ -409,7 +409,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     if not once:
         GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
     heart_beat = live(executable, hostname, pid, hb_thread)
-    prepend_str = 'reaper2[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    prepend_str = 'reaper[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logger = formatted_logger(logging.log, prepend_str + '%s')
     logger(logging.INFO, 'Reaper started')
 
@@ -460,7 +460,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             staging_areas = []
             dict_rses = {}
             heart_beat = live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'reaper2[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+            prepend_str = 'reaper[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
             logger = formatted_logger(logging.log, prepend_str + '%s')
             tot_needed_free_space = 0
             for rse in rses_to_process:

@@ -38,7 +38,7 @@ from rucio.core.account_limit import get_local_account_usage, set_local_account_
 from rucio.core.rse import get_rse_id
 from rucio.daemons.abacus import account
 from rucio.daemons.judge import cleaner
-from rucio.daemons.reaper import reaper2
+from rucio.daemons.reaper import reaper
 from rucio.daemons.undertaker import undertaker
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
@@ -69,9 +69,9 @@ class TestAbacusAccount(unittest.TestCase):
         undertaker.run(once=True)
         cleaner.run(once=True)
         if cls.vo:
-            reaper2.run(once=True, include_rses='vo=%s&(%s)' % (cls.vo['vo'], cls.rse), greedy=True)
+            reaper.run(once=True, include_rses='vo=%s&(%s)' % (cls.vo['vo'], cls.rse), greedy=True)
         else:
-            reaper2.run(once=True, include_rses=cls.rse, greedy=True)
+            reaper.run(once=True, include_rses=cls.rse, greedy=True)
 
     def test_abacus_account(self):
         """ ABACUS (ACCOUNT): Test update of account usage """

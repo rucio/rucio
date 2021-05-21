@@ -34,7 +34,7 @@ from rucio.daemons.follower import follower
 from rucio.daemons.hermes import hermes, hermes2
 from rucio.daemons.judge import cleaner, evaluator, injector, repairer
 from rucio.daemons.oauthmanager import oauthmanager
-from rucio.daemons.reaper import dark_reaper, light_reaper, reaper2
+from rucio.daemons.reaper import dark_reaper, light_reaper, reaper
 from rucio.daemons.replicarecoverer import suspicious_replica_recoverer
 from rucio.daemons.sonar.distribution import distribution_daemon
 from rucio.daemons.tracer import kronos
@@ -77,7 +77,7 @@ DAEMONS = [
     oauthmanager,
     dark_reaper,
     light_reaper,
-    reaper2,
+    reaper,
     suspicious_replica_recoverer,
     distribution_daemon,
     # sonar_v3_dev_daemon,  -- lib/rucio/common/config.py:55: NoSectionError: No section: 'sonar'
