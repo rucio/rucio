@@ -67,8 +67,8 @@ def build_images(matrix, script_args):
             image_identifier = buildargs.IMAGE_IDENTIFIER
             if script_args.branch:
                 branch = str(script_args.branch).lstrip('refs/heads/')
-                if branch != 'master':
-                    image_identifier += '-' + branch.lstrip('release-')
+                if branch.startswith('release-'):
+                    image_identifier += '-' + branch.lstrip('release-').lower()
             imagetag = f'rucio-{image_identifier}:{dist.lower()}{buildargs_tags}'
             if script_args.cache_repo:
                 imagetag = script_args.cache_repo.lower() + '/' + imagetag
