@@ -121,7 +121,7 @@ class ReplicaClient(BaseClient):
     def list_replicas(self, dids, schemes=None, unavailable=False, ignore_availability=True,
                       all_states=False, metalink=False, rse_expression=None,
                       client_location=None, sort=None, domain=None,
-                      signature_lifetime=None,
+                      signature_lifetime=None, nrandom=None,
                       resolve_archives=True, resolve_parents=False,
                       updated_after=None):
         """
@@ -141,6 +141,7 @@ class ReplicaClient(BaseClient):
                                         ``dynamic`` - Rucio Dynamic Smart Sort (tm)
         :param domain: Define the domain. None is fallback to 'wan', otherwise 'wan, 'lan', or 'all'
         :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
+        :param nrandom: pick N random replicas. If the initial number of replicas is smaller than N, returns all replicas.
         :param resolve_archives: When set to True, find archives which contain the replicas.
         :param resolve_parents: When set to True, find all parent datasets which contain the replicas.
         :param updated_after: epoch timestamp or datetime object (UTC time), only return replicas updated after this time
@@ -177,6 +178,9 @@ class ReplicaClient(BaseClient):
 
         if signature_lifetime:
             data['signature_lifetime'] = signature_lifetime
+
+        if nrandom:
+            data['nrandom'] = nrandom
 
         data['resolve_archives'] = resolve_archives
 

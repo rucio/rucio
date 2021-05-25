@@ -973,6 +973,28 @@ def test_client_set_tombstone(rse_factory, mock_scope, root_account, replica_cli
         replica_client.set_tombstone([{'rse': rse, 'scope': mock_scope.external, 'name': name}])
 
 
+def test_client_get_nrandom(rse_factory, did_factory, did_client, replica_client):
+    """ REPLICA (CLIENT): get N random replicas from a dataset"""
+    rse, _ = rse_factory.make_posix_rse()
+
+    dataset = did_factory.make_dataset()
+    dataset = {'scope': dataset['scope'].external, 'name': dataset['name']}
+
+    files = []
+    for _ in range(10):
+        file = did_factory.upload_test_file(rse)
+        file = {'scope': file['scope'].external, 'name': file['name']}
+        files.append(file)
+    did_client.add_files_to_dataset(files=files, **dataset)
+
+    replicas = list(replica_client.list_replicas(dids=[dataset], nrandom=5))
+    assert len(replicas) == 5
+
+    # Requesting more files than actually exist in the dataset, will return all files
+    replicas = list(replica_client.list_replicas(dids=[dataset], nrandom=15))
+    assert len(replicas) == 10
+
+
 class TestReplicaMetalink:
 
     @pytest.mark.dirty

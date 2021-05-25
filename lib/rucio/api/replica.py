@@ -24,8 +24,8 @@
 # - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020
-#
-# PY3K COMPATIBLE
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from rucio.api import permission
 from rucio.db.sqla.constants import BadFilesStatus
@@ -143,7 +143,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, rse_expression=None,
                   client_location=None, domain=None, signature_lifetime=None,
                   resolve_archives=True, resolve_parents=False,
-                  updated_after=None,
+                  nrandom=None, updated_after=None,
                   issuer=None, vo='def'):
     """
     List file replicas for a list of data identifiers.
@@ -181,7 +181,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                                      client_location=client_location, domain=domain,
                                      sign_urls=sign_urls, signature_lifetime=signature_lifetime,
                                      resolve_archives=resolve_archives, resolve_parents=resolve_parents,
-                                     updated_after=updated_after)
+                                     nrandom=nrandom, updated_after=updated_after)
 
     for rep in replicas:
         # 'rses' and 'states' use rse_id as the key. This needs updating to be rse.
