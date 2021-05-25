@@ -23,6 +23,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Eric Vaandering <ewv@fnal.gov>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from datetime import datetime
 from json import dumps, loads
@@ -320,6 +321,9 @@ class ListReplicas(ErrorHandlingMethodView):
             else:
                 # attempt UTC format '%Y-%m-%dT%H:%M:%S' conversion
                 updated_after = datetime.strptime(updated_after, '%Y-%m-%dT%H:%M:%S')
+        nrandom = param_get(parameters, 'nrandom', default=None)
+        if nrandom:
+            nrandom = int(nrandom)
 
         limit = request.args.get('limit', default=None)
         select = request.args.get('select', default=select)
@@ -347,6 +351,7 @@ class ListReplicas(ErrorHandlingMethodView):
                                            domain=domain, signature_lifetime=signature_lifetime,
                                            resolve_archives=resolve_archives,
                                            resolve_parents=resolve_parents,
+                                           nrandom=nrandom,
                                            updated_after=updated_after,
                                            issuer=issuer,
                                            vo=vo):
