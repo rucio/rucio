@@ -140,7 +140,8 @@ RUN rpm -i etc/docker/test/extra/oic.rpm; \
 # pre-install requirements
 RUN if [ "$PYTHON" == "2.7" ] ; then \
         python3 -m pip --no-cache-dir install --upgrade -r etc/pip-requires && \
-        python2 -m pip --no-cache-dir install --upgrade -r etc/pip-requires-client -r etc/pip-requires-test ; \
+        python2 -m pip --no-cache-dir install --upgrade -r etc/pip-requires-client -r etc/pip-requires-test && \
+        python2 -m pip list ; \
     else \
         python -m pip --no-cache-dir install --upgrade -r etc/pip-requires -r etc/pip-requires-client -r etc/pip-requires-test ; \
     fi
@@ -153,7 +154,8 @@ COPY lib lib
 
 # Install Rucio server + dependencies
 RUN if [ "$PYTHON" == "2.7" ] ; then PYEXEC=python3 ; else PYEXEC=python ; fi ; \
-    $PYEXEC -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml]
+    $PYEXEC -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml] && \
+    $PYEXEC -m pip list
 
 WORKDIR /opt/rucio
 RUN cp -r /usr/local/src/rucio/{lib,bin,tools,etc} ./
