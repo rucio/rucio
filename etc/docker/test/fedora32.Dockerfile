@@ -59,7 +59,8 @@ COPY bin bin
 COPY lib lib
 
 # Install Rucio server + dependencies
-RUN python -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml]
+RUN python -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml] && \
+    python -m pip list
 
 WORKDIR /opt/rucio
 RUN cp -r /usr/local/src/rucio/{lib,bin,tools,etc} ./
