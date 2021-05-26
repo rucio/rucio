@@ -605,6 +605,7 @@ class DownloadClient:
                 trace['stateReason'] = str(error)
                 continue
 
+            logger(logging.INFO, '%sUsing PFN: %s' % (log_prefix, pfn))
             attempt = 0
             retries = 2
             # do some retries with the same PFN if the download fails
