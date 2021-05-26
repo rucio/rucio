@@ -20,6 +20,10 @@ import json
 import logging
 import pytest
 import os
+import shutil
+from unittest.mock import patch
+from tempfile import TemporaryDirectory
+
 from rucio.client.downloadclient import DownloadClient
 from rucio.core.rse import add_protocol, add_rse_attribute
 from rucio.client.uploadclient import UploadClient
@@ -230,3 +234,49 @@ def test_multiple_protocols_same_scheme(rse_factory, upload_client, mock_scope, 
     with open(summary_path) as json_file:
         data = json.load(json_file)
         assert 'file-lan.aperture.com' in data['{}:{}'.format(mock_scope, name)]['pfn']
+
+
+def test_upload_file_with_impl(rse_factory, upload_client, mock_scope, file_factory):
+    """ Upload (CLIENT): Ensure the module associated to the impl value is called """
+    
+    impl = 'xrootd'
+    rse_name, rse_id = rse_factory.make_rse()
+
+    add_protocol(rse_id, {'scheme': 'file',
+                           'hostname': '%s.cern.ch' % rse_id,
+                           'port': 0,
+                           'prefix': '/test/',
+                           'impl': 'rucio.rse.protocols.posix.Default',
+                           'domains': {
+                               'lan': {'read': 1, 'write': 1, 'delete': 1},
+                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+    add_protocol(rse_id, {'scheme': 'root',
+                           'hostname': '%s.cern.ch' % rse_id,
+                           'port': 0,
+                           'prefix': '/test/',
+                           'impl': 'rucio.rse.protocols.xrootd.Default',
+                           'domains': {
+                               'lan': {'read': 2, 'write': 2, 'delete': 2},
+                               'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+
+    path = file_factory.file_generator()
+    name = os.path.basename(path)
+    item = {
+        'path': path,
+        'rse': rse_name,
+        'did_scope': str(mock_scope),
+        'did_name': name,
+        'guid': generate_uuid(),
+        'impl': impl
+        }
+    with TemporaryDirectory() as tmp_dir:
+        with patch('rucio.rse.protocols.%s.Default.put' % impl, side_effect=lambda pfn, dest, dir, **kw: shutil.copy(path, tmp_dir)) as mock_put, \
+                patch('rucio.rse.protocols.%s.Default.connect' % impl),\
+                patch('rucio.rse.protocols.%s.Default.exists' % impl, side_effect=lambda pfn, **kw: False),\
+                patch('rucio.rse.protocols.%s.Default.delete' % impl),\
+                patch('rucio.rse.protocols.%s.Default.rename' % impl),\
+                patch('rucio.rse.protocols.%s.Default.stat' % impl, side_effect=lambda pfn: {'filesize': os.stat(path)[os.path.stat.ST_SIZE], 'adler32': adler32(path)}),\
+                patch('rucio.rse.protocols.%s.Default.close' % impl):
+            mock_put.__name__ = "mock_put"
+            upload_client.upload([item])
+            mock_put.assert_called()
