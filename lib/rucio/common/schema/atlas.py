@@ -1,4 +1,5 @@
-# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2017-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +14,15 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2021
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
-#
-# PY3K COMPATIBLE
 
 from jsonschema import validate, ValidationError
 
@@ -51,7 +54,7 @@ ACTIVITY = {"description": "Activity name",
                      "Analysis Input", "Analysis Output", "Staging",
                      "T0 Export", "T0 Tape", "Upload/Download (Job)",
                      "Upload/Download (User)", "User Subscriptions",
-                     "Globus Online Test"]}
+                     "Globus Online Test", "Data Challenge"]}
 
 SCOPE_LENGTH = 25
 
