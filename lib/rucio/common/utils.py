@@ -77,7 +77,7 @@ from uuid import uuid4 as uuid
 from xml.etree import ElementTree
 
 import requests
-from six import string_types, text_type, PY3
+from six import string_types, text_type, binary_type, ensure_text, PY3
 
 from rucio.common.config import config_get
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
@@ -1242,9 +1242,9 @@ def run_cmd_process(cmd, timeout=3600):
         process.kill()
 
     stdout, stderr = process.communicate()
-    if isinstance(stdout, bytes):
-        stdout = stdout.decode()
-        stderr = stderr.decode()
+    if isinstance(stdout, binary_type):
+        stdout = ensure_text(stdout, errors='replace')
+        stderr = ensure_text(stderr, errors='replace')
     if not stderr:
         stderr = ''
     if not stdout:

@@ -16,6 +16,7 @@
 # Authors:
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 
+import time
 import datetime
 import pytest
 import hashlib
@@ -29,8 +30,6 @@ from rucio.daemons.conveyor import submitter, poller, finisher
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.utils import run_cmd_process
-
-# Fixtures
 
 
 @pytest.fixture
@@ -72,8 +71,6 @@ def rse2(containerized_rses):
         }
     return None
 
-# Utility functions
-
 
 def check_url(pfn, hostname, path):
     assert hostname in pfn
@@ -81,7 +78,7 @@ def check_url(pfn, hostname, path):
 
 
 def list_fts_transfer(timeout=30):
-    time_start = datetime.datetime.now().second
+    time_start = time.time()
     running_time = 0
     request_id = None
     request_status = None
@@ -91,7 +88,7 @@ def list_fts_transfer(timeout=30):
             request_id = re.search("Request ID: (.*)", out).group(1)
             request_status = re.search("Status: (.*)", out).group(1)
             break
-        time_now = datetime.datetime.now().second
+        time_now = time.time()
         running_time = int(time_now - time_start)
     return request_id, request_status
 
@@ -102,8 +99,6 @@ def poll_fts_transfer_status(request_id, timeout=30):
     if rcode == 0:
         transfer_status = re.search("Status: (.*)", out).group(1)
     return transfer_status
-
-# TPC tests
 
 
 @pytest.mark.dirty(reason="Creates artifact /tmp/test_tpc.artifact in dev_rucio_1 container")
