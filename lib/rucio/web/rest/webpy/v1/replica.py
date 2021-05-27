@@ -335,7 +335,7 @@ class ListReplicas(RucioController):
         dids, schemes, select, unavailable, limit = [], None, None, False, None
         ignore_availability, rse_expression, all_states, domain = False, None, False, None
         signature_lifetime, resolve_archives, resolve_parents = None, True, False
-        updated_after = None
+        nrandom, updated_after = None, None
 
         client_location = {'ip': client_ip,
                            'fqdn': None,
@@ -367,7 +367,8 @@ class ListReplicas(RucioController):
                 resolve_archives = params['resolve_archives']
             if 'resolve_parents' in params:
                 resolve_parents = params['resolve_parents']
-
+            if 'nrandom' in params:
+                nrandom = params['nrandom']
             if 'signature_lifetime' in params:
                 signature_lifetime = params['signature_lifetime']
             else:
@@ -416,6 +417,7 @@ class ListReplicas(RucioController):
                                        domain=domain, signature_lifetime=signature_lifetime,
                                        resolve_archives=resolve_archives,
                                        resolve_parents=resolve_parents,
+                                       nrandom=nrandom,
                                        updated_after=updated_after,
                                        issuer=ctx.env.get('issuer'),
                                        vo=ctx.env.get('vo')):
