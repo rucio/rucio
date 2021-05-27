@@ -132,8 +132,9 @@ def containerized_rses(rucio_client):
         xrd_containerized_rses = [(rse_obj['rse'], rse_obj['id']) for rse_obj in xrd_rses if "xrd" in rse_obj['rse'].lower()]
         xrd_containerized_rses.sort()
         rses.extend(xrd_containerized_rses)
-    except InvalidRSEExpression as ex:
-        # containerized RSEs will not be available in non-containerized test environments
+    except InvalidRSEExpression as invalid_rse_expression:
+        print("{ex}. Note that containerized RSEs will not be available in non-containerized test environments"
+              .format(ex=invalid_rse_expression))
         traceback.print_exc()
     return rses
 
