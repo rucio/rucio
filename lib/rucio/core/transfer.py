@@ -784,6 +784,11 @@ def __rewrite_dest_url(dest_url, dest_sign_url, dest_scheme):
 @transactional_session
 def __prepare_transfer_definition(ctx, rws, source, computed_distance, dict_attributes, transfertool, retry_other_fts, list_hops, activity,
                                   reqs_only_tape_source, reqs_no_source, bring_online_local, logger, session=None):
+    """
+    Create a hop-by-hop transfer configuration.
+    For each hop needed to replicate the file from source (source.rse_id) towards the request's destination (rws.dest_rse_id),
+    a dictionary is created containing the transfer configuration.
+    """
 
     if len(list_hops) > 1:
         logger(logging.DEBUG, 'From %s to %s requires multihop: %s', source.rse_id, rws.dest_rse_id, list_hops)
@@ -961,7 +966,16 @@ def __prepare_transfer_definition(ctx, rws, source, computed_distance, dict_attr
     return transfer_path
 
 
-def __merge_or_discard_tranfer_definitions(candidate_paths):
+def __merge_or_discard_transfer_definitions(candidate_paths):
+    """
+    Given a list of possible transfer paths from different sources towards the same destination,
+    construct the best transfer path.
+
+    In most cases, we just pick the best path from the list. Except the case of single-hop disk
+    transfers. In this particular case, additional effort is done to construct "multi-source"
+    transfers if possible.
+    """
+
     if not candidate_paths:
         return
 
@@ -1051,6 +1065,12 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     :param session:               The database session in use.
     :returns:                     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
+
+    Workflow:
+    - retrieve (from the database) the transfer requests with their possible source replicas
+    - for each source, compute the (possibly multihop) path between it and the transfer destination
+    - pick the best path among the ones computed previously
+    - if the chosen best path is a multihop, create intermediate replicas and the intermediate transfer requests
     """
 
     request_with_sources = __list_transfer_requests_and_source_replicas(
@@ -1162,7 +1182,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 logger(logging.CRITICAL, "Exception happened when trying to get transfer for request %s:" % rws.request_id, exc_info=True)
                 break
 
-        merged_path = __merge_or_discard_tranfer_definitions(candidate_paths)
+        merged_path = __merge_or_discard_transfer_definitions(candidate_paths)
         if merged_path:
             transfer_path_for_request.append((rws, merged_path))
 

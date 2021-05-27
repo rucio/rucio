@@ -1552,6 +1552,9 @@ def list_requests(src_rse_ids, dst_rse_ids, states=[RequestState.WAITING], sessi
 
 @transactional_session
 def preparer_update_requests(source_iter: "Iterable[RequestResultOrState]", session: "Optional[Session]" = None) -> int:
+    """
+    Update transfer requests according to preparer settings.
+    """
     count = 0
     for rws in source_iter:
         update_dict = dict()
