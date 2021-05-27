@@ -50,7 +50,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     :param account:            Account identifier
     :type account:             String
     :param name:               Name of the subscription
-    :type:                     String
+    :type name:                String
     :param filter:             Dictionary of attributes by which the input data should be filtered
                                **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
     :type filter:              Dict
@@ -125,7 +125,7 @@ def update_subscription(name, account, metadata=None, session=None):
     Updates a subscription
 
     :param name:               Name of the subscription
-    :type:                     String
+    :type name:                String
     :param account:            Account identifier
     :type account:             String
     :param metadata:           Dictionary of metadata to update. Supported keys : filter, replication_rules, comments, lifetime, retroactive, dry_run, priority, last_processed
@@ -190,7 +190,7 @@ def list_subscriptions(name=None, account=None, state=None, session=None, logger
     Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
 
     :param name:               Name of the subscription
-    :type:                     String
+    :type name:                String
     :param account:            Account identifier
     :type account:             String
     :param session:            The database session in use.
@@ -214,7 +214,7 @@ def list_subscriptions(name=None, account=None, state=None, session=None, logger
             query = query.filter_by(state=state)
     except IntegrityError as error:
         logger(logging.ERROR, str(error))
-        raise Exception
+        raise RucioException(error.args)
     result = {}
     for row in query:
         result = {}
@@ -264,7 +264,7 @@ def list_subscription_rule_states(name=None, account=None, session=None, logger=
 
     except IntegrityError as error:
         logger(logging.ERROR, str(error))
-        raise Exception
+        raise RucioException(error.args)
 
     query = query.group_by(subscription.account, subscription.name, rule.state)
 
