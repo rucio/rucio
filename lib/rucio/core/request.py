@@ -1614,7 +1614,9 @@ def __throttler_request_state(activity, source_rse_id, dest_rse_id, session: "Op
 
 
 def reduce_requests(
-    req_sources: "List[RequestWithSources]", sort_reduce_funcs: "List[ReduceFunction]", logger: "Callable",
+    req_sources: "List[RequestWithSources]",
+    sort_reduce_funcs: "List[ReduceFunction]",
+    logger: "Callable",
 ) -> "Iterator[RequestResultOrState]":
     """
     Reduces the passed requests & sources objects by using the sort-reduce
