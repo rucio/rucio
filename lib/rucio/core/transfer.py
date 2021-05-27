@@ -191,7 +191,7 @@ class _RseLoaderContext:
         protocol_key = '%s_%s_%s' % (operation, rse_id, scheme)
         protocol = self.protocols.get(protocol_key)
         if not protocol:
-            protocol = rsemgr.create_protocol(self.rse_info(rse_id), 'third_party_copy', scheme)
+            protocol = rsemgr.create_protocol(self.rse_info(rse_id), operation, scheme)
             self.protocols[protocol_key] = protocol
         return protocol
 
@@ -803,7 +803,7 @@ def __prepare_transfer_definition(ctx, rws, source, computed_distance, dict_attr
             file_path = None
 
         # Get source protocol
-        source_protocol = ctx.protocol(source_rse_id, source_scheme, 'read')
+        source_protocol = ctx.protocol(source_rse_id, source_scheme, 'third_party_copy')
         source_sign_url = ctx.rse_attrs(source_rse_id).get('sign_url', None)
         dest_sign_url = ctx.rse_attrs(dest_rse_id).get('sign_url', None)
 
@@ -834,7 +834,7 @@ def __prepare_transfer_definition(ctx, rws, source, computed_distance, dict_attr
             transfer_dst_type = "TAPE"
 
         # Get destination protocol
-        dest_protocol = ctx.protocol(dest_rse_id, dest_scheme, 'write')
+        dest_protocol = ctx.protocol(dest_rse_id, dest_scheme, 'third_party_copy')
 
         # Compute the destination url
         dest_url = __build_dest_url(scope=rws.scope, name=rws.name,
