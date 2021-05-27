@@ -21,9 +21,9 @@
 from __future__ import print_function
 
 import traceback
-
 import pytest
 
+from rucio.common.exception import InvalidRSEExpression
 
 # local imports in the fixtures to make this file loadable in e.g. client tests
 
@@ -126,14 +126,15 @@ def containerized_rses(rucio_client):
     :return: A list of (rse_name, rse_id) tuples.
     """
     rses = []
-    # try:
-    xrd_rses = [x['rse'] for x in rucio_client.list_rses(rse_expression='test_container_xrd=True')]
-    xrd_rses = [rucio_client.get_rse(rse) for rse in xrd_rses]
-    xrd_containerized_rses = [(rse_obj['rse'], rse_obj['id']) for rse_obj in xrd_rses if "xrd" in rse_obj['rse'].lower()]
-    xrd_containerized_rses.sort()
-    rses.extend(xrd_containerized_rses)
-    # except Exception:
-    #     traceback.print_exc()
+    try:
+        xrd_rses = [x['rse'] for x in rucio_client.list_rses(rse_expression='test_container_xrd=True')]
+        xrd_rses = [rucio_client.get_rse(rse) for rse in xrd_rses]
+        xrd_containerized_rses = [(rse_obj['rse'], rse_obj['id']) for rse_obj in xrd_rses if "xrd" in rse_obj['rse'].lower()]
+        xrd_containerized_rses.sort()
+        rses.extend(xrd_containerized_rses)
+    except InvalidRSEExpression as ex:
+        # containerized RSEs will not be available in non-containerized test environments
+        traceback.print_exc()
     return rses
 
 
