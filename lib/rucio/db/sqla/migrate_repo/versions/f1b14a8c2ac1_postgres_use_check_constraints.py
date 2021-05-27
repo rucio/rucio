@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019-2020 CERN
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020-2021
 
 ''' postgres_use_check_constraints '''
 

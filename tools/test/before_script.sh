@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
@@ -57,26 +57,6 @@ if [ $RDBMS == "oracle" ]; then
     sleep 3
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_oracle.ini /opt/rucio/etc/alembic.ini
-    RESTART_HTTPD=1
-
-elif [ $RDBMS == "mysql5" ]; then
-    CON_MYSQL=$(docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% docker.io/mysql/mysql-server:5.7)
-    docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS docker.io/webcenter/activemq:latest
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO sh -c 'echo 127.0.0.1 mysql5 activemq >> /etc/hosts'
-
-    date
-    for i in {1..30}; do
-        sleep 2
-        cont=$(bash -c 'ping=`docker '"$CONTAINER_RUNTIME_ARGS"' exec '"$CON_MYSQL"' mysqladmin --user=root --password=secret ping`; echo $ping 1>&2; echo $ping | grep "mysqld is alive" 1>&2; echo $?')
-        [ "$cont" -eq "0" ] && break
-    done
-    date
-    if [ "$cont" -ne "0" ]; then
-        echo Could not connect to MySQL in time.
-        exit 1
-    fi
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_mysql5.cfg /opt/rucio/etc/rucio.cfg
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_mysql5.ini /opt/rucio/etc/alembic.ini
     RESTART_HTTPD=1
 
 elif [ $RDBMS == "mysql8" ]; then

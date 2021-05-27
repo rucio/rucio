@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +15,7 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2021
 
 ''' added column volume to rse_transfer_limits '''
 

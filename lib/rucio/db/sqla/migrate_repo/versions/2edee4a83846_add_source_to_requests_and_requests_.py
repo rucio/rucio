@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +14,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Joaquin Bogado <jbogadog@cern.ch>, 2015
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2021
+
 
 ''' add source to requests and requests_history '''
 

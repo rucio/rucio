@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +15,8 @@
 #
 # Authors:
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2021
 
 ''' add saml identity type '''
 
@@ -41,15 +44,7 @@ def upgrade():
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
-        create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
-                                table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
-        create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
-                                table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+    elif context.get_context().dialect.name == 'mysql':
         execute('ALTER TABLE ' + schema + 'identities DROP CHECK IDENTITIES_TYPE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
@@ -77,16 +72,7 @@ def downgrade():
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
-        create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
-                                table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
-
-        create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
-                                table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+    elif context.get_context().dialect.name == 'mysql':
         execute('ALTER TABLE ' + schema + 'identities DROP CHECK IDENTITIES_TYPE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
@@ -108,5 +94,3 @@ def downgrade():
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
-        # drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
-        # create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])

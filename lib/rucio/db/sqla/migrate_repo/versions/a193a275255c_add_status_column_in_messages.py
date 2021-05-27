@@ -1,4 +1,5 @@
-# Copyright 2014-2020 CERN
+# -*- coding: utf-8 -*-
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +15,8 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2021
 
 ''' Add status column in messages '''
 

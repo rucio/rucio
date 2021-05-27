@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019-2020 CERN
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2021
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
 
 ''' add new rule notification state progress '''
@@ -47,11 +47,7 @@ def upgrade():
         op.execute("CREATE TYPE \"RULES_NOTIFICATION_CHK\" AS ENUM('Y', 'N', 'C', 'P')")
         op.execute("ALTER TABLE %srules ALTER COLUMN notification TYPE \"RULES_NOTIFICATION_CHK\" USING notification::\"RULES_NOTIFICATION_CHK\"" % schema)
 
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
-        create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
-                                condition="notification in ('Y', 'N', 'C', 'P')")
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+    elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C', 'P')")
 
@@ -74,10 +70,6 @@ def downgrade():
         op.execute("CREATE TYPE \"RULES_NOTIFICATION_CHK\" AS ENUM('Y', 'N', 'C')")
         op.execute("ALTER TABLE %srules ALTER COLUMN notification TYPE \"RULES_NOTIFICATION_CHK\" USING notification::\"RULES_NOTIFICATION_CHK\"" % schema)
 
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
-        create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
-                                condition="notification in ('Y', 'N', 'C')")
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+    elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C')")

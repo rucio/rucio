@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2021
 
 ''' create collection_replicas_updates table '''
 
