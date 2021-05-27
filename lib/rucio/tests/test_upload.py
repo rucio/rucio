@@ -1,4 +1,4 @@
-# Copyright 2018-2021 CERN
+# Copyright 2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2020-2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 
 import logging
 import pytest

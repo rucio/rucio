@@ -16,7 +16,7 @@
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
-# - Mayank Sharma <mayank.sharma@cern.ch> 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 
 from __future__ import print_function
 
