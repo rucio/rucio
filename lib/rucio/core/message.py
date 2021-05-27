@@ -98,18 +98,20 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
     try:
         subquery = session.query(Message.id)
         subquery = filter_thread_work(session=session, query=subquery, total_threads=total_threads, thread_id=thread)
+
         if event_type:
             subquery = subquery.filter_by(event_type=event_type)
         else:
             subquery = subquery.filter(Message.event_type != 'email')
             subquery = subquery.order_by(Message.created_at).limit(bulk)
-            query = session.query(Message.id,
-                                  Message.created_at,
-                                  Message.event_type,
-                                  Message.payload,
-                                  Message.services)\
-                           .filter(Message.id.in_(subquery))\
-                           .with_for_update(nowait=True)
+
+        query = session.query(Message.id,
+                              Message.created_at,
+                              Message.event_type,
+                              Message.payload,
+                              Message.services)\
+                       .filter(Message.id.in_(subquery))\
+                       .with_for_update(nowait=True)
 
         # MySQL does not support limits in nested queries, limit on the outer query instead.
         # This is not as performant, but the best we can get from MySQL.
