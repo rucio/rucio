@@ -47,7 +47,7 @@ from sqlalchemy import and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, case, select, true
+from sqlalchemy.sql.expression import bindparam, case, select, true, false
 
 import rucio.core.replica  # import add_replicas
 import rucio.core.rule
@@ -317,6 +317,7 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
                 session.query(models.DataIdentifier).\
                     with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
                     filter(models.DataIdentifier.did_type == DIDType.FILE).\
+                    filter(or_(models.DataIdentifier.constituent.is_(None), models.DataIdentifier.constituent == false())).\
                     filter(or_(*chunk)).update({'constituent': True})
         contents and session.bulk_insert_mappings(models.ConstituentAssociation, contents)
         session.flush()
