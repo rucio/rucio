@@ -682,7 +682,7 @@ def __rewrite_source_url(source_url, source_sign_url, dest_sign_url, source_sche
             source_url = source_sign_url_map[source_sign_url] + source_url[5:]
 
     if source_url[:12] == 'srm+https://':
-        source_url = 'srm' + source_url[10:]
+        source_url = 'srm' + source_url[9:]
     return source_url
 
 
@@ -698,7 +698,7 @@ def __rewrite_dest_url(dest_url, dest_sign_url, dest_scheme):
         dest_url = re.sub('https', 's3s', dest_url)
 
     if dest_url[:12] == 'srm+https://':
-        dest_url = 'srm' + dest_url[10:]
+        dest_url = 'srm' + dest_url[9:]
     return dest_url
 
 
