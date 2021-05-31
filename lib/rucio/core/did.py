@@ -335,7 +335,7 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
 
         # mark parent datasets as is_archive = True
         session.query(models.DataIdentifier).filter(
-            exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect="oracle")).where(
+            exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX) */", dialect="oracle")).where(
                 and_(models.DataIdentifierAssociation.child_scope == scope,
                      models.DataIdentifierAssociation.child_name == name,
                      models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
