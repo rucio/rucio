@@ -340,6 +340,9 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
                      models.DataIdentifierAssociation.child_name == name,
                      models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
                      models.DataIdentifierAssociation.name == models.DataIdentifier.name))
+        ).filter(
+            or_(models.DataIdentifier.is_archive.is_(None),
+                models.DataIdentifier.is_archive == false())
         ).update({"is_archive": True}, synchronize_session=False)
 
 
