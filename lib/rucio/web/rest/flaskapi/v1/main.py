@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import importlib
 
@@ -73,10 +76,10 @@ except RuntimeError:
 if not endpoints:
     endpoints = DEFAULT_ENDPOINTS
 
+setup_logging()
 application = Flask(__name__)
 apply_endpoints(application, endpoints)
 
 
 if __name__ == '__main__':
-    setup_logging()
     application.run()
