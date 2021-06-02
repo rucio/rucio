@@ -19,3 +19,6 @@ PyYAML==5.4                                       # Used for reading test config
 pydoc-markdown~=3.11.0; python_version >= '3.5'   # Used for generating Markdown documentation for docusaurus
 docspec_python==0.1.0; python_version >= '3.5'    # FIX incompatibility with pydoc-markdown
 sh~=1.14.1                                        # Convenience library for running subprocesses in Python
+bz2file>=0.98,<0.99                               # Read and write bzip2-compressed files.
+boto>=2.49.0,<2.50.0                              # S3 boto protocol
+pysftp>=0.2.9,<0.3                                # Used by sftp protocol

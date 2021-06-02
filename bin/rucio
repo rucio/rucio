@@ -60,7 +60,6 @@ import unittest
 import uuid
 from functools import wraps
 
-import argcomplete
 from tabulate import tabulate
 
 # rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
@@ -2391,7 +2390,11 @@ if __name__ == '__main__':
             os.environ['RUCIO_CONFIG'] = arguments[argi + 1]
 
     oparser = get_parser()
-    argcomplete.autocomplete(oparser)
+    try:
+        import argcomplete
+        argcomplete.autocomplete(oparser)
+    except ImportError:
+        pass
 
     if len(sys.argv) == 1:
         oparser.print_help()

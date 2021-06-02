@@ -36,7 +36,6 @@ import xml.etree.ElementTree as ET
 from xml.parsers import expat
 
 import requests
-from progressbar import ProgressBar
 from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
 
@@ -275,23 +274,14 @@ class Default(protocol.RSEProtocol):
                 length = None
                 if 'content-length' in result.headers:
                     length = int(result.headers['content-length'])
-                    totnchunk = int(length / chunksize) + 1
                 with open(dest, 'wb') as file_out:
                     nchunk = 0
-                    try:
+                    if not length:
+                        print('Malformed HTTP response (missing content-length header).')
+                    for chunk in result.iter_content(chunksize):
+                        file_out.write(chunk)
                         if length:
-                            pbar = ProgressBar(maxval=totnchunk).start()
-                        else:
-                            print('Malformed HTTP response (missing content-length header). Cannot show progress bar.')
-                        for chunk in result.iter_content(chunksize):
-                            file_out.write(chunk)
-                            if length:
-                                nchunk += 1
-                                pbar.update(nchunk)
-                    finally:
-                        if length:
-                            pbar.finish()
-
+                            nchunk += 1
             elif result.status_code in [404, ]:
                 raise exception.SourceNotFound()
             elif result.status_code in [401, 403]:
