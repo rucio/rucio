@@ -59,9 +59,15 @@ if os.path.exists('lib/rucio.egg-info/'):
 SSH_EXTRAS = ['paramiko==1.18.4']
 KERBEROS_EXTRAS = ['kerberos>=1.2.5', 'pykerberos>=1.1.14', 'requests-kerberos>=0.11.0']
 SWIFT_EXTRAS = ['python-swiftclient>=3.5.0', ]
+ARGCOMPLETE_EXTRAS = ['argcomplete>=1.9.0,<=1.12.2']
+S3_EXTRAS = ['boto>=2.49.0,<2.50.0']
+SFTP_EXTRAS = ['pysftp>=0.2.9,<0.3']
 EXTRAS_REQUIRES = dict(ssh=SSH_EXTRAS,
                        kerberos=KERBEROS_EXTRAS,
-                       swift=SWIFT_EXTRAS)
+                       swift=SWIFT_EXTRAS,
+                       argcomplete=ARGCOMPLETE_EXTRAS,
+                       s3=S3_EXTRAS,
+                       sftp=SFTP_EXTRAS)
 
 if '--release' in COPY_ARGS:
     IS_RELEASE = True

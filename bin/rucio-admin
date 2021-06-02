@@ -55,7 +55,6 @@ import time
 import traceback
 from functools import wraps
 
-import argcomplete
 from tabulate import tabulate
 
 from rucio import version
@@ -2158,7 +2157,11 @@ def get_parser():
 
 if __name__ == '__main__':
     oparser = get_parser()
-    argcomplete.autocomplete(oparser)
+    try:
+        import argcomplete
+        argcomplete.autocomplete(oparser)
+    except ImportError:
+        pass
 
     if len(sys.argv) == 1:
         oparser.print_help()
