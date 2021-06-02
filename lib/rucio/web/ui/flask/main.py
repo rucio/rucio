@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,18 +16,19 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from flask import Flask
 
 from rucio.common.logging import setup_logging
 from rucio.web.ui.flask import bp
 
+setup_logging()
 application = Flask(__name__)
 
 application.register_blueprint(bp.blueprint())
 
 
 if __name__ == '__main__':
-    setup_logging()
     application.run()

@@ -26,10 +26,9 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
-from rucio.common.logging import setup_logging
 from rucio.web.ui.flask.main import application
 
 if __name__ == '__main__':
-    setup_logging()
     application.run()
