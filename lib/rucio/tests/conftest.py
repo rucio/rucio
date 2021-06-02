@@ -23,8 +23,6 @@ from __future__ import print_function
 import traceback
 import pytest
 
-from rucio.common.exception import InvalidRSEExpression
-
 # local imports in the fixtures to make this file loadable in e.g. client tests
 
 
@@ -125,6 +123,8 @@ def containerized_rses(rucio_client):
     Detects if containerized rses for xrootd are available in the testing environment.
     :return: A list of (rse_name, rse_id) tuples.
     """
+    from rucio.common.exception import InvalidRSEExpression
+
     rses = []
     try:
         xrd_rses = [x['rse'] for x in rucio_client.list_rses(rse_expression='test_container_xrd=True')]
@@ -152,6 +152,14 @@ def did_factory(vo, mock_scope):
     from rucio.tests.temp_factories import TemporaryDidFactory
 
     with TemporaryDidFactory(vo=vo, default_scope=mock_scope) as factory:
+        yield factory
+
+
+@pytest.fixture
+def file_factory(tmp_path_factory):
+    from rucio.tests.temp_factories import TemporaryFileFactory
+
+    with TemporaryFileFactory(pytest_path_factory=tmp_path_factory) as factory:
         yield factory
 
 
