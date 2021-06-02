@@ -1252,6 +1252,8 @@ def test_export_client(vo, distances_data):
         }
     }
     assert parse_response(render_json(**distances_cmp)) == data['distances']
+    data = export_client.export_data(distance=False)
+    assert 'distances' not in data
 
 
 @pytest.mark.noparallel(reason='modifies distance on pre-defined RSE')
