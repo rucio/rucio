@@ -124,7 +124,7 @@ class TransferSource:
     def __init__(self, rse_id, rse_name, source_ranking, distance_ranking, file_path):
         self.rse_name = rse_name
         self.rse_id = rse_id
-        self.distance_ranking = distance_ranking
+        self.distance_ranking = distance_ranking if distance_ranking is not None else 9999
         self.source_ranking = source_ranking if source_ranking is not None else 0
         self.file_path = file_path
 
@@ -615,10 +615,11 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                      'source_scheme': matching_scheme[1],
                      'dest_scheme': matching_scheme[0],
                      'source_scheme_priority': matching_scheme[3],
-                     'dest_scheme_priority': matching_scheme[2]}]
-            result = path, distance_graph[source_rse_id][dest_rse_id]
-            REGION_SHORT.set('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), result)
-            return result
+                     'dest_scheme_priority': matching_scheme[2],
+                     'hop_distance': distance_graph[source_rse_id][dest_rse_id],
+                     'cumulated_distance': distance_graph[source_rse_id][dest_rse_id]}]
+            REGION_SHORT.set('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), path)
+            return path
         except RSEProtocolNotSupported as error:
             if include_multihop:
                 # Delete the edge from the graph
@@ -657,8 +658,9 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                 # Check if the distance would be smaller
                 if distance_graph[current_node][out_v] is None:
                     continue
-                if visited_nodes.get(out_v, {'distance': 9999})['distance'] > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY\
-                   and local_optimum > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY:
+                new_adjacent_distance = current_distance + distance_graph[current_node][out_v] + HOP_PENALTY
+
+                if visited_nodes.get(out_v, {'distance': 9999})['distance'] > new_adjacent_distance and local_optimum > new_adjacent_distance:
                     # Check if the intermediate RSE is enabled for multihop
                     if out_v != dest_rse_id and out_v not in multihop_rses:
                         continue
@@ -670,13 +672,15 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                                                                       operation_dest='third_party_copy',
                                                                       domain='wan',
                                                                       scheme=limit_dest_schemes if out_v == dest_rse_id and limit_dest_schemes else None)
-                        visited_nodes[out_v] = {'distance': current_distance + distance_graph[current_node][out_v] + HOP_PENALTY,
+                        visited_nodes[out_v] = {'distance': new_adjacent_distance,
                                                 'path': current_path + [{'source_rse_id': current_node,
                                                                          'dest_rse_id': out_v,
                                                                          'source_scheme': matching_scheme[1],
                                                                          'dest_scheme': matching_scheme[0],
                                                                          'source_scheme_priority': matching_scheme[3],
-                                                                         'dest_scheme_priority': matching_scheme[2]}]}
+                                                                         'dest_scheme_priority': matching_scheme[2],
+                                                                         'hop_distance': distance_graph[current_node][out_v],
+                                                                         'cumulated_distance': new_adjacent_distance}]}
                         if out_v != dest_rse_id:
                             to_visit.append(out_v)
                         else:
@@ -684,9 +688,8 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                     except RSEProtocolNotSupported:
                         pass
     if dest_rse_id in visited_nodes:
-        result = visited_nodes[dest_rse_id]['path'], visited_nodes[dest_rse_id]['distance']
-        REGION_SHORT.set('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), result)
-        return result
+        REGION_SHORT.set('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), visited_nodes[dest_rse_id]['path'])
+        return visited_nodes[dest_rse_id]['path']
     else:
         raise NoDistance()
 
@@ -714,6 +717,44 @@ def get_dsn(scope, name, dsn):
         if parent['type'] == DIDType.DATASET:
             return parent['name']
     return 'other'
+
+
+def __find_compatible_direct_sources(sources, scheme, dest_rse_id, session=None):
+    """
+    Find, among the sources, the ones which have a direct connection to dest_rse_id and are compatible
+    with the provided schemes.
+
+    Generates tuples of form (source, [hop]): the source and it's associated single-hop path.
+    """
+    inbound_distances = __load_inbound_distances_node(rse_id=dest_rse_id, session=session)
+
+    for source in sorted(sources, key=lambda s: (-s.source_ranking, s.distance_ranking)):
+
+        if source.rse_id not in inbound_distances:
+            # There is no direct connection between this source and the destination
+            continue
+
+        try:
+            matching_scheme = rsemgr.find_matching_scheme(
+                rse_settings_src=__load_rse_settings(rse_id=source.rse_id, session=session),
+                rse_settings_dest=__load_rse_settings(rse_id=dest_rse_id, session=session),
+                operation_src='third_party_copy',
+                operation_dest='third_party_copy',
+                domain='wan',
+                scheme=scheme)
+        except RSEProtocolNotSupported:
+            continue
+
+        hop = {'source_rse_id': source.rse_id,
+               'dest_rse_id': dest_rse_id,
+               'source_scheme': matching_scheme[1],
+               'dest_scheme': matching_scheme[0],
+               'source_scheme_priority': matching_scheme[3],
+               'dest_scheme_priority': matching_scheme[2],
+               'hop_distance': inbound_distances[source.rse_id],
+               'cumulated_distance': inbound_distances[source.rse_id]}
+
+        yield source, [hop]
 
 
 def __build_dest_url(scope, name, protocol, dest_rse_attrs, dest_is_deterministic, dest_is_tape, dict_attributes, retry_count, activity):
@@ -782,7 +823,7 @@ def __rewrite_dest_url(dest_url, dest_sign_url, dest_scheme):
 
 
 @transactional_session
-def __prepare_transfer_definition(ctx, rws, source, computed_distance, dict_attributes, transfertool, retry_other_fts, list_hops, activity,
+def __prepare_transfer_definition(ctx, rws, source, dict_attributes, transfertool, retry_other_fts, list_hops, activity,
                                   reqs_only_tape_source, reqs_no_source, bring_online_local, logger, session=None):
     """
     Create a hop-by-hop transfer configuration.
@@ -930,7 +971,7 @@ def __prepare_transfer_definition(ctx, rws, source, computed_distance, dict_attr
                     'schemes': __add_compatible_schemes(schemes=[dest_scheme], allowed_schemes=SUPPORTED_PROTOCOLS),
                     'account': InternalAccount('root'),
                     # 'src_urls': [source_url],
-                    'sources': [(source_rse_name, source_url, source_rse_id, 0, 0)],
+                    'sources': [(source_rse_name, source_url, source_rse_id, 0, hop['hop_distance'])],
                     'dest_urls': [dest_url],
                     'src_spacetoken': None,
                     'dest_spacetoken': dest_spacetoken,
@@ -957,7 +998,7 @@ def __prepare_transfer_definition(ctx, rws, source, computed_distance, dict_attr
                 logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', dest_url)
                 pass
         if hop is list_hops[-1]:
-            transfer['sources'] = [(source_rse_name, source_url, source_rse_id, source.source_ranking, computed_distance)]
+            transfer['sources'] = [(source_rse_name, source_url, source_rse_id, source.source_ranking, list_hops[-1]['cumulated_distance'])]
             transfer['account'] = rws.account
             if rws.previous_attempt_id:
                 file_metadata['previous_attempt_id'] = rws.previous_attempt_id
@@ -966,14 +1007,10 @@ def __prepare_transfer_definition(ctx, rws, source, computed_distance, dict_attr
     return transfer_path
 
 
-def __merge_or_discard_transfer_definitions(candidate_paths):
+def __pick_best_transfer(candidate_paths):
     """
     Given a list of possible transfer paths from different sources towards the same destination,
-    construct the best transfer path.
-
-    In most cases, we just pick the best path from the list. Except the case of single-hop disk
-    transfers. In this particular case, additional effort is done to construct "multi-source"
-    transfers if possible.
+    pick the best transfer path.
     """
 
     if not candidate_paths:
@@ -1010,39 +1047,6 @@ def __merge_or_discard_transfer_definitions(candidate_paths):
         )
 
     best_candidate = min(candidate_paths, key=__transfer_order_key)
-
-    if best_candidate[0]['file_metadata']['src_type'] == 'TAPE':
-        # multiple Tape source replicas are not allowed in FTS3.
-        # Don't add any additional sources
-        return best_candidate
-
-    if len(best_candidate) > 1:
-        # only one source is allowed for multihop transfers to avoid spawning
-        # intermediate transfers all over the place
-        return best_candidate
-
-    for candidate in candidate_paths:
-        if candidate is best_candidate:
-            continue
-
-        if best_candidate[0]['file_metadata']['src_type'] != candidate[0]['file_metadata']['src_type']:
-            # Tape and Disk sources must not be used at the same time.
-            continue
-
-        if len(candidate) > 1:
-            # do not add multihop sources
-            continue
-
-        if not set(best_candidate[0]['schemes']).intersection(candidate[0]['schemes']):
-            # new sources are not compatible with old ones
-            continue
-
-        # We are in the case of single-hop DISK candidates. Merge the sources.
-        best_candidate[0]['sources'].extend(candidate[0]['sources'])
-        # If one source has force ipv4, force it for all sources
-        if best_candidate[0].get('use_ipv4') or candidate[0].get('use_ipv4'):
-            best_candidate[0]['use_ipv4'] = True
-
     return best_candidate
 
 
@@ -1070,6 +1074,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     - retrieve (from the database) the transfer requests with their possible source replicas
     - for each source, compute the (possibly multihop) path between it and the transfer destination
     - pick the best path among the ones computed previously
+    - if the chosen best path is a single-hop from a DISK RSE, try building a multi-source transfer:
+         The scheme compatibility is important for multi-source transfers. We iterate again over the
+         single-hop sources and build a new transfer definition while enforcing the scheme compatibility
+         with the initial source.
     - if the chosen best path is a multihop, create intermediate replicas and the intermediate transfer requests
     """
 
@@ -1129,19 +1137,17 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             else:
                 allowed_source_rses = [x['id'] for x in parsed_rses]
 
+        filtered_sources = rws.sources
+        # Only keep allowed sources
+        if allowed_source_rses is not None:
+            filtered_sources = filter(lambda s: s.rse_id in allowed_source_rses, filtered_sources)
+        filtered_sources = filter(lambda s: s.rse_name is not None, filtered_sources)
+        # Ignore blacklisted RSEs
+        filtered_sources = filter(lambda s: s.rse_id not in unavailable_read_rse_ids, filtered_sources)
+        filtered_sources = list(filtered_sources)
+
         candidate_paths = []
-        for source in rws.sources:
-            if allowed_source_rses is not None and source.rse_id not in allowed_source_rses:
-                continue
-
-            # rse_name will be None if rse is staging area
-            if source.rse_name is None:
-                continue
-
-            # Check if the source is blocked
-            if source.rse_id in unavailable_read_rse_ids:
-                continue
-
+        for source in filtered_sources:
             source_rse_name = ctx.rse_name(source.rse_id)
             # Call the get_hops function to create a list of RSEs used for the transfer
             # In case the source_rse and the dest_rse are connected, the list contains only the destination RSE
@@ -1152,11 +1158,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
 
             try:
-                list_hops, distance = get_hops(source.rse_id,
-                                               rws.dest_rse_id,
-                                               include_multihop=include_multihop,
-                                               multihop_rses=multihop_rses,
-                                               session=session)
+                list_hops = get_hops(source.rse_id,
+                                     rws.dest_rse_id,
+                                     include_multihop=include_multihop,
+                                     multihop_rses=multihop_rses,
+                                     session=session)
             except NoDistance:
                 logger(logging.WARNING, "Request %s: no link from %s to %s", rws.request_id, source_rse_name, dest_rse_name)
                 if rws.request_id in reqs_scheme_mismatch:
@@ -1173,7 +1179,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 continue
 
             try:
-                transfer_path = __prepare_transfer_definition(ctx, rws=rws, source=source, computed_distance=distance, dict_attributes=dict_attributes, transfertool=transfertool,
+                transfer_path = __prepare_transfer_definition(ctx, rws=rws, source=source, dict_attributes=dict_attributes, transfertool=transfertool,
                                                               retry_other_fts=retry_other_fts, list_hops=list_hops, activity=activity, logger=logger, session=session,
                                                               reqs_no_source=reqs_no_source, reqs_only_tape_source=reqs_only_tape_source, bring_online_local=bring_online_local)
                 if transfer_path:
@@ -1182,9 +1188,30 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 logger(logging.CRITICAL, "Exception happened when trying to get transfer for request %s:" % rws.request_id, exc_info=True)
                 break
 
-        merged_path = __merge_or_discard_transfer_definitions(candidate_paths)
-        if merged_path:
-            transfer_path_for_request.append((rws, merged_path))
+        best_path = __pick_best_transfer(candidate_paths)
+        if best_path and len(best_path) == 1 and not ctx.is_tape_rse(best_path[0]['file_metadata']['src_rse_id']):
+            # Multiple single-hop DISK rses can be used together in "multi-source" transfers
+            #
+            # Try adding additional single-hop DISK rses sources to the transfer
+            additional_sources = [s for s in filtered_sources
+                                  if s.rse_id != best_path[0]['file_metadata']['src_rse_id'] and not ctx.is_tape_rse(s.rse_id)]
+
+            for source, list_hops in __find_compatible_direct_sources(sources=additional_sources, scheme=best_path[0]['schemes'], dest_rse_id=rws.dest_rse_id, session=session):
+                try:
+                    additional_path = __prepare_transfer_definition(ctx, rws=rws, source=source, dict_attributes=dict_attributes, transfertool=transfertool,
+                                                                    retry_other_fts=retry_other_fts, list_hops=list_hops, activity=activity, logger=logger, session=session,
+                                                                    reqs_no_source=reqs_no_source, reqs_only_tape_source=reqs_only_tape_source, bring_online_local=bring_online_local)
+                except Exception:
+                    logger(logging.CRITICAL, "Exception happened when trying to add additional source to transfer of request %s:" % rws.request_id, exc_info=True)
+                    continue
+
+                best_path[0]['sources'].extend(additional_path[0]['sources'])
+                # If one source has force ipv4, force it for all sources
+                if best_path[0].get('use_ipv4') or additional_path[0].get('use_ipv4'):
+                    best_path[0]['use_ipv4'] = True
+
+        if best_path:
+            transfer_path_for_request.append((rws, best_path))
 
     # Ensure each single-hop transfer has its own request id. Create intermediate replicas and requests if needed.
     # Organize into the return format: {request_id: <transfer_definition_dict>}
