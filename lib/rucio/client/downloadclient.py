@@ -1128,6 +1128,7 @@ class DownloadClient:
             # get PFNs of files and datasets
             logger(logging.DEBUG, 'num DIDs for list_replicas call: %d' % len(item['dids']))
 
+            nrandom = item.get('nrandom')
             metalink_str = self.client.list_replicas(item['dids'],
                                                      schemes=schemes,
                                                      ignore_availability=False,
@@ -1135,6 +1136,7 @@ class DownloadClient:
                                                      client_location=self.client_location,
                                                      resolve_archives=resolve_archives,
                                                      resolve_parents=True,
+                                                     nrandom=nrandom,
                                                      metalink=True)
             file_items = parse_replicas_from_string(metalink_str)
 
@@ -1161,7 +1163,6 @@ class DownloadClient:
                         logger(logging.WARNING, 'The requested DID {} only has replicas on tape. Direct download from tape is prohibited. '
                                                 'Please request a transfer to a non-tape endpoint.'.format(file_item['did']))
 
-            nrandom = item.get('nrandom')
             if nrandom:
                 logger(logging.INFO, 'Selecting %d random replicas from DID(s): %s' % (nrandom, item['dids']))
                 random.shuffle(file_items)
