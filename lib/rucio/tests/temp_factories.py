@@ -25,13 +25,6 @@ from pathlib import Path
 from random import choice
 from string import ascii_uppercase
 
-import os
-import shutil
-import tempfile
-from pathlib import Path
-from random import choice
-from string import ascii_uppercase
-
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
 from rucio.common.types import InternalScope
