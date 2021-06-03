@@ -56,7 +56,7 @@ class Export(ErrorHandlingMethodView):
         :status 406: Not Acceptable
         :returns: dictionary with rucio data
         """
-        distance = request.args.get('distance', default=True)
+        distance = request.args.get('distance', default='True') == 'True'
         return Response(render_json(**export_data(issuer=request.environ.get('issuer'), distance=distance, vo=request.environ.get('vo'))), content_type='application/json')
 
 
