@@ -47,7 +47,7 @@ from sqlalchemy import and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, case, select, true
+from sqlalchemy.sql.expression import bindparam, case, select, true, false
 
 import rucio.core.replica  # import add_replicas
 import rucio.core.rule
@@ -317,6 +317,7 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
                 session.query(models.DataIdentifier).\
                     with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
                     filter(models.DataIdentifier.did_type == DIDType.FILE).\
+                    filter(or_(models.DataIdentifier.constituent.is_(None), models.DataIdentifier.constituent == false())).\
                     filter(or_(*chunk)).update({'constituent': True})
         contents and session.bulk_insert_mappings(models.ConstituentAssociation, contents)
         session.flush()
@@ -334,11 +335,14 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
 
         # mark parent datasets as is_archive = True
         session.query(models.DataIdentifier).filter(
-            exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect="oracle")).where(
+            exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX) */", dialect="oracle")).where(
                 and_(models.DataIdentifierAssociation.child_scope == scope,
                      models.DataIdentifierAssociation.child_name == name,
                      models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
                      models.DataIdentifierAssociation.name == models.DataIdentifier.name))
+        ).filter(
+            or_(models.DataIdentifier.is_archive.is_(None),
+                models.DataIdentifier.is_archive == false())
         ).update({"is_archive": True}, synchronize_session=False)
 
 
