@@ -16,7 +16,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2019
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2021
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
@@ -24,9 +24,8 @@
 #
 # PY3K COMPATIBLE
 
-from __future__ import print_function
-
 import datetime
+import logging
 import re
 
 from json import dumps
@@ -48,28 +47,28 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
-    :param account: Account identifier
-    :type account:  String
-    :param name: Name of the subscription
-    :type:  String
-    :param filter: Dictionary of attributes by which the input data should be filtered
-                   **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
-    :type filter:  Dict
-    :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
-    :type replication_rules:  Dict
-    :param comments: Comments for the subscription
-    :type comments:  String
-    :param lifetime: Subscription's lifetime (days)
-    :type lifetime:  Integer or None
-    :param retroactive: Flag to know if the subscription should be applied on previous data
-    :type retroactive:  Boolean
-    :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
-    :type dry_run:  Boolean
-    :param priority: The priority of the subscription
-    :type priority: Integer
-    :param session: The database session in use.
+    :param account:            Account identifier
+    :type account:             String
+    :param name:               Name of the subscription
+    :type name:                String
+    :param filter:             Dictionary of attributes by which the input data should be filtered
+                               **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
+    :type filter:              Dict
+    :param replication_rules:  Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
+    :type replication_rules:   Dict
+    :param comments:           Comments for the subscription
+    :type comments:            String
+    :param lifetime:           Subscription's lifetime (days)
+    :type lifetime:            Integer or None
+    :param retroactive:        Flag to know if the subscription should be applied on previous data
+    :type retroactive:         Boolean
+    :param dry_run:            Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
+    :type dry_run:             Boolean
+    :param priority:           The priority of the subscription
+    :type priority:            Integer
+    :param session:            The database session in use.
 
-    :returns: The subscriptionid
+    :returns:                  The subscriptionid
     """
     try:
         keep_history = get('subscriptions', 'keep_history')
@@ -125,13 +124,14 @@ def update_subscription(name, account, metadata=None, session=None):
     """
     Updates a subscription
 
-    :param name: Name of the subscription
-    :type:  String
-    :param account: Account identifier
-    :type account:  String
-    :param metadata: Dictionary of metadata to update. Supported keys : filter, replication_rules, comments, lifetime, retroactive, dry_run, priority, last_processed
-    :type metadata:  Dict
-    :param session: The database session in use.
+    :param name:               Name of the subscription
+    :type name:                String
+    :param account:            Account identifier
+    :type account:             String
+    :param metadata:           Dictionary of metadata to update. Supported keys : filter, replication_rules, comments, lifetime, retroactive, dry_run, priority, last_processed
+    :type metadata:            Dict
+    :param session:            The database session in use.
+
     :raises: SubscriptionNotFound if subscription is not found
     """
     try:
@@ -184,19 +184,21 @@ def update_subscription(name, account, metadata=None, session=None):
 
 
 @stream_session
-def list_subscriptions(name=None, account=None, state=None, session=None):
+def list_subscriptions(name=None, account=None, state=None, session=None, logger=logging.log):
     """
     Returns a dictionary with the subscription information :
     Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
 
-    :param name: Name of the subscription
-    :type:  String
-    :param account: Account identifier
-    :type account:  String
-    :param session: The database session in use.
-    :returns: Dictionary containing subscription parameter
-    :rtype:   Dict
-    :raises: exception.NotFound if subscription is not found
+    :param name:               Name of the subscription
+    :type name:                String
+    :param account:            Account identifier
+    :type account:             String
+    :param session:            The database session in use.
+    :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
+
+    :returns:                  Dictionary containing subscription parameter
+    :rtype:                    Dict
+    :raises:                   exception.NotFound if subscription is not found
     """
     query = session.query(models.Subscription)
     try:
@@ -211,8 +213,8 @@ def list_subscriptions(name=None, account=None, state=None, session=None):
         if state:
             query = query.filter_by(state=state)
     except IntegrityError as error:
-        print(error)
-        raise
+        logger(logging.ERROR, str(error))
+        raise RucioException(error.args)
     result = {}
     for row in query:
         result = {}
@@ -235,13 +237,14 @@ def delete_subscription(subscription_id):
 
 
 @stream_session
-def list_subscription_rule_states(name=None, account=None, session=None):
+def list_subscription_rule_states(name=None, account=None, session=None, logger=logging.log):
     """Returns a list of with the number of rules per state for a subscription.
 
-    :param name: Name of the subscription
-    :param account: Account identifier
-    :param session: The database session in use.
-    :returns: List with tuple (account, name, state, count)
+    :param name:               Name of the subscription
+    :param account:            Account identifier
+    :param session:            The database session in use.
+    :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
+    :returns:                  List with tuple (account, name, state, count)
     """
     subscription = aliased(models.Subscription)
     rule = aliased(models.ReplicationRule)
@@ -260,8 +263,8 @@ def list_subscription_rule_states(name=None, account=None, session=None):
                 query = query.filter(subscription.account == account)
 
     except IntegrityError as error:
-        print(error)
-        raise
+        logger(logging.ERROR, str(error))
+        raise RucioException(error.args)
 
     query = query.group_by(subscription.account, subscription.name, rule.state)
 
@@ -274,9 +277,10 @@ def get_subscription_by_id(subscription_id, session=None):
     """
     Get a specific subscription by id.
 
-    :param subscription_id: The subscription_id to select.
-    :param session: The database session in use.
-    :raises: SubscriptionNotFound if no Subscription can be found.
+    :param subscription_id:    The subscription_id to select.
+    :param session:            The database session in use.
+
+    :raises:                   SubscriptionNotFound if no Subscription can be found.
     """
 
     try:
