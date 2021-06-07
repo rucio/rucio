@@ -1170,7 +1170,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     candidate_paths.append(transfer_path)
             except Exception:
                 logger(logging.CRITICAL, "Exception happened when trying to get transfer for request %s:" % rws.request_id, exc_info=True)
-                break
+                continue
 
         best_path = __pick_best_transfer(candidate_paths)
         if best_path and len(best_path) == 1 and not ctx.is_tape_rse(best_path[0]['file_metadata']['src_rse_id']):
