@@ -132,6 +132,7 @@ class TransferSource:
 class RequestWithSources:
     def __init__(self, id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes,
                  previous_attempt_id, dest_rse_id, account, retry_count):
+
         self.request_id = id
         self.rule_id = rule_id
         self.scope = scope
@@ -140,13 +141,35 @@ class RequestWithSources:
         self.adler32 = adler32
         self.byte_count = byte_count
         self.activity = activity
-        self.attributes = attributes
+        self._dict_attributes = None
+        self._db_attributes = attributes
         self.previous_attempt_id = previous_attempt_id
         self.dest_rse_id = dest_rse_id
         self.account = account
         self.retry_count = retry_count
 
         self.sources = []
+
+    @property
+    def attributes(self):
+        if self._dict_attributes is None:
+            self.attributes = self._db_attributes
+        return self._dict_attributes
+
+    @attributes.setter
+    def attributes(self, db_attributes):
+        dict_attributes = {}
+        if db_attributes:
+            if isinstance(db_attributes, dict):
+                attr = json.loads(json.dumps(db_attributes))
+            else:
+                attr = json.loads(str(db_attributes))
+            # parse source expression
+            dict_attributes['source_replica_expression'] = attr["source_replica_expression"] if (attr and "source_replica_expression" in attr) else None
+            dict_attributes['allow_tape_source'] = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
+            dict_attributes['dsn'] = attr["ds_name"] if (attr and "ds_name" in attr) else None
+            dict_attributes['lifetime'] = attr.get('lifetime', -1)
+        self._dict_attributes = dict_attributes
 
 
 class _RseLoaderContext:
@@ -694,20 +717,6 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
         raise NoDistance()
 
 
-def get_attributes(attributes):
-    dict_attributes = {}
-    if attributes:
-        if isinstance(attributes, dict):
-            attr = json.loads(json.dumps(attributes))
-        else:
-            attr = json.loads(str(attributes))
-    # parse source expression
-    dict_attributes['source_replica_expression'] = attr["source_replica_expression"] if (attr and "source_replica_expression" in attr) else None
-    dict_attributes['allow_tape_source'] = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
-    dict_attributes['dsn'] = attr["ds_name"] if (attr and "ds_name" in attr) else None
-    dict_attributes['lifetime'] = attr.get('lifetime', -1)
-    return dict_attributes
-
 
 def get_dsn(scope, name, dsn):
     if dsn:
@@ -823,7 +832,7 @@ def __rewrite_dest_url(dest_url, dest_sign_url, dest_scheme):
 
 
 @transactional_session
-def __prepare_transfer_definition(ctx, rws, source, dict_attributes, transfertool, retry_other_fts, list_hops, activity,
+def __prepare_transfer_definition(ctx, rws, source, transfertool, retry_other_fts, list_hops, activity,
                                   bring_online, logger, session=None):
     """
     Create a hop-by-hop transfer configuration.
@@ -877,7 +886,7 @@ def __prepare_transfer_definition(ctx, rws, source, dict_attributes, transfertoo
                                     dest_rse_attrs=ctx.rse_attrs(dest_rse_id),
                                     dest_is_deterministic=ctx.rse_info(dest_rse_id)['deterministic'],
                                     dest_is_tape=ctx.is_tape_rse(dest_rse_id),
-                                    dict_attributes=dict_attributes,
+                                    dict_attributes=rws.attributes,
                                     retry_count=rws.retry_count,
                                     activity=activity)
         dest_url = __rewrite_dest_url(dest_url, dest_sign_url=dest_sign_url, dest_scheme=dest_scheme)
@@ -966,7 +975,7 @@ def __prepare_transfer_definition(ctx, rws, source, dict_attributes, transfertoo
                     'dest_spacetoken': dest_spacetoken,
                     'overwrite': overwrite,
                     'bring_online': bring_online_local,
-                    'copy_pin_lifetime': dict_attributes.get('lifetime', 172800),
+                    'copy_pin_lifetime': rws.attributes.get('lifetime', 172800),
                     'external_host': external_host,
                     'selection_strategy': 'auto',
                     'rule_id': rws.rule_id,
@@ -1109,10 +1118,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             logger(logging.WARNING, 'RSE %s is blocked for write. Will skip the submission of new jobs', dest_rse_name)
             continue
 
-        dict_attributes = get_attributes(rws.attributes)
-
         # parse source expression
-        source_replica_expression = dict_attributes.get('source_replica_expression', None)
+        source_replica_expression = rws.attributes.get('source_replica_expression', None)
         allowed_source_rses = None
         if source_replica_expression:
             try:
@@ -1133,8 +1140,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # Ignore tape sources if they are not desired
         filtered_sources = list(filtered_sources)
         had_tape_sources = len(filtered_sources) > 0
-        allow_tape_source = dict_attributes["allow_tape_source"] if (dict_attributes and "allow_tape_source" in dict_attributes) else True
-        if not allow_tape_source:
+        if not rws.attributes.get("allow_tape_source", True):
             filtered_sources = filter(lambda s: not ctx.is_tape_rse(s.rse_id) and not ctx.rse_attrs(source_rse_id).get('staging_required', False), filtered_sources)
 
         filtered_sources = list(filtered_sources)
@@ -1160,7 +1166,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 continue
 
             try:
-                transfer_path = __prepare_transfer_definition(ctx, rws=rws, source=source, dict_attributes=dict_attributes, transfertool=transfertool,
+                transfer_path = __prepare_transfer_definition(ctx, rws=rws, source=source, transfertool=transfertool,
                                                               retry_other_fts=retry_other_fts, list_hops=list_hops, activity=activity, logger=logger, session=session,
                                                               bring_online=bring_online)
                 if transfer_path:
@@ -1179,7 +1185,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
             for source, list_hops in __find_compatible_direct_sources(sources=additional_sources, scheme=best_path[0]['schemes'], dest_rse_id=rws.dest_rse_id, session=session):
                 try:
-                    additional_path = __prepare_transfer_definition(ctx, rws=rws, source=source, dict_attributes=dict_attributes, transfertool=transfertool,
+                    additional_path = __prepare_transfer_definition(ctx, rws=rws, source=source, transfertool=transfertool,
                                                                     retry_other_fts=retry_other_fts, list_hops=list_hops, activity=activity, logger=logger, session=session,
                                                                     bring_online=bring_online)
                 except Exception:
