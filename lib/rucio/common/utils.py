@@ -906,9 +906,7 @@ def detect_client_location():
 
     ip = '0.0.0.0'
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
+        ip = requests.get('https://api64.ipify.org').text
     except Exception:
         pass
 
@@ -925,10 +923,24 @@ def detect_client_location():
                                          os.environ.get('OSG_SITE_NAME',
                                                         'ROAMING')))
 
+    latitude = os.environ.get('RUCIO_LATITUDE')
+    longitude = os.environ.get('RUCIO_LONGITUDE')
+    if latitude and longitude:
+        try:
+            latitude = float(latitude)
+            longitude = float(longitude)
+        except ValueError:
+            latitude = longitude = 0
+            print('Client set latitude and longitude are not valid.')
+    else:
+        latitude = longitude = 0
+
     return {'ip': ip,
             'ip6': ip6,
             'fqdn': socket.getfqdn(),
-            'site': site}
+            'site': site,
+            'latitude': latitude,
+            'longitude': longitude}
 
 
 def ssh_sign(private_key, message):
