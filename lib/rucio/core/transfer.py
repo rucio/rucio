@@ -824,7 +824,7 @@ def __rewrite_dest_url(dest_url, dest_sign_url, dest_scheme):
 
 @transactional_session
 def __prepare_transfer_definition(ctx, rws, source, dict_attributes, transfertool, retry_other_fts, list_hops, activity,
-                                  reqs_only_tape_source, reqs_no_source, bring_online_local, logger, session=None):
+                                  bring_online_local, logger, session=None):
     """
     Create a hop-by-hop transfer configuration.
     For each hop needed to replicate the file from source (source.rse_id) towards the request's destination (rws.dest_rse_id),
@@ -857,10 +857,6 @@ def __prepare_transfer_definition(ctx, rws, source, dict_attributes, transfertoo
         source_url = list(source_protocol.lfns2pfns(lfns={'scope': rws.scope.external, 'name': rws.name, 'path': file_path}).values())[0]
         source_url = __rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=source_scheme)
 
-        # parse allow tape source expression, not finally version.
-        # allow_tape_source = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
-        allow_tape_source = True
-
         # Extend the metadata dictionary with request attributes
         transfer_src_type = "DISK"
         transfer_dst_type = "DISK"
@@ -868,13 +864,6 @@ def __prepare_transfer_definition(ctx, rws, source, dict_attributes, transfertoo
         if ctx.is_tape_rse(source_rse_id) or ctx.rse_attrs(source_rse_id).get('staging_required', False):
             bring_online = bring_online_local
             transfer_src_type = "TAPE"
-            if not allow_tape_source:
-                if rws.request_id not in reqs_only_tape_source:
-                    reqs_only_tape_source.append(rws.request_id)
-                if rws.request_id in reqs_no_source:
-                    reqs_no_source.remove(rws.request_id)
-                return
-
         if ctx.is_tape_rse(dest_rse_id):
             overwrite = False
             transfer_dst_type = "TAPE"
@@ -1098,7 +1087,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
     bring_online_local = bring_online
-    transfer_path_for_request, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = [], [], [], []
+    transfer_path_for_request, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = [], set(), set(), set()
 
     multihop_rses = []
     try:
@@ -1107,9 +1096,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         multihop_rses = []
 
     for rws in request_with_sources:
-        # Add req to req_no_source list (Will be removed later if needed)
-        if rws.request_id not in reqs_no_source:
-            reqs_no_source.append(rws.request_id)
+        # Assume request doesn't have any sources. Will be removed later if sources are found.
+        reqs_no_source.add(rws.request_id)
 
         if rses and rws.dest_rse_id not in rses:
             continue
@@ -1118,9 +1106,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # Check if destination is blocked
         if rws.dest_rse_id in unavailable_write_rse_ids:
             logger(logging.WARNING, 'RSE %s is blocked for write. Will skip the submission of new jobs', dest_rse_name)
-            continue
-
-        if not rws.sources:
             continue
 
         dict_attributes = get_attributes(rws.attributes)
@@ -1144,8 +1129,15 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         filtered_sources = filter(lambda s: s.rse_name is not None, filtered_sources)
         # Ignore blacklisted RSEs
         filtered_sources = filter(lambda s: s.rse_id not in unavailable_read_rse_ids, filtered_sources)
+        # Ignore tape sources if they are not desired
         filtered_sources = list(filtered_sources)
+        had_tape_sources = len(filtered_sources) > 0
+        allow_tape_source = dict_attributes["allow_tape_source"] if (dict_attributes and "allow_tape_source" in dict_attributes) else True
+        if not allow_tape_source:
+            filtered_sources = filter(lambda s: not ctx.is_tape_rse(s.rse_id) and not ctx.rse_attrs(source_rse_id).get('staging_required', False), filtered_sources)
 
+        filtered_sources = list(filtered_sources)
+        any_source_had_scheme_mismatch = False
         candidate_paths = []
         for source in filtered_sources:
             source_rse_name = ctx.rse_name(source.rse_id)
@@ -1165,23 +1157,16 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                      session=session)
             except NoDistance:
                 logger(logging.WARNING, "Request %s: no link from %s to %s", rws.request_id, source_rse_name, dest_rse_name)
-                if rws.request_id in reqs_scheme_mismatch:
-                    reqs_scheme_mismatch.remove(rws.request_id)
-                if rws.request_id not in reqs_no_source:
-                    reqs_no_source.append(rws.request_id)
                 continue
             except RSEProtocolNotSupported:
+                any_source_had_scheme_mismatch = True
                 logger(logging.WARNING, "Request %s: no matching protocol between %s and %s", rws.request_id, source_rse_name, dest_rse_name)
-                if rws.request_id in reqs_no_source:
-                    reqs_no_source.remove(rws.request_id)
-                if rws.request_id not in reqs_scheme_mismatch:
-                    reqs_scheme_mismatch.append(rws.request_id)
                 continue
 
             try:
                 transfer_path = __prepare_transfer_definition(ctx, rws=rws, source=source, dict_attributes=dict_attributes, transfertool=transfertool,
                                                               retry_other_fts=retry_other_fts, list_hops=list_hops, activity=activity, logger=logger, session=session,
-                                                              reqs_no_source=reqs_no_source, reqs_only_tape_source=reqs_only_tape_source, bring_online_local=bring_online_local)
+                                                              bring_online_local=bring_online_local)
                 if transfer_path:
                     candidate_paths.append(transfer_path)
             except Exception:
@@ -1200,7 +1185,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 try:
                     additional_path = __prepare_transfer_definition(ctx, rws=rws, source=source, dict_attributes=dict_attributes, transfertool=transfertool,
                                                                     retry_other_fts=retry_other_fts, list_hops=list_hops, activity=activity, logger=logger, session=session,
-                                                                    reqs_no_source=reqs_no_source, reqs_only_tape_source=reqs_only_tape_source, bring_online_local=bring_online_local)
+                                                                    bring_online_local=bring_online_local)
                 except Exception:
                     logger(logging.CRITICAL, "Exception happened when trying to add additional source to transfer of request %s:" % rws.request_id, exc_info=True)
                     continue
@@ -1212,6 +1197,17 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
         if best_path:
             transfer_path_for_request.append((rws, best_path))
+            reqs_no_source.remove(rws.request_id)
+        else:
+            # It can happen that some sources are skipped because they are TAPE, and others because
+            # of scheme mismatch. However, we can only have one state in the database. I picked to
+            # prioritize setting only_tape_source without any particular reason.
+            if had_tape_sources and not filtered_sources:
+                reqs_only_tape_source.add(rws.request_id)
+                reqs_no_source.remove(rws.request_id)
+            elif any_source_had_scheme_mismatch:
+                reqs_scheme_mismatch.add(rws.request_id)
+                reqs_no_source.remove(rws.request_id)
 
     # Ensure each single-hop transfer has its own request id. Create intermediate replicas and requests if needed.
     # Organize into the return format: {request_id: <transfer_definition_dict>}
@@ -1320,14 +1316,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 break
         # OIDC token will be requested for the account of this tranfer
         transfers[req_id]['use_oidc'] = use_oidc
-
-    for req_id in transfers:
-        if req_id in reqs_no_source:
-            reqs_no_source.remove(req_id)
-        if req_id in reqs_only_tape_source:
-            reqs_only_tape_source.remove(req_id)
-        if req_id in reqs_scheme_mismatch:
-            reqs_scheme_mismatch.remove(req_id)
 
     return transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
 
