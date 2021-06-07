@@ -410,6 +410,8 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
         session.query(models.DataIdentifier). \
             filter(models.DataIdentifier.scope == scope). \
             filter(models.DataIdentifier.name == name). \
+            filter(or_(models.DataIdentifier.is_archive.is_(None),
+                       models.DataIdentifier.is_archive == false())). \
             update({'is_archive': True})
 
     try:
