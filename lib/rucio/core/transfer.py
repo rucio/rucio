@@ -1103,9 +1103,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # Assume request doesn't have any sources. Will be removed later if sources are found.
         reqs_no_source.add(rws.request_id)
 
-        if rses and rws.dest_rse_id not in rses:
-            continue
-
         dest_rse_name = ctx.rse_name(rws.dest_rse_id)
         # Check if destination is blocked
         if rws.dest_rse_id in unavailable_write_rse_ids:
