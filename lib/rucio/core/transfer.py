@@ -832,8 +832,7 @@ def __rewrite_dest_url(dest_url, dest_sign_url, dest_scheme):
 
 
 @transactional_session
-def __prepare_transfer_definition(ctx, rws, source, transfertool, retry_other_fts, list_hops, activity,
-                                  bring_online, logger, session=None):
+def __prepare_transfer_definition(ctx, rws, source, transfertool, retry_other_fts, list_hops, bring_online, logger, session=None):
     """
     Create a hop-by-hop transfer configuration.
     For each hop needed to replicate the file from source (source.rse_id) towards the request's destination (rws.dest_rse_id),
@@ -888,7 +887,7 @@ def __prepare_transfer_definition(ctx, rws, source, transfertool, retry_other_ft
                                     dest_is_tape=ctx.is_tape_rse(dest_rse_id),
                                     dict_attributes=rws.attributes,
                                     retry_count=rws.retry_count,
-                                    activity=activity)
+                                    activity=rws.activity)
         dest_url = __rewrite_dest_url(dest_url, dest_sign_url=dest_sign_url, dest_scheme=dest_scheme)
 
         # Get dest space token
@@ -950,7 +949,7 @@ def __prepare_transfer_definition(ctx, rws, source, transfertool, retry_other_ft
         file_metadata = {'request_id': rws.request_id,
                          'scope': rws.scope,
                          'name': rws.name,
-                         'activity': activity,
+                         'activity': rws.activity,
                          'request_type': RequestType.TRANSFER,
                          'src_type': transfer_src_type,
                          'dst_type': transfer_dst_type,
@@ -1167,7 +1166,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
             try:
                 transfer_path = __prepare_transfer_definition(ctx, rws=rws, source=source, transfertool=transfertool,
-                                                              retry_other_fts=retry_other_fts, list_hops=list_hops, activity=activity, logger=logger, session=session,
+                                                              retry_other_fts=retry_other_fts, list_hops=list_hops, logger=logger, session=session,
                                                               bring_online=bring_online)
                 if transfer_path:
                     candidate_paths.append(transfer_path)
@@ -1186,7 +1185,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             for source, list_hops in __find_compatible_direct_sources(sources=additional_sources, scheme=best_path[0]['schemes'], dest_rse_id=rws.dest_rse_id, session=session):
                 try:
                     additional_path = __prepare_transfer_definition(ctx, rws=rws, source=source, transfertool=transfertool,
-                                                                    retry_other_fts=retry_other_fts, list_hops=list_hops, activity=activity, logger=logger, session=session,
+                                                                    retry_other_fts=retry_other_fts, list_hops=list_hops, logger=logger, session=session,
                                                                     bring_online=bring_online)
                 except Exception:
                     logger(logging.CRITICAL, "Exception happened when trying to add additional source to transfer of request %s:" % rws.request_id, exc_info=True)
