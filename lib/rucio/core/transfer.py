@@ -1089,11 +1089,16 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     bring_online_local = bring_online
     transfer_path_for_request, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = [], set(), set(), set()
 
+    include_multihop = False
+    if transfertool in ['fts3', None]:
+        include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
+
     multihop_rses = []
-    try:
-        multihop_rses = [rse['id'] for rse in parse_expression('available_for_multihop=true')]
-    except InvalidRSEExpression:
-        multihop_rses = []
+    if include_multihop:
+        try:
+            multihop_rses = [rse['id'] for rse in parse_expression('available_for_multihop=true')]
+        except InvalidRSEExpression:
+            pass
 
     for rws in request_with_sources:
         # Assume request doesn't have any sources. Will be removed later if sources are found.
@@ -1144,11 +1149,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             # Call the get_hops function to create a list of RSEs used for the transfer
             # In case the source_rse and the dest_rse are connected, the list contains only the destination RSE
             # In case of non-connected, the list contains all the intermediary RSEs
-
-            include_multihop = False
-            if transfertool in ['fts3', None]:
-                include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
-
             try:
                 list_hops = get_hops(source.rse_id,
                                      rws.dest_rse_id,
