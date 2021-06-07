@@ -111,15 +111,15 @@ def __get_lat_long(se, gi):
     return None, None
 
 
-def __get_distance(se1, se2, ignore_error):
+def __get_distance(se1, client_location, ignore_error):
     """
     Get the distance between 2 host using the GeoLite DB
     :param se1 : A first hostname or IP.
-    :param se2 : A second hostname or IP.
+    :param client_location : contains {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
     :ignore_error: Ignore exception when the GeoLite DB cannot be retrieved
     """
     # does not cache ignore_error, str.lower on hostnames/ips is fine
-    canonical_parties = list(map(lambda x: str(x).lower(), [se1, se2])).sort()
+    canonical_parties = list(map(lambda x: str(x).lower(), [se1, client_location['ip']])).sort()
     cache_key = f'replica_sorter:__get_distance|site_distance|{canonical_parties}'
     cache_val = REGION.get(cache_key)
     if cache_val is NO_VALUE:
@@ -131,7 +131,11 @@ def __get_distance(se1, se2, ignore_error):
             gi = geoip2.database.Reader('%s/%s' % (directory, '%s.mmdb' % ipv6_filename))
 
             lat1, long1 = __get_lat_long(se1, gi)
-            lat2, long2 = __get_lat_long(se2, gi)
+            if client_location['latitude'] and client_location['longitude']:
+                lat2 = client_location['latitude']
+                long2 = client_location['longitude']
+            else:
+                lat2, long2 = __get_lat_long(client_location['ip'], gi)
 
             if lat1 and lat2:
                 long1, lat1, long2, lat2 = map(radians, [long1, lat1, long2, lat2])
@@ -175,7 +179,7 @@ def sort_replicas(dictreplica: "Dict", client_location: "Dict", selection: "Opti
     General sorting method for a dictionary of replicas. Returns the List of replicas.
 
     :param dictreplica: A dict with replicas as keys (URIs).
-    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site'}
+    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
     :param selection: the selected sorting algorithm.
     :param default: the default sorting algorithm (random, if not defined).
     :returns: the keys of dictreplica in a sorted list.
@@ -224,12 +228,12 @@ def sort_geoip(dictreplica: "Dict", client_location: "Dict", ignore_error: bool 
     """
     Return a list of replicas sorted by geographical distance to the client IP.
     :param dictreplica: A dict with replicas as keys (URIs).
-    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site'}
+    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
     :param ignore_error: Ignore exception when the GeoLite DB cannot be retrieved
     """
 
     def distance(pfn):
-        return __get_distance(urlparse(pfn).hostname, client_location['ip'], ignore_error)
+        return __get_distance(urlparse(pfn).hostname, client_location, ignore_error)
 
     return list(sorted(dictreplica, key=distance))
 
