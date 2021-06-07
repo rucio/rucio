@@ -824,7 +824,7 @@ def __rewrite_dest_url(dest_url, dest_sign_url, dest_scheme):
 
 @transactional_session
 def __prepare_transfer_definition(ctx, rws, source, dict_attributes, transfertool, retry_other_fts, list_hops, activity,
-                                  bring_online_local, logger, session=None):
+                                  bring_online, logger, session=None):
     """
     Create a hop-by-hop transfer configuration.
     For each hop needed to replicate the file from source (source.rse_id) towards the request's destination (rws.dest_rse_id),
@@ -860,9 +860,9 @@ def __prepare_transfer_definition(ctx, rws, source, dict_attributes, transfertoo
         # Extend the metadata dictionary with request attributes
         transfer_src_type = "DISK"
         transfer_dst_type = "DISK"
-        overwrite, bring_online = True, None
+        overwrite, bring_online_local = True, None
         if ctx.is_tape_rse(source_rse_id) or ctx.rse_attrs(source_rse_id).get('staging_required', False):
-            bring_online = bring_online_local
+            bring_online_local = bring_online
             transfer_src_type = "TAPE"
         if ctx.is_tape_rse(dest_rse_id):
             overwrite = False
@@ -965,7 +965,7 @@ def __prepare_transfer_definition(ctx, rws, source, dict_attributes, transfertoo
                     'src_spacetoken': None,
                     'dest_spacetoken': dest_spacetoken,
                     'overwrite': overwrite,
-                    'bring_online': bring_online,
+                    'bring_online': bring_online_local,
                     'copy_pin_lifetime': dict_attributes.get('lifetime', 172800),
                     'external_host': external_host,
                     'selection_strategy': 'auto',
@@ -1086,7 +1086,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
     unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
-    bring_online_local = bring_online
     transfer_path_for_request, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = [], set(), set(), set()
 
     include_multihop = False
@@ -1166,7 +1165,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             try:
                 transfer_path = __prepare_transfer_definition(ctx, rws=rws, source=source, dict_attributes=dict_attributes, transfertool=transfertool,
                                                               retry_other_fts=retry_other_fts, list_hops=list_hops, activity=activity, logger=logger, session=session,
-                                                              bring_online_local=bring_online_local)
+                                                              bring_online=bring_online)
                 if transfer_path:
                     candidate_paths.append(transfer_path)
             except Exception:
@@ -1185,7 +1184,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 try:
                     additional_path = __prepare_transfer_definition(ctx, rws=rws, source=source, dict_attributes=dict_attributes, transfertool=transfertool,
                                                                     retry_other_fts=retry_other_fts, list_hops=list_hops, activity=activity, logger=logger, session=session,
-                                                                    bring_online_local=bring_online_local)
+                                                                    bring_online=bring_online)
                 except Exception:
                     logger(logging.CRITICAL, "Exception happened when trying to add additional source to transfer of request %s:" % rws.request_id, exc_info=True)
                     continue
