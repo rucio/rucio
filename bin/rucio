@@ -954,6 +954,7 @@ def upload(args):
                       'rse': args.rse,
                       'did_scope': args.scope,
                       'did_name': args.name,
+                      'impl': args.impl,
                       'dataset_scope': dsscope,
                       'dataset_name': dsname,
                       'force_scheme': args.protocol,
@@ -1072,6 +1073,7 @@ def download(args):
         item_defaults['filters'] = filters
 
     if not args.pfn:
+        item_defaults['impl'] = args.impl
         item_defaults['force_scheme'] = args.protocol
         item_defaults['nrandom'] = args.nrandom
 
@@ -1093,6 +1095,8 @@ def download(args):
     else:
         if args.aria:
             logger.warning('Ignoring --aria option because --pfn option given')
+        if args.impl:
+            logger.warning('Ignoring --impl option because --pfn option given')
         if args.protocol:
             logger.warning('Ignoring --protocol option because --pfn option given')
         if args.transfer_speed_timeout:
@@ -2201,6 +2205,7 @@ You can filter by key/value, e.g.::
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True).completer = rse_completer
     upload_parser.add_argument('--lifetime', type=int, action='store', help='Lifetime of the rule in seconds.')
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
+    upload_parser.add_argument('--impl', dest='impl', action='store', help='Transfer protocol implementation to use.')
     # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
     upload_parser.add_argument('--no-register', dest='no_register', action='store_true', default=False, help=argparse.SUPPRESS)
     upload_parser.add_argument('--register-after-upload', dest='register_after_upload', action='store_true', default=False, help='Register the file only after successful upload.')
@@ -2223,6 +2228,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--allow-tape', action='store_true', default=False, help="Also consider tape endpoints as source of the download.")
         selected_parser.add_argument('--rse', action='store', help='RSE Expression to specify allowed sources')  # TODO:remove-deprecated
         selected_parser.add_argument('--rses', action='store', help='RSE Expression to specify allowed sources')
+        selected_parser.add_argument('--impl', dest='impl', action='store', help='Transfer protocol implementation to use.')
         selected_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
         selected_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
         selected_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')

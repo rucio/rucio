@@ -104,6 +104,7 @@ class UploadClient:
             did_name              - Optional: custom did name (Default: name of the file)
             dataset_scope         - Optional: custom dataset scope
             dataset_name          - Optional: custom dataset name
+            impl                   - Optional: name of the protocol implementation to be used to upload this item.
             force_scheme          - Optional: force a specific scheme (if PFN upload this will be overwritten) (Default: None)
             pfn                   - Optional: use a given PFN (this sets no_register to True, and no_register becomes mandatory)
             no_register           - Optional: if True, the file will not be registered in the rucio catalogue
@@ -175,6 +176,7 @@ class UploadClient:
             register_after_upload = file.get('register_after_upload') and not no_register
             pfn = file.get('pfn')
             force_scheme = file.get('force_scheme')
+            impl_passed = file.get('impl')
             delete_existing = False
 
             trace = copy.deepcopy(self.trace)
@@ -218,7 +220,7 @@ class UploadClient:
             # if register_after_upload, file should be overwritten if it is not registered
             # otherwise if file already exists on RSE we're done
             if register_after_upload:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, auth_token=self.auth_token, logger=logger):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, impl=impl_passed, auth_token=self.auth_token, logger=logger):
                     try:
                         self.client.get_did(file['did_scope'], file['did_name'])
                         logger(logging.INFO, 'File already registered. Skipping upload.')
@@ -228,22 +230,22 @@ class UploadClient:
                         logger(logging.INFO, 'File already exists on RSE. Previous left overs will be overwritten.')
                         delete_existing = True
             elif not is_deterministic and not no_register:
-                if rsemgr.exists(rse_settings, pfn, domain=domain, auth_token=self.auth_token, logger=logger):
+                if rsemgr.exists(rse_settings, pfn, domain=domain, impl=impl_passed, auth_token=self.auth_token, logger=logger):
                     logger(logging.INFO, 'File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
                     trace['stateReason'] = 'File already exists'
                     continue
-                elif rsemgr.exists(rse_settings, file_did, domain=domain, auth_token=self.auth_token, logger=logger):
+                elif rsemgr.exists(rse_settings, file_did, domain=domain, impl=impl_passed, auth_token=self.auth_token, logger=logger):
                     logger(logging.INFO, 'File already exists on RSE with different pfn. Skipping upload.')
                     trace['stateReason'] = 'File already exists'
                     continue
             else:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, auth_token=self.auth_token, logger=logger):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, impl=impl_passed, auth_token=self.auth_token, logger=logger):
                     logger(logging.INFO, 'File already exists on RSE. Skipping upload')
                     trace['stateReason'] = 'File already exists'
                     continue
 
             # protocol handling and upload
-            protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme, domain=domain)
+            protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme, domain=domain, impl=impl_passed)
             protocols.reverse()
             success = False
             state_reason = ''
@@ -276,6 +278,7 @@ class UploadClient:
                                             lfn=lfn,
                                             source_dir=file['dirname'],
                                             domain=domain,
+                                            impl=impl_passed,
                                             force_scheme=cur_scheme,
                                             force_pfn=pfn,
                                             transfer_timeout=file.get('transfer_timeout'),
@@ -500,6 +503,14 @@ class UploadClient:
                 continue
             if pfn:
                 item['force_scheme'] = pfn.split(':')[0]
+            if item.get('impl'):
+                impl = item.get('impl')
+                impl_split = impl.split('.')
+                if len(impl_split) == 1:
+                    impl = 'rucio.rse.protocols.' + impl + '.Default'
+                else:
+                    impl = 'rucio.rse.protocols.' + impl
+                item['impl'] = impl
             if os.path.isdir(path) and not recursive:
                 dname, subdirs, fnames = next(os.walk(path))
                 for fname in fnames:
@@ -547,7 +558,7 @@ class UploadClient:
             replica['pfn'] = pfn
         return replica
 
-    def _upload_item(self, rse_settings, rse_attributes, lfn, source_dir=None, domain='wan', force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None):
+    def _upload_item(self, rse_settings, rse_attributes, lfn, source_dir=None, domain='wan', impl=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None):
         """
             Uploads a file to the connected storage.
 
@@ -568,7 +579,7 @@ class UploadClient:
         logger = self.logger
 
         # Construct protocol for write and read operation.
-        protocol_write = self._create_protocol(rse_settings, 'write', force_scheme=force_scheme, domain=domain)
+        protocol_write = self._create_protocol(rse_settings, 'write', force_scheme=force_scheme, domain=domain, impl_chosen=impl)
         protocol_read = self._create_protocol(rse_settings, 'read', domain=domain)
 
         base_name = lfn.get('filename', lfn['name'])
@@ -702,7 +713,7 @@ class UploadClient:
                 time.sleep(2**attempt)
         return protocol.stat(pfn)
 
-    def _create_protocol(self, rse_settings, operation, force_scheme=None, domain='wan'):
+    def _create_protocol(self, rse_settings, operation, impl_chosen=None, force_scheme=None, domain='wan'):
         """
         Protol construction.
         :param: rse_settings        rse_settings
@@ -711,7 +722,7 @@ class UploadClient:
         :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
         """
         try:
-            protocol = rsemgr.create_protocol(rse_settings, operation, scheme=force_scheme, domain=domain, auth_token=self.auth_token, logger=self.logger)
+            protocol = rsemgr.create_protocol(rse_settings, operation, scheme=force_scheme, domain=domain, impl_passed=impl_chosen, auth_token=self.auth_token, logger=self.logger)
             protocol.connect()
         except Exception as error:
             self.logger(logging.WARNING, 'Failed to create protocol for operation: %s' % operation)
