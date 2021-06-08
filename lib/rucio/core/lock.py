@@ -137,15 +137,25 @@ def get_replica_locks_for_rule_id(rule_id, session=None):
 
     locks = []
 
-    query = session.query(models.ReplicaLock).filter_by(rule_id=rule_id)
-
-    for row in query:
-        locks.append({'scope': row.scope,
-                      'name': row.name,
-                      'rse_id': row.rse_id,
-                      'rse': get_rse_name(rse_id=row.rse_id, session=session),
-                      'state': row.state,
-                      'rule_id': row.rule_id})
+    query = session.query(models.ReplicaLock, models.Request).join(
+        models.Request, models.ReplicaLock.rule_id == models.Request.rule_id).filter_by(rule_id=rule_id)
+    if query.count() != 0:
+        for row in query:
+            locks.append({'scope': row.ReplicaLock.scope,
+                          'name': row.ReplicaLock.name,
+                          'rse_id': row.ReplicaLock.rse_id,
+                          'rse': get_rse_name(rse_id=row.ReplicaLock.rse_id, session=session),
+                          'state': row.Request.state,
+                          'rule_id': row.ReplicaLock.rule_id})
+    else:
+        query = session.query(models.ReplicaLock).filter_by(rule_id=rule_id)
+        for row in query:
+            locks.append({'scope': row.scope,
+                          'name': row.name,
+                          'rse_id': row.rse_id,
+                          'rse': get_rse_name(rse_id=row.rse_id, session=session),
+                          'state': row.state,
+                          'rule_id': row.rule_id})
 
     return locks
 
