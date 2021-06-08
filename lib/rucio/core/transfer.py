@@ -903,7 +903,6 @@ def __prepare_transfer_definition(ctx, rws, source, transfertool, retry_other_ft
     for hop in list_hops:
         source_scheme = hop['source_scheme']
         dest_scheme = hop['dest_scheme']
-        dest_scheme_priority = hop['dest_scheme_priority']
 
         source_rse = ctx.rse_data(hop['source_rse_id'])
         dest_rse = ctx.rse_data(hop['dest_rse_id'])
@@ -1034,8 +1033,7 @@ def __prepare_transfer_definition(ctx, rws, source, transfertool, retry_other_ft
                     'external_host': external_host,
                     'selection_strategy': 'auto',
                     'rule_id': rws.rule_id,
-                    'file_metadata': file_metadata,
-                    'dest_scheme_priority': dest_scheme_priority}
+                    'file_metadata': file_metadata}
         if len(list_hops) > 1:
             transfer['multihop'] = True
             transfer['initial_request_id'] = rws.request_id
