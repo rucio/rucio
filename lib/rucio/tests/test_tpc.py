@@ -55,19 +55,23 @@ def check_url(pfn, hostname, path):
     assert path in pfn
 
 
-def list_fts_transfer(timeout=30):
-    time_start = time.time()
+def list_fts_transfer(timeout=30, max_attempts=10):
     running_time = 0
     request_id = None
     request_status = None
-    while running_time < timeout:
-        rcode, out = run_cmd_process("/usr/bin/python2 /usr/bin/fts-rest-transfer-list -v -s https://fts:8446", timeout=10)
+    attempt = 1
+
+    time_start = time.time()
+    while running_time < timeout or attempt < max_attempts:
+        rcode, out = run_cmd_process("/usr/bin/python2 /usr/bin/fts-rest-transfer-list -v -s https://fts:8446", timeout=30)
         if "Request ID" in out:
             request_id = re.search("Request ID: (.*)", out).group(1)
             request_status = re.search("Status: (.*)", out).group(1)
             break
+        attempt = attempt + 1
         time_now = time.time()
         running_time = int(time_now - time_start)
+
     return request_id, request_status
 
 
@@ -122,7 +126,7 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
     submitter.run(once=True)
 
     # Get FTS transfer job info
-    fts_transfer_id, fts_transfer_status = list_fts_transfer(timeout=40)
+    fts_transfer_id, fts_transfer_status = list_fts_transfer()
 
     # Check FTS transfer job
     assert fts_transfer_id is not None and fts_transfer_status is not None
