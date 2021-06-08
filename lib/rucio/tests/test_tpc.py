@@ -55,7 +55,7 @@ def check_url(pfn, hostname, path):
     assert path in pfn
 
 
-def list_fts_transfer(timeout=30, max_attempts=10):
+def list_fts_transfer(timeout=60, max_attempts=10):
     running_time = 0
     request_id = None
     request_status = None
