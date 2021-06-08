@@ -19,7 +19,7 @@
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2020-2021
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
@@ -46,7 +46,7 @@ from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, I
                                     InsufficientAccountLimit, InputValidationError, RSEOverQuota,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
                                     StagingAreaRuleRequiresLifetime, SubscriptionWrongParameter, SubscriptionNotFound)
-from rucio.common.logging import setup_logging
+from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.schema import validate_schema
 from rucio.common.utils import chunks
 from rucio.core import monitor, heartbeat
@@ -221,7 +221,8 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
 
         dids, subscriptions = [], []
         tottime = 0
-        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+        prepend_str = 'transmogrifier[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+        logger = formatted_logger(logging.log, prepend_str + '%s')
 
         try:
             #  Get the new DIDs based on the is_new flag
@@ -248,17 +249,17 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
             for priority in priorities:
                 subscriptions.extend(sub_dict[priority])
         except SubscriptionNotFound as error:
-            logging.warning(prepend_str + 'No subscriptions defined: %s' % (str(error)))
+            logger(logging.WARNING, 'No subscriptions defined: %s' % (str(error)))
             time.sleep(10)
             continue
         except Exception as error:
-            logging.error(prepend_str + 'Failed to get list of new DIDs or subscriptions: %s' % (str(error)))
+            logger(logging.ERROR, 'Failed to get list of new DIDs or subscriptions: %s' % (str(error)))
 
         try:
             results = {}
             start_time = time.time()
             blacklisted_rse_id = [rse['id'] for rse in list_rses({'availability_write': False})]
-            logging.debug(prepend_str + 'In transmogrifier worker')
+            logger(logging.DEBUG, 'In transmogrifier worker')
             identifiers = []
             #  Loop over all the new dids
             for did in dids:
@@ -276,7 +277,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                 split_rule = filter_string.get('split_rule', False)
                                 stime = time.time()
                                 results[did_tag].append(subscription['id'])
-                                logging.info(prepend_str + '%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['name']))
+                                logger(logging.INFO, '%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['name']))
                                 rules = loads(subscription['replication_rules'])
                                 created_rules = {}
                                 cnt = 0
@@ -310,7 +311,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                     try:
                                         validate_schema(name='activity', obj=activity, vo=account.vo)
                                     except InputValidationError as error:
-                                        logging.error(prepend_str + 'Error validating the activity %s' % (str(error)))
+                                        logger(logging.ERROR, 'Error validating the activity %s' % (str(error)))
                                         activity = 'User Subscriptions'
                                     if lifetime:
                                         lifetime = int(lifetime)
@@ -327,7 +328,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                         params = {}
                                         if rule_dict.get('associated_site_idx', None):
                                             params['associated_site_idx'] = rule_dict.get('associated_site_idx', None)
-                                        logging.debug('%s Chained subscription identified. Will use %s', prepend_str, str(created_rules[chained_idx]))
+                                        logger(logging.DEBUG, '%s Chained subscription identified. Will use %s', prepend_str, str(created_rules[chained_idx]))
                                         algorithm = rule_dict.get('algorithm', None)
                                         selected_rses = select_algorithm(algorithm, created_rules[chained_idx], params)
                                     else:
@@ -352,16 +353,20 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                                 rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
                                                 selected_rses = [rse_id_dict[rse_id] for rse_id, _, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=blacklisted_rse_id)]
                                             except (InsufficientTargetRSEs, InsufficientAccountLimit, InvalidRuleWeight, RSEOverQuota) as error:
-                                                logging.warning(prepend_str + 'Problem getting RSEs for subscription "%s" for account %s : %s. Try including blacklisted sites' %
-                                                                (subscription['name'], account, str(error)))
+                                                logger(logging.WARNING, 'Problem getting RSEs for subscription "%s" for account %s : %s. Try including blacklisted sites' %
+                                                       (subscription['name'],
+                                                        account,
+                                                        str(error)))
                                                 # Now including the blacklisted sites
                                                 try:
                                                     rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
                                                     selected_rses = [rse_id_dict[rse_id] for rse_id, _, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=[])]
                                                     ignore_availability = True
                                                 except (InsufficientTargetRSEs, InsufficientAccountLimit, InvalidRuleWeight, RSEOverQuota) as error:
-                                                    logging.error(prepend_str + 'Problem getting RSEs for subscription "%s" for account %s : %s. Skipping rule creation.' %
-                                                                  (subscription['name'], account, str(error)))
+                                                    logger(logging.ERROR, 'Problem getting RSEs for subscription "%s" for account %s : %s. Skipping rule creation.' %
+                                                           (subscription['name'],
+                                                            account,
+                                                            str(error)))
                                                     monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
                                                     # The DID won't be reevaluated at the next cycle
                                                     did_success = did_success and True
@@ -378,7 +383,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                                         if isinstance(selected_rses, dict):
                                                             source_replica_expression = selected_rses[rse].get('source_replica_expression', None)
                                                             weight = selected_rses[rse].get('weight', None)
-                                                        logging.info(prepend_str + 'Will insert one rule for %s:%s on %s' % (did['scope'], did['name'], rse))
+                                                        logger(logging.INFO, 'Will insert one rule for %s:%s on %s' % (did['scope'], did['name'], rse))
                                                         rule_ids = add_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=account, copies=1,
                                                                             rse_expression=rse, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked,
                                                                             subscription_id=subscription_id, source_replica_expression=source_replica_expression, activity=activity,
@@ -402,28 +407,27 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                         except (InvalidReplicationRule, InvalidRuleWeight, InvalidRSEExpression, StagingAreaRuleRequiresLifetime, DuplicateRule) as error:
                                             # Errors that won't be retried
                                             success = True
-                                            logging.error(prepend_str + '%s' % (str(error)))
+                                            logger(logging.ERROR, str(error))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
                                             break
                                         except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs,
                                                 InsufficientAccountLimit, DatabaseException, RSEBlacklisted,
                                                 RSEWriteBlocked) as error:
                                             # Errors to be retried
-                                            logging.error(prepend_str + '%s Will perform an other attempt %i/%i' % (str(error), attempt + 1, nattempt))
+                                            logger(logging.ERROR, '%s Will perform an other attempt %i/%i' % (str(error), attempt + 1, nattempt))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
                                         except Exception:
                                             # Unexpected errors
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.unknown', delta=1)
-                                            exc_type, exc_value, exc_traceback = exc_info()
-                                            logging.critical(prepend_str + ''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
+                                            logger(logging.ERROR, "Unexpected error", exc_info=True)
 
                                     did_success = (did_success and success)
                                     if (attemptnr + 1) == nattempt and not success:
-                                        logging.error(prepend_str + 'Rule for %s:%s on %s cannot be inserted' % (did['scope'], did['name'], rse_expression))
+                                        logger(logging.ERROR, 'Rule for %s:%s on %s cannot be inserted' % (did['scope'], did['name'], rse_expression))
                                     else:
-                                        logging.info(prepend_str + '%s rule(s) inserted in %f seconds' % (str(nb_rule), time.time() - stime))
+                                        logger(logging.INFO, '%s rule(s) inserted in %f seconds' % (str(nb_rule), time.time() - stime))
                     except DataIdentifierNotFound as error:
-                        logging.warning(prepend_str + error)
+                        logger(logging.WARNING, str(error))
 
                 if did_success:
                     if did['did_type'] == str(DIDType.FILE):
@@ -441,27 +445,26 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
             for identifier in chunks(identifiers, 100):
                 _retrial(set_new_dids, identifier, None)
 
-            logging.info(prepend_str + 'Time to set the new flag : %f' % (time.time() - time1))
+            logger(logging.DEBUG, 'Time to set the new flag : %f' % (time.time() - time1))
             tottime = time.time() - start_time
             for sub in subscriptions:
                 update_subscription(name=sub['name'], account=sub['account'], metadata={'last_processed': datetime.now()})
-            logging.info(prepend_str + 'It took %f seconds to process %i DIDs' % (tottime, len(dids)))
-            logging.debug(prepend_str + 'DIDs processed : %s' % (str(dids)))
+            logger(logging.INFO, 'It took %f seconds to process %i DIDs' % (tottime, len(dids)))
+            logger(logging.DEBUG, 'DIDs processed : %s' % (str(dids)))
             monitor.record_counter(counters='transmogrifier.job.done', delta=1)
             monitor.record_timer(stat='transmogrifier.job.duration', time=1000 * tottime)
         except Exception:
-            exc_type, exc_value, exc_traceback = exc_info()
-            logging.critical(prepend_str + ''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
+            logger(logging.ERROR, "Failed to run transmogrifier", exc_info=True)
             monitor.record_counter(counters='transmogrifier.job.error', delta=1)
             monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
         if once is True:
             break
         if tottime < sleep_time:
-            logging.info(prepend_str + 'Will sleep for %s seconds' % (sleep_time - tottime))
+            logger(logging.INFO, 'Will sleep for %s seconds' % (sleep_time - tottime))
             time.sleep(sleep_time - tottime)
     heartbeat.die(executable, hostname, pid, hb_thread)
-    logging.info(prepend_str + 'Graceful stop requested')
-    logging.info(prepend_str + 'Graceful stop done')
+    logger(logging.INFO, 'Graceful stop requested')
+    logger(logging.INFO, 'Graceful stop done')
 
 
 def run(threads=1, bulk=100, once=False, sleep_time=60):

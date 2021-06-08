@@ -37,10 +37,12 @@
 # - Eric Vaandering <ewv@fnal.gov>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
 
 from __future__ import print_function
 
 import logging
+import random
 from collections import defaultdict
 from copy import deepcopy
 from curses.ascii import isprint
@@ -704,6 +706,41 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
     return file_clause, dataset_clause, state_clause, files, constituents
 
 
+def _pick_n_random(nrandom, generator):
+    """
+    Select n random elements from the generator
+    """
+
+    if not nrandom:
+        # pass-through the data unchanged
+        yield from generator
+        return
+
+    # A "reservoir sampling" algorithm:
+    # Copy the N first files from the generator. After that, following element may be picked to substitute
+    # one of the previously selected element with a probability which decreases as the number of encountered elements grows.
+    selected = []
+    i = 0
+    iterator = iter(generator)
+    try:
+        for _ in range(nrandom):
+            selected.append(next(iterator))
+            i += 1
+
+        while True:
+            element = next(iterator)
+            i += 1
+
+            index_to_substitute = random.randint(0, i)
+            if index_to_substitute < nrandom:
+                selected[index_to_substitute] = element
+    except StopIteration:
+        pass
+
+    for r in selected:
+        yield r
+
+
 def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session):
     """
     List file replicas for a list of datasets.
@@ -1239,7 +1276,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, pfns=True,
                   rse_expression=None, client_location=None, domain=None,
                   sign_urls=False, signature_lifetime=None, resolve_archives=True,
-                  resolve_parents=False,
+                  resolve_parents=False, nrandom=None,
                   updated_after=None,
                   session=None):
     """
@@ -1276,12 +1313,15 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     if rse_expression:
         for rse in parse_expression(expression=rse_expression, filter=filter, session=session):
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
-    for f in _list_replicas(dataset_clause, file_clause, state_clause, pfns,
-                            schemes, files, rse_clause, rse_expression, client_location, domain,
-                            sign_urls, signature_lifetime, constituents, resolve_parents,
-                            updated_after, filter, ignore_availability,
-                            session):
-        yield f
+
+    yield from _pick_n_random(
+        nrandom,
+        _list_replicas(dataset_clause, file_clause, state_clause, pfns,
+                       schemes, files, rse_clause, rse_expression, client_location, domain,
+                       sign_urls, signature_lifetime, constituents, resolve_parents,
+                       updated_after, filter, ignore_availability,
+                       session)
+    )
 
 
 @transactional_session
