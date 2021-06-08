@@ -266,6 +266,7 @@ class DownloadClient:
             did                    - DID string of this file (e.g. 'scope:file.name')
             filters                - Filter to select DIDs for download. Optional if DID is given
             rse                    - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
+            impl                   - Optional: name of the protocol implementation to be used to download this item.
             no_resolve_archives    - Optional: bool indicating whether archives should not be considered for download (Default: False)
             resolve_archives       - Deprecated: Use no_resolve_archives instead
             force_scheme           - Optional: force a specific scheme to download this item. (Default: None)
@@ -596,8 +597,12 @@ class DownloadClient:
 
             logger(logging.INFO, '%sTrying to download with %s%s from %s: %s ' % (log_prefix, scheme, timeout_log_string, rse_name, did_str))
 
+            impl_str = item.get('impl')
+            if impl_str:
+                logger(logging.INFO, '%sUsing Implementation (impl): %s ' % (log_prefix, impl_str))
+
             try:
-                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, auth_token=self.auth_token, logger=logger)
+                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, impl_passed=impl_str, auth_token=self.auth_token, logger=logger)
                 protocol.connect()
             except Exception as error:
                 logger(logging.WARNING, '%sFailed to create protocol for PFN: %s' % (log_prefix, pfn))
@@ -1130,6 +1135,16 @@ class DownloadClient:
             rse_expression = item.get('rse')
             logger(logging.DEBUG, 'rse_expression: %s' % rse_expression)
 
+            # obtaining the choice of Implementation
+            impl = item.get('impl')
+            if impl:
+                impl_split = impl.split('.')
+                if len(impl_split) == 1:
+                    impl = 'rucio.rse.protocols.' + impl + '.Default'
+                else:
+                    impl = 'rucio.rse.protocols.' + impl
+            logger(logging.DEBUG, 'impl: %s' % impl)
+
             # get PFNs of files and datasets
             logger(logging.DEBUG, 'num DIDs for list_replicas call: %d' % len(item['dids']))
 
@@ -1147,6 +1162,8 @@ class DownloadClient:
                                                      nrandom=nrandom,
                                                      metalink=True)
             file_items = parse_replicas_from_string(metalink_str)
+            for file in file_items:
+                file['impl'] = impl or None
 
             logger(logging.DEBUG, 'num resolved files: %s' % len(file_items))
 
@@ -1160,7 +1177,7 @@ class DownloadClient:
                     if not any([input_did == f['did'] or str(input_did) in f['parent_dids'] for f in file_items]):
                         logger(logging.ERROR, 'DID does not exist: %s' % input_did)
                         # TODO: store did directly as DIDType object
-                        file_items.append({'did': str(input_did), 'adler32': None, 'md5': None, 'sources': [], 'parent_dids': set()})
+                        file_items.append({'did': str(input_did), 'adler32': None, 'md5': None, 'sources': [], 'parent_dids': set(), 'impl': impl or None})
 
             # filtering out tape sources
             if self.is_tape_excluded:

@@ -238,26 +238,26 @@ def test_multiple_protocols_same_scheme(rse_factory, upload_client, mock_scope, 
 
 def test_upload_file_with_impl(rse_factory, upload_client, mock_scope, file_factory):
     """ Upload (CLIENT): Ensure the module associated to the impl value is called """
-    
+
     impl = 'xrootd'
     rse_name, rse_id = rse_factory.make_rse()
 
     add_protocol(rse_id, {'scheme': 'file',
-                           'hostname': '%s.cern.ch' % rse_id,
-                           'port': 0,
-                           'prefix': '/test/',
-                           'impl': 'rucio.rse.protocols.posix.Default',
-                           'domains': {
-                               'lan': {'read': 1, 'write': 1, 'delete': 1},
-                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                          'hostname': '%s.cern.ch' % rse_id,
+                          'port': 0,
+                          'prefix': '/test/',
+                          'impl': 'rucio.rse.protocols.posix.Default',
+                          'domains': {
+                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
     add_protocol(rse_id, {'scheme': 'root',
-                           'hostname': '%s.cern.ch' % rse_id,
-                           'port': 0,
-                           'prefix': '/test/',
-                           'impl': 'rucio.rse.protocols.xrootd.Default',
-                           'domains': {
-                               'lan': {'read': 2, 'write': 2, 'delete': 2},
-                               'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+                          'hostname': '%s.cern.ch' % rse_id,
+                          'port': 0,
+                          'prefix': '/test/',
+                          'impl': 'rucio.rse.protocols.xrootd.Default',
+                          'domains': {
+                              'lan': {'read': 2, 'write': 2, 'delete': 2},
+                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
 
     path = file_factory.file_generator()
     name = os.path.basename(path)
@@ -268,7 +268,7 @@ def test_upload_file_with_impl(rse_factory, upload_client, mock_scope, file_fact
         'did_name': name,
         'guid': generate_uuid(),
         'impl': impl
-        }
+    }
     with TemporaryDirectory() as tmp_dir:
         with patch('rucio.rse.protocols.%s.Default.put' % impl, side_effect=lambda pfn, dest, dir, **kw: shutil.copy(path, tmp_dir)) as mock_put, \
                 patch('rucio.rse.protocols.%s.Default.connect' % impl),\

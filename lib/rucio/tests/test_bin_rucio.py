@@ -415,7 +415,7 @@ class TestBinRucio(unittest.TestCase):
     def test_upload_file_with_impl(self):
         """CLIENT(USER): Rucio upload file using impl"""
         tmp_file1 = file_generator()
-        impl = 'xrootd'
+        impl = 'posix'
         cmd = 'rucio -v upload --rse {0} --scope {1} --impl {2} {3}'.format(self.def_rse, self.user, impl, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -423,7 +423,7 @@ class TestBinRucio(unittest.TestCase):
         print(err)
         remove(tmp_file1)
         upload_string_1 = (self.upload_success_str % path.basename(tmp_file1))
-        assert upload_string_1 in out or upload_string_1 in err
+        assert re.search(upload_string_1, err) is not None
 
     def test_upload_repeated_file(self):
         """CLIENT(USER): Rucio upload repeated files"""
@@ -649,7 +649,7 @@ class TestBinRucio(unittest.TestCase):
     def test_download_file_with_impl(self):
         """CLIENT(USER): Rucio download files using impl"""
         tmp_file1 = file_generator()
-        impl = 'xrootd'
+        impl = 'posix'
         # add files
         cmd = 'rucio upload --rse {0} --scope {1} --impl {2} {3}'.format(self.def_rse, self.user, impl, tmp_file1)
         print(self.marker + cmd)

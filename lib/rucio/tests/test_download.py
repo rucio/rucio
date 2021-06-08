@@ -656,5 +656,4 @@ def test_download_file_with_impl(rse_factory, did_factory, download_client, mock
             patch('rucio.rse.protocols.%s.Default.connect' % impl),\
             patch('rucio.rse.protocols.%s.Default.close' % impl):
         download_client.download_dids([{'did': did_str, 'impl': impl}])
-        print(mock_get._mock_name)
         mock_get.assert_called()
