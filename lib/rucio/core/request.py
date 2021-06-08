@@ -1633,9 +1633,9 @@ def reduce_requests(
         result = [
             {
                 'request_id': rws.request_id,
-                'dest_rse_id': rws.dest_rse_id,
+                'dest_rse_id': rws.dest_rse.id,
                 'activity': rws.activity,
-                'src_rse_id': source.rse_id,
+                'src_rse_id': source.rse.id,
                 'distance_ranking': source.distance_ranking
             }
             for source in rws.sources
