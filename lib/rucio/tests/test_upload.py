@@ -16,13 +16,12 @@
 # Authors:
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
-from rucio.core.rse import add_protocol, add_rse_attribute
-from rucio.tests.common import file_generator
 import json
 import logging
 import pytest
 import os
 from rucio.client.downloadclient import DownloadClient
+from rucio.core.rse import add_protocol, add_rse_attribute
 from rucio.client.uploadclient import UploadClient
 from rucio.common.exception import NotAllFilesUploaded, NoFilesUploaded, InputValidationError
 from rucio.common.utils import generate_uuid
