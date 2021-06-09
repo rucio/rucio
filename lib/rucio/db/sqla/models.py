@@ -1297,13 +1297,14 @@ class Message(BASE, ModelBase):
     """Represents the event messages"""
     __tablename__ = 'messages'
     id = Column(GUID(), default=utils.generate_uuid)
-    event_type = Column(String(1024))
+    event_type = Column(String(256))
     payload = Column(String(4000))
     payload_nolimit = Column(Text)
-    services = Column(String(2048))
+    services = Column(String(256))
     _table_args = (PrimaryKeyConstraint('id', name='MESSAGES_ID_PK'),
                    CheckConstraint('EVENT_TYPE IS NOT NULL', name='MESSAGES_EVENT_TYPE_NN'),
-                   CheckConstraint('PAYLOAD IS NOT NULL', name='MESSAGES_PAYLOAD_NN'),)
+                   CheckConstraint('PAYLOAD IS NOT NULL', name='MESSAGES_PAYLOAD_NN'),
+                   Index('MESSAGES_SERVICES_IDX', 'services', 'event_type'))
 
 
 class MessageHistory(BASE, ModelBase):
