@@ -20,7 +20,7 @@
 import logging
 
 from rucio.transfertool.transfertool import Transfertool
-from .globusLibrary import bulk_submit_xfer, submit_xfer, bulk_check_xfers
+from .globus_library import bulk_submit_xfer, submit_xfer, bulk_check_xfers
 
 
 class GlobusTransferTool(Transfertool):
