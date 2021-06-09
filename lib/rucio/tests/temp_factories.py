@@ -15,29 +15,36 @@
 #
 # Authors:
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+
 
 import os
-
-from sqlalchemy import or_, and_
+import shutil
+import tempfile
+from pathlib import Path
+from random import choice
+from string import ascii_uppercase
 
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
 from rucio.common.types import InternalScope
-from rucio.common.utils import generate_uuid
+from rucio.common.utils import execute, generate_uuid
 from rucio.core import replica as replica_core
 from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
 from rucio.db.sqla import models
-from rucio.db.sqla.session import transactional_session
-from rucio.tests.common import file_generator
-from rucio.tests.common import rse_name_generator
 from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.session import transactional_session
+from rucio.tests.common import file_generator, rse_name_generator
+from six import PY3
+from sqlalchemy import and_, or_
 
 
 class TemporaryRSEFactory:
     """
     Factory which keeps track of created RSEs and cleans up everything related to these RSEs at the end
     """
+
     def __init__(self, vo, **kwargs):
         self.vo = vo
 
@@ -158,6 +165,7 @@ class TemporaryDidFactory:
     Factory which keeps track of created dids and cleans up everything related to these dids at the end.
     All files related to the same test will have the same uuid in the name for easier debugging.
     """
+
     def __init__(self, default_scope, vo):
         self.default_scope = default_scope
         self.vo = vo
@@ -281,3 +289,72 @@ class TemporaryDidFactory:
         did = {'scope': scope, 'name': name}
         self.created_dids.append(did)
         return item if return_full_item else did
+
+
+class TemporaryFileFactory:
+    """
+    Factory which keeps track of creation and cleanup of created local test files and directories.
+    If initialized with tmp_path_factory fixture, the basedir is managed by pytest.
+    Otherwise, the basedir is handled by this factory itself.
+    """
+
+    def __init__(self, pytest_path_factory=None) -> None:
+        self.pytest_path_factory = pytest_path_factory
+        self.base_uuid = generate_uuid()
+        self._base_dir = None
+        self.non_basedir_files = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.pytest_path_factory is None:
+            shutil.rmtree(self.base_dir)
+        self.cleanup()
+
+    @property
+    def base_dir(self):
+        if not self._base_dir:
+            if self.pytest_path_factory is not None:
+                self._base_dir = self.pytest_path_factory.mktemp(basename=self.base_uuid, numbered=True)
+            else:
+                tmp_dir = tempfile.mkdtemp(prefix=self.base_uuid)
+                self._base_dir = Path(tmp_dir)
+
+        return self._base_dir
+
+    def _make_temp_file(self, data, size, namelen, use_basedir):
+        fn = ''.join(choice(ascii_uppercase) for x in range(namelen))
+        if use_basedir:
+            fp = self.base_dir / fn
+        else:
+            fp = Path(tempfile.gettempdir(), fn)
+            self.non_basedir_files.append(fp)
+
+        if data is not None:
+            if PY3:
+                with open(fp, 'w', encoding='utf-8') as f:
+                    f.write(data)
+            else:
+                with open(fp, 'w') as f:
+                    f.write(data)
+        else:
+            execute('dd if=/dev/urandom of={0} count={1} bs=1'.format(fp, size))
+
+        return fp
+
+    def file_generator(self, data=None, size=2, namelen=10, use_basedir=False):
+        """
+        Creates a temporary file
+        :param data        : The content to be written in the file. If provided, the size parameter is ignored.
+        :param size        : The size of random bytes to be written in the file
+        :param namelen     : The length of filename
+        :param use_basedir : If True, the file is created under the base_dir for this TemporaryFileFactory instance.
+        :returns: The absolute path of the generated file
+        """
+        return self._make_temp_file(data, size, namelen, use_basedir)
+
+    def cleanup(self):
+        for fp in self.non_basedir_files:
+            if os.path.isfile(fp):
+                os.remove(fp)

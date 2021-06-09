@@ -16,13 +16,12 @@
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 
 from __future__ import print_function
 
 import traceback
-
 import pytest
-
 
 # local imports in the fixtures to make this file loadable in e.g. client tests
 
@@ -42,6 +41,12 @@ def replica_client():
     from rucio.client.replicaclient import ReplicaClient
 
     return ReplicaClient()
+
+
+@pytest.fixture(scope='module')
+def rucio_client():
+    from rucio.client import Client
+    return Client()
 
 
 @pytest.fixture(scope='module')
@@ -99,10 +104,39 @@ def mock_scope(vo):
 
 
 @pytest.fixture(scope='module')
+def test_scope(vo):
+    from rucio.common.types import InternalScope
+
+    return InternalScope('test', vo=vo)
+
+
+@pytest.fixture(scope='module')
 def root_account(vo):
     from rucio.common.types import InternalAccount
 
     return InternalAccount('root', vo=vo)
+
+
+@pytest.fixture(scope="module")
+def containerized_rses(rucio_client):
+    """
+    Detects if containerized rses for xrootd are available in the testing environment.
+    :return: A list of (rse_name, rse_id) tuples.
+    """
+    from rucio.common.exception import InvalidRSEExpression
+
+    rses = []
+    try:
+        xrd_rses = [x['rse'] for x in rucio_client.list_rses(rse_expression='test_container_xrd=True')]
+        xrd_rses = [rucio_client.get_rse(rse) for rse in xrd_rses]
+        xrd_containerized_rses = [(rse_obj['rse'], rse_obj['id']) for rse_obj in xrd_rses if "xrd" in rse_obj['rse'].lower()]
+        xrd_containerized_rses.sort()
+        rses.extend(xrd_containerized_rses)
+    except InvalidRSEExpression as invalid_rse_expression:
+        print("{ex}. Note that containerized RSEs will not be available in non-containerized test environments"
+              .format(ex=invalid_rse_expression))
+        traceback.print_exc()
+    return rses
 
 
 @pytest.fixture
@@ -118,6 +152,14 @@ def did_factory(vo, mock_scope):
     from rucio.tests.temp_factories import TemporaryDidFactory
 
     with TemporaryDidFactory(vo=vo, default_scope=mock_scope) as factory:
+        yield factory
+
+
+@pytest.fixture
+def file_factory(tmp_path_factory):
+    from rucio.tests.temp_factories import TemporaryFileFactory
+
+    with TemporaryFileFactory(pytest_path_factory=tmp_path_factory) as factory:
         yield factory
 
 
