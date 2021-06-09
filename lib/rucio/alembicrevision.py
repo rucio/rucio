@@ -19,4 +19,4 @@
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
-ALEMBIC_REVISION = 'e138c364ebd0'  # the current alembic head revision
+ALEMBIC_REVISION = '30fa38b6434e'  # the current alembic head revision
