@@ -46,6 +46,7 @@ import json
 import logging
 import re
 import time
+from heapq import heappop, heappush
 from itertools import islice
 from typing import TYPE_CHECKING
 
@@ -815,113 +816,119 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
     if not limit_dest_schemes:
         limit_dest_schemes = []
 
-    # Check if there is a cached result
+    shortest_paths = __search_shortest_paths(source_rse_ids=[source_rse_id], dest_rse_id=dest_rse_id,
+                                             include_multihop=include_multihop, multihop_rses=multihop_rses,
+                                             limit_dest_schemes=limit_dest_schemes, session=session)
+
     result = REGION_SHORT.get('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))))
     if not isinstance(result, NoValue):
         return result
 
-    if multihop_rses is None:
+    path = shortest_paths.get(source_rse_id)
+    if path is None:
+        raise NoDistance()
+
+    if not path:
+        raise RSEProtocolNotSupported()
+
+    REGION_SHORT.set('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), path)
+    return path
+
+
+def __search_shortest_paths(source_rse_ids, dest_rse_id, include_multihop, multihop_rses, limit_dest_schemes, session=None):
+    """
+    Find the shortest paths from multiple sources towards dest_rse_id.
+    Does a Backwards Dijkstra's algorithm: start from destination and follow inbound links towards the sources.
+    If multihop is disabled, stop after analysing direct connections to dest_rse. Otherwise, stops when all
+    sources where found or the graph was traversed in integrality.
+    """
+    if not limit_dest_schemes:
+        limit_dest_schemes = []
+
+    if not include_multihop or multihop_rses is None:
         multihop_rses = []
 
-    # TODO: Might be problematic to always load the distance_graph, since it might be expensiv
-
-    # Load the graph from the distances table
-    # distance_graph = __load_distance_graph(session=session)
-    distance_graph = {}
-    distance_graph[source_rse_id] = __load_outgoing_distances_node(rse_id=source_rse_id, session=session)
-
-    # 1. Check if there is a direct connection between source and dest:
-    if distance_graph.get(source_rse_id, {dest_rse_id: None}).get(dest_rse_id) is not None:
-        # Check if there is a protocol match between the two RSEs
-        try:
-            matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=dest_rse_id, session=session),
-                                                          rse_settings_src=__load_rse_settings(rse_id=source_rse_id, session=session),
-                                                          operation_src='third_party_copy',
-                                                          operation_dest='third_party_copy',
-                                                          domain='wan',
-                                                          scheme=limit_dest_schemes if limit_dest_schemes else None)
-            path = [{'source_rse_id': source_rse_id,
-                     'dest_rse_id': dest_rse_id,
-                     'source_scheme': matching_scheme[1],
-                     'dest_scheme': matching_scheme[0],
-                     'source_scheme_priority': matching_scheme[3],
-                     'dest_scheme_priority': matching_scheme[2],
-                     'hop_distance': distance_graph[source_rse_id][dest_rse_id],
-                     'cumulated_distance': distance_graph[source_rse_id][dest_rse_id]}]
-            REGION_SHORT.set('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), path)
-            return path
-        except RSEProtocolNotSupported as error:
-            if include_multihop:
-                # Delete the edge from the graph
-                del distance_graph[source_rse_id][dest_rse_id]
-            else:
-                raise error
-
-    if not include_multihop:
-        raise NoDistance()
-
-    # 2. There is no connection or no scheme match --> Try a multi hop --> Dijkstra algorithm
     HOP_PENALTY = core_config_get('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
 
-    # Check if the destination RSE is an island RSE:
-    if not __load_inbound_distances_node(rse_id=dest_rse_id, session=session):
-        raise NoDistance()
-
-    visited_nodes = {source_rse_id: {'distance': 0,
-                                     'path': []}}  # Dijkstra already visisted nodes
-    # {rse_id: {'path': [{'source_rse_id':, 'dest_rse_id':, 'source_scheme', 'dest_scheme': }],
-    #           'distance': X}
-    # }
-    to_visit = [source_rse_id]  # Nodes to visit, once list is empty, break loop
-    local_optimum = 9999  # Local optimum to accelerated search
-
-    while to_visit:
-        for current_node in copy.deepcopy(to_visit):
-            to_visit.remove(current_node)
-            current_distance = visited_nodes[current_node]['distance']
-            current_path = visited_nodes[current_node]['path']
-
-            if current_node not in distance_graph:
-                distance_graph[current_node] = __load_outgoing_distances_node(rse_id=current_node, session=session)
-
-            for out_v in distance_graph[current_node]:
-                # Check if the distance would be smaller
-                if distance_graph[current_node][out_v] is None:
-                    continue
-                new_adjacent_distance = current_distance + distance_graph[current_node][out_v] + HOP_PENALTY
-
-                if visited_nodes.get(out_v, {'distance': 9999})['distance'] > new_adjacent_distance and local_optimum > new_adjacent_distance:
-                    # Check if the intermediate RSE is enabled for multihop
-                    if out_v != dest_rse_id and out_v not in multihop_rses:
-                        continue
-                    # Check if there is a compatible protocol pair
-                    try:
-                        matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=out_v, session=session),
-                                                                      rse_settings_src=__load_rse_settings(rse_id=current_node, session=session),
-                                                                      operation_src='third_party_copy',
-                                                                      operation_dest='third_party_copy',
-                                                                      domain='wan',
-                                                                      scheme=limit_dest_schemes if out_v == dest_rse_id and limit_dest_schemes else None)
-                        visited_nodes[out_v] = {'distance': new_adjacent_distance,
-                                                'path': current_path + [{'source_rse_id': current_node,
-                                                                         'dest_rse_id': out_v,
-                                                                         'source_scheme': matching_scheme[1],
-                                                                         'dest_scheme': matching_scheme[0],
-                                                                         'source_scheme_priority': matching_scheme[3],
-                                                                         'dest_scheme_priority': matching_scheme[2],
-                                                                         'hop_distance': distance_graph[current_node][out_v],
-                                                                         'cumulated_distance': new_adjacent_distance}]}
-                        if out_v != dest_rse_id:
-                            to_visit.append(out_v)
-                        else:
-                            local_optimum = current_distance + distance_graph[current_node][out_v] + HOP_PENALTY
-                    except RSEProtocolNotSupported:
-                        pass
-    if dest_rse_id in visited_nodes:
-        REGION_SHORT.set('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), visited_nodes[dest_rse_id]['path'])
-        return visited_nodes[dest_rse_id]['path']
+    if include_multihop:
+        # Filter out island source RSEs
+        sources_to_find = {rse_id for rse_id in source_rse_ids if __load_outgoing_distances_node(rse_id=rse_id, session=session)}
     else:
-        raise NoDistance()
+        sources_to_find = set(source_rse_ids)
+
+    next_hop = {dest_rse_id: {'cumulated_distance': 0}}
+    priority_q = []
+
+    remaining_sources = copy.copy(sources_to_find)
+    heappush(priority_q, (0, dest_rse_id))
+    while priority_q:
+        pq_distance, current_node = heappop(priority_q)
+
+        current_distance = next_hop[current_node]['cumulated_distance']
+        if pq_distance > current_distance:
+            # Lazy deletion.
+            # We don't update the priorities in the queue. The same element can be found multiple times,
+            # with different priorities. Skip this element if it was already processed.
+            continue
+
+        if current_node in remaining_sources:
+            remaining_sources.remove(current_node)
+        if not remaining_sources:
+            # We found the shortest paths to all desired sources
+            break
+
+        for adjacent_node, link_distance in sorted(__load_inbound_distances_node(rse_id=current_node, session=session).items(),
+                                                   key=lambda item: 0 if item[0] in sources_to_find else 1):
+            if link_distance is None:
+                continue
+
+            if adjacent_node not in remaining_sources and adjacent_node not in multihop_rses:
+                continue
+
+            new_adjacent_distance = current_distance + link_distance + HOP_PENALTY
+            if next_hop.get(adjacent_node, {'cumulated_distance': 9999})['cumulated_distance'] <= new_adjacent_distance:
+                continue
+
+            try:
+                matching_scheme = rsemgr.find_matching_scheme(
+                    rse_settings_src=__load_rse_settings(rse_id=adjacent_node, session=session),
+                    rse_settings_dest=__load_rse_settings(rse_id=current_node, session=session),
+                    operation_src='third_party_copy',
+                    operation_dest='third_party_copy',
+                    domain='wan',
+                    scheme=limit_dest_schemes if adjacent_node == dest_rse_id and limit_dest_schemes else None
+                )
+                next_hop[adjacent_node] = {
+                    'source_rse_id': adjacent_node,
+                    'dest_rse_id': current_node,
+                    'source_scheme': matching_scheme[1],
+                    'dest_scheme': matching_scheme[0],
+                    'source_scheme_priority': matching_scheme[3],
+                    'dest_scheme_priority': matching_scheme[2],
+                    'hop_distance': link_distance,
+                    'cumulated_distance': new_adjacent_distance,
+                }
+                heappush(priority_q, (new_adjacent_distance, adjacent_node))
+            except RSEProtocolNotSupported:
+                if next_hop.get(adjacent_node) is None:
+                    next_hop[adjacent_node] = {}
+
+        if not include_multihop:
+            # Stop after the first iteration, which finds direct connections to destination
+            break
+
+    paths = {}
+    for rse_id in source_rse_ids:
+        hop = next_hop.get(rse_id)
+        if hop is None:
+            continue
+
+        path = []
+        while hop.get('dest_rse_id'):
+            path.append(hop)
+            hop = next_hop.get(hop['dest_rse_id'])
+        paths[rse_id] = path
+    return paths
 
 
 def get_dsn(scope, name, dsn):
@@ -1267,20 +1274,19 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         filtered_sources = list(filtered_sources)
         any_source_had_scheme_mismatch = False
         candidate_paths = []
+
+        paths = __search_shortest_paths([s.rse.id for s in filtered_sources],
+                                        rws.dest_rse.id,
+                                        include_multihop=include_multihop,
+                                        multihop_rses=multihop_rses,
+                                        limit_dest_schemes=None,
+                                        session=session)
         for source in filtered_sources:
-            # Call the get_hops function to create a list of RSEs used for the transfer
-            # In case the source_rse and the dest_rse are connected, the list contains only the destination RSE
-            # In case of non-connected, the list contains all the intermediary RSEs
-            try:
-                list_hops = get_hops(source.rse.id,
-                                     rws.dest_rse.id,
-                                     include_multihop=include_multihop,
-                                     multihop_rses=multihop_rses,
-                                     session=session)
-            except NoDistance:
-                logger(logging.WARNING, "Request %s: no link from %s to %s", rws.request_id, source.rse, rws.dest_rse)
+            list_hops = paths.get(source.rse.id)
+            if list_hops is None:
+                logger(logging.WARNING, "Request %s: no path from %s to %s", rws.request_id, source.rse, rws.dest_rse)
                 continue
-            except RSEProtocolNotSupported:
+            if not list_hops:
                 any_source_had_scheme_mismatch = True
                 logger(logging.WARNING, "Request %s: no matching protocol between %s and %s", rws.request_id, source.rse, rws.dest_rse)
                 continue
