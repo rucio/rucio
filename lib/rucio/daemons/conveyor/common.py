@@ -332,7 +332,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
         current_jobs_group = grouped_jobs[external_host][scope_str]
 
         job_params = {'account': transfer['account'],
-                      'use_oidc': transfer.get('use_oidc', False),
+                      'use_oidc': transfer_core.oidc_supported(transfer),
                       'verify_checksum': verify_checksum,
                       'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
                       'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,

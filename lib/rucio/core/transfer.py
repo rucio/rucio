@@ -410,6 +410,22 @@ class DirectTransferDefinition:
         return dest_url
 
 
+def oidc_supported(transfer_hop):
+    """
+    checking OIDC AuthN/Z support per destination and source RSEs;
+
+    for oidc_support to be activated, all sources and the destination must explicitly support it
+    """
+    # assumes use of boolean 'oidc_support' RSE attribute
+    if not transfer_hop.dst.rse.attributes.get('oidc_support', False):
+        return False
+
+    for source in transfer_hop.sources:
+        if not source.rse.attributes.get('oidc_support', False):
+            return False
+    return True
+
+
 def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False, logger=logging.log):
     """
     Submit transfer request to a transfertool.
@@ -1403,27 +1419,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         if len(transfer_path) > 1 and not multihop_cancelled:
             # Add parent to the last hop
             transfers[rws.request_id]['parent_request'] = parent_request
-
-    # checking OIDC AuthN/Z support per destination and soucre RSEs;
-    # assumes use of boolean 'oidc_support' RSE attribute
-    for req_id in transfers:
-        use_oidc = False
-        dest_rse = ctx.rse_data(transfers[req_id]['file_metadata']['dest_rse_id'])
-        if 'oidc_support' in dest_rse.attributes:
-            use_oidc = dest_rse.attributes['oidc_support']
-        else:
-            transfers[req_id]['use_oidc'] = use_oidc
-            continue
-        for source in transfers[req_id]['sources']:
-            source_rse = ctx.rse_data(source[2])
-            if 'oidc_support' in source_rse.attributes:
-                use_oidc = use_oidc and source_rse.attributes['oidc_support']
-            else:
-                use_oidc = False
-            if not use_oidc:
-                break
-        # OIDC token will be requested for the account of this tranfer
-        transfers[req_id]['use_oidc'] = use_oidc
 
     return transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
 
