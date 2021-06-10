@@ -1087,7 +1087,6 @@ def __prepare_transfer_definition(ctx, protocol_factory, rws, source, transferto
                          'source_globus_endpoint_id': source_globus_endpoint_id,
                          'dest_globus_endpoint_id': dest_globus_endpoint_id}
         transfer = {'request_id': rws.request_id,
-                    'schemes': __add_compatible_schemes(schemes=[dst.scheme], allowed_schemes=SUPPORTED_PROTOCOLS),
                     'account': InternalAccount('root'),
                     'src_spacetoken': None,
                     'dest_spacetoken': dest_spacetoken,
@@ -1304,7 +1303,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             additional_sources = [s for s in filtered_sources
                                   if s.rse != best_path[0].src.rse and not s.rse.is_tape()]
 
-            for source, hop in islice(__find_compatible_direct_sources(sources=additional_sources, scheme=best_path[0]['schemes'], dest_rse_id=rws.dest_rse.id, session=session),
+            for source, hop in islice(__find_compatible_direct_sources(sources=additional_sources,
+                                                                       scheme=__add_compatible_schemes(schemes=[best_path[0].dst.scheme], allowed_schemes=SUPPORTED_PROTOCOLS),
+                                                                       dest_rse_id=rws.dest_rse.id,
+                                                                       session=session),
                                       5):
                 best_path[0].sources.append(TransferSource(
                     rse_data=source.rse,
