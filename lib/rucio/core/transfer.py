@@ -1131,7 +1131,7 @@ def __add_legacy_transfer_definitions(protocol_factory, rws, source, transfertoo
                          'source_globus_endpoint_id': source_globus_endpoint_id,
                          'dest_globus_endpoint_id': dest_globus_endpoint_id}
         transfer = {'request_id': rws.request_id,
-                    'account': InternalAccount('root'),
+                    'account': rws.account,
                     'src_spacetoken': None,
                     'dest_spacetoken': dest_spacetoken,
                     'overwrite': overwrite,
@@ -1154,7 +1154,6 @@ def __add_legacy_transfer_definitions(protocol_factory, rws, source, transfertoo
                 logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', hop)
                 pass
         if hop is transfer_path[-1]:
-            transfer['account'] = rws.account
             if rws.previous_attempt_id:
                 file_metadata['previous_attempt_id'] = rws.previous_attempt_id
 
@@ -1433,7 +1432,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             transfers[new_req_id]['request_id'] = new_req_id
             transfers[new_req_id]['initial_request_id'] = rws.request_id
             transfers[new_req_id]['parent_request'] = parent_request
-            transfers[new_req_id]['account'] = InternalAccount('root')
 
             parent_request = new_req_id
         if len(transfer_path) > 1 and not multihop_cancelled:
