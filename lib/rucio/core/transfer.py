@@ -71,7 +71,7 @@ from rucio.core.monitor import record_counter, record_timer
 from rucio.core.oidc import get_token_for_account_operation
 from rucio.core.replica import add_replicas, tombstone_from_delay
 from rucio.core.request import queue_requests, set_requests_state
-from rucio.core.rse import get_rse_name, get_rse_vo, list_rses, get_rse_supported_checksums
+from rucio.core.rse import get_rse_name, get_rse_vo, list_rses, get_rse_supported_checksums_from_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, RequestState, RSEType, RequestType, ReplicaState
@@ -1034,8 +1034,7 @@ def get_dsn(scope, name, dsn):
     return 'other'
 
 
-@transactional_session
-def __add_legacy_transfer_definitions(protocol_factory, rws, source, transfertool, retry_other_fts, transfer_path, bring_online, logger, session=None):
+def __add_legacy_transfer_definitions(protocol_factory, rws, source, transfertool, retry_other_fts, transfer_path, bring_online, logger):
     """
     For each point-to-point transfer in the given path, initialize the legacy transfer definition:
     a dictionary with transfer parameters which were not yet migrated to the new, class-based, model
@@ -1103,8 +1102,8 @@ def __add_legacy_transfer_definitions(protocol_factory, rws, source, transfertoo
             else:
                 verify_checksum = 'both'
 
-        src_rse_checksums = get_rse_supported_checksums(src.rse.id, session=session)
-        dst_rse_checksums = get_rse_supported_checksums(dst.rse.id, session=session)
+        src_rse_checksums = get_rse_supported_checksums_from_attributes(src.rse.attributes)
+        dst_rse_checksums = get_rse_supported_checksums_from_attributes(dst.rse.attributes)
 
         common_checksum_names = set(src_rse_checksums).intersection(dst_rse_checksums)
 
@@ -1327,14 +1326,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 logger(logging.WARNING, "Request %s: no matching protocol between %s and %s", rws.request_id, source.rse, rws.dest_rse)
                 continue
 
-            try:
-                __add_legacy_transfer_definitions(protocol_factory, rws=rws, source=source, transfertool=transfertool,
-                                                  retry_other_fts=retry_other_fts, transfer_path=transfer_path, logger=logger,
-                                                  bring_online=bring_online, session=session)
-                candidate_paths.append(transfer_path)
-            except Exception:
-                logger(logging.CRITICAL, "Exception happened when trying to get transfer for request %s:" % rws.request_id, exc_info=True)
-                continue
+            __add_legacy_transfer_definitions(protocol_factory, rws=rws, source=source, transfertool=transfertool,
+                                              retry_other_fts=retry_other_fts, transfer_path=transfer_path, logger=logger,
+                                              bring_online=bring_online)
+            candidate_paths.append(transfer_path)
 
         best_path = __pick_best_transfer(candidate_paths)
 
