@@ -191,7 +191,7 @@ class RequestWithSources:
         self.previous_attempt_id = previous_attempt_id
         self.dest_rse = dest_rse_data
         self.account = account
-        self.retry_count = retry_count
+        self.retry_count = retry_count or 0
 
         self.sources = []
 
@@ -409,7 +409,7 @@ class DirectTransferDefinition:
         dest_url = cls.__rewrite_dest_url(dest_url, dest_sign_url=dest_sign_url)
         return dest_url
 
-    def init_legacy_transfer_definition(self, transfertool, retry_other_fts, bring_online, logger):
+    def init_legacy_transfer_definition(self, bring_online, logger):
         """
         initialize the legacy transfer definition:
         a dictionary with transfer parameters which were not yet migrated to the new, class-based, model
@@ -442,29 +442,7 @@ class DirectTransferDefinition:
 
         # get external_host + strict_copy + archive timeout
         strict_copy = dst.rse.attributes.get('strict_copy', False)
-        fts_hosts = dst.rse.attributes.get('fts', None)
         archive_timeout = dst.rse.attributes.get('archive_timeout', None)
-        if src.rse.attributes.get('sign_url', None) == 'gcs':
-            fts_hosts = src.rse.attributes.get('fts', None)
-        source_globus_endpoint_id = src.rse.attributes.get('globus_endpoint_id', None)
-        dest_globus_endpoint_id = dst.rse.attributes.get('globus_endpoint_id', None)
-
-        if transfertool == 'fts3' and not fts_hosts:
-            logger(logging.ERROR, 'Destination RSE %s FTS attribute not defined - SKIP REQUEST %s', dst.rse, rws.request_id)
-            return
-        if transfertool == 'globus' and (not dest_globus_endpoint_id or not source_globus_endpoint_id):
-            logger(logging.ERROR, 'Destination RSE %s Globus endpoint attributes not defined - SKIP REQUEST %s', dst.rse, rws.request_id)
-            return
-        if rws.retry_count is None:
-            rws.retry_count = 0
-        external_host = ''
-        if fts_hosts:
-            fts_list = fts_hosts.split(",")
-            external_host = fts_list[0]
-
-        if retry_other_fts:
-            external_host = fts_list[rws.retry_count % len(fts_list)]
-
         # Get the checksum validation strategy (none, source, destination or both)
         verify_checksum = 'both'
         if not dst.rse.attributes.get('verify_checksum', True):
@@ -502,9 +480,7 @@ class DirectTransferDefinition:
                          'filesize': rws.byte_count,
                          'md5': rws.md5,
                          'adler32': rws.adler32,
-                         'verify_checksum': verify_checksum,
-                         'source_globus_endpoint_id': source_globus_endpoint_id,
-                         'dest_globus_endpoint_id': dest_globus_endpoint_id}
+                         'verify_checksum': verify_checksum}
         transfer = {'request_id': rws.request_id,
                     'account': rws.account,
                     'src_spacetoken': None,
@@ -512,7 +488,6 @@ class DirectTransferDefinition:
                     'overwrite': overwrite,
                     'bring_online': bring_online_local,
                     'copy_pin_lifetime': rws.attributes.get('lifetime', 172800),
-                    'external_host': external_host,
                     'selection_strategy': 'auto',
                     'rule_id': rws.rule_id,
                     'file_metadata': file_metadata}
@@ -1155,7 +1130,7 @@ def get_dsn(scope, name, dsn):
     return 'other'
 
 
-def __pick_best_transfer(candidate_paths):
+def __pick_best_transfer_and_assign_to_transfertool(rws, candidate_paths, transfertool, retry_other_fts, logger):
     """
     Given a list of possible transfer paths from different sources towards the same destination,
     pick the best transfer path.
@@ -1194,8 +1169,51 @@ def __pick_best_transfer(candidate_paths):
             len(transfer_path) > 1,  # rely on the fact that False < True
         )
 
-    best_candidate = min(candidate_paths, key=__transfer_order_key)
-    return best_candidate
+    # the first path which matches the transfertool condition is the best one
+    for transfer_path in sorted(candidate_paths, key=__transfer_order_key):
+
+        external_host = ''
+        if transfertool == 'globus':
+            all_rses_have_globus_id = True
+            for hop in transfer_path:
+                source_globus_endpoint_id = hop.src.rse.attributes.get('globus_endpoint_id', None)
+                dest_globus_endpoint_id = hop.dst.rse.attributes.get('globus_endpoint_id', None)
+                if not source_globus_endpoint_id or not dest_globus_endpoint_id:
+                    all_rses_have_globus_id = False
+                    break
+
+            if not all_rses_have_globus_id:
+                logger(logging.ERROR, 'Globus endpoint attribute not defined - for at least one transfer hops {} {}'.format(','.join(transfer_path), rws.request_id))
+                continue
+        else:
+            common_fts_hosts = []
+            for hop in transfer_path:
+                fts_hosts = hop.dst.rse.attributes.get('fts', None)
+                if hop.src.rse.attributes.get('sign_url', None) == 'gcs':
+                    fts_hosts = hop.src.rse.attributes.get('fts', None)
+                fts_hosts = fts_hosts.split(",") if fts_hosts else []
+
+                common_fts_hosts = fts_hosts if not common_fts_hosts else list(set(common_fts_hosts).intersection(fts_hosts))
+                if not common_fts_hosts:
+                    break
+
+            if common_fts_hosts:
+                external_host = common_fts_hosts[0]
+                if retry_other_fts:
+                    external_host = common_fts_hosts[rws.retry_count % len(common_fts_hosts)]
+            else:
+                if transfertool == 'fts3':
+                    logger(logging.ERROR, 'FTS attribute not defined - for at least one transfer hops {} {}'.format(','.join(transfer_path), rws.request_id))
+                    continue
+                else:
+                    external_host = ''
+
+        for hop in transfer_path:
+            hop['external_host'] = external_host
+
+        return transfer_path
+
+    return None
 
 
 @transactional_session
@@ -1323,11 +1341,12 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             if len(transfer_path) > 1:
                 logger(logging.DEBUG, 'From %s to %s requires multihop: %s', source.rse, rws.dest_rse, transfer_path)
             for hop in transfer_path:
-                hop.init_legacy_transfer_definition(transfertool=transfertool, retry_other_fts=retry_other_fts, bring_online=bring_online, logger=logger)
+                hop.init_legacy_transfer_definition(bring_online=bring_online, logger=logger)
 
             candidate_paths.append(transfer_path)
 
-        best_path = __pick_best_transfer(candidate_paths)
+        best_path = __pick_best_transfer_and_assign_to_transfertool(rws, candidate_paths, transfertool=transfertool,
+                                                                    retry_other_fts=retry_other_fts, logger=logger)
 
         if best_path:
             transfer_path_for_request.append((rws, best_path))
