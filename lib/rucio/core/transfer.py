@@ -936,6 +936,7 @@ def __search_shortest_paths(source_rse_ids, dest_rse_id, include_multihop, multi
     return paths
 
 
+@read_session
 def __create_transfer_definitions(ctx, protocol_factory, rws, sources, include_multihop, multihop_rses, limit_dest_schemes, session=None):
     """
     Find the all paths from sources towards the destination of the given transfer request.
