@@ -47,7 +47,6 @@ import logging
 import re
 import time
 from heapq import heappop, heappush
-from itertools import islice
 from typing import TYPE_CHECKING
 
 from dogpile.cache import make_region
@@ -835,12 +834,15 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
     return path
 
 
-def __search_shortest_paths(source_rse_ids, dest_rse_id, include_multihop, multihop_rses, limit_dest_schemes, session=None):
+def __search_shortest_paths(source_rse_ids, dest_rse_id, include_multihop, multihop_rses, limit_dest_schemes, inbound_links_by_node=None, session=None):
     """
     Find the shortest paths from multiple sources towards dest_rse_id.
     Does a Backwards Dijkstra's algorithm: start from destination and follow inbound links towards the sources.
     If multihop is disabled, stop after analysing direct connections to dest_rse. Otherwise, stops when all
     sources where found or the graph was traversed in integrality.
+
+    The inbound links retrieved from the database can be accumulated into the inbound_links_by_node, passed
+    from the calling context. To be able to reuse them.
     """
     if not limit_dest_schemes:
         limit_dest_schemes = []
@@ -877,7 +879,10 @@ def __search_shortest_paths(source_rse_ids, dest_rse_id, include_multihop, multi
             # We found the shortest paths to all desired sources
             break
 
-        for adjacent_node, link_distance in sorted(__load_inbound_distances_node(rse_id=current_node, session=session).items(),
+        inbound_links = __load_inbound_distances_node(rse_id=current_node, session=session)
+        if inbound_links_by_node is not None:
+            inbound_links_by_node[current_node] = inbound_links
+        for adjacent_node, link_distance in sorted(inbound_links.items(),
                                                    key=lambda item: 0 if item[0] in sources_to_find else 1):
             if link_distance is None:
                 continue
@@ -931,6 +936,94 @@ def __search_shortest_paths(source_rse_ids, dest_rse_id, include_multihop, multi
     return paths
 
 
+def __create_transfer_definitions(ctx, protocol_factory, rws, sources, include_multihop, multihop_rses, limit_dest_schemes, session=None):
+    """
+    Find the all paths from sources towards the destination of the given transfer request.
+    Create the transfer definitions for each point-to-point transfer (multi-source, when possible)
+    """
+    inbound_links_by_node = {}
+    shortest_paths = __search_shortest_paths(source_rse_ids=[s.rse.id for s in sources], dest_rse_id=rws.dest_rse.id,
+                                             include_multihop=include_multihop, multihop_rses=multihop_rses,
+                                             limit_dest_schemes=limit_dest_schemes,
+                                             inbound_links_by_node=inbound_links_by_node, session=session)
+
+    transfers_by_source = {}
+    sources_by_rse_id = {s.rse.id: s for s in sources}
+    paths_by_source = {sources_by_rse_id[rse_id]: path for rse_id, path in shortest_paths.items()}
+    for source, list_hops in paths_by_source.items():
+        transfer_path = []
+        for hop in list_hops:
+            hop_src_rse = ctx.rse_data(hop['source_rse_id'])
+            hop_dst_rse = ctx.rse_data(hop['dest_rse_id'])
+            src = TransferSource(
+                rse_data=hop_src_rse,
+                file_path=source.file_path if hop_src_rse == source.rse else None,
+                source_ranking=source.source_ranking if hop_src_rse == source.rse else 0,
+                distance_ranking=hop['cumulated_distance'] if hop_src_rse == source.rse else hop['hop_distance'],
+                scheme=hop['source_scheme'],
+            )
+            dst = TransferDestination(
+                rse_data=hop_dst_rse,
+                scheme=hop['dest_scheme'],
+            )
+            hop_definition = DirectTransferDefinition(
+                source=src,
+                destination=dst,
+                rws=rws,
+                protocol_factory=protocol_factory,
+            )
+
+            transfer_path.append(hop_definition)
+        transfers_by_source[source.rse.id] = transfer_path
+
+    # create multi-source transfers: add additional sources if possible
+    for transfer_path in transfers_by_source.values():
+        if len(transfer_path) == 1 and not transfer_path[0].src.rse.is_tape():
+            # Multiple single-hop DISK rses can be used together in "multi-source" transfers
+            #
+            # Try adding additional single-hop DISK rses sources to the transfer
+            inbound_links = inbound_links_by_node[transfer_path[0].dst.rse.id]
+            main_source_schemes = __add_compatible_schemes(schemes=[transfer_path[0].dst.scheme], allowed_schemes=SUPPORTED_PROTOCOLS)
+            added_sources = 0
+            for source in sorted(sources, key=lambda s: (-s.source_ranking, s.distance_ranking)):
+                if added_sources >= 5:
+                    break
+
+                if source.rse.id not in inbound_links:
+                    # There is no direct connection between this source and the destination
+                    continue
+
+                if source.rse == transfer_path[0].src.rse:
+                    # This is the main source. Don't add a duplicate.
+                    continue
+
+                if source.rse.is_tape():
+                    continue
+
+                try:
+                    matching_scheme = rsemgr.find_matching_scheme(
+                        rse_settings_src=source.rse.info,
+                        rse_settings_dest=transfer_path[0].dst.rse.info,
+                        operation_src='third_party_copy',
+                        operation_dest='third_party_copy',
+                        domain='wan',
+                        scheme=main_source_schemes)
+                except RSEProtocolNotSupported:
+                    continue
+
+                transfer_path[0].sources.append(
+                    TransferSource(
+                        rse_data=source.rse,
+                        file_path=source.file_path,
+                        source_ranking=source.source_ranking,
+                        distance_ranking=inbound_links[source.rse.id],
+                        scheme=matching_scheme[1],
+                    )
+                )
+                added_sources += 1
+    return transfers_by_source
+
+
 def get_dsn(scope, name, dsn):
     if dsn:
         return dsn
@@ -941,74 +1034,18 @@ def get_dsn(scope, name, dsn):
     return 'other'
 
 
-def __find_compatible_direct_sources(sources, scheme, dest_rse_id, session=None):
-    """
-    Find, among the sources, the ones which have a direct connection to dest_rse_id and are compatible
-    with the provided schemes.
-
-    Generates tuples of form (source, hop): the source and it's associated single-hop.
-    """
-    inbound_distances = __load_inbound_distances_node(rse_id=dest_rse_id, session=session)
-
-    for source in sorted(sources, key=lambda s: (-s.source_ranking, s.distance_ranking)):
-
-        if source.rse.id not in inbound_distances:
-            # There is no direct connection between this source and the destination
-            continue
-
-        try:
-            matching_scheme = rsemgr.find_matching_scheme(
-                rse_settings_src=__load_rse_settings(rse_id=source.rse.id, session=session),
-                rse_settings_dest=__load_rse_settings(rse_id=dest_rse_id, session=session),
-                operation_src='third_party_copy',
-                operation_dest='third_party_copy',
-                domain='wan',
-                scheme=scheme)
-        except RSEProtocolNotSupported:
-            continue
-
-        hop = {'source_rse_id': source.rse.id,
-               'dest_rse_id': dest_rse_id,
-               'source_scheme': matching_scheme[1],
-               'dest_scheme': matching_scheme[0],
-               'source_scheme_priority': matching_scheme[3],
-               'dest_scheme_priority': matching_scheme[2],
-               'hop_distance': inbound_distances[source.rse.id],
-               'cumulated_distance': inbound_distances[source.rse.id]}
-
-        yield source, hop
-
-
 @transactional_session
-def __prepare_transfer_definition(ctx, protocol_factory, rws, source, transfertool, retry_other_fts, list_hops, bring_online, logger, session=None):
+def __add_legacy_transfer_definitions(protocol_factory, rws, source, transfertool, retry_other_fts, transfer_path, bring_online, logger, session=None):
     """
-    Create a hop-by-hop transfer configuration.
-    For each hop needed to replicate the file from source (source.rse) towards the request's destination (rws.dest_rse),
-    a DirectTransferDefinition object is constructed, which holds all the needed information to latter trigger a transfer
-    between hop source to hop destination.
+    For each point-to-point transfer in the given path, initialize the legacy transfer definition:
+    a dictionary with transfer parameters which were not yet migrated to the new, class-based, model
     """
 
-    if len(list_hops) > 1:
-        logger(logging.DEBUG, 'From %s to %s requires multihop: %s', source.rse, rws.dest_rse, list_hops)
-    transfer_path = []
-    for hop in list_hops:
-        src = TransferSource(
-            rse_data=ctx.rse_data(hop['source_rse_id']),
-            file_path=source.file_path if hop is list_hops[0] else None,
-            source_ranking=source.source_ranking if hop is list_hops[0] else 0,
-            distance_ranking=list_hops[-1]['cumulated_distance'] if hop is list_hops[-1] else hop['hop_distance'],
-            scheme=hop['source_scheme'],
-        )
-        dst = TransferDestination(
-            rse_data=ctx.rse_data(hop['dest_rse_id']),
-            scheme=hop['dest_scheme'],
-        )
-        hop_definition = DirectTransferDefinition(
-            source=src,
-            destination=dst,
-            rws=rws,
-            protocol_factory=protocol_factory,
-        )
+    if len(transfer_path) > 1:
+        logger(logging.DEBUG, 'From %s to %s requires multihop: %s', source.rse, rws.dest_rse, transfer_path)
+    for hop in transfer_path:
+        src = hop.src
+        dst = hop.dst
 
         # Extend the metadata dictionary with request attributes
         transfer_src_type = "DISK"
@@ -1104,7 +1141,7 @@ def __prepare_transfer_definition(ctx, protocol_factory, rws, source, transferto
                     'selection_strategy': 'auto',
                     'rule_id': rws.rule_id,
                     'file_metadata': file_metadata}
-        if len(list_hops) > 1:
+        if len(transfer_path) > 1:
             transfer['multihop'] = True
             transfer['initial_request_id'] = rws.request_id
         if strict_copy:
@@ -1114,16 +1151,14 @@ def __prepare_transfer_definition(ctx, protocol_factory, rws, source, transferto
                 transfer['archive_timeout'] = int(archive_timeout)
                 logger(logging.DEBUG, 'Added archive timeout to transfer.')
             except ValueError:
-                logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', hop_definition)
+                logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', hop)
                 pass
-        if hop is list_hops[-1]:
+        if hop is transfer_path[-1]:
             transfer['account'] = rws.account
             if rws.previous_attempt_id:
                 file_metadata['previous_attempt_id'] = rws.previous_attempt_id
 
-        hop_definition.legacy_def = transfer
-        transfer_path.append(hop_definition)
-    return transfer_path
+        hop.legacy_def = transfer
 
 
 def __pick_best_transfer(candidate_paths):
@@ -1159,9 +1194,9 @@ def __pick_best_transfer(candidate_paths):
         # on equal type, prefer lower distance_ranking
         # on equal distance, prefer single hop
         return (
-            - transfer_path[-1].src.source_ranking,
+            - transfer_path[0].src.source_ranking,
             transfer_path[0]['file_metadata']['src_type'].lower(),  # rely on the fact that "disk" < "tape" in string order
-            transfer_path[-1].src.distance_ranking,
+            transfer_path[0].src.distance_ranking,
             len(transfer_path) > 1,  # rely on the fact that False < True
         )
 
@@ -1275,52 +1310,33 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         any_source_had_scheme_mismatch = False
         candidate_paths = []
 
-        paths = __search_shortest_paths([s.rse.id for s in filtered_sources],
-                                        rws.dest_rse.id,
-                                        include_multihop=include_multihop,
-                                        multihop_rses=multihop_rses,
-                                        limit_dest_schemes=None,
-                                        session=session)
+        paths = __create_transfer_definitions(ctx, protocol_factory,
+                                              rws=rws,
+                                              sources=filtered_sources,
+                                              include_multihop=include_multihop,
+                                              multihop_rses=multihop_rses,
+                                              limit_dest_schemes=None,
+                                              session=session)
         for source in filtered_sources:
-            list_hops = paths.get(source.rse.id)
-            if list_hops is None:
+            transfer_path = paths.get(source.rse.id)
+            if transfer_path is None:
                 logger(logging.WARNING, "Request %s: no path from %s to %s", rws.request_id, source.rse, rws.dest_rse)
                 continue
-            if not list_hops:
+            if not transfer_path:
                 any_source_had_scheme_mismatch = True
                 logger(logging.WARNING, "Request %s: no matching protocol between %s and %s", rws.request_id, source.rse, rws.dest_rse)
                 continue
 
             try:
-                transfer_path = __prepare_transfer_definition(ctx, protocol_factory, rws=rws, source=source, transfertool=transfertool,
-                                                              retry_other_fts=retry_other_fts, list_hops=list_hops, logger=logger, session=session,
-                                                              bring_online=bring_online)
-                if transfer_path:
-                    candidate_paths.append(transfer_path)
+                __add_legacy_transfer_definitions(protocol_factory, rws=rws, source=source, transfertool=transfertool,
+                                                  retry_other_fts=retry_other_fts, transfer_path=transfer_path, logger=logger,
+                                                  bring_online=bring_online, session=session)
+                candidate_paths.append(transfer_path)
             except Exception:
                 logger(logging.CRITICAL, "Exception happened when trying to get transfer for request %s:" % rws.request_id, exc_info=True)
                 continue
 
         best_path = __pick_best_transfer(candidate_paths)
-        if best_path and len(best_path) == 1 and not best_path[0].src.rse.is_tape():
-            # Multiple single-hop DISK rses can be used together in "multi-source" transfers
-            #
-            # Try adding additional single-hop DISK rses sources to the transfer
-            additional_sources = [s for s in filtered_sources
-                                  if s.rse != best_path[0].src.rse and not s.rse.is_tape()]
-
-            for source, hop in islice(__find_compatible_direct_sources(sources=additional_sources,
-                                                                       scheme=__add_compatible_schemes(schemes=[best_path[0].dst.scheme], allowed_schemes=SUPPORTED_PROTOCOLS),
-                                                                       dest_rse_id=rws.dest_rse.id,
-                                                                       session=session),
-                                      5):
-                best_path[0].sources.append(TransferSource(
-                    rse_data=source.rse,
-                    file_path=source.file_path,
-                    source_ranking=source.source_ranking,
-                    distance_ranking=hop['hop_distance'],
-                    scheme=hop['source_scheme'],
-                ))
 
         if best_path:
             transfer_path_for_request.append((rws, best_path))
