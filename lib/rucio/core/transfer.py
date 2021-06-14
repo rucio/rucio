@@ -63,7 +63,6 @@ from rucio.common.exception import (InvalidRSEExpression, NoDistance,
                                     RucioException, UnsupportedOperation)
 from rucio.common.extra import import_extras
 from rucio.common.rse_attributes import get_rse_attributes
-from rucio.common.types import InternalAccount
 from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
@@ -206,18 +205,18 @@ class RequestWithSources:
 
     @attributes.setter
     def attributes(self, db_attributes):
-        dict_attributes = {}
+        attr = {}
         if db_attributes:
             if isinstance(db_attributes, dict):
                 attr = json.loads(json.dumps(db_attributes))
             else:
                 attr = json.loads(str(db_attributes))
             # parse source expression
-            dict_attributes['source_replica_expression'] = attr["source_replica_expression"] if (attr and "source_replica_expression" in attr) else None
-            dict_attributes['allow_tape_source'] = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
-            dict_attributes['dsn'] = attr["ds_name"] if (attr and "ds_name" in attr) else None
-            dict_attributes['lifetime'] = attr.get('lifetime', -1)
-        self._dict_attributes = dict_attributes
+            attr['source_replica_expression'] = attr["source_replica_expression"] if (attr and "source_replica_expression" in attr) else None
+            attr['allow_tape_source'] = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
+            attr['dsn'] = attr["ds_name"] if (attr and "ds_name" in attr) else None
+            attr['lifetime'] = attr.get('lifetime', -1)
+        self._dict_attributes = attr
 
 
 class _RseLoaderContext:
@@ -1065,7 +1064,33 @@ def __create_transfer_definitions(ctx, rws, sources, include_multihop, multihop_
             hop_definition = DirectTransferDefinition(
                 source=src,
                 destination=dst,
-                rws=rws,
+                # keep the current rws for last hop; create a new one for other hops
+                rws=rws if hop_dst_rse == rws.dest_rse else RequestWithSources(
+                    id=None,
+                    rule_id=None,
+                    scope=rws.scope,
+                    name=rws.name,
+                    md5=rws.md5,
+                    adler32=rws.adler32,
+                    byte_count=rws.byte_count,
+                    activity=rws.activity,
+                    attributes={
+                        'activity': rws.activity,
+                        'source_replica_expression': None,
+                        'lifetime': None,
+                        'ds_scope': None,
+                        'ds_name': None,
+                        'bytes': rws.byte_count,
+                        'md5': rws.md5,
+                        'adler32': rws.adler32,
+                        'priority': None,
+                        'allow_tape_source': True
+                    },
+                    previous_attempt_id=None,
+                    dest_rse_data=hop_dst_rse,
+                    account=rws.account,
+                    retry_count=0,
+                ),
                 protocol_factory=protocol_factory,
             )
 
@@ -1362,29 +1387,16 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 reqs_scheme_mismatch.add(rws.request_id)
                 reqs_no_source.remove(rws.request_id)
 
-    # Ensure each single-hop transfer has its own request id. Create intermediate replicas and requests if needed.
-    # Organize into the return format: {request_id: <transfer_definition_dict>}
-    transfers = {}
-    for rws, transfer_path in transfer_path_for_request:
-        # The last hop is the initial request
-        transfers[rws.request_id] = transfer_path[-1]
-        if rws.previous_attempt_id:
-            transfers[rws.request_id]['file_metadata']['previous_attempt_id'] = rws.previous_attempt_id
-        transfers[rws.request_id]['file_metadata']['request_id'] = rws.request_id
-        transfers[rws.request_id]['request_id'] = rws.request_id
+    # Create replicas and requests in the database for the intermediate hops
+    for _, transfer_path in transfer_path_for_request:
+        creation_successful = True
+        for hop in transfer_path:
+            rws = hop.rws
+            if rws.request_id:
+                continue
 
-        # If the transfer is a multihop, need to create the intermediate replicas, intermediate requests and the transfers
-        parent_request = None
-        parent_requests = []
-        multihop_cancelled = False
-        for transfer in transfer_path[:-1]:
-            # hop = {'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}
-            source_rse = transfer.src.rse
-            dest_rse = transfer.dst.rse
-            dest_rse_vo = get_rse_vo(rse_id=dest_rse.id, session=session)
-
-            if 'multihop_tombstone_delay' in dest_rse.attributes:
-                tombstone = tombstone_from_delay(dest_rse.attributes['multihop_tombstone_delay'])
+            if 'multihop_tombstone_delay' in rws.dest_rse.attributes:
+                tombstone = tombstone_from_delay(rws.dest_rse.attributes['multihop_tombstone_delay'])
             else:
                 tombstone = tombstone_from_delay(default_tombstone_delay)
             files = [{'scope': rws.scope,
@@ -1395,68 +1407,54 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                       'tombstone': tombstone,
                       'state': 'C'}]
             try:
-                add_replicas(rse_id=dest_rse.id,
+                add_replicas(rse_id=rws.dest_rse.id,
                              files=files,
-                             account=InternalAccount('root', vo=dest_rse_vo),
+                             account=rws.account,
                              ignore_availability=False,
                              dataset_meta=None,
                              session=session)
             except Exception as error:
-                logger(logging.ERROR, 'Problem adding replicas %s:%s on %s : %s', rws.scope, rws.name, dest_rse, str(error))
+                logger(logging.ERROR, 'Problem adding replicas %s:%s on %s : %s', rws.scope, rws.name, rws.dest_rse, str(error))
 
-            req_attributes = {'activity': rws.activity,
-                              'source_replica_expression': None,
-                              'lifetime': None,
-                              'ds_scope': None,
-                              'ds_name': None,
-                              'bytes': rws.byte_count,
-                              'md5': rws.md5,
-                              'adler32': rws.adler32,
-                              'priority': None,
-                              'allow_tape_source': True}
-            new_req = queue_requests(requests=[{'dest_rse_id': dest_rse.id,
+            new_req = queue_requests(requests=[{'dest_rse_id': rws.dest_rse.id,
                                                 'scope': rws.scope,
                                                 'name': rws.name,
                                                 'rule_id': '00000000000000000000000000000000',  # Dummy Rule ID used for multihop. TODO: Replace with actual rule_id once we can flag intermediate requests
-                                                'attributes': req_attributes,
+                                                'attributes': rws.attributes,
                                                 'request_type': RequestType.TRANSFER,
                                                 'retry_count': rws.retry_count,
-                                                'account': InternalAccount('root', vo=dest_rse_vo),
+                                                'account': rws.account,
                                                 'requested_at': datetime.datetime.now()}], session=session)
             # If a request already exists, new_req will be an empty list.
             if not new_req:
-                # Need to fail all the intermediate requests + the initial one and exit the multihop loop
-                logger(logging.WARNING, 'Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests', source_rse, dest_rse)
-                parent_requests.append(rws.request_id)
-                try:
-                    set_requests_state(request_ids=parent_requests, new_state=RequestState.FAILED, session=session)
-                except UnsupportedOperation:
-                    logger(logging.ERROR, 'Multihop : Cannot cancel all the parent requests : %s', str(parent_requests))
-
-                # Remove from the transfer dictionary all the requests
-                for cur_req_id in parent_requests:
-                    transfers.pop(cur_req_id, None)
-                multihop_cancelled = True
+                creation_successful = False
                 break
+            rws.request_id = new_req[0]['id']
+            logger(logging.DEBUG, 'New request created for the transfer between %s and %s : %s', transfer_path[0].src, transfer_path[-1].dst, rws)
+            set_requests_state(request_ids=[rws.request_id, ], new_state=RequestState.QUEUED, session=session)
 
-            new_req_id = new_req[0]['id']
-            parent_requests.append(new_req_id)
-            set_requests_state(request_ids=[new_req_id, ], new_state=RequestState.QUEUED, session=session)
-            logger(logging.DEBUG, 'New request created for the transfer between %s and %s : %s', source_rse, dest_rse, new_req_id)
+        if not creation_successful:
+            # Need to fail all the intermediate requests + the initial one and exit the multihop loop
+            logger(logging.WARNING, 'Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests', transfer_path[0].src, transfer_path[-1].dst)
+            created_requests = [hop.rws.request_id for hop in transfer_path if hop.rws.request_id]
+            try:
+                set_requests_state(request_ids=created_requests, new_state=RequestState.FAILED, session=session)
+            except UnsupportedOperation:
+                logger(logging.ERROR, 'Multihop : Cannot cancel all the parent requests : %s', str(created_requests))
 
-            transfers[new_req_id] = transfer
-            transfers[new_req_id]['multihop'] = True
-            transfers[new_req_id]['file_metadata']['request_id'] = new_req_id
-            transfers[new_req_id]['request_id'] = new_req_id
-            transfers[new_req_id]['initial_request_id'] = rws.request_id
-            transfers[new_req_id]['parent_request'] = parent_request
+    for rws, transfer_path in transfer_path_for_request:
+        for i, hop in enumerate(transfer_path):
+            hop['file_metadata']['request_id'] = hop.rws.request_id
+            hop['request_id'] = hop.rws.request_id
+            if len(transfer_path) > 1:
+                hop['multihop'] = True
+                hop['initial_request_id'] = rws.request_id
+                hop['parent_request'] = transfer_path[i - 1].rws.request_id if i > 0 else None
 
-            parent_request = new_req_id
-        if len(transfer_path) > 1 and not multihop_cancelled:
-            # Add parent to the last hop
-            transfers[rws.request_id]['parent_request'] = parent_request
-            transfers[rws.request_id]['initial_request_id'] = rws.request_id
-            transfers[rws.request_id]['multihop'] = True
+    transfers = {}
+    for _, transfer_path in transfer_path_for_request:
+        for hop in transfer_path:
+            transfers[hop.rws.request_id] = hop
 
     return transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
 
