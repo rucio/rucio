@@ -1205,10 +1205,10 @@ def __filter_unwanted_paths(candidate_paths):
 
     # Discard multihop transfers which contain other candidate as part of itself For example:
     # if A->B->C and B->C are both candidates, discard A->B->C because it includes B->C. Doing B->C is enough.
-    source_rses = {path[0]['file_metadata']['src_rse_id'] for path in candidate_paths}
+    source_rses = {path[0].src.rse.id for path in candidate_paths}
     filtered_candidate_paths = []
     for path in candidate_paths:
-        if any(transfer['file_metadata']['src_rse_id'] in source_rses for transfer in path[1:]):
+        if any(hop.src.rse.id in source_rses for hop in path[1:]):
             continue
         filtered_candidate_paths.append(path)
     candidate_paths = filtered_candidate_paths
