@@ -442,27 +442,6 @@ class DirectTransferDefinition:
         # get external_host + strict_copy + archive timeout
         strict_copy = dst.rse.attributes.get('strict_copy', False)
         archive_timeout = dst.rse.attributes.get('archive_timeout', None)
-        # Get the checksum validation strategy (none, source, destination or both)
-        verify_checksum = 'both'
-        if not dst.rse.attributes.get('verify_checksum', True):
-            if not src.rse.attributes.get('verify_checksum', True):
-                verify_checksum = 'none'
-            else:
-                verify_checksum = 'source'
-        else:
-            if not src.rse.attributes.get('verify_checksum', True):
-                verify_checksum = 'destination'
-            else:
-                verify_checksum = 'both'
-
-        src_rse_checksums = get_rse_supported_checksums_from_attributes(src.rse.attributes)
-        dst_rse_checksums = get_rse_supported_checksums_from_attributes(dst.rse.attributes)
-
-        common_checksum_names = set(src_rse_checksums).intersection(dst_rse_checksums)
-
-        if len(common_checksum_names) == 0:
-            logger(logging.INFO, 'No common checksum method. Verifying destination only.')
-            verify_checksum = 'destination'
 
         # Fill the transfer dictionary including file_metadata
         file_metadata = {'request_id': rws.request_id,
@@ -478,8 +457,7 @@ class DirectTransferDefinition:
                          'dest_rse_id': dst.rse.id,
                          'filesize': rws.byte_count,
                          'md5': rws.md5,
-                         'adler32': rws.adler32,
-                         'verify_checksum': verify_checksum}
+                         'adler32': rws.adler32}
         transfer = {'request_id': rws.request_id,
                     'account': rws.account,
                     'src_spacetoken': None,
@@ -517,6 +495,61 @@ def oidc_supported(transfer_hop):
         if not source.rse.attributes.get('oidc_support', False):
             return False
     return True
+
+
+def checksum_validation_strategy(src_attributes, dst_attributes, logger):
+    """
+    Compute the checksum validation strategy (none, source, destination or both) and the
+    supported checksums from the attributes of the source and destination RSE.
+    """
+    source_supported_checksums = get_rse_supported_checksums_from_attributes(src_attributes)
+    dest_supported_checksums = get_rse_supported_checksums_from_attributes(dst_attributes)
+    common_checksum_names = set(source_supported_checksums).intersection(dest_supported_checksums)
+
+    verify_checksum = 'both'
+    if not dst_attributes.get('verify_checksum', True):
+        if not src_attributes.get('verify_checksum', True):
+            verify_checksum = 'none'
+        else:
+            verify_checksum = 'source'
+    else:
+        if not src_attributes.get('verify_checksum', True):
+            verify_checksum = 'destination'
+        else:
+            verify_checksum = 'both'
+
+    if len(common_checksum_names) == 0:
+        logger(logging.INFO, 'No common checksum method. Verifying destination only.')
+        verify_checksum = 'destination'
+
+    if source_supported_checksums == ['none']:
+        if dest_supported_checksums == ['none']:
+            # both endpoints support none
+            verify_checksum = 'none'
+        else:
+            # src supports none but dst does
+            verify_checksum = 'destination'
+    else:
+        if dest_supported_checksums == ['none']:
+            # source supports some but destination does not
+            verify_checksum = 'source'
+        else:
+            if len(common_checksum_names) == 0:
+                # source and dst support some bot none in common (dst priority)
+                verify_checksum = 'destination'
+            else:
+                # Don't override the value in the file_metadata
+                pass
+
+    checksums_to_use = ['none']
+    if verify_checksum == 'both':
+        checksums_to_use = common_checksum_names
+    elif verify_checksum == 'source':
+        checksums_to_use = source_supported_checksums
+    elif verify_checksum == 'destination':
+        checksums_to_use = dest_supported_checksums
+
+    return verify_checksum, checksums_to_use
 
 
 def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False, logger=logging.log):
