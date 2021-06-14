@@ -49,6 +49,7 @@ from collections import defaultdict
 
 from prometheus_client import Counter
 from six import iteritems
+from six.moves.configparser import NoOptionError
 
 import rucio.db.sqla.util
 from rucio.common import exception
@@ -59,11 +60,6 @@ from rucio.core import heartbeat, request as request_core, transfer as transfer_
 from rucio.core.monitor import record_counter, record_timer
 from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses, USER_ACTIVITY
 from rucio.db.sqla.constants import RequestState
-
-try:
-    from ConfigParser import NoOptionError  # py2
-except Exception:
-    from configparser import NoOptionError  # py3
 
 graceful_stop = threading.Event()
 

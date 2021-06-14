@@ -43,68 +43,33 @@
 
 from __future__ import print_function
 
-try:
-    import importlib
-    importlib.util.find_spec('')
-except AttributeError:
-    pass
-
-# Fallback until Python <3.9
-# Must be removed with Python 3.9
-try:
-    import imp
-except AttributeError:
-    pass
-
 import errno
 import os
 import random
 import sys
-import traceback
 import time
-
+import traceback
 from os import environ, fdopen, path, makedirs, geteuid
 from shutil import move
 from tempfile import mkstemp
 
+from dogpile.cache import make_region
+from requests import Session, Response
+from requests.exceptions import ConnectionError, RequestException
+from requests.status_codes import codes
+from six.moves.configparser import NoOptionError, NoSectionError
+from six.moves.urllib.parse import urlparse
+
+from rucio import version
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupported,
                                     NoAuthInformation, MissingClientParameter,
                                     MissingModuleException, ServerConnectionException)
+from rucio.common.extra import import_extras
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign, setup_logger
-from rucio import version
 
-try:
-    # Python 2
-    from urlparse import urlparse
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    # Python 3
-    from urllib.parse import urlparse
-    from configparser import NoOptionError, NoSectionError
-from dogpile.cache import make_region
-from requests import Session, Response
-from requests.status_codes import codes
-from requests.exceptions import ConnectionError, RequestException
-from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
-disable_warnings()
-
-# Extra modules: Only imported if available
-EXTRA_MODULES = {'requests_kerberos': False}
-
-for extra_module in EXTRA_MODULES:
-    if 'imp' in sys.modules:
-        try:
-            imp.find_module(extra_module)
-            EXTRA_MODULES[extra_module] = True
-        except ImportError:
-            EXTRA_MODULES[extra_module] = False
-    else:
-        if importlib.util.find_spec(extra_module):
-            EXTRA_MODULES[extra_module] = True
-        else:
-            EXTRA_MODULES[extra_module] = False
+EXTRA_MODULES = import_extras(['requests_kerberos'])
 
 if EXTRA_MODULES['requests_kerberos']:
     from requests_kerberos import HTTPKerberosAuth  # pylint: disable=import-error

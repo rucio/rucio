@@ -60,6 +60,7 @@ import unittest
 import uuid
 from functools import wraps
 
+from six.moves.configparser import NoOptionError, NoSectionError
 from tabulate import tabulate
 
 # rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
@@ -70,14 +71,15 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, D
                                     RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
                                     RucioException, DuplicateRule, InvalidType)
+from rucio.common.extra import import_extras
 from rucio.common.test_rucio_server import TestRucioServer
 from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, \
     extract_scope, setup_logger
 
-try:
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    from configparser import NoOptionError, NoSectionError
+EXTRA_MODULES = import_extras(['argcomplete'])
+
+if EXTRA_MODULES['argcomplete']:
+    import argcomplete  # pylint: disable=E0401
 
 SUCCESS = 0
 FAILURE = 1
@@ -2390,11 +2392,8 @@ if __name__ == '__main__':
             os.environ['RUCIO_CONFIG'] = arguments[argi + 1]
 
     oparser = get_parser()
-    try:
-        import argcomplete
+    if EXTRA_MODULES['argcomplete']:
         argcomplete.autocomplete(oparser)
-    except ImportError:
-        pass
 
     if len(sys.argv) == 1:
         oparser.print_help()

@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,24 +14,25 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
-# - Wen Guan <wguan.icedew@gmail.com>, 2014
+# - Wen Guan <wen.guan@cern.ch>, 2014
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 from json import dumps, loads
+
 from requests.status_codes import codes
-try:
-    from urllib import quote
-except ImportError:
-    from urllib.parse import quote
+from six.moves.urllib.parse import quote
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice

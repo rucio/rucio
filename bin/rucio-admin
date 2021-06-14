@@ -55,6 +55,7 @@ import time
 import traceback
 from functools import wraps
 
+from six.moves.configparser import NoOptionError, NoSectionError
 from tabulate import tabulate
 
 from rucio import version
@@ -65,15 +66,15 @@ from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists
                                     RSENotFound, RSEOperationNotSupported, InvalidRSEExpression,
                                     DuplicateContent, RuleNotFound, CannotAuthenticate,
                                     Duplicate, ReplicaIsLocked, ConfigNotFound, ScopeNotFound)
+from rucio.common.extra import import_extras
 from rucio.common.utils import (chunks, construct_surl, sizefmt, get_bytes_value_from_string,
                                 render_json, parse_response, extract_scope, clean_surls)
 from rucio.rse import rsemanager as rsemgr
 
-try:
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    from configparser import NoOptionError, NoSectionError
+EXTRA_MODULES = import_extras(['argcomplete'])
 
+if EXTRA_MODULES['argcomplete']:
+    import argcomplete  # pylint: disable=E0401
 
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
                                                 os.pardir, os.pardir))
@@ -2195,11 +2196,8 @@ def get_parser():
 
 if __name__ == '__main__':
     oparser = get_parser()
-    try:
-        import argcomplete
+    if EXTRA_MODULES['argcomplete']:
         argcomplete.autocomplete(oparser)
-    except ImportError:
-        pass
 
     if len(sys.argv) == 1:
         oparser.print_help()
