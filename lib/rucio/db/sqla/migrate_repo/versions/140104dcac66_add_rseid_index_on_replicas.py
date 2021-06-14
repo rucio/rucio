@@ -41,4 +41,4 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_index('RSE_ID_IDX', 'replicas', ['rse_id'])
+        drop_index('RSE_ID_IDX', 'replicas')
