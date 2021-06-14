@@ -38,21 +38,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Anil Panta <47672624+panta-123@users.noreply.github.com>, 2021
 
-
 from __future__ import absolute_import, print_function
-
-try:
-    import importlib
-    importlib.util.find_spec('')
-except AttributeError:
-    pass
-
-# Fallback until Python <3.9
-# Must be removed with Python 3.9
-try:
-    import imp
-except AttributeError:
-    pass
 
 import base64
 import copy
@@ -67,7 +53,6 @@ import os.path
 import re
 import socket
 import subprocess
-import sys
 import tempfile
 import threading
 import time
@@ -78,51 +63,15 @@ from xml.etree import ElementTree
 
 import requests
 from six import string_types, text_type, binary_type, ensure_text, PY3
+from six.moves import StringIO, zip_longest as izip_longest
+from six.moves.urllib.parse import urlparse, urlencode, quote, parse_qsl, urlunparse
 
 from rucio.common.config import config_get
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
+from rucio.common.extra import import_extras
 from rucio.common.types import InternalAccount, InternalScope
 
-try:
-    # Python 2
-    from itertools import izip_longest
-except ImportError:
-    # Python 3
-    from itertools import zip_longest as izip_longest
-try:
-    # Python 2
-    from urllib import urlencode, quote
-except ImportError:
-    # Python 3
-    from urllib.parse import urlencode, quote
-try:
-    # Python 2
-    from StringIO import StringIO
-except ImportError:
-    # Python 3
-    from io import StringIO
-try:
-    # Python 2
-    import urlparse
-except ImportError:
-    # Python 3
-    import urllib.parse as urlparse
-
-# Extra modules: Only imported if available
-EXTRA_MODULES = {'paramiko': False}
-
-for extra_module in EXTRA_MODULES:
-    if 'imp' in sys.modules:
-        try:
-            imp.find_module(extra_module)
-            EXTRA_MODULES[extra_module] = True
-        except ImportError:
-            EXTRA_MODULES[extra_module] = False
-    else:
-        if importlib.util.find_spec(extra_module):
-            EXTRA_MODULES[extra_module] = True
-        else:
-            EXTRA_MODULES[extra_module] = False
+EXTRA_MODULES = import_extras(['paramiko'])
 
 if EXTRA_MODULES['paramiko']:
     try:
@@ -1005,11 +954,11 @@ def add_url_query(url, query):
     :return: The expanded URL with the new query parameters
     """
 
-    url_parts = list(urlparse.urlparse(url))
-    mod_query = dict(urlparse.parse_qsl(url_parts[4]))
+    url_parts = list(urlparse(url))
+    mod_query = dict(parse_qsl(url_parts[4]))
     mod_query.update(query)
     url_parts[4] = urlencode(mod_query)
-    return urlparse.urlunparse(url_parts)
+    return urlunparse(url_parts)
 
 
 def get_bytes_value_from_string(input_string):

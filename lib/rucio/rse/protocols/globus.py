@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,38 +14,26 @@
 # limitations under the License.
 #
 # Authors:
-# - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019
+# - Matt Snyder <msnyder@bnl.gov>, 2019-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 from __future__ import print_function
 
-import imp
-
 from six import string_types
+from six.moves.urllib.parse import urlparse
+
 from rucio.common import exception
+from rucio.common.extra import import_extras
 from rucio.core.rse import get_rse_attribute
 from rucio.rse.protocols.protocol import RSEProtocol
 from rucio.transfertool.globusLibrary import getTransferClient, send_delete_task
 
-# Extra modules: Only imported if available
-EXTRA_MODULES = {'globus_sdk': False}
-
-for extra_module in EXTRA_MODULES:
-    try:
-        imp.find_module(extra_module)
-        EXTRA_MODULES[extra_module] = True
-    except ImportError:
-        EXTRA_MODULES[extra_module] = False
+EXTRA_MODULES = import_extras(['globus_sdk'])
 
 if EXTRA_MODULES['globus_sdk']:
     from globus_sdk import TransferAPIError  # pylint: disable=import-error
-
-try:
-    # PY2
-    from urlparse import urlparse
-except ImportError:
-    # PY3
-    from urllib.parse import urlparse
 
 
 class GlobusRSEProtocol(RSEProtocol):

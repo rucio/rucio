@@ -37,6 +37,8 @@ import threading
 import time
 from collections import defaultdict
 
+from six.moves.configparser import NoOptionError
+
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
@@ -47,11 +49,6 @@ from rucio.core.request import set_requests_state
 from rucio.core.staging import get_stagein_requests_and_source_replicas
 from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses
 from rucio.db.sqla.constants import RequestState
-
-try:
-    from ConfigParser import NoOptionError  # py2
-except Exception:
-    from configparser import NoOptionError  # py3
 
 graceful_stop = threading.Event()
 

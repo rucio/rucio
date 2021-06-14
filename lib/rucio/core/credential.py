@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,35 +17,25 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 import base64
 import datetime
-import time
 import hmac
+import time
 from hashlib import sha1
 
+import boto3
+from botocore.client import Config
+from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
+from oauth2client.service_account import ServiceAccountCredentials
 from six import integer_types
-try:
-    # Python 2
-    from urlparse import urlparse
-    from urllib import urlencode
-except ImportError:
-    # Python 3
-    from urllib.parse import urlparse, urlencode
+from six.moves.urllib.parse import urlparse, urlencode
 
 from rucio.common.config import config_get, get_rse_credentials
 from rucio.common.exception import UnsupportedOperation
 from rucio.core.monitor import record_timer_block
-
-from oauth2client.service_account import ServiceAccountCredentials
-
-import boto3
-from botocore.client import Config
-
-from dogpile.cache import make_region
-from dogpile.cache.api import NO_VALUE
 
 CREDS_GCS = None
 

@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - Dhruv Sondhi <dhruvsondhi05@gmail.com>, 2021
 
 import re
 import sys
@@ -27,18 +28,14 @@ from os.path import dirname, join
 from time import time
 
 from flask import request, render_template, redirect, make_response
+from six.moves.urllib.parse import quote, unquote
 
 from rucio.api import authentication as auth, identity
 from rucio.api.account import account_exists, get_account_info, list_account_attributes
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.extra import import_extras
 from rucio.core import identity as identity_core, vo as vo_core
 from rucio.db.sqla.constants import AccountType, IdentityType
-
-try:
-    from urllib import unquote, quote
-except ImportError:
-    from urllib.parse import unquote, quote
-
 
 if sys.version_info > (3, 0):
     long = int
@@ -55,10 +52,13 @@ else:
     def html_escape(s, quote=True):
         return cgi.escape(s, quote)  # pylint: disable-msg=E1101
 
-try:
-    from onelogin.saml2.auth import OneLogin_Saml2_Auth
+
+EXTRA_MODULES = import_extras(['onelogin'])
+
+if EXTRA_MODULES['onelogin']:
+    from onelogin.saml2.auth import OneLogin_Saml2_Auth  # pylint: disable=import-error
     SAML_SUPPORT = True
-except:
+else:
     SAML_SUPPORT = False
 
 # check if there is preferred server side config for webui authentication

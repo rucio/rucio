@@ -20,17 +20,18 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 
 from __future__ import print_function
 
 import base64
-import imp
 import logging
 import time
 from re import search
 from typing import TYPE_CHECKING
 
 from flask import Flask, Blueprint, request, Response, redirect, render_template
+from six.moves.urllib.parse import urlparse
 from werkzeug.datastructures import Headers
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, \
@@ -38,7 +39,8 @@ from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gs
     get_token_oidc, refresh_cli_auth_token, get_auth_token_saml
 from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, CannotAuthenticate, CannotAuthorize
-from rucio.common.utils import date_to_str, urlparse
+from rucio.common.extra import import_extras
+from rucio.common.utils import date_to_str
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, error_headers, \
     generate_http_error_flask, ErrorHandlingMethodView
 
@@ -46,18 +48,10 @@ if TYPE_CHECKING:
     from typing import Optional
     from rucio.web.rest.flaskapi.v1.common import HeadersType
 
-# Extra modules: Only imported if available
-EXTRA_MODULES = {'onelogin': False}
-
-for extra_module in EXTRA_MODULES:
-    try:
-        imp.find_module(extra_module)
-        EXTRA_MODULES[extra_module] = True
-    except ImportError:
-        EXTRA_MODULES[extra_module] = False
+EXTRA_MODULES = import_extras(['onelogin'])
 
 if EXTRA_MODULES['onelogin']:
-    from onelogin.saml2.auth import OneLogin_Saml2_Auth
+    from onelogin.saml2.auth import OneLogin_Saml2_Auth  # pylint: disable=import-error
     from rucio.web.ui.flask.common.utils import prepare_saml_request
 
 
@@ -420,7 +414,7 @@ class TokenOIDC(ErrorHandlingMethodView):
                 headers.set('Content-Type', 'text/html')
                 return render_template('auth_crash.html', crashtype='unknown_identity'), 401, headers
             # domain setting is necessary so that the token gets distributed also to the webui server
-            domain = '.'.join(urlparse.urlparse(webhome).netloc.split('.')[1:])
+            domain = '.'.join(urlparse(webhome).netloc.split('.')[1:])
             response = redirect(webhome, code=303)
             response.headers.extend(headers)
             response.set_cookie('x-rucio-auth-token', value=result['token'].token, domain=domain, path='/')
