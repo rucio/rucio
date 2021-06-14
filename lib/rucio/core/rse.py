@@ -1300,9 +1300,9 @@ def export_rse(rse_id, session=None):
     rse_data.pop('deleted_at')
 
     # get RSE attributes
-    rse_data['attributes'] = list_rse_attributes(rse_id=rse_id)
+    rse_data['attributes'] = list_rse_attributes(rse_id=rse_id, session=session)
 
-    protocols = get_rse_protocols(rse_id=rse_id)
+    protocols = get_rse_protocols(rse_id=rse_id, session=session)
     rse_data['lfn2pfn_algorithm'] = protocols.get('lfn2pfn_algorithm')
     rse_data['verify_checksum'] = protocols.get('verify_checksum')
     rse_data['credentials'] = protocols.get('credentials')
@@ -1312,7 +1312,7 @@ def export_rse(rse_id, session=None):
     rse_data['protocols'] = protocols.get('protocols')
 
     # get RSE limits
-    limits = get_rse_limits(rse_id=rse_id)
+    limits = get_rse_limits(rse_id=rse_id, session=session)
     rse_data['MinFreeSpace'] = limits.get('MinFreeSpace')
     rse_data['MaxBeingDeletedFiles'] = limits.get('MaxBeingDeletedFiles')
 
