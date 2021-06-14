@@ -273,7 +273,7 @@ class ListReplicas(ErrorHandlingMethodView):
         :<json bool unavailable: Also include unavailable replicas.
         :<json bool all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
         :<json string rse_expression: The RSE expression to restrict on a list of RSEs.
-        :<json dict client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}.
+        :<json dict client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site', 'latitude', 'longitude'}.
         :<json bool sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
         :<json string domain: The network domain for the call, either None, 'wan' or 'lan'. None is fallback to 'wan', 'all' is both ['lan','wan']
         :resheader Content-Type: application/x-json-stream

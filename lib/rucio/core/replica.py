@@ -1289,7 +1289,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param ignore_availability: Ignore the RSE blacklisting.
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param rse_expression: The RSE expression to restrict list_replicas on a set of RSEs.
-    :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
+    :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
     :param domain: The network domain for the call, either None, 'wan' or 'lan'. None is automatic mode, 'all' is both ['lan','wan']
     :param sign_urls: If set, will sign the PFNs if necessary.
     :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
