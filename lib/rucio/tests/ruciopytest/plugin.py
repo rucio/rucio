@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 
 import os
 import sys
@@ -48,6 +49,35 @@ if sys.version_info >= (3, 6):
 
             if not option_appended:
                 raise pytest.UsageError('rucio pytest plugin must be loaded after xdist plugin')
+
+        # Initialization hook to add --artifacts option, can be used by integration or TPC tests to further check non-dev container states
+        parser.addoption(
+            "--export-artifacts-from",
+            action="append",
+            dest="artifacts",
+            default=[],
+            help="A csv string with test names that should persist their artifacts"
+        )
+
+    def pytest_generate_tests(metafunc):
+        tests_with_artifacts = metafunc.config.getoption('artifacts')
+        if len(tests_with_artifacts) > 1:
+            raise pytest.UsageError('--export-artifacts-from must be used only once. It should contain a CSV string of test names that can manage artifacts.')
+
+        if len(tests_with_artifacts) == 1:
+            tests_with_artifacts = tests_with_artifacts[0].split(',')
+            test_function_name = metafunc.function.__name__
+            if "artifact" in metafunc.fixturenames:
+                if test_function_name in tests_with_artifacts:
+                    metafunc.parametrize(
+                        "artifact",
+                        ['/tmp/{function}.artifact'.format(function=test_function_name)]
+                    )
+                else:
+                    metafunc.parametrize("artifact", [None])
+        else:
+            if "artifact" in metafunc.fixturenames:
+                metafunc.parametrize("artifact", [None])
 
 
 def pytest_cmdline_main(config):

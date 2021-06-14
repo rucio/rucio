@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,8 +36,8 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020
-#
-# PY3K COMPATIBLE
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import copy
 import json
@@ -272,6 +273,7 @@ class UploadClient:
                                             rse_attributes=rse_attributes,
                                             lfn=lfn,
                                             source_dir=file['dirname'],
+                                            domain=domain,
                                             force_scheme=cur_scheme,
                                             force_pfn=pfn,
                                             transfer_timeout=file.get('transfer_timeout'),
@@ -538,7 +540,7 @@ class UploadClient:
             replica['pfn'] = pfn
         return replica
 
-    def _upload_item(self, rse_settings, rse_attributes, lfn, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None):
+    def _upload_item(self, rse_settings, rse_attributes, lfn, source_dir=None, domain='wan', force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None):
         """
             Uploads a file to the connected storage.
 
@@ -559,8 +561,8 @@ class UploadClient:
         logger = self.logger
 
         # Construct protocol for write and read operation.
-        protocol_write = self._create_protocol(rse_settings, 'write', force_scheme=force_scheme)
-        protocol_read = self._create_protocol(rse_settings, 'read')
+        protocol_write = self._create_protocol(rse_settings, 'write', force_scheme=force_scheme, domain=domain)
+        protocol_read = self._create_protocol(rse_settings, 'read', domain=domain)
 
         base_name = lfn.get('filename', lfn['name'])
         name = lfn.get('name', base_name)
@@ -603,7 +605,7 @@ class UploadClient:
             logger(logging.DEBUG, 'Removing remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
-                protocol_delete = self._create_protocol(rse_settings, 'delete')
+                protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain)
                 protocol_delete.delete('%s.rucio.upload' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
                 protocol_delete.close()
             except Exception as e:
@@ -614,7 +616,7 @@ class UploadClient:
             logger(logging.DEBUG, 'Removing not-registered remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
-                protocol_delete = self._create_protocol(rse_settings, 'delete')
+                protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain)
                 protocol_delete.delete('%s' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
                 protocol_delete.close()
             except Exception as error:
@@ -693,7 +695,7 @@ class UploadClient:
                 time.sleep(2**attempt)
         return protocol.stat(pfn)
 
-    def _create_protocol(self, rse_settings, operation, force_scheme=None):
+    def _create_protocol(self, rse_settings, operation, force_scheme=None, domain='wan'):
         """
         Protol construction.
         :param: rse_settings        rse_settings
@@ -702,7 +704,7 @@ class UploadClient:
         :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
         """
         try:
-            protocol = rsemgr.create_protocol(rse_settings, operation, scheme=force_scheme, auth_token=self.auth_token, logger=self.logger)
+            protocol = rsemgr.create_protocol(rse_settings, operation, scheme=force_scheme, domain=domain, auth_token=self.auth_token, logger=self.logger)
             protocol.connect()
         except Exception as error:
             self.logger(logging.WARNING, 'Failed to create protocol for operation: %s' % operation)
