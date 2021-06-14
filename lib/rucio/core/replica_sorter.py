@@ -242,7 +242,7 @@ def sort_closeness(dictreplica: "Dict", client_location: "Dict") -> "List":
     """
     Return a list of replicas sorted by AGIS closeness. NOT IMPLEMENTED
     :param dictreplica: A dict with replicas as keys (URIs).
-    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site'}
+    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
     """
 
     return list(dictreplica.keys())
@@ -252,7 +252,7 @@ def sort_ranking(dictreplica: "Dict", client_location: "Dict") -> "List":
     """
     Return a list of replicas sorted by ranking metric. NOT IMPLEMENTED
     :param dictreplica: A dict with replicas as keys (URIs).
-    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site'}
+    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
     """
 
     return list(dictreplica.keys())
@@ -262,7 +262,7 @@ def sort_dynamic(dictreplica: "Dict", client_location: "Dict") -> "List":
     """
     Return a list of replicas sorted by dynamic network metrics. NOT IMPLEMENTED
     :param dictreplica: A dict with replicas as keys (URIs).
-    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site'}
+    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
     """
 
     return list(dictreplica.keys())

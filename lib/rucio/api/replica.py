@@ -154,7 +154,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param request_id: ID associated with the request for debugging.
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
-    :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
+    :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
     :param domain: The network domain for the call, either None, 'wan' or 'lan'. Compatibility fallback: None falls back to 'wan'.
     :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
     :param resolve_archives: When set to True, find archives which contain the replicas.
