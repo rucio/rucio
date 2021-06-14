@@ -1376,7 +1376,7 @@ def __bulk_add_file_dids(files, account, dataset_meta=None, session=None):
     :param session: The database session in use.
     :returns: True is successful.
     """
-    condition = or_()
+    condition = []
     for f in files:
         condition.append(and_(models.DataIdentifier.scope == f['scope'], models.DataIdentifier.name == f['name'], models.DataIdentifier.did_type == DIDType.FILE))
 
@@ -1384,7 +1384,7 @@ def __bulk_add_file_dids(files, account, dataset_meta=None, session=None):
                       models.DataIdentifier.name,
                       models.DataIdentifier.bytes,
                       models.DataIdentifier.adler32,
-                      models.DataIdentifier.md5).with_hint(models.DataIdentifier, "INDEX(dids DIDS_PK)", 'oracle').filter(condition)
+                      models.DataIdentifier.md5).with_hint(models.DataIdentifier, "INDEX(dids DIDS_PK)", 'oracle').filter(or_(*condition))
     available_files = [dict([(column, getattr(row, column)) for column in row._fields]) for row in q]
     new_files = list()
     for file in files:
@@ -1434,13 +1434,13 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
     """
     nbfiles, bytes = 0, 0
     # Check for the replicas already available
-    condition = or_()
+    condition = []
     for f in files:
         condition.append(and_(models.RSEFileAssociation.scope == f['scope'], models.RSEFileAssociation.name == f['name'], models.RSEFileAssociation.rse_id == rse_id))
 
     query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
         with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
-        filter(condition)
+        filter(or_(*condition))
     available_replicas = [dict([(column, getattr(row, column)) for column in row._fields]) for row in query]
 
     default_tombstone_delay = next(iter(get_rse_attribute('tombstone_delay', rse_id=rse_id, session=session)), None)
