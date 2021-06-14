@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -121,7 +121,8 @@ def has_permission(issuer, action, kwargs):
             'del_account_identity': perm_del_account_identity,
             'del_identity': perm_del_identity,
             'remove_did_from_followed': perm_remove_did_from_followed,
-            'remove_dids_from_followed': perm_remove_dids_from_followed}
+            'remove_dids_from_followed': perm_remove_dids_from_followed,
+            'export': perm_export}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -1010,3 +1011,14 @@ def perm_remove_dids_from_followed(issuer, kwargs):
     if not kwargs['account'] == issuer:
         return False
     return True
+
+
+def perm_export(issuer, kwargs):
+    """
+    Checks if an account can export the RSE info.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer)
