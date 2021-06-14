@@ -131,6 +131,11 @@ class RseData:
             return True
         return False
 
+    def is_tape_or_staging_required(self):
+        if self.is_tape() or self.attributes.get('staging_required', False):
+            return True
+        return False
+
     @read_session
     def load_name(self, session=None):
         if self.name is None:
@@ -425,7 +430,7 @@ class DirectTransferDefinition:
         transfer_src_type = "DISK"
         transfer_dst_type = "DISK"
         overwrite, bring_online_local = True, None
-        if src.rse.is_tape() or src.rse.attributes.get('staging_required', False):
+        if src.rse.is_tape_or_staging_required():
             bring_online_local = bring_online
             transfer_src_type = "TAPE"
         if dst.rse.is_tape():
@@ -1193,7 +1198,7 @@ def __filter_unwanted_paths(candidate_paths):
     # Discard multihop transfers which contain a tape source as an intermediate hop
     filtered_candidate_paths = []
     for path in candidate_paths:
-        if any(transfer['file_metadata']['src_type'] == 'TAPE' for transfer in path[1:]):
+        if any(transfer.src.rse.is_tape_or_staging_required() for transfer in path[1:]):
             continue
         filtered_candidate_paths.append(path)
     candidate_paths = filtered_candidate_paths
@@ -1220,7 +1225,7 @@ def __sort_paths(candidate_paths):
         # on equal distance, prefer single hop
         return (
             - transfer_path[0].src.source_ranking,
-            transfer_path[0]['file_metadata']['src_type'].lower(),  # rely on the fact that "disk" < "tape" in string order
+            transfer_path[0].src.rse.is_tape_or_staging_required(),  # rely on the fact that False < True
             transfer_path[0].src.distance_ranking,
             len(transfer_path) > 1,  # rely on the fact that False < True
         )
@@ -1375,7 +1380,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         filtered_sources = list(filtered_sources)
         had_tape_sources = len(filtered_sources) > 0
         if not rws.attributes.get("allow_tape_source", True):
-            filtered_sources = filter(lambda s: not s.rse.is_tape() and not s.rse.attributes.get('staging_required', False), filtered_sources)
+            filtered_sources = filter(lambda s: not s.rse.is_tape_or_staging_required(), filtered_sources)
 
         filtered_sources = list(filtered_sources)
         any_source_had_scheme_mismatch = False
