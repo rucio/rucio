@@ -25,7 +25,9 @@ from unittest.mock import patch
 from rucio.core import distance as distance_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
+from rucio.core import replica as replica_core
 from rucio.core import rule as rule_core
+from rucio.core import config as core_config
 from rucio.daemons.conveyor.submitter import submitter
 from rucio.db.sqla.models import Request, Source
 from rucio.db.sqla.constants import RequestState
@@ -114,6 +116,21 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
     for rse_id in jump_rses:
         rse_core.add_rse_attribute(rse_id, 'available_for_multihop', True)
 
+    rse_tombstone_delay = 3600
+    rse_multihop_tombstone_delay = 12 * 3600
+    default_multihop_tombstone_delay = 24 * 3600
+
+    # if both attributes are set, the multihop one will take precedence
+    rse_core.add_rse_attribute(jump_rse1_id, 'tombstone_delay', rse_tombstone_delay)
+    rse_core.add_rse_attribute(jump_rse1_id, 'multihop_tombstone_delay', rse_multihop_tombstone_delay)
+
+    # if multihop delay not set, it's the default multihop takes precedence. Not normal tombstone delay.
+    rse_core.add_rse_attribute(jump_rse2_id, 'tombstone_delay', rse_tombstone_delay)
+    core_config.set(section='transfers', option='multihop_tombstone_delay', value=default_multihop_tombstone_delay)
+
+    # if multihop delay is set to 0, the replica will have no tombstone
+    rse_core.add_rse_attribute(jump_rse3_id, 'multihop_tombstone_delay', 0)
+
     distance_core.add_distance(src_rse_id, jump_rse1_id, ranking=10)
     distance_core.add_distance(jump_rse1_id, jump_rse2_id, ranking=10)
     distance_core.add_distance(jump_rse2_id, jump_rse3_id, ranking=10)
@@ -139,3 +156,15 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
     # Ensure that sources where created for transfers
     for rse_id in jump_rses + [src_rse_id]:
         __ensure_source_exists(rse_id, **did)
+
+    # Ensure the tombstone is correctly set on intermediate replicas
+    expected_tombstone = datetime.utcnow() + timedelta(seconds=rse_multihop_tombstone_delay)
+    replica = replica_core.get_replica(jump_rse1_id, **did)
+    assert expected_tombstone - timedelta(minutes=5) < replica['tombstone'] < expected_tombstone + timedelta(minutes=5)
+
+    expected_tombstone = datetime.utcnow() + timedelta(seconds=default_multihop_tombstone_delay)
+    replica = replica_core.get_replica(jump_rse2_id, **did)
+    assert expected_tombstone - timedelta(minutes=5) < replica['tombstone'] < expected_tombstone + timedelta(minutes=5)
+
+    replica = replica_core.get_replica(jump_rse3_id, **did)
+    assert replica['tombstone'] is None
