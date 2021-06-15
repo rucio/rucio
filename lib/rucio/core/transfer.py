@@ -42,7 +42,6 @@ import datetime
 import json
 import logging
 import re
-import sys
 import time
 from typing import TYPE_CHECKING
 
@@ -58,6 +57,7 @@ from rucio.common.constants import SUPPORTED_PROTOCOLS, FTS_STATE
 from rucio.common.exception import (InvalidRSEExpression, NoDistance,
                                     RequestNotFound, RSEProtocolNotSupported,
                                     RucioException, UnsupportedOperation)
+from rucio.common.extra import import_extras
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.types import InternalAccount
 from rucio.common.utils import construct_surl
@@ -79,25 +79,7 @@ from rucio.transfertool.mock import MockTransfertool
 if TYPE_CHECKING:
     from typing import List
 
-# Extra modules: Only imported if available
-EXTRA_MODULES = {'globus_sdk': False}
-
-for extra_module in EXTRA_MODULES:
-    if sys.version_info < (3, 5):
-        try:
-            import imp
-            imp.find_module(extra_module)
-            EXTRA_MODULES[extra_module] = True
-        except ImportError:
-            EXTRA_MODULES[extra_module] = False
-
-    else:
-        try:
-            import importlib
-            importlib.util.find_spec(extra_module)
-            EXTRA_MODULES[extra_module] = True
-        except ModuleNotFoundError:
-            EXTRA_MODULES[extra_module] = False
+EXTRA_MODULES = import_extras(['globus_sdk'])
 
 if EXTRA_MODULES['globus_sdk']:
     from rucio.transfertool.globus import GlobusTransferTool  # pylint: disable=import-error
