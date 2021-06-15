@@ -41,7 +41,6 @@ from __future__ import division
 
 import logging
 import os
-import random
 import socket
 import threading
 import time
@@ -354,74 +353,5 @@ def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, lim
     request_core.set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
 
     for request_id in transfers:
-        sources = transfers[request_id]['sources']
-        sources = __sort_ranking(sources, logger=logger)
-        if len(sources) > max_sources:
-            sources = sources[:max_sources]
-        transfers[request_id]['sources'] = sources
-
-        # remove link_ranking in the final sources
-        sources = transfers[request_id]['sources']
-        transfers[request_id]['sources'] = []
-        for rse, source_url, source_rse_id, ranking, link_ranking in sources:
-            transfers[request_id]['sources'].append((rse, source_url, source_rse_id, ranking))
-
-        transfers[request_id]['file_metadata']['src_rse'] = sources[0][0]
-        transfers[request_id]['file_metadata']['src_rse_id'] = sources[0][2]
         logger(logging.DEBUG, "Transfer for request(%s): %s", request_id, transfers[request_id])
     return transfers
-
-
-def __sort_link_ranking(sources):
-    """
-    Sort a list of sources based on link ranking
-
-    :param sources:  List of sources
-    :return:         Sorted list
-    """
-
-    rank_sources = {}
-    ret_sources = []
-    for source in sources:
-        rse, source_url, source_rse_id, ranking, link_ranking = source
-        if link_ranking not in rank_sources:
-            rank_sources[link_ranking] = []
-        rank_sources[link_ranking].append(source)
-    rank_keys = list(rank_sources.keys())
-    rank_keys.sort()
-    for rank_key in rank_keys:
-        sources_list = rank_sources[rank_key]
-        random.shuffle(sources_list)
-        ret_sources = ret_sources + sources_list
-    return ret_sources
-
-
-def __sort_ranking(sources, logger=logging.log):
-    """
-    Sort a list of sources based on ranking
-
-    :param sources:  List of sources
-    :param logger:   Optional decorated logger that can be passed from the calling daemons or servers.
-    :return:         Sorted list
-    """
-
-    logger(logging.DEBUG, "Sources before sorting: %s", str(sources))
-    rank_sources = {}
-    ret_sources = []
-    for source in sources:
-        # ranking is from sources table, is the retry times
-        # link_ranking is from distances table, is the link rank.
-        # link_ranking should not be None(None means no link, the source will not be used).
-        rse, source_url, source_rse_id, ranking, link_ranking = source
-        if ranking is None:
-            ranking = 0
-        if ranking not in rank_sources:
-            rank_sources[ranking] = []
-        rank_sources[ranking].append(source)
-    rank_keys = list(rank_sources.keys())
-    rank_keys.sort(reverse=True)
-    for rank_key in rank_keys:
-        sources_list = __sort_link_ranking(rank_sources[rank_key])
-        ret_sources = ret_sources + sources_list
-    logger(logging.DEBUG, "Sources after sorting: %s", str(ret_sources))
-    return ret_sources
