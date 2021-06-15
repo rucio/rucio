@@ -55,14 +55,14 @@ def check_url(pfn, hostname, path):
     assert path in pfn
 
 
-def list_fts_transfer(timeout=60, max_attempts=25):
+def list_fts_transfer(timeout=60, min_attempts=20):
     running_time = 0
     request_id = None
     request_status = None
     attempt = 1
 
     time_start = time.time()
-    while running_time < timeout and attempt <= max_attempts:
+    while running_time < timeout and attempt <= min_attempts:
         rcode, out = run_cmd_process("/usr/bin/python2 /usr/bin/fts-rest-transfer-list -v -s https://fts:8446")
         if "Request ID" in out:
             request_id = re.search("Request ID: (.*)", out).group(1)
