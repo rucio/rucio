@@ -229,7 +229,7 @@ class GlobusRSEProtocol(RSEProtocol):
         """
             Submits an async task to bulk delete files on globus endpoint.
 
-            :param replicas: list of file replicas to delete
+            :param pfns: list of pfns to delete
 
             :raises TransferAPIError: if unexpected response from the service.
         """
