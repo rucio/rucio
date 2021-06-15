@@ -62,8 +62,8 @@ def list_fts_transfer(timeout=60, max_attempts=10):
     attempt = 1
 
     time_start = time.time()
-    while running_time < timeout or attempt < max_attempts:
-        rcode, out = run_cmd_process("/usr/bin/python2 /usr/bin/fts-rest-transfer-list -v -s https://fts:8446", timeout=30)
+    while not(running_time >= timeout and attempt > max_attempts):
+        rcode, out = run_cmd_process("/usr/bin/python2 /usr/bin/fts-rest-transfer-list -v -s https://fts:8446")
         if "Request ID" in out:
             request_id = re.search("Request ID: (.*)", out).group(1)
             request_status = re.search("Status: (.*)", out).group(1)
@@ -129,7 +129,7 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
     fts_transfer_id, fts_transfer_status = list_fts_transfer()
 
     # Check FTS transfer job
-    assert fts_transfer_id is not None and fts_transfer_status is not None
+    assert fts_transfer_id is not None
     assert fts_transfer_status in ['SUBMITTED', 'ACTIVE']
 
     fts_transfer_status = poll_fts_transfer_status(fts_transfer_id)

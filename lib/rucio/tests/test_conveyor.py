@@ -34,7 +34,7 @@ from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import skip_rse_tests_with_accounts
 
 
-def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=10):
+def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=60):
     """
     Wait for the replica to become AVAILABLE on the given RSE as a result of a pending transfer
     """
