@@ -897,13 +897,13 @@ class Color:
 
 def detect_client_location():
     """
-    Client IP will be set on the server side (request.remote_addr) 
+    Client IP will be set on the server side (request.remote_addr)
 
     Try to determine the sitename automatically from common environment variables,
     in this order: SITE_NAME, ATLAS_SITE_NAME, OSG_SITE_NAME. If none of these exist
     use the fixed string 'ROAMING'.
 
-    If environment variables sets location, it uses it. 
+    If environment variables sets location, it uses it.
     """
 
     ip = '0.0.0.0'

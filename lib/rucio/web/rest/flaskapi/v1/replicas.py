@@ -298,6 +298,9 @@ class ListReplicas(ErrorHandlingMethodView):
                            'site': None}
         client_location.update(param_get(parameters, 'client_location', default={}))
 
+        # making sure IP address is not overwritten
+        client_location['ip'] = client_ip
+
         dids = param_get(parameters, 'dids', default=[])
         schemes = param_get(parameters, 'schemes', default=None)
         select = param_get(parameters, 'sort', default=None)
