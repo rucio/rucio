@@ -152,8 +152,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
     rse_name = rse_info['rse']
     rse_id = rse_info['id']
     noaccess_attempts = 0
-    if prot.attributes['scheme'] == 'globus':
-        pfns_to_bulk_delete = []
+    pfns_to_bulk_delete = []
     try:
         prot.connect()
         for replica in replicas:
