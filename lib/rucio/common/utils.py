@@ -923,7 +923,7 @@ def detect_client_location():
             latitude = longitude = 0
             print('Client set latitude and longitude are not valid.')
     else:
-        latitude = longitude = 0
+        latitude = longitude = None
 
     return {'ip': ip,
             'fqdn': socket.getfqdn(),
