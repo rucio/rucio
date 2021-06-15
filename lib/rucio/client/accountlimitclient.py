@@ -1,4 +1,5 @@
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,20 +16,18 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
-# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Brandon White <bjwhite@fnal.gov>, 2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
-
-try:
-    from urllib import quote_plus
-except ImportError:
-    from urllib.parse import quote_plus
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 from json import dumps
+
 from requests.status_codes import codes
+from six.moves.urllib.parse import quote_plus
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice

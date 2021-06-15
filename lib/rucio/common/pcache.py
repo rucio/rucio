@@ -19,26 +19,21 @@
 # - Boris Bauermeister <boris.bauermeister@fysik.su.se>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
-import sys
-import os
 import errno
 import fcntl
-import time
 import getopt
+import os
 import re
-import subprocess
 import signal
-
-try:
-    # Python 2
-    from urllib import urlencode, urlopen
-except ImportError:
-    # Python 3
-    from urllib.parse import urlencode
-    from urllib.request import urlopen
+import subprocess
+import sys
+import time
 from socket import gethostname
+
+from six.moves.urllib.parse import urlencode
+from six.moves.urllib.request import urlopen
 
 # The pCache Version
 pcacheversion = "4.2.3"

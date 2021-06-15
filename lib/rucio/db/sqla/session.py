@@ -1,4 +1,5 @@
-# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +19,8 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Eric Vaandering <ewv@fnal.gov>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -41,6 +40,9 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 
 from rucio.common.config import config_get
 from rucio.common.exception import RucioException, DatabaseException
+from rucio.common.extra import import_extras
+
+EXTRA_MODULES = import_extras(['MySQLdb', 'pymysql'])
 
 try:
     main_script = os.path.basename(sys.argv[0])
@@ -107,33 +109,30 @@ def mysql_convert_decimal_to_float(pymysql=False):
     :return converter: Converter object
     """
 
-    converter = None
-    if pymysql:
-        try:
-            from pymysql.constants import FIELD_TYPE
-            from pymysql.converters import conversions as conv
-            converter = conv.copy()
-            converter[FIELD_TYPE.DECIMAL] = float
-            converter[FIELD_TYPE.NEWDECIMAL] = float
-        except ImportError:
-            raise RucioException('Trying to use pymysql without having it installed!')
+    def pymysql_converter():
+        from pymysql.constants import FIELD_TYPE
+        from pymysql.converters import conversions as conv
+        converter = conv.copy()
+        converter[FIELD_TYPE.DECIMAL] = float
+        converter[FIELD_TYPE.NEWDECIMAL] = float
         return converter
 
-    try:
+    if pymysql:
+        if not EXTRA_MODULES['pymysql']:
+            raise RucioException('Trying to use pymysql without having it installed!')
+        else:
+            converter = pymysql_converter()
+    elif EXTRA_MODULES['MySQLdb']:
         import MySQLdb.converters  # pylint: disable=import-error
         from MySQLdb.constants import FIELD_TYPE  # pylint: disable=import-error
         converter = MySQLdb.converters.conversions.copy()
         converter[FIELD_TYPE.DECIMAL] = float
         converter[FIELD_TYPE.NEWDECIMAL] = float
-    except ImportError:
-        try:
-            from pymysql.constants import FIELD_TYPE
-            from pymysql.converters import conversions as conv
-            converter = conv.copy()
-            converter[FIELD_TYPE.DECIMAL] = float
-            converter[FIELD_TYPE.NEWDECIMAL] = float
-        except ImportError:
-            raise RucioException('Trying to use MySQL without mysql-python or pymysql installed!')
+    elif EXTRA_MODULES['pymysql']:
+        converter = pymysql_converter()
+    else:
+        raise RucioException('Trying to use MySQL without mysql-python or pymysql installed!')
+
     return converter
 
 

@@ -1,4 +1,5 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +14,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Diego Ciangottini <diego.ciangottini@gmail.com>, 2018
+# - dciangot <diego.ciangottini@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-
-try:
-    from urllib import quote_plus
-except ImportError:
-    from urllib.parse import quote_plus
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 from requests.status_codes import codes
+from six.moves.urllib.parse import quote_plus
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice

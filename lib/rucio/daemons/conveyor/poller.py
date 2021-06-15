@@ -44,6 +44,7 @@ import time
 from collections import defaultdict
 
 from requests.exceptions import RequestException
+from six.moves.configparser import NoOptionError
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
@@ -54,11 +55,6 @@ from rucio.common.utils import chunks
 from rucio.core import heartbeat, transfer as transfer_core, request as request_core
 from rucio.core.monitor import record_timer, record_counter
 from rucio.db.sqla.constants import RequestState, RequestType
-
-try:
-    from ConfigParser import NoOptionError  # py2
-except Exception:
-    from configparser import NoOptionError  # py3
 
 graceful_stop = threading.Event()
 

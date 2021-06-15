@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,17 +30,14 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from __future__ import print_function
 
-try:
-    from urllib import quote_plus
-except ImportError:
-    from urllib.parse import quote_plus
-
 from json import dumps, loads
+
 from requests.status_codes import codes
+from six.moves.urllib.parse import quote_plus
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice

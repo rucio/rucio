@@ -25,19 +25,15 @@
 # - Ilija Vukotic <ivukotic@cern.ch>, 2020
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Eric Vaandering <ewv@fnal.gov>, 2020
-# - Christoph Ames <christoph.ames@cern.ch>, 2021
-
-
-try:
-    from urllib import quote_plus
-except ImportError:
-    from urllib.parse import quote_plus
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from datetime import datetime
 from json import dumps, loads
+
 from requests.status_codes import codes
+from six.moves.urllib.parse import quote_plus
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
