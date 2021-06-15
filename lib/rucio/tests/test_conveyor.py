@@ -16,10 +16,12 @@
 # Authors:
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 import time
+from datetime import datetime
 
 import pytest
 
 import rucio.daemons.reaper.reaper
+from rucio.common.exception import ReplicaNotFound
 from rucio.core import replica as replica_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
@@ -53,7 +55,8 @@ def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=60):
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter, poller and finisher; changes XRD3 usage and limits")
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True)
+    ('transfers', 'use_multihop', True),
+    ('transfers', 'multihop_tombstone_delay', -1),  # Set OBSOLETE tombstone for intermediate replicas
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
@@ -91,11 +94,12 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         # Submit transfers to FTS
-        # Ensure a replica was created on the intermediary host
+        # Ensure a replica was created on the intermediary host with epoch tombstone
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertype='single', filter_transfertool=None)
         request = request_core.get_request_by_did(rse_id=jump_rse_id, **did)
         assert request['state'] == RequestState.SUBMITTED
         replica = replica_core.get_replica(rse_id=jump_rse_id, **did)
+        assert replica['tombstone'] == datetime(year=1970, month=1, day=1)
         assert replica['state'] == ReplicaState.COPYING
 
         # The intermediate replica is protected by its state (Copying)
@@ -110,12 +114,10 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
 
         # The intermediate replica is protected by an entry in the sources table
         # Reaper must not remove this replica, even if it has an obsolete tombstone
-        #
-        # TODO: Uncomment following lines
-        # rucio.daemons.reaper.reaper.REGION.invalidate()
-        # reaper(once=True, rses=[], include_rses=jump_rse_name, exclude_rses=None)
-        # replica = replica_core.get_replica(rse_id=jump_rse_id, **did)
-        # assert replica
+        rucio.daemons.reaper.reaper.REGION.invalidate()
+        reaper(once=True, rses=[], include_rses=jump_rse_name, exclude_rses=None)
+        replica = replica_core.get_replica(rse_id=jump_rse_id, **did)
+        assert replica
 
         # FTS fails the second transfer, so run submitter again to copy from jump rse to destination rse
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertype='single', filter_transfertool=None)
@@ -127,8 +129,8 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         rucio.daemons.reaper.reaper.REGION.invalidate()
         reaper(once=True, rses=[], include_rses='test_container_xrd=True', exclude_rses=None)
 
-        # TODO: reaper must delete this replica. It is not a source anymore.
-        replica_core.get_replica(rse_id=jump_rse_id, **did)
+        with pytest.raises(ReplicaNotFound):
+            replica_core.get_replica(rse_id=jump_rse_id, **did)
     finally:
 
         @transactional_session
