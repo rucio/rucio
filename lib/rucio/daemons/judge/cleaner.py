@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
@@ -87,7 +87,7 @@ def rule_cleaner(once=False):
             rules = get_expired_rules(total_workers=heartbeat['nr_threads'],
                                       worker_number=heartbeat['assign_thread'],
                                       limit=200,
-                                      blacklisted_rules=[key for key in paused_rules])
+                                      blocked_rules=[key for key in paused_rules])
             logger(logging.DEBUG, 'index query time %f fetch size is %d' % (time.time() - start, len(rules)))
 
             if not rules and not once:

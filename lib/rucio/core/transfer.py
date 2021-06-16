@@ -33,7 +33,10 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
+# - Petr Vokac <petr.vokac@fjfi.cvut.cz>, 2021
 
 from __future__ import division
 
@@ -1237,7 +1240,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         if allowed_source_rses is not None:
             filtered_sources = filter(lambda s: s.rse.id in allowed_source_rses, filtered_sources)
         filtered_sources = filter(lambda s: s.rse.name is not None, filtered_sources)
-        # Ignore blacklisted RSEs
+        # Ignore blocklisted RSEs
         filtered_sources = filter(lambda s: s.rse.id not in unavailable_read_rse_ids, filtered_sources)
         # Ignore tape sources if they are not desired
         filtered_sources = list(filtered_sources)

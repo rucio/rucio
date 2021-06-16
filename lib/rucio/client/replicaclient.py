@@ -19,7 +19,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Ilija Vukotic <ivukotic@cern.ch>, 2020
@@ -127,7 +127,7 @@ class ReplicaClient(BaseClient):
             [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
         :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
         :param unavailable: Also include unavailable replicas in the list (deprecated)
-        :param ignore_availability: Also include blacklisted replicas into the list
+        :param ignore_availability: Also include replicas from blocked RSEs into the list
         :param metalink: ``False`` (default) retrieves as JSON,
                          ``True`` retrieves as metalink4+xml.
         :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
@@ -256,7 +256,7 @@ class ReplicaClient(BaseClient):
         :param rse: the RSE name.
         :param files: The list of files. This is a list of DIDs like :
             [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
-        :param ignore_availability: Ignore the RSE blacklisting.
+        :param ignore_availability: Ignore the RSE blocklsit.
 
         :return: True if files were created successfully.
 
@@ -276,7 +276,7 @@ class ReplicaClient(BaseClient):
         :param rse: the RSE name.
         :param files: The list of files. This is a list of DIDs like :
             [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
-        :param ignore_availability: Ignore the RSE blacklisting.
+        :param ignore_availability: Ignore the RSE blocklist.
 
         :return: True if files have been deleted successfully.
 

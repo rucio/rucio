@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
@@ -83,12 +83,12 @@ def re_evaluator(once=False):
             dids = get_updated_dids(total_workers=heartbeat['nr_threads'],
                                     worker_number=heartbeat['assign_thread'],
                                     limit=100,
-                                    blacklisted_dids=[(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids])
-            logging.debug('re_evaluator[%s/%s] index query time %f fetch size is %d (%d blacklisted)' % (heartbeat['assign_thread'],
-                                                                                                         heartbeat['nr_threads'],
-                                                                                                         time.time() - start,
-                                                                                                         len(dids),
-                                                                                                         len([(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids])))
+                                    blocked_dids=[(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids])
+            logging.debug('re_evaluator[%s/%s] index query time %f fetch size is %d (%d blocked)' % (heartbeat['assign_thread'],
+                                                                                                     heartbeat['nr_threads'],
+                                                                                                     time.time() - start,
+                                                                                                     len(dids),
+                                                                                                     len([(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids])))
 
             # If the list is empty, sent the worker to sleep
             if not dids and not once:

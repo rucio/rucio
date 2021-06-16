@@ -21,7 +21,7 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -31,6 +31,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 
 from __future__ import print_function
 
@@ -896,7 +897,7 @@ class TestBinRucio(unittest.TestCase):
         search = '{0} successfully downloaded'.format(tmp_file1[5:])  # triming '/tmp/' from filename
         assert re.search(search, err) is not None
 
-    def test_list_blacklisted_replicas(self):
+    def test_list_blocklisted_replicas(self):
         """CLIENT(USER): Rucio list replicas"""
         # add rse
         tmp_rse = rse_name_generator()
@@ -904,7 +905,7 @@ class TestBinRucio(unittest.TestCase):
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        cmd = 'rucio-admin rse add-protocol --hostname blacklistreplica --scheme file --prefix /rucio --port 0 --impl rucio.rse.protocols.posix.Default ' \
+        cmd = 'rucio-admin rse add-protocol --hostname blocklistreplica --scheme file --prefix /rucio --port 0 --impl rucio.rse.protocols.posix.Default ' \
               '--domain-json \'{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}}\' %s' % tmp_rse
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -930,21 +931,21 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
 
-        # Listing the replica should work before blacklisting the RSE
+        # Listing the replica should work before blocklisting the RSE
         cmd = 'rucio list-file-replicas {}'.format(tmp_dataset)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert tmp_rse in out
 
-        # Blacklist the rse
+        # Blocklist the rse
         cmd = 'rucio-admin rse update --rse {} --setting availability_read --value False'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert not err
 
-        # list-file-replicas should, by default, list replicas from blacklisted rses
+        # list-file-replicas should, by default, list replicas from blocklisted rses
         cmd = 'rucio list-file-replicas {}'.format(tmp_dataset)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)

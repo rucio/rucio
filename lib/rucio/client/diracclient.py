@@ -1,4 +1,5 @@
-# Copyright 2020 CERN
+# -*- coding: utf-8 -*-
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +15,9 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -46,7 +48,7 @@ class DiracClient(BaseClient):
         - Create all the ascendants of the dataset if they do not exist
 
         :param lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}
-        :param ignore_availability: A boolean to ignore blacklisted sites.
+        :param ignore_availability: A boolean to ignore blocked sites.
         """
         path = '/'.join([self.DIRAC_BASEURL, 'addfiles'])
         url = build_url(choice(self.list_hosts), path=path)

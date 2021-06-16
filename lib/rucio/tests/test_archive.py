@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2021
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -133,7 +133,7 @@ def test_list_archive_contents_at_rse(rse_factory, mock_scope, root_account, did
     assert rse1 not in res
     assert rse2 in res
 
-    # if archive file is on a blacklisted RSE, it must not be listed
+    # if archive file is on a blocklisted RSE, it must not be listed
     both_rses = rse1 + '|' + rse2
     update_rse(rse1_id, {'availability_read': False})
     update_rse(rse2_id, {'availability_read': False})
