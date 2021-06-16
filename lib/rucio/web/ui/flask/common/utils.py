@@ -238,7 +238,7 @@ def validate_webui_token(from_cookie=True, session_token=None):
     if not valid_token_dict or not session_token:
         return None
     else:
-        valid_token_dict['token'] = session_token
+        valid_token_dict['token'] = session_token  # pylint: disable=E1137
         return valid_token_dict
 
 
