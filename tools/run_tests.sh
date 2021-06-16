@@ -62,9 +62,7 @@ do
 done
 
 echo 'Update dependencies with pip'
-pip install -r tools/pip-requires
-pip install -r tools/pip-requires-client
-pip install -r tools/pip-requires-test
+pip install --upgrade -r requirements.txt
 
 if test ${pip_only}; then
     exit

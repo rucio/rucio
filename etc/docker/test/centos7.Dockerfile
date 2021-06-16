@@ -118,6 +118,18 @@ RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3290000.tar.gz | tar xzv &&
 
 WORKDIR /usr/local/src/rucio
 
+COPY requirements.txt setuputil.py ./
+
+# pre-install requirements
+RUN if [[ "$PYTHON" == "2.7" ]] ; then \
+        python3 -m pip --no-cache-dir install --upgrade -r requirements.txt && \
+        python3 -c "from setuputil import *; clients_requirements_table.update({'dev': dev_requirements}); list_all_requirements(clients_requirements_table)" > py2_requirements.txt && \
+        python2 -m pip --no-cache-dir install --upgrade -r py2_requirements.txt && \
+        python2 -m pip list ; \
+    else \
+        python -m pip --no-cache-dir install --upgrade -r requirements.txt ; \
+    fi
+
 COPY etc etc
 
 RUN mkdir -p /var/log/rucio/trace && \
@@ -137,15 +149,6 @@ RUN rpm -i etc/docker/test/extra/oic.rpm; \
     echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
     ldconfig
 
-# pre-install requirements
-RUN if [ "$PYTHON" == "2.7" ] ; then \
-        python3 -m pip --no-cache-dir install --upgrade -r etc/pip-requires && \
-        python2 -m pip --no-cache-dir install --upgrade -r etc/pip-requires-client -r etc/pip-requires-test && \
-        python2 -m pip list ; \
-    else \
-        python -m pip --no-cache-dir install --upgrade -r etc/pip-requires -r etc/pip-requires-client -r etc/pip-requires-test ; \
-    fi
-
 # copy everything else except the git-dir (anything above is cache-friendly)
 COPY .flake8 .pep8 .pycodestyle pylintrc setup.py setup_rucio.py setup_rucio_client.py setup_webui.py ./
 COPY tools tools
@@ -154,7 +157,7 @@ COPY lib lib
 
 # Install Rucio server + dependencies
 RUN if [ "$PYTHON" == "2.7" ] ; then PYEXEC=python3 ; else PYEXEC=python ; fi ; \
-    $PYEXEC -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml] && \
+    $PYEXEC -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,saml,dev] && \
     $PYEXEC -m pip list
 
 WORKDIR /opt/rucio
