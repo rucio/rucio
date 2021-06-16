@@ -32,7 +32,7 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        create_index('RSE_ID_IDX', 'replicas', ['rse_id'])
+        create_index('REPLICAS_RSE_ID_IDX', 'replicas', ['rse_id'])
 
 
 def downgrade():
@@ -41,4 +41,4 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_index('RSE_ID_IDX', 'replicas')
+        drop_index('REPLICAS_RSE_ID_IDX', 'replicas')
