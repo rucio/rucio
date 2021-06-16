@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,22 @@
 # limitations under the License.
 #
 # Authors:
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2020
-# - Matt Snyder <msnyder@bnl.gov>, 2021
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
-ALEMBIC_REVISION = '30fa38b6434e'  # the current alembic head revision
+import importlib
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import List, Dict, Any
+
+
+def import_extras(module_list):
+    # type: (List[str]) -> Dict[str, Any]
+    out = dict()
+    for mod in module_list:
+        out[mod] = None
+        try:
+            out[mod] = importlib.import_module(mod)
+        except ImportError:
+            pass
+    return out

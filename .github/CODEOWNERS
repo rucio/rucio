@@ -34,7 +34,7 @@
 /lib/rucio/daemons/auditor/             @dchristidis
 
 # Data Pre-Placement
-/lib/rucio/daemons/c3po/                @tbeerman
+/lib/rucio/daemons/c3po/                @bari12
 
 # Database
 /lib/rucio/db/                          @mlassnig
@@ -43,7 +43,7 @@
 /lib/rucio/daemons/undertaker/          @bari12
 
 # Deletion
-/lib/rucio/daemons/reaper/              @tbeerman
+/lib/rucio/daemons/reaper/              @cserf
 
 # DIRAC
 
@@ -107,8 +107,8 @@
 /tools/test/                            @bziemons
 
 # Traces
-/lib/rucio/core/trace.py                @tbeerman
-/lib/rucio/daemons/tracer/              @tbeerman
+/lib/rucio/core/trace.py                @mlassnig
+/lib/rucio/daemons/tracer/              @mlassnig
 
 # Transfers
 /lib/rucio/core/transfer.py             @bari12
@@ -117,4 +117,4 @@
 /lib/rucio/transfertool/                @bari12
 
 # WebUI
-/lib/rucio/web/ui/                      @tbeerman
+/lib/rucio/web/ui/                      @bari12

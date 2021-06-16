@@ -41,6 +41,7 @@
 
 from __future__ import print_function
 
+import heapq
 import logging
 import random
 from collections import defaultdict
@@ -747,6 +748,9 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore
 
     :param session: The database session in use.
     """
+    if not dataset_clause:
+        return
+
     replica_query = session.query(models.DataIdentifierAssociation.child_scope,
                                   models.DataIdentifierAssociation.child_name,
                                   models.DataIdentifierAssociation.bytes,
@@ -792,6 +796,9 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, ignor
 
     :param session: The database session in use.
     """
+    if not file_clause:
+        return
+
     for replica_condition in chunks(file_clause, 50):
 
         filters = [models.RSEFileAssociation.rse_id == models.RSE.id,
@@ -906,8 +913,12 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                    updated_after, filters, ignore_availability,
                    session):
 
-    files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session),
-             file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, ignore_availability, updated_after, session)]
+    # iterator which merges multiple sorted replica sources into a combine sorted result without loading everything into the memory
+    replicas = heapq.merge(
+        _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session),
+        _list_replicas_for_files(file_clause, state_clause, files, rse_clause, ignore_availability, updated_after, session),
+        key=lambda t: (t[0], t[1]),  # sort by scope, name
+    )
 
     # we need to retain knowledge of the original domain selection by the user
     # in case we have to loop over replicas with a potential outgoing proxy
@@ -924,320 +935,319 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
     file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
 
-    for replicas in filter(None, files):
-        for scope, name, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replicas:
+    for scope, name, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replicas:
 
-            pfns = []
+        pfns = []
 
-            # reset the domain selection to original user's choice (as this could get overwritten each iteration)
-            domain = deepcopy(original_domain)
+        # reset the domain selection to original user's choice (as this could get overwritten each iteration)
+        domain = deepcopy(original_domain)
 
-            # if the file is a constituent, find the available archives and add them to the list of possible PFNs
-            # taking into account the original rse_expression
-            if '%s:%s' % (scope.internal, name) in constituents:
+        # if the file is a constituent, find the available archives and add them to the list of possible PFNs
+        # taking into account the original rse_expression
+        if '%s:%s' % (scope.internal, name) in constituents:
 
-                # special protocol handling for constituents
-                # force the use of root if client didn't specify
-                if not schemes:
-                    schemes = ['root']
-                else:
-                    # always add root for archives
-                    schemes.append('root')
-                    schemes = list(set(schemes))
+            # special protocol handling for constituents
+            # force the use of root if client didn't specify
+            if not schemes:
+                schemes = ['root']
+            else:
+                # always add root for archives
+                schemes.append('root')
+                schemes = list(set(schemes))
 
-                archive_result = list_replicas(dids=constituents['%s:%s' % (scope.internal, name)],
-                                               schemes=schemes, client_location=client_location,
-                                               domain=domain, sign_urls=sign_urls,
-                                               ignore_availability=ignore_availability,
-                                               rse_expression=rse_expression,
-                                               signature_lifetime=signature_lifetime,
-                                               updated_after=updated_after,
-                                               session=session)
+            archive_result = list_replicas(dids=constituents['%s:%s' % (scope.internal, name)],
+                                           schemes=schemes, client_location=client_location,
+                                           domain=domain, sign_urls=sign_urls,
+                                           ignore_availability=ignore_availability,
+                                           rse_expression=rse_expression,
+                                           signature_lifetime=signature_lifetime,
+                                           updated_after=updated_after,
+                                           session=session)
 
-                # is it the only instance (i.e., no RSE for the replica)?
-                # then yield and continue as the replica does not exist and we don't want to return
-                # an additional empty pfn to the client
-                if rse_id is None:
+            # is it the only instance (i.e., no RSE for the replica)?
+            # then yield and continue as the replica does not exist and we don't want to return
+            # an additional empty pfn to the client
+            if rse_id is None:
 
-                    # retrieve the constituents metadata so we can downport it later
-                    # otherwise the zip meta will be used which won't match the actual file
-                    # full name used due to circular import dependency between modules
-                    constituent_meta = rucio.core.did.get_metadata(scope, name, session=session)
+                # retrieve the constituents metadata so we can downport it later
+                # otherwise the zip meta will be used which won't match the actual file
+                # full name used due to circular import dependency between modules
+                constituent_meta = rucio.core.did.get_metadata(scope, name, session=session)
 
-                    for archive in archive_result:
-                        # RSE expression might limit the archives we're allowed to use
-                        # if it's empty due to non-matching RSE expression we must skip
-                        if archive['pfns'] == {}:
-                            continue
+                for archive in archive_result:
+                    # RSE expression might limit the archives we're allowed to use
+                    # if it's empty due to non-matching RSE expression we must skip
+                    if archive['pfns'] == {}:
+                        continue
 
-                        # downport the constituents meta, we are not interested in the archives meta
-                        archive['scope'] = scope
-                        archive['name'] = name
-                        archive['adler32'] = constituent_meta['adler32']
-                        archive['md5'] = constituent_meta['md5']
-                        archive['bytes'] = constituent_meta['bytes']
+                    # downport the constituents meta, we are not interested in the archives meta
+                    archive['scope'] = scope
+                    archive['name'] = name
+                    archive['adler32'] = constituent_meta['adler32']
+                    archive['md5'] = constituent_meta['md5']
+                    archive['bytes'] = constituent_meta['bytes']
 
-                        for tmp_archive in list(archive['pfns']):
-                            # at this point we don't know the protocol of the parent, so we have to peek
-                            if tmp_archive.startswith('root://') and 'xrdcl.unzip' not in tmp_archive:
-                                # use direct addressable path for root
-                                new_pfn = add_url_query(tmp_archive, {'xrdcl.unzip': name})
-                                archive['pfns'][new_pfn] = archive['pfns'].pop(tmp_archive)
-                                tmp_archive = new_pfn
-                                # any number larger than the number of availabe protocols is fine
-                                archive['pfns'][tmp_archive]['priority'] -= 99
-                            if 'xrdcl.unzip' not in tmp_archive:
-                                archive['pfns'][tmp_archive]['client_extract'] = True
-
-                            # declare the constituent as being in a zip file
-                            archive['pfns'][tmp_archive]['domain'] = 'zip'
-
-                            pfns.append((tmp_archive, 'zip',
-                                         archive['pfns'][tmp_archive]['priority'],
-                                         archive['pfns'][tmp_archive]['client_extract'],
-                                         archive['pfns'][tmp_archive]))
-
-                # now, repeat the procedure slightly different in case if there are replicas available
-                # and make the archive just an additional available PFN
-                available_archives = [r['pfns'] for r in archive_result if r['pfns'] != {}]
-
-                for archive in available_archives:
-                    for archive_pfn in archive:
+                    for tmp_archive in list(archive['pfns']):
                         # at this point we don't know the protocol of the parent, so we have to peek
-                        if archive_pfn.startswith('root://'):
+                        if tmp_archive.startswith('root://') and 'xrdcl.unzip' not in tmp_archive:
                             # use direct addressable path for root
-                            pfn = add_url_query(archive_pfn, {'xrdcl.unzip': name})
+                            new_pfn = add_url_query(tmp_archive, {'xrdcl.unzip': name})
+                            archive['pfns'][new_pfn] = archive['pfns'].pop(tmp_archive)
+                            tmp_archive = new_pfn
                             # any number larger than the number of availabe protocols is fine
-                            archive[archive_pfn]['priority'] -= 99
-                            priority = archive[archive_pfn]['priority']
-                            client_extract = False
-                        else:
-                            # otherwise just use the zip and tell the client to extract
-                            pfn = archive_pfn
-                            priority = archive[archive_pfn]['priority']
-                            client_extract = True
+                            archive['pfns'][tmp_archive]['priority'] -= 99
+                        if 'xrdcl.unzip' not in tmp_archive:
+                            archive['pfns'][tmp_archive]['client_extract'] = True
 
-                        # use zip domain for sorting, and pass through all the information
-                        # we need it later to reconstruct the final PFNS
-                        # ('pfn', 'domain', 'priority', 'client_extract', archive-passthrough)
-                        pfns.append((pfn, 'zip', priority, client_extract, archive[archive_pfn]))
+                        # declare the constituent as being in a zip file
+                        archive['pfns'][tmp_archive]['domain'] = 'zip'
 
-            if show_pfns and rse_id:
-                if rse_id not in rse_info:
-                    rse_info[rse_id] = rsemgr.get_rse_info(rse_id=rse_id, session=session)
+                        pfns.append((tmp_archive, 'zip',
+                                     archive['pfns'][tmp_archive]['priority'],
+                                     archive['pfns'][tmp_archive]['client_extract'],
+                                     archive['pfns'][tmp_archive]))
 
-                # assign scheme priorities, and don't forget to exclude disabled protocols
-                # 0 in RSE protocol definition = disabled, 1 = highest priority
-                rse_info[rse_id]['priority_wan'] = {p['scheme']: p['domains']['wan']['read'] for p in rse_info[rse_id]['protocols'] if p['domains']['wan']['read'] > 0}
-                rse_info[rse_id]['priority_lan'] = {p['scheme']: p['domains']['lan']['read'] for p in rse_info[rse_id]['protocols'] if p['domains']['lan']['read'] > 0}
+            # now, repeat the procedure slightly different in case if there are replicas available
+            # and make the archive just an additional available PFN
+            available_archives = [r['pfns'] for r in archive_result if r['pfns'] != {}]
 
-                # select the lan door in autoselect mode, otherwise use the wan door
-                if domain is None:
-                    domain = 'wan'
-                    if local_rses and rse_id in local_rses:
-                        domain = 'lan'
+            for archive in available_archives:
+                for archive_pfn in archive:
+                    # at this point we don't know the protocol of the parent, so we have to peek
+                    if archive_pfn.startswith('root://'):
+                        # use direct addressable path for root
+                        pfn = add_url_query(archive_pfn, {'xrdcl.unzip': name})
+                        # any number larger than the number of availabe protocols is fine
+                        archive[archive_pfn]['priority'] -= 99
+                        priority = archive[archive_pfn]['priority']
+                        client_extract = False
+                    else:
+                        # otherwise just use the zip and tell the client to extract
+                        pfn = archive_pfn
+                        priority = archive[archive_pfn]['priority']
+                        client_extract = True
 
-                if rse_id not in tmp_protocols:
+                    # use zip domain for sorting, and pass through all the information
+                    # we need it later to reconstruct the final PFNS
+                    # ('pfn', 'domain', 'priority', 'client_extract', archive-passthrough)
+                    pfns.append((pfn, 'zip', priority, client_extract, archive[archive_pfn]))
 
-                    rse_schemes = schemes or []
-                    if not rse_schemes:
-                        try:
-                            if domain == 'all':
-                                rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse_id],
-                                                                          operation='read',
-                                                                          domain='wan')['scheme'])
-                                rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse_id],
-                                                                          operation='read',
-                                                                          domain='lan')['scheme'])
-                            else:
-                                rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse_id],
-                                                                          operation='read',
-                                                                          domain=domain)['scheme'])
-                        except exception.RSEProtocolNotSupported:
-                            pass  # no need to be verbose
-                        except Exception:
-                            print(format_exc())
+        if show_pfns and rse_id:
+            if rse_id not in rse_info:
+                rse_info[rse_id] = rsemgr.get_rse_info(rse_id=rse_id, session=session)
 
-                    protocols = []
-                    for s in rse_schemes:
-                        try:
-                            if domain == 'all':
-                                protocols.append(('lan', rsemgr.create_protocol(rse_settings=rse_info[rse_id],
-                                                                                operation='read',
-                                                                                scheme=s,
-                                                                                domain='lan'),
-                                                  rse_info[rse_id]['priority_lan'][s]))
-                                protocols.append(('wan', rsemgr.create_protocol(rse_settings=rse_info[rse_id],
-                                                                                operation='read',
-                                                                                scheme=s,
-                                                                                domain='wan'),
-                                                  rse_info[rse_id]['priority_wan'][s]))
-                            else:
-                                protocols.append((domain, rsemgr.create_protocol(rse_settings=rse_info[rse_id],
-                                                                                 operation='read',
-                                                                                 scheme=s,
-                                                                                 domain=domain),
-                                                  rse_info[rse_id]['priority_%s' % domain][s]))
-                        except exception.RSEProtocolNotSupported:
-                            pass  # no need to be verbose
-                        except Exception:
-                            print(format_exc())
+            # assign scheme priorities, and don't forget to exclude disabled protocols
+            # 0 in RSE protocol definition = disabled, 1 = highest priority
+            rse_info[rse_id]['priority_wan'] = {p['scheme']: p['domains']['wan']['read'] for p in rse_info[rse_id]['protocols'] if p['domains']['wan']['read'] > 0}
+            rse_info[rse_id]['priority_lan'] = {p['scheme']: p['domains']['lan']['read'] for p in rse_info[rse_id]['protocols'] if p['domains']['lan']['read'] > 0}
 
-                    tmp_protocols[rse_id] = protocols
+            # select the lan door in autoselect mode, otherwise use the wan door
+            if domain is None:
+                domain = 'wan'
+                if local_rses and rse_id in local_rses:
+                    domain = 'lan'
 
-                # get pfns
-                for tmp_protocol in tmp_protocols[rse_id]:
-                    protocol = tmp_protocol[1]
-                    if 'determinism_type' in protocol.attributes:  # PFN is cachable
-                        try:
-                            path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope.internal, name)]
-                        except KeyError:  # No cache entry scope:name found for this protocol
-                            path = protocol._get_path(scope, name)
-                            pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope.internal, name)] = path
+            if rse_id not in tmp_protocols:
 
+                rse_schemes = schemes or []
+                if not rse_schemes:
                     try:
-                        pfn = list(protocol.lfns2pfns(lfns={'scope': scope.external,
-                                                            'name': name,
-                                                            'path': path}).values())[0]
-
-                        # do we need to sign the URLs?
-                        if sign_urls and protocol.attributes['scheme'] == 'https':
-                            service = get_rse_attribute('sign_url',
-                                                        rse_id=rse_id,
-                                                        session=session)
-                            if service and isinstance(service, list):
-                                pfn = get_signed_url(rse_id=rse_id, service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
-
-                        # server side root proxy handling if location is set.
-                        # supports root and http destinations
-                        # cannot be pushed into protocols because we need to lookup rse attributes.
-                        # ultra-conservative implementation.
-                        if domain == 'wan' and protocol.attributes['scheme'] in ['root', 'http', 'https'] and client_location:
-
-                            if 'site' in client_location and client_location['site']:
-                                # is the RSE site-configured?
-                                rse_site_attr = get_rse_attribute('site', rse_id, session=session)
-                                replica_site = ['']
-                                if isinstance(rse_site_attr, list) and rse_site_attr:
-                                    replica_site = rse_site_attr[0]
-
-                                # does it match with the client? if not, it's an outgoing connection
-                                # therefore the internal proxy must be prepended
-                                if client_location['site'] != replica_site:
-                                    cache_site = config_get('clientcachemap', client_location['site'], default='', session=session)
-                                    if cache_site != '':
-                                        # print('client', client_location['site'], 'has cache:', cache_site)
-                                        # print('filename', name)
-                                        selected_prefix = get_multi_cache_prefix(cache_site, name)
-                                        if selected_prefix:
-                                            pfn = 'root://' + selected_prefix + '//' + pfn.replace('davs://', 'root://')
-                                    else:
-                                        # print('site:', client_location['site'], 'has no cache')
-                                        # print('lets check if it has defined an internal root proxy ')
-                                        root_proxy_internal = config_get('root-proxy-internal',    # section
-                                                                         client_location['site'],  # option
-                                                                         default='',               # empty string to circumvent exception
-                                                                         session=session)
-
-                                        if root_proxy_internal:
-                                            # TODO: XCache does not seem to grab signed URLs. Doublecheck with XCache devs.
-                                            #       For now -> skip prepending XCache for GCS.
-                                            if 'storage.googleapis.com' in pfn or 'atlas-google-cloud.cern.ch' in pfn or 'amazonaws.com' in pfn:
-                                                pass  # ATLAS HACK
-                                            else:
-                                                # don't forget to mangle gfal-style davs URL into generic https URL
-                                                pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
-
-                        # PFNs don't have concepts, therefore quickly encapsulate in a tuple
-                        # ('pfn', 'domain', 'priority', 'client_extract')
-                        pfns.append((pfn, tmp_protocol[0], tmp_protocol[2], False))
+                        if domain == 'all':
+                            rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse_id],
+                                                                      operation='read',
+                                                                      domain='wan')['scheme'])
+                            rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse_id],
+                                                                      operation='read',
+                                                                      domain='lan')['scheme'])
+                        else:
+                            rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse_id],
+                                                                      operation='read',
+                                                                      domain=domain)['scheme'])
+                    except exception.RSEProtocolNotSupported:
+                        pass  # no need to be verbose
                     except Exception:
-                        # never end up here
                         print(format_exc())
 
-                    if protocol.attributes['scheme'] == 'srm':
-                        try:
-                            file['space_token'] = protocol.attributes['extended_attributes']['space_token']
-                        except KeyError:
-                            file['space_token'] = None
+                protocols = []
+                for s in rse_schemes:
+                    try:
+                        if domain == 'all':
+                            protocols.append(('lan', rsemgr.create_protocol(rse_settings=rse_info[rse_id],
+                                                                            operation='read',
+                                                                            scheme=s,
+                                                                            domain='lan'),
+                                              rse_info[rse_id]['priority_lan'][s]))
+                            protocols.append(('wan', rsemgr.create_protocol(rse_settings=rse_info[rse_id],
+                                                                            operation='read',
+                                                                            scheme=s,
+                                                                            domain='wan'),
+                                              rse_info[rse_id]['priority_wan'][s]))
+                        else:
+                            protocols.append((domain, rsemgr.create_protocol(rse_settings=rse_info[rse_id],
+                                                                             operation='read',
+                                                                             scheme=s,
+                                                                             domain=domain),
+                                              rse_info[rse_id]['priority_%s' % domain][s]))
+                    except exception.RSEProtocolNotSupported:
+                        pass  # no need to be verbose
+                    except Exception:
+                        print(format_exc())
 
-            if 'scope' in file and 'name' in file:
-                if file['scope'] == scope and file['name'] == name:
-                    # extract properly the pfn from the tuple
-                    file['rses'][rse_id] += list(set([tmp_pfn[0] for tmp_pfn in pfns]))
-                    file['states'][rse_id] = str(state.name if state else state)
+                tmp_protocols[rse_id] = protocols
 
-                    if resolve_parents:
-                        file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
-                                           for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
+            # get pfns
+            for tmp_protocol in tmp_protocols[rse_id]:
+                protocol = tmp_protocol[1]
+                if 'determinism_type' in protocol.attributes:  # PFN is cachable
+                    try:
+                        path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope.internal, name)]
+                    except KeyError:  # No cache entry scope:name found for this protocol
+                        path = protocol._get_path(scope, name)
+                        pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope.internal, name)] = path
 
-                    for tmp_pfn in pfns:
-                        file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'] if tmp_pfn[1] == 'zip' else rse_id,
-                                                    'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
-                                                    'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type.name),
-                                                    'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
-                                                    'domain': tmp_pfn[1],
-                                                    'priority': tmp_pfn[2],
-                                                    'client_extract': tmp_pfn[3]}
-                else:
-                    if resolve_parents:
-                        file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
-                                           for parent in rucio.core.did.list_all_parent_dids(file['scope'], file['name'], session=session)]
+                try:
+                    pfn = list(protocol.lfns2pfns(lfns={'scope': scope.external,
+                                                        'name': name,
+                                                        'path': path}).values())[0]
 
-                    # quick exit, but don't forget to set the total order for the priority
-                    # --> exploit that L(AN) comes before W(AN) before Z(IP) alphabetically
-                    # and use 1-indexing to be compatible with metalink
-                    tmp = sorted([(file['pfns'][p]['domain'], file['pfns'][p]['priority'], p) for p in file['pfns']])
+                    # do we need to sign the URLs?
+                    if sign_urls and protocol.attributes['scheme'] == 'https':
+                        service = get_rse_attribute('sign_url',
+                                                    rse_id=rse_id,
+                                                    session=session)
+                        if service and isinstance(service, list):
+                            pfn = get_signed_url(rse_id=rse_id, service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
 
-                    for i in range(0, len(tmp)):
-                        file['pfns'][tmp[i][2]]['priority'] = i + 1
-                        file['rses'] = {}
+                    # server side root proxy handling if location is set.
+                    # supports root and http destinations
+                    # cannot be pushed into protocols because we need to lookup rse attributes.
+                    # ultra-conservative implementation.
+                    if domain == 'wan' and protocol.attributes['scheme'] in ['root', 'http', 'https'] and client_location:
 
-                        rse_pfns = []
-                        for t_rse, t_priority, t_pfn in [(file['pfns'][t_pfn]['rse_id'], file['pfns'][t_pfn]['priority'], t_pfn) for t_pfn in file['pfns']]:
-                            rse_pfns.append((t_rse, t_priority, t_pfn))
-                        rse_pfns = sorted(rse_pfns)
+                        if 'site' in client_location and client_location['site']:
+                            # is the RSE site-configured?
+                            rse_site_attr = get_rse_attribute('site', rse_id, session=session)
+                            replica_site = ['']
+                            if isinstance(rse_site_attr, list) and rse_site_attr:
+                                replica_site = rse_site_attr[0]
 
-                        for t_rse, t_priority, t_pfn in rse_pfns:
-                            if t_rse in file['rses']:
-                                file['rses'][t_rse].append(t_pfn)
-                            else:
-                                file['rses'][t_rse] = [t_pfn]
+                            # does it match with the client? if not, it's an outgoing connection
+                            # therefore the internal proxy must be prepended
+                            if client_location['site'] != replica_site:
+                                cache_site = config_get('clientcachemap', client_location['site'], default='', session=session)
+                                if cache_site != '':
+                                    # print('client', client_location['site'], 'has cache:', cache_site)
+                                    # print('filename', name)
+                                    selected_prefix = get_multi_cache_prefix(cache_site, name)
+                                    if selected_prefix:
+                                        pfn = 'root://' + selected_prefix + '//' + pfn.replace('davs://', 'root://')
+                                else:
+                                    # print('site:', client_location['site'], 'has no cache')
+                                    # print('lets check if it has defined an internal root proxy ')
+                                    root_proxy_internal = config_get('root-proxy-internal',    # section
+                                                                     client_location['site'],  # option
+                                                                     default='',               # empty string to circumvent exception
+                                                                     session=session)
 
-                    yield file
-                    file = {}
+                                    if root_proxy_internal:
+                                        # TODO: XCache does not seem to grab signed URLs. Doublecheck with XCache devs.
+                                        #       For now -> skip prepending XCache for GCS.
+                                        if 'storage.googleapis.com' in pfn or 'atlas-google-cloud.cern.ch' in pfn or 'amazonaws.com' in pfn:
+                                            pass  # ATLAS HACK
+                                        else:
+                                            # don't forget to mangle gfal-style davs URL into generic https URL
+                                            pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
 
-            if not ('scope' in file and 'name' in file):
-                file['scope'], file['name'] = scope, name
-                file['bytes'], file['md5'], file['adler32'] = bytes, md5, adler32
-                file['pfns'], file['rses'] = {}, defaultdict(list)
-                file['states'] = {rse_id: str(state.name if state else state)}
+                    # PFNs don't have concepts, therefore quickly encapsulate in a tuple
+                    # ('pfn', 'domain', 'priority', 'client_extract')
+                    pfns.append((pfn, tmp_protocol[0], tmp_protocol[2], False))
+                except Exception:
+                    # never end up here
+                    print(format_exc())
+
+                if protocol.attributes['scheme'] == 'srm':
+                    try:
+                        file['space_token'] = protocol.attributes['extended_attributes']['space_token']
+                    except KeyError:
+                        file['space_token'] = None
+
+        if 'scope' in file and 'name' in file:
+            if file['scope'] == scope and file['name'] == name:
+                # extract properly the pfn from the tuple
+                file['rses'][rse_id] += list(set([tmp_pfn[0] for tmp_pfn in pfns]))
+                file['states'][rse_id] = str(state.name if state else state)
 
                 if resolve_parents:
                     file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
                                        for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
 
-                if rse_id:
-                    # extract properly the pfn from the tuple
-                    file['rses'][rse_id] = list(set([tmp_pfn[0] for tmp_pfn in pfns]))
-                    for tmp_pfn in pfns:
-                        file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'] if tmp_pfn[1] == 'zip' else rse_id,
-                                                    'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
-                                                    'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type.name),
-                                                    'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
-                                                    'domain': tmp_pfn[1],
-                                                    'priority': tmp_pfn[2],
-                                                    'client_extract': tmp_pfn[3]}
-                else:
-                    # extract properly the pfn from the tuple of the rse-expression restricted archive
-                    for tmp_pfn in pfns:
-                        file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'],
-                                                    'rse': tmp_pfn[4]['rse'],
-                                                    'type': tmp_pfn[4]['type'],
-                                                    'volatile': tmp_pfn[4]['volatile'],
-                                                    'domain': tmp_pfn[1],
-                                                    'priority': tmp_pfn[2],
-                                                    'client_extract': tmp_pfn[3]}
+                for tmp_pfn in pfns:
+                    file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'] if tmp_pfn[1] == 'zip' else rse_id,
+                                                'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
+                                                'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type.name),
+                                                'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
+                                                'domain': tmp_pfn[1],
+                                                'priority': tmp_pfn[2],
+                                                'client_extract': tmp_pfn[3]}
+            else:
+                if resolve_parents:
+                    file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
+                                       for parent in rucio.core.did.list_all_parent_dids(file['scope'], file['name'], session=session)]
+
+                # quick exit, but don't forget to set the total order for the priority
+                # --> exploit that L(AN) comes before W(AN) before Z(IP) alphabetically
+                # and use 1-indexing to be compatible with metalink
+                tmp = sorted([(file['pfns'][p]['domain'], file['pfns'][p]['priority'], p) for p in file['pfns']])
+
+                for i in range(0, len(tmp)):
+                    file['pfns'][tmp[i][2]]['priority'] = i + 1
+                    file['rses'] = {}
+
+                    rse_pfns = []
+                    for t_rse, t_priority, t_pfn in [(file['pfns'][t_pfn]['rse_id'], file['pfns'][t_pfn]['priority'], t_pfn) for t_pfn in file['pfns']]:
+                        rse_pfns.append((t_rse, t_priority, t_pfn))
+                    rse_pfns = sorted(rse_pfns)
+
+                    for t_rse, t_priority, t_pfn in rse_pfns:
+                        if t_rse in file['rses']:
+                            file['rses'][t_rse].append(t_pfn)
+                        else:
+                            file['rses'][t_rse] = [t_pfn]
+
+                yield file
+                file = {}
+
+        if not ('scope' in file and 'name' in file):
+            file['scope'], file['name'] = scope, name
+            file['bytes'], file['md5'], file['adler32'] = bytes, md5, adler32
+            file['pfns'], file['rses'] = {}, defaultdict(list)
+            file['states'] = {rse_id: str(state.name if state else state)}
+
+            if resolve_parents:
+                file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
+                                   for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
+
+            if rse_id:
+                # extract properly the pfn from the tuple
+                file['rses'][rse_id] = list(set([tmp_pfn[0] for tmp_pfn in pfns]))
+                for tmp_pfn in pfns:
+                    file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'] if tmp_pfn[1] == 'zip' else rse_id,
+                                                'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
+                                                'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type.name),
+                                                'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
+                                                'domain': tmp_pfn[1],
+                                                'priority': tmp_pfn[2],
+                                                'client_extract': tmp_pfn[3]}
+            else:
+                # extract properly the pfn from the tuple of the rse-expression restricted archive
+                for tmp_pfn in pfns:
+                    file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'],
+                                                'rse': tmp_pfn[4]['rse'],
+                                                'type': tmp_pfn[4]['type'],
+                                                'volatile': tmp_pfn[4]['volatile'],
+                                                'domain': tmp_pfn[1],
+                                                'priority': tmp_pfn[2],
+                                                'client_extract': tmp_pfn[3]}
 
     # set the total order for the priority
     # --> exploit that L(AN) comes before W(AN) before Z(IP) alphabetically
@@ -1406,6 +1416,26 @@ def __bulk_add_file_dids(files, account, dataset_meta=None, session=None):
     return new_files + available_files
 
 
+def tombstone_from_delay(tombstone_delay):
+    # Tolerate None for tombstone_delay
+    if not tombstone_delay:
+        return None
+
+    if not isinstance(tombstone_delay, timedelta):
+        try:
+            tombstone_delay = timedelta(seconds=int(tombstone_delay))
+        except ValueError:
+            return None
+
+    if not tombstone_delay:
+        return None
+
+    if tombstone_delay < timedelta(0):
+        return datetime(1970, 1, 1)
+
+    return datetime.utcnow() + tombstone_delay
+
+
 @transactional_session
 def __bulk_add_replicas(rse_id, files, account, session=None):
     """
@@ -1428,6 +1458,9 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
         filter(condition)
     available_replicas = [dict([(column, getattr(row, column)) for column in row._fields]) for row in query]
 
+    default_tombstone_delay = next(iter(get_rse_attribute('tombstone_delay', rse_id=rse_id, session=session)), None)
+    default_tombstone = tombstone_from_delay(default_tombstone_delay)
+
     new_replicas = []
     for file in files:
         found = False
@@ -1444,7 +1477,7 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
                                  'state': ReplicaState(file.get('state', 'A')),
                                  'md5': file.get('md5'), 'adler32': file.get('adler32'),
                                  'lock_cnt': file.get('lock_cnt', 0),
-                                 'tombstone': file.get('tombstone')})
+                                 'tombstone': file.get('tombstone') or default_tombstone})
     try:
         new_replicas and session.bulk_insert_mappings(models.RSEFileAssociation,
                                                       new_replicas)
@@ -1996,6 +2029,10 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
         filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
         filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
                    and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
+        filter(~exists(select([1]).prefix_with("/*+ INDEX(SOURCES SOURCES_SC_NM_DST_IDX) */", dialect='oracle')
+                       .where(and_(models.RSEFileAssociation.scope == models.Source.scope,
+                                   models.RSEFileAssociation.name == models.Source.name,
+                                   models.RSEFileAssociation.rse_id == models.Source.rse_id)))).\
         with_for_update(skip_locked=True).\
         order_by(models.RSEFileAssociation.tombstone)
 
@@ -2063,25 +2100,20 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
 
 
 @transactional_session
-def update_replicas_states(replicas, nowait=False, add_tombstone=False, session=None):
+def update_replicas_states(replicas, nowait=False, session=None):
     """
     Update File replica information and state.
 
     :param replicas:        The list of replicas.
     :param nowait:          Nowait parameter for the for_update queries.
-    :param add_tombstone:   To set a tombstone in case there is no lock on the replica.
     :param session:         The database session in use.
     """
 
     for replica in replicas:
         query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
-        lock_cnt = 0
         try:
             if nowait:
-                rep = query.with_for_update(nowait=True).one()
-            else:
-                rep = query.one()
-            lock_cnt = rep.lock_cnt
+                query.with_for_update(nowait=True).one()
         except NoResultFound:
             # remember scope, name and rse
             raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (replica['scope'], replica['name'], get_rse_name(replica['rse_id'], session=session)))
@@ -2100,19 +2132,12 @@ def update_replicas_states(replicas, nowait=False, add_tombstone=False, session=
             values['tombstone'] = OBSOLETE
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
-            # If No locks we set a tombstone in the future
-            if add_tombstone and lock_cnt == 0:
-                set_tombstone(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'], tombstone=datetime.utcnow() + timedelta(hours=2), session=session)
-
         elif replica['state'] == ReplicaState.UNAVAILABLE:
             rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'],
                                             error_message=replica.get('error_message', None),
                                             broken_rule_id=replica.get('broken_rule_id', None),
                                             broken_message=replica.get('broken_message', None),
                                             nowait=nowait, session=session)
-            # If No locks we set a tombstone in the future
-            if add_tombstone and lock_cnt == 0:
-                set_tombstone(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'], tombstone=datetime.utcnow() + timedelta(hours=2), session=session)
         elif replica['state'] == ReplicaState.TEMPORARY_UNAVAILABLE:
             query = query.filter(or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.TEMPORARY_UNAVAILABLE))
 

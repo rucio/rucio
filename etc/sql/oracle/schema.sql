@@ -1187,6 +1187,7 @@ CREATE INDEX REQ_HIST_SCOPE_NAME_RSE_IDX ON REQUESTS_HISTORY(SCOPE, NAME, DEST_R
    ) PCTFREE 0
    LOB(payload_nolimit) STORE AS (DISABLE STORAGE IN ROW);
 
+  CREATE INDEX MESSAGES_SERVICES_IDX ON MESSAGES (SERVICES, EVENT_TYPE) COMPRESS 1 ;
 
 
 -- 40 ) =========================================  MESSAGES_HISTORY table ( RANGE INTERVAL partitioned ) ========================================= 

@@ -19,7 +19,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2012-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Wen Guan <wen.guan@cern.ch>, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2014
 # - David Cameron <david.cameron@cern.ch>, 2014-2015
@@ -55,6 +55,7 @@ import time
 import traceback
 from functools import wraps
 
+from six.moves.configparser import NoOptionError, NoSectionError
 from tabulate import tabulate
 
 from rucio import version
@@ -65,14 +66,15 @@ from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists
                                     RSENotFound, RSEOperationNotSupported, InvalidRSEExpression,
                                     DuplicateContent, RuleNotFound, CannotAuthenticate,
                                     Duplicate, ReplicaIsLocked, ConfigNotFound, ScopeNotFound)
-from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string, render_json, parse_response, extract_scope
+from rucio.common.extra import import_extras
+from rucio.common.utils import (chunks, construct_surl, sizefmt, get_bytes_value_from_string,
+                                render_json, parse_response, extract_scope, clean_surls)
 from rucio.rse import rsemanager as rsemgr
 
-try:
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    from configparser import NoOptionError, NoSectionError
+EXTRA_MODULES = import_extras(['argcomplete'])
 
+if EXTRA_MODULES['argcomplete']:
+    import argcomplete  # pylint: disable=E0401
 
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
                                                 os.pardir, os.pardir))
@@ -1009,18 +1011,55 @@ def declare_bad_file_replicas(args):
         for pfn in bad_files_pfns:
             print(pfn)
 
-    chunk_size = 10000
-    tot_files = len(bad_files)
-    cnt = 0
-    nchunk = math.ceil(tot_files / chunk_size)
-    for chunk in chunks(bad_files_pfns, chunk_size):
-        cnt += 1
-        client.add_bad_pfns(pfns=chunk, reason=args.reason, state='BAD', expires_at=None)
-        ndeclared = len(chunk)
-        print('Chunk %s/%s : %s replicas successfully declared' % (int(cnt), int(nchunk), ndeclared))
-    print('--------------------------------')
-    print('Summary')
-    print('%s replicas successfully declared' % tot_files)
+    if len(bad_files_pfns) < 100:
+        # Using the old API to declare
+        non_declared = client.declare_bad_file_replicas(pfns=bad_files_pfns, reason=args.reason)
+        for rse in non_declared:
+            for pfn in non_declared[rse]:
+                print('%s : PFN %s cannot be declared.' % (rse, pfn))
+    else:
+        print('Getting the information about RSE protocols. It can take several seconds')
+        dict_rse = client.export_data(distance=False)
+        prot_dict = {}
+        for rse, dict_attr in dict_rse['rses'].items():
+            protocols = dict_attr['protocols']
+            for prot in protocols:
+                prot_dict[str('%s://%s%s' % (prot['scheme'], prot['hostname'], prot['prefix']))] = rse
+                prot_dict[str('%s://%s:%s%s' % (prot['scheme'], prot['hostname'], prot['port'], prot['prefix']))] = rse
+        print('Protocol information retrieved')
+
+        chunk_size = 10000
+        print('Starting the declaration by chunks of %s' % chunk_size)
+        tot_files = len(bad_files)
+        tot_file_declared = 0
+        cnt = 0
+        nchunk = math.ceil(tot_files / chunk_size)
+        for chunk in chunks(bad_files_pfns, chunk_size):
+            list_bad_pfns = []
+            cnt += 1
+            previous_pattern = None
+            for surl in clean_surls(chunk):
+                unknown = True
+                if previous_pattern:
+                    if previous_pattern in surl:
+                        list_bad_pfns.append(surl)
+                        unknown = False
+                        continue
+                for pattern in prot_dict:
+                    if pattern in surl:
+                        previous_pattern = prot_dict[pattern]
+                        list_bad_pfns.append(surl)
+                        unknown = False
+                        break
+                if unknown:
+                    print('Cannot find any RSE associated to %s' % surl)
+            client.add_bad_pfns(pfns=list_bad_pfns, reason=args.reason, state='BAD', expires_at=None)
+            ndeclared = len(list_bad_pfns)
+            tot_file_declared += ndeclared
+            print('Chunk %s/%s : %s replicas successfully declared' % (int(cnt), int(nchunk), ndeclared))
+        print('--------------------------------')
+        print('Summary')
+        print('%s/%s replicas successfully declared' % (tot_file_declared, tot_files))
 
     return SUCCESS
 
@@ -2157,11 +2196,8 @@ def get_parser():
 
 if __name__ == '__main__':
     oparser = get_parser()
-    try:
-        import argcomplete
+    if EXTRA_MODULES['argcomplete']:
         argcomplete.autocomplete(oparser)
-    except ImportError:
-        pass
 
     if len(sys.argv) == 1:
         oparser.print_help()

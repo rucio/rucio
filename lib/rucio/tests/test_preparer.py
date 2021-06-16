@@ -26,8 +26,7 @@ from rucio.core import config as rucio_config
 from rucio.core.did import add_did, delete_dids
 from rucio.core.distance import get_distances, add_distance
 from rucio.core.replica import add_replicas, delete_replicas
-from rucio.core.request import sort_requests_minimum_distance, request_id_col, distance_col, dest_rse_id_col, \
-    source_rse_id_col, extra_transfertool_col, get_transfertool_filter, get_supported_transfertools
+from rucio.core.request import sort_requests_minimum_distance, get_transfertool_filter, get_supported_transfertools
 from rucio.core.rse import set_rse_transfer_limits, add_rse, del_rse, add_rse_attribute
 from rucio.core.transfer import __list_transfer_requests_and_source_replicas
 from rucio.daemons.conveyor import preparer
@@ -209,7 +208,7 @@ def test_listing_preparing_transfers(db_session, mock_request):
     req_sources = __list_transfer_requests_and_source_replicas(request_state=RequestState.PREPARING, session=db_session)
 
     assert len(req_sources) != 0
-    found_requests = list(filter(lambda req: req[request_id_col] == mock_request.id, req_sources))
+    found_requests = list(filter(lambda rws: rws.request_id == mock_request.id, req_sources))
     assert len(found_requests) == 1
 
 
@@ -272,9 +271,9 @@ def test_preparer_for_request_without_matching_transfertool_source(db_session, s
 
 
 @pytest.mark.xfail(reason='fails when run in parallel')
-def test_two_sources_one_destination(db_session, vo, file, source_rse, dest_rse, mock_request):
+def test_two_sources_one_destination(db_session, vo, file, mock_request):
     def setup(rse):
-        add_distance(rse.rse_id, dest_rse['id'], ranking=2, session=rse.db_session)
+        add_distance(rse.rse_id, mock_request.dest_rse_id, ranking=2, session=rse.db_session)
         add_replicas(rse_id=rse.rse_id, files=[file], account=mock_request.account, session=rse.db_session)
 
     with GeneratedRSE(vo=vo, db_session=db_session, setup_func=setup) as source2_rse:
@@ -284,7 +283,7 @@ def test_two_sources_one_destination(db_session, vo, file, source_rse, dest_rse,
                 dest_rse_id=mock_request.dest_rse_id,
                 session=db_session,
             )
-            for src_rse in (source_rse['id'], source2_rse.rse_id)
+            for src_rse in (mock_request.source_rse_id, source2_rse.rse_id)
         )
 
         assert src1_distance and len(src1_distance) == 1 and src1_distance[0]['ranking'] == 5
@@ -304,26 +303,24 @@ def test_two_sources_one_destination(db_session, vo, file, source_rse, dest_rse,
 
 
 def test_sort_requests_minimum_distance():
-    request_tuples = [[]] * 3
-    for i in range(3):
-        request_tuples[i] = [0] * 21
-        request_tuples[i][request_id_col] = i
-        request_tuples[i][distance_col] = 3 - i
+    request_dicts = [{}, {}, {}]
+    for i in range(len(request_dicts)):
+        request_dicts[i]['request_id'] = i
+        request_dicts[i]['distance_ranking'] = 3 - i
 
-    result = sort_requests_minimum_distance(request_tuples)
-    assert next(result)[request_id_col] == 2
-    assert next(result)[request_id_col] == 1
-    assert next(result)[request_id_col] == 0
+    result = sort_requests_minimum_distance(request_dicts)
+    assert next(result)['request_id'] == 2
+    assert next(result)['request_id'] == 1
+    assert next(result)['request_id'] == 0
     pytest.raises(StopIteration, next, result)
 
 
 def test_filter_requests_for_transfertools():
-    request_tuples = [[]] * 3
-    for i in range(3):
-        request_tuples[i] = [0] * 21
-        request_tuples[i][request_id_col] = 0
-        request_tuples[i][dest_rse_id_col] = 'rse1'
-        request_tuples[i][source_rse_id_col] = f'rse{2 + i}'
+    request_dicts = [{}, {}, {}]
+    for i in range(len(request_dicts)):
+        request_dicts[i]['request_id'] = 0  # same request for all
+        request_dicts[i]['dest_rse_id'] = 'rse1'
+        request_dicts[i]['src_rse_id'] = f'rse{2 + i}'
 
     def get_transfertools(rse_id: str) -> "Set[str]":
         assert rse_id
@@ -339,17 +336,21 @@ def test_filter_requests_for_transfertools():
             raise AssertionError('rse_id out of range')
 
     transfertool_filter = get_transfertool_filter(get_transfertools=get_transfertools)
-    result = list(transfertool_filter(request_tuples))
+    result = list(transfertool_filter(request_dicts))
     print(result)
 
     assert len(result) == 2
-    result.sort(key=lambda t: t[source_rse_id_col])
-    assert result[0][source_rse_id_col] == 'rse3'
-    assert len(result[0]) == 22
-    assert result[0][extra_transfertool_col] == 'globus'
-    assert result[1][source_rse_id_col] == 'rse4'
-    assert len(result[1]) == 22
-    assert result[1][extra_transfertool_col] == 'globus'
+    result.sort(key=lambda rws_dict: rws_dict['src_rse_id'])
+    assert result[0]['request_id'] == 0
+    assert result[0]['src_rse_id'] == 'rse3'
+    assert result[0]['dest_rse_id'] == 'rse1'
+    assert 'transfertool' in result[0]
+    assert result[0]['transfertool'] == 'globus'
+    assert result[1]['request_id'] == 0
+    assert result[1]['src_rse_id'] == 'rse4'
+    assert result[1]['dest_rse_id'] == 'rse1'
+    assert 'transfertool' in result[1]
+    assert result[1]['transfertool'] == 'globus'
 
 
 def test_get_supported_transfertools_default(vo, db_session):

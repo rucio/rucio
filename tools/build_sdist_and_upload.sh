@@ -1,14 +1,23 @@
 #!/bin/bash
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-# Martin Barisits, <martin.barisits@cern.ch>, 2016-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 if [ "$#" -ne 1 ]; then
     echo "At least one of these arguments has to be specified:"
@@ -47,14 +56,14 @@ fi
 /bin/cp MANIFEST.in.rucio MANIFEST.in
 /bin/cp setup_rucio.py setup.py
 # Pre-build one time to ensure correct vcversion file
-python setup.py --release build sdist
+python setup.py build sdist
 
 if $rucio; then
    /bin/cp README.rucio.rst README.rst
    /bin/cp MANIFEST.in.rucio MANIFEST.in
    /bin/cp setup_rucio.py setup.py
    # Push on pypi@org
-   python setup.py --release sdist upload
+   python setup.py sdist upload
 fi
 
 if $clients; then
@@ -62,7 +71,7 @@ if $clients; then
     /bin/cp MANIFEST.in.client MANIFEST.in
     /bin/cp setup_rucio_client.py setup.py
     # Push on pypi@org
-    python setup.py  --release sdist upload
+    python setup.py sdist upload
 fi
 
 if $webui; then

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,66 +16,36 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
-import os
 import sys
 
-from distutils.command.sdist import sdist as _sdist  # pylint: disable=no-name-in-module,import-error
+from setuptools import setup
 
-if sys.version_info < (2, 4):
-    print('ERROR: Rucio requires at least Python 2.5 to run.')
+from setuputil import get_rucio_version
+
+if sys.version_info < (3, 6):
+    print('ERROR: Rucio WebUI requires at least Python 3.6 to run.')
     sys.exit(1)
-
-sys.path.insert(0, os.path.abspath('lib/'))
-
-from rucio import version  # noqa: E402
-
-try:
-    from setuptools import setup
-except ImportError:
-    from ez_setup import use_setuptools
-    use_setuptools()
 
 name = 'rucio-webui'
 packages = ['rucio', 'rucio.web', 'rucio.web.ui', 'rucio.web.ui.common']
 data_files = []
 description = "Rucio WebUI Package"
-IsRelease = True
-
-
-class CustomSdist(_sdist):
-
-    user_options = [
-        ('packaging=', None, "Some option to indicate what should be packaged")
-    ] + _sdist.user_options
-
-    def __init__(self, *args, **kwargs):
-        _sdist.__init__(self, *args, **kwargs)
-        self.packaging = "default value for this option"
-
-    def get_file_list(self):
-        print("Chosen packaging option: " + name)
-        self.distribution.data_files = data_files
-        _sdist.get_file_list(self)
-
-
-cmdclass = {'sdist': CustomSdist}
 
 setup(
     name=name,
-    version=version.version_string(),
+    version=get_rucio_version(),
     packages=packages,
     package_dir={'': 'lib'},
     data_files=None,
-    script_args=sys.argv[1:],
-    cmdclass=cmdclass,
     include_package_data=True,
     scripts=None,
     author="Rucio",
     author_email="rucio-dev@cern.ch",
     description=description,
     license="Apache License, Version 2.0",
-    url="http://rucio.cern.ch/",
+    url="https://rucio.cern.ch/",
     python_requires=">=3.6, <4",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
@@ -89,7 +59,7 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'Environment :: No Input/Output (Daemon)', ],
     install_requires=['rucio>=1.2.5', ],
-    dependency_links=[],
 )

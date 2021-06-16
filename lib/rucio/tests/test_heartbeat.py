@@ -29,8 +29,8 @@ from datetime import datetime, timedelta
 import pytest
 
 from rucio.core.heartbeat import live, die, cardiac_arrest, list_payload_counts, list_heartbeats, sanity_check
-from rucio.db.sqla.session import transactional_session
 from rucio.db.sqla.models import Heartbeats
+from rucio.db.sqla.session import transactional_session
 
 
 @pytest.mark.dirty
@@ -38,7 +38,7 @@ from rucio.db.sqla.models import Heartbeats
 class TestHeartbeat(unittest.TestCase):
 
     def __pid(self):
-        return random.randint(0, 2**16)
+        return random.randint(2, 2**16)
 
     def __thread(self):
         thread = threading.Thread()

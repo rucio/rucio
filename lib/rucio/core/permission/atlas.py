@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -127,7 +127,8 @@ def has_permission(issuer, action, kwargs):
             'list_vos': perm_list_vos,
             'recover_vo_root_identity': perm_recover_vo_root_identity,
             'update_vo': perm_update_vo,
-            'access_rule_vo': perm_access_rule_vo}
+            'access_rule_vo': perm_access_rule_vo,
+            'export': perm_export}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -1229,3 +1230,15 @@ def perm_access_rule_vo(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return get_rule(kwargs['rule_id'])['scope'].vo == issuer.vo
+
+
+def perm_export(issuer, kwargs):
+    """
+    Checks if an account can export the RSE info.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    is_cloud_admin = bool([acc_attr for acc_attr in list_account_attributes(account=issuer) if (acc_attr['key'].startswith('cloud-')) and (acc_attr['value'] == 'admin')])
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin') or is_cloud_admin
