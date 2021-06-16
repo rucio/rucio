@@ -26,9 +26,16 @@ RUN test "x${PYTHON}" = "x3.8" && \
     alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1 && \
     python -m pip --no-cache-dir install --upgrade pip && \
     python -m pip --no-cache-dir install --upgrade setuptools wheel && \
-    dnf clean all
+    dnf clean all && \
+    rpm -i https://yum.oracle.com/repo/OracleLinux/OL8/oracle/instantclient21/x86_64/getPackage/oracle-instantclient-basiclite-21.1.0.0.0-1.x86_64.rpm && \
+    echo "/usr/lib/oracle/21/client64/lib" > /etc/ld.so.conf.d/oracle-instantclient.conf && \
+    ldconfig
 
 WORKDIR /usr/local/src/rucio
+
+# pre-install requirements
+COPY requirements.txt requirements.txt
+RUN python -m pip --no-cache-dir install --upgrade -r requirements.txt
 
 COPY etc etc
 
@@ -45,15 +52,8 @@ RUN mkdir -p /var/log/rucio/trace && \
     cp etc/certs/ruciouser.key.pem etc/ruciouser.key.pem && \
     chmod 0400 etc/ruciouser.key.pem
 
-RUN rpm -i https://yum.oracle.com/repo/OracleLinux/OL8/oracle/instantclient21/x86_64/getPackage/oracle-instantclient-basiclite-21.1.0.0.0-1.x86_64.rpm && \
-    echo "/usr/lib/oracle/21/client64/lib" > /etc/ld.so.conf.d/oracle-instantclient.conf && \
-    ldconfig
-
-# pre-install requirements
-RUN python -m pip --no-cache-dir install --upgrade -r etc/pip-requires -r etc/pip-requires-client -r etc/pip-requires-test
-
 # copy everything else except the git-dir (anything above is cache-friendly)
-COPY .flake8 .pep8 .pycodestyle pylintrc setup.py setup_rucio.py setup_rucio_client.py setup_webui.py ./
+COPY .flake8 .pep8 .pycodestyle pylintrc setuputil.py setup.py setup_rucio.py setup_rucio_client.py setup_webui.py ./
 COPY tools tools
 COPY bin bin
 COPY lib lib
