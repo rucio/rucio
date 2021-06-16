@@ -339,7 +339,7 @@ def select_target_rse(parent_rule, current_rse_id, rse_expression, subscription_
             expression = '((tier=2&type=DATADISK)\\datapolicynucleus=1)\\{}'.format(target_rse)
         rses = parse_expression(expression=expression, filter={'vo': vo, 'availability_write': True}, session=session)
     rseselector = RSESelector(account=InternalAccount('ddmadmin', vo=vo), rses=rses, weight='freespace', copies=1, ignore_account_limit=True, session=session)
-    return get_rse_name([rse_id for rse_id, _, _ in rseselector.select_rse(size=0, preferred_rse_ids=[], blacklist=other_rses)][0], session=session)
+    return get_rse_name([rse_id for rse_id, _, _ in rseselector.select_rse(size=0, preferred_rse_ids=[], blocklist=other_rses)][0], session=session)
 
 
 @transactional_session

@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -298,8 +298,8 @@ class TestJudgeRepairer(unittest.TestCase):
         assert(RuleState.REPLICATING == get_rule(rule_id)['state'])
         assert(get_replica_locks(scope=files[3]['scope'], name=files[3]['name'])[0].rse_id != old_rse_id)
 
-    def test_to_repair_a_rule_with_only_1_rse_whose_site_is_blacklisted(self):
-        """ JUDGE REPAIRER: Test to repair a rule with only 1 rse whose site is blacklisted"""
+    def test_to_repair_a_rule_with_only_1_rse_whose_site_is_blocklisted(self):
+        """ JUDGE REPAIRER: Test to repair a rule with only 1 rse whose site is blocklisted"""
 
         rse = rse_name_generator()
         rse_id = add_rse(rse, **self.vo)

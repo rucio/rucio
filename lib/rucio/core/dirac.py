@@ -1,4 +1,5 @@
-# Copyright 2020 CERN
+# -*- coding: utf-8 -*-
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +15,9 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
 from sqlalchemy.orm.exc import NoResultFound
@@ -58,7 +60,7 @@ def add_files(lfns, account, ignore_availability, session=None):
 
     :param lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}
     :param issuer: The issuer account.
-    :param ignore_availability: A boolean to ignore blacklisted sites.
+    :param ignore_availability: A boolean to ignore blocklisted sites.
     :session: The session used
     """
     attachments = []

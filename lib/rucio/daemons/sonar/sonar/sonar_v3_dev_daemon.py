@@ -39,7 +39,7 @@ from requests import ConnectionError
 import rucio.db.sqla.util
 from rucio.client.client import Client
 from rucio.common.config import config_get
-from rucio.common.exception import (AccessDenied, DatabaseException, DuplicateRule, RSEBlacklisted, RSEWriteBlocked,
+from rucio.common.exception import (AccessDenied, DatabaseException, DuplicateRule, RSEWriteBlocked,
                                     ReplicationRuleCreationTemporaryFailed, RuleNotFound)
 from rucio.common.logging import setup_logging
 from rucio.daemons.sonar.sonar.get_current_traffic import get_link_traffic
@@ -319,7 +319,7 @@ class SonarTest(object):
                                                        source_replica_expression=src_rse,
                                                        activity='Debug')
             return rule_id[0]
-        except (DuplicateRule, RSEBlacklisted, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed) as exception:
+        except (DuplicateRule, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed) as exception:
             logging.warning(str(exception))
             return None
 
