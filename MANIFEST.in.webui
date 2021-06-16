@@ -3,8 +3,11 @@ include AUTHORS
 include LICENSE
 include ChangeLog
 include README.rst
+include setuputil.py
 include setup.py
 include setup.cfg
+include pyproject.toml
+include requirements.txt
 recursive-include lib/rucio/web/ui *
 prune dist
 prune examples
