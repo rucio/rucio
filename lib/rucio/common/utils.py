@@ -579,7 +579,7 @@ def _register_policy_package_surl_algorithms():
                 _SURL_ALGORITHMS.update(module.get_surl_algorithms())
         except (NoOptionError, NoSectionError, ImportError):
             pass
-        
+
     from rucio.common import config
     from rucio.core.vo import list_vos
     try:
