@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019
+# - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
