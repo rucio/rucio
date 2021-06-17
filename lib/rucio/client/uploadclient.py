@@ -587,7 +587,7 @@ class UploadClient:
         scope = lfn['scope']
 
         # Conditional lfn properties
-        if 'adler32' not in lfn:
+        if 'adler32' not in lfn and 'md5' not in lfn:
             logger(logging.WARNING, 'Missing checksum for file %s:%s' % (lfn['scope'], name))
 
         # Getting pfn

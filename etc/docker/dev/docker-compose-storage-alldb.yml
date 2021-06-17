@@ -1,6 +1,6 @@
 services:
   rucio:
-    image: docker.io/rucio/rucio-dev:py3
+    image: devtrial
     extra_hosts:
       - "ruciomy8:127.0.0.1"
       - "oracle:127.0.0.1"
@@ -14,6 +14,7 @@ services:
       - "xrd4:127.0.0.1"
       - "minio:127.0.0.1"
       - "activemq:127.0.0.1"
+      - "ssh1:127.0.0.1"
     ports:
       - "127.0.0.1:8443:443"
       - "127.0.0.1:3308:3308"
@@ -29,6 +30,7 @@ services:
       - "127.0.0.1:1097:1097"
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:61613:61613"
+      - "127.0.0.1:2222:22"
     volumes:
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
@@ -130,3 +132,8 @@ services:
       - ACTIVEMQ_USERS_receiver=supersecret
       - ACTIVEMQ_GROUPS_reads=receiver
       - ACTIVEMQ_CONFIG_SCHEDULERENABLED=true
+  ssh1:
+    image: docker.io/rucio/ssh
+    network_mode: "service:rucio"
+    volumes:
+      - ../../certs/ssh/ruciouser_sshkey.pub:/tmp/sshkey.pub:Z

@@ -572,5 +572,35 @@
       }
     },
     "storage_usage_tool": "rucio.rse.protocols.xrootd.Default.getSpace"
+  },
+  "SSH_DISK":{
+    "backend_type": "SSH",
+    "deterministic": true,
+    "protocols": {
+      "default": "ssh",
+      "supported": {
+        "ssh": {
+          "prefix": "/tmp/rucio_rse/",
+          "impl": "rucio.rse.protocols.ssh.Default",
+          "hostname": "ssh1",
+          "scheme": "scp",
+          "extended_attributes": {"user": "root"},
+          "port": 22,
+          "domains": {
+            "lan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "wan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.ssh.Default.getSpace"
   }
 }

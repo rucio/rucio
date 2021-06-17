@@ -30,8 +30,9 @@ from __future__ import print_function
 import os
 import os.path
 import tempfile
+import hashlib
 
-from rucio.common.utils import adler32
+from rucio.common.utils import adler32, md5
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 
@@ -124,7 +125,17 @@ class MgrTestCases:
     # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):
         """(RSE/PROTOCOLS): Put multiple files to storage (Success)"""
-        result = mgr.upload(self.rse_settings, [{'name': '1_rse_local_put.raw', 'scope': 'user.%s' % self.user,
+        if self.rse_settings['protocols'][0]['hostname'] == 'ssh1':
+                    result = mgr.upload(self.rse_settings, [{'name': '1_rse_local_put.raw', 'scope': 'user.%s' % self.user,
+                                                 'md5': md5(str(self.tmpdir) + '/1_rse_local_put.raw'),
+                                                 'filesize': os.stat('%s/1_rse_local_put.raw' % self.tmpdir)[
+                                                     os.path.stat.ST_SIZE]},
+                                                {'name': '2_rse_local_put.raw', 'scope': 'user.%s' % self.user,
+                                                 'md5': md5(str(self.tmpdir) + '/2_rse_local_put.raw'),
+                                                 'filesize': os.stat('%s/2_rse_local_put.raw' % self.tmpdir)[
+                                                     os.path.stat.ST_SIZE]}], source_dir=self.tmpdir)
+        else:
+                    result = mgr.upload(self.rse_settings, [{'name': '1_rse_local_put.raw', 'scope': 'user.%s' % self.user,
                                                  'adler32': adler32('%s/1_rse_local_put.raw' % self.tmpdir),
                                                  'filesize': os.stat('%s/1_rse_local_put.raw' % self.tmpdir)[
                                                      os.path.stat.ST_SIZE]},
@@ -139,7 +150,11 @@ class MgrTestCases:
 
     def test_put_mgr_ok_single(self):
         """(RSE/PROTOCOLS): Put a single file to storage (Success)"""
-        mgr.upload(self.rse_settings, {'name': '3_rse_local_put.raw', 'scope': 'user.%s' % self.user,
+        if self.rse_settings['protocols'][0]['hostname'] == 'ssh1':
+            mgr.upload(self.rse_settings, {'name': '3_rse_local_put.raw', 'scope': 'user.%s' % self.user,
+                                       'md5': md5('%s/3_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/3_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}, source_dir=self.tmpdir)
+        else:
+            mgr.upload(self.rse_settings, {'name': '3_rse_local_put.raw', 'scope': 'user.%s' % self.user,
                                        'adler32': adler32('%s/3_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/3_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}, source_dir=self.tmpdir)
 
     def test_put_mgr_SourceNotFound_multi(self):

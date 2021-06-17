@@ -361,13 +361,13 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
     protocol.connect()
     protocol_delete = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger)
     protocol_delete.connect()
-
     lfns = [lfns] if not type(lfns) is list else lfns
     for lfn in lfns:
         base_name = lfn.get('filename', lfn['name'])
+        
         name = lfn.get('name', base_name)
         scope = lfn['scope']
-        if 'adler32' not in lfn:
+        if 'adler32' not in lfn and 'md5' not in lfn:
             gs = False
             ret['%s:%s' % (scope, name)] = exception.RucioException('Missing checksum for file %s:%s' % (lfn['scope'], name))
             continue
@@ -375,7 +375,6 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
             gs = False
             ret['%s:%s' % (scope, name)] = exception.RucioException('Missing filesize for file %s:%s' % (lfn['scope'], name))
             continue
-
         if force_pfn:
             pfn = force_pfn
             readpfn = force_pfn
@@ -752,7 +751,6 @@ def _retry_protocol_stat(protocol, pfn):
     :param pfn          Physical file name of the target for the protocol stat
     """
     retries = config_get_int('client', 'protocol_stat_retries', raise_exception=False, default=6)
-
     for attempt in range(retries):
         try:
             stats = protocol.stat(pfn)
