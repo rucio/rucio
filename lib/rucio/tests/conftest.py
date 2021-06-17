@@ -125,7 +125,7 @@ def root_account(vo):
 @pytest.fixture(scope="module")
 def containerized_rses(rucio_client):
     """
-    Detects if containerized rses for xrootd are available in the testing environment.
+    Detects if containerized rses for xrootd & ssh are available in the testing environment.
     :return: A list of (rse_name, rse_id) tuples.
     """
     from rucio.common.exception import InvalidRSEExpression
@@ -137,6 +137,11 @@ def containerized_rses(rucio_client):
         xrd_containerized_rses = [(rse_obj['rse'], rse_obj['id']) for rse_obj in xrd_rses if "xrd" in rse_obj['rse'].lower()]
         xrd_containerized_rses.sort()
         rses.extend(xrd_containerized_rses)
+        ssh_rses = [x['rse'] for x in rucio_client.list_rses(rse_expression='test_container_ssh=True')]
+        ssh_rses = [rucio_client.get_rse(rse) for rse in ssh_rses]
+        ssh_containerized_rses = [(rse_obj['rse'], rse_obj['id']) for rse_obj in ssh_rses if "ssh" in rse_obj['rse'].lower()]
+        ssh_containerized_rses.sort()
+        rses.extend(ssh_containerized_rses)
     except InvalidRSEExpression as invalid_rse_expression:
         print("{ex}. Note that containerized RSEs will not be available in non-containerized test environments"
               .format(ex=invalid_rse_expression))
