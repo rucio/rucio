@@ -58,7 +58,7 @@ import requests
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from six import string_types
-from sqlalchemy import func, and_, or_, exists, not_, update
+from sqlalchemy import func, and_, or_, exists, not_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
@@ -3262,11 +3262,24 @@ def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
     :param tombstone: the tombstone to set. Default is OBSOLETE
     :param session: database session in use.
     """
-    stmt = update(models.RSEFileAssociation).where(and_(models.RSEFileAssociation.rse_id == rse_id, models.RSEFileAssociation.name == name, models.RSEFileAssociation.scope == scope,
-                                                        ~session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rse_id=rse_id).exists()))\
-                                            .values(tombstone=tombstone)
-    result = session.execute(stmt)
-    if not result.rowcount:
+    rowcount = session.query(models.RSEFileAssociation).filter(
+        and_(
+            models.RSEFileAssociation.rse_id == rse_id,
+            models.RSEFileAssociation.name == name,
+            models.RSEFileAssociation.scope == scope,
+            ~exists().where(
+                and_(
+                    models.ReplicaLock.rse_id == rse_id,
+                    models.ReplicaLock.name == name,
+                    models.ReplicaLock.scope == scope,
+                )
+            )
+        )
+    ) \
+        .with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle') \
+        .update({models.RSEFileAssociation.tombstone: tombstone}, synchronize_session=False)
+
+    if rowcount == 0:
         try:
             session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).one()
             raise exception.ReplicaIsLocked('Replica %s:%s on RSE %s is locked.' % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
