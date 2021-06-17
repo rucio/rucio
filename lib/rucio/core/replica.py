@@ -35,7 +35,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020-2021
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
 
@@ -48,13 +48,15 @@ from collections import defaultdict
 from copy import deepcopy
 from curses.ascii import isprint
 from datetime import datetime, timedelta
+from hashlib import sha256
 from json import dumps
 from re import match
-import requests
-from traceback import format_exc
 from struct import unpack
-from hashlib import sha256
+from traceback import format_exc
 
+import requests
+from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
 from six import string_types
 from sqlalchemy import func, and_, or_, exists, not_, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
@@ -79,9 +81,6 @@ from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailab
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
                                    DEFAULT_SCHEMA_NAME, BASE)
 from rucio.rse import rsemanager as rsemgr
-
-from dogpile.cache import make_region
-from dogpile.cache.api import NO_VALUE
 
 REGION = make_region().configure('dogpile.cache.memory', expiration_time=60)
 
@@ -849,11 +848,11 @@ def _list_replicas_for_files(file_clause, state_clause, files_wo_replica, rse_cl
         return
 
     for replica_condition in chunks(file_clause, 50):
-
-        filters = [models.RSEFileAssociation.rse_id == models.RSE.id,
-                   models.RSE.deleted == false(),
-                   or_(*replica_condition),
-                   ]
+        filters = [
+            models.RSEFileAssociation.rse_id == models.RSE.id,
+            models.RSE.deleted == false(),
+            or_(*replica_condition),
+        ]
 
         if not ignore_availability:
             filters.append(models.RSE.availability.in_((4, 5, 6, 7)))
@@ -867,26 +866,24 @@ def _list_replicas_for_files(file_clause, state_clause, files_wo_replica, rse_cl
         if updated_after:
             filters.append(models.RSEFileAssociation.updated_at >= updated_after)
 
-        whereclause = and_(*filters)
+        replica_query = session.query(
+            models.RSEFileAssociation.scope,
+            models.RSEFileAssociation.name,
+            models.RSEFileAssociation.bytes,
+            models.RSEFileAssociation.md5,
+            models.RSEFileAssociation.adler32,
+            models.RSEFileAssociation.path,
+            models.RSEFileAssociation.state,
+            models.RSE.id,
+            models.RSE.rse,
+            models.RSE.rse_type,
+            models.RSE.volatile,
+        ) \
+            .filter(and_(*filters)) \
+            .order_by(models.RSEFileAssociation.scope, models.RSEFileAssociation.name) \
+            .with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle')
 
-        replica_query = select(columns=(models.RSEFileAssociation.scope,
-                                        models.RSEFileAssociation.name,
-                                        models.RSEFileAssociation.bytes,
-                                        models.RSEFileAssociation.md5,
-                                        models.RSEFileAssociation.adler32,
-                                        models.RSEFileAssociation.path,
-                                        models.RSEFileAssociation.state,
-                                        models.RSE.id,
-                                        models.RSE.rse,
-                                        models.RSE.rse_type,
-                                        models.RSE.volatile),
-                               whereclause=whereclause,
-                               order_by=(models.RSEFileAssociation.scope,
-                                         models.RSEFileAssociation.name)).\
-            with_hint(models.RSEFileAssociation.scope, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
-            compile()
-
-        for scope, name, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile in session.execute(replica_query.statement, replica_query.params).fetchall():
+        for scope, name, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_query.all():
             {'scope': scope, 'name': name} in files_wo_replica and files_wo_replica.remove({'scope': scope, 'name': name})
             yield scope, name, None, None, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile
 
