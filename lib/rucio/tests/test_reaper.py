@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Matt Snyder <msnyder@bnl.gov>, 2021
 
 from datetime import datetime, timedelta
 
@@ -117,6 +118,33 @@ def test_reaper(vo):
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=1)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
+    assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 200
+
+
+@pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
+def test_reaper_bulk_delete(vo):
+    """ REAPER (DAEMON): Mock test the reaper daemon on async bulk delete request."""
+    scope = InternalScope('data13_hip', vo=vo)
+
+    nb_files = 250
+    file_size = 200  # 2G
+    rse_name, rse_id, dids = __add_test_rse_and_replicas(vo=vo, scope=scope, rse_name=rse_name_generator(),
+                                                         names=['lfn' + generate_uuid() for _ in range(nb_files)], file_size=file_size)
+
+    rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=50 * file_size)
+    assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
+
+    # Check first if the reaper does not delete anything if no space is needed
+    REGION.invalidate()
+    rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
+    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
+    assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
+
+    # Now put it over threshold and delete
+    REGION.invalidate()
+    rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=1)
+    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
+    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 200
 
 
