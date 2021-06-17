@@ -65,6 +65,7 @@ import requests
 from six import string_types, text_type, binary_type, ensure_text, PY3
 from six.moves import StringIO, zip_longest as izip_longest
 from six.moves.urllib.parse import urlparse, urlencode, quote, parse_qsl, urlunparse
+from six.moves.configparser import NoOptionError, NoSectionError
 
 from rucio.common.config import config_get
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
@@ -569,6 +570,15 @@ register_surl_algorithm(construct_surl_BelleII, 'BelleII')
 
 
 def _register_policy_package_surl_algorithms():
+    def try_importing_policy(vo=None):
+        try:
+            package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo['vo']))
+            module = importlib.import_module(package)
+            if hasattr(module, 'get_surl_algorithms'):
+                _SURL_ALGORITHMS.update(module.get_surl_algorithms())
+        except (NoOptionError, NoSectionError, ImportError):
+            pass
+        
     from rucio.common import config
     from rucio.core.vo import list_vos
     import importlib
@@ -578,24 +588,12 @@ def _register_policy_package_surl_algorithms():
         multivo = False
     if not multivo:
         # single policy package
-        try:
-            package = config.config_get('policy', 'package')
-            module = importlib.import_module(package)
-            if hasattr(module, 'get_surl_algorithms'):
-                _SURL_ALGORITHMS.update(module.get_surl_algorithms())
-        except (NoOptionError, NoSectionError, ImportError):
-            pass
+        try_importing_policy()
     else:
         # policy package per VO
         vos = list_vos()
         for vo in vos:
-            try:
-                package = config.config_get('policy', 'package-' + vo['vo'])
-                module = importlib.import_module(package)
-                if hasattr(module, 'get_surl_algorithms'):
-                    _SURL_ALGORITHMS.update(module.get_surl_algorithms())
-            except (NoOptionError, NoSectionError, ImportError):
-                pass
+            try_importing_policy(vo)
 
 
 def construct_surl(dsn, filename, naming_convention=None):

@@ -244,6 +244,15 @@ class RSEDeterministicTranslation(object):
 
         cls._DEFAULT_LFN2PFN = config.get_lfn2pfn_algorithm_default()
 
+    def try_importing_policy(self, vo=None):
+        try:
+            package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo['vo']))
+            module = importlib.import_module(package)
+            if hasattr(module, 'get_lfn2pfn_algorithms'):
+                RSEDeterministicTranslation._LFN2PFN_ALGORITHMS.update(module.get_lfn2pfn_algorithms())
+        except (NoOptionError, NoSectionError, ImportError):
+            pass
+
     def query_policy_packages(self):
         from rucio.core.vo import list_vos
         import importlib
@@ -253,24 +262,12 @@ class RSEDeterministicTranslation(object):
             multivo = False
         if not multivo:
             # single policy package
-            try:
-                package = config.config_get('policy', 'package')
-                module = importlib.import_module(package)
-                if hasattr(module, 'get_lfn2pfn_algorithms'):
-                    RSEDeterministicTranslation._LFN2PFN_ALGORITHMS.update(module.get_lfn2pfn_algorithms())
-            except (NoOptionError, NoSectionError, ImportError):
-                pass
+            self.try_importing_policy()
         else:
             # policy package per VO
             vos = list_vos()
             for vo in vos:
-                try:
-                    package = config.config_get('policy', 'package-' + vo['vo'])
-                    module = importlib.import_module(package)
-                    if hasattr(module, 'get_lfn2pfn_algorithms'):
-                        RSEDeterministicTranslation._LFN2PFN_ALGORITHMS.update(module.get_lfn2pfn_algorithms())
-                except (NoOptionError, NoSectionError, ImportError):
-                    pass
+                self.try_importing_policy(vo)
 
     def path(self, scope, name):
         """ Transforms the logical file name into a PFN's path.
