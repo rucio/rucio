@@ -1268,34 +1268,6 @@ def get_parsed_throttler_mode(throttler_mode):
     return (direction, all_activities)
 
 
-def query_bunches(query, bunch_by):
-    """
-    Queries output by yield_per sqlalchemy function
-    (which in a for loop returns rows one by one).
-    Groups the query rows in bunches of bunch_by
-    elements and returns list of bunches.
-    :param query: sqlalchemy session query
-    :param bunch_by: integer number
-    :returns: [[bunch_of_tuples_1],[bunch_of_tuples_2],...]
-
-    """
-    filtered_bunches = []
-    item_bunch = []
-    for i in query.yield_per(bunch_by):
-        # i is either tuple of one element (token/model object etc.)
-        if not isinstance(i, tuple) and not isinstance(i, list):
-            item_bunch.append(i)
-        # or i is a tuple with the column elements per row
-        else:
-            item_bunch += i
-        if len(item_bunch) % bunch_by == 0:
-            filtered_bunches.append(item_bunch)
-            item_bunch = []
-    if item_bunch:
-        filtered_bunches.append(item_bunch)
-    return filtered_bunches
-
-
 def setup_logger(module_name=None, logger_name=None, logger_level=None, verbose=False):
     '''
     Factory method to set logger with handlers.

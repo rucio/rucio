@@ -41,7 +41,7 @@ from dogpile.cache.api import NO_VALUE
 from sqlalchemy import and_, or_
 
 from rucio.common.exception import CannotAuthenticate, RucioException
-from rucio.common.utils import generate_uuid, query_bunches
+from rucio.common.utils import generate_uuid
 from rucio.core.account import account_exists
 from rucio.core.oidc import validate_jwt
 from rucio.db.sqla import filter_thread_work
@@ -381,14 +381,14 @@ def delete_expired_tokens(total_workers, worker_number, limit=1000, session=None
         query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='token')
 
         # limiting the number of tokens deleted at once
-        filtered_tokens_query = query.limit(limit)
+        query = query.limit(limit)
         # remove expired tokens
         deleted_tokens = 0
-        filtered_bunches = query_bunches(filtered_tokens_query, 10)
-        for items in filtered_bunches:
-            deleted_tokens += session.query(models.Token.token)\
-                                     .filter(models.Token.token.in_(items))\
-                                     .with_for_update(skip_locked=True)\
+        for items in session.execute(query).partitions(10):
+            tokens = tuple(map(lambda row: row.token, items))
+            deleted_tokens += session.query(models.Token.token) \
+                                     .filter(models.Token.token.in_(tokens)) \
+                                     .with_for_update(skip_locked=True) \
                                      .delete(synchronize_session='fetch')
 
     except Exception as error:

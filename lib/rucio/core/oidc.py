@@ -19,27 +19,30 @@
 # PY3K COMPATIBLE
 
 import json
-from math import floor
 import random
 import subprocess
 import time
 import traceback
-
 from datetime import datetime, timedelta
+from math import floor
+
 from jwkest.jws import JWS
 from jwkest.jwt import JWT
 from oic import rndstr
-from oic.oic import Client, Grant, Token, REQUEST2ENDPOINT
 from oic.oauth2.message import CCAccessTokenRequest
+from oic.oic import Client, Grant, Token, REQUEST2ENDPOINT
 from oic.oic.message import (AccessTokenResponse, AuthorizationResponse,
                              Message, RegistrationResponse)
-from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from oic.utils import time_util
+from oic.utils.authn.client import CLIENT_AUTHN_METHOD
+from sqlalchemy import and_
+from sqlalchemy.sql.expression import true
+
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (CannotAuthenticate, CannotAuthorize,
                                     RucioException)
 from rucio.common.utils import (all_oidc_req_claims_present, build_url, oidc_identity_string,
-                                query_bunches, sqlalchemy_obj_to_dict, val_to_space_sep_str)
+                                sqlalchemy_obj_to_dict, val_to_space_sep_str)
 from rucio.core.account import account_exists
 from rucio.core.identity import exist_identity_account, get_default_account
 from rucio.core.monitor import record_counter, record_timer
@@ -47,9 +50,6 @@ from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
-from sqlalchemy import and_
-from sqlalchemy.sql.expression import true
-
 
 try:
     # Python 2
@@ -884,11 +884,14 @@ def refresh_jwt_tokens(total_workers, worker_number, refreshrate=3600, limit=100
         query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='token')
 
         # limiting the number of tokens for refresh
-        filtered_tokens_query = query.limit(limit)
+        query = query.limit(limit)
         filtered_tokens = []
-        filtered_bunches = query_bunches(filtered_tokens_query, 10)
-        for items in filtered_bunches:
-            filtered_tokens += session.query(models.Token).filter(models.Token.token.in_(items)).with_for_update(skip_locked=True).all()
+        for items in session.execute(query).partitions(10):
+            tokens = tuple(map(lambda row: row.token, items))
+            filtered_tokens += session.query(models.Token) \
+                                      .filter(models.Token.token.in_(tokens)) \
+                                      .with_for_update(skip_locked=True) \
+                                      .all()
 
         # refreshing these tokens
         for token in filtered_tokens:
@@ -1006,13 +1009,14 @@ def delete_expired_oauthrequests(total_workers, worker_number, limit=1000, sessi
         query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='state')
 
         # limiting the number of oauth requests deleted at once
-        filtered_oauthparams_query = query.limit(limit)
+        query = query.limit(limit)
         ndeleted = 0
-        filtered_bunches = query_bunches(filtered_oauthparams_query, 10)
-        for items in filtered_bunches:
-            ndeleted += session.query(models.OAuthRequest.state).filter(models.OAuthRequest.state.in_(items))\
-                                                                .with_for_update(skip_locked=True)\
-                                                                .delete(synchronize_session='fetch')
+        for items in session.execute(query).partitions(10):
+            states = tuple(map(lambda row: row.state, items))
+            ndeleted += session.query(models.OAuthRequest.state) \
+                               .filter(models.OAuthRequest.state.in_(states)) \
+                               .with_for_update(skip_locked=True) \
+                               .delete(synchronize_session='fetch')
 
     except Exception as error:
         raise RucioException(error.args)
