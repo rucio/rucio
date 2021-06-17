@@ -386,7 +386,7 @@ def delete_expired_tokens(total_workers, worker_number, limit=1000, session=None
         deleted_tokens = 0
         for items in session.execute(query).partitions(10):
             tokens = tuple(map(lambda row: row.token, items))
-            deleted_tokens += session.query(models.Token.token) \
+            deleted_tokens += session.query(models.Token) \
                                      .filter(models.Token.token.in_(tokens)) \
                                      .with_for_update(skip_locked=True) \
                                      .delete(synchronize_session='fetch')

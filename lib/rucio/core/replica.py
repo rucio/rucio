@@ -394,9 +394,10 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
 
         if status == BadFilesStatus.BAD and declared_replicas != []:
             # For BAD file, we modify the replica state, not for suspicious
-            query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
-                with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
-                filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*path_clause))
+            query = session.query(models.RSEFileAssociation) \
+                .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle') \
+                .filter(models.RSEFileAssociation.rse_id == rse_id) \
+                .filter(or_(*path_clause))
             rowcount = query.update({'state': ReplicaState.BAD})
             if rowcount != len(declared_replicas):
                 # there shouldn't be any exceptions since all replicas exist

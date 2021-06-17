@@ -1013,7 +1013,7 @@ def delete_expired_oauthrequests(total_workers, worker_number, limit=1000, sessi
         ndeleted = 0
         for items in session.execute(query).partitions(10):
             states = tuple(map(lambda row: row.state, items))
-            ndeleted += session.query(models.OAuthRequest.state) \
+            ndeleted += session.query(models.OAuthRequest) \
                                .filter(models.OAuthRequest.state.in_(states)) \
                                .with_for_update(skip_locked=True) \
                                .delete(synchronize_session='fetch')
