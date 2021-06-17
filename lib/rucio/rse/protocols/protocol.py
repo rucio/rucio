@@ -245,6 +245,7 @@ class RSEDeterministicTranslation(object):
         cls._DEFAULT_LFN2PFN = config.get_lfn2pfn_algorithm_default()
 
     def try_importing_policy(self, vo=None):
+        import importlib
         try:
             package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo['vo']))
             module = importlib.import_module(package)
@@ -255,7 +256,6 @@ class RSEDeterministicTranslation(object):
 
     def query_policy_packages(self):
         from rucio.core.vo import list_vos
-        import importlib
         try:
             multivo = config.config_get_bool('common', 'multi_vo')
         except (NoOptionError, NoSectionError):

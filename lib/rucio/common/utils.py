@@ -571,6 +571,7 @@ register_surl_algorithm(construct_surl_BelleII, 'BelleII')
 
 def _register_policy_package_surl_algorithms():
     def try_importing_policy(vo=None):
+        import importlib
         try:
             package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo['vo']))
             module = importlib.import_module(package)
@@ -581,7 +582,6 @@ def _register_policy_package_surl_algorithms():
         
     from rucio.common import config
     from rucio.core.vo import list_vos
-    import importlib
     try:
         multivo = config.config_get_bool('common', 'multi_vo')
     except (NoOptionError, NoSectionError):
