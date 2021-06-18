@@ -265,7 +265,7 @@ class ListReplicas(ErrorHandlingMethodView):
         :query sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
         :<json list dids: list of DIDs.
         :<json list schemes: A list of schemes to filter the replicas.
-        :<json bool unavailable: Also include unavailable replicas.
+        :<json bool unavailable: (deprecated) Also include unavailable replicas.
         :<json bool all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
         :<json string rse_expression: The RSE expression to restrict on a list of RSEs.
         :<json dict client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site', 'latitude', 'longitude'}.
