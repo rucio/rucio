@@ -635,7 +635,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
     Resolve list of DIDs into a list of conditions.
 
     :param dids: The list of data identifiers (DIDs).
-    :param unavailable: Also include unavailable replicas in the list.
+    :param unavailable: (deprecated) Also include unavailable replicas in the list.
     :param ignore_availability: Ignore the RSE blocklisting.
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param resolve_archives: When set to true, find archives which contain the replicas.
@@ -1277,7 +1277,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
 
     :param dids: The list of data identifiers (DIDs).
     :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
-    :param unavailable: Also include unavailable replicas in the list.
+    :param unavailable: (deprecated) Also include unavailable replicas in the list.
     :param request_id: ID associated with the request for debugging.
     :param ignore_availability: Ignore the RSE blocklisting.
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
