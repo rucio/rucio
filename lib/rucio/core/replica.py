@@ -861,7 +861,7 @@ def _list_replicas_for_files(file_clause, state_clause, files_wo_replica, rse_cl
         if state_clause is not None:
             filters.append(state_clause)
 
-        if rse_clause is not None:
+        if rse_clause:
             filters.append(or_(*rse_clause))
 
         if updated_after:
