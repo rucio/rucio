@@ -20,9 +20,10 @@
 ''' increase identity length '''
 
 import sqlalchemy as sa
-
 from alembic import context, op
 from alembic.op import alter_column, create_check_constraint, create_foreign_key, drop_constraint, execute
+
+from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
 revision = '1c45d9730ca6'
@@ -42,11 +43,11 @@ def upgrade():
         alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema[:-1])
         alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema[:-1])
 
-        drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
+        try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
-        drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
@@ -102,12 +103,12 @@ def downgrade():
         execute("DELETE FROM account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
         execute("DELETE FROM identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 
-        drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
+        try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
-        drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map')
 
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',

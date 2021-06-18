@@ -23,6 +23,8 @@ Add PREPARING state to Request model.
 from alembic import context
 from alembic import op
 
+from rucio.db.sqla.util import try_drop_constraint
+
 # Alembic revision identifiers
 revision = 'd23453595260'
 down_revision = '8ea9122275b1'
@@ -39,7 +41,7 @@ def upgrade():
     dialect = context.get_context().dialect.name
 
     if dialect == 'oracle':
-        op.drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         op.create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
@@ -77,7 +79,7 @@ def downgrade():
     dialect = context.get_context().dialect.name
 
     if dialect == 'oracle':
-        op.drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         op.create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',

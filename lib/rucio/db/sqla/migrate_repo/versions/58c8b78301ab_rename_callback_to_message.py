@@ -23,6 +23,7 @@ from alembic import context, op
 from alembic.op import (create_primary_key, create_check_constraint,
                         drop_constraint, rename_table)
 
+from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
 revision = '58c8b78301ab'
@@ -72,10 +73,10 @@ def downgrade():
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
-        drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages', type_='check')
-        drop_constraint('MESSAGES_PAYLOAD_NN', 'messages', type_='check')
-        drop_constraint('MESSAGES_CREATED_NN', 'messages', type_='check')
-        drop_constraint('MESSAGES_UPDATED_NN', 'messages', type_='check')
+        try_drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages')
+        try_drop_constraint('MESSAGES_PAYLOAD_NN', 'messages')
+        try_drop_constraint('MESSAGES_CREATED_NN', 'messages')
+        try_drop_constraint('MESSAGES_UPDATED_NN', 'messages')
         drop_constraint('MESSAGES_PK', 'messages', type_='primary')
         rename_table('messages', 'callbacks')
         create_primary_key('CALLBACKS_PK', 'callbacks', ['id'])
