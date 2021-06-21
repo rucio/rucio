@@ -16,7 +16,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2020-2021
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 #
@@ -50,7 +50,7 @@ ACTIVITY = {"description": "Activity name",
                      "Production Input", "Production Output", "Production Merge",
                      "Analysis Input", "Analysis Output", "Staging",
                      "Raw Export", "Upload/Download (Job)", "Upload/Download (User)",
-                     "User Merge", "User Transfers"]}
+                     "User Merge", "User Transfers", "Calibration Transfers"]}
 
 SCOPE_LENGTH = 25
 
