@@ -334,18 +334,18 @@ def redirect_auth_oidc(auth_code, fetchtoken=False, session=None):
     try:
         redirect_result = session.query(models.OAuthRequest.redirect_msg).filter_by(access_msg=auth_code).first()
 
-        if isinstance(redirect_result, tuple):
-            if 'http' not in redirect_result[0] and fetchtoken:
-                # in this case the function check if the value is a valid token
-                vdict = validate_auth_token(redirect_result[0], session=session)
-                if vdict:
-                    return redirect_result[0]
-                return None
-            elif 'http' in redirect_result[0] and not fetchtoken:
-                # return redirection URL
+        if not redirect_result:
+            return None
+
+        if 'http' not in redirect_result[0] and fetchtoken:
+            # in this case the function check if the value is a valid token
+            vdict = validate_auth_token(redirect_result[0], session=session)
+            if vdict:
                 return redirect_result[0]
             return None
-        return None
+        elif 'http' in redirect_result[0] and not fetchtoken:
+            # return redirection URL
+            return redirect_result[0]
     except:
         raise CannotAuthenticate(traceback.format_exc())
 
