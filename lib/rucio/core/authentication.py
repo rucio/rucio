@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,8 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 
 import datetime
 import hashlib
@@ -80,7 +79,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     :param ip: IP address of the client a a string.
     :param session: The database session in use.
 
-    :returns: A models.Token object as saved to the database.
+    :returns: A dict with token and expires_at entries.
     """
 
     # Make sure the account exists
@@ -112,9 +111,8 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     token = '%(account)s-%(username)s-%(appid)s-%(tuid)s' % locals()
     new_token = models.Token(account=db_account, identity=username, token=token, ip=ip)
     new_token.save(session=session)
-    session.expunge(new_token)
 
-    return new_token
+    return token_dictionary(new_token)
 
 
 @transactional_session
@@ -130,7 +128,7 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
     :param ipaddr: IP address of the client as a string.
     :param session: The database session in use.
 
-    :returns: A models.Token object as saved to the database.
+    :returns: A dict with token and expires_at entries.
     """
 
     # Make sure the account exists
@@ -146,9 +144,8 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
     token = '%(account)s-%(dn)s-%(appid)s-%(tuid)s' % locals()
     new_token = models.Token(account=account, identity=dn, token=token, ip=ip)
     new_token.save(session=session)
-    session.expunge(new_token)
 
-    return new_token
+    return token_dictionary(new_token)
 
 
 @transactional_session
@@ -164,7 +161,7 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
     :param ip: IP address of the client as a string.
     :param session: The database session in use.
 
-    :returns: A models.Token object as saved to the database.
+    :returns: A dict with token and expires_at entries.
     """
 
     # Make sure the account exists
@@ -180,9 +177,8 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
     token = '%(account)s-%(gsstoken)s-%(appid)s-%(tuid)s' % locals()
     new_token = models.Token(account=account, token=token, ip=ip)
     new_token.save(session=session)
-    session.expunge(new_token)
 
-    return new_token
+    return token_dictionary(new_token)
 
 
 @transactional_session
@@ -198,7 +194,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
     :param ip: IP address of the client as a string.
     :param session: The database session in use.
 
-    :returns: A models.Token object as saved to the database.
+    :returns: A dict with token and expires_at entries.
     """
     if not isinstance(signature, bytes):
         signature = signature.encode()
@@ -246,9 +242,8 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
     token = '%(account)s-ssh:pubkey-%(appid)s-%(tuid)s' % locals()
     new_token = models.Token(account=account, token=token, ip=ip)
     new_token.save(session=session)
-    session.expunge(new_token)
 
-    return new_token
+    return token_dictionary(new_token)
 
 
 @transactional_session
@@ -262,7 +257,7 @@ def get_ssh_challenge_token(account, appid, ip=None, session=None):
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
 
-    :returns: A models.Token object as saved to the database.
+    :returns: A dict with token and expires_at entries.
     """
 
     # Make sure the account exists
@@ -283,9 +278,8 @@ def get_ssh_challenge_token(account, appid, ip=None, session=None):
     new_challenge_token = models.Token(account=account, token=challenge_token, ip=ip,
                                        expired_at=expiration)
     new_challenge_token.save(session=session)
-    session.expunge(new_challenge_token)
 
-    return new_challenge_token
+    return token_dictionary(new_challenge_token)
 
 
 @transactional_session
@@ -301,7 +295,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
     :param ip: IP address of the client a a string.
     :param session: The database session in use.
 
-    :returns: A models.Token object as saved to the database.
+    :returns: A dict with token and expires_at entries.
     """
 
     # Make sure the account exists
@@ -316,9 +310,8 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
     token = '%(account)s-%(saml_nameid)s-%(appid)s-%(tuid)s' % locals()
     new_token = models.Token(account=account, identity=saml_nameid, token=token, ip=ip)
     new_token.save(session=session)
-    session.expunge(new_token)
 
-    return new_token
+    return token_dictionary(new_token)
 
 
 @transactional_session
@@ -470,3 +463,7 @@ def validate_auth_token(token, session=None):
         TOKENREGION.delete(token)
         return None
     return value
+
+
+def token_dictionary(token: models.Token):
+    return {'token': token.token, 'expires_at': token.expired_at}

@@ -340,8 +340,8 @@ class TestVORestAPI(unittest.TestCase):
     def test_auth_gss(self):
         """ MULTI VO (REST): Test gss authentication to multiple VOs """
         # Can't rely on `requests_kerberos` module being present, so get tokens from API instead
-        token_tst = get_auth_token_gss('root', 'rucio-dev@CERN.CH', 'unknown', None, **self.vo).token
-        token_new = get_auth_token_gss('root', 'rucio-dev@CERN.CH', 'unknown', None, **self.new_vo).token
+        token_tst = get_auth_token_gss('root', 'rucio-dev@CERN.CH', 'unknown', None, **self.vo).get('token')
+        token_new = get_auth_token_gss('root', 'rucio-dev@CERN.CH', 'unknown', None, **self.new_vo).get('token')
 
         response = self.rest_client.get('/accounts/', headers=headers(auth(token_tst)))
         assert response.status_code == 200
@@ -370,8 +370,8 @@ class TestVORestAPI(unittest.TestCase):
             pass  # Might already exist, can skip
 
         # Can't rely on `onelogin` module being present, so get tokens from API instead
-        token_tst = get_auth_token_saml('root', 'ddmlab', 'unknown', None, **self.vo).token
-        token_new = get_auth_token_saml('root', 'ddmlab', 'unknown', None, **self.new_vo).token
+        token_tst = get_auth_token_saml('root', 'ddmlab', 'unknown', None, **self.vo).get('token')
+        token_new = get_auth_token_saml('root', 'ddmlab', 'unknown', None, **self.new_vo).get('token')
 
         response = self.rest_client.get('/accounts/', headers=headers(auth(token_tst)))
         assert response.status_code == 200
@@ -458,8 +458,8 @@ class TestVORestAPI(unittest.TestCase):
     def test_auth_x509(self):
         """ MULTI VO (REST): Test X509 authentication to multiple VOs """
         # Flasks test client doesn't support client certificates, so get tokens from API instead
-        token_tst = get_auth_token_x509('root', '/CN=Rucio User', 'unknown', None, **self.vo).token
-        token_new = get_auth_token_x509('root', '/CN=Rucio User', 'unknown', None, **self.new_vo).token
+        token_tst = get_auth_token_x509('root', '/CN=Rucio User', 'unknown', None, **self.vo).get('token')
+        token_new = get_auth_token_x509('root', '/CN=Rucio User', 'unknown', None, **self.new_vo).get('token')
 
         response = self.rest_client.get('/accounts/', headers=headers(auth(token_tst)))
         assert response.status_code == 200

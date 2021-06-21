@@ -41,7 +41,6 @@
 from __future__ import absolute_import, print_function
 
 import base64
-import copy
 import datetime
 import errno
 import getpass
@@ -126,28 +125,6 @@ def build_url(url, path=None, params=None, doseq=False):
         else:
             complete_url += urlencode(params, doseq=doseq)
     return complete_url
-
-
-def oidc_identity_string(sub, iss):
-    """
-    Transform IdP sub claim and issuers url into users identity string.
-    :param sub: users SUB claim from the Identity Provider
-    :param iss: issuer (IdP) https url
-
-    :returns: OIDC identity string "SUB=<usersid>, ISS=https://iam-test.ch/"
-    """
-    return 'SUB=' + str(sub) + ', ISS=' + str(iss)
-
-
-def sqlalchemy_obj_to_dict(sqlalchemyresult):
-    """
-    Makes dictionary from SQLAlchemy query result object
-    :param sqlalchemyresult:
-    :returns: dictionary
-    """
-    res_dict = copy.deepcopy(dict(sqlalchemyresult.__dict__))
-    del res_dict['_sa_instance_state']
-    return res_dict
 
 
 def all_oidc_req_claims_present(scope, audience, required_scope, required_audience, sepatator=" "):
