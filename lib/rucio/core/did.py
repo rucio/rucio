@@ -607,6 +607,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     not_purge_replicas = []
     did_followed_clause = []
     metadata_to_delete = []
+    file_content_clause = []
 
     archive_dids = config_core.get('undertaker', 'archive_dids', default=False, session=session)
 
@@ -617,6 +618,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
         else:
             did_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
             content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
+            file_content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name'], models.DataIdentifierAssociation.child_type == DIDType.FILE))
             collection_replica_clause.append(and_(models.CollectionReplica.scope == did['scope'],
                                                   models.CollectionReplica.name == did['name']))
             did_followed_clause.append(and_(models.DidsFollowed.scope == did['scope'], models.DidsFollowed.name == did['name']))
@@ -692,7 +694,19 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
         with record_timer_block('undertaker.parent_content'):
             for parent_did in session.query(models.DataIdentifierAssociation).filter(or_(*parent_content_clause)):
                 existing_parent_dids = True
-                detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_name}], session=session)
+                detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_type}], session=session)
+
+    # Set Epoch tombstone for the files replicas inside the did
+    if config_core.get('undertaker', 'purge_all_replicas', default=False, session=session) and file_content_clause:
+        with record_timer_block('undertaker.file_content'):
+            file_replicas_clause = [and_(models.RSEFileAssociation.scope == cont['child_scope'], models.RSEFileAssociation.name == cont['child_name']) for cont in session.query(models.DataIdentifierAssociation).filter(or_(*file_content_clause))]
+            none_value = None  # Hack to get pep8 happy
+            for chunk in chunks(file_replicas_clause, 100):
+                session.query(models.RSEFileAssociation).filter(or_(*chunk)).\
+                    with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
+                    filter(models.RSEFileAssociation.lock_cnt == 0).\
+                    filter(models.RSEFileAssociation.tombstone != none_value).\
+                    update({'tombstone': datetime(1970, 1, 1)}, synchronize_session=False)
 
     # Remove content
     if content_clause:
