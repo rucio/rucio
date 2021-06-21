@@ -606,6 +606,8 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     did_followed_clause = []
     metadata_to_delete = []
 
+    archive_dids = config_core.get('undertaker', 'archive_dids', default=False, session=session)
+
     for did in dids:
         logger(logging.INFO, 'Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
         if did['did_type'] == DIDType.FILE:
@@ -727,6 +729,8 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
             rowcount = session.query(models.DataIdentifier).filter(or_(*did_clause)).\
                 filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
                 delete(synchronize_session=False)
+            if archive_dids:
+                insert_deleted_dids(did_clause, session=session)
 
     if did_followed_clause:
         with record_timer_block('undertaker.dids'):
