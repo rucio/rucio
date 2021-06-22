@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2020
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Eric Vaandering <ewv@fnal.gov>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 from datetime import datetime
 from json import dumps, loads
@@ -161,7 +156,7 @@ class Replicas(ErrorHandlingMethodView):
 
         :<json string rse: The RSE name.
         :<json list files: list of dicts with 'scope', 'name', 'bytes', 'meta' and 'adler32'.
-        :<json bool ignore_availability: Flag to ignore the RSE blacklisting.
+        :<json bool ignore_availability: Flag to ignore the RSE blocklisting.
         :status 201: Replica Successfully created.
         :status 400: Invalid Path.
         :status 401: Invalid auth token.
@@ -227,7 +222,7 @@ class Replicas(ErrorHandlingMethodView):
 
         :<json string rse: The RSE name.
         :<json list files: list of dicts with 'scope', 'name'.
-        :<json bool ignore_availability: Flag to ignore the RSE blacklisting.
+        :<json bool ignore_availability: Flag to ignore the RSE blocklisting.
         :status 200: Replica successfully deleted.
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid auth token.

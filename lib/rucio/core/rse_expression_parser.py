@@ -34,7 +34,7 @@ from hashlib import sha256
 from six import add_metaclass
 
 from rucio.common.config import config_get
-from rucio.common.exception import InvalidRSEExpression, RSEBlacklisted
+from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
 from rucio.core.rse import list_rses, get_rses_with_attribute, get_rse_attribute
 from rucio.db.sqla.session import transactional_session
 
@@ -63,7 +63,7 @@ def parse_expression(expression, filter=None, session=None):
     :param filter:        Availability filter (dictionary) used for the RSEs. e.g.: {'availability_write': True}
     :param session:       Database session in use.
     :returns:             A list of rse dictionaries.
-    :raises:              InvalidRSEExpression, RSENotFound, RSEBlacklisted
+    :raises:              InvalidRSEExpression, RSENotFound, RSEWriteBlocked
     """
     result = REGION.get(sha256(expression.encode()).hexdigest())
     if type(result) is NoValue:
@@ -116,7 +116,7 @@ def parse_expression(expression, filter=None, session=None):
                 if rse.get('availability') & 2:
                     final_result.append(rse)
         if not final_result:
-            raise RSEBlacklisted('RSE excluded; not available for writing.')
+            raise RSEWriteBlocked('RSE excluded; not available for writing.')
     else:
         final_result = vo_result
 

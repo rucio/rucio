@@ -1,19 +1,26 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
-# - Robert Illingworth, <illingwo@fnal.gov>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Robert Illingworth <illingwo@fnal.gov>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from random import uniform, shuffle
 
@@ -131,14 +138,14 @@ class RSESelector():
         # don't consider removing rses based on the total space here - because files already on the RSE are taken into account
         # it is possible to have no space but still be able to fulfil the rule
 
-    def select_rse(self, size, preferred_rse_ids, copies=0, blacklist=[], prioritize_order_over_weight=False, existing_rse_size=None):
+    def select_rse(self, size, preferred_rse_ids, copies=0, blocklist=[], prioritize_order_over_weight=False, existing_rse_size=None):
         """
         Select n RSEs to replicate data to.
 
         :param size:                         Size of the block being replicated.
         :param preferred_rse_ids:            Ordered list of preferred rses. (If possible replicate to them)
         :param copies:                       Select this amount of copies, if 0 use the pre-defined rule value.
-        :param blacklist:                    List of blacklisted rses. (Do not put replicas on these sites)
+        :param blocklist:                    List of blocked rses. (Do not put replicas on these sites)
         :param prioritze_order_over_weight:  Prioritize the order of the preferred_rse_ids list over the picking done by weight.
         :existing_rse_size:                  Dictionary of size of files already present at each rse
         :returns:                            List of (RSE_id, staging_area, availability_write) tuples.
@@ -149,9 +156,9 @@ class RSESelector():
         rses = self.rses
         count = self.copies if copies == 0 else copies
 
-        # Remove blacklisted rses
-        if blacklist:
-            rses = [rse for rse in self.rses if rse['rse_id'] not in blacklist]
+        # Remove blocklisted rses
+        if blocklist:
+            rses = [rse for rse in self.rses if rse['rse_id'] not in blocklist]
         if len(rses) < count:
             raise InsufficientTargetRSEs('There are not enough target RSEs to fulfil the request at this time.')
 

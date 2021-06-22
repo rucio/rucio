@@ -42,7 +42,7 @@ from traceback import format_exception
 
 import rucio.db.sqla.util
 from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule,
-                                    RSEBlacklisted, RSEWriteBlocked, InvalidRSEExpression, InsufficientTargetRSEs,
+                                    RSEWriteBlocked, InvalidRSEExpression, InsufficientTargetRSEs,
                                     InsufficientAccountLimit, InputValidationError, RSEOverQuota,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
                                     StagingAreaRuleRequiresLifetime, SubscriptionWrongParameter, SubscriptionNotFound)
@@ -258,7 +258,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
         try:
             results = {}
             start_time = time.time()
-            blacklisted_rse_id = [rse['id'] for rse in list_rses({'availability_write': False})]
+            blocklisted_rse_id = [rse['id'] for rse in list_rses({'availability_write': False})]
             logger(logging.DEBUG, 'In transmogrifier worker')
             identifiers = []
             #  Loop over all the new dids
@@ -351,16 +351,16 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                                 rse_id_dict[rse['id']] = rse['rse']
                                             try:
                                                 rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
-                                                selected_rses = [rse_id_dict[rse_id] for rse_id, _, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=blacklisted_rse_id)]
+                                                selected_rses = [rse_id_dict[rse_id] for rse_id, _, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blocklist=blocklisted_rse_id)]
                                             except (InsufficientTargetRSEs, InsufficientAccountLimit, InvalidRuleWeight, RSEOverQuota) as error:
-                                                logger(logging.WARNING, 'Problem getting RSEs for subscription "%s" for account %s : %s. Try including blacklisted sites' %
+                                                logger(logging.WARNING, 'Problem getting RSEs for subscription "%s" for account %s : %s. Try including blocklisted sites' %
                                                        (subscription['name'],
                                                         account,
                                                         str(error)))
-                                                # Now including the blacklisted sites
+                                                # Now including the blocklisted sites
                                                 try:
                                                     rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
-                                                    selected_rses = [rse_id_dict[rse_id] for rse_id, _, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blacklist=[])]
+                                                    selected_rses = [rse_id_dict[rse_id] for rse_id, _, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blocklist=[])]
                                                     ignore_availability = True
                                                 except (InsufficientTargetRSEs, InsufficientAccountLimit, InvalidRuleWeight, RSEOverQuota) as error:
                                                     logger(logging.ERROR, 'Problem getting RSEs for subscription "%s" for account %s : %s. Skipping rule creation.' %
@@ -411,8 +411,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
                                             break
                                         except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs,
-                                                InsufficientAccountLimit, DatabaseException, RSEBlacklisted,
-                                                RSEWriteBlocked) as error:
+                                                InsufficientAccountLimit, DatabaseException, RSEWriteBlocked) as error:
                                             # Errors to be retried
                                             logger(logging.ERROR, '%s Will perform an other attempt %i/%i' % (str(error), attempt + 1, nattempt))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)

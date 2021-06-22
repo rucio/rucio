@@ -22,6 +22,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 import logging
 import shutil
@@ -427,7 +428,7 @@ def test_norandom_respected(rse_factory, did_factory, download_client, root_acco
         assert len(result) == nrandom
 
 
-def test_download_blacklisted_replicas(rse_factory, did_factory, download_client):
+def test_download_blocklisted_replicas(rse_factory, did_factory, download_client):
     rse, _ = rse_factory.make_posix_rse()
     did = did_factory.upload_test_file(rse)
     did_str = '%s:%s' % (did['scope'], did['name'])

@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2014
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
@@ -30,7 +30,7 @@ import pytest
 
 from rucio.client.rseclient import RSEClient
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.exception import InvalidRSEExpression, RSEBlacklisted
+from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
 from rucio.core import rse
 from rucio.core import rse_expression_parser
 
@@ -212,7 +212,7 @@ class TestRSEExpressionParserCore(unittest.TestCase):
         assert value == expected
 
         filters['availability_write'] = False
-        pytest.raises(RSEBlacklisted, rse_expression_parser.parse_expression, "%s=de" % attribute, filters)
+        pytest.raises(RSEWriteBlocked, rse_expression_parser.parse_expression, "%s=de" % attribute, filters)
 
     def test_numeric_operators(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test RSE attributes with numeric operations """
