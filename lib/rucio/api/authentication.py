@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,9 +23,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from rucio.api import permission
 from rucio.common import exception
@@ -137,7 +135,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, vo='de
     :param ip: IP address of the client as a string.
     :param vo: The VO to act on.
 
-    :returns: A models.Token object as saved to the database.
+    :returns: A dict with token and expires_at entries.
     """
 
     kwargs = {'account': account, 'username': username, 'password': password}
@@ -161,7 +159,7 @@ def get_auth_token_gss(account, gsscred, appid, ip=None, vo='def'):
     :param ip: IP address of the client as a string.
     :param vo: The VO to act on.
 
-    :returns: A models.Token object as saved to the database.
+    :returns: A dict with token and expires_at entries.
     """
 
     kwargs = {'account': account, 'gsscred': gsscred}
@@ -185,7 +183,7 @@ def get_auth_token_x509(account, dn, appid, ip=None, vo='def'):
     :param ip: IP address of the client as a string.
     :param vo: The VO to act on.
 
-    :returns: A models.Token object as saved to the database.
+    :returns: A dict with token and expires_at entries.
     """
 
     if account is None:
@@ -212,7 +210,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, vo='def'):
     :param ip: IP address of the client as a string.
     :param vo: The VO to act on.
 
-    :returns: A models.Token object as saved to the database.
+    :returns: A dict with token and expires_at entries.
     """
 
     kwargs = {'account': account, 'signature': signature}
@@ -235,7 +233,7 @@ def get_ssh_challenge_token(account, appid, ip=None, vo='def'):
     :param ip: IP address of the client as a string.
     :param vo: The VO to act on.
 
-    :returns: A models.Token object as saved to the database.
+    :returns: A dict with token and expires_at entries.
     """
 
     kwargs = {'account': account}
@@ -258,7 +256,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, vo='def'):
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
 
-    :returns: A models.Token object as saved to the database.
+    :returns: A dict with token and expires_at entries.
     """
 
     kwargs = {'account': account, 'saml_nameid': saml_nameid}

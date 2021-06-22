@@ -72,7 +72,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError, RSEOverQuota,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
-                                    InvalidObject, RSEBlacklisted, RSEWriteBlocked, RuleReplaceFailed, RequestNotFound,
+                                    InvalidObject, RSEWriteBlocked, RuleReplaceFailed, RequestNotFound,
                                     ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy)
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalScope, InternalAccount
@@ -139,7 +139,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param logger:                     Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
-                                       StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, RSEOverQuota
+                                       StagingAreaRuleRequiresLifetime, DuplicateRule, RSEWriteBlocked, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, RSEOverQuota
     """
     rule_ids = []
 
@@ -401,7 +401,7 @@ def add_rules(dids, rules, session=None, logger=logging.log):
     :param logger:   Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:        Dictionary (scope, name) with list of created rule ids
     :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
-                     StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked
+                     StagingAreaRuleRequiresLifetime, DuplicateRule, RSEWriteBlocked, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked
     """
 
     with record_timer_block('rule.add_rules'):
@@ -1026,7 +1026,7 @@ def repair_rule(rule_id, session=None, logger=logging.log):
 
     # Rule error cases:
     # (A) A rule get's an exception on rule-creation. This can only be the MissingSourceReplica exception.
-    # (B) A rule get's an error when re-evaluated: InvalidRSEExpression, InvalidRuleWeight, InsufficientTargetRSEs, RSEBlacklisted
+    # (B) A rule get's an error when re-evaluated: InvalidRSEExpression, InvalidRuleWeight, InsufficientTargetRSEs, RSEWriteBlocked
     #     InsufficientAccountLimit. The re-evaluation has to be done again and potential missing locks have to be
     #     created.
     # (C) Transfers fail and mark locks (and the rule) as STUCK. All STUCK locks have to be repaired.
@@ -1058,7 +1058,7 @@ def repair_rule(rule_id, session=None, logger=logging.log):
                 source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
             else:
                 source_rses = []
-        except (InvalidRSEExpression, RSEBlacklisted, RSEWriteBlocked) as error:
+        except (InvalidRSEExpression, RSEWriteBlocked) as error:
             rule.state = RuleState.STUCK
             rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
             rule.save(session=session)
@@ -1578,14 +1578,14 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
 
 
 @read_session
-def get_updated_dids(total_workers, worker_number, limit=100, blacklisted_dids=[], session=None):
+def get_updated_dids(total_workers, worker_number, limit=100, blocked_dids=[], session=None):
     """
     Get updated dids.
 
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
     :param limit:              Maximum number of dids to return.
-    :param blacklisted_dids:   Blacklisted dids to filter.
+    :param blocked_dids:       Blocked dids to filter.
     :param session:            Database session in use.
     """
     query = session.query(models.UpdatedDID.id,
@@ -1595,24 +1595,24 @@ def get_updated_dids(total_workers, worker_number, limit=100, blacklisted_dids=[
 
     query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 
-    # Remove blacklisted dids from query, but only do the first 30 ones, not to overload the query
-    if blacklisted_dids:
-        chunk = list(chunks(blacklisted_dids, 30))[0]
+    # Remove blocked dids from query, but only do the first 30 ones, not to overload the query
+    if blocked_dids:
+        chunk = list(chunks(blocked_dids, 30))[0]
         query = query.filter(tuple_(models.UpdatedDID.scope, models.UpdatedDID.name).notin_(chunk))
 
     if limit:
         fetched_dids = query.order_by(models.UpdatedDID.created_at).limit(limit).all()
-        filtered_dids = [did for did in fetched_dids if (did.scope, did.name) not in blacklisted_dids]
+        filtered_dids = [did for did in fetched_dids if (did.scope, did.name) not in blocked_dids]
         if len(fetched_dids) == limit and not filtered_dids:
             return get_updated_dids(total_workers=total_workers,
                                     worker_number=worker_number,
                                     limit=None,
-                                    blacklisted_dids=blacklisted_dids,
+                                    blocked_dids=blocked_dids,
                                     session=session)
         else:
             return filtered_dids
     else:
-        return [did for did in query.order_by(models.UpdatedDID.created_at).all() if (did.scope, did.name) not in blacklisted_dids]
+        return [did for did in query.order_by(models.UpdatedDID.created_at).all() if (did.scope, did.name) not in blocked_dids]
 
 
 @read_session
@@ -1640,14 +1640,14 @@ def get_rules_beyond_eol(date_check, worker_number, total_workers, session):
 
 
 @read_session
-def get_expired_rules(total_workers, worker_number, limit=100, blacklisted_rules=[], session=None):
+def get_expired_rules(total_workers, worker_number, limit=100, blocked_rules=[], session=None):
     """
     Get expired rules.
 
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
     :param limit:              Maximum number of rules to return.
-    :param backlisted_rules:   List of blacklisted rules.
+    :param blocked_rules:      List of blocked rules.
     :param session:            Database session in use.
     """
 
@@ -1661,28 +1661,28 @@ def get_expired_rules(total_workers, worker_number, limit=100, blacklisted_rules
 
     if limit:
         fetched_rules = query.limit(limit).all()
-        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blacklisted_rules]
+        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blocked_rules]
         if len(fetched_rules) == limit and not filtered_rules:
             return get_expired_rules(total_workers=total_workers,
                                      worker_number=worker_number,
                                      limit=None,
-                                     blacklisted_rules=blacklisted_rules,
+                                     blocked_rules=blocked_rules,
                                      session=session)
         else:
             return filtered_rules
     else:
-        return [rule for rule in query.all() if rule[0] not in blacklisted_rules]
+        return [rule for rule in query.all() if rule[0] not in blocked_rules]
 
 
 @read_session
-def get_injected_rules(total_workers, worker_number, limit=100, blacklisted_rules=[], session=None):
+def get_injected_rules(total_workers, worker_number, limit=100, blocked_rules=[], session=None):
     """
     Get rules to be injected.
 
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
     :param limit:              Maximum number of rules to return.
-    :param blacklisted_rules:  Blacklisted rules not to include.
+    :param blocked_rules:      Blocked rules not to include.
     :param session:            Database session in use.
     """
 
@@ -1704,21 +1704,21 @@ def get_injected_rules(total_workers, worker_number, limit=100, blacklisted_rule
 
     if limit:
         fetched_rules = query.limit(limit).all()
-        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blacklisted_rules]
+        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blocked_rules]
         if len(fetched_rules) == limit and not filtered_rules:
             return get_injected_rules(total_workers=total_workers,
                                       worker_number=worker_number,
                                       limit=None,
-                                      blacklisted_rules=blacklisted_rules,
+                                      blocked_rules=blocked_rules,
                                       session=session)
         else:
             return filtered_rules
     else:
-        return [rule for rule in query.all() if rule[0] not in blacklisted_rules]
+        return [rule for rule in query.all() if rule[0] not in blocked_rules]
 
 
 @read_session
-def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklisted_rules=[], session=None):
+def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blocked_rules=[], session=None):
     """
     Get stuck rules.
 
@@ -1726,7 +1726,7 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklist
     :param worker_number:      id of the executing worker.
     :param delta:              Delta in seconds to select rules in.
     :param limit:              Maximum number of rules to select.
-    :param blacklisted_rules:  Blacklisted rules to filter out.
+    :param blocked_rules:      Blocked rules to filter out.
     :param session:            Database session in use.
     """
     if session.bind.dialect.name == 'oracle':
@@ -1753,18 +1753,18 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklist
 
     if limit:
         fetched_rules = query.limit(limit).all()
-        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blacklisted_rules]
+        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blocked_rules]
         if len(fetched_rules) == limit and not filtered_rules:
             return get_stuck_rules(total_workers=total_workers,
                                    worker_number=worker_number,
                                    delta=delta,
                                    limit=None,
-                                   blacklisted_rules=blacklisted_rules,
+                                   blocked_rules=blocked_rules,
                                    session=session)
         else:
             return filtered_rules
     else:
-        return [rule for rule in query.all() if rule[0] not in blacklisted_rules]
+        return [rule for rule in query.all() if rule[0] not in blocked_rules]
 
 
 @transactional_session
@@ -2614,7 +2614,7 @@ def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
                             possible_rses.extend(parse_expression(rule.rse_expression, filter={'vo': vo}, session=session))
                             # else:
                             #     possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
-                        except (InvalidRSEExpression, RSEBlacklisted, RSEWriteBlocked):
+                        except (InvalidRSEExpression, RSEWriteBlocked):
                             possible_rses = []
                             break
 
@@ -2642,7 +2642,7 @@ def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
                             source_rses = []
                             if rule.source_replica_expression:
                                 source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
-                        except (InvalidRSEExpression, RSEBlacklisted, RSEWriteBlocked) as error:
+                        except (InvalidRSEExpression, RSEWriteBlocked) as error:
                             rule.state = RuleState.STUCK
                             rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
                             rule.save(session=session)

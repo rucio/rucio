@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,17 +14,18 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2013-2016
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2016
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Ilija Vukotic <ivukotic@cern.ch>, 2020
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 
@@ -214,7 +216,7 @@ def add_replicas(rse, files, issuer, ignore_availability=False, vo='def'):
     :param rse: The RSE name.
     :param files: The list of files.
     :param issuer: The issuer account.
-    :param ignore_availability: Ignore the RSE blacklisting.
+    :param ignore_availability: Ignore blocked RSEs.
     :param vo: The VO to act on.
 
     :returns: True is successful, False otherwise
@@ -247,7 +249,7 @@ def delete_replicas(rse, files, issuer, ignore_availability=False, vo='def'):
     :param rse: The RSE name.
     :param files: The list of files.
     :param issuer: The issuer account.
-    :param ignore_availability: Ignore the RSE blacklisting.
+    :param ignore_availability: Ignore blocked RSEs.
     :param vo: The VO to act on.
 
     :returns: True is successful, False otherwise

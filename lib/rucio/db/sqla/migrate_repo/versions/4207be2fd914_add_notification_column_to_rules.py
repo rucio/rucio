@@ -21,12 +21,11 @@
 ''' add notification column to rules '''
 
 import sqlalchemy as sa
-
 from alembic import context, op
-from alembic.op import add_column, drop_constraint, drop_column
+from alembic.op import add_column, drop_column
 
 from rucio.db.sqla.constants import RuleNotification
-
+from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
 revision = '4207be2fd914'
@@ -57,7 +56,7 @@ def downgrade():
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
-        drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
+        try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
         drop_column('rules', 'notification', schema=schema[:-1])
 
     elif context.get_context().dialect.name == 'postgresql':

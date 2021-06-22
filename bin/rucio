@@ -1370,7 +1370,7 @@ def info_rule(args):
                 print('    Last error:           %s' % str(transfer['last_error']))
                 print('    Last source:          %s' % str(transfer['last_source']))
                 print('    Available sources:    %s' % ', '.join([source[0] for source in transfer['sources'] if source[1]]))
-                print('    Blacklisted sources:  %s' % ', '.join([source[0] for source in transfer['sources'] if not source[1]]))
+                print('    Blocklisted sources:  %s' % ', '.join([source[0] for source in transfer['sources'] if not source[1]]))
     else:
         if args.estimate_ttc:
             rule = client.get_replication_rule(rule_id=args.rule_id, estimate_ttc=True)

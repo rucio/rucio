@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
@@ -84,7 +84,7 @@ def rule_repairer(once=False):
                                     worker_number=heartbeat['assign_thread'],
                                     delta=-1 if once else 1800,
                                     limit=100,
-                                    blacklisted_rules=[key for key in paused_rules])
+                                    blocked_rules=[key for key in paused_rules])
 
             logging.debug('rule_repairer[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'], time.time() - start, len(rules)))
 

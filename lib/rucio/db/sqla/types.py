@@ -1,4 +1,5 @@
-# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,9 +19,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import uuid
 
@@ -46,7 +45,10 @@ class GUID(TypeDecorator):
     otherwise uses CHAR(32), storing as stringified hex values.
 
     """
+
     impl = CHAR
+
+    cache_ok = True
 
     def load_dialect_impl(self, dialect):
         if dialect.name == 'postgresql':
@@ -92,6 +94,8 @@ class BooleanString(TypeDecorator):
 
     impl = String
 
+    cache_ok = True
+
     def load_dialect_imp(self, dialect):
         return dialect.type_descriptor(String(255))
 
@@ -133,6 +137,8 @@ class JSON(TypeDecorator):
 
     impl = types.JSON
 
+    cache_ok = True
+
     def load_dialect_impl(self, dialect):
         if dialect.name == 'postgresql':
             return dialect.type_descriptor(JSONB())
@@ -150,6 +156,8 @@ class InternalAccountString(TypeDecorator):
     """
 
     impl = String
+
+    cache_ok = True
 
     def load_dialect_imp(self, dialect):
         return dialect.type_descriptor(String(255))
@@ -181,6 +189,8 @@ class InternalScopeString(TypeDecorator):
     """
 
     impl = String
+
+    cache_ok = True
 
     def load_dialect_imp(self, dialect):
         return dialect.type_descriptor(String(255))

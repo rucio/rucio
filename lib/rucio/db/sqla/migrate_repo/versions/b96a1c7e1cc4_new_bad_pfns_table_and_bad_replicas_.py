@@ -23,7 +23,6 @@
 import datetime
 
 import sqlalchemy as sa
-
 from alembic import context, op
 from alembic.op import (create_primary_key, create_check_constraint,
                         drop_constraint, create_table, create_foreign_key,
@@ -31,7 +30,7 @@ from alembic.op import (create_primary_key, create_check_constraint,
                         drop_index)
 
 from rucio.db.sqla.constants import BadPFNStatus
-
+from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
 revision = 'b96a1c7e1cc4'
@@ -59,7 +58,7 @@ def upgrade():
         create_primary_key('BAD_PFNS_PK', 'bad_pfns', ['path', 'state'])
         create_foreign_key('BAD_PFNS_ACCOUNT_FK', 'bad_pfns', 'accounts', ['account'], ['account'])
 
-        drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas', type_='check')
+        try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas')
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
 
@@ -140,7 +139,7 @@ def downgrade():
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
-        drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas', type_='check')
+        try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas')
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 

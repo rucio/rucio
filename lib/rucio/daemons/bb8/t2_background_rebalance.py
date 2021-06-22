@@ -1,17 +1,24 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2017-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2016-2017
-# - Tomas Javurek, <tomas.javurek@cern.ch>, 2017
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2017-2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 """
 This script is to be used to background rebalance ATLAS t2 datadisks
@@ -109,13 +116,13 @@ for src in rses_over_ratio:
         print('  %s' % (src['rse']))
         rses_over_ratio.remove(src)
 
-print('Excluding RSEs as desetinations which are blacklisted:')
+print('Excluding RSEs as desetinations which are blocklisted:')
 for des in rses_under_ratio:
     if des['availability'] != 7:
         print('  %s' % (des['rse']))
         rses_under_ratio.remove(des)
 
-print('Excluding RSEs as sources which are blacklisted:')
+print('Excluding RSEs as sources which are blocklisted:')
 for src in rses_over_ratio:
     if src['availability'] != 7:
         print('  %s' % (src['rse']))
