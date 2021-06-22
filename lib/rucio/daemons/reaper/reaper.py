@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 # Copyright 2016-2021 CERN
 #
@@ -17,18 +18,14 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
-# - Wen Guan <wguan.icedew@gmail.com>, 2016
+# - Wen Guan <wen.guan@cern.ch>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2019-2021
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 
 '''
