@@ -20,8 +20,9 @@
 ''' add a new state LOST in BadFilesStatus '''
 
 from alembic import context
-from alembic.op import create_check_constraint, drop_constraint
+from alembic.op import create_check_constraint
 
+from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
 revision = '3d9813fab443'
@@ -45,4 +46,4 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
-        drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas', type_='check')
+        try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas')

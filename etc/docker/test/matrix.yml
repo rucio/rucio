@@ -38,7 +38,6 @@ suites:
   - id: all
     RDBMS:
       - oracle
-      - mysql5
       - mysql8
       - postgres9
       - postgres12

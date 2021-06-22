@@ -23,15 +23,13 @@
 import datetime
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import (create_table, create_primary_key, create_foreign_key,
-                        create_check_constraint, create_index, drop_table,
-                        drop_constraint)
+                        create_check_constraint, create_index, drop_table)
 
 from rucio.db.sqla.constants import ReplicaState, DIDType
 from rucio.db.sqla.types import GUID
-
+from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
 revision = '45378a1e76a8'
@@ -70,7 +68,7 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name == 'oracle':
-        drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas', type_='check')
+        try_drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas')
         drop_table('collection_replicas')
 
     elif context.get_context().dialect.name == 'postgresql':

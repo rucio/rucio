@@ -25,14 +25,17 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 
+from collections import namedtuple
 from json import dumps, loads
-from sqlalchemy.util import KeyedTuple
 
 from rucio.api.permission import has_permission
 from rucio.common.exception import InvalidObject, AccessDenied
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import subscription
+
+
+SubscriptionRuleState = namedtuple('SubscriptionRuleState', ['account', 'name', 'state', 'count'])
 
 
 def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, priority=None, issuer=None, vo='def'):
@@ -193,7 +196,7 @@ def list_subscription_rule_states(name=None, account=None, vo='def'):
     :param name: Name of the subscription
     :param account: Account identifier
     :param vo: The VO to act on.
-    :returns: List with tuple (account, name, state, count)
+    :returns: Sequence with SubscriptionRuleState named tuples (account, name, state, count)
     """
     if account is not None:
         account = InternalAccount(account, vo=vo)
@@ -201,11 +204,10 @@ def list_subscription_rule_states(name=None, account=None, vo='def'):
         account = InternalAccount('*', vo=vo)
     subs = subscription.list_subscription_rule_states(name, account)
     for sub in subs:
-        # sub is an immutable KeyedTuple so return new KeyedTuple with edited entries
-        labels = sub._fields
+        # sub is an immutable Row so return new named tuple with edited entries
         d = sub._asdict()
         d['account'] = d['account'].external
-        yield KeyedTuple([d[label] for label in labels], labels=labels)
+        yield SubscriptionRuleState(**d)
 
 
 def delete_subscription(subscription_id, vo='def'):

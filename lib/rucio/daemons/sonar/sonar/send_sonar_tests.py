@@ -20,7 +20,7 @@ from __future__ import print_function
 import sys
 
 from rucio.client.client import Client
-from rucio.common.exception import (DuplicateRule, RSEBlacklisted, RSEWriteBlocked,
+from rucio.common.exception import (DuplicateRule, RSEWriteBlocked,
                                     ReplicationRuleCreationTemporaryFailed)
 
 
@@ -83,7 +83,7 @@ def main():
         print(msg)
         msg = "Set rule with rule_id %s." % (rule_id[0])
         print(msg)
-    except (DuplicateRule, RSEBlacklisted, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed) as exception:
+    except (DuplicateRule, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed) as exception:
         print(str(exception))
 
 

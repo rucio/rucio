@@ -215,9 +215,9 @@ def get_token(token_method, acc=None, vo=None, idt=None, pwd=None):
         return None
     try:
         if pwd:
-            token = token_method(acc, idt, pwd, 'webui', request.environ.get('REMOTE_ADDR'), vo=vo).token
+            token = token_method(acc, idt, pwd, 'webui', request.environ.get('REMOTE_ADDR'), vo=vo).get('token')
         else:
-            token = token_method(acc, idt, 'webui', request.environ.get('REMOTE_ADDR'), vo=vo).token
+            token = token_method(acc, idt, 'webui', request.environ.get('REMOTE_ADDR'), vo=vo).get('token')
         return token
     except:
         return None

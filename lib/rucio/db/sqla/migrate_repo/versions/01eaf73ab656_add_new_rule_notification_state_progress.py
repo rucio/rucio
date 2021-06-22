@@ -21,8 +21,9 @@
 ''' add new rule notification state progress '''
 
 from alembic import context, op
-from alembic.op import create_check_constraint, drop_constraint
+from alembic.op import create_check_constraint
 
+from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
 revision = '01eaf73ab656'
@@ -37,7 +38,7 @@ def upgrade():
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
-        drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
+        try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C', 'P')")
 
@@ -64,7 +65,7 @@ def downgrade():
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
-        drop_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules', type_='check')
+        try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C')")
 

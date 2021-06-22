@@ -34,12 +34,11 @@ from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (CannotAuthenticate, DatabaseException)
 from rucio.common.exception import Duplicate
 from rucio.common.types import InternalAccount
-from rucio.common.utils import oidc_identity_string
 from rucio.core.account import add_account
 from rucio.core.authentication import redirect_auth_oidc, validate_auth_token
 from rucio.core.identity import add_account_identity
-from rucio.core.oidc import (get_auth_oidc, get_token_oidc,
-                             get_token_for_account_operation, EXPECTED_OIDC_AUDIENCE, EXPECTED_OIDC_SCOPE)
+from rucio.core.oidc import (get_auth_oidc, get_token_oidc, get_token_for_account_operation,
+                             EXPECTED_OIDC_AUDIENCE, EXPECTED_OIDC_SCOPE, oidc_identity_string)
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType
 from rucio.db.sqla.constants import IdentityType
@@ -161,12 +160,14 @@ def get_oauth_session_row(account, state=None, session=None):
     return result
 
 
-def get_token_row(access_token, account=None, session=None):
+def get_token_row(access_token, account=None, session=None) -> models.Token:
     if account:
-        result = session.query(models.Token).filter_by(account=account, token=access_token).all()  # pylint: disable=no-member
+        token = session.get(models.Token, access_token)
+        if token:
+            assert token.account == account
+        return token
     else:
-        result = session.query(models.Token).filter_by(token=access_token).all()  # pylint: disable=no-member
-    return result
+        return session.get(models.Token, access_token)
 
 
 class MockADMINClientISSOIDC(MagicMock):
@@ -324,33 +325,33 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         """
         if not account:
             account = self.account
-        try:
 
-            kwargs = {'auth_scope': 'openid profile',
-                      'audience': 'rucio',
-                      'issuer': 'dummy_admin_iss_nickname',
-                      'auto': auto,
-                      'polling': polling,
-                      'refresh_lifetime': 96,
-                      'ip': None,
-                      'webhome': 'https://rucio-test.cern.ch/ui'
-                      }
-            auth_url = get_auth_oidc(account, session=session, **kwargs)
-            # get the state from the auth_url and add an arbitrary code value to the query string
-            # to mimick a return of IdP with authz_code
+        kwargs = {
+            'auth_scope': 'openid profile',
+            'audience': 'rucio',
+            'issuer': 'dummy_admin_iss_nickname',
+            'auto': auto,
+            'polling': polling,
+            'refresh_lifetime': 96,
+            'ip': None,
+            'webhome': 'https://rucio-test.cern.ch/ui',
+        }
+        auth_url = get_auth_oidc(account, session=session, **kwargs)
+        print("[get_auth_init_and_mock_response] got auth_url:", auth_url)
+        # get the state from the auth_url and add an arbitrary code value to the query string
+        # to mimick a return of IdP with authz_code
+        urlparsed = urlparse(auth_url)
+        if ('_polling' in auth_url) or (not polling and not auto):
+            auth_url = redirect_auth_oidc(urlparsed.query, session=session)
+            print("[get_auth_init_and_mock_response] got redirect auth_url:", auth_url)
             urlparsed = urlparse(auth_url)
-            urlparams = parse_qs(urlparsed.query)
-            if ('_polling' in auth_url) or (not polling and not auto):
-                auth_url = redirect_auth_oidc(urlparsed.query, session=session)
-
-            urlparsed = urlparse(auth_url)
-            urlparams = parse_qs(urlparsed.query)
-            state = urlparams["state"][0]
-            nonce = urlparams["nonce"][0]
-            auth_query_string = "state=" + state + "&code=" + code_response
-            return {'state': state, 'nonce': nonce, 'auth_url': auth_url, 'auth_query_string': auth_query_string}
-        except:
-            print(traceback.format_exc())
+        urlparams = parse_qs(urlparsed.query)
+        assert 'state' in urlparams
+        state = urlparams["state"][0]
+        assert 'nonce' in urlparams
+        nonce = urlparams["nonce"][0]
+        auth_query_string = "state=" + state + "&code=" + code_response
+        return {'state': state, 'nonce': nonce, 'auth_url': auth_url, 'auth_query_string': auth_query_string}
 
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
@@ -586,7 +587,7 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         token_dict = get_token_oidc(auth_init_response['auth_query_string'], session=self.db_session)
         assert token_dict
         assert token_dict['webhome'] is not None
-        assert token_dict['token'].token == access_token
+        assert token_dict['token']['token'] == access_token
         # not checking the account specifically as it may be that the
         # identity was registered for other accounts in previous tests
         db_token = get_token_row(access_token, session=self.db_session)
@@ -691,9 +692,8 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert token_dict
         db_token = get_token_row(access_token, account=self.account, session=self.db_session)
         assert db_token
-        for token in db_token:
-            assert token.token == access_token
-            assert token.refresh_token == refresh_token
+        assert db_token.token == access_token
+        assert db_token.refresh_token == refresh_token
 
     @patch('rucio.core.oidc.JWS')
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
@@ -731,8 +731,7 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         # most importantly, check that the token was saved in Rucio DB
         db_token = get_token_row(access_token, account=self.account, session=self.db_session)
         assert db_token
-        for token in db_token:
-            assert token.token == access_token
+        assert db_token.token == access_token
 
     @patch('rucio.core.oidc.JWS')
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
@@ -840,17 +839,17 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert db_token
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert 'https://test_issuer/' in new_token_dict['identity']
-        assert self.adminClientSUB in new_token_dict['identity']
+        assert 'https://test_issuer/' in db_token.identity
+        assert self.adminClientSUB in db_token.identity
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_scope == new_token_dict['oidc_scope']
+        assert req_scope == db_token.oidc_scope
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_audience == new_token_dict['audience']
+        assert req_audience == db_token.audience
         # ---------------------------
         # Check that the resulting token is NOT same as original
-        assert not token_dict['token'] == new_token_dict['token']
+        assert token_dict['token'] != new_token_dict['token']
         # -----
         # check that result is as expected
         assert expected_access_token == new_token_dict['token']
@@ -939,15 +938,15 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert db_token
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert 'https://test_issuer/' in new_token_dict['identity']
+        assert 'https://test_issuer/' in db_token.identity
         # and that the SUB claim is as expected the admin client_id
-        assert self.adminClientSUB in new_token_dict['identity']
+        assert self.adminClientSUB in db_token.identity
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_scope == new_token_dict['oidc_scope']
+        assert req_scope == db_token.oidc_scope
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_audience == new_token_dict['audience']
+        assert req_audience == db_token.audience
         # ---------------------------
         # check that the not expected token is not in the DB
         db_token = get_token_row(not_expected_access_token, session=self.db_session)
@@ -1118,14 +1117,14 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert db_token
         # ---------------------------
         # Check hat the final result has issuer same as admin OIDC identity issuer of the subject token
-        assert (('https://test_issuer/' in new_token_dict['identity']) and (self.adminClientSUB in new_token_dict['identity'])
-                or (('https://test_other_issuer/' in new_token_dict['identity']) and (self.adminClientSUB_otherISS in new_token_dict['identity'])))  # NOQA: W503
+        assert (('https://test_issuer/' in db_token.identity) and (self.adminClientSUB in db_token.identity)
+                or (('https://test_other_issuer/' in db_token.identity) and (self.adminClientSUB_otherISS in db_token.identity)))  # NOQA: W503
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_scope == new_token_dict['oidc_scope']
+        assert req_scope == db_token.oidc_scope
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_audience == new_token_dict['audience']
+        assert req_audience == db_token.audience
         # Check that it has the expected token string
         assert (expected_access_token_1 == new_token_dict['token']) or (expected_access_token_2 == new_token_dict['token'])
 
@@ -1196,13 +1195,14 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert db_token
         # ---------------------------
         # Check hat the final result has issuer and sub claim as expected
-        assert ('https://test_other_issuer/' in new_token_dict['identity']) and (self.adminClientSUB_otherISS in new_token_dict['identity'])
+        assert 'https://test_other_issuer/' in db_token.identity
+        assert self.adminClientSUB_otherISS in db_token.identity
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_scope == new_token_dict['oidc_scope']
+        assert req_scope == db_token.oidc_scope
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_audience == new_token_dict['audience']
+        assert req_audience == db_token.audience
         # Check that it has the expected token string
         assert expected_access_token == new_token_dict['token']
 
@@ -1280,13 +1280,13 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert db_token
         # ---------------------------
         # Check hat the final result has issuer and sub claim as expected
-        assert ('https://test_issuer/' in new_token_dict['identity']) and (self.adminClientSUB in new_token_dict['identity'])
+        assert ('https://test_issuer/' in db_token.identity) and (self.adminClientSUB in db_token.identity)
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_scope == new_token_dict['oidc_scope']
+        assert req_scope == db_token.oidc_scope
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_audience == new_token_dict['audience']
+        assert req_audience == db_token.audience
         # Check that it has the expected token string
         assert preexisting_final_access_token == new_token_dict['token']
 
@@ -1351,13 +1351,13 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert db_token
         # ---------------------------
         # Check hat the final result has issuer and sub claim as expected
-        assert ('https://test_other_issuer/' in new_token_dict['identity']) and (self.adminClientSUB_otherISS in new_token_dict['identity'])
+        assert ('https://test_other_issuer/' in db_token.identity) and (self.adminClientSUB_otherISS in db_token.identity)
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_scope == new_token_dict['oidc_scope']
+        assert req_scope == db_token.oidc_scope
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_audience == new_token_dict['audience']
+        assert req_audience == db_token.audience
         # Check that it has the expected token string
         assert preexisting_final_access_token == new_token_dict['token']
 
@@ -1414,14 +1414,14 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert db_token
         # ---------------------------
         # Check hat the final result has issuer same as admin OIDC identity issuer of the subject token
-        assert (('https://test_issuer/' in new_token_dict['identity']) and (self.adminClientSUB in new_token_dict['identity'])
-                or (('https://test_other_issuer/' in new_token_dict['identity']) and (self.adminClientSUB_otherISS in new_token_dict['identity'])))  # NOQA: W503
+        assert (('https://test_issuer/' in db_token.identity) and (self.adminClientSUB in db_token.identity)
+                or (('https://test_other_issuer/' in db_token.identity) and (self.adminClientSUB_otherISS in db_token.identity)))  # NOQA: W503
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_scope == new_token_dict['oidc_scope']
+        assert req_scope == db_token.oidc_scope
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_audience == new_token_dict['audience']
+        assert req_audience == db_token.audience
         # Check that it has the expected token string
         assert (expected_access_token_1 == new_token_dict['token']) or (expected_access_token_2 == new_token_dict['token'])
 
@@ -1492,13 +1492,14 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert db_token
         # ---------------------------
         # Check hat the final result has issuer and sub claim as expected
-        assert ('https://test_other_issuer/' in new_token_dict['identity']) and (self.adminClientSUB_otherISS in new_token_dict['identity'])
+        assert 'https://test_other_issuer/' in db_token.identity
+        assert self.adminClientSUB_otherISS in db_token.identity
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_scope == new_token_dict['oidc_scope']
+        assert req_scope == db_token.oidc_scope
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_audience == new_token_dict['audience']
+        assert req_audience == db_token.audience
         # Check that it has the expected token string
         assert expected_access_token == new_token_dict['token']
 
@@ -1576,13 +1577,13 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert db_token
         # ---------------------------
         # Check hat the final result has issuer and sub claim as expected
-        assert ('https://test_issuer/' in new_token_dict['identity']) and (self.adminClientSUB in new_token_dict['identity'])
+        assert ('https://test_issuer/' in db_token.identity) and (self.adminClientSUB in db_token.identity)
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_scope == new_token_dict['oidc_scope']
+        assert req_scope == db_token.oidc_scope
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_audience == new_token_dict['audience']
+        assert req_audience == db_token.audience
         # Check that it has the expected token string
         assert preexisting_final_access_token == new_token_dict['token']
 
@@ -1647,13 +1648,14 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert db_token
         # ---------------------------
         # Check hat the final result has issuer and sub claim as expected
-        assert ('https://test_other_issuer/' in new_token_dict['identity']) and (self.adminClientSUB_otherISS in new_token_dict['identity'])
+        assert 'https://test_other_issuer/' in db_token.identity
+        assert self.adminClientSUB_otherISS in db_token.identity
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_scope == new_token_dict['oidc_scope']
+        assert req_scope == db_token.oidc_scope
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_audience == new_token_dict['audience']
+        assert req_audience == db_token.audience
         # Check that it has the expected token string
         assert preexisting_final_access_token == new_token_dict['token']
 
@@ -1667,13 +1669,14 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert db_token
         # ---------------------------
         # Check hat the final result has issuer and sub claim as expected
-        assert ('https://test_other_issuer/' in new_token_dict['identity']) and (self.adminClientSUB_otherISS in new_token_dict['identity'])
+        assert 'https://test_other_issuer/' in db_token.identity
+        assert self.adminClientSUB_otherISS in db_token.identity
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_scope == new_token_dict['oidc_scope']
+        assert req_scope == db_token.oidc_scope
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_audience == new_token_dict['audience']
+        assert req_audience == db_token.audience
         # Check that it has the expected token string
         assert preexisting_final_access_token == new_token_dict['token']
 
@@ -1749,17 +1752,17 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert db_token
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert 'https://test_issuer/' in new_token_dict['identity']
-        assert 'knownsub' in new_token_dict['identity']
+        assert 'https://test_issuer/' in db_token.identity
+        assert 'knownsub' in db_token.identity
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_scope == new_token_dict['oidc_scope']
+        assert req_scope == db_token.oidc_scope
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
-        assert req_audience == new_token_dict['audience']
+        assert req_audience == db_token.audience
         # ---------------------------
         # Check that the resulting token is NOT same as original
-        assert not preexisting_user_access_token == new_token_dict['token']
+        assert preexisting_user_access_token != new_token_dict['token']
         # -----
         # check that result is as expected
         assert expected_access_token == new_token_dict['token']
@@ -1846,10 +1849,10 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         # Check of token being in DB under the expected account
         db_token = get_token_row(new_token_dict['token'], account=final_token_account, session=self.db_session)
         assert db_token
-        assert 'https://test_issuer/' in new_token_dict['identity']
-        assert 'knownsub' in new_token_dict['identity']
-        assert req_scope == new_token_dict['oidc_scope']
-        assert req_audience == new_token_dict['audience']
+        assert 'https://test_issuer/' in db_token.identity
+        assert 'knownsub' in db_token.identity
+        assert req_scope == db_token.oidc_scope
+        assert req_audience == db_token.audience
         assert preexisting_final_user_access_token == new_token_dict['token']
         assert hypothetical_exchange_access_token != new_token_dict['token']
 

@@ -473,9 +473,9 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 # Check if the RSE is a staging area
                 if rse['staging_area']:
                     staging_areas.append(rse['rse'])
-                # Check if RSE is blacklisted
+                # Check if RSE is blocklisted
                 if rse['availability'] % 2 == 0:
-                    logger(logging.DEBUG, 'RSE %s is blacklisted for delete', rse['rse'])
+                    logger(logging.DEBUG, 'RSE %s is blocklisted for delete', rse['rse'])
                     continue
                 needed_free_space, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], greedy=greedy, logger=logger)
                 if needed_free_space:

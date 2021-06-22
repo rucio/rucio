@@ -21,10 +21,10 @@
 ''' added staging_area column '''
 
 import sqlalchemy as sa
-
 from alembic import context, op
 from alembic.op import add_column, create_check_constraint, drop_constraint, drop_column
 
+from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
 revision = '3152492b110b'
@@ -40,7 +40,7 @@ def upgrade():
 
     if context.get_context().dialect.name == 'oracle':
         add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False))
-        drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
+        try_drop_constraint('REQUESTS_TYPE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
@@ -70,8 +70,8 @@ def downgrade():
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
-        drop_constraint('RSE_STAGING_AREA_CHK', 'rses', type_='check')
-        drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
+        try_drop_constraint('RSE_STAGING_AREA_CHK', 'rses')
+        try_drop_constraint('REQUESTS_TYPE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T')")
         drop_column('rses', 'staging_area')

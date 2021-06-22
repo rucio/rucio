@@ -36,38 +36,28 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 
-from __future__ import division
-
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
-
 import json
+from io import StringIO
+from re import match
+
 import sqlalchemy
 import sqlalchemy.orm
-
-from re import match
-from six import string_types
-
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
-
+from six import string_types
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.sql.expression import or_, false
 
 import rucio.core.account_counter
-
-from rucio.core.rse_counter import add_counter, get_counter
 from rucio.common import exception, utils
 from rucio.common.config import get_lfn2pfn_algorithm_default, config_get
 from rucio.common.utils import CHECKSUM_KEY, is_checksum_valid, GLOBALLY_SUPPORTED_CHECKSUMS
+from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
-
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
@@ -1364,7 +1354,7 @@ def delete_qos_policy(rse_id, qos_policy, session=None):
     """
 
     try:
-        session.query(models.RSEQoSAssociation.qos_policy).filter_by(rse_id=rse_id, qos_policy=qos_policy).delete()
+        session.query(models.RSEQoSAssociation).filter_by(rse_id=rse_id, qos_policy=qos_policy).delete()
     except DatabaseError as error:
         raise exception.RucioException(error.args)
 

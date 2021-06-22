@@ -21,8 +21,9 @@
 ''' add mismatch scheme state to requests '''
 
 from alembic import context, op
-from alembic.op import create_check_constraint, drop_constraint
+from alembic.op import create_check_constraint
 
+from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
 revision = '21d6b9dc9961'
@@ -37,7 +38,7 @@ def upgrade():
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
-        drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W', 'M')")
 
@@ -59,7 +60,7 @@ def downgrade():
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
-        drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W')")
 

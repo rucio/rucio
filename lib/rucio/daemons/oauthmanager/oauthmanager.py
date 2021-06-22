@@ -68,6 +68,8 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100):
     """
 
     executable = 'oauth-manager'
+    total_workers = 0
+    worker_number = 0
 
     sanity_check(executable=executable, hostname=socket.gethostname())
 
@@ -99,16 +101,16 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100):
         except (DatabaseException, DatabaseError) as err:
             if match('.*QueuePool.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
             elif match('.*ORA-03135.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
             else:
                 logging.critical(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
         except Exception as err:
             logging.critical(traceback.format_exc())
-            record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+            record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
 
         try:
             # waiting 1 sec as DBs does not store milisecond and tokens
@@ -125,16 +127,16 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100):
         except (DatabaseException, DatabaseError) as err:
             if match('.*QueuePool.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
             elif match('.*ORA-03135.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
             else:
                 logging.critical(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
         except Exception as err:
             logging.critical(traceback.format_exc())
-            record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+            record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
 
         try:
             # DELETING EXPIRED OAUTH SESSION PARAMETERS
@@ -148,16 +150,16 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100):
         except (DatabaseException, DatabaseError) as err:
             if match('.*QueuePool.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
             elif match('.*ORA-03135.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
             else:
                 logging.critical(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
         except Exception as err:
             logging.critical(traceback.format_exc())
-            record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+            record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
 
         tottime = time.time() - start
         logging.info('oauth_manager[%i/%i]: took %f seconds to delete %i tokens, %i session parameters and refreshed %i tokens', worker_number, total_workers, tottime, ndeleted, ndeletedreq, nrefreshed)
