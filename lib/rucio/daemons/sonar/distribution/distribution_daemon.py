@@ -36,7 +36,7 @@ import rucio.db.sqla.util
 from rucio.client.client import Client
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.common.exception import DuplicateRule, InsufficientAccountLimit, RSEBlacklisted, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed
+from rucio.common.exception import DuplicateRule, InsufficientAccountLimit, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed
 from rucio.common.logging import setup_logging
 
 GRACEFUL_STOP = threading.Event()
@@ -99,7 +99,7 @@ def distribute_files(client, data_dir='small_sonar_dataset', dataset_prefix='son
             logging.info('Adding rule for dataset')
             try:
                 client.add_replication_rule([{'scope': scope, 'name': dataset_prefix + site}], 1, site)
-            except (DuplicateRule, RSEBlacklisted, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed,
+            except (DuplicateRule, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed,
                     InsufficientAccountLimit) as exception:
                 msg = 'Error adding replication rule: %s' % (str(exception))
                 logging.warning(msg)

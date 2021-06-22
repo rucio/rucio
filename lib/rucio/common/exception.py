@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,20 +15,19 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2017
-# - Martin Barisits <martin.barisits@cern.ch>, 2012-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2012-2021
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
-# - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
-# - Tobias Wegner <twegner@cern.ch>, 2018
+# - Wen Guan <wen.guan@cern.ch>, 2014-2015
+# - Tobias Wegner <twegner@cern.ch>, 2018-2019
+# - Frank Berghaus <berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020
-#
-# PY3K COMPATIBLE
 
 """
     Exceptions used with Rucio.
@@ -573,16 +573,6 @@ class RSEWriteBlocked(RucioException):
     """
     def __init__(self, *args, **kwargs):
         super(RSEWriteBlocked, self).__init__(*args, **kwargs)
-        self._message = "RSE excluded; not available for writing."
-        self.error_code = 50
-
-
-class RSEBlacklisted(RucioException):
-    """
-    RucioException: To be deprecated at a later time, replaced by RSEWriteBlocked
-    """
-    def __init__(self, *args, **kwargs):
-        super(RSEBlacklisted, self).__init__(*args, **kwargs)
         self._message = "RSE excluded; not available for writing."
         self.error_code = 50
 

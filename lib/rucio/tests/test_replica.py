@@ -19,7 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
@@ -28,8 +28,8 @@
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
@@ -908,8 +908,8 @@ def test_client_list_replicas_on_did_without_replicas(rse_factory, did_factory, 
     # assert list(replica_client.list_replicas(dids=[container]))
 
 
-def test_client_list_blacklisted_replicas(rse_factory, did_factory, replica_client, did_client):
-    """ REPLICA (CLIENT): Blacklisted replicas are filtered in list replicas"""
+def test_client_list_blocklisted_replicas(rse_factory, did_factory, replica_client, did_client):
+    """ REPLICA (CLIENT): Blocklisted replicas are filtered in list replicas"""
 
     rse, _ = rse_factory.make_posix_rse()
     file = did_factory.upload_test_file(rse)

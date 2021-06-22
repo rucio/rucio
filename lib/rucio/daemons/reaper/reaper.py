@@ -17,18 +17,14 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
-# - Wen Guan <wguan.icedew@gmail.com>, 2016
+# - Wen Guan <wen.guan@cern.ch>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2019-2021
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -467,9 +463,9 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 # Check if the RSE is a staging area
                 if rse['staging_area']:
                     staging_areas.append(rse['rse'])
-                # Check if RSE is blacklisted
+                # Check if RSE is blocklisted
                 if rse['availability'] % 2 == 0:
-                    logger(logging.DEBUG, 'RSE %s is blacklisted for delete', rse['rse'])
+                    logger(logging.DEBUG, 'RSE %s is blocklisted for delete', rse['rse'])
                     continue
                 needed_free_space, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], greedy=greedy, logger=logger)
                 if needed_free_space:

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
@@ -40,7 +40,7 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.logging import formatted_logger, setup_logging
-from rucio.common.exception import (DatabaseException, RuleNotFound, RSEBlacklisted, RSEWriteBlocked,
+from rucio.common.exception import (DatabaseException, RuleNotFound, RSEWriteBlocked,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientAccountLimit)
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
@@ -85,7 +85,7 @@ def rule_injector(once=False):
             rules = get_injected_rules(total_workers=heartbeat['nr_threads'],
                                        worker_number=heartbeat['assign_thread'],
                                        limit=100,
-                                       blacklisted_rules=[key for key in paused_rules])
+                                       blocked_rules=[key for key in paused_rules])
             logger(logging.DEBUG, 'index query time %f fetch size is %d' % (time.time() - start, len(rules)))
 
             if not rules and not once:
@@ -115,9 +115,9 @@ def rule_injector(once=False):
                         else:
                             logger(logging.ERROR, 'DatabaseException', exc_info=True)
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-                    except (RSEBlacklisted, RSEWriteBlocked) as e:
+                    except (RSEWriteBlocked) as e:
                         paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
-                        logger(logging.WARNING, 'RSEBlacklisted for rule %s' % rule_id)
+                        logger(logging.WARNING, 'RSEWriteBlocked for rule %s' % rule_id)
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                     except ReplicationRuleCreationTemporaryFailed as e:
                         paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))

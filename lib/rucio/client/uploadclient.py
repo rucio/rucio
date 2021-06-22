@@ -17,9 +17,9 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2021
 # - Tobias Wegner <twegner@cern.ch>, 2018
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2018-2020
 # - Ale Di Girolamo <alessandro.di.girolamo@cern.ch>, 2018
@@ -51,7 +51,7 @@ import random
 
 from rucio.client.client import Client
 from rucio.common.config import config_get_int
-from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifierAlreadyExists, RSEOperationNotSupported,
+from rucio.common.exception import (RucioException, RSEWriteBlocked, DataIdentifierAlreadyExists, RSEOperationNotSupported,
                                     DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded, FileReplicaAlreadyExists,
                                     ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable,
                                     ScopeNotFound)
@@ -116,7 +116,7 @@ class UploadClient:
         :returns: 0 on success
 
         :raises InputValidationError: if any input arguments are in a wrong format
-        :raises RSEBlacklisted: if a given RSE is not available for writing
+        :raises RSEWriteBlocked: if a given RSE is not available for writing
         :raises NoFilesUploaded: if no files were successfully uploaded
         :raises NotAllFilesUploaded: if not all files were successfully uploaded
         """
@@ -145,7 +145,7 @@ class UploadClient:
             if not self.rses.get(rse):
                 rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse, vo=self.client.vo))
                 if rse_settings['availability_write'] != 1:
-                    raise RSEBlacklisted('%s is not available for writing. No actions have been taken' % rse)
+                    raise RSEWriteBlocked('%s is not available for writing. No actions have been taken' % rse)
 
             dataset_scope = file.get('dataset_scope')
             dataset_name = file.get('dataset_name')

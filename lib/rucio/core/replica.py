@@ -636,7 +636,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
 
     :param dids: The list of data identifiers (DIDs).
     :param unavailable: Also include unavailable replicas in the list.
-    :param ignore_availability: Ignore the RSE blacklisting.
+    :param ignore_availability: Ignore the RSE blocklisting.
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param resolve_archives: When set to true, find archives which contain the replicas.
     :param session: The database session in use.
@@ -1279,7 +1279,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
     :param unavailable: Also include unavailable replicas in the list.
     :param request_id: ID associated with the request for debugging.
-    :param ignore_availability: Ignore the RSE blacklisting.
+    :param ignore_availability: Ignore the RSE blocklisting.
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param rse_expression: The RSE expression to restrict list_replicas on a set of RSEs.
     :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
@@ -1489,7 +1489,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     :param rse_id:  The RSE id.
     :param files:   The list of files.
     :param account: The account owner.
-    :param ignore_availability: Ignore the RSE blacklisting.
+    :param ignore_availability: Ignore the RSE blocklisting.
     :param session: The database session in use.
 
     :returns: True is successful.
@@ -1605,7 +1605,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
 
     :param rse_id: the rse id.
     :param files: the list of files to delete.
-    :param ignore_availability: Ignore the RSE blacklisting.
+    :param ignore_availability: Ignore the RSE blocklisting.
     :param session: The database session in use.
     """
     replica_rse = get_rse(rse_id=rse_id, session=session)

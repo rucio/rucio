@@ -16,7 +16,7 @@
 # Authors:
 # - Wen Guan <wen.guan@cern.ch>, 2016
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -220,7 +220,7 @@ def run_once(logger=logging.log, session=None):
             for rse_id in result_dict:
                 rse_name = result_dict[rse_id]['rse']
                 availability = get_rse(rse_id).availability
-                # dest_rse is not blacklisted for write or src_rse is not blacklisted for read
+                # dest_rse is not blocklisted for write or src_rse is not blocklisted for read
                 if (direction == 'destination' and availability & 2) or (direction == 'source' and availability & 4):
                     if all_activities:
                         __release_all_activities(result_dict[rse_id], direction, rse_name, rse_id, logger=logger, session=session)
