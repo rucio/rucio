@@ -1,4 +1,4 @@
-# Copyright 2015-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2021
 
 ''' extend request state '''
 
@@ -45,13 +45,7 @@ def upgrade():
         add_column('requests', sa.Column('submitter_id', sa.Integer()), schema=schema[:-1])
         add_column('sources', sa.Column('is_using', sa.Boolean()), schema=schema[:-1])
 
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
-        create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
-                                condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")
-        add_column('requests', sa.Column('submitter_id', sa.Integer()), schema=schema[:-1])
-        add_column('sources', sa.Column('is_using', sa.Boolean()), schema=schema[:-1])
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+    elif context.get_context().dialect.name == 'mysql':
         op.execute('ALTER TABLE ' + schema + 'requests DROP CHECK REQUESTS_STATE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")
@@ -80,13 +74,7 @@ def downgrade():
         drop_column('requests', 'submitter_id', schema=schema[:-1])
         drop_column('sources', 'is_using', schema=schema[:-1])
 
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
-        create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
-                                condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
-        drop_column('requests', 'submitter_id', schema=schema[:-1])
-        drop_column('sources', 'is_using', schema=schema[:-1])
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+    elif context.get_context().dialect.name == 'mysql':
         op.execute('ALTER TABLE ' + schema + 'requests DROP CHECK REQUESTS_STATE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")

@@ -2,7 +2,6 @@ services:
   rucio:
     image: docker.io/rucio/rucio-dev:py3
     extra_hosts:
-      - "ruciomy5:127.0.0.1"
       - "ruciomy8:127.0.0.1"
       - "oracle:127.0.0.1"
       - "ruciodb:127.0.0.1"
@@ -16,7 +15,6 @@ services:
       - "minio:127.0.0.1"
     ports:
       - "8443:443"
-      - "3305:3305"
       - "3308:3308"
       - "1521:1521"
       - "5432:5432"
@@ -37,15 +35,6 @@ services:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
       - RDBMS=postgres11
-  ruciomy5:
-    image: docker.io/mysql:5
-    network_mode: "service:rucio"
-    environment:
-      - MYSQL_USER=rucio
-      - MYSQL_PASSWORD=rucio
-      - MYSQL_ROOT_PASSWORD=rucio
-      - MYSQL_DATABASE=rucio
-      - MYSQL_TCP_PORT=3305
   ruciomy8:
     image: docker.io/mysql:8
     network_mode: "service:rucio"
