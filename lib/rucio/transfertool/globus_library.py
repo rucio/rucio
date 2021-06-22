@@ -16,23 +16,15 @@
 # - Matt Snyder <msnyder@bnl.gov>, 2019-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
 
-import imp
+import datetime
 import logging
 import os
 
 from rucio.common.config import config_get, config_get_int, get_config_dirs
+from rucio.common.extra import import_extras
 from rucio.core.monitor import record_counter
-import datetime
 
-# Extra modules: Only imported if available
-EXTRA_MODULES = {'globus_sdk': False}
-
-for extra_module in EXTRA_MODULES:
-    try:
-        imp.find_module(extra_module)
-        EXTRA_MODULES[extra_module] = True
-    except ImportError:
-        EXTRA_MODULES[extra_module] = False
+EXTRA_MODULES = import_extras(['globus_sdk'])
 
 if EXTRA_MODULES['globus_sdk']:
     from globus_sdk import NativeAppAuthClient, RefreshTokenAuthorizer, TransferClient, TransferData, DeleteData  # pylint: disable=import-error
