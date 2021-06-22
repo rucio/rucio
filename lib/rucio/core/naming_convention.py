@@ -88,20 +88,19 @@ def get_naming_convention(scope, convention_type, session=None):
 
 
 @transactional_session
-def delete_naming_convention(scope, regexp, convention_type, session=None):
+def delete_naming_convention(scope, convention_type, session=None):
     """
     delete a naming convention for a given scope
 
     :param scope: the name for the scope.
-    :param regexp: the regular expression to validate the name.
+    :param regexp: the regular expression to validate the name. (DEPRECATED)
     :param convention_type: the did_type on which the regexp should apply.
     :param session: The database session in use.
     """
     REGION.delete(scope.internal)
-    return session.query(models.NamingConvention.regexp).\
-        filter(models.NamingConvention.scope == scope).\
-        filter(models.NamingConvention.convention_type == convention_type).\
-        delete()
+    return session.query(models.NamingConvention) \
+        .filter_by(scope=scope, convention_type=convention_type) \
+        .delete()
 
 
 @read_session

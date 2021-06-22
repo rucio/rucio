@@ -447,7 +447,7 @@ def __add_collections_to_container(scope, name, collections, account, session):
     :param session: The database session in use.
     """
 
-    condition = or_()
+    condition = []
     for cond in collections:
 
         if (scope == cond['scope']) and (name == cond['name']):
@@ -460,7 +460,7 @@ def __add_collections_to_container(scope, name, collections, account, session):
     child_type = None
     for row in session.query(models.DataIdentifier.scope,
                              models.DataIdentifier.name,
-                             models.DataIdentifier.did_type).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(condition):
+                             models.DataIdentifier.did_type).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(or_(*condition)):
 
         if row.did_type == DIDType.FILE:
             raise exception.UnsupportedOperation("Adding a file (%s:%s) to a container (%s:%s) is forbidden" % (row.scope, row.name, scope, name))

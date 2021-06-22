@@ -33,11 +33,11 @@ from os import urandom
 from traceback import format_exc
 from typing import TYPE_CHECKING
 
-from alembic import command
+from alembic import command, op
 from alembic.config import Config
 from sqlalchemy import func
 from sqlalchemy.engine import reflection
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, DatabaseError
 from sqlalchemy.schema import CreateSchema, MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
 from sqlalchemy.sql.expression import select, text
 
@@ -302,3 +302,17 @@ def json_implemented(session=None):
         return False
 
     return True
+
+
+def try_drop_constraint(constraint_name, table_name):
+    """
+    Tries to drop the given constrained and returns successfully if the
+    constraint already existed on Oracle databases.
+
+    :param constraint_name: the constraint's name
+    :param table_name: the table name where the constraint resides
+    """
+    try:
+        op.drop_constraint(constraint_name, table_name)
+    except DatabaseError as e:
+        assert 'nonexistent constraint' in str(e)

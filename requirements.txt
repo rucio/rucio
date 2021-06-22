@@ -21,8 +21,8 @@ python-magic>=0.4.15,<0.5.0                                 # dumper_extras; Fil
 #gfal2-python                                                # dumper_extras and gfal2_extras ~~ BROKEN in pypi
 
 # All dependencies needed to run rucio server/daemons should be defined here
-SQLAlchemy==1.3.17                                          # DB backend -- cannot move to 1.3.18-1.3.20 due to MySQL5 NOWAIT bug in SQLAlchemy
-alembic==1.4.3                                              # Lightweight database migration tool for SQLAlchemy
+SQLAlchemy~=1.4.17                                          # DB backend
+alembic~=1.6.5                                              # Lightweight database migration tool for SQLAlchemy
 python-memcached==1.59                                      # Quick and small memcached client for Python3
 python-dateutil==2.8.1                                      # Extensions to the standard datetime module
 stomp.py==6.1.1                                             # ActiveMQ Messaging Protocol

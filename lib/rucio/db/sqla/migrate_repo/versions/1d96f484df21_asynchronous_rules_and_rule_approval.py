@@ -21,11 +21,10 @@
 ''' asynchronous rules and rule approval '''
 
 import sqlalchemy as sa
-
 from alembic import context, op
-from alembic.op import (add_column, create_check_constraint,
-                        drop_constraint, drop_column)
+from alembic.op import add_column, create_check_constraint, drop_column
 
+from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
 revision = '1d96f484df21'
@@ -41,7 +40,7 @@ def upgrade():
 
     if context.get_context().dialect.name == 'oracle':
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False))
-        drop_constraint('RULES_STATE_CHK', 'rules')
+        try_drop_constraint('RULES_STATE_CHK', 'rules')
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 
     elif context.get_context().dialect.name == 'postgresql':
@@ -70,7 +69,7 @@ def downgrade():
 
     if context.get_context().dialect.name == 'oracle':
         drop_column('rules', 'ignore_account_limit')
-        drop_constraint('RULES_STATE_CHK', 'rules')
+        try_drop_constraint('RULES_STATE_CHK', 'rules')
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
 
     elif context.get_context().dialect.name == 'postgresql':

@@ -35,7 +35,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020-2021
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
 
@@ -48,15 +48,17 @@ from collections import defaultdict
 from copy import deepcopy
 from curses.ascii import isprint
 from datetime import datetime, timedelta
+from hashlib import sha256
 from json import dumps
 from re import match
-import requests
-from traceback import format_exc
 from struct import unpack
-from hashlib import sha256
+from traceback import format_exc
 
+import requests
+from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
 from six import string_types
-from sqlalchemy import func, and_, or_, exists, not_, update
+from sqlalchemy import func, and_, or_, exists, not_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
@@ -79,9 +81,6 @@ from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailab
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
                                    DEFAULT_SCHEMA_NAME, BASE)
 from rucio.rse import rsemanager as rsemgr
-
-from dogpile.cache import make_region
-from dogpile.cache.api import NO_VALUE
 
 REGION = make_region().configure('dogpile.cache.memory', expiration_time=60)
 
@@ -395,9 +394,10 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
 
         if status == BadFilesStatus.BAD and declared_replicas != []:
             # For BAD file, we modify the replica state, not for suspicious
-            query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
-                with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
-                filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*path_clause))
+            query = session.query(models.RSEFileAssociation) \
+                .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle') \
+                .filter(models.RSEFileAssociation.rse_id == rse_id) \
+                .filter(or_(*path_clause))
             rowcount = query.update({'state': ReplicaState.BAD})
             if rowcount != len(declared_replicas):
                 # there shouldn't be any exceptions since all replicas exist
@@ -849,11 +849,11 @@ def _list_replicas_for_files(file_clause, state_clause, files_wo_replica, rse_cl
         return
 
     for replica_condition in chunks(file_clause, 50):
-
-        filters = [models.RSEFileAssociation.rse_id == models.RSE.id,
-                   models.RSE.deleted == false(),
-                   or_(*replica_condition),
-                   ]
+        filters = [
+            models.RSEFileAssociation.rse_id == models.RSE.id,
+            models.RSE.deleted == false(),
+            or_(*replica_condition),
+        ]
 
         if not ignore_availability:
             filters.append(models.RSE.availability.in_((4, 5, 6, 7)))
@@ -861,32 +861,30 @@ def _list_replicas_for_files(file_clause, state_clause, files_wo_replica, rse_cl
         if state_clause is not None:
             filters.append(state_clause)
 
-        if rse_clause is not None:
+        if rse_clause:
             filters.append(or_(*rse_clause))
 
         if updated_after:
             filters.append(models.RSEFileAssociation.updated_at >= updated_after)
 
-        whereclause = and_(*filters)
+        replica_query = session.query(
+            models.RSEFileAssociation.scope,
+            models.RSEFileAssociation.name,
+            models.RSEFileAssociation.bytes,
+            models.RSEFileAssociation.md5,
+            models.RSEFileAssociation.adler32,
+            models.RSEFileAssociation.path,
+            models.RSEFileAssociation.state,
+            models.RSE.id,
+            models.RSE.rse,
+            models.RSE.rse_type,
+            models.RSE.volatile,
+        ) \
+            .filter(and_(*filters)) \
+            .order_by(models.RSEFileAssociation.scope, models.RSEFileAssociation.name) \
+            .with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle')
 
-        replica_query = select(columns=(models.RSEFileAssociation.scope,
-                                        models.RSEFileAssociation.name,
-                                        models.RSEFileAssociation.bytes,
-                                        models.RSEFileAssociation.md5,
-                                        models.RSEFileAssociation.adler32,
-                                        models.RSEFileAssociation.path,
-                                        models.RSEFileAssociation.state,
-                                        models.RSE.id,
-                                        models.RSE.rse,
-                                        models.RSE.rse_type,
-                                        models.RSE.volatile),
-                               whereclause=whereclause,
-                               order_by=(models.RSEFileAssociation.scope,
-                                         models.RSEFileAssociation.name)).\
-            with_hint(models.RSEFileAssociation.scope, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
-            compile()
-
-        for scope, name, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile in session.execute(replica_query.statement, replica_query.params).fetchall():
+        for scope, name, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_query.all():
             {'scope': scope, 'name': name} in files_wo_replica and files_wo_replica.remove({'scope': scope, 'name': name})
             yield scope, name, None, None, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile
 
@@ -1379,7 +1377,7 @@ def __bulk_add_file_dids(files, account, dataset_meta=None, session=None):
     :param session: The database session in use.
     :returns: True is successful.
     """
-    condition = or_()
+    condition = []
     for f in files:
         condition.append(and_(models.DataIdentifier.scope == f['scope'], models.DataIdentifier.name == f['name'], models.DataIdentifier.did_type == DIDType.FILE))
 
@@ -1387,7 +1385,7 @@ def __bulk_add_file_dids(files, account, dataset_meta=None, session=None):
                       models.DataIdentifier.name,
                       models.DataIdentifier.bytes,
                       models.DataIdentifier.adler32,
-                      models.DataIdentifier.md5).with_hint(models.DataIdentifier, "INDEX(dids DIDS_PK)", 'oracle').filter(condition)
+                      models.DataIdentifier.md5).with_hint(models.DataIdentifier, "INDEX(dids DIDS_PK)", 'oracle').filter(or_(*condition))
     available_files = [dict([(column, getattr(row, column)) for column in row._fields]) for row in q]
     new_files = list()
     for file in files:
@@ -1437,13 +1435,13 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
     """
     nbfiles, bytes = 0, 0
     # Check for the replicas already available
-    condition = or_()
+    condition = []
     for f in files:
         condition.append(and_(models.RSEFileAssociation.scope == f['scope'], models.RSEFileAssociation.name == f['name'], models.RSEFileAssociation.rse_id == rse_id))
 
     query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
         with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
-        filter(condition)
+        filter(or_(*condition))
     available_replicas = [dict([(column, getattr(row, column)) for column in row._fields]) for row in query]
 
     default_tombstone_delay = next(iter(get_rse_attribute('tombstone_delay', rse_id=rse_id, session=session)), None)
@@ -3264,11 +3262,24 @@ def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
     :param tombstone: the tombstone to set. Default is OBSOLETE
     :param session: database session in use.
     """
-    stmt = update(models.RSEFileAssociation).where(and_(models.RSEFileAssociation.rse_id == rse_id, models.RSEFileAssociation.name == name, models.RSEFileAssociation.scope == scope,
-                                                        ~session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rse_id=rse_id).exists()))\
-                                            .values(tombstone=tombstone)
-    result = session.execute(stmt)
-    if not result.rowcount:
+    rowcount = session.query(models.RSEFileAssociation).filter(
+        and_(
+            models.RSEFileAssociation.rse_id == rse_id,
+            models.RSEFileAssociation.name == name,
+            models.RSEFileAssociation.scope == scope,
+            ~exists().where(
+                and_(
+                    models.ReplicaLock.rse_id == rse_id,
+                    models.ReplicaLock.name == name,
+                    models.ReplicaLock.scope == scope,
+                )
+            )
+        )
+    ) \
+        .with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle') \
+        .update({models.RSEFileAssociation.tombstone: tombstone}, synchronize_session=False)
+
+    if rowcount == 0:
         try:
             session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).one()
             raise exception.ReplicaIsLocked('Replica %s:%s on RSE %s is locked.' % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
