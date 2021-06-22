@@ -678,14 +678,7 @@ class FTS3Transfertool(Transfertool):
         for file_resp in fts_files_response:
             # for multiple source replicas jobs, the file_metadata(request_id) will be the same.
             # The next used file will overwrite the current used one. Only the last used file will return.
-            if file_resp['file_state'] == 'NOT_USED':
-                continue
-
-            # not terminated job
-            if file_resp['file_state'] not in [FTS_STATE.FAILED,
-                                               FTS_STATE.FINISHEDDIRTY,
-                                               FTS_STATE.CANCELED,
-                                               FTS_STATE.FINISHED]:
+            if multi_sources and file_resp['file_state'] == 'NOT_USED':
                 continue
 
             if file_resp['start_time'] is None or file_resp['finish_time'] is None:
