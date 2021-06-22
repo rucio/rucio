@@ -129,8 +129,8 @@ class UserPass(ErrorHandlingMethodView):
         if not result:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot authenticate to account {account} with given credentials', headers=headers)
 
-        headers['X-Rucio-Auth-Token'] = result.token
-        headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result.expired_at)
+        headers['X-Rucio-Auth-Token'] = result['token']
+        headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result['expires_at'])
         return '', 200, headers
 
 
@@ -404,8 +404,8 @@ class TokenOIDC(ErrorHandlingMethodView):
         if not result:
             return generate_http_error_flask(401, CannotAuthorize.__name__, 'Cannot authorize token request.', headers=headers)
         if 'token' in result and 'webhome' not in result:
-            headers.set('X-Rucio-Auth-Token', result['token'].token)
-            headers.set('X-Rucio-Auth-Token-Expires', date_to_str(result['token'].expired_at))
+            headers.set('X-Rucio-Auth-Token', result['token']['token'])
+            headers.set('X-Rucio-Auth-Token-Expires', date_to_str(result['token']['expires_at']))
             return '', 200, headers
         elif 'webhome' in result:
             webhome = result['webhome']
@@ -417,7 +417,7 @@ class TokenOIDC(ErrorHandlingMethodView):
             domain = '.'.join(urlparse(webhome).netloc.split('.')[1:])
             response = redirect(webhome, code=303)
             response.headers.extend(headers)
-            response.set_cookie('x-rucio-auth-token', value=result['token'].token, domain=domain, path='/')
+            response.set_cookie('x-rucio-auth-token', value=result['token']['token'], domain=domain, path='/')
             response.set_cookie('rucio-auth-token-created-at', value=str(time.time()), domain=domain, path='/')
             return response
         else:
@@ -560,8 +560,8 @@ class GSS(ErrorHandlingMethodView):
                 headers=headers
             )
 
-        headers['X-Rucio-Auth-Token'] = result.token
-        headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result.expired_at)
+        headers['X-Rucio-Auth-Token'] = result['token']
+        headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result['expires_at'])
         return '', 200, headers
 
 
@@ -666,8 +666,8 @@ class x509(ErrorHandlingMethodView):
                 headers=headers
             )
 
-        headers['X-Rucio-Auth-Token'] = result.token
-        headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result.expired_at)
+        headers['X-Rucio-Auth-Token'] = result['token']
+        headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result['expires_at'])
         return '', 200, headers
 
 
@@ -757,8 +757,8 @@ class SSH(ErrorHandlingMethodView):
                 headers=headers
             )
 
-        headers['X-Rucio-Auth-Token'] = result.token
-        headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result.expired_at)
+        headers['X-Rucio-Auth-Token'] = result['token']
+        headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result['expires_at'])
         return '', 200, headers
 
 
@@ -827,8 +827,8 @@ class SSHChallengeToken(ErrorHandlingMethodView):
                 headers=headers
             )
 
-        headers['X-Rucio-SSH-Challenge-Token'] = result.token
-        headers['X-Rucio-SSH-Challenge-Token-Expires'] = date_to_str(result.expired_at)
+        headers['X-Rucio-SSH-Challenge-Token'] = result['token']
+        headers['X-Rucio-SSH-Challenge-Token-Expires'] = date_to_str(result['expires_at'])
         return '', 200, headers
 
 
@@ -903,8 +903,8 @@ class SAML(ErrorHandlingMethodView):
                     headers=headers
                 )
 
-            headers.set('X-Rucio-Auth-Token', result.token)
-            headers.set('X-Rucio-Auth-Token-Expires', date_to_str(result.expired_at))
+            headers.set('X-Rucio-Auth-Token', result['token'])
+            headers.set('X-Rucio-Auth-Token-Expires', date_to_str(result['expires_at']))
             return '', 200, headers
 
         # Path to the SAML config folder

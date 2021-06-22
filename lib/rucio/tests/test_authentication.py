@@ -24,6 +24,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 
 import base64
 import unittest
@@ -119,7 +120,7 @@ class TestAuthCoreApi(unittest.TestCase):
         except Duplicate:
             pass  # might already exist, can skip
 
-        challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', **self.vo).token
+        challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', **self.vo).get('token')
 
         signature = base64.b64decode(ssh_sign(PRIVATE_KEY, challenge_token))
 
@@ -155,7 +156,7 @@ class TestAuthCoreApi(unittest.TestCase):
         except Duplicate:
             pass  # might already exist, can skip
 
-        challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', **self.vo).token
+        challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', **self.vo).get('token')
 
         ssh_sign_string = ssh_sign(PRIVATE_KEY, challenge_token)
         signature = base64.b64decode(ssh_sign_string)

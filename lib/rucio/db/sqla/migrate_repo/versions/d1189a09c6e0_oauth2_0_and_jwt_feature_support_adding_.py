@@ -23,12 +23,13 @@
 import datetime
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import (add_column, alter_column, drop_column,
                         create_table, create_primary_key, create_index,
-                        create_check_constraint, drop_table, drop_constraint, execute)
+                        create_check_constraint, drop_table, execute)
+
 from rucio.db.sqla.types import InternalAccountString
+from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
 revision = 'd1189a09c6e0'
@@ -41,11 +42,11 @@ def upgrade():
     '''
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''  # pylint: disable=no-member
     if context.get_context().dialect.name in ['oracle', 'postgresql']:  # pylint: disable=no-member
-        drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
+        try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')")
-        drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')")
@@ -104,12 +105,12 @@ def downgrade():
     '''
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''  # pylint: disable=no-member
     if context.get_context().dialect.name in ['oracle']:  # pylint: disable=no-member
-        drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
+        try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
 
-        drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")

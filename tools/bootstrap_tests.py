@@ -65,7 +65,7 @@ if __name__ == '__main__':
                 time.sleep(5)
                 with open(server_log, 'r') as fhandle:
                     print(fhandle.readlines()[-200:], file=sys.stderr)
-        sys.exit(1)
+        raise
 
     try:
         c.add_account('jdoe', 'SERVICE', 'jdoe@email.com')

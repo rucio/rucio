@@ -41,7 +41,7 @@ from itertools import filterfalse
 from typing import TYPE_CHECKING
 
 from six import string_types
-from sqlalchemy import and_, or_, func, update
+from sqlalchemy import and_, or_, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, false, true
 
@@ -994,8 +994,9 @@ def release_waiting_requests_per_deadline(rse_id=None, deadline=1, session=None)
         old_requests_subquery = session.query(filtered_requests_subquery.c.id)\
                                        .join(old_requests_subquery, and_(filtered_requests_subquery.c.dataset_name == old_requests_subquery.c.name, filtered_requests_subquery.c.dataset_scope == old_requests_subquery.c.scope))
         old_requests_subquery = old_requests_subquery.subquery()
-        statement = update(models.Request).where(models.Request.id.in_(old_requests_subquery)).values(state=RequestState.QUEUED)
-        amount_released_requests = session.execute(statement).rowcount
+        amount_released_requests = session.query(models.Request) \
+            .filter(models.Request.id.in_(old_requests_subquery)) \
+            .update({models.Request.state: RequestState.QUEUED}, synchronize_session=False)
     return amount_released_requests
 
 
@@ -1038,8 +1039,9 @@ def release_waiting_requests_per_free_volume(rse_id, volume=None, session=None):
                                        .filter(cumulated_volume_subquery.c.cum_volume <= volume - sum_volume_active_subquery.c.sum_bytes)\
                                        .subquery()
 
-    statement = update(models.Request).where(models.Request.id.in_(cumulated_volume_subquery)).values(state=RequestState.QUEUED)
-    amount_released_requests = session.execute(statement).rowcount
+    amount_released_requests = session.query(models.Request) \
+        .filter(models.Request.id.in_(cumulated_volume_subquery)) \
+        .update({models.Request.state: RequestState.QUEUED}, synchronize_session=False)
     return amount_released_requests
 
 
@@ -1221,9 +1223,9 @@ def release_waiting_requests_grouped_fifo(rse_id, count=None, direction='destina
     # needed for mysql to update and select from the same table
     cumulated_children_subquery = session.query(cumulated_children_subquery.c.id).subquery()
 
-    statement = update(models.Request).where(models.Request.id.in_(cumulated_children_subquery)).values(state=RequestState.QUEUED)
-
-    amount_updated_requests += session.execute(statement).rowcount
+    amount_updated_requests += session.query(models.Request) \
+        .filter(models.Request.id.in_(cumulated_children_subquery)) \
+        .update({models.Request.state: RequestState.QUEUED}, synchronize_session=False)
 
     # release requests where the whole datasets volume fits in the available volume space
     if volume:
@@ -1494,7 +1496,9 @@ def __touch_request(request_id, session=None):
     record_counter('core.request.touch_request')
 
     try:
-        rowcount = session.query(models.Request).filter_by(id=request_id).update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+        rowcount = session.query(models.Request) \
+            .filter_by(id=request_id) \
+            .update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
     except IntegrityError as error:
         raise RucioException(error.args)
     if not rowcount:

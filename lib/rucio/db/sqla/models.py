@@ -39,7 +39,7 @@ from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, Float, Integ
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import object_mapper, relationship, backref
+from sqlalchemy.orm import object_mapper, relationship
 from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint, CheckConstraint, Table
 from sqlalchemy.sql import Delete
 from sqlalchemy.types import LargeBinary
@@ -109,7 +109,7 @@ def _oracle_json_constraint(target, connection, **kw):
 
 
 @event.listens_for(Engine, "before_execute", retval=True)
-def _add_hint(conn, element, multiparams, params):
+def _add_hint(conn, element, multiparams, params, execution_options):
     if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'locks':
         element = element.prefix_with("/*+ INDEX(LOCKS LOCKS_PK) */")
     if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'replicas':
@@ -741,7 +741,6 @@ class RSEUsage(BASE, ModelBase, Versioned):
     used = Column(BigInteger)
     free = Column(BigInteger)
     files = Column(BigInteger)
-    rse = relationship("RSE", backref=backref('rse_usage', order_by=rse_id))
     _table_args = (PrimaryKeyConstraint('rse_id', 'source', name='RSE_USAGE_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_USAGE_RSE_ID_FK'), )
 
@@ -764,7 +763,6 @@ class RSEAttrAssociation(BASE, ModelBase):
     rse_id = Column(GUID())
     key = Column(String(255))
     value = Column(BooleanString(255))
-    rse = relationship("RSE", backref=backref('rse_attr_map', order_by=rse_id))
     _table_args = (PrimaryKeyConstraint('rse_id', 'key', name='RSE_ATTR_MAP_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_ATTR_MAP_RSE_ID_FK'),
                    Index('RSE_ATTR_MAP_KEY_VALUE_IDX', 'key', 'value'))
@@ -789,7 +787,6 @@ class RSEProtocols(BASE, ModelBase):
     third_party_copy_read = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     third_party_copy_write = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     extended_attributes = Column(String(4000), nullable=True)
-    rses = relationship("RSE", backref="rse_protocols")
     _table_args = (PrimaryKeyConstraint('rse_id', 'scheme', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_PROTOCOL_RSE_ID_FK'),
                    CheckConstraint('IMPL IS NOT NULL', name='RSE_PROTOCOLS_IMPL_NN'))
@@ -853,7 +850,6 @@ class RSEFileAssociation(BASE, ModelBase):
     lock_cnt = Column(Integer, server_default='0')
     accessed_at = Column(DateTime)
     tombstone = Column(DateTime)
-    rse = relationship("RSE", backref=backref('replicas', order_by="RSE.id"))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', name='REPLICAS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_RSE_ID_FK'),

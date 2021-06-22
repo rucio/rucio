@@ -86,6 +86,4 @@ class TestNamingConventionCore(unittest.TestCase):
         observed_datatype = self.did_client.get_metadata(scope='mock', name=tmp_dataset)['datatype']
         assert observed_datatype == 'AOD'
 
-        delete_naming_convention(scope=scope,
-                                 regexp=r'(?P<project>mock)\.(\w+)$',
-                                 convention_type=KeyType.DATASET)
+        delete_naming_convention(scope=scope, convention_type=KeyType.DATASET)

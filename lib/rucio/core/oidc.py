@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,33 +14,35 @@
 # limitations under the License.
 #
 # Authors:
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019, 2020
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 import json
-from math import floor
 import random
 import subprocess
 import time
 import traceback
-
 from datetime import datetime, timedelta
+from math import floor
+from urllib.parse import urlparse, parse_qs
+
 from jwkest.jws import JWS
 from jwkest.jwt import JWT
 from oic import rndstr
-from oic.oic import Client, Grant, Token, REQUEST2ENDPOINT
 from oic.oauth2.message import CCAccessTokenRequest
+from oic.oic import Client, Grant, Token, REQUEST2ENDPOINT
 from oic.oic.message import (AccessTokenResponse, AuthorizationResponse,
                              Message, RegistrationResponse)
-from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from oic.utils import time_util
+from oic.utils.authn.client import CLIENT_AUTHN_METHOD
+from sqlalchemy import and_
+from sqlalchemy.sql.expression import true
+
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (CannotAuthenticate, CannotAuthorize,
                                     RucioException)
-from rucio.common.utils import (all_oidc_req_claims_present, build_url, oidc_identity_string,
-                                query_bunches, sqlalchemy_obj_to_dict, val_to_space_sep_str)
+from rucio.common.utils import all_oidc_req_claims_present, build_url, val_to_space_sep_str
 from rucio.core.account import account_exists
 from rucio.core.identity import exist_identity_account, get_default_account
 from rucio.core.monitor import record_counter, record_timer
@@ -47,16 +50,6 @@ from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
-from sqlalchemy import and_
-from sqlalchemy.sql.expression import true
-
-
-try:
-    # Python 2
-    from urlparse import urlparse, parse_qs
-except ImportError:
-    # Python 3
-    from urllib.parse import urlparse, parse_qs
 
 # worokaround for a bug in pyoidc (as of Dec 2019)
 REQUEST2ENDPOINT['CCAccessTokenRequest'] = 'token_endpoint'
@@ -309,7 +302,6 @@ def get_auth_oidc(account, session=None, **kwargs):
                                                    refresh_lifetime=refresh_lifetime,
                                                    ip=ip)
         oauth_session_params.save(session=session)
-        session.expunge(oauth_session_params)
         # If user selected authentication via web browser, a redirection
         # URL is returned instead of the direct URL pointing to the IdP.
         if not auto:
@@ -430,10 +422,6 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
         record_counter(counters='IdP_authorization.access_token.saved')
         if 'refresh_token' in oidc_tokens:
             record_counter(counters='IdP_authorization.refresh_token.saved')
-        # remove refresh token info (not for the user/Rucio Client)
-        new_token.refresh_token = None
-        new_token.refresh_expired_at = None
-        new_token.refresh_lifetime = None
         # In case authentication via browser was requested,
         # we save the token in the oauth_requests table
         if oauth_req_params.access_msg:
@@ -443,13 +431,13 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
                     fetchcode = rndstr(50)
                     session.query(models.OAuthRequest).filter(models.OAuthRequest.state == state)\
                            .update({models.OAuthRequest.access_msg: fetchcode,
-                                    models.OAuthRequest.redirect_msg: new_token.token})
+                                    models.OAuthRequest.redirect_msg: new_token['token']})
                 # If Rucio Client was requested to poll the Rucio Auth server
                 # for a token automatically, we save the token under a access_msg.
                 else:
                     session.query(models.OAuthRequest).filter(models.OAuthRequest.state == state)\
                            .update({models.OAuthRequest.access_msg: oauth_req_params.access_msg,
-                                    models.OAuthRequest.redirect_msg: new_token.token})
+                                    models.OAuthRequest.redirect_msg: new_token['token']})
                 session.commit()
             if '_polling' in oauth_req_params.access_msg:
                 return {'polling': True}
@@ -480,7 +468,7 @@ def __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=Non
     :param req_audience: the scope requested for the Rucio client's token
     :param issuer: the Identity Provider nickname or the Rucio instance in use
     :param session: The database session in use.
-    :returns: the new DB token object
+    :returns: A dict with token and expires_at entries.
     """
     try:
         oidc_client = OIDC_ADMIN_CLIENTS[issuer]
@@ -543,7 +531,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                   preferably with the same issuer as the requesting account OIDC identity
     :param session: DB session in use
 
-    :return: token dictionary (from sqlalchemy Token object) or None, throws an exception in case of problems
+    :return: token dictionary or None, throws an exception in case of problems
     """
     try:
         if not req_scope:
@@ -552,7 +540,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
             req_audience = EXPECTED_OIDC_AUDIENCE
 
         # get all identities for the corresponding account
-        identities_list = session.query(models.IdentityAccountAssociation.identity)\
+        identities_list = session.query(models.IdentityAccountAssociation.identity) \
                                  .filter(models.IdentityAccountAssociation.identity_type == IdentityType.OIDC,
                                          models.IdentityAccountAssociation.account == account).all()
         identities = []
@@ -583,7 +571,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
         for identity in identities:
             issuer = identity.split(", ")[1].split("=")[1]
             # compare the account of the requestor with the account of the admin
-            if (account == admin_iss_acc_idt_dict[issuer][0]):
+            if account == admin_iss_acc_idt_dict[issuer][0]:
                 # take first matching case which means root is requesting OIDC authentication
                 admin_identity = admin_iss_acc_idt_dict[issuer][1]
                 if preferred_issuer and preferred_issuer != issuer:
@@ -604,10 +592,10 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
             for admin_token in admin_account_tokens:
                 if hasattr(admin_token, 'audience') and hasattr(admin_token, 'oidc_scope') and\
                    all_oidc_req_claims_present(admin_token.oidc_scope, admin_token.audience, req_scope, req_audience):
-                    return sqlalchemy_obj_to_dict(admin_token)
+                    return token_dictionary(admin_token)
             # if not found request a new one
             new_admin_token = __get_admin_token_oidc(account, req_scope, req_audience, admin_issuer, session=session)
-            return sqlalchemy_obj_to_dict(new_admin_token)
+            return new_admin_token
 
         # Rucio server requests Rucio user to be represented by Rucio admin OIDC identity
         if admin and not get_token_for_adminacc:
@@ -641,11 +629,11 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                 for admin_token in admin_account_tokens:
                     if hasattr(admin_token, 'audience') and hasattr(admin_token, 'oidc_scope') and\
                        all_oidc_req_claims_present(admin_token.oidc_scope, admin_token.audience, req_scope, req_audience):
-                        return sqlalchemy_obj_to_dict(admin_token)
+                        return token_dictionary(admin_token)
             # if no admin token existing was found for the issuer of the valid user token
             # we request a new one
             new_admin_token = __get_admin_token_oidc(admin_account, req_scope, req_audience, admin_issuer, session=session)
-            return sqlalchemy_obj_to_dict(new_admin_token)
+            return new_admin_token
         # Rucio server requests exchange token for a Rucio user
         if not admin and not get_token_for_adminacc:
             # we require any other account than admin to have valid OIDC token in the Rucio DB
@@ -662,7 +650,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
             for token in account_tokens:
                 if hasattr(token, 'audience') and hasattr(token, 'oidc_scope'):
                     if all_oidc_req_claims_present(token.oidc_scope, token.audience, req_scope, req_audience):
-                        return sqlalchemy_obj_to_dict(token)
+                        return token_dictionary(token)
                 # from available tokens select preferentially the one which are being refreshed
                 if hasattr(token, 'oidc_scope') and ('offline_access' in str(token['oidc_scope'])):
                     subject_token = token
@@ -674,8 +662,9 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                                                     audience=req_audience,
                                                     identity=subject_token.identity,
                                                     refresh_lifetime=subject_token.refresh_lifetime,
-                                                    account=account, session=session)
-            return sqlalchemy_obj_to_dict(exchanged_token)
+                                                    account=account,
+                                                    session=session)
+            return exchanged_token
         return None
     except Exception:
         # raise CannotAuthorize(traceback.format_exc(), type(account), account)
@@ -694,7 +683,7 @@ def __exchange_token_oidc(subject_token_object, session=None, **kwargs):
     :param kwargs: 'scope', 'audience', 'grant_type', 'ip' and 'account' doing the exchange
     :param session: The database session in use.
 
-    :returns: new DB access token object
+    :returns: A dict with token and expires_at entries.
     """
     grant_type = kwargs.get('grant_type', EXCHANGE_GRANT_TYPE)
     jwt_row_dict, extra_dict = {}, {}
@@ -756,10 +745,6 @@ def __exchange_token_oidc(subject_token_object, session=None, **kwargs):
         record_counter(counters='IdP_authorization.access_token.saved')
         if 'refresh_token' in oidc_tokens:
             record_counter(counters='IdP_authorization.refresh_token.saved')
-        # remove refresh token info (not for the user/Rucio Client)
-        new_token.refresh_token = None
-        new_token.refresh_expired_at = None
-        new_token.refresh_lifetime = None
         record_timer(stat='IdP_authorization.token_exchange', time=time.time() - start)
         return new_token
 
@@ -774,8 +759,6 @@ def __change_refresh_state(token, refresh=False, session=None):
     Changes token refresh state to True/False.
 
     :param token:      the access token for which the refresh value should be changed.
-
-    :returns: True if all went OK, an exception otherwise.
     """
     try:
         if refresh:
@@ -787,7 +770,6 @@ def __change_refresh_state(token, refresh=False, session=None):
                                        .update({models.Token.refresh: False,
                                                 models.Token.refresh_expired_at: datetime.utcnow()})
         session.commit()
-        return True
     except Exception as error:
         raise RucioException(error.args)
 
@@ -803,59 +785,56 @@ def refresh_cli_auth_token(token_string, account, session=None):
 
     :return: tuple of (access token, expiration epoch), None otherswise
     """
-    try:
-        # only validated tokens are in the DB, check presence of token_string
-        account_token = session.query(models.Token) \
-                               .filter(models.Token.token == token_string,
-                                       models.Token.account == account,
-                                       models.Token.expired_at > datetime.utcnow()) \
-                               .with_for_update(skip_locked=True).first()
-        # if token does not exist in the DB, return None
-        if account_token is None:
+    # only validated tokens are in the DB, check presence of token_string
+    account_token = session.query(models.Token) \
+                           .filter(models.Token.token == token_string,
+                                   models.Token.account == account,
+                                   models.Token.expired_at > datetime.utcnow()) \
+                           .with_for_update(skip_locked=True).first()
+    # if token does not exist in the DB, return None
+    if account_token is None:
+        return None
+
+    # protection (!) no further action should be made
+    # for token_string without refresh_token in the DB !
+    if account_token.refresh_token is None:
+        return None
+    # if the token exists, check if it was refreshed already, if not, refresh it
+    if account_token.refresh:
+        # protection (!) returning the same token if the token_string
+        # is a result of a refresh which happened in the last 5 min
+        datetime_min_ago = datetime.utcnow() - timedelta(seconds=300)
+        if account_token.updated_at > datetime_min_ago:
+            epoch_exp = int(floor((account_token.expired_at - datetime(1970, 1, 1)).total_seconds()))
+            new_token_string = account_token.token
+            return new_token_string, epoch_exp
+
+        # asking for a refresh of this token
+        new_token = __refresh_token_oidc(account_token, session=session)
+        new_token_string = new_token['token']
+        epoch_exp = int(floor((new_token['expires_at'] - datetime(1970, 1, 1)).total_seconds()))
+        return new_token_string, epoch_exp
+
+    else:
+        # find account token with the same scope,
+        # audience and has a valid refresh token
+        new_token = session.query(models.Token) \
+                           .filter(models.Token.refresh == true(),
+                                   models.Token.refresh_expired_at > datetime.utcnow(),
+                                   models.Token.account == account,
+                                   models.Token.expired_at > datetime.utcnow()) \
+                           .with_for_update(skip_locked=True).first()
+        if new_token is None:
             return None
 
-        # protection (!) no further action should be made
-        # for token_string without refresh_token in the DB !
-        if account_token.refresh_token is None:
-            return None
-        # if the token exists, check if it was refreshed already, if not, refresh it
-        if account_token.refresh:
-            # protection (!) returning the same token if the token_string
-            # is a result of a refresh which happened in the last 5 min
-            datetime_min_ago = datetime.utcnow() - timedelta(seconds=300)
-            if account_token.updated_at > datetime_min_ago:
-                epoch_exp = int(floor((account_token.expired_at - datetime(1970, 1, 1)).total_seconds()))
-                new_token_string = sqlalchemy_obj_to_dict(account_token)['token']
-                return (new_token_string, epoch_exp)
-
-            # asking for a refresh of this token
-            new_token = __refresh_token_oidc(account_token, session=session)
-            new_token_string = sqlalchemy_obj_to_dict(new_token)['token']
+        # if the new_token has same audience and scopes as the original
+        # account_token --> return this token and exp timestamp to the user
+        if all_oidc_req_claims_present(new_token.oidc_scope, new_token.audience,
+                                       account_token.oidc_scope, account_token.audience):
             epoch_exp = int(floor((new_token.expired_at - datetime(1970, 1, 1)).total_seconds()))
-            return(new_token_string, epoch_exp)
-
-        else:
-            # find account token with the same scope,
-            # audience and has a valid refresh token
-            new_token = session.query(models.Token) \
-                               .filter(models.Token.refresh == true(),
-                                       models.Token.refresh_expired_at > datetime.utcnow(),
-                                       models.Token.account == account,
-                                       models.Token.expired_at > datetime.utcnow()) \
-                               .with_for_update(skip_locked=True).first()
-            if new_token is None:
-                return None
-
-            # if the new_token has same audience and scopes as the original
-            # account_token --> return this token and exp timestamp to the user
-            if all_oidc_req_claims_present(new_token.oidc_scope, new_token.audience,
-                                           account_token.oidc_scope, account_token.audience):
-                epoch_exp = int(floor((new_token.expired_at - datetime(1970, 1, 1)).total_seconds()))
-                new_token_string = sqlalchemy_obj_to_dict(new_token)['token']
-                return(new_token_string, epoch_exp)
-            # if scopes and audience are not the same, return None
-            return None
-    except:
+            new_token_string = new_token.token
+            return new_token_string, epoch_exp
+        # if scopes and audience are not the same, return None
         return None
 
 
@@ -884,11 +863,14 @@ def refresh_jwt_tokens(total_workers, worker_number, refreshrate=3600, limit=100
         query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='token')
 
         # limiting the number of tokens for refresh
-        filtered_tokens_query = query.limit(limit)
+        query = query.limit(limit)
         filtered_tokens = []
-        filtered_bunches = query_bunches(filtered_tokens_query, 10)
-        for items in filtered_bunches:
-            filtered_tokens += session.query(models.Token).filter(models.Token.token.in_(items)).with_for_update(skip_locked=True).all()
+        for items in session.execute(query).partitions(10):
+            tokens = tuple(map(lambda row: row.token, items))
+            filtered_tokens += session.query(models.Token) \
+                                      .filter(models.Token.token.in_(tokens)) \
+                                      .with_for_update(skip_locked=True) \
+                                      .all()
 
         # refreshing these tokens
         for token in filtered_tokens:
@@ -912,8 +894,9 @@ def __refresh_token_oidc(token_object, session=None):
 
     :param token_object: Rucio models.Token DB row object
 
-    :returns: new token object if all went OK, None if refresh was not possible due to token
-              invalidity or refresh lifetime constraints. Otherwise, throws an an Exception.
+    :returns: A dict with token and expires_at entries if all went OK, None if
+        refresh was not possible due to token invalidity or refresh lifetime
+        constraints. Otherwise, throws an an Exception.
     """
     try:
         start = time.time()
@@ -970,10 +953,6 @@ def __refresh_token_oidc(token_object, session=None):
             new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
             record_counter(counters='IdP_authorization.access_token.saved')
             record_counter(counters='IdP_authorization.refresh_token.saved')
-            # remove refresh token info (not for the user)
-            new_token.refresh_token = None
-            new_token.refresh_expired_at = None
-            new_token.refresh_lifetime = None
         else:
             raise CannotAuthorize("OIDC identity '%s' of the '%s' account is did not " % (token_object.identity, token_object.account)
                                   + "succeed requesting a new access and refresh tokens.")  # NOQA: W503
@@ -1006,13 +985,14 @@ def delete_expired_oauthrequests(total_workers, worker_number, limit=1000, sessi
         query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='state')
 
         # limiting the number of oauth requests deleted at once
-        filtered_oauthparams_query = query.limit(limit)
+        query = query.limit(limit)
         ndeleted = 0
-        filtered_bunches = query_bunches(filtered_oauthparams_query, 10)
-        for items in filtered_bunches:
-            ndeleted += session.query(models.OAuthRequest.state).filter(models.OAuthRequest.state.in_(items))\
-                                                                .with_for_update(skip_locked=True)\
-                                                                .delete(synchronize_session='fetch')
+        for items in session.execute(query).partitions(10):
+            states = tuple(map(lambda row: row.state, items))
+            ndeleted += session.query(models.OAuthRequest) \
+                               .filter(models.OAuthRequest.state.in_(states)) \
+                               .with_for_update(skip_locked=True) \
+                               .delete(synchronize_session='fetch')
 
     except Exception as error:
         raise RucioException(error.args)
@@ -1092,8 +1072,8 @@ def __save_validated_token(token, valid_dict, extra_dict=None, session=None):
     :param token: Authentication token as a variable-length string.
     :param valid_dict: Validation Rucio dictionary as the output
                        of the __get_rucio_jwt_dict function
-
-    :returns: DB token object if successful, raises an exception otherwise.
+    :raises RucioException: on any error
+    :returns: A dict with token and expires_at entries.
     """
     try:
         if not extra_dict:
@@ -1111,8 +1091,8 @@ def __save_validated_token(token, valid_dict, extra_dict=None, session=None):
                                  refresh_start=extra_dict.get('refresh_start', None),
                                  ip=extra_dict.get('ip', None))
         new_token.save(session=session)
-        session.expunge(new_token)
-        return new_token
+
+        return token_dictionary(new_token)
 
     except Exception as error:
         raise RucioException(error.args)
@@ -1174,3 +1154,18 @@ def validate_jwt(json_web_token, session=None):
     except Exception:
         record_counter(counters='JSONWebToken.invalid')
         return None
+
+
+def oidc_identity_string(sub, iss):
+    """
+    Transform IdP sub claim and issuers url into users identity string.
+    :param sub: users SUB claim from the Identity Provider
+    :param iss: issuer (IdP) https url
+
+    :returns: OIDC identity string "SUB=<usersid>, ISS=https://iam-test.ch/"
+    """
+    return 'SUB=' + str(sub) + ', ISS=' + str(iss)
+
+
+def token_dictionary(token: models.Token):
+    return {'token': token.token, 'expires_at': token.expired_at}
