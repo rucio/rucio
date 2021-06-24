@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2021
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2019
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
@@ -102,23 +102,37 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
             subquery = subquery.filter_by(event_type=event_type)
         else:
             subquery = subquery.filter(Message.event_type != 'email')
-        subquery = subquery.order_by(Message.created_at).limit(bulk)
 
-        query = session.query(Message.id,
-                              Message.created_at,
-                              Message.event_type,
-                              Message.payload,
-                              Message.services)\
-                       .filter(Message.id.in_(subquery))\
-                       .with_for_update(nowait=True)
-
+        # Step 1:
         # MySQL does not support limits in nested queries, limit on the outer query instead.
         # This is not as performant, but the best we can get from MySQL.
-        #
-        # FIXME: Check if later MySQL versions support this
+        # FIXME: SQLAlchemy generates wrong nowait MySQL8 statement for MySQL5
+        #        Remove once this is resolved in SQLAlchemy
+        if session.bind.dialect.name == 'mysql':
+            subquery = subquery.order_by(Message.created_at)
+            query = session.query(Message.id,
+                                  Message.created_at,
+                                  Message.event_type,
+                                  Message.payload,
+                                  Message.services)\
+                           .filter(Message.id.in_(subquery))
+        else:
+            subquery = subquery.order_by(Message.created_at).limit(bulk)
+            query = session.query(Message.id,
+                                  Message.created_at,
+                                  Message.event_type,
+                                  Message.payload,
+                                  Message.services)\
+                           .filter(Message.id.in_(subquery))\
+                           .with_for_update(nowait=True)
+
+        # Step 2:
+        # MySQL does not support limits in nested queries, limit on the outer query instead.
+        # This is not as performant, but the best we can get from MySQL.
         if session.bind.dialect.name == 'mysql':
             query = query.limit(bulk)
 
+        # Step 3:
         # Assemble message object
         for id, created_at, event_type, payload, services in query:
             message = {'id': id,
