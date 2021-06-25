@@ -1013,7 +1013,7 @@ class VONotFound(RucioException):
     """
     def __init__(self, *args, **kwargs):
         super(VONotFound, self).__init__(*args, **kwargs)
-        self.message = 'The requested VO does not exist'
+        self._message = 'The requested VO does not exist'
         self.error_code = 96
 
 
@@ -1023,5 +1023,25 @@ class UnsupportedAccountName(RucioException):
     """
     def __init__(self, *args, **kwargs):
         super(UnsupportedAccountName, self).__init__(*args, **kwargs)
-        self.message = 'The requested account name cannot be used'
+        self._message = 'The requested account name cannot be used'
         self.error_code = 97
+
+
+class DuplicateCriteriaInDIDFilter(RucioException):
+    """
+    Duplicate criteria found in DID filter.
+    """
+    def __init__(self, *args, **kwargs):
+        super(DuplicateCriteriaInDIDFilter, self).__init__(*args, **kwargs)
+        self._message = 'Duplicate criteria for key/operator in filter expression'
+        self.error_code = 98
+
+
+class DIDFilterSyntaxError(RucioException):
+    """
+    DID filter is not parsable.
+    """
+    def __init__(self, *args, **kwargs):
+        super(DIDFilterSyntaxError, self).__init__(*args, **kwargs)
+        self._message = 'Syntax error in filter expression.'
+        self.error_code = 99

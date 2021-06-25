@@ -181,11 +181,8 @@ def list_dids(scope=None, filters=None, type='collection', ignore_case=False, li
     :returns: List of dids.
     """
     meta_handler_to_use = None
-
     # Ensure that a single handler manages all the keys of the query
     for key in filters:
-        if key == 'name':
-            continue
         if meta_handler_to_use is None:
             for meta_handler in METADATA_HANDLERS:
                 if meta_handler.manages_key(key, session=session):
@@ -200,5 +197,5 @@ def list_dids(scope=None, filters=None, type='collection', ignore_case=False, li
         return meta_handler_to_use.list_dids(scope=scope, filters=filters, type=type,
                                              ignore_case=ignore_case, limit=limit,
                                              offset=offset, long=long, recursive=recursive, session=session)
-    else:
+    else: 
         raise NotImplementedError('There is no metadata plugin that manages the filter you used.')

@@ -32,6 +32,7 @@
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 from __future__ import print_function
 
@@ -1104,7 +1105,7 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
         # search for the file
-        cmd = "rucio list-dids --filter type=all {0}:{1}".format(self.user, tmp_file1[5:])
+        cmd = "rucio list-dids --filter type==all {0}:{1}".format(self.user, tmp_file1[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
