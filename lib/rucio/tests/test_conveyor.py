@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+import threading
 import time
 from datetime import datetime
 
@@ -29,14 +30,17 @@ from rucio.core import rule as rule_core
 from rucio.daemons.conveyor.finisher import finisher
 from rucio.daemons.conveyor.poller import poller
 from rucio.daemons.conveyor.submitter import submitter
+from rucio.daemons.conveyor.receiver import receiver, graceful_stop as receiver_graceful_stop
 from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.tests.common import skip_rse_tests_with_accounts
 
+MAX_POLL_WAIT_SECONDS = 60
 
-def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=60):
+
+def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=MAX_POLL_WAIT_SECONDS):
     """
     Wait for the replica to become AVAILABLE on the given RSE as a result of a pending transfer
     """
@@ -51,13 +55,14 @@ def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=60):
     return replica
 
 
-def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=60):
+def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MAX_POLL_WAIT_SECONDS, run_poller=True):
     """
     Wait for the request state to be updated to the given expected state as a result of a pending transfer
     """
     request = None
     for _ in range(max_wait_seconds):
-        poller(once=True, older_than=0, partition_wait_time=None)
+        if run_poller:
+            poller(once=True, older_than=0, partition_wait_time=None)
         request = request_core.get_request_by_did(rse_id=dst_rse_id, scope=scope, name=name)
         if request['state'] == state:
             break
@@ -283,3 +288,134 @@ def test_multisource(vo, did_factory, root_account, replica_client, core_config_
     assert replica['state'] == ReplicaState.AVAILABLE
     assert not __source_exists(src_rse_id=src_rse1_id, **did)
     assert not __source_exists(src_rse_id=src_rse2_id, **did)
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.dirty(reason="leaves files in XRD containers")
+@pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter and receiver")
+def test_multisource_receiver(vo, did_factory, replica_client, root_account):
+    """
+    Run receiver as a background thread to automatically handle fts notifications.
+    Ensure that a multi-source job in which the first source fails is correctly handled by receiver.
+    """
+    receiver_thread = threading.Thread(target=receiver, kwargs={'id': 0, 'full_mode': True, 'all_vos': True, 'total_threads': 1})
+    receiver_thread.start()
+
+    try:
+        src_rse1 = 'XRD4'
+        src_rse1_id = rse_core.get_rse_id(rse=src_rse1, vo=vo)
+        src_rse2 = 'XRD1'
+        src_rse2_id = rse_core.get_rse_id(rse=src_rse2, vo=vo)
+        dst_rse = 'XRD3'
+        dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
+
+        all_rses = [src_rse1_id, src_rse2_id, dst_rse_id]
+
+        # Add a good replica on the RSE which has a higher distance ranking
+        did = did_factory.upload_test_file(src_rse1)
+        # Add non-existing replica which will fail during multisource transfers on the RSE with lower cost (will be the preferred source)
+        replica_client.add_replicas(rse=src_rse2, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
+
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+        request = None
+        for _ in range(MAX_POLL_WAIT_SECONDS):
+            request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+            # The request must not be marked as failed. Not even temporarily. It is a multi-source transfer and the
+            # the first, failed, source must not change the replica state. We must wait for all sources to be tried.
+            assert request['state'] != RequestState.FAILED
+            if request['state'] == RequestState.DONE:
+                break
+            time.sleep(1)
+        assert request['state'] == RequestState.DONE
+    finally:
+        receiver_graceful_stop.set()
+        receiver_thread.join(timeout=5)
+        receiver_graceful_stop.clear()
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter and receiver")
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', True),
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
+    'rucio.core.config',
+]}], indirect=True)
+def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_account, core_config_mock, caches_mock):
+    """
+    Verify that the receiver correctly handles multihop jobs which fail
+    """
+    receiver_thread = threading.Thread(target=receiver, kwargs={'id': 0, 'full_mode': True, 'all_vos': True, 'total_threads': 1})
+    receiver_thread.start()
+
+    try:
+        src_rse = 'XRD1'
+        src_rse_id = rse_core.get_rse_id(rse=src_rse, vo=vo)
+        jump_rse = 'XRD3'
+        jump_rse_id = rse_core.get_rse_id(rse=jump_rse, vo=vo)
+        dst_rse = 'XRD4'
+        dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
+
+        all_rses = [src_rse_id, jump_rse_id, dst_rse_id]
+
+        # Register a did which doesn't exist. It will trigger a failure error during the FTS transfer.
+        did = did_factory.random_did()
+        replica_client.add_replicas(rse=src_rse, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
+
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+        request = __wait_for_request_state(dst_rse_id=jump_rse_id, state=RequestState.FAILED, run_poller=False, **did)
+        assert request['state'] == RequestState.FAILED
+        # We use FTS "Completion" messages in receiver. In case of multi-hops transfer failures, FTS doesn't start
+        # next transfers; so it never sends a "completion" message for some hops. Rely on poller in such cases.
+        # TODO: set the run_poller argument to False if we ever manage to make the receiver correctly handle multi-hop failures.
+        request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, run_poller=True, **did)
+        assert request['state'] == RequestState.FAILED
+    finally:
+        receiver_graceful_stop.set()
+        receiver_thread.join(timeout=5)
+        receiver_graceful_stop.clear()
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter and receiver")
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', True),
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
+    'rucio.core.config',
+]}], indirect=True)
+def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config_mock, caches_mock):
+    """
+    Verify that the receiver correctly handles successful multihop jobs
+    """
+    receiver_thread = threading.Thread(target=receiver, kwargs={'id': 0, 'full_mode': True, 'all_vos': True, 'total_threads': 1})
+    receiver_thread.start()
+
+    try:
+        src_rse = 'XRD1'
+        src_rse_id = rse_core.get_rse_id(rse=src_rse, vo=vo)
+        jump_rse = 'XRD3'
+        jump_rse_id = rse_core.get_rse_id(rse=jump_rse, vo=vo)
+        dst_rse = 'XRD4'
+        dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
+
+        all_rses = [src_rse_id, jump_rse_id, dst_rse_id]
+
+        did = did_factory.upload_test_file(src_rse)
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+        request = __wait_for_request_state(dst_rse_id=jump_rse_id, state=RequestState.DONE, run_poller=False, **did)
+        assert request['state'] == RequestState.DONE
+        request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.DONE, run_poller=False, **did)
+        assert request['state'] == RequestState.DONE
+    finally:
+        receiver_graceful_stop.set()
+        receiver_thread.join(timeout=5)
+        receiver_graceful_stop.clear()

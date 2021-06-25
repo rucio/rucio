@@ -61,7 +61,8 @@ graceful_stop = threading.Event()
 
 class Receiver(object):
 
-    def __init__(self, broker, id, total_threads, full_mode=False):
+    def __init__(self, broker, id, total_threads, full_mode=False, all_vos=False):
+        self.__all_vos = all_vos
         self.__broker = broker
         self.__id = id
         self.__total_threads = total_threads
@@ -76,16 +77,18 @@ class Receiver(object):
 
         msg = json.loads(frame.body)
 
-        if 'vo' not in msg or msg['vo'] != get_policy():
-            return
+        if not self.__all_vos:
+            if 'vo' not in msg or msg['vo'] != get_policy():
+                return
 
         if 'job_metadata' in msg.keys() \
            and isinstance(msg['job_metadata'], dict) \
            and 'issuer' in msg['job_metadata'].keys() \
            and str(msg['job_metadata']['issuer']) == str('rucio'):
 
-            if 'job_m_replica' in msg.keys() and 'job_state' in msg.keys() \
-               and (str(msg['job_m_replica']).lower() == str('false') or (str(msg['job_m_replica']).lower() == str('true') and str(msg['job_state']) != str('ACTIVE'))):
+            if 'job_state' in msg.keys() and (
+                    str(msg['job_state']) != str('ACTIVE')
+                    or str(msg['job_state']) == str('ACTIVE') and 'job_m_replica' in msg.keys() and (str(msg['job_m_replica']).lower() == str('true'))):
 
                 response = {'new_state': None,
                             'transfer_id': msg.get('tr_id').split("__")[-1],
@@ -144,7 +147,7 @@ class Receiver(object):
                     logging.critical(traceback.format_exc())
 
 
-def receiver(id, total_threads=1, full_mode=False):
+def receiver(id, total_threads=1, full_mode=False, all_vos=False):
     """
     Main loop to consume messages from the FTS3 producer.
     """
@@ -220,7 +223,9 @@ def receiver(id, total_threads=1, full_mode=False):
                 logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
                 record_counter('daemons.messaging.fts3.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
 
-                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id=id, total_threads=total_threads, full_mode=full_mode))
+                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0],
+                                                                   id=id, total_threads=total_threads,
+                                                                   full_mode=full_mode, all_vos=all_vos))
                 if not use_ssl:
                     conn.connect(username, password, wait=True)
                 else:
