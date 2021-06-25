@@ -74,10 +74,7 @@ class Receiver(object):
     def on_message(self, frame):
         record_counter('daemons.conveyor.receiver.message_all')
 
-        try:
-            msg = json.loads(frame.body)
-        except Exception:
-            msg = json.loads(frame.body[:-1])  # Note: I am not sure if this is needed anymore, this was due to an unparsable EOT character
+        msg = json.loads(frame.body)
 
         if 'vo' not in msg or msg['vo'] != get_policy():
             return
