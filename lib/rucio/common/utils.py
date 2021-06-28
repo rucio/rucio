@@ -823,39 +823,58 @@ class Color:
 
 def detect_client_location():
     """
-    Open a UDP socket to a machine on the internet, to get the local IPv4 and IPv6
-    addresses of the requesting client.
-
+    Normally client IP will be set on the server side (request.remote_addr)
+    Here setting ip on the one seen by the host itself. There is no connection
+    to Google DNS servers.
     Try to determine the sitename automatically from common environment variables,
     in this order: SITE_NAME, ATLAS_SITE_NAME, OSG_SITE_NAME. If none of these exist
     use the fixed string 'ROAMING'.
+
+    If environment variables sets location, it uses it.
     """
 
-    ip = '0.0.0.0'
+    ip = None
+
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
+        s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        s.connect(("2001:4860:4860:0:0:0:0:8888", 80))
         ip = s.getsockname()[0]
     except Exception:
         pass
 
-    ip6 = '::'
-    try:
-        s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-        s.connect(("2001:4860:4860:0:0:0:0:8888", 80))
-        ip6 = s.getsockname()[0]
-    except Exception:
-        pass
+    if not ip:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+        except Exception:
+            pass
+
+    if not ip:
+        ip = '0.0.0.0'
 
     site = os.environ.get('SITE_NAME',
                           os.environ.get('ATLAS_SITE_NAME',
                                          os.environ.get('OSG_SITE_NAME',
                                                         'ROAMING')))
 
+    latitude = os.environ.get('RUCIO_LATITUDE')
+    longitude = os.environ.get('RUCIO_LONGITUDE')
+    if latitude and longitude:
+        try:
+            latitude = float(latitude)
+            longitude = float(longitude)
+        except ValueError:
+            latitude = longitude = 0
+            print('Client set latitude and longitude are not valid.')
+    else:
+        latitude = longitude = None
+
     return {'ip': ip,
-            'ip6': ip6,
             'fqdn': socket.getfqdn(),
-            'site': site}
+            'site': site,
+            'latitude': latitude,
+            'longitude': longitude}
 
 
 def ssh_sign(private_key, message):
