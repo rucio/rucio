@@ -21,7 +21,7 @@ import sqlalchemy as sa
 
 from alembic.op import (add_column, drop_column,
                         create_index, drop_index,
-                        drop_constraint, execute)
+                        execute)
 from alembic.context import get_context
 
 from rucio.db.sqla.constants import DIDType
@@ -56,7 +56,7 @@ def downgrade():
     drop_index('DID_META_DID_TYPE_IDX', 'did_meta')
     schema = get_context().version_table_schema + '.' if get_context().version_table_schema else ''
     if get_context().dialect.name == 'oracle':
-        try_drop_constraint(('DID_META_DID_TYPE_CHK', 'did_meta')
+        try_drop_constraint('DID_META_DID_TYPE_CHK', 'did_meta')
         drop_column('did_meta', 'did_type', schema=schema[:-1])
 
     elif get_context().dialect.name == 'postgresql':
