@@ -131,7 +131,7 @@ class ReplicaClient(BaseClient):
         :param metalink: ``False`` (default) retrieves as JSON,
                          ``True`` retrieves as metalink4+xml.
         :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
-        :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
+        :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
         :param sort: Sort the replicas: ``geoip`` - based on src/dst IP topographical distance
                                         ``closeness`` - based on src/dst closeness
                                         ``dynamic`` - Rucio Dynamic Smart Sort (tm)
