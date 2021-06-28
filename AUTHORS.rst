@@ -53,6 +53,7 @@ Individual contributors to the source code
 - Radu Carpa <radu.carpa@cern.ch>, 2021
 - Dhruv Sondhi <dhruvsondhi05@gmail.com>, 2021
 - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+- Ilija Vukotic <ivukotic@uchicago.edu>, 2020-2021
 
 
 Organisations employing contributors
@@ -79,3 +80,4 @@ Organisations employing contributors
 - Brookhaven National Laboratory (USA)
 - Institut Teknologi Bandung (Indonesia)
 - Imperial College London (UK)
+- University of Chicago (USA)
