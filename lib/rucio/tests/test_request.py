@@ -20,13 +20,14 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import unittest
 from datetime import datetime
 
 import pytest
 
-from rucio.common.config import config_get, config_get_bool, config_set, config_remove_option
+from rucio.common.config import config_get_bool, config_set, config_remove_option
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, parse_response
 from rucio.core.replica import add_replica
@@ -35,6 +36,7 @@ from rucio.core.rse import get_rse_id, set_rse_transfer_limits, add_rse_attribut
 from rucio.db.sqla import session, models, constants
 from rucio.db.sqla.constants import RequestType, RequestState
 from rucio.tests.common import vohdr, hdrdict, headers, auth
+from rucio.tests.common_server import get_vo, reset_config_table
 
 
 @pytest.mark.dirty
@@ -141,8 +143,8 @@ def test_queue_requests_state(vo, use_preparer):
         db_session.query(models.Request).delete()
         db_session.query(models.RSETransferLimit).delete()
         db_session.query(models.Distance).delete()
-        db_session.query(models.Config).delete()
         db_session.commit()
+        reset_config_table()
 
 
 @pytest.mark.dirty
@@ -152,7 +154,7 @@ class TestRequestCoreList(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 
@@ -171,8 +173,8 @@ class TestRequestCoreList(unittest.TestCase):
         self.db_session.query(models.Request).delete()
         self.db_session.query(models.RSETransferLimit).delete()
         self.db_session.query(models.Distance).delete()
-        self.db_session.query(models.Config).delete()
         self.db_session.commit()
+        reset_config_table()
 
     def tearDown(self):
         self.db_session.commit()

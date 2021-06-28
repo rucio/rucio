@@ -20,6 +20,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import os
 import unittest
@@ -27,7 +28,7 @@ from logging import getLogger
 from os import remove
 from random import choice
 from re import search
-from string import ascii_uppercase, ascii_lowercase
+from string import ascii_uppercase, ascii_lowercase, ascii_letters, digits
 from unittest.mock import patch
 from urllib.parse import urlparse, parse_qs
 
@@ -55,19 +56,21 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_get, config_get_bool, config_remove_option, config_set
+from rucio.common.config import config_get_bool, config_remove_option, config_set
 from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, UnsupportedAccountName, \
-    UnsupportedOperation
+    UnsupportedOperation, RucioException
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, get_tmp_dir, parse_response, ssh_sign
+from rucio.core import config as config_db
 from rucio.core.replica import add_replica
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import add_rule
-from rucio.core.vo import add_vo, vo_exists
+from rucio.core.vo import add_vo, vo_exists, map_vo
 from rucio.daemons.automatix.automatix import automatix
 from rucio.db.sqla import models, session as db_session
-from rucio.tests.common import execute, headers, hdrdict, vohdr, auth, loginhdr
+from rucio.tests.common import execute, headers, hdrdict, vohdr, auth, loginhdr, get_long_vo
+from rucio.tests.common_server import get_vo
 from rucio.tests.test_authentication import PRIVATE_KEY, PUBLIC_KEY
 from rucio.tests.test_oidc import get_mock_oidc_client, NEW_TOKEN_DICT
 
@@ -81,21 +84,22 @@ pytestmark = pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] !=
 def setup_vo():
     """ Setup method for the vo environment. """
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        vo = {'vo': get_vo()}
+        long_vo = {'vo': get_long_vo()}
         new_vo = {'vo': 'new'}
         if not vo_exists(**new_vo):
             add_vo(description='Test', email='rucio@email.com', **new_vo)
-        return vo, new_vo
+        return vo, long_vo, new_vo
     else:
         pytest.skip('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode would result in failures.')
-        return {}, {}
+        return {}, {}, {}
 
 
 class TestVOCoreAPI(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.vo, cls.new_vo = setup_vo()
+        cls.vo, _, cls.new_vo = setup_vo()
 
     @pytest.mark.noparallel(reason='changes global configuration value')
     def test_multi_vo_flag(self):
@@ -214,7 +218,7 @@ def rest_client_class(request, rest_client):
 
 @pytest.fixture(scope='class')
 def vo_preparations(request):
-    vo, new_vo = setup_vo()
+    vo, long_vo, new_vo = setup_vo()
 
     # Setup accounts at two VOs so we can determine which VO we authenticated against
     usr_uuid = str(generate_uuid()).lower()[:16]
@@ -224,6 +228,7 @@ def vo_preparations(request):
     add_account(account_new, 'USER', 'rucio@email.com', 'root', **new_vo)
 
     request.cls.vo = vo
+    request.cls.long_vo = long_vo
     request.cls.new_vo = new_vo
     request.cls.account_tst = account_tst
     request.cls.account_new = account_new
@@ -232,7 +237,7 @@ def vo_preparations(request):
 @pytest.mark.usefixtures('rest_client_class', 'vo_preparations')
 class TestVORestAPI(unittest.TestCase):
 
-    def auth_oidc_handling(self, mock_oidc_client, vo, account_in, account_not_in, auto, polling):
+    def auth_oidc_handling(self, mock_oidc_client, vo, long_vo, account_in, account_not_in, auto, polling):
         """
         Utility script to handle the REST calls with various urls and codes needed to authenticate via OIDC.
         IdP responses are faked using code from `test_oidc.py`.
@@ -253,7 +258,7 @@ class TestVORestAPI(unittest.TestCase):
 
         # Define headers
         headers_dict = {'X-Rucio-Account': 'root',
-                        'X-Rucio-VO': vo['vo'],
+                        'X-Rucio-VO': long_vo['vo'],
                         'X-Rucio-Client-Authorize-Auto': str(auto),
                         'X-Rucio-Client-Authorize-Polling': str(polling),
                         'X-Rucio-Client-Authorize-Scope': 'openid profile',
@@ -322,20 +327,20 @@ class TestVORestAPI(unittest.TestCase):
     @patch('rucio.core.oidc.__get_init_oidc_client')
     def test_auth_oidc(self, mock_oidc_client):
         """ MULTI VO (REST): Test oidc authentication to multiple VOs """
-        self.auth_oidc_handling(mock_oidc_client, self.vo, self.account_tst, self.account_new, auto=False, polling=False)
-        self.auth_oidc_handling(mock_oidc_client, self.new_vo, self.account_new, self.account_tst, auto=False, polling=False)
+        self.auth_oidc_handling(mock_oidc_client, self.vo, self.long_vo, self.account_tst, self.account_new, auto=False, polling=False)
+        self.auth_oidc_handling(mock_oidc_client, self.new_vo, self.new_vo, self.account_new, self.account_tst, auto=False, polling=False)
 
     @patch('rucio.core.oidc.__get_init_oidc_client')
     def test_auth_oidc_polling(self, mock_oidc_client):
         """ MULTI VO (REST): Test oidc authentication to multiple VOs using 'polling' option """
-        self.auth_oidc_handling(mock_oidc_client, self.vo, self.account_tst, self.account_new, auto=False, polling=True)
-        self.auth_oidc_handling(mock_oidc_client, self.new_vo, self.account_new, self.account_tst, auto=False, polling=True)
+        self.auth_oidc_handling(mock_oidc_client, self.vo, self.long_vo, self.account_tst, self.account_new, auto=False, polling=True)
+        self.auth_oidc_handling(mock_oidc_client, self.new_vo, self.new_vo, self.account_new, self.account_tst, auto=False, polling=True)
 
     @patch('rucio.core.oidc.__get_init_oidc_client')
     def test_auth_oidc_auto(self, mock_oidc_client):
         """ MULTI VO (REST): Test oidc authentication to multiple VOs using 'auto' option """
-        self.auth_oidc_handling(mock_oidc_client, self.vo, self.account_tst, self.account_new, auto=True, polling=False)
-        self.auth_oidc_handling(mock_oidc_client, self.new_vo, self.account_new, self.account_tst, auto=True, polling=False)
+        self.auth_oidc_handling(mock_oidc_client, self.vo, self.long_vo, self.account_tst, self.account_new, auto=True, polling=False)
+        self.auth_oidc_handling(mock_oidc_client, self.new_vo, self.new_vo, self.account_new, self.account_tst, auto=True, polling=False)
 
     def test_auth_gss(self):
         """ MULTI VO (REST): Test gss authentication to multiple VOs """
@@ -400,11 +405,11 @@ class TestVORestAPI(unittest.TestCase):
             pass  # Might already exist, can skip
 
         headers_dict = {'X-Rucio-Account': 'root'}
-        response = self.rest_client.get('/auth/ssh_challenge_token', headers=headers(hdrdict(headers_dict), vohdr(self.vo['vo'])))
+        response = self.rest_client.get('/auth/ssh_challenge_token', headers=headers(hdrdict(headers_dict), vohdr(self.long_vo['vo'])))
         assert response.status_code == 200
         challenge_tst = str(response.headers.get('X-Rucio-SSH-Challenge-Token'))
         headers_dict.update({'X-Rucio-SSH-Signature': ssh_sign(PRIVATE_KEY, challenge_tst)})
-        response = self.rest_client.get('/auth/ssh', headers=headers(hdrdict(headers_dict), vohdr(self.vo['vo'])))
+        response = self.rest_client.get('/auth/ssh', headers=headers(hdrdict(headers_dict), vohdr(self.long_vo['vo'])))
         assert response.status_code == 200
         token_tst = str(response.headers.get('X-Rucio-Auth-Token'))
 
@@ -433,7 +438,7 @@ class TestVORestAPI(unittest.TestCase):
 
     def test_auth_userpass(self):
         """ MULTI VO (REST): Test userpass authentication to multiple VOs """
-        response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(self.vo['vo'])))
+        response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(self.long_vo['vo'])))
         assert response.status_code == 200
         token_tst = str(response.headers.get('X-Rucio-Auth-Token'))
 
@@ -495,7 +500,7 @@ class TestVORestAPI(unittest.TestCase):
 
     def test_list_vos_denied(self):
         """ MULTI VO (REST): Test list VOs through REST layer raises AccessDenied """
-        response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(self.vo['vo'])))
+        response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(self.long_vo['vo'])))
         assert response.status_code == 200
         token = response.headers.get('X-Rucio-Auth-Token')
         assert token
@@ -529,7 +534,7 @@ class TestVORestAPI(unittest.TestCase):
 
     def test_add_vo_denied(self):
         """ MULTI VO (REST): Test adding VO through REST layer raises AccessDenied """
-        response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(self.vo['vo'])))
+        response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(self.long_vo['vo'])))
 
         assert response.status_code == 200
         token = str(response.headers.get('X-Rucio-Auth-Token'))
@@ -595,7 +600,7 @@ class TestVORestAPI(unittest.TestCase):
 
     def test_update_vo_denied(self):
         """ MULTI VO (REST): Test updating VO through REST layer raises AccessDenied """
-        response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(self.vo['vo'])))
+        response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(self.long_vo['vo'])))
         assert response.status_code == 200
         token = str(response.headers.get('X-Rucio-Auth-Token'))
 
@@ -635,7 +640,7 @@ class TestVORestAPI(unittest.TestCase):
         token = str(response.headers.get('X-Rucio-Auth-Token'))
 
         params = {'email': 'rucio@email.com', 'decription': 'Try updating non-existent'}
-        response = self.rest_client.put('/vos/000', headers=headers(auth(token)), json=params)
+        response = self.rest_client.put('/vos/bad', headers=headers(auth(token)), json=params)
         assert response.status_code == 404
 
     def test_recover_vo_success(self):
@@ -654,7 +659,7 @@ class TestVORestAPI(unittest.TestCase):
 
     def test_recover_vo_denied(self):
         """ MULTI VO (REST): Test recovering VO through REST layer raises AccessDenied """
-        response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(self.vo['vo'])))
+        response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(self.long_vo['vo'])))
         assert response.status_code == 200
         token = str(response.headers.get('X-Rucio-Auth-Token'))
 
@@ -663,12 +668,36 @@ class TestVORestAPI(unittest.TestCase):
         response = self.rest_client.post('/vos/' + self.vo['vo'] + '/recover', headers=headers(auth(token)), json=params)
         assert response.status_code == 401
 
+    @pytest.mark.noparallel(reason='account lists may be changed by other tests')
+    def test_rest_vomap(self):
+        """ MULTI VO (REST): Test that both the long and short version of a VO name return the same results. """
+        def get_vo_accounts(vo):
+            response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(vo)))
+            assert response.status_code == 200
+            token = str(response.headers.get('X-Rucio-Auth-Token'))
+            response = self.rest_client.get('/accounts/', headers=headers(auth(token)))
+            assert response.status_code == 200
+            accounts = [parse_response(a)['account'] for a in response.get_data(as_text=True).split('\n')[:-1]]
+            return sorted(accounts)
+        # The test VOs contain different account names
+        # We get all the account names with the long VO name and short VO name and check they are equal
+        accounts_long = get_vo_accounts(self.long_vo['vo'])
+        accounts_short = get_vo_accounts(self.vo['vo'])
+        assert len(accounts_short) > 0
+        assert accounts_short == accounts_long
+
+    def test_rest_vomap_bad(self):
+        """ MULTI VO (REST): Test that we get a bad paramter (400) error with an invalid (out of spec) VO name. """
+        # VO names cannot include an exclaimation mark
+        response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr("BadVO!")))
+        assert response.status_code == 400
+
 
 class TestMultiVoClients(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.vo, cls.new_vo = setup_vo()
+        cls.vo, cls.long_vo, cls.new_vo = setup_vo()
 
     def test_get_vo_from_config(self):
         """ MULTI VO (CLIENT): Get vo from config file when starting clients """
@@ -677,8 +706,9 @@ class TestMultiVoClients(unittest.TestCase):
         client = Client(vo=None)
         upload_client = UploadClient(_client=client)
         # Check the vo has been got from the config file
-        assert replica_client.vo == self.vo['vo']
-        assert upload_client.client.vo == self.vo['vo']
+        long_vo = get_long_vo()
+        assert replica_client.vo == long_vo
+        assert upload_client.client.vo == long_vo
 
     def test_accounts_at_different_vos(self):
         """ MULTI VO (CLIENT): Test that accounts from 2nd vo don't interfere """
@@ -944,7 +974,7 @@ class TestMultiVOBinRucio(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.vo, cls.new_vo = setup_vo()
+        cls.vo, cls.long_vo, cls.new_vo = setup_vo()
         if cls.vo:
             cls.fake_vo = {'vo': 'fke'}
 
@@ -975,7 +1005,7 @@ class TestMultiVOBinRucio(unittest.TestCase):
 
     def test_vo_option_admin_cli(self):
         """ MULTI VO (USER): Test authentication to multiple VOs via the admin CLI """
-        cmd = 'rucio-admin --vo %s rse list' % self.vo['vo']
+        cmd = 'rucio-admin --vo %s rse list' % self.long_vo['vo']
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
@@ -1005,7 +1035,7 @@ class TestMultiVOBinRucio(unittest.TestCase):
 
     def test_vo_option_cli(self):
         """ MULTI VO (USER): Test authentication to multiple VOs via the CLI """
-        cmd = 'rucio --vo %s list-rses' % self.vo['vo']
+        cmd = 'rucio --vo %s list-rses' % self.long_vo['vo']
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
@@ -1039,7 +1069,7 @@ class TestMultiVODaemons(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.vo, cls.new_vo = setup_vo()
+        cls.vo, cls.long_vo, cls.new_vo = setup_vo()
 
     def test_automatix(self):
         """ MULTI VO (DAEMON): Test that automatix runs on a single VO """
@@ -1083,3 +1113,41 @@ class TestMultiVODaemons(unittest.TestCase):
         replicas_new = list(list_replicas(did_dicts, rse_expression=shr_rse, **self.new_vo))
         assert len(replicas_tst) != 0
         assert len(replicas_new) == 0
+
+
+class TestVOMap(unittest.TestCase):
+    """ Test VO Mapping functions. """
+
+    def tearDown(self):
+        """ Ensure we don't leave test entries in DB. """
+        config_db.remove_option("vo-map", "test.vo1-one")
+        config_db.remove_option("vo-map", "second.vo")
+
+    def test_map_vo(self):
+        """ Test a few typical map_vo use cases """
+        # Check things still work if section is missing
+        assert map_vo("def") == "def"
+        assert map_vo("tst") == "tst"
+        assert map_vo("test.vo1-one") == "test.vo1-one"
+
+        # Add config and do mapping tests
+        # This first VO name uses all allowed character sets for the long VO name
+        config_db.set("vo-map", "test.vo1-one", "tst")
+        config_db.set("vo-map", "second.vo", "ts2")
+
+        # Mapping not in config
+        assert map_vo("test") == "test"
+        # VO in config, but use short name directly
+        assert map_vo("tst") == "tst"
+        # Test two mappings from config
+        assert map_vo("test.vo1-one") == "tst"
+        assert map_vo("second.vo") == "ts2"
+        # Invalid VO name tests
+        # Generate a list of all 1-byte characters and remove ones that we should accept
+        test_chars = set([chr(x) for x in range(0, 256)])
+        test_chars -= set(ascii_letters)
+        test_chars -= set(digits)
+        test_chars -= set(['.', '-'])
+        for test_chr in test_chars:
+            with self.assertRaises(RucioException, msg="Character %s (%d) unexpectedly accepted" % (test_chr, ord(test_chr))):
+                map_vo("bad%s" % test_chr)

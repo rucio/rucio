@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019-2020 CERN
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,22 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
+import re
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
+import rucio.core.config as config_db
 from rucio.common import exception
 from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
+
+# Format for long VO names
+LONG_VO_RE = re.compile(r"^[a-zA-Z0-9\.\-]+$")
 
 
 @read_session
@@ -130,3 +136,20 @@ def update_vo(vo, parameters, session=None):
         if key in ['email', 'description']:
             param[key] = parameters[key]
     query.update(param)
+
+
+def map_vo(vo):
+    """
+    Converts a long VO name into the internal short (three letter)
+    tag mapping.
+    Mappings are loaded from the vo-map section of the config database table.
+    If a mapping is not found, the orignal is returned unchanged.
+    :param vo: The long VO name string.
+    :returns: The short VO name string.
+    """
+    # Newline is ignored by regexp if at end of string, so test for that as well.
+    if not LONG_VO_RE.match(vo) or '\n' in vo:
+        raise exception.RucioException('Invalid characters in VO name.')
+    if not config_db.has_section("vo-map"):
+        return vo  # No mapping config
+    return config_db.get("vo-map", vo, default=vo)

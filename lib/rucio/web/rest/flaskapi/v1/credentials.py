@@ -20,6 +20,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 from typing import TYPE_CHECKING
 
@@ -28,8 +29,8 @@ from werkzeug.datastructures import Headers
 
 from rucio.api.credential import get_signed_url
 from rucio.common.exception import CannotAuthenticate
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, generate_http_error_flask, \
-    ErrorHandlingMethodView
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, extract_vo, \
+    generate_http_error_flask, ErrorHandlingMethodView
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -77,7 +78,7 @@ class SignURL(ErrorHandlingMethodView):
         :status 406: Not Acceptable
         """
         headers = self.get_headers()
-        vo = request.headers.get('X-Rucio-VO', default='def')
+        vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)

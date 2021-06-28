@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,14 +18,15 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
 # - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 # - Stefan Prenner <stefan.prenner@cern.ch>, 2017-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
+# - Gabriele Fronze' <gfronze@cern.ch>, 2020
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import os.path
 import sys
@@ -40,12 +41,16 @@ from rucio.client import Client  # noqa: E402
 from rucio.common.config import config_get, config_get_bool  # noqa: E402
 from rucio.common.exception import Duplicate, RucioException  # noqa: E402
 from rucio.core.account import add_account_attribute  # noqa: E402
+from rucio.core.vo import map_vo  # noqa: E402
 from rucio.common.types import InternalAccount  # noqa: E402
+from rucio.tests.common_server import reset_config_table  # noqa: E402
 
 
 if __name__ == '__main__':
+    # Create config table including the long VO mappings
+    reset_config_table()
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        vo = {'vo': map_vo(config_get('client', 'vo', raise_exception=False, default='tst'))}
         try:
             add_vo(new_vo=vo['vo'], issuer='super_root', description='A VO to test multi-vo features', email='N/A', vo='def')
         except Duplicate:
