@@ -21,6 +21,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import unittest
 from random import choice
@@ -29,10 +30,11 @@ from string import ascii_uppercase, digits, ascii_lowercase
 import pytest
 
 from rucio.client.rseclient import RSEClient
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
 from rucio.core import rse
 from rucio.core import rse_expression_parser
+from rucio.tests.common_server import get_vo
 
 
 def rse_name_generator(size=10):
@@ -52,7 +54,7 @@ class TestRSEExpressionParserCore(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_vo()}
             self.filter = {'filter': self.vo}
         else:
             self.vo = {}
@@ -235,7 +237,7 @@ class TestRSEExpressionParserClient(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_vo()}
         else:
             self.vo = {}
 

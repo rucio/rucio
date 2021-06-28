@@ -25,6 +25,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 from __future__ import print_function
 
@@ -37,7 +38,7 @@ from rucio.api.subscription import list_subscriptions, add_subscription, update_
     list_subscription_rule_states, get_subscription_by_id
 from rucio.client.didclient import DIDClient
 from rucio.client.subscriptionclient import SubscriptionClient
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.exception import InvalidObject, SubscriptionNotFound, SubscriptionDuplicate
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
@@ -50,6 +51,7 @@ from rucio.core.scope import add_scope
 from rucio.daemons.transmogrifier.transmogrifier import run
 from rucio.db.sqla.constants import AccountType, DIDType
 from rucio.tests.common import headers, auth
+from rucio.tests.common_server import get_vo
 
 
 class TestSubscriptionCoreApi(unittest.TestCase):
@@ -57,7 +59,7 @@ class TestSubscriptionCoreApi(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 
@@ -318,7 +320,7 @@ class TestSubscriptionClient(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 

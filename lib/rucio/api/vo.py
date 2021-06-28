@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019-2020 CERN
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,9 @@
 # Authors:
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 from rucio.api.permission import has_permission
 from rucio.common import exception
@@ -38,6 +40,7 @@ def add_vo(new_vo, issuer, description=None, email=None, vo='def'):
     :param vo: The vo of the user issuing the command.
     '''
 
+    new_vo = vo_core.map_vo(new_vo)
     validate_schema('vo', new_vo, vo=vo)
 
     kwargs = {}
@@ -75,6 +78,7 @@ def recover_vo_root_identity(root_vo, identity_key, id_type, email, issuer, defa
     :param vo: the VO to act on.
     """
     kwargs = {}
+    root_vo = vo_core.map_vo(root_vo)
     if not has_permission(issuer=issuer, vo=vo, action='recover_vo_root_identity', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not recover root identity' % (issuer))
 
@@ -93,6 +97,7 @@ def update_vo(updated_vo, parameters, issuer, vo='def'):
     :param vo: The VO of the user issusing the command.
     """
     kwargs = {}
+    updated_vo = vo_core.map_vo(updated_vo)
     if not has_permission(issuer=issuer, action='update_vo', kwargs=kwargs, vo=vo):
         raise exception.AccessDenied('Account {} cannot update VO'.format(issuer))
 

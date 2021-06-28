@@ -18,6 +18,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 from __future__ import print_function
 
@@ -29,13 +30,14 @@ from time import sleep
 import pytest
 
 from rucio.client.replicaclient import ReplicaClient
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalScope
 from rucio.core.replica import (update_replica_state, list_replicas, list_bad_replicas_status)
 from rucio.core.rse import get_rse_id
 from rucio.daemons.replicarecoverer.suspicious_replica_recoverer import run, stop
 from rucio.db.sqla.constants import DIDType, BadFilesStatus, ReplicaState
 from rucio.tests.common import execute, file_generator
+from rucio.tests.common_server import get_vo
 
 
 @pytest.mark.dirty
@@ -44,7 +46,7 @@ class TestReplicaRecoverer(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_vo()}
         else:
             self.vo = {}
 
