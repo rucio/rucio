@@ -858,7 +858,8 @@ class RSEFileAssociation(BASE, ModelBase):
                    CheckConstraint('lock_cnt IS NOT NULL', name='REPLICAS_LOCK_CNT_NN'),
                    Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
                    Index('REPLICAS_PATH_IDX', 'path', mysql_length=get_schema_value('NAME_LENGTH')),
-                   Index('REPLICAS_STATE_IDX', 'state'))  # Under Oracle this is a FB Index
+                   Index('REPLICAS_STATE_IDX', 'state'),  # Under Oracle this is a FB Index
+                   Index('REPLICAS_RSE_ID_IDX', 'rse_id'))
 
 
 class CollectionReplica(BASE, ModelBase):
