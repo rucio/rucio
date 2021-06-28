@@ -43,6 +43,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -947,7 +948,8 @@ def upload(args):
                       'lifetime': args.lifetime,
                       'register_after_upload': args.register_after_upload,
                       'transfer_timeout': args.transfer_timeout,
-                      'guid': args.guid})
+                      'guid': args.guid,
+                      'recursive': args.recursive})
 
     if len(items) < 1:
         raise InputValidationError('No files could be extracted from the given arguments')
@@ -959,6 +961,11 @@ def upload(args):
     if len(items) > 1 and args.name:
         logger.error("A single LFN was specified on the command line, but there are multiple files to upload.")
         logger.error("If LFN auto-detection is not used, only one file may be uploaded at a time")
+        raise InputValidationError('Invalid input argument composition')
+
+    if args.recursive and args.pfn:
+        logger.error("It is not possible to create the folder structure into collections with a non-deterministic way.")
+        logger.error("If PFN is specified, you cannot use --recursive")
         raise InputValidationError('Invalid input argument composition')
 
     client = get_client(args)
@@ -2178,6 +2185,7 @@ You can filter by key/value, e.g.::
     upload_parser.add_argument('--name', dest='name', action='store', help='Specify the exact LFN for the upload.')
     upload_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('upload', 'transfer_timeout', False, 360), help='Transfer timeout (in seconds).')
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
+    upload_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='Convert recursively the folder structure into collections')
 
     # The download and get subparser
     get_parser = subparsers.add_parser('get', help='Download method (synonym for download)')
