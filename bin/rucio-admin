@@ -38,6 +38,7 @@
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import division
 from __future__ import print_function
@@ -551,6 +552,7 @@ def info_rse(args):
     rseinfo = client.get_rse(rse=args.rse)
     attributes = client.list_rse_attributes(rse=args.rse)
     usage = client.get_rse_usage(rse=args.rse)
+    accounts = client.list_accounts()
     print('Settings:')
     print('=========')
     for key in sorted(rseinfo):
@@ -575,7 +577,12 @@ def info_rse(args):
         print('  ' + elem['source'])
         for item in sorted(elem):
             print('    ' + item + ': ' + str(elem[item]))
-
+    print("Account limits:")
+    print("===============")
+    for account in accounts:
+        print('  ' + account['account'])
+        print('    local_limit: %s' % sizefmt(client.get_account_limits(account=account['account'], rse_expression=args.rse, locality='local')[args.rse], True))
+        print('    global_limit: %s' % sizefmt(client.get_account_limits(account=account['account'], rse_expression=args.rse, locality='global')[args.rse], True))
     return SUCCESS
 
 
