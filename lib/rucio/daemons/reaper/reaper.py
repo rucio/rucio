@@ -25,6 +25,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Matt Snyder <msnyder@bnl.gov>, 2021
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -147,6 +148,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
     rse_name = rse_info['rse']
     rse_id = rse_info['id']
     noaccess_attempts = 0
+    pfns_to_bulk_delete = []
     try:
         prot.connect()
         for replica in replicas:
@@ -174,7 +176,10 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
                     # sign the URL if necessary
                     if prot.attributes['scheme'] == 'https' and rse_info['sign_url'] is not None:
                         pfn = get_signed_url(rse_id, rse_info['sign_url'], 'delete', pfn)
-                    prot.delete(pfn)
+                    if prot.attributes['scheme'] == 'globus':
+                        pfns_to_bulk_delete.append(replica['pfn'])
+                    else:
+                        prot.delete(pfn)
                 else:
                     logger(logging.WARNING, 'Deletion UNAVAILABLE of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
 
@@ -208,6 +213,10 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
                 logger(logging.CRITICAL, 'Deletion CRITICAL of %s:%s as %s on %s: %s', replica['scope'], replica['name'], replica['pfn'], rse_name, str(traceback.format_exc()))
                 deletion_dict['reason'] = str(error)
                 add_message('deletion-failed', deletion_dict)
+
+        if pfns_to_bulk_delete and prot.attributes['scheme'] == 'globus':
+            logger(logging.DEBUG, 'Attempting bulk delete on RSE %s for scheme %s', rse_name, prot.attributes['scheme'])
+            prot.bulk_delete(pfns_to_bulk_delete)
 
     except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
         for replica in replicas:
@@ -567,7 +576,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 # Physical  deletion will take place there
                 try:
                     prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme, logger=logger)
-                    for file_replicas in chunks(replicas, 100):
+                    for file_replicas in chunks(replicas, chunk_size):
                         # Refresh heartbeat
                         live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
                         del_start_time = time.time()
