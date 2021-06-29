@@ -2815,11 +2815,6 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
         if BASE.metadata.schema:
             schema = BASE.metadata.schema + '.'
         session.execute('DELETE FROM {schema}updated_col_rep A WHERE A.rowid > ANY (SELECT B.rowid FROM {schema}updated_col_rep B WHERE A.scope = B.scope AND A.name=B.name AND A.did_type=B.did_type AND (A.rse_id=B.rse_id OR (A.rse_id IS NULL and B.rse_id IS NULL)))'.format(schema=schema))
-        # subquery = session.query(func.max(models.UpdatedCollectionReplica.id)).\
-        #     group_by(models.UpdatedCollectionReplica.scope,
-        #              models.UpdatedCollectionReplica.name,
-        #              models.UpdatedCollectionReplica.rse_id).subquery()
-        # session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.notin_(subquery)).delete(synchronize_session=False)
     elif session.bind.dialect.name == 'mysql':
         subquery1 = session.query(func.max(models.UpdatedCollectionReplica.id).label('max_id')).\
             group_by(models.UpdatedCollectionReplica.scope,

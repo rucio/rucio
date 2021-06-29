@@ -1,4 +1,4 @@
-# Copyright 2015-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2021
 
 ''' rename callback to message '''
 
@@ -98,16 +98,7 @@ def downgrade():
         create_check_constraint('CALLBACKS_CREATED_NN', 'callbacks', 'created_at is not null')
         create_check_constraint('CALLBACKS_UPDATED_NN', 'callbacks', 'updated_at is not null')
 
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
-        drop_constraint('messages_pk', 'messages', type_='primary')
-        rename_table('messages', 'callbacks', schema=schema[:-1])
-        create_primary_key('callbacks_pk', 'callbacks', ['id'])
-        create_check_constraint('callbacks_event_type_nn', 'callbacks', 'event_type is not null')
-        create_check_constraint('callbacks_payload_nn', 'callbacks', 'payload is not null')
-        create_check_constraint('callbacks_created_nn', 'callbacks', 'created_at is not null')
-        create_check_constraint('callbacks_updated_nn', 'callbacks', 'updated_at is not null')
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+    elif context.get_context().dialect.name == 'mysql':
         op.execute('ALTER TABLE ' + schema + 'messages DROP CHECK MESSAGES_EVENT_TYPE_NN')  # pylint: disable=no-member
         op.execute('ALTER TABLE ' + schema + 'messages DROP CHECK MESSAGES_PAYLOAD_NN')  # pylint: disable=no-member
         op.execute('ALTER TABLE ' + schema + 'messages DROP CHECK MESSAGES_CREATED_NN')  # pylint: disable=no-member
