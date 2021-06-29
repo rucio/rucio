@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019
+# - Matt Snyder <msnyder@bnl.gov>, 2019-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
 
 import datetime
@@ -44,7 +44,7 @@ def load_config(cfg_file='globus-config.yml'):
     return yaml.safe_load(open(config).read())
 
 
-def getTransferClient():
+def get_transfer_client():
     cfg = load_config()
     # cfg = yaml.safe_load(open("/opt/rucio/lib/rucio/transfertool/config.yml"))
     client_id = cfg['globus']['apps'][GLOBUS_AUTH_APP]['client_id']
@@ -73,7 +73,7 @@ def auto_activate_endpoint(tc, ep_id):
 
 def submit_xfer(source_endpoint_id, destination_endpoint_id, source_path, dest_path, job_label, recursive=False):
 
-    tc = getTransferClient()
+    tc = get_transfer_client()
     # as both endpoints are expected to be Globus Server endpoints, send auto-activate commands for both globus endpoints
     auto_activate_endpoint(tc, source_endpoint_id)
     auto_activate_endpoint(tc, destination_endpoint_id)
@@ -130,20 +130,20 @@ def bulk_submit_xfer(submitjob, recursive=False):
 
     # logging.info('submitting transfer...')
     transfer_result = tc.submit_transfer(tdata)
-    # logging.info("task_id =", transfer_result["task_id"])
+    logging.info("transfer_result: %s" % transfer_result)
 
     return transfer_result["task_id"]
 
 
 def check_xfer(task_id):
-    tc = getTransferClient()
+    tc = get_transfer_client()
     transfer = tc.get_task(task_id)
     status = str(transfer["status"])
     return status
 
 
 def bulk_check_xfers(task_ids):
-    tc = getTransferClient()
+    tc = get_transfer_client()
 
     logging.debug('task_ids: %s' % task_ids)
 
@@ -164,9 +164,20 @@ def bulk_check_xfers(task_ids):
 
 
 def send_delete_task(endpoint_id=None, path=None):
-    tc = getTransferClient()
+    tc = get_transfer_client()
     ddata = DeleteData(tc, endpoint_id, recursive=True)
     ddata.add_item(path)
     delete_result = tc.submit_delete(ddata)
 
     return delete_result
+
+
+def send_bulk_delete_task(endpoint_id=None, pfns=None):
+    tc = get_transfer_client()
+    ddata = DeleteData(tc, endpoint_id, recursive=True)
+    for pfn in pfns:
+        logging.debug('pfn: %s' % pfn)
+        ddata.add_item(pfn)
+    bulk_delete_result = tc.submit_delete(ddata)
+
+    return bulk_delete_result

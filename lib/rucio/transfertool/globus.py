@@ -13,14 +13,14 @@
 # limitations under the License.
 #
 # Authors:
-# - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019
+# - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import logging
 
 from rucio.transfertool.transfertool import Transfertool
-from .globusLibrary import bulk_submit_xfer, submit_xfer, bulk_check_xfers
+from .globus_library import bulk_submit_xfer, submit_xfer, bulk_check_xfers
 
 
 class GlobusTransferTool(Transfertool):
