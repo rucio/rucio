@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2021
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
@@ -45,8 +45,8 @@ from rucio.common.utils import generate_uuid as uuid, execute
 
 skip_rse_tests_with_accounts = pytest.mark.skipif(not any(os.path.exists(os.path.join(d, 'rse-accounts.cfg')) for d in get_config_dirs()),
                                                   reason='fails if no rse-accounts.cfg found')
-skiplimitedsql = pytest.mark.skipif('RDBMS' in os.environ and (os.environ['RDBMS'] == 'sqlite' or os.environ['RDBMS'] == 'mysql5'),
-                                    reason="does not work in SQLite or MySQL 5, because of missing features")
+skiplimitedsql = pytest.mark.skipif('RDBMS' in os.environ and os.environ['RDBMS'] == 'sqlite',
+                                    reason="does not work in SQLite because of missing features")
 
 
 def get_long_vo():
