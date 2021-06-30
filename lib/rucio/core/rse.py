@@ -747,10 +747,7 @@ def get_rse_limits(rse_id: str, name: 'Optional[str]' = None,
     query = session.query(models.RSELimit).filter_by(rse_id=rse_id)
     if name:
         query = query.filter_by(name=name)
-    limits = {}
-    for limit in query:
-        limits[limit.name] = limit.value
-    return limits
+    return {limit.name: limit.value for limit in query}
 
 
 @transactional_session
