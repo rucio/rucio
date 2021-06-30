@@ -152,7 +152,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
 
     :param dids: The list of data identifiers (DIDs).
     :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
-    :param unavailable: Also include unavailable replicas in the list.
+    :param unavailable: (deprecated) Also include unavailable replicas in the list.
     :param request_id: ID associated with the request for debugging.
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
