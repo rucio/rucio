@@ -39,6 +39,7 @@
 import json
 from io import StringIO
 from re import match
+from typing import TYPE_CHECKING
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -58,6 +59,10 @@ from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
+
+if TYPE_CHECKING:
+    from typing import Dict, Optional
+    from sqlalchemy.orm import Session
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
@@ -709,7 +714,8 @@ def get_rse_usage(rse_id, source=None, session=None, per_account=False):
 
 
 @transactional_session
-def set_rse_limits(rse_id, name, value, session=None):
+def set_rse_limits(rse_id: str, name: str, value: int,
+                   session: 'Session' = None) -> bool:
     """
     Set RSE limits.
 
@@ -727,7 +733,8 @@ def set_rse_limits(rse_id, name, value, session=None):
 
 
 @read_session
-def get_rse_limits(rse_id, name=None, session=None):
+def get_rse_limits(rse_id: str, name: 'Optional[str]' = None,
+                   session: 'Session' = None) -> 'Dict[str, int]':
     """
     Get RSE limits.
 
@@ -747,7 +754,8 @@ def get_rse_limits(rse_id, name=None, session=None):
 
 
 @transactional_session
-def delete_rse_limits(rse_id, name=None, session=None):
+def delete_rse_limits(rse_id: str, name: 'Optional[str]' = None,
+                      session: 'Session' = None) -> None:
     """
     Delete RSE limit.
 
