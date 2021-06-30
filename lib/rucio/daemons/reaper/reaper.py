@@ -318,12 +318,7 @@ def __check_rse_usage(rse, rse_id, greedy=False, logger=logging.log):
 
         # Get RSE limits
         limits = get_rse_limits(rse_id=rse_id)
-        if not limits and 'MinFreeSpace' not in limits:
-            result = (needed_free_space, False)
-            REGION.set('rse_usage_%s' % rse_id, result)
-            return result
-
-        min_free_space = limits.get('MinFreeSpace')
+        min_free_space = limits.get('MinFreeSpace', 0)
 
         # Check from which sources to get used and total spaces
         # Default is storage
