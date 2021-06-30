@@ -620,7 +620,7 @@ def test_client_add_list_bad_replicas(rse_factory, replica_client, did_client):
 
     # Listing replicas on deterministic RSE
     replicas, list_rep = [], []
-    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
+    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], all_states=True):
         replicas.extend(replica['rses'][rse1])
         list_rep.append(replica)
     r = replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
@@ -651,7 +651,7 @@ def test_client_add_list_bad_replicas(rse_factory, replica_client, did_client):
 
     # Listing replicas on non-deterministic RSE
     replicas, list_rep = [], []
-    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
+    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], all_states=True):
         replicas.extend(replica['rses'][rse2])
         list_rep.append(replica)
     print(replicas, list_rep)
@@ -686,7 +686,7 @@ def test_client_add_suspicious_replicas(rse_factory, replica_client):
     # Listing replicas on deterministic RSE
     replicas = []
     list_rep = []
-    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
+    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], all_states=True):
         replicas.extend(replica['rses'][rse1])
         list_rep.append(replica)
     r = replica_client.declare_suspicious_file_replicas(replicas, 'This is a good reason')
@@ -701,7 +701,7 @@ def test_client_add_suspicious_replicas(rse_factory, replica_client):
     # Listing replicas on non-deterministic RSE
     replicas = []
     list_rep = []
-    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
+    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], all_states=True):
         replicas.extend(replica['rses'][rse2])
         list_rep.append(replica)
     r = replica_client.declare_suspicious_file_replicas(replicas, 'This is a good reason')
@@ -853,7 +853,7 @@ def test_client_add_list_replicas(rse_factory, replica_client, mock_scope):
         file['state'] = 'A'
         files4.append(file)
     replica_client.update_replicas_states(rse2, files=files4)
-    replicas = [r for r in replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files3], schemes=['file'], unavailable=True)]
+    replicas = [r for r in replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files3], schemes=['file'], all_states=True)]
     assert len(replicas) == 5
     for i in range(nbfiles):
         assert rse2 in replicas[i]['rses']
@@ -956,7 +956,7 @@ def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_
 
     # Listing replicas on deterministic RSE
     list_rep = []
-    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['file'], unavailable=True):
+    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['file'], all_states=True):
         pfn = list(replica['pfns'].keys())[0]
         list_rep.append(pfn)
 
@@ -1071,7 +1071,7 @@ class TestReplicaMetalink:
 
         ml = xmltodict.parse(replica_client.list_replicas(files,
                                                           metalink=4,
-                                                          unavailable=True,
+                                                          all_states=True,
                                                           schemes=['https', 'sftp', 'file']),
                              xml_attribs=False)
         assert 3 == len(ml['metalink']['file']['url'])
