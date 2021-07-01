@@ -74,7 +74,7 @@ RUN if [ "$PYTHON" == "2.7" ] ; then \
         usermod -G mock -a mockbuild && \
         rpmdev-setuptree && \
         echo -e '\n%_buildshell /bin/bash\n%python3_pkgversion 37\n' >> ~/.rpmmacros && \
-        curl -sSL https://download-ib01.fedoraproject.org/pub/epel/7/SRPMS/Packages/b/boost-python3-1.53.0-30.el7.src.rpm > boost-python3-1.53.0-30.el7.src.rpm && \
+        curl -sSL https://download-ib01.fedoraproject.org/pub/epel/7/source/tree/Packages/b/boost-python3-1.53.0-30.el7.src.rpm > boost-python3-1.53.0-30.el7.src.rpm && \
         rpm -i boost-python3-1.53.0-30.el7.src.rpm && \
         rm -f boost159-1.59.0-3.el7ost.src.rpm && \
         curl -sSL https://github.com/boostorg/python/commit/660487c43fde76f3e64f1cb2e644500da92fe582.patch > ~/rpmbuild/SOURCES/boost-python37.patch && \
