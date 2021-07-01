@@ -22,11 +22,16 @@ import sys
 
 from setuptools import setup
 
-from setuputil import get_rucio_version
 
 if sys.version_info < (3, 6):
     print('ERROR: Rucio WebUI requires at least Python 3.6 to run.')
     sys.exit(1)
+
+try:
+    from setuputil import get_rucio_version
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+    from setuputil import get_rucio_version
 
 name = 'rucio-webui'
 packages = ['rucio', 'rucio.web', 'rucio.web.ui', 'rucio.web.ui.common']

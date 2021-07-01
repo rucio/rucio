@@ -28,12 +28,15 @@ import sys
 
 from setuptools import setup
 
-from setuputil import clients_requirements_table, get_rucio_version, match_define_requirements
-
 if sys.version_info < (2, 7):
     print('ERROR: Rucio Client requires at least Python 2.7 to run.')
     sys.exit(1)
 
+try:
+    from setuputil import clients_requirements_table, get_rucio_version, match_define_requirements
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+    from setuputil import clients_requirements_table, get_rucio_version, match_define_requirements
 
 install_requires, extras_require = match_define_requirements(clients_requirements_table)
 
