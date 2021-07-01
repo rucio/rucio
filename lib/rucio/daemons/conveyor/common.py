@@ -32,6 +32,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Nick Smith <nick.smith@cern.ch>, 2021
 
 """
 Methods common to different conveyor submitter daemons.
@@ -227,17 +228,18 @@ def submit_transfer(external_host, job, submitter='submitter', timeout=None, use
 
 
 @read_session
-def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None, logger=logging.log, group_by_scope=False):
+def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None, logger=logging.log, group_by_scope=False, archive_timeout_override=None):
     """
     Group transfers in bulk based on certain criterias
 
-    :param transfers:             List of transfers to group.
-    :param plicy:                 Policy to use to group.
-    :param group_bulk:            Bulk sizes.
-    :param source_strategy:       Strategy to group sources
-    :param max_time_in_queue:     Maximum time in queue
-    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
-    :return:                      List of grouped transfers.
+    :param transfers:                List of transfers to group.
+    :param plicy:                    Policy to use to group.
+    :param group_bulk:               Bulk sizes.
+    :param source_strategy:          Strategy to group sources
+    :param max_time_in_queue:        Maximum time in queue
+    :param archive_timeout_override: Override the archive_timeout parameter for any transfers with it set (0 to unset)
+    :param logger:                   Optional decorated logger that can be passed from the calling daemons or servers.
+    :return:                         List of grouped transfers.
     """
 
     grouped_transfers = {}
@@ -340,7 +342,11 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                       'overwrite': transfer['overwrite'],
                       'priority': 3}
         if transfer.get('archive_timeout', None):
-            job_params['archive_timeout'] = transfer['archive_timeout']
+            if archive_timeout_override is None:
+                job_params['archive_timeout'] = transfer['archive_timeout']
+            elif archive_timeout_override != 0:
+                job_params['archive_timeout'] = archive_timeout_override
+            # else don't set the value
         if multihop:
             job_params['multihop'] = True
         if strict_copy:

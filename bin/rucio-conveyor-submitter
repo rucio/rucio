@@ -21,6 +21,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Nick Smith <nick.smith@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -121,6 +122,8 @@ Note that attempting the use the ``--vos`` argument when in single-VO mode will 
                         help='Maximum source replicas per FTS job')
     parser.add_argument("--retry-other-fts", action="store_true", default=False,
                         help='retry on a different FTS')
+    parser.add_argument('--archive-timeout-override', action="store", default=None, type=int, metavar="INTEGER_SECONDS",
+                        help='Override the archive_timeout parameter for any transfers with it set (0 to unset)')
     return parser
 
 
@@ -145,6 +148,7 @@ if __name__ == "__main__":
             sleep_time=args.sleep_time,
             max_sources=args.max_sources,
             retry_other_fts=args.retry_other_fts,
+            archive_timeout_override=args.archive_timeout_override,
             total_threads=args.total_threads)
     except KeyboardInterrupt:
         stop()
