@@ -23,7 +23,9 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - Nick Smith <nick.smith@cern.ch>, 2021
 
+import itertools
 import unittest
 from hashlib import sha256
 
@@ -305,29 +307,44 @@ class TestJudgeRepairer(unittest.TestCase):
 
         rse = rse_name_generator()
         rse_id = add_rse(rse, **self.vo)
-        update_rse(rse_id, {'availability_write': False})
         set_local_account_limit(self.jdoe, rse_id, -1)
-
         rule_repairer(once=True)  # Clean out the repairer
-        scope = InternalScope('mock', **self.vo)
-        files = create_files(4, scope, self.rse4_id, bytes=100)
-        dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
-        attach_dids(scope, dataset, files, self.jdoe)
 
-        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True, activity='DebugJudge')[0]
+        region = make_region().configure(
+            'dogpile.cache.memcached',
+            expiration_time=3600,
+            arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True}
+        )
+        def change_availability(new_value):
+            update_rse(rse_id, {'availability_write': new_value})
+            # clear cache
+            region.delete(sha256(rse.encode()).hexdigest())
 
-        assert(RuleState.STUCK == get_rule(rule_id)['state'])
-        rule_repairer(once=True)
+        for grouping, ignore_availability in itertools.product(["NONE", "DATASET", "ALL"], [True, False]):
+            scope = InternalScope('mock', **self.vo)
+            files = create_files(1, scope, self.rse4_id, bytes=100)
+            dataset = 'dataset_' + str(uuid())
+            add_did(scope, dataset, DIDType.DATASET, self.jdoe)
+            attach_dids(scope, dataset, files, self.jdoe)
 
-        # Stil assert STUCK because of ignore_availability:
-        assert(RuleState.STUCK == get_rule(rule_id)['state'])
+            if ignore_availability:
+                change_availability(False)
+                rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping=grouping, weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=ignore_availability, activity='DebugJudge')[0]
+                assert(RuleState.STUCK == get_rule(rule_id)['state'])
 
-        region = make_region().configure('dogpile.cache.memcached',
-                                         expiration_time=3600,
-                                         arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
-        region.delete(sha256(rse.encode()).hexdigest())
+                rule_repairer(once=True)
+                assert(RuleState.REPLICATING == get_rule(rule_id)['state'])
 
-        update_rse(rse_id, {'availability_write': True})
-        rule_repairer(once=True)
-        assert(RuleState.REPLICATING == get_rule(rule_id)['state'])
+                change_availability(True)
+            else:
+                rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping=grouping, weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=ignore_availability, activity='DebugJudge')[0]
+                failed_transfer(scope=scope, name=files[0]['name'], rse_id=get_replica_locks(scope=files[0]['scope'], name=files[0]['name'])[0].rse_id)
+                change_availability(False)
+                assert(RuleState.STUCK == get_rule(rule_id)['state'])
+
+                rule_repairer(once=True)
+                assert(RuleState.STUCK == get_rule(rule_id)['state'])
+
+                change_availability(True)
+                rule_repairer(once=True)
+                assert(RuleState.REPLICATING == get_rule(rule_id)['state'])
