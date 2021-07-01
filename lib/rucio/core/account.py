@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,15 +18,13 @@
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from datetime import datetime
 from enum import Enum
@@ -350,7 +348,7 @@ def get_usage_history(rse_id, account, session=None):
     """
 
     result = []
-    AccountUsageHistory = models.AccountUsage.__history_mapper__.class_
+    AccountUsageHistory = models.AccountUsageHistory
     try:
         query = session.query(AccountUsageHistory).filter_by(rse_id=rse_id, account=account).order_by(AccountUsageHistory.updated_at)
         for row in query.all():

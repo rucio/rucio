@@ -17,8 +17,8 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
 # - Wen Guan <wen.guan@cern.ch>, 2015-2016
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
@@ -33,7 +33,7 @@
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 
 import json
@@ -850,7 +850,7 @@ def list_rse_usage_history(rse_id, source=None, session=None):
 
     :returns: A list of historic RSE usage.
     """
-    query = session.query(models.RSEUsage.__history_mapper__.class_).filter_by(rse_id=rse_id).order_by(models.RSEUsage.__history_mapper__.class_.updated_at.desc())
+    query = session.query(models.RSEUsageHistory).filter_by(rse_id=rse_id).order_by(models.RSEUsageHistory.updated_at.desc())  # pylint: disable=no-member
     if source:
         query = query.filter_by(source=source)
 

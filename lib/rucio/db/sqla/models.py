@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
 # - Wen Guan <wen.guan@cern.ch>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2020
 # - asket <asket.agarwal96@gmail.com>, 2018
@@ -51,7 +51,6 @@ from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability
                                      RuleState, ReplicaState, RequestState, RequestType, RSEType,
                                      ScopeStatus, SubscriptionState, RuleNotification, LifetimeExceptionsState,
                                      BadPFNStatus)
-from rucio.db.sqla.history import Versioned
 from rucio.db.sqla.session import BASE
 from rucio.db.sqla.types import GUID, BooleanString, JSON
 from rucio.db.sqla.types import InternalAccountString as _InternalAccountString
@@ -85,9 +84,7 @@ def compile_binary_oracle(type_, compiler, **kw):
 
 @event.listens_for(Table, "before_create")
 def _mysql_rename_type(target, connection, **kw):
-    if connection.dialect.name == 'mysql' and target.name == 'quarantined_replicas_history':
-        target.columns.path.type = String(255)
-    elif connection.dialect.name == 'mysql' and target.name == 'quarantined_replicas':
+    if connection.dialect.name == 'mysql' and target.name == 'quarantined_replicas':
         target.columns.path.type = String(255)
 
 
@@ -166,10 +163,22 @@ def _ck_constraint_name(const, table):
         const.name = "QURD_REPLICAS_CREATED_NN"
     elif const.name == 'QUARANTINED_REPLICAS_UPDATED_NN' and table.name.upper() == 'QUARANTINED_REPLICAS':
         const.name = "QURD_REPLICAS_UPDATED_NN"
+    elif const.name == 'QUARANTINED_REPLICAS_HISTORY_CREATED_NN' and table.name.upper() == 'QUARANTINED_REPLICAS_HISTORY':
+        const.name = "QURD_REPLICAS_HIST_CREATED_NN"
+    elif const.name == 'QUARANTINED_REPLICAS_HISTORY_UPDATED_NN' and table.name.upper() == 'QUARANTINED_REPLICAS_HISTORY':
+        const.name = "QURD_REPLICAS_HIST_UPDATED_NN"
     elif const.name == 'ARCHIVE_CONTENTS_HISTORY_CREATED_NN' and table.name.upper() == 'ARCHIVE_CONTENTS_HISTORY':
         const.name = "ARCH_CNTS_HIST_CREATED_NN"
     elif const.name == 'ARCHIVE_CONTENTS_HISTORY_UPDATED_NN' and table.name.upper() == 'ARCHIVE_CONTENTS_HISTORY':
         const.name = "ARCH_CNTS_HIST_UPDATED_NN"
+    elif const.name == 'ACCOUNT_USAGE_HISTORY_CREATED_NN' and table.name.upper() == 'ACCOUNT_USAGE_HISTORY':
+        const.name = "ACCOUNT_USAGE_HIST_CREATED_NN"
+    elif const.name == 'ACCOUNT_USAGE_HISTORY_UPDATED_NN' and table.name.upper() == 'ACCOUNT_USAGE_HISTORY':
+        const.name = "ACCOUNT_USAGE_HIST_UPDATED_NN"
+    elif const.name == 'SUBSCRIPTIONS_HISTORY_CREATED_NN' and table.name.upper() == 'SUBSCRIPTIONS_HISTORY':
+        const.name = "SUBSCRIPTIONS_HIST_CREATED_NN"
+    elif const.name == 'SUBSCRIPTIONS_HISTORY_UPDATED_NN' and table.name.upper() == 'SUBSCRIPTIONS_HISTORY':
+        const.name = "SUBSCRIPTIONS_HIST_UPDATED_NN"
 
     if const.name is None:
         const.name = table.name.upper() + '_' + str(uuid.uuid4())[:6] + '_CHK'
@@ -546,7 +555,7 @@ class BadPFNs(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='BAD_PFNS_ACCOUNT_FK'))
 
 
-class QuarantinedReplica(BASE, ModelBase, Versioned):
+class QuarantinedReplica(BASE, ModelBase):
     """Represents the quarantined replicas"""
     __tablename__ = 'quarantined_replicas'
     rse_id = Column(GUID())
@@ -559,6 +568,23 @@ class QuarantinedReplica(BASE, ModelBase, Versioned):
     _table_args = (PrimaryKeyConstraint('rse_id', 'path', name='QURD_REPLICAS_STATE_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='QURD_REPLICAS_RSE_ID_FK'),
                    Index('QUARANTINED_REPLICAS_PATH_IDX', 'path', 'rse_id', unique=True))
+
+
+class QuarantinedReplicaHistory(BASE, ModelBase):
+    """Represents the quarantined replicas history"""
+    __tablename__ = 'quarantined_replicas_history'
+    rse_id = Column(GUID())
+    path = Column(String(1024))
+    bytes = Column(BigInteger)
+    md5 = Column(String(32))
+    adler32 = Column(String(8))
+    scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
+    name = Column(String(get_schema_value('NAME_LENGTH')))
+    deleted_at = Column(DateTime)
+    __mapper_args__ = {
+        'primary_key': [rse_id, path]  # Fake primary key for SQLA
+    }
+    _table_args = ()
 
 
 class DIDKey(BASE, ModelBase):
@@ -634,7 +660,7 @@ class ConstituentAssociation(BASE, ModelBase):
 
 
 class ConstituentAssociationHistory(BASE, ModelBase):
-    """Represents the map between archives and constituents"""
+    """Represents the map history between archives and constituents"""
     __tablename__ = 'archive_contents_history'
     child_scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))    # Constituent file scope
     child_name = Column(String(get_schema_value('NAME_LENGTH')))    # Constituent file name
@@ -736,7 +762,7 @@ class RSETransferLimit(BASE, ModelBase):
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_TRANSFER_LIMITS_RSE_ID_FK'), )
 
 
-class RSEUsage(BASE, ModelBase, Versioned):
+class RSEUsage(BASE, ModelBase):
     """Represents location usage"""
     __tablename__ = 'rse_usage'
     rse_id = Column(GUID())
@@ -746,6 +772,17 @@ class RSEUsage(BASE, ModelBase, Versioned):
     files = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('rse_id', 'source', name='RSE_USAGE_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_USAGE_RSE_ID_FK'), )
+
+
+class RSEUsageHistory(BASE, ModelBase):
+    """Represents location usage history"""
+    __tablename__ = 'rse_usage_history'
+    rse_id = Column(GUID())
+    source = Column(String(255))
+    used = Column(BigInteger)
+    free = Column(BigInteger)
+    files = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('rse_id', 'source', 'updated_at', name='RSE_USAGE_HISTORY_PK'), )
 
 
 class UpdatedRSECounter(BASE, ModelBase):
@@ -825,7 +862,7 @@ class AccountGlobalLimit(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_GLOBAL_LIMITS_ACC_FK'),)
 
 
-class AccountUsage(BASE, ModelBase, Versioned):
+class AccountUsage(BASE, ModelBase):
     """Represents account usage"""
     __tablename__ = 'account_usage'
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
@@ -835,6 +872,16 @@ class AccountUsage(BASE, ModelBase, Versioned):
     _table_args = (PrimaryKeyConstraint('account', 'rse_id', name='ACCOUNT_USAGE_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_USAGE_ACCOUNT_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='ACCOUNT_USAGE_RSES_ID_FK'), )
+
+
+class AccountUsageHistory(BASE, ModelBase):
+    """Represents account usage history"""
+    __tablename__ = 'account_usage_history'
+    account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    rse_id = Column(GUID())
+    files = Column(BigInteger)
+    bytes = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('account', 'rse_id', 'updated_at', name='ACCOUNT_USAGE_HISTORY_PK'),)
 
 
 class RSEFileAssociation(BASE, ModelBase):
@@ -1126,7 +1173,7 @@ class UpdatedAccountCounter(BASE, ModelBase):
                    Index('UPDATED_ACCNT_CNTRS_RSE_ID_IDX', 'account', 'rse_id'))
 
 
-class Request(BASE, ModelBase, Versioned):
+class Request(BASE, ModelBase):
     """Represents a request for a single file with a third party service"""
     __tablename__ = 'requests'
     id = Column(GUID(), default=utils.generate_uuid)
@@ -1182,7 +1229,56 @@ class Request(BASE, ModelBase, Versioned):
                    Index('REQUESTS_TYP_STA_TRA_ACT_IDX', 'request_type', 'state', 'transfertool', 'activity'))
 
 
-class Source(BASE, ModelBase, Versioned):
+class RequestHistory(BASE, ModelBase):
+    """Represents request history"""
+    __tablename__ = 'requests_history'
+    id = Column(GUID(), default=utils.generate_uuid)
+    request_type = Column(Enum(RequestType, name='REQUESTS_HIST_TYPE_CHK',
+                               values_callable=lambda obj: [e.value for e in obj]),
+                          default=RequestType.TRANSFER)
+    scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
+    name = Column(String(get_schema_value('NAME_LENGTH')))
+    did_type = Column(Enum(DIDType, name='REQUESTS_HIST_DIDTYPE_CHK',
+                           values_callable=lambda obj: [e.value for e in obj]),
+                      default=DIDType.FILE)
+    dest_rse_id = Column(GUID())
+    source_rse_id = Column(GUID())
+    attributes = Column(String(4000))
+    state = Column(Enum(RequestState, name='REQUESTS_HIST_STATE_CHK',
+                        values_callable=lambda obj: [e.value for e in obj]),
+                   default=RequestState.QUEUED)
+    external_id = Column(String(64))
+    external_host = Column(String(256))
+    retry_count = Column(Integer(), server_default='0')
+    err_msg = Column(String(4000))
+    previous_attempt_id = Column(GUID())
+    rule_id = Column(GUID())
+    activity = Column(String(50), default='default')
+    bytes = Column(BigInteger)
+    md5 = Column(String(32))
+    adler32 = Column(String(8))
+    dest_url = Column(String(2048))
+    submitted_at = Column(DateTime)
+    started_at = Column(DateTime)
+    transferred_at = Column(DateTime)
+    estimated_at = Column(DateTime)
+    submitter_id = Column(Integer)
+    estimated_started_at = Column(DateTime)
+    estimated_transferred_at = Column(DateTime)
+    staging_started_at = Column(DateTime)
+    staging_finished_at = Column(DateTime)
+    account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    requested_at = Column(DateTime)
+    priority = Column(Integer)
+    transfertool = Column(String(64))
+    __mapper_args__ = {
+        'primary_key': [id]  # Fake primary key for SQLA
+    }
+    _table_args = (Index('REQ_HIST_SCOPE_NAME_RSE_IDX', 'scope', 'name', 'dest_rse_id'),
+                   )
+
+
+class Source(BASE, ModelBase):
     """Represents source files for transfers"""
     __tablename__ = 'sources'
     request_id = Column(GUID())
@@ -1202,6 +1298,25 @@ class Source(BASE, ModelBase, Versioned):
                    Index('SOURCES_SRC_DST_IDX', 'rse_id', 'dest_rse_id'),
                    Index('SOURCES_SC_NM_DST_IDX', 'scope', 'rse_id', 'name'),
                    Index('SOURCES_DEST_RSEID_IDX', 'dest_rse_id'))
+
+
+class SourceHistory(BASE, ModelBase):
+    """Represents history of source files for transfers"""
+    __tablename__ = 'sources_history'
+    request_id = Column(GUID())
+    scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
+    name = Column(String(get_schema_value('NAME_LENGTH')))
+    rse_id = Column(GUID())
+    dest_rse_id = Column(GUID())
+    url = Column(String(2048))
+    bytes = Column(BigInteger)
+    ranking = Column(Integer())
+    is_using = Column(Boolean(), default=False)
+    __mapper_args__ = {
+        'primary_key': [request_id]  # Fake primary key for SQLA
+    }
+    _table_args = (Index('SOURCES_HIST_REQID_IDX', 'request_id'),
+                   )
 
 
 class Distance(BASE, ModelBase):
@@ -1230,7 +1345,7 @@ class Distance(BASE, ModelBase):
                    Index('DISTANCES_DEST_RSEID_IDX', 'dest_rse_id'))
 
 
-class Subscription(BASE, ModelBase, Versioned):
+class Subscription(BASE, ModelBase):
     """Represents a subscription"""
     __tablename__ = 'subscriptions'
     id = Column(GUID(), default=utils.generate_uuid)
@@ -1253,6 +1368,26 @@ class Subscription(BASE, ModelBase, Versioned):
                    CheckConstraint('RETROACTIVE IS NOT NULL', name='SUBSCRIPTIONS_RETROACTIVE_NN'),
                    CheckConstraint('ACCOUNT IS NOT NULL', name='SUBSCRIPTIONS_ACCOUNT_NN'),
                    Index('SUBSCRIPTIONS_STATE_IDX', 'state'))  # Under Oracle this is a FB index
+
+
+class SubscriptionHistory(BASE, ModelBase):
+    """Represents a subscription history"""
+    __tablename__ = 'subscriptions_history'
+    id = Column(GUID(), default=utils.generate_uuid)
+    name = Column(String(64))
+    filter = Column(String(4000))
+    replication_rules = Column(String(4000))
+    policyid = Column(SmallInteger, server_default='0')
+    state = Column(Enum(SubscriptionState, name='SUBSCRIPTIONS_HIST_STATE_CHK',
+                        values_callable=lambda obj: [e.value for e in obj]),
+                   default=SubscriptionState.ACTIVE)
+    last_processed = Column(DateTime, default=datetime.datetime.utcnow())
+    account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    lifetime = Column(DateTime)
+    comments = Column(String(4000))
+    retroactive = Column(Boolean(name='SUBSCRIPTIONS_HIST_RETROACTIVE_CHK'), default=False)
+    expired_at = Column(DateTime)
+    _table_args = (PrimaryKeyConstraint('id', 'updated_at', name='SUBSCRIPTIONS_PK'),)
 
 
 class Token(BASE, ModelBase):
@@ -1327,13 +1462,25 @@ class AlembicVersion(BASE):
     version_num = Column(String(32), primary_key=True, nullable=False)
 
 
-class Config(BASE, ModelBase, Versioned):
+class Config(BASE, ModelBase):
     """Represents the configuration"""
     __tablename__ = 'configs'
     section = Column(String(128))
     opt = Column(String(128))
     value = Column(String(4000))
     _table_args = (PrimaryKeyConstraint('section', 'opt', name='CONFIGS_PK'), )
+
+
+class ConfigHistory(BASE, ModelBase):
+    """Represents the configuration"""
+    __tablename__ = 'configs_history'
+    section = Column(String(128))
+    opt = Column(String(128))
+    value = Column(String(4000))
+    __mapper_args__ = {
+        'primary_key': [section, opt]  # Fake primary key for SQLA
+    }
+    _table_args = ()
 
 
 class Heartbeats(BASE, ModelBase):
@@ -1458,10 +1605,12 @@ def register_models(engine):
               AccountLimit,
               AccountGlobalLimit,
               AccountUsage,
+              AccountUsageHistory,
               AlembicVersion,
               BadReplicas,
               CollectionReplica,
               Config,
+              ConfigHistory,
               ConstituentAssociation,
               ConstituentAssociationHistory,
               DataIdentifierAssociation,
@@ -1482,6 +1631,7 @@ def register_models(engine):
               NamingConvention,
               OAuthRequest,
               QuarantinedReplica,
+              QuarantinedReplicaHistory,
               RSE,
               RSEAttrAssociation,
               RSEFileAssociation,
@@ -1490,15 +1640,19 @@ def register_models(engine):
               RSEProtocols,
               RSEQoSAssociation,
               RSEUsage,
+              RSEUsageHistory,
               ReplicaLock,
               ReplicationRule,
               ReplicationRule,
               ReplicationRuleHistory,
               ReplicationRuleHistoryRecent,
               Request,
+              RequestHistory,
               Scope,
               Source,
+              SourceHistory,
               Subscription,
+              SubscriptionHistory,
               TemporaryDataIdentifier,
               Token,
               UpdatedAccountCounter,
@@ -1520,10 +1674,12 @@ def unregister_models(engine):
               AccountLimit,
               AccountGlobalLimit,
               AccountUsage,
+              AccountUsageHistory,
               AlembicVersion,
               BadReplicas,
               CollectionReplica,
               Config,
+              ConfigHistory,
               ConstituentAssociation,
               ConstituentAssociationHistory,
               DataIdentifierAssociation,
@@ -1544,6 +1700,7 @@ def unregister_models(engine):
               NamingConvention,
               OAuthRequest,
               QuarantinedReplica,
+              QuarantinedReplicaHistory,
               RSE,
               RSEAttrAssociation,
               RSEFileAssociation,
@@ -1552,15 +1709,19 @@ def unregister_models(engine):
               RSEProtocols,
               RSEQoSAssociation,
               RSEUsage,
+              RSEUsageHistory,
               ReplicaLock,
               ReplicationRule,
               ReplicationRule,
               ReplicationRuleHistory,
               ReplicationRuleHistoryRecent,
               Request,
+              RequestHistory,
               Scope,
               Source,
+              SourceHistory,
               Subscription,
+              SubscriptionHistory,
               Token,
               TemporaryDataIdentifier,
               UpdatedAccountCounter,
