@@ -152,8 +152,8 @@ def main():
                         help='the output of this command')
     parser.add_argument('-n', '--build-no-cache', dest='build_no_cache', action='store_true',
                         help='build images without cache')
-    parser.add_argument('-r', '--cache-repo', dest='cache_repo', type=str, default='docker.pkg.github.com/rucio/rucio',
-                        help='use the following cache repository, like docker.pkg.github.com/USER/REPO')
+    parser.add_argument('-r', '--cache-repo', dest='cache_repo', type=str, default='ghcr.io/rucio/rucio',
+                        help='use the following cache repository, like ghcr.io/USER/REPO')
     parser.add_argument('-p', '--push-cache', dest='push_cache', action='store_true',
                         help='push the images to the cache repo')
     parser.add_argument('-b', '--branch', dest='branch', type=str, default='master',
