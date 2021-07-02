@@ -580,7 +580,7 @@ def info_rse(args):
     print('RSE limits:')
     print('===========')
     for limit in rse_limits:
-        print('  ' + limit + ': ' + str(rse_limits[limit]))
+        print('  ' + limit + ': ' + str(rse_limits[limit]) + ' B')
 
     return SUCCESS
 
@@ -777,8 +777,12 @@ def set_limit_rse(args):
     Set the RSE limit given the rse name and the name and value of the limit
     """
     client = get_client(args)
-    if client.set_rse_limits(args.rse, args.name, args.value):
-        logger.info('Set RSE limit successfully for %s: %s = %s' % (args.rse, args.name, args.value))
+    try:
+        args.value = int(args.value)
+        if client.set_rse_limits(args.rse, args.name, args.value):
+            logger.info('Set RSE limit successfully for %s: %s = %s' % (args.rse, args.name, args.value))
+    except ValueError:
+        logger.error('The RSE limit value must be an integer')
 
     return SUCCESS
 
