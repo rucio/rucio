@@ -1569,8 +1569,7 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         assert re.search('Limit {0} not defined in RSE {1}'.format(name, self.def_rse), err) is not None
         cmd = 'rucio-admin rse set-limit %s %s %s' % (self.def_rse, name3, value3)
-        exitcode, out, err = execute(cmd)
-        assert re.search('Database exception.', err) is not None
+        execute(cmd)
         cmd = 'rucio-admin rse info %s' % self.def_rse
         exitcode, out, err = execute(cmd)
         assert re.search("{0}: {1}".format(name3, value3), out) is None

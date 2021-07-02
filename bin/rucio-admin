@@ -1965,12 +1965,12 @@ def get_parser():
 
     # The set_limit_rse command
     set_limit_rse_parser = rse_subparser.add_parser('set-limit',
-                                               help='Set a RSE limit',
-                                               formatter_class=argparse.RawDescriptionHelpFormatter,
-                                               epilog='Usage example\n'
-                                                      '"""""""""""""\n'
-                                                      '\n'
-                                                      '  $ rucio-admin rse set-limit XRD1 MinFreeSpace 10000')
+                                                    help='Set a RSE limit',
+                                                    formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                    epilog='Usage example\n'
+                                                           '"""""""""""""\n'
+                                                           '\n'
+                                                           '  $ rucio-admin rse set-limit XRD1 MinFreeSpace 10000')
     set_limit_rse_parser.set_defaults(which='set_limit_rse')
     set_limit_rse_parser.add_argument('rse', action='store', help='RSE name')
     set_limit_rse_parser.add_argument('name', action='store', help='Name of the limit')
