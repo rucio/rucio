@@ -47,11 +47,11 @@ jobs:
         id: images
         shell: bash
         run: |
-          docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml pull
           i=0; until [ "$i" -ge 3 ]; do
             IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | $GITHUB_WORKSPACE/dev/rucio/tools/test/build_images.py --output list \
-                --cache-repo docker.pkg.github.com/${{ github.repository }} --branch "${{ needs.setup.outputs.branch }}" \
+                --cache-repo ghcr.io/${{ github.repository }} --branch "${{ needs.setup.outputs.branch }}" \
                 $GITHUB_WORKSPACE/dev || echo "")
             if [[ -n $IMAGES ]]; then break;
             else
@@ -59,7 +59,7 @@ jobs:
               echo "::warning::Building images failed, retrying…"
             fi
           done
-          docker logout https://docker.pkg.github.com
+          docker logout https://ghcr.io
           if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
           echo "::set-output name=images::$IMAGES"
       - name: Prepare Docker Compose
