@@ -138,6 +138,8 @@ def poller(once=False, activities=None, sleep_time=60,
 
                 xfers_ids = {}
                 for transf in transfs:
+                    print("TRANSF")
+                    print(transf)
                     if not transf['external_host'] in xfers_ids:
                         xfers_ids[transf['external_host']] = []
                     xfers_ids[transf['external_host']].append((transf['external_id'], transf['request_id']))
