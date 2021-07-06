@@ -22,7 +22,6 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
-# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 from __future__ import print_function
 
@@ -41,7 +40,6 @@ from rucio.rse import rsemanager
 from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 from rucio.tests.rsemgr_api_test import MgrTestCases
 
-
 @pytest.fixture(autouse=True, scope='class')
 def load_rse_info(request, containerized_rses):
     """
@@ -51,13 +49,13 @@ def load_rse_info(request, containerized_rses):
     rses = [rse for rse in containerized_rses if rse[0] == 'SSH1']
 
     data = load_test_conf_file('rse_repository.json')
-    request.cls.prefix = data['SSH_DISK']['protocols']['supported']['ssh']['prefix']
-    request.cls.port = data['SSH_DISK']['protocols']['supported']['ssh']['port']
-    request.cls.sshuser = data['SSH_DISK']['protocols']['supported']['ssh']['extended_attributes']['user']
+    request.cls.prefix = data['SSH_DISK']['protocols']['supported']['rsync']['prefix']
+    request.cls.port = data['SSH_DISK']['protocols']['supported']['rsync']['port']
+    request.cls.sshuser = data['SSH_DISK']['protocols']['supported']['rsync']['extended_attributes']['user']
 
     if len(rses) == 0:
         request.cls.rse_id = 'SSH-RSE'
-        request.cls.hostname = data['SSH-RSE']['protocols']['supported']['ssh']['hostname']
+        request.cls.hostname = data['SSH-RSE']['protocols']['supported']['rsync']['hostname']
     else:
         request.cls.rse_id = 'SSH1'
         request.cls.hostname = 'ssh1'
@@ -67,13 +65,13 @@ def load_rse_info(request, containerized_rses):
 
 @pytest.mark.noparallel(reason='creates and removes a test directory with a fixed name')
 @skip_rse_tests_with_accounts
-class TestRseSSH(unittest.TestCase):
+class TestRseRSYNC(unittest.TestCase):
     tmpdir = None
     user = None
     rse_id = None
     prefix = None
     hostname = None
-    port = None
+    port = None 
     sshuser = None
 
     @classmethod
@@ -82,7 +80,7 @@ class TestRseSSH(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        """SSH (RSE/PROTOCOLS): Creating necessary directories and files """
+        """rsync (RSE/PROTOCOLS): Creating necessary directories and files """
 
         # Getting info for the test environment
         rse_id, prefix, hostname, port, sshuser = cls.get_rse_info()
@@ -96,9 +94,9 @@ class TestRseSSH(unittest.TestCase):
         cls.tmpdir = tempfile.mkdtemp()
         cls.user = uuid()
 
-        cmd = 'ssh-keygen -R %s' % (cls.hostname)
+        cmd = 'ssh-keygen -R %s' % (hostname)
         execute(cmd)
-        cmd = 'ssh-keyscan %s  >> /root/.ssh/known_hosts' % (cls.hostname)
+        cmd = 'ssh-keyscan %s  >> /root/.ssh/known_hosts' % (hostname)
         execute(cmd)
 
         with open("%s/data.raw" % cls.tmpdir, "wb") as out:
@@ -113,25 +111,25 @@ class TestRseSSH(unittest.TestCase):
         os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         cls.static_file = '%s@%s:/%s/data.raw' % (sshuser, hostname, prefix)
         pathdir = os.path.dirname(prefix)
-        cmd = 'ssh %s@%s "mkdir -p %s" && scp %s/data.raw %s' % (sshuser, hostname, str(pathdir), prefix, cls.static_file)
+        cmd = 'rsync -az -e "ssh -p %s" --rsync-path="mkdir -p %s && rsync" --append-verify %s/data.raw %s' % (port, str(pathdir), prefix, cls.static_file)
         execute(cmd)
 
         for f in MgrTestCases.files_remote:
             path = str(prefix + protocol._get_path('user.%s' % cls.user, f))
             pathdir = os.path.dirname(path)
-            cmd = 'ssh %s@%s "mkdir -p %s" && scp %s/data.raw %s@%s:%s' % (sshuser, hostname, str(pathdir), prefix, sshuser, hostname, path)
+            cmd = 'rsync -az -e "ssh -p %s" --rsync-path="mkdir -p %s && rsync" --append-verify %s/data.raw %s@%s:%s' % (port, str(pathdir), prefix, sshuser, hostname, path)
             execute(cmd)
 
         for f in MgrTestCases.files_local_and_remote:
             shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
             path = str(prefix + protocol._get_path('user.%s' % cls.user, f))
             pathdir = os.path.dirname(path)
-            cmd = 'ssh {0}@{1} "mkdir -p {2}" && scp {3}/{4} {5}@{6}:{7}'.format(sshuser, hostname, str(pathdir), str(cls.tmpdir), str(f), sshuser, hostname, path)
+            cmd = 'rsync -az -e "ssh -p {0}" --rsync-path="mkdir -p {1} && rsync" --append-verify {2}/{3} {4}@{5}:{6}'.format(port, str(pathdir), str(cls.tmpdir), str(f), sshuser, hostname, path)
             execute(cmd)
 
     @classmethod
     def tearDownClass(cls):
-        """SSH (RSE/PROTOCOLS): Removing created directories and files"""
+        """rsync (RSE/PROTOCOLS): Removing created directories and files"""
         rse_id, prefix, hostname, port, sshuser = cls.get_rse_info()
         shutil.rmtree(prefix)
         shutil.rmtree(cls.tmpdir)
@@ -157,131 +155,132 @@ class TestRseSSH(unittest.TestCase):
         execute(cmd)
 
     def setUp(self):
-        """SSH (RSE/PROTOCOLS): Creating Mgr-instance """
-        self.tmpdir = TestRseSSH.tmpdir
-        self.rse_id, self.prefix, self.hostname, self.port, self.sshuser = TestRseSSH.get_rse_info()
-        self.mtc = MgrTestCases(self.tmpdir, self.rse_id, TestRseSSH.user, TestRseSSH.static_file)
+        """rsync (RSE/PROTOCOLS): Creating Mgr-instance """
+        self.tmpdir = TestRseRSYNC.tmpdir
+        self.rse_id, self.prefix, self.hostname, self.port, self.sshuser = TestRseRSYNC.get_rse_info()
+        self.mtc = MgrTestCases(self.tmpdir, self.rse_id, TestRseRSYNC.user, TestRseRSYNC.static_file)
+        self.mtc.setup_scheme('rsync', 'rsync')
 
     # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):
-        """SSH (RSE/PROTOCOLS): Put multiple files to storage providing LFNs and PFNs (Success)"""
+        """rsync (RSE/PROTOCOLS): Put multiple files to storage providing LFNs and PFNs (Success)"""
         self.mtc.test_put_mgr_ok_multi()
 
     def test_put_mgr_ok_single(self):
-        """SSH (RSE/PROTOCOLS): Put a single file to storage (Success)"""
+        """rsync (RSE/PROTOCOLS): Put a single file to storage (Success)"""
         self.mtc.test_put_mgr_ok_single()
 
     def test_put_mgr_SourceNotFound_multi(self):
-        """SSH (RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
+        """rsync (RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
         with pytest.raises(exception.SourceNotFound):
             self.mtc.test_put_mgr_SourceNotFound_multi()
 
     def test_put_mgr_SourceNotFound_single(self):
-        """SSH (RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
+        """rsync (RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
         with pytest.raises(exception.SourceNotFound):
             self.mtc.test_put_mgr_SourceNotFound_single()
 
     def test_put_mgr_FileReplicaAlreadyExists_multi(self):
-        """SSH (RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
+        """rsync (RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
         with pytest.raises(exception.FileReplicaAlreadyExists):
             self.mtc.test_put_mgr_FileReplicaAlreadyExists_multi()
 
     def test_put_mgr_FileReplicaAlreadyExists_single(self):
-        """SSH (RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
+        """rsync (RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
         with pytest.raises(exception.FileReplicaAlreadyExists):
             self.mtc.test_put_mgr_FileReplicaAlreadyExists_single()
 
     # MGR-Tests: DELETE
     def test_delete_mgr_ok_multi(self):
-        """SSH (RSE/PROTOCOLS): Delete multiple files from storage (Success)"""
+        """rsync (RSE/PROTOCOLS): Delete multiple files from storage (Success)"""
         self.mtc.test_delete_mgr_ok_multi()
 
     def test_delete_mgr_ok_single(self):
-        """SSH (RSE/PROTOCOLS): Delete a single file from storage (Success)"""
+        """rsync (RSE/PROTOCOLS): Delete a single file from storage (Success)"""
         self.mtc.test_delete_mgr_ok_single()
 
     def test_delete_mgr_SourceNotFound_multi(self):
-        """SSH (RSE/PROTOCOLS): Delete multiple files from storage (SourceNotFound)"""
+        """rsync (RSE/PROTOCOLS): Delete multiple files from storage (SourceNotFound)"""
         with pytest.raises(exception.SourceNotFound):
             self.mtc.test_delete_mgr_SourceNotFound_multi()
 
     def test_delete_mgr_SourceNotFound_single(self):
-        """SSH (RSE/PROTOCOLS): Delete a single file from storage (SourceNotFound)"""
+        """rsync (RSE/PROTOCOLS): Delete a single file from storage (SourceNotFound)"""
         with pytest.raises(exception.SourceNotFound):
             self.mtc.test_delete_mgr_SourceNotFound_single()
 
     # MGR-Tests: EXISTS
     def test_exists_mgr_ok_multi(self):
-        """SSH (RSE/PROTOCOLS): Check multiple files on storage (Success)"""
+        """rsync (RSE/PROTOCOLS): Check multiple files on storage (Success)"""
         self.mtc.test_exists_mgr_ok_multi()
 
     def test_exists_mgr_ok_single_lfn(self):
-        """SSH (RSE/PROTOCOLS): Check a single file on storage using LFN (Success)"""
+        """rsync (RSE/PROTOCOLS): Check a single file on storage using LFN (Success)"""
         self.mtc.test_exists_mgr_ok_single_lfn()
 
     def test_exists_mgr_ok_single_pfn(self):
-        """SSH (RSE/PROTOCOLS): Check a single file on storage using PFN (Success)"""
+        """rsync (RSE/PROTOCOLS): Check a single file on storage using PFN (Success)"""
         self.mtc.test_exists_mgr_ok_single_pfn()
 
     def test_exists_mgr_false_multi(self):
-        """SSH (RSE/PROTOCOLS): Check multiple files on storage (Fail)"""
+        """rsync (RSE/PROTOCOLS): Check multiple files on storage (Fail)"""
         self.mtc.test_exists_mgr_false_multi()
 
     def test_exists_mgr_false_single(self):
-        """SSH (RSE/PROTOCOLS): Check a single file on storage using LFN (Fail)"""
+        """rsync (RSE/PROTOCOLS): Check a single file on storage using LFN (Fail)"""
         self.mtc.test_exists_mgr_false_single_lfn()
 
     def test_exists_mgr_false_single_pfn(self):
-        """SSH (RSE/PROTOCOLS): Check a single file on storage using PFN (Fail)"""
+        """rsync (RSE/PROTOCOLS): Check a single file on storage using PFN (Fail)"""
         self.mtc.test_exists_mgr_false_single_pfn()
 
     # MGR-Tests: RENAME
     def test_rename_mgr_ok_multi(self):
-        """SSH (RSE/PROTOCOLS): Rename multiple files on storage (Success)"""
+        """rsync (RSE/PROTOCOLS): Rename multiple files on storage (Success)"""
         self.mtc.test_rename_mgr_ok_multi()
 
     def test_rename_mgr_ok_single_lfn(self):
-        """SSH (RSE/PROTOCOLS): Rename a single file on storage using LFN (Success)"""
+        """rsync (RSE/PROTOCOLS): Rename a single file on storage using LFN (Success)"""
         self.mtc.test_rename_mgr_ok_single_lfn()
 
     def test_rename_mgr_ok_single_pfn(self):
-        """SSH (RSE/PROTOCOLS): Rename a single file on storage using PFN (Success)"""
+        """rsync (RSE/PROTOCOLS): Rename a single file on storage using PFN (Success)"""
         self.mtc.test_rename_mgr_ok_single_pfn()
 
     def test_rename_mgr_FileReplicaAlreadyExists_multi(self):
-        """SSH (RSE/PROTOCOLS): Rename multiple files on storage (FileReplicaAlreadyExists)"""
+        """rsync (RSE/PROTOCOLS): Rename multiple files on storage (FileReplicaAlreadyExists)"""
         with pytest.raises(exception.FileReplicaAlreadyExists):
             self.mtc.test_rename_mgr_FileReplicaAlreadyExists_multi()
 
     def test_rename_mgr_FileReplicaAlreadyExists_single_lfn(self):
-        """SSH (RSE/PROTOCOLS): Rename a single file on storage using LFN(FileReplicaAlreadyExists)"""
+        """rsync (RSE/PROTOCOLS): Rename a single file on storage using LFN(FileReplicaAlreadyExists)"""
         with pytest.raises(exception.FileReplicaAlreadyExists):
             self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_lfn()
 
     def test_rename_mgr_FileReplicaAlreadyExists_single_pfn(self):
-        """SSH (RSE/PROTOCOLS): Rename a single file on storage using PFN (FileReplicaAlreadyExists)"""
+        """rsync (RSE/PROTOCOLS): Rename a single file on storage using PFN (FileReplicaAlreadyExists)"""
         with pytest.raises(exception.FileReplicaAlreadyExists):
             self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_pfn()
 
     def test_rename_mgr_SourceNotFound_multi(self):
-        """SSH (RSE/PROTOCOLS): Rename multiple files on storage (SourceNotFound)"""
+        """rsync (RSE/PROTOCOLS): Rename multiple files on storage (SourceNotFound)"""
         with pytest.raises(exception.SourceNotFound):
             self.mtc.test_rename_mgr_SourceNotFound_multi()
 
     def test_rename_mgr_SourceNotFound_single_lfn(self):
-        """SSH (RSE/PROTOCOLS): Rename a single file on storage using LFN (SourceNotFound)"""
+        """rsync (RSE/PROTOCOLS): Rename a single file on storage using LFN (SourceNotFound)"""
         with pytest.raises(exception.SourceNotFound):
             self.mtc.test_rename_mgr_SourceNotFound_single_lfn()
 
     def test_rename_mgr_SourceNotFound_single_pfn(self):
-        """SSH (RSE/PROTOCOLS): Rename a single file on storage using PFN (SourceNotFound)"""
+        """rsync (RSE/PROTOCOLS): Rename a single file on storage using PFN (SourceNotFound)"""
         with pytest.raises(exception.SourceNotFound):
             self.mtc.test_rename_mgr_SourceNotFound_single_pfn()
 
     def test_change_scope_mgr_ok_single_lfn(self):
-        """SSH (RSE/PROTOCOLS): Change the scope of a single file on storage using LFN (Success)"""
+        """rsync (RSE/PROTOCOLS): Change the scope of a single file on storage using LFN (Success)"""
         self.mtc.test_change_scope_mgr_ok_single_lfn()
 
     def test_change_scope_mgr_ok_single_pfn(self):
-        """SSH (RSE/PROTOCOLS): Change the scope of a single file on storage using PFN (Success)"""
+        """rsync (RSE/PROTOCOLS): Change the scope of a single file on storage using PFN (Success)"""
         self.mtc.test_change_scope_mgr_ok_single_pfn()
