@@ -580,7 +580,7 @@ class UploadClient:
 
         # Construct protocol for write and read operation.
         protocol_write = self._create_protocol(rse_settings, 'write', force_scheme=force_scheme, domain=domain, impl_chosen=impl)
-        protocol_read = self._create_protocol(rse_settings, 'read', domain=domain)
+        protocol_read = self._create_protocol(rse_settings, 'read', domain=domain, impl_chosen=impl)
 
         base_name = lfn.get('filename', lfn['name'])
         name = lfn.get('name', base_name)

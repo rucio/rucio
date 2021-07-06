@@ -57,7 +57,7 @@ class MgrTestCases:
     def __init__(self, tmpdir, rse_tag, user, static_file, vo='def'):
         self.rse_settings = mgr.get_rse_info(rse=rse_tag, vo=vo)
         try:
-            data = load_test_conf_file('rse-accounts.cfg')
+            data = load_test_conf_file('rse-accounts.cfg.template')
             self.rse_settings['credentials'] = data[rse_tag]
         except KeyError:
             print('No credentials found for this RSE.')
@@ -143,6 +143,7 @@ class MgrTestCases:
                                                  'adler32': adler32('%s/2_rse_local_put.raw' % self.tmpdir),
                                                  'filesize': os.stat('%s/2_rse_local_put.raw' % self.tmpdir)[
                                                      os.path.stat.ST_SIZE]}], source_dir=self.tmpdir)
+
         status = result[0]
         details = result[1]
         if not (status and details['user.%s:1_rse_local_put.raw' % self.user] and details['user.%s:2_rse_local_put.raw' % self.user]):

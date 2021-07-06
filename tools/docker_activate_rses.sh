@@ -45,6 +45,7 @@ rucio-admin rse add-protocol --hostname xrd2 --scheme root --prefix //rucio --po
 rucio-admin rse add-protocol --hostname xrd3 --scheme root --prefix //rucio --port 1096 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD3
 rucio-admin rse add-protocol --hostname xrd4 --scheme root --prefix //rucio --port 1097 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD4
 rucio-admin rse add-protocol --hostname ssh1 --scheme scp --prefix /rucio --port 22 --impl rucio.rse.protocols.ssh.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' SSH1
+rucio-admin rse add-protocol --hostname ssh1 --scheme rsync --prefix /rucio --port 22 --impl rucio.rse.protocols.rsync.Default --domain-json '{"wan": {"read": 2, "write": 2, "delete": 2, "third_party_copy": 2}, "lan": {"read": 2, "write": 2, "delete": 2}}' SSH1
 
 # Set test_container_xrd attribute for xrd containers
 rucio-admin rse set-attribute --rse XRD1 --key test_container_xrd --value True

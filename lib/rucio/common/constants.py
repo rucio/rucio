@@ -46,9 +46,10 @@ SCHEME_MAP = {'srm': ['srm', 'gsiftp'],
               'root': ['root'],
               's3': ['https', 'davs', 's3', 'srm+https'],
               'srm+https': ['https', 'davs', 's3', 'srm+https'],
-              'scp': ['scp']}
+              'scp': ['scp'],
+              'rsync': ['rsync']}
 
-SUPPORTED_PROTOCOLS = ['gsiftp', 'srm', 'root', 'davs', 'http', 'https', 'file', 's3', 's3+rucio', 's3+https', 'storm', 'srm+https', 'scp']
+SUPPORTED_PROTOCOLS = ['gsiftp', 'srm', 'root', 'davs', 'http', 'https', 'file', 's3', 's3+rucio', 's3+https', 'storm', 'srm+https', 'scp', 'rsync']
 
 FTS_STATE = namedtuple('FTS_STATE', ['SUBMITTED', 'READY', 'ACTIVE', 'FAILED', 'FINISHED', 'FINISHEDDIRTY', 'NOT_USED',
                                      'CANCELED'])('SUBMITTED', 'READY', 'ACTIVE', 'FAILED', 'FINISHED', 'FINISHEDDIRTY',
