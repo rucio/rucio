@@ -2332,7 +2332,8 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                               models.RSEFileAssociation)\
             .with_hint(models.DataIdentifierAssociation,
                        "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                       'oracle')\
+                       'oracle') \
+            .with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle')\
             .outerjoin(models.RSEFileAssociation,
                        and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
                             models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
