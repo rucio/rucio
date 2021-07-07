@@ -280,7 +280,7 @@ class DirectTransferDefinition:
         self.legacy_def = legacy_definition or {}
 
     def __str__(self):
-        return 'transfer {} from {} to {}'.format(self.rws, ' and '.join(self.sources), self.dst.rse)
+        return 'transfer {} from {} to {}'.format(self.rws, ' and '.join([str(s) for s in self.sources]), self.dst.rse)
 
     @property
     def src(self):
