@@ -37,7 +37,7 @@ from rucio.common.utils import execute, PREFERRED_CHECKSUM
 
 
 class Default(protocol.RSEProtocol):
-    """ Implementing access to RSEs using the SSH protocol."""
+    """ Implementing access to RSEs using the rclone protocol."""
 
     def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.
@@ -48,12 +48,6 @@ class Default(protocol.RSEProtocol):
 
         self.scheme = self.attributes['scheme']
         self.hostname = self.attributes['hostname']
-        self.port = str(self.attributes['port'])
-        if self.attributes['extended_attributes'] is not None and\
-           'user' in list(self.attributes['extended_attributes'].keys()):
-            self.sshuser = self.attributes['extended_attributes']['user']
-        else:
-            self.sshuser = 'root'
         self.logger = logger
 
     def path2pfn(self, path):
@@ -65,9 +59,9 @@ class Default(protocol.RSEProtocol):
             :returns: Fully qualified PFN.
 
         """
-        self.logger(logging.DEBUG, 'rsync.path2pfn: path: {}'.format(path))
-        if not path.startswith('rsync://'):
-            return '%s://%s@%s:%s/%s' % (self.scheme, self.sshuser, self.hostname, self.port, path)
+        self.logger(logging.DEBUG, 'rclone.path2pfn: path: {}'.format(path))
+        if not path.startswith('rclone://'):
+            return '%s://%s/%s' % (self.scheme, self.hostname, path)
         else:
             return path
 
@@ -76,15 +70,15 @@ class Default(protocol.RSEProtocol):
 
             :param pfn Physical file name
 
-            :returns: False always as it it capable of resuming midway failed transfers
+            :returns: True if the file exists, False if it doesn't
 
             :raise  ServiceUnavailable
         """
-        self.logger(logging.DEBUG, 'rsync.exists: pfn: {}'.format(pfn))
+        self.logger(logging.DEBUG, 'rclone.exists: pfn: {}'.format(pfn))
         try:
             path = self.pfn2path(pfn)
-            cmd = 'ssh -p %s %s@%s find %s' % (self.port, self.sshuser, self.hostname, path)
-            self.logger(logging.INFO, 'ssh.exists: cmd: {}'.format(cmd))
+            cmd = 'rclone lsf %s:%s' % (self.hostname, path)
+            self.logger(logging.INFO, 'rclone.exists: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status:
                 return False
@@ -103,24 +97,24 @@ class Default(protocol.RSEProtocol):
 
         :returns: a dict with two keys, filesize and an element of GLOBALLY_SUPPORTED_CHECKSUMS.
         """
-        self.logger(logging.DEBUG, 'rsync.stat: path: {}'.format(path))
+        self.logger(logging.DEBUG, 'rclone.stat: path: {}'.format(path))
         ret = {}
         chsum = None
-        if path.startswith('rsync://'):
+        if path.startswith('rclone://'):
             path = self.pfn2path(path)
 
         try:
-            # ssh stat for getting filesize
-            cmd = "rsync -an --size-only -e 'ssh -p {0}' --remove-source-files  {1}@{2}:{3}".format(self.port, self.sshuser, self.hostname, path)
-            self.logger(logging.INFO, 'rsync.stat: filesize cmd: {}'.format(cmd))
+            # rclone stat for getting filesize
+            cmd = 'rclone size {0}:{1}'.format(self.hostname, path)
+            self.logger(logging.INFO, 'rclone.stat: filesize cmd: {}'.format(cmd))
             status_stat, out, err = execute(cmd)
             if status_stat == 0:
-                sizestr = out.split(" ")[-4]
-                ret['filesize'] = sizestr.replace(',', '')
+                fsize = (out.split('\n')[1]).split(' ')[4][1:]
+                ret['filesize'] = fsize
 
-            # ssh query checksum for getting md5 checksum
-            cmd = 'ssh -p %s %s@%s md5sum %s' % (self.port, self.sshuser, self.hostname, path)
-            self.logger(logging.INFO, 'rsync.stat: checksum cmd: {}'.format(cmd))
+            # rclone query checksum for getting md5 checksum
+            cmd = 'rclone md5sum %s:%s' % (self.hostname, path)
+            self.logger(logging.INFO, 'rclone.stat: checksum cmd: {}'.format(cmd))
             status_query, out, err = execute(cmd)
 
             if status_query == 0:
@@ -147,8 +141,8 @@ class Default(protocol.RSEProtocol):
 
         :returns: path.
         """
-        if pfn.startswith('rsync://'):
-            self.logger(logging.DEBUG, 'rsync.pfn2path: pfn: {}'.format(pfn))
+        if pfn.startswith('rclone://'):
+            self.logger(logging.DEBUG, 'rclone.pfn2path: pfn: {}'.format(pfn))
             prefix = self.attributes['prefix']
             path = pfn.partition(self.attributes['prefix'])[2]
             path = prefix + path
@@ -162,7 +156,7 @@ class Default(protocol.RSEProtocol):
 
         :returns: Fully qualified PFN.
         """
-        self.logger(logging.DEBUG, 'rsync.lfns2pfns: lfns: {}'.format(lfns))
+        self.logger(logging.DEBUG, 'rclone.lfns2pfns: lfns: {}'.format(lfns))
         pfns = {}
         prefix = self.attributes['prefix']
 
@@ -175,9 +169,9 @@ class Default(protocol.RSEProtocol):
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
             if 'path' in lfn and lfn['path'] is not None:
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.sshuser, '@', self.hostname, ':', self.port, prefix, lfn['path']])
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.hostname, ':', prefix, lfn['path']])
             else:
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.sshuser, '@', self.hostname, ':', self.port, prefix, self._get_path(scope=scope, name=name)])
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.hostname, ':', prefix, self._get_path(scope=scope, name=name)])
         return pfns
 
     def connect(self):
@@ -185,19 +179,12 @@ class Default(protocol.RSEProtocol):
 
             :raises RSEAccessDenied
         """
-        self.logger(logging.DEBUG, 'rsync.connect: port: {}, hostname {}, ssh-user {}'.format(self.port, self.hostname, self.sshuser))
+        self.logger(logging.DEBUG, 'rclone.connect: hostname {}'.format(self.hostname))
         try:
-            cmd = 'ssh -p %s %s@%s echo ok 2>&1' % (self.port, self.sshuser, self.hostname)
+            cmd = 'rclone lsd %s:' % (self.hostname)
             status, out, err = execute(cmd)
-            checker = re.search(r'ok', out)
-            if not checker:
+            if status:
                 raise exception.RSEAccessDenied(err)
-            cmd = 'ssh -p %s %s@%s rsync --version' % (self.port, self.sshuser, self.hostname)
-            status, out, err = execute(cmd)
-            checker = re.search(r'rsync  version', out)
-            if not checker:
-                raise exception.RSEAccessDenied(err)
-
         except Exception as e:
             raise exception.RSEAccessDenied(e)
 
@@ -214,12 +201,11 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        self.logger(logging.DEBUG, 'rsync.get: pfn: {}'.format(pfn))
+        self.logger(logging.DEBUG, 'rclone.get: pfn: {}'.format(pfn))
         try:
             path = self.pfn2path(pfn)
-            destdir = os.path.dirname(dest)
-            cmd = 'mkdir -p %s && rsync -az -e "ssh -p %s" --append-verify %s@%s:%s %s' % (destdir, self.port, self.sshuser, self.hostname, path, dest)
-            self.logger(logging.INFO, 'rsync.get: cmd: {}'.format(cmd))
+            cmd = 'rclone copyto %s:%s %s' % (self.hostname, path, dest)
+            self.logger(logging.INFO, 'rclone.get: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status:
                 raise exception.RucioException(err)
@@ -239,19 +225,17 @@ class Default(protocol.RSEProtocol):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        self.logger(logging.DEBUG, 'rsync.put: filename: {} target: {}'.format(filename, target))
+        self.logger(logging.DEBUG, 'rclone.put: filename: {} target: {}'.format(filename, target))
         source_dir = source_dir or '.'
         source_url = '%s/%s' % (source_dir, filename)
-        self.logger(logging.DEBUG, 'rsync put: source url: {}'.format(source_url))
+        self.logger(logging.DEBUG, 'rclone.put: source url: {}'.format(source_url))
 
         path = self.pfn2path(target)
-        pathdir = os.path.dirname(path)
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
-
         try:
-            cmd = 'ssh -p %s %s@%s "mkdir -p %s" && rsync -az -e "ssh -p %s" --append-verify %s %s@%s:%s' % (self.port, self.sshuser, self.hostname, pathdir, self.port, source_url, self.sshuser, self.hostname, path)
-            self.logger(logging.INFO, 'rsync.put: cmd: {}'.format(cmd))
+            cmd = 'rclone copyto %s %s:%s' % (source_url, self.hostname, path)
+            self.logger(logging.INFO, 'rclone.put: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status:
                 raise exception.RucioException(err)
@@ -267,13 +251,13 @@ class Default(protocol.RSEProtocol):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        self.logger(logging.DEBUG, 'rsync.delete: pfn: {}'.format(pfn))
+        self.logger(logging.DEBUG, 'rclone.delete: pfn: {}'.format(pfn))
         if not self.exists(pfn):
             raise exception.SourceNotFound()
         try:
             path = self.pfn2path(pfn)
-            cmd = 'ssh -p %s %s@%s rm %s' % (self.port, self.sshuser, self.hostname, path)
-            self.logger(logging.INFO, 'ssh.delete: cmd: {}'.format(cmd))
+            cmd = 'rclone delete %s:%s' % (self.hostname, path)
+            self.logger(logging.INFO, 'rclone.delete: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
                 raise exception.RucioException(err)
@@ -289,19 +273,14 @@ class Default(protocol.RSEProtocol):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        self.logger(logging.DEBUG, 'rsync.rename: pfn: {}'.format(pfn))
+        self.logger(logging.DEBUG, 'rclone.rename: pfn: {}'.format(pfn))
         if not self.exists(pfn):
             raise exception.SourceNotFound()
-
         try:
             path = self.pfn2path(pfn)
             new_path = self.pfn2path(new_pfn)
-            new_dir = new_path[:new_path.rindex('/') + 1]
-            cmd = 'ssh -p %s %s@%s "mkdir -p %s"' % (self.port, self.sshuser, self.hostname, new_dir)
-            self.logger(logging.INFO, 'rsync.stat: mkdir cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
-            cmd = 'ssh -p %s %s@%s mv %s %s' % (self.port, self.sshuser, self.hostname, path, new_path)
-            self.logger(logging.INFO, 'rsync.stat: rename cmd: {}'.format(cmd))
+            cmd = 'rclone moveto %s:%s %s:%s' % (self.hostname, path, self.hostname, new_path)
+            self.logger(logging.INFO, 'rclone.stat: rename cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
                 raise exception.RucioException(err)

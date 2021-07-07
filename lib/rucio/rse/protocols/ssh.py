@@ -66,7 +66,7 @@ class Default(protocol.RSEProtocol):
 
         """
         self.logger(logging.DEBUG, 'ssh.path2pfn: path: {}'.format(path))
-        if not path.startswith('scp://'):
+        if not path.startswith(str(self.scheme) + '://'):
             return '%s://%s@%s:%s/%s' % (self.scheme, self.sshuser, self.hostname, self.port, path)
         else:
             return path
@@ -146,7 +146,7 @@ class Default(protocol.RSEProtocol):
 
         :returns: path.
         """
-        if pfn.startswith('scp://'):
+        if pfn.startswith(str(self.scheme) + '://'):
             self.logger(logging.DEBUG, 'ssh.pfn2path: pfn: {}'.format(pfn))
             prefix = self.attributes['prefix']
             path = pfn.partition(self.attributes['prefix'])[2]
@@ -190,7 +190,7 @@ class Default(protocol.RSEProtocol):
             status, out, err = execute(cmd)
             checker = re.search(r'ok', out)
             if not checker:
-                raise exception.RSEAccessDenied(err)          
+                raise exception.RSEAccessDenied(err)
         except Exception as e:
             raise exception.RSEAccessDenied(e)
 
@@ -238,7 +238,7 @@ class Default(protocol.RSEProtocol):
         self.logger(logging.DEBUG, 'ssh.put: filename: {} target: {}'.format(filename, target))
         source_dir = source_dir or '.'
         source_url = '%s/%s' % (source_dir, filename)
-        self.logger(logging.DEBUG, 'ssh put: source url: {}'.format(source_url))
+        self.logger(logging.DEBUG, 'ssh.put: source url: {}'.format(source_url))
 
         path = self.pfn2path(target)
         pathdir = os.path.dirname(path)
@@ -292,12 +292,136 @@ class Default(protocol.RSEProtocol):
             new_path = self.pfn2path(new_pfn)
             new_dir = new_path[:new_path.rindex('/') + 1]
             cmd = 'ssh -p %s %s@%s "mkdir -p %s"' % (self.port, self.sshuser, self.hostname, new_dir)
-            self.logger(logging.INFO, 'ssh.stat: mkdir cmd: {}'.format(cmd))
+            self.logger(logging.INFO, 'ssh.rename: mkdir cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             cmd = 'ssh -p %s %s@%s mv %s %s' % (self.port, self.sshuser, self.hostname, path, new_path)
-            self.logger(logging.INFO, 'ssh.stat: rename cmd: {}'.format(cmd))
+            self.logger(logging.INFO, 'ssh.rename: rename cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
+                raise exception.RucioException(err)
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
+
+
+class Rsync(Default):
+    """ Implementing access to RSEs using the ssh.Rsync implementation."""
+
+    def stat(self, path):
+        """
+        Returns the stats of a file.
+
+        :param path: path to file
+
+        :raises ServiceUnavailable: if some generic error occured in the library.
+
+        :returns: a dict with two keys, filesize and an element of GLOBALLY_SUPPORTED_CHECKSUMS.
+        """
+        self.logger(logging.DEBUG, 'rsync.stat: path: {}'.format(path))
+        ret = {}
+        chsum = None
+        if path.startswith('rsync://'):
+            path = self.pfn2path(path)
+
+        try:
+            # rsync stat for getting filesize
+            cmd = "rsync -an --size-only -e 'ssh -p {0}' --remove-source-files  {1}@{2}:{3}".format(self.port, self.sshuser, self.hostname, path)
+            self.logger(logging.INFO, 'rsync.stat: filesize cmd: {}'.format(cmd))
+            status_stat, out, err = execute(cmd)
+            if status_stat == 0:
+                sizestr = out.split(" ")[-4]
+                ret['filesize'] = sizestr.replace(',', '')
+
+            # rsync query checksum for getting md5 checksum
+            cmd = 'ssh -p %s %s@%s md5sum %s' % (self.port, self.sshuser, self.hostname, path)
+            self.logger(logging.INFO, 'rsync.stat: checksum cmd: {}'.format(cmd))
+            status_query, out, err = execute(cmd)
+
+            if status_query == 0:
+                chsum = 'md5'
+                val = out.strip('  ').split()
+                ret[chsum] = val[0]
+
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
+
+        if 'filesize' not in ret:
+            raise exception.ServiceUnavailable('Filesize could not be retrieved.')
+        if PREFERRED_CHECKSUM != chsum or not chsum:
+            msg = '{} does not match with {}'.format(chsum, PREFERRED_CHECKSUM)
+            raise exception.RSEChecksumUnavailable(msg)
+
+        return ret
+
+    def connect(self):
+        """ Establishes the actual connection to the referred RSE.
+
+            :raises RSEAccessDenied
+        """
+        self.logger(logging.DEBUG, 'rsync.connect: port: {}, hostname {}, ssh-user {}'.format(self.port, self.hostname, self.sshuser))
+        try:
+            cmd = 'ssh -p %s %s@%s echo ok 2>&1' % (self.port, self.sshuser, self.hostname)
+            status, out, err = execute(cmd)
+            checker = re.search(r'ok', out)
+            if not checker:
+                raise exception.RSEAccessDenied(err)
+            cmd = 'ssh -p %s %s@%s rsync --version' % (self.port, self.sshuser, self.hostname)
+            status, out, err = execute(cmd)
+            checker = re.search(r'rsync  version', out)
+            if not checker:
+                raise exception.RSEAccessDenied(err)
+
+        except Exception as e:
+            raise exception.RSEAccessDenied(e)
+
+    def get(self, pfn, dest, transfer_timeout=None):
+        """ Provides access to files stored inside connected the RSE.
+
+            :param pfn Physical file name of requested file
+            :param dest Name and path of the files when stored at the client
+            :param transfer_timeout: Transfer timeout (in seconds) - dummy
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+        """
+        self.logger(logging.DEBUG, 'rsync.get: pfn: {}'.format(pfn))
+        try:
+            path = self.pfn2path(pfn)
+            destdir = os.path.dirname(dest)
+            cmd = 'mkdir -p %s && rsync -az -e "ssh -p %s" --append-verify %s@%s:%s %s' % (destdir, self.port, self.sshuser, self.hostname, path, dest)
+            self.logger(logging.INFO, 'rsync.get: cmd: {}'.format(cmd))
+            status, out, err = execute(cmd)
+            if status:
+                raise exception.RucioException(err)
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
+
+    def put(self, filename, target, source_dir, transfer_timeout=None):
+        """
+            Allows to store files inside the referred RSE.
+
+            :param source: path to the source file on the client file system
+            :param target: path to the destination file on the storage
+            :param source_dir: Path where the to be transferred files are stored in the local file system
+            :param transfer_timeout: Transfer timeout (in seconds) - dummy
+
+            :raises DestinationNotAccessible: if the destination storage was not accessible.
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
+        """
+        self.logger(logging.DEBUG, 'rsync.put: filename: {} target: {}'.format(filename, target))
+        source_dir = source_dir or '.'
+        source_url = '%s/%s' % (source_dir, filename)
+        self.logger(logging.DEBUG, 'rsync.put: source url: {}'.format(source_url))
+
+        path = self.pfn2path(target)
+        pathdir = os.path.dirname(path)
+        if not os.path.exists(source_url):
+            raise exception.SourceNotFound()
+
+        try:
+            cmd = 'ssh -p %s %s@%s "mkdir -p %s" && rsync -az -e "ssh -p %s" --append-verify %s %s@%s:%s' % (self.port, self.sshuser, self.hostname, pathdir, self.port, source_url, self.sshuser, self.hostname, path)
+            self.logger(logging.INFO, 'rsync.put: cmd: {}'.format(cmd))
+            status, out, err = execute(cmd)
+            if status:
                 raise exception.RucioException(err)
         except Exception as e:
             raise exception.ServiceUnavailable(e)
