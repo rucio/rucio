@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import division
 
@@ -286,7 +287,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
     logger(logging.INFO, 'Graceful stop done')
 
 
-def run(total_workers=1, once=False, inputfile=None):
+def run(total_workers=1, once=False, inputfile=None, sleep_time=-1):
     """
     Starts up the automatix threads.
     """
@@ -301,10 +302,11 @@ def run(total_workers=1, once=False, inputfile=None):
         raise Exception('Could not load sites from configuration')
     if not inputfile:
         inputfile = '/opt/rucio/etc/automatix.json'
-    try:
-        sleep_time = get('automatix', 'sleep_time')
-    except Exception:
-        sleep_time = 30
+    if sleep_time == -1:
+        try:
+            sleep_time = get('automatix', 'sleep_time')
+        except Exception:
+            sleep_time = 30
     try:
         account = get('automatix', 'account')
     except Exception:

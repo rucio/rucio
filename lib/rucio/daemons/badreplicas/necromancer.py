@@ -23,6 +23,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import division
 
@@ -48,7 +49,7 @@ from rucio.db.sqla.constants import ReplicaState
 graceful_stop = threading.Event()
 
 
-def necromancer(thread=0, bulk=5, once=False):
+def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
     """
     Creates a Necromancer Worker that gets a list of bad replicas for a given hash,
     identify lost DIDs and for non-lost ones, set the locks and rules for reevaluation.
@@ -56,9 +57,9 @@ def necromancer(thread=0, bulk=5, once=False):
     :param thread: Thread number at startup.
     :param bulk: The number of requests to process.
     :param once: Run only once.
+    :param sleep_time: Thread sleep time after each chunk of work.
     """
 
-    sleep_time = 60
     update_history_threshold = 3600
     update_history_time = time.time()
 
@@ -140,7 +141,7 @@ def necromancer(thread=0, bulk=5, once=False):
     logging.info(prepend_str + 'Graceful stop done')
 
 
-def run(threads=1, bulk=100, once=False):
+def run(threads=1, bulk=100, once=False, sleep_time=60):
     """
     Starts up the necromancer threads.
     """
@@ -156,7 +157,8 @@ def run(threads=1, bulk=100, once=False):
         logging.info('starting necromancer threads')
         thread_list = [threading.Thread(target=necromancer, kwargs={'once': once,
                                                                     'thread': i,
-                                                                    'bulk': bulk}) for i in range(0, threads)]
+                                                                    'bulk': bulk,
+                                                                    'sleep_time': sleep_time}) for i in range(0, threads)]
         [t.start() for t in thread_list]
 
         logging.info('waiting for interrupts')

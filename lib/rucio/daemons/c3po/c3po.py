@@ -20,6 +20,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 
 '''
 Dynamic data placement daemon.
@@ -56,7 +57,7 @@ except ImportError:
 GRACEFUL_STOP = Event()
 
 
-def read_free_space(once=False, thread=0, waiting_time=1800):
+def read_free_space(once=False, thread=0, waiting_time=1800, sleep_time=10):
     """
     Thread to collect the space usage information for RSEs.
     """
@@ -64,8 +65,8 @@ def read_free_space(once=False, thread=0, waiting_time=1800):
     timer = waiting_time
     while not GRACEFUL_STOP.is_set():
         if timer < waiting_time:
-            timer += 10
-            sleep(10)
+            timer += sleep_time
+            sleep(sleep_time)
             continue
 
         logging.info('collecting free space')
@@ -73,7 +74,7 @@ def read_free_space(once=False, thread=0, waiting_time=1800):
         timer = 0
 
 
-def read_workload(once=False, thread=0, waiting_time=1800):
+def read_workload(once=False, thread=0, waiting_time=1800, sleep_time=10):
     """
     Thread to collect the workload information from PanDA.
     """
@@ -81,8 +82,8 @@ def read_workload(once=False, thread=0, waiting_time=1800):
     timer = waiting_time
     while not GRACEFUL_STOP.is_set():
         if timer < waiting_time:
-            timer += 10
-            sleep(10)
+            timer += sleep_time
+            sleep(sleep_time)
             continue
 
         logging.info('collecting workload')
@@ -90,7 +91,7 @@ def read_workload(once=False, thread=0, waiting_time=1800):
         timer = 0
 
 
-def print_workload(once=False, thread=0, waiting_time=600):
+def print_workload(once=False, thread=0, waiting_time=600, sleep_time=10):
     """
     Thread to regularly output the workload to logs for debugging.
     """
@@ -98,8 +99,8 @@ def print_workload(once=False, thread=0, waiting_time=600):
     timer = waiting_time
     while not GRACEFUL_STOP.is_set():
         if timer < waiting_time:
-            timer += 10
-            sleep(10)
+            timer += sleep_time
+            sleep(sleep_time)
             continue
 
         logging.info('Number of sites cached %d' % len(workload_collector.get_sites()))
@@ -108,15 +109,15 @@ def print_workload(once=False, thread=0, waiting_time=600):
         timer = 0
 
 
-def read_dids(once=False, thread=0, did_collector=None, waiting_time=60):
+def read_dids(once=False, thread=0, did_collector=None, waiting_time=60, sleep_time=10):
     """
     Thread to collect DIDs for the placement algorithm.
     """
     timer = waiting_time
     while not GRACEFUL_STOP.is_set():
         if timer < waiting_time:
-            timer += 10
-            sleep(10)
+            timer += sleep_time
+            sleep(sleep_time)
             continue
 
         did_collector.get_dids()
@@ -144,7 +145,8 @@ def place_replica(once=False,
                   max_files_hour_rse=10000,
                   min_popularity=8,
                   min_recent_requests=5,
-                  max_replicas=5):
+                  max_replicas=5,
+                  sleep_time=10):
     """
     Thread to run the placement algorithm to decide if and where to put new replicas.
     """
@@ -200,8 +202,8 @@ def place_replica(once=False,
         w = waiting_time
         while not GRACEFUL_STOP.is_set():
             if w < waiting_time:
-                w += 10
-                sleep(10)
+                w += sleep_time
+                sleep(sleep_time)
                 continue
             len_dids = did_queue.qsize()
 
@@ -281,7 +283,13 @@ def run(once=False,
         max_files_hour_rse=10000,
         min_popularity=8,
         min_recent_requests=5,
-        max_replicas=5):
+        max_replicas=5,
+        waiting_time_read_free_space=1800,
+        waiting_time_read_workload=1800,
+        waiting_time_print_workload=600,
+        waiting_time_read_dids=60,
+        waiting_time_place_replica=100,
+        sleep_time=10):
     """
     Starts up the main thread
     """
@@ -296,18 +304,27 @@ def run(once=False,
     try:
         if only_workload:
             logging.info('running in workload-collector-only mode')
-            thread_list.append(Thread(target=read_workload, name='read_workload', kwargs={'thread': 0, 'waiting_time': 1800}))
-            thread_list.append(Thread(target=print_workload, name='print_workload', kwargs={'thread': 0, 'waiting_time': 600}))
+            thread_list.append(Thread(target=read_workload, name='read_workload', kwargs={'thread': 0,
+                                                                                          'waiting_time': waiting_time_read_workload,
+                                                                                          'sleep_time': sleep_time}))
+            thread_list.append(Thread(target=print_workload, name='print_workload', kwargs={'thread': 0,
+                                                                                            'waiting_time': waiting_time_print_workload,
+                                                                                            'sleep_time': sleep_time}))
         else:
             logging.info('running in placement mode')
             did_queue = Queue()
             dc = JediDIDCollector(did_queue)
 
-            thread_list.append(Thread(target=read_free_space, name='read_free_space', kwargs={'thread': 0, 'waiting_time': 1800}))
-            thread_list.append(Thread(target=read_dids, name='read_dids', kwargs={'thread': 0, 'did_collector': dc}))
+            thread_list.append(Thread(target=read_free_space, name='read_free_space', kwargs={'thread': 0,
+                                                                                              'waiting_time': waiting_time_read_free_space,
+                                                                                              'sleep_time': sleep_time}))
+            thread_list.append(Thread(target=read_dids, name='read_dids', kwargs={'thread': 0,
+                                                                                  'did_collector': dc,
+                                                                                  'waiting_time': waiting_time_read_dids,
+                                                                                  'sleep_time': sleep_time}))
             thread_list.append(Thread(target=place_replica, name='place_replica', kwargs={'thread': 0,
                                                                                           'did_queue': did_queue,
-                                                                                          'waiting_time': 10,
+                                                                                          'waiting_time': waiting_time_place_replica,
                                                                                           'algorithms': algorithms,
                                                                                           'dry_run': dry_run,
                                                                                           'sampling': sampling,
@@ -319,7 +336,8 @@ def run(once=False,
                                                                                           'max_files_hour_rse': max_files_hour_rse,
                                                                                           'min_popularity': min_popularity,
                                                                                           'min_recent_requests': min_recent_requests,
-                                                                                          'max_replicas': max_replicas}))
+                                                                                          'max_replicas': max_replicas,
+                                                                                          'sleep_time': sleep_time}))
 
         for t in thread_list:
             t.start()

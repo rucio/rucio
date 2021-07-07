@@ -21,6 +21,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 
 """
 Judge-Injector is a daemon to asynchronously create replication rules
@@ -49,7 +50,7 @@ from rucio.core.rule import inject_rule, get_injected_rules, update_rule
 graceful_stop = threading.Event()
 
 
-def rule_injector(once=False):
+def rule_injector(once=False, sleep_time=60):
     """
     Main loop to check for asynchronous creation of replication rules
     """
@@ -90,7 +91,11 @@ def rule_injector(once=False):
 
             if not rules and not once:
                 logger(logging.DEBUG, 'did not get any work (paused_rules=%s)' % str(len(paused_rules)))
-                graceful_stop.wait(60)
+                end_time = time.time()
+                time_diff = end_time - start
+                if time_diff < sleep_time:
+                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
+                    graceful_stop.wait(sleep_time - time_diff)
             else:
                 for rule in rules:
                     rule_id = rule[0]
@@ -158,7 +163,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1):
+def run(once=False, threads=1, sleep_time=60):
     """
     Starts up the Judge-Injector threads.
     """
@@ -175,7 +180,8 @@ def run(once=False, threads=1):
         rule_injector(once)
     else:
         logging.info('Injector starting %s threads' % str(threads))
-        threads = [threading.Thread(target=rule_injector, kwargs={'once': once}) for i in range(0, threads)]
+        threads = [threading.Thread(target=rule_injector, kwargs={'once': once,
+                                                                  'sleep_time': sleep_time}) for i in range(0, threads)]
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():

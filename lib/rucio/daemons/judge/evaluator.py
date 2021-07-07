@@ -23,6 +23,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 
 """
 Judge-Evaluator is a daemon to re-evaluate and execute replication rules.
@@ -53,7 +54,7 @@ from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_di
 graceful_stop = threading.Event()
 
 
-def re_evaluator(once=False):
+def re_evaluator(once=False, sleep_time=30):
     """
     Main loop to check the re-evaluation of dids.
     """
@@ -93,7 +94,11 @@ def re_evaluator(once=False):
             # If the list is empty, sent the worker to sleep
             if not dids and not once:
                 logging.debug('re_evaluator[%s/%s] did not get any work (paused_dids=%s)' % (heartbeat['assign_thread'], heartbeat['nr_threads'], str(len(paused_dids))))
-                graceful_stop.wait(30)
+                end_time = time.time()
+                time_diff = end_time - start
+                if time_diff < sleep_time:
+                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
+                    graceful_stop.wait(sleep_time - time_diff)
             else:
                 done_dids = {}
                 for did in dids:
@@ -170,7 +175,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1):
+def run(once=False, threads=1, sleep_time=30):
     """
     Starts up the Judge-Eval threads.
     """
@@ -187,7 +192,8 @@ def run(once=False, threads=1):
         re_evaluator(once)
     else:
         logging.info('Evaluator starting %s threads' % str(threads))
-        threads = [threading.Thread(target=re_evaluator, kwargs={'once': once}) for i in range(0, threads)]
+        threads = [threading.Thread(target=re_evaluator, kwargs={'once': once,
+                                                                 'sleep_time': sleep_time}) for i in range(0, threads)]
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():

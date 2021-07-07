@@ -21,6 +21,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 
 """
 Judge-Repairer is a daemon to repair stuck replication rules.
@@ -50,7 +51,7 @@ from rucio.core.rule import repair_rule, get_stuck_rules
 graceful_stop = threading.Event()
 
 
-def rule_repairer(once=False):
+def rule_repairer(once=False, sleep_time=60):
     """
     Main loop to check for STUCK replication rules
     """
@@ -90,7 +91,11 @@ def rule_repairer(once=False):
 
             if not rules and not once:
                 logging.debug('rule_repairer[%s/%s] did not get any work (paused_rules=%s)' % (heartbeat['assign_thread'], heartbeat['nr_threads'], str(len(paused_rules))))
-                graceful_stop.wait(60)
+                end_time = time.time()
+                time_diff = end_time - start
+                if time_diff < sleep_time:
+                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
+                    graceful_stop.wait(sleep_time - time_diff)
             else:
                 for rule_id in rules:
                     rule_id = rule_id[0]
@@ -143,7 +148,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1):
+def run(once=False, threads=1, sleep_time=60):
     """
     Starts up the Judge-Repairer threads.
     """
@@ -160,7 +165,8 @@ def run(once=False, threads=1):
         rule_repairer(once)
     else:
         logging.info('Repairer starting %s threads' % str(threads))
-        threads = [threading.Thread(target=rule_repairer, kwargs={'once': once}) for i in range(0, threads)]
+        threads = [threading.Thread(target=rule_repairer, kwargs={'once': once,
+                                                                  'sleep_time': sleep_time}) for i in range(0, threads)]
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():

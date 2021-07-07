@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 
 """
 Abacus-Account is a daemon to update Account counters.
@@ -42,7 +43,7 @@ from rucio.core.heartbeat import live, die, sanity_check
 graceful_stop = threading.Event()
 
 
-def account_update(once=False):
+def account_update(once=False, sleep_time=10):
     """
     Main loop to check and update the Account Counters.
     """
@@ -72,7 +73,11 @@ def account_update(once=False):
             # If the list is empty, sent the worker to sleep
             if not account_rse_ids and not once:
                 logging.info('account_update[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1))
-                time.sleep(10)
+                end_time = time.time()
+                time_diff = end_time - start
+                if time_diff < sleep_time:
+                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
+                    graceful_stop.wait(sleep_time - time_diff)
             else:
                 for account_rse_id in account_rse_ids:
                     if graceful_stop.is_set():
@@ -99,7 +104,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1, fill_history_table=False):
+def run(once=False, threads=1, fill_history_table=False, sleep_time=10):
     """
     Starts up the Abacus-Account threads.
     """
@@ -117,7 +122,8 @@ def run(once=False, threads=1, fill_history_table=False):
         account_update(once)
     else:
         logging.info('main: starting threads')
-        threads = [threading.Thread(target=account_update, kwargs={'once': once}) for i in range(0, threads)]
+        threads = [threading.Thread(target=account_update, kwargs={'once': once, 'sleep_time': sleep_time}) for i in
+                   range(0, threads)]
         if fill_history_table:
             threads.append(get_thread_with_periodic_running_function(3600, fill_account_counter_history_table, graceful_stop))
         [t.start() for t in threads]

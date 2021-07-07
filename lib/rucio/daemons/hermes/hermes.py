@@ -23,6 +23,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Eric Vaandering <ewv@fnal.gov>, 2019-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 
 '''
    Hermes is a daemon to deliver messages: to a messagebroker via STOMP, or emails via SMTP.
@@ -60,11 +61,14 @@ GRACEFUL_STOP = threading.Event()
 RECONNECT_COUNTER = Counter('rucio_daemons_hermes_reconnect', 'Counts Hermes reconnects to different ActiveMQ brokers', labelnames=('host',))
 
 
-def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
+def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10, sleep_time=10):
     '''
     Main loop to deliver emails via SMTP.
     '''
     logging.info('[email] starting - threads (%i) bulk (%i)', thread, bulk)
+
+    if sleep_time == deliver_emails.__defaults__[5] and delay != deliver_emails.__defaults__[4]:
+        sleep_time = delay
 
     executable = 'hermes [email]'
     hostname = socket.getfqdn()
@@ -134,7 +138,7 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
         if once:
             break
 
-        t_delay = delay - (time.time() - t_start)
+        t_delay = sleep_time - (time.time() - t_start)
         t_delay = t_delay if t_delay > 0 else 0
         if t_delay:
             logging.debug('[email] %i:%i - sleeping %s seconds',
@@ -168,11 +172,14 @@ class HermesListener(stomp.ConnectionListener):
 
 
 def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=10,
-                     broker_timeout=3, broker_retry=3):
+                     broker_timeout=3, broker_retry=3, sleep_time=10):
     '''
     Main loop to deliver messages to a broker.
     '''
     logging.info('[broker] starting - threads (%i) bulk (%i)', thread, bulk)
+
+    if sleep_time == deliver_messages.__defaults__[7] and delay != deliver_messages.__defaults__[4]:
+        sleep_time = delay
 
     if not brokers_resolved:
         logging.fatal('No brokers resolved.')
@@ -358,7 +365,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
         except:
             logging.critical(traceback.format_exc())
 
-        t_delay = delay - (time.time() - t_start)
+        t_delay = sleep_time - (time.time() - t_start)
         t_delay = t_delay if t_delay > 0 else 0
         if t_delay:
             logging.debug('[broker] %i:%i - sleeping %s seconds',
@@ -389,7 +396,7 @@ def stop(signum=None, frame=None):
 
 
 def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_timeout=3,
-        broker_retry=3):
+        broker_retry=3, sleep_time=10):
     '''
     Starts up the hermes threads.
     '''
@@ -424,9 +431,9 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_time
         deliver_messages(once=once,
                          brokers_resolved=brokers_resolved,
                          bulk=bulk, delay=delay,
-                         broker_timeout=broker_timeout, broker_retry=broker_retry)
+                         broker_timeout=broker_timeout, broker_retry=broker_retry, sleep_time=sleep_time)
         deliver_emails(once=once,
-                       send_email=send_email, bulk=bulk, delay=delay)
+                       send_email=send_email, bulk=bulk, delay=delay, sleep_time=sleep_time)
 
     else:
         logging.info('starting hermes threads')
@@ -435,12 +442,14 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_time
                                                                          'bulk': bulk,
                                                                          'delay': delay,
                                                                          'broker_timeout': broker_timeout,
-                                                                         'broker_retry': broker_retry}) for i in range(0, threads)]
+                                                                         'broker_retry': broker_retry,
+                                                                         'sleep_time': sleep_time}) for i in range(0, threads)]
 
         for thrd in range(0, 1):
             thread_list.append(threading.Thread(target=deliver_emails, kwargs={'thread': thrd,
                                                                                'bulk': bulk,
-                                                                               'delay': delay}))
+                                                                               'delay': delay,
+                                                                               'sleep_time': sleep_time}))
 
         for thrd in thread_list:
             thrd.start()

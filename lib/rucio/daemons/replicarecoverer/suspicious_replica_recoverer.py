@@ -22,6 +22,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 
 """
 Suspicious-Replica-Recoverer is a daemon that declares suspicious replicas as bad if they are found available on other RSE.
@@ -58,7 +59,8 @@ from rucio.db.sqla.util import get_db_time
 GRACEFUL_STOP = threading.Event()
 
 
-def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=None, max_replicas_per_rse=100):
+def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=None,
+                                    max_replicas_per_rse=100, sleep_time=60):
 
     """
     Main loop to check for available replicas which are labeled as suspicious
@@ -77,6 +79,7 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
                 If None, we either use all VOs if run from "def",
     :param max_replicas_per_rse: Maximum number of replicas which are allowed to be labeled as bad per RSE.
                                  If more is found, processing is skipped and warning is printed.
+    :param sleep_time: Thread sleep time after each chunk of work.
     :returns: None
     """
 
@@ -167,8 +170,12 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
                          worker_number, total_workers, time.time() - start, len(recoverable_replicas))
 
             if not recoverable_replicas and not once:
-                logging.info('replica_recoverer[%i/%i]: found %i recoverable suspicious replicas. Sleeping for 60 seconds.', worker_number, total_workers, len(recoverable_replicas))
-                GRACEFUL_STOP.wait(60)
+                logging.info('replica_recoverer[%i/%i]: found %i recoverable suspicious replicas.', worker_number, total_workers, len(recoverable_replicas))
+                end_time = time.time()
+                time_diff = end_time - start
+                if time_diff < sleep_time:
+                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
+                    GRACEFUL_STOP.wait(sleep_time - time_diff)
             else:
                 logging.info('replica_recoverer[%i/%i]: looking for replica surls.', worker_number, total_workers)
 
@@ -232,7 +239,8 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
     logging.info('replica_recoverer[%i/%i]: graceful stop done', worker_number, total_workers)
 
 
-def run(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=None, max_replicas_per_rse=100):
+def run(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=None, max_replicas_per_rse=100,
+        sleep_time=60):
     """
     Starts up the Suspicious-Replica-Recoverer threads.
     """
@@ -257,7 +265,8 @@ def run(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=Non
         t = threading.Thread(target=declare_suspicious_replicas_bad,
                              kwargs={'once': once, 'younger_than': younger_than,
                                      'nattempts': nattempts, 'rse_expression': rse_expression,
-                                     'vos': vos, 'max_replicas_per_rse': max_replicas_per_rse})
+                                     'vos': vos, 'max_replicas_per_rse': max_replicas_per_rse,
+                                     'sleep_time': sleep_time})
         t.start()
         logging.info('waiting for interrupts')
 

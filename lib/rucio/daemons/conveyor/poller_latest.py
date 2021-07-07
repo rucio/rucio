@@ -22,6 +22,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2021
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -49,11 +50,13 @@ graceful_stop = threading.Event()
 datetime.datetime.strptime('', '')
 
 
-def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
+def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800, sleep_time=1800):
     """
     Main loop to check the status of a transfer primitive with a transfertool.
+    :param fts_wait: OBSOLETE, please use sleep_time instead
     """
-
+    if sleep_time == poller_latest.__defaults__[3] and fts_wait != poller_latest.__defaults__[2]:
+        sleep_time = fts_wait
     executable = 'conveyor-poller-latest'
     hostname = socket.getfqdn()
     pid = os.getpid()
@@ -103,7 +106,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
             if once:
                 break
 
-            time_left = fts_wait - abs(time.time() - start_time)
+            time_left = sleep_time - abs(time.time() - start_time)
             if time_left > 0:
                 logging.debug("Waiting %s seconds until next FTS terminal state retrieval" % time_left)
                 graceful_stop.wait(time_left)
@@ -130,9 +133,10 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, last_nhours=1, external_hosts=None, fts_wait=1800, total_threads=1):
+def run(once=False, last_nhours=1, external_hosts=None, fts_wait=1800, total_threads=1, sleep_time=1800):
     """
     Starts up the conveyer threads.
+    :param fts_wait: OBSOLETE, please use sleep_time instead
     """
     setup_logging()
 
@@ -151,7 +155,8 @@ def run(once=False, last_nhours=1, external_hosts=None, fts_wait=1800, total_thr
 
         threads = [threading.Thread(target=poller_latest, kwargs={'external_hosts': external_hosts,
                                                                   'fts_wait': fts_wait,
-                                                                  'last_nhours': last_nhours}) for _ in range(0, total_threads)]
+                                                                  'last_nhours': last_nhours,
+                                                                  'sleep_time': sleep_time}) for _ in range(0, total_threads)]
 
         [thread.start() for thread in threads]
 

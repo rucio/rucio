@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2020 CERN
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 
 '''
 Light Reaper is a daemon to manage temporary object/file deletion.
@@ -54,7 +55,7 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 GRACEFUL_STOP = threading.Event()
 
 
-def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False, scheme=None):
+def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False, scheme=None, sleep_time=60):
     """
     Main loop to select and delete files.
 
@@ -64,6 +65,7 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
     :param chunk_size: the size of chunk for deletion.
     :param once: If True, only runs one iteration of the main loop.
     :param scheme: Force the reaper to use a particular protocol, e.g., mock.
+    :param sleep_time: Thread sleep time after each chunk of work.
     """
     logging.info('Starting Light Reaper %s-%s: Will work on RSEs: %s', worker_number, total_workers, ', '.join([rse['rse'] for rse in rses]))
 
@@ -155,7 +157,11 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
 
             if nothing_to_do:
                 logging.info('Light Reaper %s-%s: Nothing to do. I will sleep for 60s', worker_number, total_workers)
-                time.sleep(60)
+                end_time = time.time()
+                time_diff = end_time - start
+                if time_diff < sleep_time:
+                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
+                    GRACEFUL_STOP.wait(sleep_time - time_diff)
 
         except DatabaseException as error:
             logging.warning('Reaper:  %s', str(error))
@@ -176,7 +182,7 @@ def stop(signum=None, frame=None):
 
 
 def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
-        exclude_rses=None, include_rses=None, vos=None, delay_seconds=0):
+        exclude_rses=None, include_rses=None, vos=None, delay_seconds=0, sleep_time=60):
     """
     Starts up the reaper threads.
 
@@ -189,6 +195,7 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
     :param include_rses: RSE expression to include RSEs.
     :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
                 If None, we either use all VOs if run from "def", or the current VO otherwise.
+    :param sleep_time: Thread sleep time after each chunk of work.
     """
     setup_logging()
 
@@ -245,7 +252,8 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
                   'rses': rses,
                   'once': once,
                   'chunk_size': chunk_size,
-                  'scheme': scheme}
+                  'scheme': scheme,
+                  'sleep_time': sleep_time}
         threads.append(threading.Thread(target=reaper, kwargs=kwargs, name='Worker: %s, Total_Workers: %s' % (worker, total_workers)))
     [t.start() for t in threads]
     while threads[0].is_alive():

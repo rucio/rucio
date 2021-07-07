@@ -22,6 +22,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 
 """
 Judge-Cleaner is a daemon to clean expired replication rules.
@@ -51,7 +52,7 @@ from rucio.db.sqla.util import get_db_time
 graceful_stop = threading.Event()
 
 
-def rule_cleaner(once=False):
+def rule_cleaner(once=False, sleep_time=60):
     """
     Main loop to check for expired replication rules
     """
@@ -92,7 +93,11 @@ def rule_cleaner(once=False):
 
             if not rules and not once:
                 logger(logging.DEBUG, 'did not get any work (paused_rules=%s)' % str(len(paused_rules)))
-                graceful_stop.wait(60)
+                end_time = time.time()
+                time_diff = end_time - start
+                if time_diff < sleep_time:
+                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
+                    graceful_stop.wait(sleep_time - time_diff)
             else:
                 for rule in rules:
                     rule_id = rule[0]
@@ -146,7 +151,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1):
+def run(once=False, threads=1, sleep_time=60):
     """
     Starts up the Judge-Clean threads.
     """
@@ -170,7 +175,8 @@ def run(once=False, threads=1):
         rule_cleaner(once)
     else:
         logging.info('Cleaner starting %s threads' % str(threads))
-        threads = [threading.Thread(target=rule_cleaner, kwargs={'once': once}) for i in range(0, threads)]
+        threads = [threading.Thread(target=rule_cleaner, kwargs={'once': once,
+                                                                 'sleep_time': sleep_time}) for i in range(0, threads)]
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():

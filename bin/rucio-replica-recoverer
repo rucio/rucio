@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2021 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #  - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 #  - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
 #  - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+#  - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 # PY3K COMPATIBLE
 
 """
@@ -239,6 +240,7 @@ Note that attempting the use the ``--vos`` argument when in single-VO mode will 
     parser.add_argument('--vos', nargs='+', type=str, help='Optional list of VOs to consider. Only used in multi-VO mode.')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only.')
     parser.add_argument("--max-replicas-per-rse", action="store", default=100, help='The maximum number of suspicious replicas found on an RSE which may be declared bad. If a higher count is found, no action is be taken.')
+    parser.add_argument('--sleep-time', action="store", default=60, type=int, help='Concurrency control: thread sleep time after each chunk of work')
     return parser
 
 
@@ -247,6 +249,6 @@ if __name__ == "__main__":
     PARSER = get_parser()
     ARGS = PARSER.parse_args()
     try:
-        run(once=ARGS.run_once, younger_than=ARGS.younger_than, nattempts=ARGS.nattempts, rse_expression=ARGS.rse_expression, vos=ARGS.vos, max_replicas_per_rse=ARGS.max_replicas_per_rse)
+        run(once=ARGS.run_once, younger_than=ARGS.younger_than, nattempts=ARGS.nattempts, rse_expression=ARGS.rse_expression, vos=ARGS.vos, max_replicas_per_rse=ARGS.max_replicas_per_rse, sleep_time=ARGS.sleep_time)
     except KeyboardInterrupt:
         stop()

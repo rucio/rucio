@@ -25,6 +25,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 
 import datetime
 import logging
@@ -52,7 +53,7 @@ GRACEFUL_STOP = threading.Event()
 
 
 def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
-            once=True, unlock=False, spread_period=0, purge_replicas=False):
+            once=True, unlock=False, spread_period=0, purge_replicas=False, sleep_time=60):
     """
     Creates an Atropos Worker that gets a list of rules which have an eol_at expired and delete them.
 
@@ -60,10 +61,8 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
     :param bulk: The number of requests to process.
     :param grace_period: The grace_period for the rules.
     :param once: Run only once.
+    :param sleep_time: Thread sleep time after each chunk of work.
     """
-
-    sleep_time = 60
-
     executable = 'atropos'
     hostname = socket.getfqdn()
     pid = os.getpid()
@@ -195,7 +194,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
 
 
 def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
-        once=True, unlock=False, spread_period=0, purge_replicas=False):
+        once=True, unlock=False, spread_period=0, purge_replicas=False, sleep_time=60):
     """
     Starts up the atropos threads.
     """
@@ -219,7 +218,8 @@ def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
                                                             'bulk': bulk,
                                                             'unlock': unlock,
                                                             'spread_period': spread_period,
-                                                            'purge_replicas': purge_replicas}) for i in range(0, threads)]
+                                                            'purge_replicas': purge_replicas,
+                                                            'sleep_time': sleep_time}) for i in range(0, threads)]
     [t.start() for t in thread_list]
 
     logging.info('waiting for interrupts')

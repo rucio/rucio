@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2021 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 # - Vincent Garonne, <vgaronne@gmail.com>, 2013-2018
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -67,6 +68,7 @@ Check if the DID exists::
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--total-workers", action="store", default=1, type=int, help='Total number of workers')
     parser.add_argument("--chunk-size", action="store", default=5, type=int, help='Chunk size')
+    parser.add_argument('--sleep-time', action="store", default=60, type=int, help='Concurrency control: thread sleep time after each chunk of work')
     return parser
 
 
@@ -76,6 +78,7 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
     try:
-        run(total_workers=args.total_workers, chunk_size=args.chunk_size, once=args.run_once)
+        run(total_workers=args.total_workers, chunk_size=args.chunk_size, once=args.run_once,
+            sleep_time=args.sleep_time)
     except KeyboardInterrupt:
         stop()
