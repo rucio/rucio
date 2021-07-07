@@ -13,9 +13,9 @@ def filter_thread_work(session, query, total_threads, thread_id, hash_variable=N
         if session.bind.dialect.name == 'oracle':
             bindparams = [bindparam('thread_id', thread_id), bindparam('total_threads', total_threads - 1)]
             if not hash_variable:
-                query = query.filter(text('ORA_HASH(id, :total_threads) = :thread_id', bindparams=bindparams))
+                query = query.filter(text('ORA_HASH(id, :total_threads) = :thread_id').bindparams(*bindparams))
             else:
-                query = query.filter(text('ORA_HASH(%s, :total_threads) = :thread_id' % (hash_variable), bindparams=bindparams))
+                query = query.filter(text('ORA_HASH(%s, :total_threads) = :thread_id' % (hash_variable)).bindparams(*bindparams))
         elif session.bind.dialect.name == 'mysql':
             if not hash_variable:
                 query = query.filter(text('mod(md5(id), %s) = %s' % (total_threads, thread_id)))
