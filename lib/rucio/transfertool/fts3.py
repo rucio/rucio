@@ -95,8 +95,10 @@ class FTS3Transfertool(Transfertool):
 
         self.multi_vo = config_get_bool('common', 'multi_vo', False, None)
         if self.multi_vo:
-            usercert = None
+            # a default cert that can be used incase of no selection for each VO that has basic permissions for the public methods
+            usercert = config_get('conveyor', 'usercert', False, None)
         else:
+            # a cert that is used for the single VO
             usercert = config_get('conveyor', 'usercert', False, None)
 
         # token for OAuth 2.0 OIDC authorization scheme (working only with dCache + davs/https protocols as of Sep 2019)
@@ -156,10 +158,11 @@ class FTS3Transfertool(Transfertool):
             expected_transfer_id = self.__get_deterministic_id(job_params["sid"])
             logging.debug("Submit bulk transfers in deterministic mode, sid %s, expected transfer id: %s", job_params["sid"], expected_transfer_id)
 
+        # Multi_VO mode
         if self.multi_vo:
             vo_list = []
             vo_sorted_files = {}
-            # Multi_VO mode
+
             for transfer_file in files:
                 vo_name = job_params['account'].vo
                 if vo_name not in vo_list:
@@ -168,8 +171,9 @@ class FTS3Transfertool(Transfertool):
                 vo_sorted_files[vo_name].append(transfer_file)
 
             for job in job_params:
-                print("JOB")
                 print(job)
+                for j in job:
+                    print(j)
 
             for vo in vo_list:
 
@@ -286,29 +290,34 @@ class FTS3Transfertool(Transfertool):
         :param timeout:      Timeout in seconds.
         :returns:            True if cancellation was successful.
         """
+        if self.multi_vo:
+            transfer_id_vo_dict = self.__multi_vo_cert_selection_from_transfer_ids(transfer_ids)
+            pass
 
-        if len(transfer_ids) > 1:
-            raise NotImplementedError('Bulk cancelling not implemented')
-        transfer_id = transfer_ids[0]
+        else:
 
-        job = None
+            if len(transfer_ids) > 1:
+                raise NotImplementedError('Bulk cancelling not implemented')
+            transfer_id = transfer_ids[0]
 
-        job = requests.delete('%s/jobs/%s' % (self.external_host, transfer_id),
-                              verify=self.verify,
-                              cert=self.cert,
-                              headers=self.headers,
-                              timeout=timeout)
+            job = None
 
-        if job and job.status_code == 200:
-            record_counter('transfertool.fts3.%s.cancel.success' % self.__extract_host(self.external_host))
-            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+            job = requests.delete('%s/jobs/%s' % (self.external_host, transfer_id),
+                                  verify=self.verify,
+                                  cert=self.cert,
+                                  headers=self.headers,
+                                  timeout=timeout)
+
+            if job and job.status_code == 200:
+                record_counter('transfertool.fts3.%s.cancel.success' % self.__extract_host(self.external_host))
+                labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+                CANCEL_COUNTER.labels(**labels).inc()
+                return job.json()
+
+            record_counter('transfertool.fts3.%s.cancel.failure' % self.__extract_host(self.external_host))
+            labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
             CANCEL_COUNTER.labels(**labels).inc()
-            return job.json()
-
-        record_counter('transfertool.fts3.%s.cancel.failure' % self.__extract_host(self.external_host))
-        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-        CANCEL_COUNTER.labels(**labels).inc()
-        raise Exception('Could not cancel transfer: %s', job.content)
+            raise Exception('Could not cancel transfer: %s', job.content)
 
     def update_priority(self, transfer_id, priority, timeout=None):
         """
@@ -319,28 +328,32 @@ class FTS3Transfertool(Transfertool):
         :param timeout:     Timeout in seconds.
         :returns:           True if update was successful.
         """
+        if self.multi_vo:
+            transfer_id_vo_dict = self.__multi_vo_cert_selection_from_transfer_ids(transfer_id)
+            pass
 
-        job = None
-        params_dict = {"params": {"priority": priority}}
-        params_str = json.dumps(params_dict, cls=APIEncoder)
+        else:
+            job = None
+            params_dict = {"params": {"priority": priority}}
+            params_str = json.dumps(params_dict, cls=APIEncoder)
 
-        job = requests.post('%s/jobs/%s' % (self.external_host, transfer_id),
-                            verify=self.verify,
-                            data=params_str,
-                            cert=self.cert,
-                            headers=self.headers,
-                            timeout=timeout)  # TODO set to 3 in conveyor
+            job = requests.post('%s/jobs/%s' % (self.external_host, transfer_id),
+                                verify=self.verify,
+                                data=params_str,
+                                cert=self.cert,
+                                headers=self.headers,
+                                timeout=timeout)  # TODO set to 3 in conveyor
 
-        if job and job.status_code == 200:
-            record_counter('transfertool.fts3.%s.update_priority.success' % self.__extract_host(self.external_host))
-            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+            if job and job.status_code == 200:
+                record_counter('transfertool.fts3.%s.update_priority.success' % self.__extract_host(self.external_host))
+                labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+                UPDATE_PRIORITY_COUNTER.labels(**labels).inc()
+                return job.json()
+
+            record_counter('transfertool.fts3.%s.update_priority.failure' % self.__extract_host(self.external_host))
+            labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
             UPDATE_PRIORITY_COUNTER.labels(**labels).inc()
-            return job.json()
-
-        record_counter('transfertool.fts3.%s.update_priority.failure' % self.__extract_host(self.external_host))
-        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-        UPDATE_PRIORITY_COUNTER.labels(**labels).inc()
-        raise Exception('Could not update priority of transfer: %s', job.content)
+            raise Exception('Could not update priority of transfer: %s', job.content)
 
     def query(self, transfer_ids, details=False, timeout=None):
         """
@@ -355,27 +368,32 @@ class FTS3Transfertool(Transfertool):
         if len(transfer_ids) > 1:
             raise NotImplementedError('FTS3 transfertool query not bulk ready')
 
-        transfer_id = transfer_ids[0]
-        if details:
-            return self.__query_details(transfer_id=transfer_id)
+        if self.multi_vo:
+            transfer_id_vo_dict = self.__multi_vo_cert_selection_from_transfer_ids(transfer_ids)
+            pass
 
-        job = None
+        else:
+            transfer_id = transfer_ids[0]
+            if details:
+                return self.__query_details(transfer_id=transfer_id)
 
-        job = requests.get('%s/jobs/%s' % (self.external_host, transfer_id),
-                           verify=self.verify,
-                           cert=self.cert,
-                           headers=self.headers,
-                           timeout=timeout)  # TODO Set to 5 in conveyor
-        if job and job.status_code == 200:
-            record_counter('transfertool.fts3.%s.query.success' % self.__extract_host(self.external_host))
-            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+            job = None
+
+            job = requests.get('%s/jobs/%s' % (self.external_host, transfer_id),
+                               verify=self.verify,
+                               cert=self.cert,
+                               headers=self.headers,
+                               timeout=timeout)  # TODO Set to 5 in conveyor
+            if job and job.status_code == 200:
+                record_counter('transfertool.fts3.%s.query.success' % self.__extract_host(self.external_host))
+                labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+                QUERY_COUNTER.labels(**labels).inc()
+                return [job.json()]
+
+            record_counter('transfertool.fts3.%s.query.failure' % self.__extract_host(self.external_host))
+            labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
             QUERY_COUNTER.labels(**labels).inc()
-            return [job.json()]
-
-        record_counter('transfertool.fts3.%s.query.failure' % self.__extract_host(self.external_host))
-        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-        QUERY_COUNTER.labels(**labels).inc()
-        raise Exception('Could not retrieve transfer information: %s', job.content)
+            raise Exception('Could not retrieve transfer information: %s', job.content)
 
     # Public methods, not part of the common interface specification (FTS3 specific)
 
@@ -490,44 +508,92 @@ class FTS3Transfertool(Transfertool):
         """
 
         jobs = None
+        responses = {}
+        fts_session = requests.Session()
 
         if not isinstance(transfer_ids, list):
             transfer_ids = [transfer_ids]
 
-        responses = {}
-        fts_session = requests.Session()
-        xfer_ids = ','.join(transfer_ids)
-        jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,staging_start,staging_finished,reason,source_surl,file_metadata' % (self.external_host, xfer_ids),
-                               verify=self.verify,
-                               cert=self.cert,
-                               headers=self.headers,
-                               timeout=timeout)
+        # multi-VO mode
+        if self.multi_vo:
+            vo_sorted_dict = self.__multi_vo_cert_selection_from_transfer_ids(transfer_ids)
+            for vo in vo_sorted_dict:
+                xfer_ids = ','.join(vo_sorted_dict[vo])
+                
+                usercert = config_get('vo_certs', vo, True, None)
+                self.cert = (usercert, usercert)
+                jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,staging_start,staging_finished,reason,source_surl,file_metadata' % (self.external_host, xfer_ids),
+                                       verify=self.verify,
+                                       cert=self.cert,
+                                       headers=self.headers,
+                                       timeout=timeout)
 
-        if jobs is None:
-            record_counter('transfertool.fts3.%s.bulk_query.failure' % self.__extract_host(self.external_host))
-            for transfer_id in transfer_ids:
-                responses[transfer_id] = Exception('Transfer information returns None: %s' % jobs)
-        elif jobs.status_code == 200 or jobs.status_code == 207:
-            try:
-                record_counter('transfertool.fts3.%s.bulk_query.success' % self.__extract_host(self.external_host))
-                labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
-                BULK_QUERY_COUNTER.labels(**labels).inc()
-                jobs_response = jobs.json()
-                responses = self.__bulk_query_responses(jobs_response)
-            except ReadTimeout as error:
-                raise TransferToolTimeout(error)
-            except JSONDecodeError as error:
-                raise TransferToolWrongAnswer(error)
-            except Exception as error:
-                raise Exception("Failed to parse the job response: %s, error: %s" % (str(jobs), str(error)))
+                if jobs is None:
+                    record_counter('transfertool.fts3.%s.bulk_query.failure' % self.__extract_host(self.external_host))
+                    for transfer_id in vo_sorted_dict[vo]:
+                        responses[transfer_id] = Exception('Transfer information returns None: %s' % jobs)
+                elif jobs.status_code == 200 or jobs.status_code == 207:
+                    try:
+                        record_counter('transfertool.fts3.%s.bulk_query.success' % self.__extract_host(self.external_host))
+                        labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+                        BULK_QUERY_COUNTER.labels(**labels).inc()
+                        jobs_response = jobs.json()
+                        bulk_query_responses = self.__bulk_query_responses(jobs_response)
+                        print("BULK_QUERY_RESPONSES")
+                        print(bulk_query_responses)
+                        for query_responses in bulk_query_responses:
+                            print("QUERY_RESPONSES")
+                            print(query_responses)
+                            transfer_id = query_responses
+                            responses[transfer_id] = bulk_query_responses[transfer_id]
+                    except ReadTimeout as error:
+                        raise TransferToolTimeout(error)
+                    except JSONDecodeError as error:
+                        raise TransferToolWrongAnswer(error)
+                    except Exception as error:
+                        raise Exception("Failed to parse the job response: %s, error: %s" % (str(jobs), str(error)))
+                else:
+                    record_counter('transfertool.fts3.%s.bulk_query.failure' % self.__extract_host(self.external_host))
+                    labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+                    BULK_QUERY_COUNTER.labels(**labels).inc()
+                    for transfer_id in vo_sorted_dict[vo]:
+                        responses[transfer_id] = Exception('Could not retrieve transfer information: %s', jobs.content)
+
+            return responses
+        # Single VO mode
         else:
-            record_counter('transfertool.fts3.%s.bulk_query.failure' % self.__extract_host(self.external_host))
-            labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-            BULK_QUERY_COUNTER.labels(**labels).inc()
-            for transfer_id in transfer_ids:
-                responses[transfer_id] = Exception('Could not retrieve transfer information: %s', jobs.content)
+            xfer_ids = ','.join(transfer_ids)
+            jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,staging_start,staging_finished,reason,source_surl,file_metadata' % (self.external_host, xfer_ids),
+                                   verify=self.verify,
+                                   cert=self.cert,
+                                   headers=self.headers,
+                                   timeout=timeout)
 
-        return responses
+            if jobs is None:
+                record_counter('transfertool.fts3.%s.bulk_query.failure' % self.__extract_host(self.external_host))
+                for transfer_id in transfer_ids:
+                    responses[transfer_id] = Exception('Transfer information returns None: %s' % jobs)
+            elif jobs.status_code == 200 or jobs.status_code == 207:
+                try:
+                    record_counter('transfertool.fts3.%s.bulk_query.success' % self.__extract_host(self.external_host))
+                    labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+                    BULK_QUERY_COUNTER.labels(**labels).inc()
+                    jobs_response = jobs.json()
+                    responses = self.__bulk_query_responses(jobs_response)
+                except ReadTimeout as error:
+                    raise TransferToolTimeout(error)
+                except JSONDecodeError as error:
+                    raise TransferToolWrongAnswer(error)
+                except Exception as error:
+                    raise Exception("Failed to parse the job response: %s, error: %s" % (str(jobs), str(error)))
+            else:
+                record_counter('transfertool.fts3.%s.bulk_query.failure' % self.__extract_host(self.external_host))
+                labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+                BULK_QUERY_COUNTER.labels(**labels).inc()
+                for transfer_id in transfer_ids:
+                    responses[transfer_id] = Exception('Could not retrieve transfer information: %s', jobs.content)
+
+            return responses
 
     def list_se_status(self):
         """
@@ -924,5 +990,23 @@ class FTS3Transfertool(Transfertool):
         QUERY_DETAILS_COUNTER.labels(**labels).inc()
         return
 
-    def __multi_vo_cert_selection(self):
+    def __multi_vo_cert_selection_from_transfer_ids(self, transfer_ids):
+        # Uses the transfer_id or ids to find the vo of the tranfer, and sorts into a dict
+        # Returns a dict of ists of transfer_ids with the VO names as the keys
+        vo_list = []
+        vo_sorted_dict = {}
+        for transfer_id in transfer_ids:
+            # TODO inplement some kind of look up from transfer_id to find VO
+            if 'tst' not in vo_list:
+                vo_list.append('tst')
+                vo_sorted_dict['tst'] = []
+            vo_sorted_dict['tst'].append(transfer_id)
+        return vo_sorted_dict
+
+    def __multi_vo_cert_selection_from_storage_element(self, storage_element):
+        # Uses the storage_element to find the VO that the storage element is from, returns the VO of the storage element
+        pass
+
+    def multi_vo_cert_selection_for_no_input(self):
+        # Some methods within the FTS3 require a certificate to function but are not passed any information which would allow VO identification
         pass
