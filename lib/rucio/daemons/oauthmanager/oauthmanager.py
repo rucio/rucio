@@ -71,7 +71,6 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100, sleep_time=300):
     if sleep_time == OAuthManager.__defaults__[3] and loop_rate != OAuthManager.__defaults__[1]:
         sleep_time = loop_rate
 
-
     executable = 'oauth-manager'
     total_workers = 0
     worker_number = 0
