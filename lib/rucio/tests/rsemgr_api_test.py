@@ -73,7 +73,10 @@ class MgrTestCases:
             if scheme and protocol['scheme'] != scheme:
                 self.rse_settings['protocols'].remove(protocol)
         if (protocol_impl is not None) and len(self.rse_settings['protocols']) > 0:
-            self.rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.' + protocol_impl + '.Default'
+            if len(protocol_impl.split('.')) == 1:
+                self.rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.' + protocol_impl + '.Default'
+            else:
+                self.rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.' + protocol_impl
 
     # Mgr-Tests: GET
     # These tests will fail as rsemanager.download has been removed. Commenting out to avoid syntax errors.
