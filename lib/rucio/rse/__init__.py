@@ -28,18 +28,25 @@ from dogpile.cache import make_region
 
 from rucio.rse import rsemanager
 from rucio.common import config
+from os import environ
 
-
-if config.config_has_section('database'):
-    setattr(rsemanager, 'CLIENT_MODE', False)
-    setattr(rsemanager, 'SERVER_MODE', True)
-elif config.config_has_section('client'):
-    setattr(rsemanager, 'CLIENT_MODE', True)
-    setattr(rsemanager, 'SERVER_MODE', False)
+if 'RUCIO_CLIENT_MODE' not in environ:
+    if config.config_has_section('database'):
+        setattr(rsemanager, 'CLIENT_MODE', False)
+        setattr(rsemanager, 'SERVER_MODE', True)
+    elif config.config_has_section('client'):
+        setattr(rsemanager, 'CLIENT_MODE', True)
+        setattr(rsemanager, 'SERVER_MODE', False)
+    else:
+        setattr(rsemanager, 'CLIENT_MODE', False)
+        setattr(rsemanager, 'SERVER_MODE', True)
 else:
-    setattr(rsemanager, 'CLIENT_MODE', False)
-    setattr(rsemanager, 'SERVER_MODE', True)
-
+    if environ['RUCIO_CLIENT_MODE']:
+        setattr(rsemanager, 'CLIENT_MODE', True)
+        setattr(rsemanager, 'SERVER_MODE', False)
+    else:
+        setattr(rsemanager, 'CLIENT_MODE', False)
+        setattr(rsemanager, 'SERVER_MODE', True)
 
 def get_rse_client(rse, vo='def', **kwarg):
     '''
