@@ -48,6 +48,7 @@ else:
         setattr(rsemanager, 'CLIENT_MODE', False)
         setattr(rsemanager, 'SERVER_MODE', True)
 
+
 def get_rse_client(rse, vo='def', **kwarg):
     '''
     get_rse_client
