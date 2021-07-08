@@ -23,7 +23,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Judge-Evaluator is a daemon to re-evaluate and execute replication rules.
@@ -47,6 +47,7 @@ import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalScope
+from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did
@@ -94,11 +95,7 @@ def re_evaluator(once=False, sleep_time=30):
             # If the list is empty, sent the worker to sleep
             if not dids and not once:
                 logging.debug('re_evaluator[%s/%s] did not get any work (paused_dids=%s)' % (heartbeat['assign_thread'], heartbeat['nr_threads'], str(len(paused_dids))))
-                end_time = time.time()
-                time_diff = end_time - start
-                if time_diff < sleep_time:
-                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
-                    graceful_stop.wait(sleep_time - time_diff)
+                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop)
             else:
                 done_dids = {}
                 for did in dids:

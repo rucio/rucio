@@ -22,7 +22,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Judge-Cleaner is a daemon to clean expired replication rules.
@@ -44,6 +44,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
+from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 from rucio.core.rule import delete_rule, get_expired_rules
@@ -93,11 +94,7 @@ def rule_cleaner(once=False, sleep_time=60):
 
             if not rules and not once:
                 logger(logging.DEBUG, 'did not get any work (paused_rules=%s)' % str(len(paused_rules)))
-                end_time = time.time()
-                time_diff = end_time - start
-                if time_diff < sleep_time:
-                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
-                    graceful_stop.wait(sleep_time - time_diff)
+                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop)
             else:
                 for rule in rules:
                     rule_id = rule[0]

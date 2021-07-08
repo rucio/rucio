@@ -25,7 +25,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import datetime
 import logging
@@ -42,6 +42,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import InvalidRSEExpression, RuleNotFound
 from rucio.common.logging import setup_logging
+from rucio.common.utils import daemon_sleep
 from rucio.core import heartbeat
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rse import get_rse_name, get_rse_vo
@@ -182,11 +183,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
             if once:
                 break
             else:
-                tottime = time.time() - stime
-                if tottime < sleep_time:
-                    logging.info(prepend_str + 'Will sleep for %s seconds' % (str(sleep_time - tottime)))
-                    time.sleep(sleep_time - tottime)
-                    continue
+                daemon_sleep(start_time=stime, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
         logging.info(prepend_str + 'Graceful stop requested')
         heartbeat.die(executable, hostname, pid, hb_thread)

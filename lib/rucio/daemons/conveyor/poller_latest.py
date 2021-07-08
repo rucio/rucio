@@ -22,7 +22,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2021
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -42,6 +42,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.constants import FTS_STATE
 from rucio.common.logging import setup_logging
+from rucio.common.utils import daemon_sleep
 from rucio.core import heartbeat, transfer, request
 from rucio.core.monitor import record_timer, record_counter
 
@@ -106,10 +107,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800, slee
             if once:
                 break
 
-            time_left = sleep_time - abs(time.time() - start_time)
-            if time_left > 0:
-                logging.debug("Waiting %s seconds until next FTS terminal state retrieval" % time_left)
-                graceful_stop.wait(time_left)
+            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop)
         except RequestException as error:
             logging.error("Failed to contact FTS server: %s" % (str(error)))
         except Exception:

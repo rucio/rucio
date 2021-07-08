@@ -44,6 +44,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
+from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 from rucio.core.rule import repair_rule, get_stuck_rules
@@ -91,11 +92,7 @@ def rule_repairer(once=False, sleep_time=60):
 
             if not rules and not once:
                 logging.debug('rule_repairer[%s/%s] did not get any work (paused_rules=%s)' % (heartbeat['assign_thread'], heartbeat['nr_threads'], str(len(paused_rules))))
-                end_time = time.time()
-                time_diff = end_time - start
-                if time_diff < sleep_time:
-                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
-                    graceful_stop.wait(sleep_time - time_diff)
+                daemon_sleep(start, sleep_time, graceful_stop)
             else:
                 for rule_id in rules:
                     rule_id = rule_id[0]

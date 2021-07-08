@@ -23,7 +23,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Eric Vaandering <ewv@fnal.gov>, 2019-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 '''
    Hermes is a daemon to deliver messages: to a messagebroker via STOMP, or emails via SMTP.
@@ -49,6 +49,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_int, config_get_bool
 from rucio.common.logging import setup_logging
+from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import record_counter
@@ -138,12 +139,7 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10, s
         if once:
             break
 
-        t_delay = sleep_time - (time.time() - t_start)
-        t_delay = t_delay if t_delay > 0 else 0
-        if t_delay:
-            logging.debug('[email] %i:%i - sleeping %s seconds',
-                          heartbeat['assign_thread'], heartbeat['nr_threads'], t_delay)
-        time.sleep(t_delay)
+        daemon_sleep(start_time=t_start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
     logging.debug('[email] %i:%i - graceful stop requested', heartbeat['assign_thread'],
                   heartbeat['nr_threads'])
@@ -365,12 +361,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
         except:
             logging.critical(traceback.format_exc())
 
-        t_delay = sleep_time - (time.time() - t_start)
-        t_delay = t_delay if t_delay > 0 else 0
-        if t_delay:
-            logging.debug('[broker] %i:%i - sleeping %s seconds',
-                          heartbeat['assign_thread'], heartbeat['nr_threads'], t_delay)
-        time.sleep(t_delay)
+        daemon_sleep(start_time=t_start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
     for conn in conns:
         try:

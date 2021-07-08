@@ -17,7 +17,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 OAuth Manager is a daemon which is reponsible for:
@@ -47,6 +47,7 @@ from sqlalchemy.exc import DatabaseError
 import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
+from rucio.common.utils import daemon_sleep
 from rucio.core.authentication import delete_expired_tokens
 from rucio.core.heartbeat import die, live, sanity_check
 from rucio.core.monitor import record_counter, record_timer
@@ -172,8 +173,7 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100, sleep_time=300):
         if once:
             break
         else:
-            logging.info('oauth_manager[%i/%i]: Sleeping for %i seconds.', worker_number, total_workers, sleep_time)
-            GRACEFUL_STOP.wait(sleep_time)
+            daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
     die(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
     logging.info('oauth_manager[%i/%i]: graceful stop done', worker_number, total_workers)

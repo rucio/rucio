@@ -24,7 +24,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 '''
 Undertaker is a daemon to manage expired did.
@@ -47,7 +47,7 @@ import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
-from rucio.common.utils import chunks
+from rucio.common.utils import chunks, daemon_sleep
 from rucio.core.did import list_expired_dids, delete_dids
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
@@ -90,11 +90,7 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False, sleep
 
             if not dids and not once:
                 logging.info('Undertaker(%s): Nothing to do. sleep 60.', worker_number)
-                end_time = time.time()
-                time_diff = end_time - start
-                if time_diff < sleep_time:
-                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
-                    GRACEFUL_STOP.wait(sleep_time - time_diff)
+                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
                 continue
 
             for chunk in chunks(dids, chunk_size):

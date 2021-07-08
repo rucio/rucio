@@ -27,7 +27,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import division
 
@@ -48,7 +48,7 @@ from rucio.common import exception
 from rucio.common.exception import FileReplicaAlreadyExists, ConfigNotFound
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.types import InternalScope
-from rucio.common.utils import adler32
+from rucio.common.utils import adler32, daemon_sleep
 from rucio.common.utils import execute, generate_uuid
 from rucio.core import monitor, heartbeat
 from rucio.core.config import get
@@ -277,9 +277,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
         tottime = time() - starttime
         if status:
             logger(logging.INFO, 'It took %s seconds to upload one dataset on %s', str(tottime), str(sites))
-            if sleep_time > tottime:
-                logger(logging.INFO, 'Will sleep for %s seconds', str(sleep_time - tottime))
-                sleep(sleep_time - tottime)
+            daemon_sleep(start_time=starttime, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
         else:
             logger(logging.INFO, 'Retrying a new upload')
     heartbeat.die(executable, hostname, pid, hb_thread)

@@ -23,7 +23,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import division
 
@@ -40,7 +40,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
-from rucio.common.utils import chunks
+from rucio.common.utils import chunks, daemon_sleep
 from rucio.core import monitor, heartbeat
 from rucio.core.replica import list_bad_replicas, get_replicas_state, list_bad_replicas_history, update_bad_replicas_history
 from rucio.core.rule import update_rules_for_lost_replica, update_rules_for_bad_replica
@@ -128,13 +128,10 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
                 logging.info(prepend_str + 'History table updated in %s seconds' % (time.time() - now))
                 update_history_time = time.time()
 
-            tottime = time.time() - stime
             if len(replicas) == bulk:
                 logging.info(prepend_str + 'Processed maximum number of replicas according to the bulk size. Restart immediately next cycle')
-            elif tottime < sleep_time:
-                logging.info(prepend_str + 'Will sleep for %s seconds' % (str(sleep_time - tottime)))
-                time.sleep(sleep_time - tottime)
-                continue
+            else:
+                daemon_sleep(start_time=stime, sleep_time=sleep_time, graceful_stop=graceful_stop)
 
     logging.info(prepend_str + 'Graceful stop requested')
     heartbeat.die(executable, hostname, pid, hb_thread)

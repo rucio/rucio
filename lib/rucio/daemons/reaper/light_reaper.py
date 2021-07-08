@@ -21,7 +21,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 '''
 Light Reaper is a daemon to manage temporary object/file deletion.
@@ -42,6 +42,7 @@ from rucio.common.config import config_get_bool
 from rucio.common.exception import (SourceNotFound, DatabaseException, ServiceUnavailable,
                                     RSEAccessDenied, RSENotFound, ResourceTemporaryUnavailable, VONotFound)
 from rucio.common.logging import setup_logging
+from rucio.common.utils import daemon_sleep
 from rucio.core import rse as rse_core
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
@@ -82,6 +83,7 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
             heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)
             logging.info('Light Reaper({0[worker_number]}/{0[total_workers]}): Live gives {0[heartbeat]}'.format(locals()))
             nothing_to_do = True
+            start_time = time.time()
 
             random.shuffle(rses)
             for rse in rses:
@@ -157,11 +159,7 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
 
             if nothing_to_do:
                 logging.info('Light Reaper %s-%s: Nothing to do. I will sleep for 60s', worker_number, total_workers)
-                end_time = time.time()
-                time_diff = end_time - start
-                if time_diff < sleep_time:
-                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
-                    GRACEFUL_STOP.wait(sleep_time - time_diff)
+                daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
         except DatabaseException as error:
             logging.warning('Reaper:  %s', str(error))

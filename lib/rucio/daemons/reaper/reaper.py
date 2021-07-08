@@ -26,6 +26,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Matt Snyder <msnyder@bnl.gov>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -57,7 +58,7 @@ from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFou
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
                                     VONotFound)
 from rucio.common.logging import formatted_logger, setup_logging
-from rucio.common.utils import chunks
+from rucio.common.utils import chunks, daemon_sleep
 from rucio.core import monitor
 from rucio.core.config import get
 from rucio.core.credential import get_signed_url
@@ -608,10 +609,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             if once:
                 break
 
-            tottime = time.time() - start_time
-            if tottime < sleep_time:
-                logger(logging.INFO, 'Will sleep for %s seconds', sleep_time - tottime)
-                GRACEFUL_STOP.wait(sleep_time - tottime)
+            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
         except DatabaseException as error:
             logger(logging.WARNING, 'Reaper:  %s', str(error))

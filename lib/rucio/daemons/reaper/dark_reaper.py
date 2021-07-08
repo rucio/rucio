@@ -25,7 +25,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020-2021
 # - Eric Vaandering <ewv@fnal.gov>, 2021
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 '''
 Dark Reaper is a daemon to manage quarantined file deletion.
@@ -48,6 +48,7 @@ from rucio.common.exception import (SourceNotFound, DatabaseException, ServiceUn
                                     RSEAccessDenied, ResourceTemporaryUnavailable,
                                     RSENotFound, VONotFound)
 from rucio.common.logging import setup_logging
+from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.quarantined_replica import (list_quarantined_replicas,
@@ -176,11 +177,7 @@ def reaper(rses, worker_number=0, total_workers=1, chunk_size=100, once=False, s
 
             if nothing_to_do:
                 logging.info('Dark Reaper %s-%s: Nothing to do', worker_number, total_workers)
-                end_time = time.time()
-                time_diff = end_time - start_time
-                if time_diff < sleep_time:
-                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
-                    GRACEFUL_STOP.wait(sleep_time - time_diff)
+                daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
         except DatabaseException as error:
             logging.warning('Reaper:  %s', str(error))

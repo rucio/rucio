@@ -22,7 +22,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Suspicious-Replica-Recoverer is a daemon that declares suspicious replicas as bad if they are found available on other RSE.
@@ -48,6 +48,7 @@ from rucio.common.config import config_get_bool
 from rucio.common.exception import DatabaseException, VONotFound, InvalidRSEExpression
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
+from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 from rucio.core.replica import list_replicas, declare_bad_file_replicas, get_suspicious_files
@@ -171,11 +172,7 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
 
             if not recoverable_replicas and not once:
                 logging.info('replica_recoverer[%i/%i]: found %i recoverable suspicious replicas.', worker_number, total_workers, len(recoverable_replicas))
-                end_time = time.time()
-                time_diff = end_time - start
-                if time_diff < sleep_time:
-                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
-                    GRACEFUL_STOP.wait(sleep_time - time_diff)
+                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
             else:
                 logging.info('replica_recoverer[%i/%i]: looking for replica surls.', worker_number, total_workers)
 

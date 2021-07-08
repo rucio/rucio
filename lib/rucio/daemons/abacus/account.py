@@ -20,7 +20,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Abacus-Account is a daemon to update Account counters.
@@ -36,7 +36,7 @@ import traceback
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.logging import setup_logging
-from rucio.common.utils import get_thread_with_periodic_running_function
+from rucio.common.utils import get_thread_with_periodic_running_function, daemon_sleep
 from rucio.core.account_counter import get_updated_account_counters, update_account_counter, fill_account_counter_history_table
 from rucio.core.heartbeat import live, die, sanity_check
 
@@ -73,11 +73,7 @@ def account_update(once=False, sleep_time=10):
             # If the list is empty, sent the worker to sleep
             if not account_rse_ids and not once:
                 logging.info('account_update[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1))
-                end_time = time.time()
-                time_diff = end_time - start
-                if time_diff < sleep_time:
-                    logging.info('Sleeping for a while :  %s seconds', (sleep_time - time_diff))
-                    graceful_stop.wait(sleep_time - time_diff)
+                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop)
             else:
                 for account_rse_id in account_rse_ids:
                     if graceful_stop.is_set():

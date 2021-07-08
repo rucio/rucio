@@ -28,6 +28,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Conveyor finisher is a daemon to update replicas and rules based on requests.
@@ -51,7 +52,7 @@ import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException, ConfigNotFound, UnsupportedOperation, ReplicaNotFound, RequestNotFound
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.types import InternalAccount
-from rucio.common.utils import chunks
+from rucio.common.utils import chunks, daemon_sleep
 from rucio.core import request as request_core, heartbeat, replica as replica_core
 from rucio.core.config import items
 from rucio.core.monitor import record_timer, record_counter
@@ -158,11 +159,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
         if once:
             break
 
-        end_time = time.time()
-        time_diff = end_time - start_time
-        if time_diff < sleep_time:
-            logger(logging.INFO, 'Sleeping for a while :  %s seconds', (sleep_time - time_diff))
-            graceful_stop.wait(sleep_time - time_diff)
+        daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
     logger(logging.INFO, 'Graceful stop requests')
 
