@@ -49,14 +49,13 @@ import os
 import random
 import sys
 import time
-import traceback
 from os import environ, fdopen, path, makedirs, geteuid
 from shutil import move
 from tempfile import mkstemp
 
 from dogpile.cache import make_region
 from requests import Session, Response
-from requests.exceptions import ConnectionError, RequestException
+from requests.exceptions import ConnectionError
 from requests.status_codes import codes
 from six.moves.configparser import NoOptionError, NoSectionError
 from six.moves.urllib.parse import urlparse
