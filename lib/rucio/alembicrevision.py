@@ -20,4 +20,4 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 # - Joaquin Bogado <joaquinbogado@gmail.com>, 2021
 
-ALEMBIC_REVISION = 'ccdbcd48206e'  # the current alembic head revision
+ALEMBIC_REVISION = '739064d31565'  # the current alembic head revision

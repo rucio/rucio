@@ -280,7 +280,7 @@ class DirectTransferDefinition:
         self.legacy_def = legacy_definition or {}
 
     def __str__(self):
-        return 'transfer {} from {} to {}'.format(self.rws, ' and '.join(self.sources), self.dst.rse)
+        return 'transfer {} from {} to {}'.format(self.rws, ' and '.join([str(s) for s in self.sources]), self.dst.rse)
 
     @property
     def src(self):
@@ -1329,6 +1329,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # If the transfer is a multihop, need to create the intermediate replicas, intermediate requests and the transfers
         parent_request = None
         parent_requests = []
+        multihop_cancelled = False
         for transfer in transfer_path[:-1]:
             # hop = {'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}
             source_rse = transfer.src.rse
@@ -1388,6 +1389,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # Remove from the transfer dictionary all the requests
                 for cur_req_id in parent_requests:
                     transfers.pop(cur_req_id, None)
+                multihop_cancelled = True
                 break
 
             new_req_id = new_req[0]['id']
@@ -1403,7 +1405,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             transfers[new_req_id]['account'] = InternalAccount('root')
 
             parent_request = new_req_id
-        if len(transfer_path) > 1:
+        if len(transfer_path) > 1 and not multihop_cancelled:
             # Add parent to the last hop
             transfers[rws.request_id]['parent_request'] = parent_request
 
