@@ -170,11 +170,6 @@ class FTS3Transfertool(Transfertool):
                     vo_sorted_files[vo_name] = []
                 vo_sorted_files[vo_name].append(transfer_file)
 
-            for job in job_params:
-                print(job)
-                for j in job:
-                    print(j)
-
             for vo in vo_list:
 
                 sorted_files = vo_sorted_files[vo]
@@ -237,7 +232,6 @@ class FTS3Transfertool(Transfertool):
             # bulk submission
             params_dict = {'files': files, 'params': job_params}
             params_str = json.dumps(params_dict, cls=APIEncoder)
-            print(params_str)
 
             post_result = None
             try:
@@ -519,7 +513,6 @@ class FTS3Transfertool(Transfertool):
             vo_sorted_dict = self.__multi_vo_cert_selection_from_transfer_ids(transfer_ids)
             for vo in vo_sorted_dict:
                 xfer_ids = ','.join(vo_sorted_dict[vo])
-                
                 usercert = config_get('vo_certs', vo, True, None)
                 self.cert = (usercert, usercert)
                 jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,staging_start,staging_finished,reason,source_surl,file_metadata' % (self.external_host, xfer_ids),
@@ -539,11 +532,8 @@ class FTS3Transfertool(Transfertool):
                         BULK_QUERY_COUNTER.labels(**labels).inc()
                         jobs_response = jobs.json()
                         bulk_query_responses = self.__bulk_query_responses(jobs_response)
-                        print("BULK_QUERY_RESPONSES")
-                        print(bulk_query_responses)
+
                         for query_responses in bulk_query_responses:
-                            print("QUERY_RESPONSES")
-                            print(query_responses)
                             transfer_id = query_responses
                             responses[transfer_id] = bulk_query_responses[transfer_id]
                     except ReadTimeout as error:
@@ -996,17 +986,9 @@ class FTS3Transfertool(Transfertool):
         vo_list = []
         vo_sorted_dict = {}
         for transfer_id in transfer_ids:
-            # TODO inplement some kind of look up from transfer_id to find VO
-            if 'tst' not in vo_list:
-                vo_list.append('tst')
-                vo_sorted_dict['tst'] = []
-            vo_sorted_dict['tst'].append(transfer_id)
+            id, vo = transfer_id.split('@')
+            if vo not in vo_list:
+                vo_list.append(vo)
+                vo_sorted_dict[vo] = []
+            vo_sorted_dict[vo].append(id)
         return vo_sorted_dict
-
-    def __multi_vo_cert_selection_from_storage_element(self, storage_element):
-        # Uses the storage_element to find the VO that the storage element is from, returns the VO of the storage element
-        pass
-
-    def multi_vo_cert_selection_for_no_input(self):
-        # Some methods within the FTS3 require a certificate to function but are not passed any information which would allow VO identification
-        pass

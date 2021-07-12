@@ -366,7 +366,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
                     result.append(res_dict)
             else:
                 for res in query_result:
-                    result.append({'request_id': res.id, 'external_host': res.external_host, 'external_id': res.external_id})
+                    result.append({'request_id': res.id, 'external_host': res.external_host, 'external_id': res.external_id, 'scope': res.scope})
 
     return result
 

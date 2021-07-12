@@ -138,15 +138,24 @@ def poller(once=False, activities=None, sleep_time=60,
 
                 xfers_ids = {}
                 for transf in transfs:
-                    print("TRANSF")
-                    print(transf)
                     if not transf['external_host'] in xfers_ids:
                         xfers_ids[transf['external_host']] = []
-                    xfers_ids[transf['external_host']].append((transf['external_id'], transf['request_id']))
+                    xfers_ids[transf['external_host']].append((transf['external_id'], transf['request_id'], transf['scope']))
 
+                external_ids = []
                 for external_host in xfers_ids:
-                    external_ids = list({trf[0] for trf in xfers_ids[external_host]})
+                    if TRANSFER_TOOL == 'fts3':
+                        if config_get('common', 'multi_vo', False, None):
+                            for trf in xfers_ids[external_host]:
+                                vo = trf[2].vo
+                                external_id = trf[0] + '@' + vo
+                                external_ids.append(external_id)
+                        else:
+                            external_ids = list({trf[0] for trf in xfers_ids[external_host]})
+                    else:
+                        external_ids = list({trf[0] for trf in xfers_ids[external_host]})
                     request_ids = [trf[1] for trf in xfers_ids[external_host]]
+
                     for xfers in chunks(external_ids, fts_bulk):
                         # poll transfers
                         poll_transfers(external_host=external_host, xfers=xfers, request_ids=request_ids, timeout=timeout, logger=logger)
@@ -248,6 +257,7 @@ def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=
                 record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
             return
         try:
+
             tss = time.time()
             logger(logging.INFO, 'Polling %i transfers against %s with timeout %s' % (len(xfers), external_host, timeout))
             resps = transfer_core.bulk_query_transfers(external_host, xfers, TRANSFER_TOOL, timeout)
@@ -288,7 +298,7 @@ def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=
             for transfer_id in resps:
                 try:
                     transf_resp = resps[transfer_id]
-                    # transf_resp is None: Lost.
+                    # transf_resp is None: Lost
                     #             is Exception: Failed to get fts job status.
                     #             is {}: No terminated jobs.
                     #             is {request_id: {file_status}}: terminated jobs.
