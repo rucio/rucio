@@ -601,7 +601,6 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
             raise
 
         if config_get('common', 'multi_vo', False, None):
-            print("Multi_vo test!")
             _transfer_ids = []
             for _transfer_id in transfer_ids:
                 id, vo = _transfer_id.split('@')
