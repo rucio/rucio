@@ -14,14 +14,6 @@
 # limitations under the License.
 #
 # Authors:
-# - WeiJen Chang <e4523744@gmail.com>, 2013
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 from __future__ import print_function
@@ -41,6 +33,7 @@ from rucio.rse import rsemanager
 from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 from rucio.tests.rsemgr_api_test import MgrTestCases
 
+
 @pytest.fixture(autouse=True, scope='class')
 def load_rse_info(request, containerized_rses):
     """
@@ -57,17 +50,19 @@ def load_rse_info(request, containerized_rses):
         request.cls.hostname = data['SSH-RSE']['protocols']['supported']['rclone']['hostname']
     else:
         request.cls.rse_id = 'SSH1'
-        request.cls.hostname = 'ssh1'
+        request.cls.hostname = 'ssh_rclone_rse'
         request.cls.prefix = '/rucio/'
 
-@pytest.mark.noparallel(reason='creates and removes a test directory with a fixed name')
 
+@pytest.mark.noparallel(reason='creates and removes a test directory with a fixed name')
+@skip_rse_tests_with_accounts
 class TestRseRCLONE(unittest.TestCase):
     tmpdir = None
     user = None
     rse_id = None
     prefix = None
     hostname = None
+    impl = 'rclone'
 
     @classmethod
     def get_rse_info(cls):
@@ -100,25 +95,21 @@ class TestRseRCLONE(unittest.TestCase):
         for f in MgrTestCases.files_local:
             shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        protocol = rsemanager.create_protocol(rsemanager.get_rse_info(rse_id), 'write')
+        protocol = rsemanager.create_protocol(rsemanager.get_rse_info(rse_id), 'write', impl_passed='rucio.rse.protocols.rclone.Default')
         protocol.connect()
 
         os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         cls.static_file = '%s:/%s/data.raw' % (hostname, prefix)
-        pathdir = os.path.dirname(prefix)
         cmd = 'rclone copyto %s/data.raw %s' % (prefix, cls.static_file)
         execute(cmd)
 
         for f in MgrTestCases.files_remote:
             path = str(prefix + protocol._get_path('user.%s' % cls.user, f))
-            pathdir = os.path.dirname(path)
             cmd = 'rclone copyto %s/data.raw %s:%s' % (prefix, hostname, path)
             execute(cmd)
 
         for f in MgrTestCases.files_local_and_remote:
             shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
-            path = str(prefix + protocol._get_path('user.%s' % cls.user, f))
-            pathdir = os.path.dirname(path)
             cmd = 'rclone copyto {0}/{1} {2}:{3}'.format(str(cls.tmpdir), str(f), hostname, path)
             execute(cmd)
 
@@ -143,8 +134,7 @@ class TestRseRCLONE(unittest.TestCase):
         """rclone (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseRCLONE.tmpdir
         self.rse_id, self.prefix, self.hostname = TestRseRCLONE.get_rse_info()
-        self.mtc = MgrTestCases(self.tmpdir, self.rse_id, TestRseRCLONE.user, TestRseRCLONE.static_file)
-        self.mtc.setup_scheme('rclone', 'rclone')
+        self.mtc = MgrTestCases(self.tmpdir, self.rse_id, TestRseRCLONE.user, TestRseRCLONE.static_file, impl=TestRseRCLONE.impl)
 
     # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):

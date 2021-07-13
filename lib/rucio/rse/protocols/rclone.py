@@ -14,26 +14,22 @@
 # limitations under the License.
 #
 # Authors:
-# - WeiJen Chang <e4523744@gmail.com>, 2013
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2020
-# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Tomas Javurek <tomas.javurek@cern.ch>, 2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2020
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 import os
 import logging
-import re
+import json
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol
 from rucio.common.utils import execute, PREFERRED_CHECKSUM
+from rucio.common.config import get_config_dirs, get_rse_credentials
+
+
+def load_conf_file(file_name):
+    config_dir = next(filter(lambda d: os.path.exists(os.path.join(d, file_name)), get_config_dirs()))
+    with open(os.path.join(config_dir, file_name)) as f:
+        return json.load(f)
 
 
 class Default(protocol.RSEProtocol):
@@ -45,10 +41,113 @@ class Default(protocol.RSEProtocol):
             :param props Properties derived from the RSE Repository
         """
         super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
-
+        if len(rse_settings['protocols']) == 1:
+            raise exception.RucioException('rclone requires atleast one other base protocol to be initialized upon.')
         self.scheme = self.attributes['scheme']
-        self.hostname = self.attributes['hostname']
+        setuprclone = False
+        for protocols in reversed(rse_settings['protocols']):
+            if protocol_attr['impl'] == protocols['impl']:
+                continue
+            else:
+                setuprclone = self.setuphostname(protocols)
+                if setuprclone:
+                    break
+
+        if not setuprclone:
+            raise exception.RucioException('rclone could not be initialized due to insufficient required data.')
         self.logger = logger
+
+    def setuphostname(self, protocols):
+        """ Initializes the rclone object with information about protocols in the referred RSE.
+
+            :param protocols Protocols in the RSE
+        """
+        if protocols['scheme'] in ['scp', 'rsync', 'sftp']:
+            self.hostname = 'ssh_rclone_rse'
+            self.host = protocols['hostname']
+            self.port = str(protocols['port'])
+            if protocols['extended_attributes'] is not None and 'user' in list(protocols['extended_attributes'].keys()):
+                self.user = protocols['extended_attributes']['user']
+            else:
+                self.user = 'root'
+            try:
+                data = load_conf_file('rclone-init.cfg')
+                key_file = data[self.host + '_ssh']['key_file']
+            except KeyError:
+                self.logger(logging.ERROR, 'rclone.init: rclone-init.cfg:- Field value missing for "{}_ssh: key_file"'.format(self.host))
+                return False
+            try:
+                cmd = 'rclone config create {0} sftp host {1} user {2} port {3} key_file {4}'.format(self.hostname, self.host, self.user, str(self.port), key_file)
+                self.logger(logging.INFO, 'rclone.init: cmd: {}'.format(cmd))
+                status, out, err = execute(cmd)
+                if status:
+                    return False
+            except Exception as e:
+                raise exception.ServiceUnavailable(e)
+
+        elif protocols['scheme'] == 'file':
+            self.hostname = 'Local'
+            self.host = 'localhost'
+            try:
+                cmd = 'rclone config create Local local'
+                self.logger(logging.INFO, 'rclone.init: cmd: {}'.format(cmd))
+                status, out, err = execute(cmd)
+                if status:
+                    return False
+            except Exception as e:
+                raise exception.ServiceUnavailable(e)
+
+        elif protocols['scheme'] in ['davs', 'https']:
+            self.hostname = '%s_rclone_rse' % (protocols['scheme'])
+            self.host = protocols['hostname']
+            url = '%s://%s:%s%s' % (protocols['scheme'], protocols['hostname'], str(protocols['port']), protocols['prefix'])
+            try:
+                data = load_conf_file('rclone-init.cfg')
+                bearer_token = data[self.host + '_webdav']['bearer_token']
+            except KeyError:
+                self.logger(logging.ERROR, 'rclone.init: rclone-init.cfg:- Field value missing for "{}_webdav: bearer_token"'.format(self.host))
+                return False
+            try:
+                cmd = 'rclone config create {0} webdav url {1} vendor other bearer_token {2}'.format(self.hostname, url, bearer_token)
+                self.logger(logging.INFO, 'rclone.init: cmd: {}'.format(cmd))
+                status, out, err = execute(cmd)
+                if status:
+                    return False
+            except Exception as e:
+                raise exception.ServiceUnavailable(e)
+
+        elif protocols['scheme'] == 's3':
+            self.hostname = '%s_rclone_rse' % (protocols['scheme'])
+            self.host = protocols['hostname']
+            access_key, secret_key, is_secure = None, None, None
+            if 'S3_ACCESS_KEY' in os.environ:
+                access_key = os.environ['S3_ACCESS_KEY']
+            if 'S3_SECRET_KEY' in os.environ:
+                secret_key = os.environ['S3_SECRET_KEY']
+
+            if is_secure is None or access_key is None or secret_key is None:
+                credentials = get_rse_credentials()
+                self.rse['credentials'] = credentials.get(self.rse['rse'])
+
+                if not access_key:
+                    access_key = self.rse['credentials']['access_key']
+                if not secret_key:
+                    secret_key = self.rse['credentials']['secret_key']
+
+            if not access_key or not secret_key:
+                self.logger(logging.ERROR, 'rclone.init: Missing key(s) for s3 host: {}'.format(self.host))
+                return False                
+
+            try:
+                cmd = 'rclone config create {0} s3 provider AWS env_auth false access_key_id {1} secret_access_key {2} region us-east-1 acl private'.format(self.hostname, access_key, secret_key)
+                self.logger(logging.INFO, 'rclone.init: cmd: {}'.format(cmd))
+                status, out, err = execute(cmd)
+                if status:
+                    return False
+            except Exception as e:
+                raise exception.ServiceUnavailable(e)
+
+        return True
 
     def path2pfn(self, path):
         """
@@ -61,7 +160,7 @@ class Default(protocol.RSEProtocol):
         """
         self.logger(logging.DEBUG, 'rclone.path2pfn: path: {}'.format(path))
         if not path.startswith('rclone://'):
-            return '%s://%s/%s' % (self.scheme, self.hostname, path)
+            return '%s://%s/%s' % (self.scheme, self.host, path)
         else:
             return path
 
@@ -169,9 +268,9 @@ class Default(protocol.RSEProtocol):
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
             if 'path' in lfn and lfn['path'] is not None:
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.hostname, ':', prefix, lfn['path']])
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.host, ':', prefix, lfn['path']])
             else:
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.hostname, ':', prefix, self._get_path(scope=scope, name=name)])
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.host, ':', prefix, self._get_path(scope=scope, name=name)])
         return pfns
 
     def connect(self):

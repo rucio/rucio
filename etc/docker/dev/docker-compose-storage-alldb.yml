@@ -1,6 +1,6 @@
 services:
   rucio:
-    image: devtrial
+    image: docker.io/rucio/rucio-dev:py3
     extra_hosts:
       - "ruciomy8:127.0.0.1"
       - "oracle:127.0.0.1"

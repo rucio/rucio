@@ -21,6 +21,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 from collections import namedtuple
 from enum import Enum

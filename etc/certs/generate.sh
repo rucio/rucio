@@ -47,7 +47,7 @@ openssl req -new -newkey rsa:2048 -nodes -keyout hostcert_minio.key.pem -subj "/
 openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:minio,DNS:localhost") -in hostcert_minio.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_minio.pem -passin env:PASSPHRASE
 
 # SSH server
-mkdir ssh
+mkdir -p ssh
 chmod 700 ssh
 ssh-keygen -m PEM -t rsa -b 2048 -f ssh/ruciouser_sshkey -C 'ssh keys' -N ""
 

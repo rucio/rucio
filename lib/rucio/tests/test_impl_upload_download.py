@@ -14,11 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 from __future__ import print_function
 

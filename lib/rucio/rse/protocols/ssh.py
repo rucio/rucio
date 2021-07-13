@@ -14,17 +14,6 @@
 # limitations under the License.
 #
 # Authors:
-# - WeiJen Chang <e4523744@gmail.com>, 2013
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2020
-# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Tomas Javurek <tomas.javurek@cern.ch>, 2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2020
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 import os

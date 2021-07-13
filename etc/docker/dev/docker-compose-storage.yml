@@ -1,6 +1,6 @@
 services:
   rucio:
-    image: devtrial
+    image: docker.io/rucio/rucio-dev:py3
     extra_hosts:
       - "ruciodb:127.0.0.1"
       - "graphite:127.0.0.1"
@@ -111,7 +111,7 @@ services:
       - ACTIVEMQ_GROUPS_reads=receiver
       - ACTIVEMQ_CONFIG_SCHEDULERENABLED=true
   ssh1:
-    image: sshtrial
+    image: docker.io/rucio/ssh
     network_mode: "service:rucio"
     volumes:
       - ../../certs/ssh/ruciouser_sshkey.pub:/tmp/sshkey.pub:Z
