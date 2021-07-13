@@ -37,6 +37,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -224,7 +225,7 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_tok
     return protocol
 
 
-def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan', auth_token=None, logger=logging.log):
+def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan', auth_token=None, logger=logging.log, impl=None):
     """
         Convert the lfn to a pfn
 
@@ -239,7 +240,7 @@ def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan', 
         :returns:           a dict with scope:name as key and the PFN as value
 
     """
-    return create_protocol(rse_settings, operation, scheme, domain, auth_token=auth_token, logger=logger).lfns2pfns(lfns)
+    return create_protocol(rse_settings, operation, scheme, domain, auth_token=auth_token, logger=logger, impl_passed=impl).lfns2pfns(lfns)
 
 
 def parse_pfns(rse_settings, pfns, operation='read', domain='wan', auth_token=None):
@@ -324,7 +325,7 @@ def exists(rse_settings, files, domain='wan', impl=None, auth_token=None, logger
     return [gs, ret]
 
 
-def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None, auth_token=None, logger=logging.log):
+def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None, auth_token=None, logger=logging.log, impl=None):
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
@@ -357,14 +358,13 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
     ret = {}
     gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme, domain=domain, auth_token=auth_token, logger=logger)
+    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme, domain=domain, auth_token=auth_token, logger=logger, impl_passed=impl)
     protocol.connect()
-    protocol_delete = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger)
+    protocol_delete = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger, impl_passed=impl)
     protocol_delete.connect()
     lfns = [lfns] if not type(lfns) is list else lfns
     for lfn in lfns:
         base_name = lfn.get('filename', lfn['name'])
-        
         name = lfn.get('name', base_name)
         scope = lfn['scope']
         if 'adler32' not in lfn and 'md5' not in lfn:
@@ -523,7 +523,7 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
     return {0: gs, 1: ret, 'success': gs, 'pfn': pfn}
 
 
-def delete(rse_settings, lfns, domain='wan', auth_token=None, logger=logging.log):
+def delete(rse_settings, lfns, domain='wan', auth_token=None, logger=logging.log, impl=None):
     """
         Delete a file from the connected storage.
         Providing a list indicates the bulk mode.
@@ -543,7 +543,7 @@ def delete(rse_settings, lfns, domain='wan', auth_token=None, logger=logging.log
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger)
+    protocol = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger, impl_passed=impl)
     protocol.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
@@ -566,7 +566,7 @@ def delete(rse_settings, lfns, domain='wan', auth_token=None, logger=logging.log
     return [gs, ret]
 
 
-def rename(rse_settings, files, domain='wan', auth_token=None, logger=logging.log):
+def rename(rse_settings, files, domain='wan', auth_token=None, logger=logging.log, impl=None):
     """
         Rename files stored on the connected storage.
         Providing a list indicates the bulk mode.
@@ -594,7 +594,7 @@ def rename(rse_settings, files, domain='wan', auth_token=None, logger=logging.lo
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write', domain=domain, auth_token=auth_token, logger=logger)
+    protocol = create_protocol(rse_settings, 'write', domain=domain, auth_token=auth_token, logger=logger, impl_passed=impl)
     protocol.connect()
 
     files = [files] if not type(files) is list else files
@@ -642,7 +642,7 @@ def rename(rse_settings, files, domain='wan', auth_token=None, logger=logging.lo
     return [gs, ret]
 
 
-def get_space_usage(rse_settings, scheme=None, domain='wan', auth_token=None, logger=logging.log):
+def get_space_usage(rse_settings, scheme=None, domain='wan', auth_token=None, logger=logging.log, impl=None):
     """
         Get RSE space usage information.
 
@@ -659,7 +659,7 @@ def get_space_usage(rse_settings, scheme=None, domain='wan', auth_token=None, lo
     gs = True
     ret = {}
 
-    protocol = create_protocol(rse_settings, 'read', scheme=scheme, domain=domain, auth_token=auth_token, logger=logger)
+    protocol = create_protocol(rse_settings, 'read', scheme=scheme, domain=domain, auth_token=auth_token, logger=logger, impl_passed=impl)
     protocol.connect()
 
     try:

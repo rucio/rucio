@@ -14,14 +14,6 @@
 # limitations under the License.
 #
 # Authors:
-# - WeiJen Chang <e4523744@gmail.com>, 2013
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 from __future__ import print_function
@@ -40,6 +32,7 @@ from rucio.common.utils import execute
 from rucio.rse import rsemanager
 from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 from rucio.tests.rsemgr_api_test import MgrTestCases
+
 
 @pytest.fixture(autouse=True, scope='class')
 def load_rse_info(request, containerized_rses):
@@ -64,6 +57,7 @@ def load_rse_info(request, containerized_rses):
         request.cls.port = 22
         request.cls.sshuser = 'root'
 
+
 @pytest.mark.noparallel(reason='creates and removes a test directory with a fixed name')
 @skip_rse_tests_with_accounts
 class TestRseRSYNC(unittest.TestCase):
@@ -72,8 +66,9 @@ class TestRseRSYNC(unittest.TestCase):
     rse_id = None
     prefix = None
     hostname = None
-    port = None 
+    port = None
     sshuser = None
+    impl = 'ssh.Rsync'
 
     @classmethod
     def get_rse_info(cls):
@@ -147,7 +142,7 @@ class TestRseRSYNC(unittest.TestCase):
         list_directory = 'ssh %s@%s find %s/user/%s' % (sshuser, hostname, prefix, cls.user)
         clean_directory = str(execute(list_directory)[1]).split('\n')
         list_directory_group = 'ssh %s@%s find %s/group/%s' % (sshuser, hostname, prefix, cls.user)
-        clean_directory +=  str(execute(list_directory_group)[1]).split('\n')
+        clean_directory += str(execute(list_directory_group)[1]).split('\n')
         for directory in clean_directory:
             clean_cmd = 'ssh %s@%s rm -r %s' % (sshuser, hostname, directory)
             execute(clean_cmd)
@@ -159,8 +154,7 @@ class TestRseRSYNC(unittest.TestCase):
         """rsync (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseRSYNC.tmpdir
         self.rse_id, self.prefix, self.hostname, self.port, self.sshuser = TestRseRSYNC.get_rse_info()
-        self.mtc = MgrTestCases(self.tmpdir, self.rse_id, TestRseRSYNC.user, TestRseRSYNC.static_file)
-        self.mtc.setup_scheme('rsync', 'ssh.Rsync')
+        self.mtc = MgrTestCases(self.tmpdir, self.rse_id, TestRseRSYNC.user, TestRseRSYNC.static_file, impl=TestRseRSYNC.impl)
 
     # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):

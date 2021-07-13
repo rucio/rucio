@@ -598,6 +598,44 @@
               "delete": 1
             }
           }
+        },
+      "rsync": {
+        "prefix": "/tmp/rucio_rse/",
+        "impl": "rucio.rse.protocols.ssh.Rsync",
+        "hostname": "ssh1",
+        "scheme": "rsync",
+        "extended_attributes": {"user": "root"},
+        "port": 22,
+        "domains": {
+            "lan": {
+            "read": 2,
+              "write": 2,
+              "delete": 2
+            },
+            "wan": {
+              "read": 2,
+              "write": 2,
+              "delete": 2
+            }
+          }
+        },
+      "rclone": {
+        "prefix": "/tmp/rucio_rse/",
+        "impl": "rucio.rse.protocols.rclone.Default",
+        "scheme": "rclone",
+        "port": 22,
+        "domains": {
+            "lan": {
+              "read": 3,
+              "write": 3,
+              "delete": 3
+            },
+            "wan": {
+              "read": 3,
+              "write": 3,
+              "delete": 3
+            }
+          }
         }
       }
     },

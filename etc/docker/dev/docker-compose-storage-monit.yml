@@ -1,6 +1,6 @@
 services:
   rucio:
-    image: devtrial
+    image: docker.io/rucio/rucio-dev:py3
     extra_hosts:
       - "ruciodb:127.0.0.1"
       - "graphite:127.0.0.1"

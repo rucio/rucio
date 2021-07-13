@@ -14,14 +14,6 @@
 # limitations under the License.
 #
 # Authors:
-# - WeiJen Chang <e4523744@gmail.com>, 2013
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 from __future__ import print_function
@@ -64,6 +56,7 @@ def load_rse_info(request, containerized_rses):
         request.cls.prefix = '/rucio/'
         request.cls.port = 22
         request.cls.sshuser = 'root'
+
 
 @pytest.mark.noparallel(reason='creates and removes a test directory with a fixed name')
 @skip_rse_tests_with_accounts
@@ -148,7 +141,7 @@ class TestRseSSH(unittest.TestCase):
         list_directory = 'ssh %s@%s find %s/user/%s' % (sshuser, hostname, prefix, cls.user)
         clean_directory = str(execute(list_directory)[1]).split('\n')
         list_directory_group = 'ssh %s@%s find %s/group/%s' % (sshuser, hostname, prefix, cls.user)
-        clean_directory +=  str(execute(list_directory_group)[1]).split('\n')
+        clean_directory += str(execute(list_directory_group)[1]).split('\n')
         for directory in clean_directory:
             clean_cmd = 'ssh %s@%s rm -r %s' % (sshuser, hostname, directory)
             execute(clean_cmd)
