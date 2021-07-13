@@ -46,6 +46,7 @@ import json
 import logging
 import re
 import time
+from itertools import islice
 from typing import TYPE_CHECKING
 
 from dogpile.cache import make_region
@@ -1287,7 +1288,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             additional_sources = [s for s in filtered_sources
                                   if s.rse != best_path[0].src.rse and not s.rse.is_tape()]
 
-            for source, hop in __find_compatible_direct_sources(sources=additional_sources, scheme=best_path[0]['schemes'], dest_rse_id=rws.dest_rse.id, session=session):
+            for source, hop in islice(__find_compatible_direct_sources(sources=additional_sources, scheme=best_path[0]['schemes'], dest_rse_id=rws.dest_rse.id, session=session),
+                                      5):
                 best_path[0].sources.append(TransferSource(
                     rse_data=source.rse,
                     file_path=source.file_path,
