@@ -114,11 +114,11 @@ def add_files(lfns, account, ignore_availability, session=None):
         rse_id = lfn.get('rse_id', None)
         if not rse_id:
             raise InvalidType('Missing rse_id')
-        bytes = lfn.get('bytes', None)
+        bytes_ = lfn.get('bytes', None)
         guid = lfn.get('guid', None)
         adler32 = lfn.get('adler32', None)
         pfn = lfn.get('pfn', None)
-        files = {'scope': lfn_scope, 'name': filename, 'bytes': bytes, 'adler32': adler32}
+        files = {'scope': lfn_scope, 'name': filename, 'bytes': bytes_, 'adler32': adler32}
         if pfn:
             files['pfn'] = str(pfn)
         if guid:

@@ -140,12 +140,12 @@ class MetaClient(BaseClient):
         """
         pass
 
-    def update_key(self, key, type=None, regepx=None):
+    def update_key(self, key, type_=None, regexp=None):
         """
         Update a key.
 
         :param key: the name for key.
-        :param type: the type of the value, if defined.
+        :param type_: the type of the value, if defined.
         :param regexp: the regular expression that values should match, if defined.
         """
         pass

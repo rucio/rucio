@@ -55,12 +55,12 @@ REGION = make_region().configure('dogpile.cache.memcached',
 
 
 @transactional_session
-def parse_expression(expression, filter=None, session=None):
+def parse_expression(expression, filter_=None, session=None):
     """
     Parse a RSE expression and return the list of RSE dictionaries.
 
     :param expression:    RSE expression, e.g: 'CERN|BNL'.
-    :param filter:        Availability filter (dictionary) used for the RSEs. e.g.: {'availability_write': True}
+    :param filter_:        Availability filter (dictionary) used for the RSEs. e.g.: {'availability_write': True}
     :param session:       Database session in use.
     :returns:             A list of rse dictionaries.
     :raises:              InvalidRSEExpression, RSENotFound, RSEWriteBlocked
@@ -96,9 +96,9 @@ def parse_expression(expression, filter=None, session=None):
 
     # Filter for VO
     vo_result = []
-    if filter and filter.get('vo'):
-        filter = filter.copy()  # Make a copy so we can pop('vo') without affecting the object `filter` outside this function
-        vo = filter.pop('vo')
+    if filter_ and filter_.get('vo'):
+        filter_ = filter_.copy()  # Make a copy so we can pop('vo') without affecting the object `filter` outside this function
+        vo = filter_.pop('vo')
         for rse in result:
             if rse.get('vo') == vo:
                 vo_result.append(rse)
@@ -110,9 +110,9 @@ def parse_expression(expression, filter=None, session=None):
 
     # Filter
     final_result = []
-    if filter:
+    if filter_:
         for rse in vo_result:
-            if filter.get('availability_write', False):
+            if filter_.get('availability_write', False):
                 if rse.get('availability') & 2:
                     final_result.append(rse)
         if not final_result:

@@ -43,7 +43,7 @@ from rucio.db.sqla.session import transactional_session, stream_session, read_se
 
 
 @transactional_session
-def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, priority=3, session=None):
+def add_subscription(name, account, filter_, replication_rules, comments, lifetime, retroactive, dry_run, priority=3, session=None):
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
@@ -51,9 +51,9 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     :type account:             String
     :param name:               Name of the subscription
     :type name:                String
-    :param filter:             Dictionary of attributes by which the input data should be filtered
+    :param filter_:             Dictionary of attributes by which the input data should be filtered
                                **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
-    :type filter:              Dict
+    :type filter_:              Dict
     :param replication_rules:  Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
     :type replication_rules:   Dict
     :param comments:           Comments for the subscription
@@ -84,7 +84,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     if lifetime:
         lifetime = datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)
     new_subscription = models.Subscription(name=name,
-                                           filter=filter,
+                                           filter=filter_,
                                            account=account,
                                            replication_rules=replication_rules,
                                            state=state,

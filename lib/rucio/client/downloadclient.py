@@ -445,8 +445,8 @@ class DownloadClient:
             return transfer_timeout
 
         transfer_speed_timeout = item.get('merged_options', {}).get('transfer_speed_timeout')
-        bytes = item.get('bytes')
-        if not bytes or transfer_speed_timeout is None:
+        bytes_ = item.get('bytes')
+        if not bytes_ or transfer_speed_timeout is None:
             return default_transfer_timeout
 
         if not transfer_speed_timeout > 0:
@@ -454,7 +454,7 @@ class DownloadClient:
 
         # Convert from KBytes/s to bytes/s
         transfer_speed_timeout = transfer_speed_timeout * 1000
-        timeout = bytes // transfer_speed_timeout + transfer_speed_timeout_static_increment
+        timeout = bytes_ // transfer_speed_timeout + transfer_speed_timeout_static_increment
         return timeout
 
     def _download_item(self, item, trace, traces_copy_out, log_prefix=''):

@@ -1266,12 +1266,12 @@ def release_all_waiting_requests(rse_id, activity=None, account=None, direction=
 
 
 @transactional_session
-def update_requests_priority(priority, filter, session=None, logger=logging.log):
+def update_requests_priority(priority, filter_, session=None, logger=logging.log):
     """
     Update priority of requests.
 
     :param priority:  The priority as an integer from 1 to 5.
-    :param filter:    Dictionary such as {'rule_id': rule_id, 'request_id': request_id, 'older_than': time_stamp, 'activities': [activities]}.
+    :param filter_:    Dictionary such as {'rule_id': rule_id, 'request_id': request_id, 'older_than': time_stamp, 'activities': [activities]}.
     :param logger:    Optional decorated logger that can be passed from the calling daemons or servers.
     """
     try:
@@ -1279,16 +1279,16 @@ def update_requests_priority(priority, filter, session=None, logger=logging.log)
             .join(models.ReplicaLock, and_(models.ReplicaLock.scope == models.Request.scope,
                                            models.ReplicaLock.name == models.Request.name,
                                            models.ReplicaLock.rse_id == models.Request.dest_rse_id))
-        if 'rule_id' in filter:
-            query = query.filter(models.ReplicaLock.rule_id == filter['rule_id'])
-        if 'request_id' in filter:
-            query = query.filter(models.Request.id == filter['request_id'])
-        if 'older_than' in filter:
-            query = query.filter(models.Request.created_at < filter['older_than'])
-        if 'activities' in filter:
-            if type(filter['activities']) is not list:
-                filter['activities'] = filter['activities'].split(',')
-            query = query.filter(models.Request.activity.in_(filter['activities']))
+        if 'rule_id' in filter_:
+            query = query.filter(models.ReplicaLock.rule_id == filter_['rule_id'])
+        if 'request_id' in filter_:
+            query = query.filter(models.Request.id == filter_['request_id'])
+        if 'older_than' in filter_:
+            query = query.filter(models.Request.created_at < filter_['older_than'])
+        if 'activities' in filter_:
+            if type(filter_['activities']) is not list:
+                filter_['activities'] = filter_['activities'].split(',')
+            query = query.filter(models.Request.activity.in_(filter_['activities']))
 
         transfertool_map = {}
         for item in query.all():

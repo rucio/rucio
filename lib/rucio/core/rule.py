@@ -155,9 +155,9 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
         with record_timer_block('rule.add_rule.parse_rse_expression'):
             vo = account.vo
             if ignore_availability:
-                rses = parse_expression(rse_expression, filter={'vo': vo}, session=session)
+                rses = parse_expression(rse_expression, filter_={'vo': vo}, session=session)
             else:
-                rses = parse_expression(rse_expression, filter={'vo': vo, 'availability_write': True}, session=session)
+                rses = parse_expression(rse_expression, filter_={'vo': vo, 'availability_write': True}, session=session)
 
             if lifetime is None:  # Check if one of the rses is a staging area
                 if [rse for rse in rses if rse.get('staging_area', False)]:
@@ -181,7 +181,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                         raise ManualRuleApprovalBlocked()
 
             if source_replica_expression:
-                source_rses = parse_expression(source_replica_expression, filter={'vo': vo}, session=session)
+                source_rses = parse_expression(source_replica_expression, filter_={'vo': vo}, session=session)
             else:
                 source_rses = []
 
@@ -414,15 +414,15 @@ def add_rules(dids, rules, session=None, logger=logging.log):
             for rule in rules:
                 vo = rule['account'].vo
                 if rule.get('ignore_availability'):
-                    restrict_rses.extend(parse_expression(rule['rse_expression'], filter={'vo': vo}, session=session))
+                    restrict_rses.extend(parse_expression(rule['rse_expression'], filter_={'vo': vo}, session=session))
                 else:
-                    restrict_rses.extend(parse_expression(rule['rse_expression'], filter={'vo': vo, 'availability_write': True}, session=session))
+                    restrict_rses.extend(parse_expression(rule['rse_expression'], filter_={'vo': vo, 'availability_write': True}, session=session))
             restrict_rses = list(set([rse['id'] for rse in restrict_rses]))
 
             for rule in rules:
                 if rule.get('source_replica_expression'):
                     vo = rule['account'].vo
-                    all_source_rses.extend(parse_expression(rule.get('source_replica_expression'), filter={'vo': vo}, session=session))
+                    all_source_rses.extend(parse_expression(rule.get('source_replica_expression'), filter_={'vo': vo}, session=session))
             all_source_rses = list(set([rse['id'] for rse in all_source_rses]))
 
         for elem in dids:
@@ -479,9 +479,9 @@ def add_rules(dids, rules, session=None, logger=logging.log):
                     # 4. Resolve the rse_expression into a list of RSE-ids
                     vo = rule['account'].vo
                     if rule.get('ignore_availability'):
-                        rses = parse_expression(rule['rse_expression'], filter={'vo': vo}, session=session)
+                        rses = parse_expression(rule['rse_expression'], filter_={'vo': vo}, session=session)
                     else:
-                        rses = parse_expression(rule['rse_expression'], filter={'vo': vo, 'availability_write': True}, session=session)
+                        rses = parse_expression(rule['rse_expression'], filter_={'vo': vo, 'availability_write': True}, session=session)
 
                     if rule.get('lifetime', None) is None:  # Check if one of the rses is a staging area
                         if [rse for rse in rses if rse.get('staging_area', False)]:
@@ -510,7 +510,7 @@ def add_rules(dids, rules, session=None, logger=logging.log):
                                 raise ManualRuleApprovalBlocked()
 
                     if rule.get('source_replica_expression'):
-                        source_rses = parse_expression(rule.get('source_replica_expression'), filter={'vo': vo}, session=session)
+                        source_rses = parse_expression(rule.get('source_replica_expression'), filter_={'vo': vo}, session=session)
                     else:
                         source_rses = []
 
@@ -714,12 +714,12 @@ def inject_rule(rule_id, session=None, logger=logging.log):
     with record_timer_block('rule.add_rule.parse_rse_expression'):
         vo = rule['account'].vo
         if rule.ignore_availability:
-            rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
+            rses = parse_expression(rule.rse_expression, filter_={'vo': vo}, session=session)
         else:
-            rses = parse_expression(rule.rse_expression, filter={'vo': vo, 'availability_write': True}, session=session)
+            rses = parse_expression(rule.rse_expression, filter_={'vo': vo, 'availability_write': True}, session=session)
 
         if rule.source_replica_expression:
-            source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
+            source_rses = parse_expression(rule.source_replica_expression, filter_={'vo': vo}, session=session)
         else:
             source_rses = []
 
@@ -998,7 +998,7 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, n
         # Decrease account_counters
         for rse_id in account_counter_decreases.keys():
             account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]),
-                                     bytes=sum(account_counter_decreases[rse_id]), session=session)
+                                     bytes_=sum(account_counter_decreases[rse_id]), session=session)
 
         # Try to release potential parent rules
         release_parent_rule(child_rule_id=rule.id, remove_parent_expiration=True, session=session)
@@ -1049,13 +1049,13 @@ def repair_rule(rule_id, session=None, logger=logging.log):
         # Evaluate the RSE expression to see if there is an alternative RSE anyway
         try:
             vo = rule.account.vo
-            rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
+            rses = parse_expression(rule.rse_expression, filter_={'vo': vo}, session=session)
             if rule.ignore_availability:
-                target_rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
+                target_rses = parse_expression(rule.rse_expression, filter_={'vo': vo}, session=session)
             else:
-                target_rses = parse_expression(rule.rse_expression, filter={'vo': vo, 'availability_write': True}, session=session)
+                target_rses = parse_expression(rule.rse_expression, filter_={'vo': vo, 'availability_write': True}, session=session)
             if rule.source_replica_expression:
-                source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
+                source_rses = parse_expression(rule.source_replica_expression, filter_={'vo': vo}, session=session)
             else:
                 source_rses = []
         except (InvalidRSEExpression, RSEWriteBlocked) as error:
@@ -1298,7 +1298,7 @@ def update_rule(rule_id, options, session=None):
             if key == 'lifetime':
                 # Check SCRATCHDISK Policy
                 vo = rule.account.vo
-                rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
+                rses = parse_expression(rule.rse_expression, filter_={'vo': vo}, session=session)
                 try:
                     lifetime = get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
                 except UndefinedPolicy:
@@ -1340,8 +1340,8 @@ def update_rule(rule_id, options, session=None):
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'account': options['account']})
                 # Update counters
                 for rse_id in counter_rses:
-                    account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(counter_rses[rse_id]), bytes=sum(counter_rses[rse_id]), session=session)
-                    account_counter.increase(rse_id=rse_id, account=options['account'], files=len(counter_rses[rse_id]), bytes=sum(counter_rses[rse_id]), session=session)
+                    account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(counter_rses[rse_id]), bytes_=sum(counter_rses[rse_id]), session=session)
+                    account_counter.increase(rse_id=rse_id, account=options['account'], files=len(counter_rses[rse_id]), bytes_=sum(counter_rses[rse_id]), session=session)
                 # Update rule
                 rule.account = options['account']
                 session.flush()
@@ -1382,7 +1382,7 @@ def update_rule(rule_id, options, session=None):
             elif key == 'priority':
                 try:
                     rule.priority = options[key]
-                    request_core.update_requests_priority(priority=options[key], filter={'rule_id': rule_id}, session=session)
+                    request_core.update_requests_priority(priority=options[key], filter_={'rule_id': rule_id}, session=session)
                 except Exception:
                     raise UnsupportedOperation('The FTS Requests are already in a final state.')
 
@@ -1816,7 +1816,7 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
             rule.locks_replicating_cnt -= 1
         elif lock.state == LockState.STUCK:
             rule.locks_stuck_cnt -= 1
-        account_counter.decrease(rse_id=rse_id, account=rule.account, files=1, bytes=lock.bytes, session=session)
+        account_counter.decrease(rse_id=rse_id, account=rule.account, files=1, bytes_=lock.bytes, session=session)
         if rule.state == RuleState.SUSPENDED:
             pass
         elif rule.state == RuleState.STUCK:
@@ -1910,7 +1910,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
             adler32 = replica.adler32
             request_core.queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
                                                                        request_type=RequestType.TRANSFER,
-                                                                       scope=scope, name=name, rule=rule, lock=lock, bytes=bytes_, md5=md5, adler32=adler32,
+                                                                       scope=scope, name=name, rule=rule, lock=lock, bytes_=bytes_, md5=md5, adler32=adler32,
                                                                        ds_scope=ds_scope, ds_name=ds_name, lifetime=None, activity='Recovery', session=session)], session=session)
         lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
@@ -2450,15 +2450,15 @@ def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, source_rep
 
     # Increase rse_counters
     for rse_id in replicas_to_create.keys():
-        rse_counter.increase(rse_id=rse_id, files=len(replicas_to_create[rse_id]), bytes=sum([replica.bytes for replica in replicas_to_create[rse_id]]), session=session)
+        rse_counter.increase(rse_id=rse_id, files=len(replicas_to_create[rse_id]), bytes_=sum([replica.bytes for replica in replicas_to_create[rse_id]]), session=session)
 
     # Increase account_counters
     for rse_id in locks_to_create.keys():
-        account_counter.increase(rse_id=rse_id, account=rule.account, files=len(locks_to_create[rse_id]), bytes=sum([lock.bytes for lock in locks_to_create[rse_id]]), session=session)
+        account_counter.increase(rse_id=rse_id, account=rule.account, files=len(locks_to_create[rse_id]), bytes_=sum([lock.bytes for lock in locks_to_create[rse_id]]), session=session)
 
     # Decrease account_counters
     for rse_id in locks_to_delete:
-        account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(locks_to_delete[rse_id]), bytes=sum([lock.bytes for lock in locks_to_delete[rse_id]]), session=session)
+        account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(locks_to_delete[rse_id]), bytes_=sum([lock.bytes for lock in locks_to_delete[rse_id]]), session=session)
 
     # Delete the locks:
     for lock in [item for sublist in locks_to_delete.values() for item in sublist]:
@@ -2551,7 +2551,7 @@ def __evaluate_did_detach(eval_did, session=None, logger=logging.log):
 
         # Decrease account_counters
         for rse_id in account_counter_decreases:
-            account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
+            account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]), bytes_=sum(account_counter_decreases[rse_id]), session=session)
 
         for transfer in transfers_to_delete:
             request_core.cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], session=session)
@@ -2608,10 +2608,10 @@ def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
                         try:
                             vo = rule.account.vo
                             if rule.source_replica_expression:
-                                source_rses.extend(parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session))
+                                source_rses.extend(parse_expression(rule.source_replica_expression, filter_={'vo': vo}, session=session))
 
                             # if rule.ignore_availability:
-                            possible_rses.extend(parse_expression(rule.rse_expression, filter={'vo': vo}, session=session))
+                            possible_rses.extend(parse_expression(rule.rse_expression, filter_={'vo': vo}, session=session))
                             # else:
                             #     possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
                         except (InvalidRSEExpression, RSEWriteBlocked):
@@ -2636,12 +2636,12 @@ def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
                         try:
                             vo = rule.account.vo
                             if rule.ignore_availability:
-                                rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
+                                rses = parse_expression(rule.rse_expression, filter_={'vo': vo}, session=session)
                             else:
-                                rses = parse_expression(rule.rse_expression, filter={'vo': vo, 'availability_write': True}, session=session)
+                                rses = parse_expression(rule.rse_expression, filter_={'vo': vo, 'availability_write': True}, session=session)
                             source_rses = []
                             if rule.source_replica_expression:
-                                source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
+                                source_rses = parse_expression(rule.source_replica_expression, filter_={'vo': vo}, session=session)
                         except (InvalidRSEExpression, RSEWriteBlocked) as error:
                             rule.state = RuleState.STUCK
                             rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
@@ -2990,11 +2990,11 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, source_repl
 
     # Increase rse_counters
     for rse_id in replicas_to_create.keys():
-        rse_counter.increase(rse_id=rse_id, files=len(replicas_to_create[rse_id]), bytes=sum([replica.bytes for replica in replicas_to_create[rse_id]]), session=session)
+        rse_counter.increase(rse_id=rse_id, files=len(replicas_to_create[rse_id]), bytes_=sum([replica.bytes for replica in replicas_to_create[rse_id]]), session=session)
 
     # Increase account_counters
     for rse_id in locks_to_create.keys():
-        account_counter.increase(rse_id=rse_id, account=rule.account, files=len(locks_to_create[rse_id]), bytes=sum([lock.bytes for lock in locks_to_create[rse_id]]), session=session)
+        account_counter.increase(rse_id=rse_id, account=rule.account, files=len(locks_to_create[rse_id]), bytes_=sum([lock.bytes for lock in locks_to_create[rse_id]]), session=session)
 
     # Add the transfers
     logger(logging.DEBUG, "Rule %s  [%d/%d/%d] queued %d transfers", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt, len(transfers_to_create))
@@ -3059,7 +3059,7 @@ def __create_rule_approval_email(rule, session=None):
 
     # RSE occupancy
     vo = rule.account.vo
-    target_rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
+    target_rses = parse_expression(rule.rse_expression, filter_={'vo': vo}, session=session)
     if len(target_rses) > 1:
         target_rse = 'Multiple'
         free_space = 'undefined'
@@ -3125,7 +3125,7 @@ def __create_recipents_list(rse_expression, filter_=None, session=None):
 
     # APPROVERS-LIST
     # If there are accounts in the approvers-list of any of the RSEs only these should be used
-    for rse in parse_expression(rse_expression, filter=filter_, session=session):
+    for rse in parse_expression(rse_expression, filter_=filter_, session=session):
         rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
         if rse_attr.get('rule_approvers'):
             for account in rse_attr.get('rule_approvers').split(','):
@@ -3139,7 +3139,7 @@ def __create_recipents_list(rse_expression, filter_=None, session=None):
 
     # LOCALGROUPDISK/LOCALGROUPTAPE
     if not recipents:
-        for rse in parse_expression(rse_expression, filter=filter_, session=session):
+        for rse in parse_expression(rse_expression, filter_=filter_, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
@@ -3154,7 +3154,7 @@ def __create_recipents_list(rse_expression, filter_=None, session=None):
 
     # GROUPDISK
     if not recipents:
-        for rse in parse_expression(rse_expression, filter=filter_, session=session):
+        for rse in parse_expression(rse_expression, filter_=filter_, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') == 'GROUPDISK':
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='group-%s' % rse_attr.get('physgroup', ''),

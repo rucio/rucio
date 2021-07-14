@@ -223,14 +223,14 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def add_replica(self, rse, scope, name, bytes, adler32, pfn=None, md5=None, meta={}):
+    def add_replica(self, rse, scope, name, bytes_, adler32, pfn=None, md5=None, meta={}):
         """
         Add file replicas to a RSE.
 
         :param rse: the RSE name.
         :param scope: The scope of the file.
         :param name: The name of the file.
-        :param bytes: The size in bytes.
+        :param bytes_: The size in bytes.
         :param adler32: adler32 checksum.
         :param pfn: PFN of the file for non deterministic RSE.
         :param md5: md5 checksum.
@@ -239,12 +239,12 @@ class ReplicaClient(BaseClient):
         :return: True if files were created successfully.
 
         """
-        dict = {'scope': scope, 'name': name, 'bytes': bytes, 'meta': meta, 'adler32': adler32}
+        dict_ = {'scope': scope, 'name': name, 'bytes': bytes_, 'meta': meta, 'adler32': adler32}
         if md5:
-            dict['md5'] = md5
+            dict_['md5'] = md5
         if pfn:
-            dict['pfn'] = pfn
-        return self.add_replicas(rse=rse, files=[dict])
+            dict_['pfn'] = pfn
+        return self.add_replicas(rse=rse, files=[dict_])
 
     def add_replicas(self, rse, files, ignore_availability=True):
         """

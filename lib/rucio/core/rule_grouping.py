@@ -160,7 +160,7 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, so
 
 
 @transactional_session
-def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None, bytes=None, md5=None, adler32=None, ds_scope=None, ds_name=None, lifetime=None, activity=None, retry_count=None, session=None):
+def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None, bytes_=None, md5=None, adler32=None, ds_scope=None, ds_name=None, lifetime=None, activity=None, retry_count=None, session=None):
     """
     This method creates a transfer dictionary and returns it
 
@@ -170,7 +170,7 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None
     :param name:          The name of the file.
     :param rule:          The rule responsible for the transfer.
     :param lock:          The lock responsible for the transfer.
-    :param bytes:         The filesize of the file in bytes.
+    :param bytes_:         The filesize of the file in bytes.
     :param md5:           The md5 checksum of the file.
     :param adler32:       The adler32 checksum of the file.
     :param ds_scope:      Dataset the file belongs to.
@@ -185,7 +185,7 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None
                   'lifetime': lifetime,
                   'ds_scope': ds_scope,
                   'ds_name': ds_name,
-                  'bytes': bytes,
+                  'bytes': bytes_,
                   'md5': md5,
                   'adler32': adler32,
                   'priority': rule.priority,
@@ -306,12 +306,12 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
     replicas_to_create = {}         # {'rse_id': [replicas]}
     transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
 
-    bytes = 0
+    bytes_ = 0
     rse_coverage = {}  # {'rse_id': coverage }
     blocklist = set()
     for dataset in datasetfiles:
         for file in dataset['files']:
-            bytes += file['bytes']
+            bytes_ += file['bytes']
             for replica in replicas[(file['scope'], file['name'])]:
                 if replica.state == ReplicaState.BEING_DELETED:
                     blocklist.add(replica.rse_id)
@@ -323,13 +323,13 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
                         rse_coverage[replica.rse_id] = file['bytes']
 
     if not preferred_rse_ids:
-        rse_tuples = rseselector.select_rse(size=bytes,
+        rse_tuples = rseselector.select_rse(size=bytes_,
                                             preferred_rse_ids=[x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)],
                                             blocklist=list(blocklist),
                                             prioritize_order_over_weight=True,
                                             existing_rse_size=rse_coverage)
     else:
-        rse_tuples = rseselector.select_rse(size=bytes,
+        rse_tuples = rseselector.select_rse(size=bytes_,
                                             preferred_rse_ids=preferred_rse_ids,
                                             blocklist=list(blocklist),
                                             existing_rse_size=rse_coverage)
@@ -364,11 +364,11 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
                                                              models.DatasetLock.rse_id == rse_tuple[0]).one()
                 except NoResultFound:
                     # Get dataset Information
-                    is_open, bytes, length = True, 0, 0
+                    is_open, bytes_, length = True, 0, 0
                     try:
-                        is_open, bytes, length = session.query(models.DataIdentifier.is_open,
-                                                               models.DataIdentifier.bytes,
-                                                               models.DataIdentifier.length).filter_by(scope=dataset['scope'], name=dataset['name']).one()
+                        is_open, bytes_, length = session.query(models.DataIdentifier.is_open,
+                                                                models.DataIdentifier.bytes,
+                                                                models.DataIdentifier.length).filter_by(scope=dataset['scope'], name=dataset['name']).one()
                     except NoResultFound:
                         pass
 
@@ -379,7 +379,7 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
                                        state=LockState.REPLICATING,
                                        account=rule.account,
                                        length=length if not is_open else None,
-                                       bytes=bytes if not is_open else None).save(flush=False, session=session)
+                                       bytes=bytes_ if not is_open else None).save(flush=False, session=session)
             # Add a Dataset Replica to the DB
             if dataset['scope'] is not None:
                 try:
@@ -426,7 +426,7 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
     transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
 
     for dataset in datasetfiles:
-        bytes = sum([file['bytes'] for file in dataset['files']])
+        bytes_ = sum([file['bytes'] for file in dataset['files']])
         rse_coverage = {}  # {'rse_id': coverage }
         blocklist = set()
         for file in dataset['files']:
@@ -441,13 +441,13 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
                         rse_coverage[replica.rse_id] = file['bytes']
 
         if not preferred_rse_ids:
-            rse_tuples = rseselector.select_rse(size=bytes,
+            rse_tuples = rseselector.select_rse(size=bytes_,
                                                 preferred_rse_ids=[x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)],
                                                 blocklist=list(blocklist),
                                                 prioritize_order_over_weight=True,
                                                 existing_rse_size=rse_coverage)
         else:
-            rse_tuples = rseselector.select_rse(size=bytes,
+            rse_tuples = rseselector.select_rse(size=bytes_,
                                                 preferred_rse_ids=preferred_rse_ids,
                                                 blocklist=list(blocklist),
                                                 existing_rse_size=rse_coverage)
@@ -481,11 +481,11 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
                                                              models.DatasetLock.rse_id == rse_tuple[0]).one()
                 except NoResultFound:
                     # Get dataset Information
-                    is_open, bytes, length = True, None, None
+                    is_open, bytes_, length = True, None, None
                     try:
-                        is_open, bytes, length = session.query(models.DataIdentifier.is_open,
-                                                               models.DataIdentifier.bytes,
-                                                               models.DataIdentifier.length).filter_by(scope=dataset['scope'], name=dataset['name']).one()
+                        is_open, bytes_, length = session.query(models.DataIdentifier.is_open,
+                                                                models.DataIdentifier.bytes,
+                                                                models.DataIdentifier.length).filter_by(scope=dataset['scope'], name=dataset['name']).one()
                     except NoResultFound:
                         pass
 
@@ -496,7 +496,7 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
                                        state=LockState.REPLICATING,
                                        account=rule.account,
                                        length=length if not is_open else None,
-                                       bytes=bytes if not is_open else None).save(flush=False, session=session)
+                                       bytes=bytes_ if not is_open else None).save(flush=False, session=session)
 
             # Add a Dataset Replica to the DB
             if dataset['scope'] is not None:
@@ -845,7 +845,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                         scope=file['scope'],
                                                         name=file['name'],
                                                         rule=rule,
-                                                        bytes=file['bytes'],
+                                                        bytes_=file['bytes'],
                                                         md5=file['md5'],
                                                         adler32=file['adler32'],
                                                         ds_scope=dataset['scope'],
@@ -864,7 +864,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                      rse_id=rse_id,
                                      scope=file['scope'],
                                      name=file['name'],
-                                     bytes=file['bytes'],
+                                     bytes_=file['bytes'],
                                      existing_replica=existing_replica,
                                      state=LockState.OK)
             if rse_id not in locks_to_create:
@@ -885,7 +885,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                      rse_id=rse_id,
                                      scope=file['scope'],
                                      name=file['name'],
-                                     bytes=file['bytes'],
+                                     bytes_=file['bytes'],
                                      existing_replica=existing_replica,
                                      state=LockState.REPLICATING if (available_source_replica and availability_write) else LockState.STUCK)
             if rse_id not in locks_to_create:
@@ -899,7 +899,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                                 name=file['name'],
                                                                 rule=rule,
                                                                 lock=new_lock,
-                                                                bytes=file['bytes'],
+                                                                bytes_=file['bytes'],
                                                                 md5=file['md5'],
                                                                 adler32=file['adler32'],
                                                                 ds_scope=dataset['scope'],
@@ -913,7 +913,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                      rse_id=rse_id,
                                      scope=file['scope'],
                                      name=file['name'],
-                                     bytes=file['bytes'],
+                                     bytes_=file['bytes'],
                                      existing_replica=existing_replica,
                                      state=LockState.REPLICATING)
             if rse_id not in locks_to_create:
@@ -932,7 +932,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
         new_replica = __create_replica(rse_id=rse_id,
                                        scope=file['scope'],
                                        name=file['name'],
-                                       bytes=file['bytes'],
+                                       bytes_=file['bytes'],
                                        md5=file['md5'],
                                        adler32=file['adler32'],
                                        state=ReplicaState.COPYING if (available_source_replica and availability_write) else ReplicaState.UNAVAILABLE)
@@ -945,7 +945,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                  rse_id=rse_id,
                                  scope=file['scope'],
                                  name=file['name'],
-                                 bytes=file['bytes'],
+                                 bytes_=file['bytes'],
                                  existing_replica=new_replica,
                                  state=LockState.REPLICATING if (available_source_replica and availability_write) else LockState.STUCK)
         if rse_id not in locks_to_create:
@@ -960,7 +960,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                             name=file['name'],
                                                             rule=rule,
                                                             lock=new_lock,
-                                                            bytes=file['bytes'],
+                                                            bytes_=file['bytes'],
                                                             md5=file['md5'],
                                                             adler32=file['adler32'],
                                                             ds_scope=dataset['scope'],
@@ -970,7 +970,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
         return False
 
 
-def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica, logger=logging.log):
+def __create_lock(rule, rse_id, scope, name, bytes_, state, existing_replica, logger=logging.log):
     """
     Create and return a new SQLAlchemy Lock object.
 
@@ -978,7 +978,7 @@ def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica, log
     :param rse_id:            The rse_id of the lock.
     :param scope:             The scope of the lock.
     :param name:              The name of the lock.
-    :param bytes:             Bytes of the lock.
+    :param bytes_:             Bytes of the lock.
     :param state:             State of the lock.
     :param existing_replica:  Replica object.
     :param logger:            Optional decorated logger that can be passed from the calling daemons or servers.
@@ -989,7 +989,7 @@ def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica, log
                                   scope=scope,
                                   name=name,
                                   account=rule.account,
-                                  bytes=bytes,
+                                  bytes=bytes_,
                                   state=state)
     if state == LockState.OK:
         existing_replica.lock_cnt += 1
@@ -1010,14 +1010,14 @@ def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica, log
     return new_lock
 
 
-def __create_replica(rse_id, scope, name, bytes, state, md5, adler32, logger=logging.log):
+def __create_replica(rse_id, scope, name, bytes_, state, md5, adler32, logger=logging.log):
     """
     Create and return a new SQLAlchemy replica object.
 
     :param rse_id:        RSE id of the replica.
     :param scope:         Scope of the replica.
     :param name:          Name of the replica.
-    :param bytes:         Bytes of the replica.
+    :param bytes_:         Bytes of the replica.
     :param state:         State of the replica.
     :param md5:           MD5 checksum of the replica.
     :param adler32:       ADLER32 checksum of the replica.
@@ -1027,7 +1027,7 @@ def __create_replica(rse_id, scope, name, bytes, state, md5, adler32, logger=log
     new_replica = models.RSEFileAssociation(rse_id=rse_id,
                                             scope=scope,
                                             name=name,
-                                            bytes=bytes,
+                                            bytes=bytes_,
                                             md5=md5,
                                             adler32=adler32,
                                             tombstone=None,
@@ -1071,7 +1071,7 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
                                                         name=lock.name,
                                                         rule=rule,
                                                         lock=lock,
-                                                        bytes=replica.bytes,
+                                                        bytes_=replica.bytes,
                                                         md5=replica.md5,
                                                         adler32=replica.adler32,
                                                         ds_scope=dataset['scope'],
@@ -1085,7 +1085,7 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
                                                         name=lock.name,
                                                         rule=rule,
                                                         lock=lock,
-                                                        bytes=replica.bytes,
+                                                        bytes_=replica.bytes,
                                                         md5=replica.md5,
                                                         adler32=replica.adler32,
                                                         ds_scope=dataset['scope'],
@@ -1272,8 +1272,8 @@ def apply_rule(did, rule, rses, source_rses, rseselector, session=None, logger=l
                 ds = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic=True, session=session)  # this will be retrieved again later on -> could be optimized
                 nbytes += ds['bytes']
                 one_rse_coverage = rucio.core.replica.get_RSEcoverage_of_dataset(scope=ds_scope, name=ds_name, session=session)
-                for rse_id, bytes in one_rse_coverage.items():
-                    rse_coverage[rse_id] = bytes + rse_coverage.get(rse_id, 0)
+                for rse_id, bytes_ in one_rse_coverage.items():
+                    rse_coverage[rse_id] = bytes_ + rse_coverage.get(rse_id, 0)
 
             # prnt(rse_coverage)
             preferred_rse_ids = [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)]
@@ -1430,9 +1430,9 @@ def apply_rule(did, rule, rses, source_rses, rseselector, session=None, logger=l
 
     # update account and rse counters
     for rse_id in rse_counters_files:
-        rse_counter.increase(rse_id=rse_id, files=rse_counters_files[rse_id], bytes=rse_counters_bytes[rse_id], session=session)
+        rse_counter.increase(rse_id=rse_id, files=rse_counters_files[rse_id], bytes_=rse_counters_bytes[rse_id], session=session)
     for rse_id in account_counters_files:
-        account_counter.increase(rse_id=rse_id, account=rule.account, files=account_counters_files[rse_id], bytes=account_counters_bytes[rse_id], session=session)
+        account_counter.increase(rse_id=rse_id, account=rule.account, files=account_counters_files[rse_id], bytes_=account_counters_bytes[rse_id], session=session)
     session.flush()
 
     return

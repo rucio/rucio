@@ -76,14 +76,14 @@ from rucio.tests.common_server import get_vo
 LOG = getLogger(__name__)
 
 
-def create_files(nrfiles, scope, rse_id, bytes=1):
+def create_files(nrfiles, scope, rse_id, bytes_=1):
     """
     Creates a number of test files and add replicas to rse
 
     :param nrfiles:  Number of files to create
     :param scope:    Scope to create the files in
     :param rse_id:   RSE to add the replica to
-    :param bytes:    Bytes of each file
+    :param bytes_:    Bytes of each file
     :returns:        List of dict
     """
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
@@ -97,10 +97,10 @@ def create_files(nrfiles, scope, rse_id, bytes=1):
         file = 'file_%s' % uuid()
         if isinstance(rse_id, list):
             for r in rse_id:
-                add_replica(rse_id=r, scope=scope, name=file, bytes=bytes, account=jdoe)
+                add_replica(rse_id=r, scope=scope, name=file, bytes_=bytes_, account=jdoe)
         else:
-            add_replica(rse_id=rse_id, scope=scope, name=file, bytes=bytes, account=jdoe)
-        files.append({'scope': scope, 'name': file, 'bytes': bytes})
+            add_replica(rse_id=rse_id, scope=scope, name=file, bytes_=bytes_, account=jdoe)
+        files.append({'scope': scope, 'name': file, 'bytes': bytes_})
     return files
 
 
@@ -532,7 +532,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         account_counter_before = get_usage(self.rse1_id, self.jdoe)
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
@@ -549,7 +549,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when a rule is removed"""
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
@@ -571,7 +571,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when a rule is updated"""
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
@@ -598,7 +598,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         rse_counter_before = get_rse_counter(self.rse3_id)
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
@@ -615,40 +615,40 @@ class TestReplicationRuleCore(unittest.TestCase):
         """ REPLICATION RULE (CORE): Test if a rule fails correctly when local account limit conflict"""
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse3_id, bytes=100)
+        files = create_files(3, scope, self.rse3_id, bytes_=100)
         # local quota
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
-        set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=5)
+        set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes_=5)
 
         pytest.raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
-        set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=-1)
+        set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes_=-1)
 
     def test_rule_add_fails_account_global_limit(self):
         """ REPLICATION RULE (CORE): Test if a rule fails correctly when global account limit conflict"""
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse3_id, bytes=100)
+        files = create_files(3, scope, self.rse3_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
-        set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=400)
+        set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes_=400)
         # check with two global limits - one breaking limit is enough to let the rule fail
-        set_global_account_limit(rse_expression='%s|MOCK2' % self.rse3, account=self.jdoe, bytes=400)
-        set_global_account_limit(rse_expression='%s|MOCK' % self.rse3, account=self.jdoe, bytes=10)
+        set_global_account_limit(rse_expression='%s|MOCK2' % self.rse3, account=self.jdoe, bytes_=400)
+        set_global_account_limit(rse_expression='%s|MOCK' % self.rse3, account=self.jdoe, bytes_=10)
         pytest.raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=-1)
-        set_global_account_limit(rse_expression='%s|MOCK' % self.rse3, account=self.jdoe, bytes=-1)
-        set_global_account_limit(rse_expression='%s|MOCK2' % self.rse3, account=self.jdoe, bytes=-1)
+        set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes_=-1)
+        set_global_account_limit(rse_expression='%s|MOCK' % self.rse3, account=self.jdoe, bytes_=-1)
+        set_global_account_limit(rse_expression='%s|MOCK2' % self.rse3, account=self.jdoe, bytes_=-1)
 
     def test_rule_add_fails_rse_limit(self):
         """ REPLICATION RULE (CORE): Test if a rule fails correctly when rse limit set"""
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
@@ -665,7 +665,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         """ REPLICATION RULE (CORE): Test dataset callback"""
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
@@ -685,7 +685,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         """ REPLICATION RULE (CORE): Test dataset callback should not be sent"""
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
@@ -704,7 +704,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         """ REPLICATION RULE (CORE): Test dataset callback with late close"""
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
@@ -724,7 +724,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         """ REPLICATION RULE (CORE): Test dataset callback with judge evaluator"""
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
 
@@ -748,7 +748,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         """ REPLICATION RULE (CORE): Test rule progress callback with judge evaluator"""
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(30, scope, self.rse1_id, bytes=100)
+        files = create_files(30, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
 
@@ -943,7 +943,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         rse_id = add_rse(rse, **self.vo)
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=200)
+        files = create_files(3, scope, self.rse1_id, bytes_=200)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
@@ -1023,7 +1023,7 @@ class TestReplicationRuleCore(unittest.TestCase):
     def test_release_rule(self):
         """ REPLICATION RULE (CORE): Test to release a parent rule after child rule is OK"""
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
@@ -1062,7 +1062,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         archive = {'scope': scope, 'name': '%s.zip' % str(uuid()), 'type': 'FILE',
                    'bytes': 2596, 'adler32': 'beefdead'}
-        add_replica(rse_id=self.rse1_id, scope=scope, name=archive['name'], bytes=2596, account=self.jdoe)
+        add_replica(rse_id=self.rse1_id, scope=scope, name=archive['name'], bytes_=2596, account=self.jdoe)
         files_in_archive = [{'scope': scope, 'name': 'witrep-%i-%s' % (i, str(uuid())), 'type': 'FILE',
                              'bytes': 1234, 'adler32': 'deadbeef'} for i in range(2)]
         attach_dids(scope, archive['name'], files_in_archive, self.jdoe)
@@ -1075,11 +1075,11 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         archive = {'scope': scope, 'name': '%s.zip' % str(uuid()), 'type': 'FILE',
                    'bytes': 2596, 'adler32': 'beefdead'}
-        add_replica(rse_id=self.rse1_id, scope=scope, name=archive['name'], bytes=2596, account=self.jdoe)
+        add_replica(rse_id=self.rse1_id, scope=scope, name=archive['name'], bytes_=2596, account=self.jdoe)
         files_in_archive = [{'scope': scope, 'name': 'witrep-%i-%s' % (i, str(uuid())), 'type': 'FILE',
                              'bytes': 1234, 'adler32': 'deadbeef'} for i in range(2)]
         attach_dids(scope, archive['name'], files_in_archive, self.jdoe)
-        add_replica(rse_id=self.rse1_id, scope=scope, name=files_in_archive[1]['name'], bytes=2596, account=self.jdoe)
+        add_replica(rse_id=self.rse1_id, scope=scope, name=files_in_archive[1]['name'], bytes_=2596, account=self.jdoe)
 
         add_rule(dids=[{'scope': scope, 'name': files_in_archive[1]['name']}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='NONE',
                  weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -1101,17 +1101,17 @@ class TestReplicationRuleCore(unittest.TestCase):
             #  6 replicas @ MOCK4 -> file11 .. file16
             #  5 replicas @ MOCK5 -> file17 .. file20, file25
             for i in range(1, 8):
-                add_replica(rse_id=get_rse_id('MOCK', **self.vo), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK', **self.vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(8, 11):
-                add_replica(rse_id=get_rse_id('MOCK3', **self.vo), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK3', **self.vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(11, 17):
-                add_replica(rse_id=get_rse_id('MOCK4', **self.vo), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK4', **self.vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(17, 21):
-                add_replica(rse_id=get_rse_id('MOCK5', **self.vo), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK5', **self.vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(21, 25):
-                add_replica(rse_id=get_rse_id('MOCK', **self.vo), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK', **self.vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(25, 26):
-                add_replica(rse_id=get_rse_id('MOCK5', **self.vo), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK5', **self.vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
 
             add_did(scope=scope, name='ds1', did_type='DATASET', account=account)
             attach_dids(scope=scope, name='ds1', dids=[{'scope': scope, 'name': 'file_%06d.data' % i} for i in range(1, 10 + 1)], account=account)

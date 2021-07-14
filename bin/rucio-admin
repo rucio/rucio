@@ -267,7 +267,7 @@ def add_account(args):
 
     """
     client = get_client(args)
-    client.add_account(account=args.account, type=args.accounttype, email=args.accountemail)
+    client.add_account(account=args.account, type_=args.accounttype, email=args.accountemail)
     print('Added new account: %s' % args.account)
     return SUCCESS
 
@@ -399,7 +399,7 @@ def set_limits(args):
                 logger.error('The limit could not be set. Either you misspelled infinity or your input could not be converted to integer or you used a wrong pattern. Please use a format like 10GB with B,KB,MB,GB,TB,PB as units (not case sensistive)')
                 return FAILURE
 
-    client.set_account_limit(account=args.account, rse=args.rse, bytes=byte_limit, locality=locality)
+    client.set_account_limit(account=args.account, rse=args.rse, bytes_=byte_limit, locality=locality)
     print('Set account limit for account %s on RSE %s: %s' % (args.account, args.rse, sizefmt(byte_limit, True)))
     return SUCCESS
 
@@ -867,7 +867,7 @@ def add_subscription(args):
         account = args.issuer
     else:
         account = client.account
-    subscription_id = client.add_subscription(name=args.name, account=account, filter=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
+    subscription_id = client.add_subscription(name=args.name, account=account, filter_=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
                                               comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False, priority=args.priority)
     print('Subscription added %s' % (subscription_id))
     return SUCCESS
@@ -913,7 +913,7 @@ def update_subscription(args):
         account = args.issuer
     else:
         account = client.account
-    client.update_subscription(name=args.name, account=account, filter=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
+    client.update_subscription(name=args.name, account=account, filter_=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
                                comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False, priority=args.priority)
     return SUCCESS
 

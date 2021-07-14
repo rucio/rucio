@@ -280,8 +280,8 @@ def sha256(file):
     :returns: string of 32 hexadecimal digits
     """
     with open(file, "rb") as f:
-        bytes = f.read()  # read entire file as bytes
-        readable_hash = hashlib.sha256(bytes).hexdigest()
+        bytes_ = f.read()  # read entire file as bytes
+        readable_hash = hashlib.sha256(bytes_).hexdigest()
         print(readable_hash)
         return readable_hash
 
@@ -364,10 +364,10 @@ def render_json(**data):
     return json.dumps(data, cls=APIEncoder)
 
 
-def render_json_list(list):
+def render_json_list(list_):
     """ JSON render function for list
     """
-    return json.dumps(list, cls=APIEncoder)
+    return json.dumps(list_, cls=APIEncoder)
 
 
 def datetime_parser(dct):
@@ -433,12 +433,12 @@ def grouper(iterable, n, fillvalue=None):
     return izip_longest(*args, fillvalue=fillvalue)
 
 
-def chunks(list, n):
+def chunks(list_, n):
     """
     Yield successive n-sized chunks from l.
     """
-    for i in range(0, len(list), n):
-        yield list[i:i + n]
+    for i in range(0, len(list_), n):
+        yield list_[i:i + n]
 
 
 def my_key_generator(namespace, fn, **kw):
@@ -995,7 +995,7 @@ def parse_did_filter_from_string(input_string):
     :return: filter dictionary and type as string.
     """
     filters = {}
-    type = 'collection'
+    type_ = 'collection'
     if input_string:
         filter_options = input_string.replace(' ', '').split(',')
         for option in filter_options:
@@ -1025,7 +1025,7 @@ def parse_did_filter_from_string(input_string):
 
             if key == 'type':
                 if value.upper() in ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']:
-                    type = value.lower()
+                    type_ = value.lower()
                 else:
                     raise InvalidType('{0} is not a valid type. Valid types are {1}'.format(value, ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']))
             elif key in ('length.gt', 'length.lt', 'length.gte', 'length.lte', 'length'):
@@ -1044,7 +1044,7 @@ def parse_did_filter_from_string(input_string):
             else:
                 filters[key] = value
 
-    return filters, type
+    return filters, type_
 
 
 def parse_replicas_from_file(path):

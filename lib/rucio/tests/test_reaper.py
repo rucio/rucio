@@ -66,7 +66,7 @@ def __add_test_rse_and_replicas(vo, scope, rse_name, names, file_size):
     for file_name in names:
         dids.append({'scope': scope, 'name': file_name})
         replica_core.add_replica(rse_id=rse_id, scope=scope,
-                                 name=file_name, bytes=file_size,
+                                 name=file_name, bytes_=file_size,
                                  tombstone=datetime.utcnow() - timedelta(days=1),
                                  account=InternalAccount('root', vo=vo), adler32=None, md5=None)
     return rse_name, rse_id, dids
@@ -259,19 +259,19 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     did_factory.register_dids(constituents)
     c_first_archive_only, c_with_replica, c_with_expired_replica, c_with_replica_and_rule = constituents
 
-    replica_core.add_replica(rse_id=rse_id, account=account, bytes=constituent_size, **c_with_replica)
+    replica_core.add_replica(rse_id=rse_id, account=account, bytes_=constituent_size, **c_with_replica)
 
-    replica_core.add_replica(rse_id=rse_id, account=account, bytes=constituent_size,
+    replica_core.add_replica(rse_id=rse_id, account=account, bytes_=constituent_size,
                              tombstone=datetime.utcnow() - timedelta(days=1), **c_with_expired_replica)
 
-    replica_core.add_replica(rse_id=rse_id, account=account, bytes=constituent_size,
+    replica_core.add_replica(rse_id=rse_id, account=account, bytes_=constituent_size,
                              tombstone=datetime.utcnow() - timedelta(days=1), **c_with_replica_and_rule)
     rule_core.add_rule(dids=[c_with_replica_and_rule], account=account, copies=1, rse_expression=rse_name, grouping='NONE',
                        weight=None, lifetime=None, locked=False, subscription_id=None)
 
     archive1, archive2 = [{'scope': scope, 'name': 'archive_%s.%d.zip' % (uuid, i)} for i in range(2)]
-    replica_core.add_replica(rse_id=rse_id, bytes=archive_size, account=account, **archive1)
-    replica_core.add_replica(rse_id=rse_id, bytes=archive_size, account=account, **archive2)
+    replica_core.add_replica(rse_id=rse_id, bytes_=archive_size, account=account, **archive1)
+    replica_core.add_replica(rse_id=rse_id, bytes_=archive_size, account=account, **archive2)
     did_core.attach_dids(dids=[{'scope': c['scope'], 'name': c['name'], 'bytes': constituent_size} for c in constituents],
                          account=account, **archive1)
     did_core.attach_dids(dids=[{'scope': c['scope'], 'name': c['name'], 'bytes': constituent_size} for c in [c_with_replica, c_with_expired_replica, c_with_replica_and_rule]],

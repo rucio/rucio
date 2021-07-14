@@ -73,13 +73,13 @@ class Parser(ConfigParser.RawConfigParser, object):
         return [(name, self.get(section, name)) for name in self.options(section)]
 
 
-def mkdir(dir):
+def mkdir(dir_):
     '''
     This functions creates the `dir` directory if it doesn't exist. If `dir`
     already exists this function does nothing.
     '''
     try:
-        os.mkdir(dir)
+        os.mkdir(dir_)
     except OSError as e:
         assert e.errno == 17
 

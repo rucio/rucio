@@ -178,15 +178,15 @@ class DidColumnMeta(DidMetaPlugin):
                 session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
                 session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
 
-                for account, bytes, rse_id, rule_id in session.query(models.ReplicaLock.account, models.ReplicaLock.bytes, models.ReplicaLock.rse_id, models.ReplicaLock.rule_id).filter_by(scope=scope, name=name):
+                for account, bytes_, rse_id, rule_id in session.query(models.ReplicaLock.account, models.ReplicaLock.bytes, models.ReplicaLock.rse_id, models.ReplicaLock.rule_id).filter_by(scope=scope, name=name):
                     session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rule_id=rule_id, rse_id=rse_id).update({key: value}, synchronize_session=False)
-                    account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes=bytes, session=session)
-                    account_counter.increase(rse_id=rse_id, account=account, files=1, bytes=value, session=session)
+                    account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=bytes_, session=session)
+                    account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=value, session=session)
 
-                for bytes, rse_id in session.query(models.RSEFileAssociation.bytes, models.RSEFileAssociation.rse_id).filter_by(scope=scope, name=name):
+                for bytes_, rse_id in session.query(models.RSEFileAssociation.bytes, models.RSEFileAssociation.rse_id).filter_by(scope=scope, name=name):
                     session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).update({key: value}, synchronize_session=False)
-                    rse_counter.decrease(rse_id=rse_id, files=1, bytes=bytes, session=session)
-                    rse_counter.increase(rse_id=rse_id, files=1, bytes=value, session=session)
+                    rse_counter.decrease(rse_id=rse_id, files=1, bytes_=bytes_, session=session)
+                    rse_counter.increase(rse_id=rse_id, files=1, bytes_=value, session=session)
 
                 for parent_scope, parent_name in session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=scope, child_name=name):
                     values = {}

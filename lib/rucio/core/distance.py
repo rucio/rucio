@@ -160,11 +160,11 @@ def update_distances(src_rse_id=None, dest_rse_id=None, parameters=None, session
 
 
 @read_session
-def list_distances(filter={}, session=None):
+def list_distances(filter_={}, session=None):
     """
     Get distances between all the RSEs.
 
-    :param filter: dictionary to filter distances.
+    :param filter_: dictionary to filter distances.
     :param session: The database session in use.
     """
     return [distance.to_dict() for distance in session.query(Distance).all()]

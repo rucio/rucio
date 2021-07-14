@@ -467,9 +467,9 @@ class TestRSEClient(unittest.TestCase):
 
     def test_get_rse(self):
         """ RSE (CLIENTS): Get a RSE."""
-        id = 'MOCK'
-        props = self.client.get_rse(rse=id)
-        assert props['rse'] == id
+        id_ = 'MOCK'
+        props = self.client.get_rse(rse=id_)
+        assert props['rse'] == id_
 
     # ADD PROTOCOLS
 
