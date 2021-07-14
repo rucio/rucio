@@ -553,11 +553,11 @@ def list_dids(args):
     """
     client = get_client(args)
     filters = {}
-    type = 'collection'
+    type_ = 'collection'
     table = []
     if args.filter:
         try:
-            filters, type = parse_did_filter_from_string(args.filter)
+            filters, type_ = parse_did_filter_from_string(args.filter)
         except InvalidType as error:
             logger.error(error)
             return FAILURE
@@ -587,7 +587,7 @@ def list_dids(args):
         return FAILURE
     filters['name'] = name
 
-    for did in client.list_dids(scope, filters=filters, did_type=type, long=True, recursive=args.recursive):
+    for did in client.list_dids(scope, filters=filters, did_type=type_, long=True, recursive=args.recursive):
         table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
 
     if args.short:
@@ -607,11 +607,11 @@ def list_dids_extended(args):
     """
     client = get_client(args)
     filters = {}
-    type = 'collection'
+    type_ = 'collection'
     table = []
     if args.filter:
         try:
-            filters, type = parse_did_filter_from_string(args.filter)
+            filters, type_ = parse_did_filter_from_string(args.filter)
         except InvalidType as error:
             logger.error(error)
             return FAILURE
@@ -641,7 +641,7 @@ def list_dids_extended(args):
         return FAILURE
     filters['name'] = name
 
-    for did in client.list_dids_extended(scope, filters=filters, did_type=type, long=True, recursive=args.recursive):
+    for did in client.list_dids_extended(scope, filters=filters, did_type=type_, long=True, recursive=args.recursive):
         table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
 
     if args.short:
@@ -799,9 +799,9 @@ def list_parent_dids(args):
             print('Parents: ', ','.join(dict_datasets[pfn]))
     elif args.guids:
         guids = []
-        for input in args.guids:
+        for input_ in args.guids:
             try:
-                uuid.UUID(input)
+                uuid.UUID(input_)
             except ValueError:
                 continue
         dict_datasets = {}
@@ -1032,10 +1032,10 @@ def download(args):
 
     # Get filters
     filters = {}
-    type = 'all'
+    type_ = 'all'
     if args.filter:
         try:
-            filters, type = parse_did_filter_from_string(args.filter)
+            filters, type_ = parse_did_filter_from_string(args.filter)
             if args.scope:
                 filters['scope'] = args.scope
         except InvalidType as error:

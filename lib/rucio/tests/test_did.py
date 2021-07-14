@@ -166,8 +166,8 @@ class TestDIDCore(unittest.TestCase):
         rse_id = get_rse_id(rse='MOCK', **self.vo)
 
         add_did(scope=tmp_scope, name=tmp_dsn1, did_type=DIDType.DATASET, account=root)
-        add_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_dsn2, bytes=10, account=root)
-        add_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_dsn3, bytes=10, account=root)
+        add_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_dsn2, bytes_=10, account=root)
+        add_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_dsn3, bytes_=10, account=root)
         attach_dids(scope=tmp_scope, name=tmp_dsn1, dids=[{'scope': tmp_scope, 'name': tmp_dsn2}, {'scope': tmp_scope, 'name': tmp_dsn3}], account=root)
 
         add_did(scope=tmp_scope, name=tmp_dsn4, did_type=DIDType.CONTAINER, account=root)
@@ -1009,7 +1009,7 @@ class TestDIDClients(unittest.TestCase):
 
         # Add file replica
         tmp_file = 'file_%s' % generate_uuid()
-        self.replica_client.add_replica(rse=tmp_rse, scope=tmp_scope, name=tmp_file, bytes=1, adler32='0cc737eb')
+        self.replica_client.add_replica(rse=tmp_rse, scope=tmp_scope, name=tmp_file, bytes_=1, adler32='0cc737eb')
 
         # Add dataset
         self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
@@ -1051,7 +1051,7 @@ class TestDIDClients(unittest.TestCase):
 
         # Add file replica
         tmp_file = 'file_%s' % generate_uuid()
-        self.replica_client.add_replica(rse=tmp_rse, scope=tmp_scope, name=tmp_file, bytes=1, adler32='0cc737eb')
+        self.replica_client.add_replica(rse=tmp_rse, scope=tmp_scope, name=tmp_file, bytes_=1, adler32='0cc737eb')
 
         # Add dataset
         self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)

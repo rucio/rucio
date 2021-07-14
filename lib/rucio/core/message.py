@@ -134,15 +134,15 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
 
         # Step 3:
         # Assemble message object
-        for id, created_at, event_type, payload, services in query:
-            message = {'id': id,
+        for id_, created_at, event_type, payload, services in query:
+            message = {'id': id_,
                        'created_at': created_at,
                        'event_type': event_type,
                        'services': services}
 
             # Only switch SQL context when necessary
             if payload == 'nolimit':
-                nolimit_query = session.query(Message.payload_nolimit).filter(Message.id == id).one()[0]
+                nolimit_query = session.query(Message.payload_nolimit).filter(Message.id == id_).one()[0]
                 message['payload'] = json.loads(str(nolimit_query))
             else:
                 message['payload'] = json.loads(str(payload))

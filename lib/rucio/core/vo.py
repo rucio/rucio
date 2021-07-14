@@ -77,9 +77,9 @@ def add_vo(vo, description, email, session=None):
     from rucio.core.account import add_account, list_identities
     from rucio.core.identity import add_account_identity
     new_root = InternalAccount('root', vo=vo)
-    add_account(account=new_root, type=AccountType['SERVICE'], email=email, session=session)
+    add_account(account=new_root, type_=AccountType['SERVICE'], email=email, session=session)
     add_account_identity(identity='root@{}'.format(vo),
-                         type=IdentityType['USERPASS'],
+                         type_=IdentityType['USERPASS'],
                          account=new_root,
                          email=email,
                          default=False,
@@ -87,7 +87,7 @@ def add_vo(vo, description, email, session=None):
                          session=session)
 
     for ident in list_identities(account=InternalAccount('super_root', vo='def'), session=session):
-        add_account_identity(identity=ident['identity'], type=ident['type'], account=new_root, email='', session=session)
+        add_account_identity(identity=ident['identity'], type_=ident['type'], account=new_root, email='', session=session)
 
 
 @read_session

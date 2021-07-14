@@ -82,7 +82,7 @@ class TestRSESelectorInit(unittest.TestCase):
         # local quota not enough -> error
         copies = 2
         rses = [self.rse_1, self.rse_2]
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes=10)
+        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=10)
         increase(self.mock1_id, self.account, 10, 10)
         update_account_counter(account=self.account, rse_id=self.mock1_id)
         with pytest.raises(InsufficientAccountLimit):
@@ -92,8 +92,8 @@ class TestRSESelectorInit(unittest.TestCase):
         # global quota not enough -> error
         copies = 2
         rses = [self.rse_1, self.rse_2]
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes=20)
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes=10)
+        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=20)
+        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=10)
         increase(self.mock1_id, self.account, 10, 10)
         update_account_counter(account=self.account, rse_id=self.mock1_id)
         with pytest.raises(InsufficientAccountLimit):
@@ -101,10 +101,10 @@ class TestRSESelectorInit(unittest.TestCase):
 
     def test_4(self):
         # enough RSEs, local and global quota -> 2 RSEs
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes=20)
-        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes=20)
+        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=20)
+        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes_=20)
+        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=20)
+        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes_=20)
         copies = 2
         rses = [self.rse_1, self.rse_2]
         rse_selector = RSESelector(self.account, rses, None, copies)
@@ -114,11 +114,11 @@ class TestRSESelectorInit(unittest.TestCase):
         # enough RSEs and local quota, but global quota missing -> 1 RSE
         copies = 1
         rses = [self.rse_1, self.rse_2]
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes=10)
+        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=10)
         increase(self.mock1_id, self.account, 10, 10)
         update_account_counter(account=self.account, rse_id=self.mock1_id)
-        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes=20)
+        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes_=20)
+        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=20)
         rse_selector = RSESelector(self.account, rses, None, copies)
         assert len(rse_selector.rses) == 1
 
@@ -126,12 +126,12 @@ class TestRSESelectorInit(unittest.TestCase):
         # enough RSEs and global quota, but local quota missing -> 1 RSE
         rses = [self.rse_1, self.rse_2]
         copies = 1
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes=10)
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes=10)
+        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=10)
+        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=10)
         increase(self.mock1_id, self.account, 10, 10)
         update_account_counter(account=self.account, rse_id=self.mock1_id)
-        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes=10)
-        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes=10)
+        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes_=10)
+        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes_=10)
         rse_selector = RSESelector(self.account, rses, None, copies)
         assert len(rse_selector.rses) == 1
 
@@ -174,10 +174,10 @@ class TestRSESelectorDynamic(unittest.TestCase):
 
     def test_1(self):
         # enough RSEs and global quota, but not enough local quota after change -> 1 RSE
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes=20)
-        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes=10)
-        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes=10)
+        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=20)
+        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes_=20)
+        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=10)
+        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes_=10)
         copies = 2
         rses = [self.rse_1, self.rse_2]
         rse_selector = RSESelector(self.account, rses, None, copies)
@@ -189,10 +189,10 @@ class TestRSESelectorDynamic(unittest.TestCase):
 
     def test_2(self):
         # enough RSEs and global quota, but not enough global quota after change -> 1 RSE
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes=10)
-        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes=10)
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes=20)
+        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=10)
+        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes_=10)
+        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=20)
+        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes_=20)
         copies = 2
         rses = [self.rse_1, self.rse_2]
         rse_selector = RSESelector(self.account, rses, None, copies)
@@ -204,10 +204,10 @@ class TestRSESelectorDynamic(unittest.TestCase):
 
     def test_3(self):
         # enough RSEs and global quota, also after after change -> 2 RSE
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes=20)
-        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes=20)
+        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=20)
+        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes_=20)
+        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=20)
+        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes_=20)
         copies = 2
         rses = [self.rse_1, self.rse_2]
         rse_selector = RSESelector(self.account, rses, None, copies)

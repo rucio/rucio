@@ -73,7 +73,7 @@ class TestApiExternalRepresentation(unittest.TestCase):
 
         # Add test account
         cls.account_name = ''.join(random.choice(string.ascii_lowercase) for x in range(10))
-        add_account(account=cls.account_name, type='user', email='rucio@email.com', issuer='root', **cls.vo)
+        add_account(account=cls.account_name, type_='user', email='rucio@email.com', issuer='root', **cls.vo)
         cls.account = InternalAccount(cls.account_name, **cls.vo)
 
         # Add test scope
@@ -355,7 +355,7 @@ class TestApiExternalRepresentation(unittest.TestCase):
         rse_mock_id = get_rse_id(rse_mock, **self.vo)
         account_counter.del_counter(rse_id=rse_mock_id, account=self.account)
         account_counter.add_counter(rse_id=rse_mock_id, account=self.account)
-        account_counter.increase(rse_id=rse_mock_id, account=self.account, files=1, bytes=10)
+        account_counter.increase(rse_id=rse_mock_id, account=self.account, files=1, bytes_=10)
         account_counter.update_account_counter(self.account, rse_mock_id)
         did = 'file_' + generate_uuid()
         add_did(self.scope_name, did, 'DATASET', 'root', account=self.account_name, rse=rse_mock, **self.vo)

@@ -98,13 +98,13 @@ class DQ2Client:
         result['dn'] = None
         if len(account) < 30:
             result['nickname'] = nickname
-            for id in self.client.list_identities(account):
-                if id['type'] == 'GSS':
-                    result['email'] = id['identity']
-                elif id['type'] == 'X509':
+            for id_ in self.client.list_identities(account):
+                if id_['type'] == 'GSS':
+                    result['email'] = id_['identity']
+                elif id_['type'] == 'X509':
                     if not result['dn']:
                         result['dn'] = []
-                    result['dn'].append(id['identity'])
+                    result['dn'].append(id_['identity'])
         else:
             result['dn'] = userId
             nicknames, emails = [], []
@@ -180,7 +180,7 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def deleteDatasetReplicas(self, dsn, locations, version=0, force=False, deep=False, logical=False, ignore_lifetime=False, all=False, grace_period=None, ignore_pin=False, scope=None):
+    def deleteDatasetReplicas(self, dsn, locations, version=0, force=False, deep=False, logical=False, ignore_lifetime=False, all_=False, grace_period=None, ignore_pin=False, scope=None):
         """
         Delete the dataset replica from the given site.
 
@@ -484,11 +484,11 @@ class DQ2Client:
         vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
         duid = vuid
         nbfiles = 0
-        bytes = 0
+        bytes_ = 0
         for f in self.client.list_files(scope=scope, name=dsn):
             nbfiles += 1
-            bytes += f['bytes']
-        return (duid, vuid, 1, metadata['created_at'], '', '', nbfiles, bytes)
+            bytes_ += f['bytes']
+        return (duid, vuid, 1, metadata['created_at'], '', '', nbfiles, bytes_)
 
     def listDatasetReplicas(self, dsn, version=0, complete=None, old=True, scope=None):
         """
@@ -717,7 +717,7 @@ class DQ2Client:
         else:
             raise InputValidationError
 
-    def listDatasets2(self, metaDataAttributes, long=False, all=False, p=None, rpp=None, scope=None):
+    def listDatasets2(self, metaDataAttributes, long=False, all_=False, p=None, rpp=None, scope=None):
         """
         ToDo -> Jingya You
 
@@ -731,7 +731,7 @@ class DQ2Client:
 
         @param metaDataAttributes: metadata attibutes for the sorting
         @param long: List dataset in long format (total sum for all the file sizes + total num of files).
-        @param all: List all datasets, including the hidden ones.
+        @param all_: List all datasets, including the hidden ones.
         @param rpp: Print rrp first results.
         @param p: Specify page to print.
 
@@ -751,7 +751,7 @@ class DQ2Client:
         filters = {}
         if (scope is None) and 'name' in metaDataAttributes:
             scope, dsn = extract_scope(metaDataAttributes['name'])
-            type = 'collection'
+            type_ = 'collection'
             metadata = ['state', 'type', 'name']
             for key in metaDataAttributes:
                 if key not in metadata:
@@ -765,11 +765,11 @@ class DQ2Client:
                         filters['is_open'] = 0
                 elif key == 'type':
                     if metaDataAttributes[key] == 1:
-                        type = 'dataset'
+                        type_ = 'dataset'
                     elif metaDataAttributes[key] == 2:
-                        type = 'container'
+                        type_ = 'container'
             if long:
-                for name in self.client.list_dids(scope, filters, type):
+                for name in self.client.list_dids(scope, filters, type_):
                     meta = {'totalSize': 0, 'totalFiles': 0}
                     # Can take very long. Bulk method is needed !!!
                     for did in self.client.list_files(scope=scope, name=name):
@@ -777,7 +777,7 @@ class DQ2Client:
                         meta['totalFiles'] += 1
                     result['%s:%s' % (scope, name)] = meta
             else:
-                if type == 'collection':
+                if type_ == 'collection':
                     for name in self.client.list_dids(scope, filters, 'dataset'):
                         result['%s:%s' % (scope, name)] = {}
                     if filters['name'].endswith('/'):
@@ -785,10 +785,10 @@ class DQ2Client:
                     for name in self.client.list_dids(scope, filters, 'container'):
                         result['%s:%s/' % (scope, name)] = {}
                 else:
-                    for name in self.client.list_dids(scope, filters, type):
-                        if type == 'container':
+                    for name in self.client.list_dids(scope, filters, type_):
+                        if type_ == 'container':
                             result['%s:%s/' % (scope, name)] = {}
-                        elif type == 'datasets':
+                        elif type_ == 'datasets':
                             result['%s:%s' % (scope, name)] = {}
             return result
         else:
@@ -822,7 +822,7 @@ class DQ2Client:
             result[guid] = datasets
         return result
 
-    def listDatasetsByMetaData(self, filter):
+    def listDatasetsByMetaData(self, filter_):
         """
         List the dataset versions that match the given criteria.
         In DQ2 the autorized metadata are :
@@ -831,7 +831,7 @@ class DQ2Client:
         In Rucio the authorized metadata are :
         state, type, name
 
-        @param filter: list containing dictionaries of metadata attributes and values
+        @param filter_: list containing dictionaries of metadata attributes and values
             ({'attrname_0': attrvalue_0, ..., 'attrname_N': attrvalue_N}).
 
         B{Exceptions:}
@@ -845,7 +845,7 @@ class DQ2Client:
             ]
         """
         metadata = ['state', 'type', 'name']
-        for key in filter:
+        for key in filter_:
             if key not in metadata:
                 raise InvalidMetadata
         raise NotImplementedError
@@ -1155,8 +1155,8 @@ class DQ2Client:
             if rule['state'] != 'OK' and (location == rule['rse_expression']):  # or location in [i['rse'] for i in self.client.list_rses(rule['rse_expression'])]):
                 print(rule)
                 if rule['created_at'] < creationdate:
-                    id = rule['id']
-                    id = '%s-%s-%s-%s-%s' % (id[0:8], id[8:12], id[12:16], id[16:20], id[20:32])
+                    id_ = rule['id']
+                    id_ = '%s-%s-%s-%s-%s' % (id_[0:8], id_[8:12], id_[12:16], id_[16:20], id_[20:32])
                     owner = rule['account']
                     destination = None
                     creationdate = rule['created_at']
@@ -1180,7 +1180,7 @@ class DQ2Client:
                     parentId = 'None'
                     requestId = hashlib.md5('%s:%s:%s' % (scope, dsn, location)).hexdigest()
                     requestId = '%s-%s-%s-%s-%s' % (requestId[0:8], requestId[8:12], requestId[12:16], requestId[16:20], requestId[20:32])
-                    result = (id, owner, location, destination, creationdate, modifieddate, callbacks, archived, sources_policy, wait_for_sources, sources, query_more_sources, share, group, replica_lifetime, activity, parentId, requestId)
+                    result = (id_, owner, location, destination, creationdate, modifieddate, callbacks, archived, sources_policy, wait_for_sources, sources, query_more_sources, share, group, replica_lifetime, activity, parentId, requestId)
             elif rule['state'] == 'OK' and (location == rule['rse_expression']):  # or location in [i['rse'] for i in self.client.list_rses(rule['rse_expression'])]):
                 return ()
         return result

@@ -84,7 +84,7 @@ def recover_vo_root_identity(root_vo, identity_key, id_type, email, issuer, defa
 
     account = InternalAccount('root', vo=root_vo)
 
-    return identity.add_account_identity(identity=identity_key, type=IdentityType[id_type.upper()], default=default, email=email, account=account, password=password)
+    return identity.add_account_identity(identity=identity_key, type_=IdentityType[id_type.upper()], default=default, email=email, account=account, password=password)
 
 
 def update_vo(updated_vo, parameters, issuer, vo='def'):

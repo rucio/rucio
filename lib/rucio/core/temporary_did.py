@@ -68,7 +68,7 @@ def add_temporary_dids(dids, account, session=None):
 
 
 @transactional_session
-def compose(scope, name, rse_id, bytes, sources, account,
+def compose(scope, name, rse_id, bytes_, sources, account,
             md5=None, adler32=None, pfn=None, meta={}, rules=[],
             parent_scope=None, parent_name=None,
             session=None):
@@ -78,7 +78,7 @@ def compose(scope, name, rse_id, bytes, sources, account,
     :param scope: the scope name.
     :param name: The data identifier name.
     :param rse_id: the rse id.
-    :param bytes: the size of the file.
+    :param bytes_: the size of the file.
     :sources sources: The list of temporary DIDs.
     :param account: The account owner.
     :param md5: The md5 checksum.
@@ -91,7 +91,7 @@ def compose(scope, name, rse_id, bytes, sources, account,
     :param session: The database session in use.
     """
     # Create the new file did and replica
-    add_replica(rse_id=rse_id, scope=scope, name=name, bytes=bytes, account=account,
+    add_replica(rse_id=rse_id, scope=scope, name=name, bytes_=bytes_, account=account,
                 adler32=adler32, md5=md5, pfn=pfn, meta=meta, rules=rules,
                 session=session)
 
@@ -138,8 +138,8 @@ def list_expired_temporary_dids(rse_id, limit, worker_number=None, total_workers
              'rse_id': rse_id,
              'scope': scope,
              'name': name,
-             'bytes': bytes}
-            for scope, name, path, bytes in query.limit(limit)]
+             'bytes': bytes_}
+            for scope, name, path, bytes_ in query.limit(limit)]
 
 
 @transactional_session

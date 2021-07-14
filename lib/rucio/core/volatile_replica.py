@@ -72,7 +72,7 @@ def add_volatile_replicas(rse_id, replicas, session=None):
             models.RSEFileAssociation,
             [{'rse_id': rse_id, 'adler32': adler32, 'state': ReplicaState.AVAILABLE,
               'scope': scope, 'name': name, 'lock_cnt': 0, 'tombstone': datetime.utcnow(),
-              'bytes': bytes, 'md5': md5} for scope, name, bytes, md5, adler32 in file_query])
+              'bytes': bytes_, 'md5': md5} for scope, name, bytes_, md5, adler32 in file_query])
 
 
 @transactional_session

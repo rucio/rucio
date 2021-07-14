@@ -63,18 +63,18 @@ def load_milestones(github_token, page=1):
 
 def get_issue_component_type(issue):
     component = None
-    type = 'enhancement'
+    type_ = 'enhancement'
     for label in issue['labels']:
         if label['color'] == COMPONENT_COLOR and not component:
             component = label['name']
             next
         elif label['name'].lower() == 'enhancement':
-            type = 'enhancement'
+            type_ = 'enhancement'
         elif label['name'].lower() == 'bug':
-            type = 'bug'
+            type_ = 'bug'
         elif label['name'].lower() == 'feature':
-            type = 'feature'
-    return component, type
+            type_ = 'feature'
+    return component, type_
 
 root_git_dir = subprocess.check_output('git rev-parse --show-toplevel', shell=True).decode("utf-8").rstrip()
 # Load OAUTH token

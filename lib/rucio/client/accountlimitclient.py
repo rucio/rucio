@@ -45,21 +45,21 @@ class AccountLimitClient(BaseClient):
         super(AccountLimitClient, self).__init__(rucio_host, auth_host, account, ca_cert,
                                                  auth_type, creds, timeout, user_agent, vo=vo)
 
-    def set_account_limit(self, account, rse, bytes, locality):
+    def set_account_limit(self, account, rse, bytes_, locality):
         """
         Sets an account limit for a given limit scope.
 
         :param account: The name of the account.
         :param rse:     The rse name.
-        :param bytes:   An integer with the limit in bytes.
+        :param bytes_:   An integer with the limit in bytes.
         :param locality: The scope of the account limit. 'local' or 'global'.
         :return:        True if quota was created successfully else False.
         """
 
         if locality == 'local':
-            return self.set_local_account_limit(account, rse, bytes)
+            return self.set_local_account_limit(account, rse, bytes_)
         elif locality == 'global':
-            return self.set_global_account_limit(account, rse, bytes)
+            return self.set_global_account_limit(account, rse, bytes_)
         else:
             from rucio.common.exception import UnsupportedOperation
             raise UnsupportedOperation('The provided scope (%s) for the account limit was invalid' % locality)
@@ -82,17 +82,17 @@ class AccountLimitClient(BaseClient):
             from rucio.common.exception import UnsupportedOperation
             raise UnsupportedOperation('The provided scope (%s) for the account limit was invalid' % locality)
 
-    def set_local_account_limit(self, account, rse, bytes):
+    def set_local_account_limit(self, account, rse, bytes_):
         """
         Sends the request to set an account limit for an account.
 
         :param account: The name of the account.
         :param rse:     The rse name.
-        :param bytes:   An integer with the limit in bytes.
+        :param bytes_:   An integer with the limit in bytes.
         :return:        True if quota was created successfully else False.
         """
 
-        data = dumps({'bytes': bytes})
+        data = dumps({'bytes': bytes_})
         path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'local', account, rse])
         url = build_url(choice(self.list_hosts), path=path)
 
@@ -126,17 +126,17 @@ class AccountLimitClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def set_global_account_limit(self, account, rse_expression, bytes):
+    def set_global_account_limit(self, account, rse_expression, bytes_):
         """
         Sends the request to set a global account limit for an account.
 
         :param account:        The name of the account.
         :param rse_expression: The rse expression.
-        :param bytes:          An integer with the limit in bytes.
+        :param bytes_:          An integer with the limit in bytes.
         :return:               True if quota was created successfully else False.
         """
 
-        data = dumps({'bytes': bytes})
+        data = dumps({'bytes': bytes_})
         path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'global', account, quote_plus(rse_expression)])
         url = build_url(choice(self.list_hosts), path=path)
 

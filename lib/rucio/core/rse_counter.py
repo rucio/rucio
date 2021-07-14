@@ -41,30 +41,30 @@ def add_counter(rse_id, session=None):
 
 
 @transactional_session
-def increase(rse_id, files, bytes, session=None):
+def increase(rse_id, files, bytes_, session=None):
     """
     Increments the specified counter by the specified amount.
 
     :param rse_id:  The id of the RSE.
     :param files:   The number of added files.
-    :param bytes:   The number of added bytes.
+    :param bytes_:   The number of added bytes.
     :param session: The database session in use.
     """
-    models.UpdatedRSECounter(rse_id=rse_id, files=files, bytes=bytes).\
+    models.UpdatedRSECounter(rse_id=rse_id, files=files, bytes=bytes_).\
         save(session=session)
 
 
 @transactional_session
-def decrease(rse_id, files, bytes, session=None):
+def decrease(rse_id, files, bytes_, session=None):
     """
     Decreases the specified counter by the specified amount.
 
     :param rse_id:  The id of the RSE.
     :param files:   The number of removed files.
-    :param bytes:   The number of removed bytes.
+    :param bytes_:   The number of removed bytes.
     :param session: The database session in use.
     """
-    return increase(rse_id=rse_id, files=-files, bytes=-bytes, session=session)
+    return increase(rse_id=rse_id, files=-files, bytes_=-bytes_, session=session)
 
 
 @transactional_session

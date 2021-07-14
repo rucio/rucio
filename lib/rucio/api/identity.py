@@ -81,7 +81,7 @@ def add_account_identity(identity_key, id_type, account, email, issuer, default=
 
     account = InternalAccount(account, vo=vo)
 
-    return identity.add_account_identity(identity=identity_key, type=IdentityType[id_type.upper()], default=default, email=email, account=account, password=password)
+    return identity.add_account_identity(identity=identity_key, type_=IdentityType[id_type.upper()], default=default, email=email, account=account, password=password)
 
 
 def del_account_identity(identity_key, id_type, account, issuer, vo='def'):

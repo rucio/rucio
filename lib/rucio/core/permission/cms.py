@@ -177,7 +177,7 @@ def perm_add_rule(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
 
-    rses = parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})
+    rses = parse_expression(kwargs['rse_expression'], filter_={'vo': issuer.vo})
 
     # Keep while sync is running so it can make rules on all RSEs
     if _is_root(issuer) and repr(kwargs['account']).startswith('sync_'):
@@ -306,7 +306,7 @@ def perm_get_auth_token_user_pass(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if exist_identity_account(identity=kwargs['username'], type=IdentityType.USERPASS, account=kwargs['account']):
+    if exist_identity_account(identity=kwargs['username'], type_=IdentityType.USERPASS, account=kwargs['account']):
         return True
     return False
 
@@ -319,7 +319,7 @@ def perm_get_auth_token_gss(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if exist_identity_account(identity=kwargs['gsscred'], type=IdentityType.GSS, account=kwargs['account']):
+    if exist_identity_account(identity=kwargs['gsscred'], type_=IdentityType.GSS, account=kwargs['account']):
         return True
     return False
 
@@ -332,7 +332,7 @@ def perm_get_auth_token_x509(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if exist_identity_account(identity=kwargs['dn'], type=IdentityType.X509, account=kwargs['account']):
+    if exist_identity_account(identity=kwargs['dn'], type_=IdentityType.X509, account=kwargs['account']):
         return True
     return False
 
@@ -345,7 +345,7 @@ def perm_get_auth_token_saml(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if exist_identity_account(identity=kwargs['saml_nameid'], type=IdentityType.SAML, account=kwargs['account']):
+    if exist_identity_account(identity=kwargs['saml_nameid'], type_=IdentityType.SAML, account=kwargs['account']):
         return True
     return False
 
@@ -521,7 +521,7 @@ def perm_approve_rule(issuer, kwargs):
         return True
 
     rule = get_rule(rule_id=kwargs['rule_id'])
-    rses = parse_expression(rule['rse_expression'], filter={'vo': issuer.vo})
+    rses = parse_expression(rule['rse_expression'], filter_={'vo': issuer.vo})
 
     # Those in rule_approvers can approve the rule
     for rse in rses:
