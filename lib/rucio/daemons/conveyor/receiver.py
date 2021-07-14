@@ -61,9 +61,9 @@ graceful_stop = threading.Event()
 
 class Receiver(object):
 
-    def __init__(self, broker, id, total_threads, full_mode=False):
+    def __init__(self, broker, id_, total_threads, full_mode=False):
         self.__broker = broker
-        self.__id = id
+        self.__id = id_
         self.__total_threads = total_threads
         self.__full_mode = full_mode
 
@@ -174,7 +174,7 @@ class Receiver(object):
                     logging.critical(traceback.format_exc())
 
 
-def receiver(id, total_threads=1, full_mode=False):
+def receiver(id_, total_threads=1, full_mode=False):
     """
     Main loop to consume messages from the FTS3 producer.
     """
@@ -250,7 +250,7 @@ def receiver(id, total_threads=1, full_mode=False):
                 logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
                 record_counter('daemons.messaging.fts3.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
 
-                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id=id, total_threads=total_threads, full_mode=full_mode))
+                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id_=id_, total_threads=total_threads, full_mode=full_mode))
                 if not use_ssl:
                     conn.connect(username, password, wait=True)
                 else:

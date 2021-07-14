@@ -1113,17 +1113,17 @@ class TestReplicationRuleCore(unittest.TestCase):
             for i in range(25, 26):
                 add_replica(rse_id=get_rse_id('MOCK5', **self.vo), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
 
-            add_did(scope=scope, name='ds1', type='DATASET', account=account)
+            add_did(scope=scope, name='ds1', did_type='DATASET', account=account)
             attach_dids(scope=scope, name='ds1', dids=[{'scope': scope, 'name': 'file_%06d.data' % i} for i in range(1, 10 + 1)], account=account)
-            add_did(scope=scope, name='ds2', type='DATASET', account=account)
+            add_did(scope=scope, name='ds2', did_type='DATASET', account=account)
             attach_dids(scope=scope, name='ds2', dids=[{'scope': scope, 'name': 'file_%06d.data' % i} for i in range(11, 20 + 1)], account=account)
-            add_did(scope=scope, name='ds3', type='DATASET', account=account)
+            add_did(scope=scope, name='ds3', did_type='DATASET', account=account)
             attach_dids(scope=scope, name='ds3', dids=[{'scope': scope, 'name': 'file_%06d.data' % i} for i in (list(range(21, 25 + 1)) + [1, 2, 11, 12])], account=account)
-            add_did(scope=scope, name='container12', type='CONTAINER', account=account)
+            add_did(scope=scope, name='container12', did_type='CONTAINER', account=account)
             attach_dids(scope=scope, name='container12', dids=[{'scope': scope, 'name': 'ds1'}, {'scope': scope, 'name': 'ds2'}, ], account=account)
-            add_did(scope=scope, name='container13', type='CONTAINER', account=account)
+            add_did(scope=scope, name='container13', did_type='CONTAINER', account=account)
             attach_dids(scope=scope, name='container13', dids=[{'scope': scope, 'name': 'ds1'}, {'scope': scope, 'name': 'ds3'}, ], account=account)
-            add_did(scope=scope, name='container1213', type='CONTAINER', account=account)
+            add_did(scope=scope, name='container1213', did_type='CONTAINER', account=account)
             attach_dids(scope=scope, name='container1213', dids=[{'scope': scope, 'name': 'container12'}, {'scope': scope, 'name': 'container13'}, ], account=account)
 
         account = self.jdoe

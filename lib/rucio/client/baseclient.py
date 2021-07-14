@@ -352,13 +352,13 @@ class BaseClient(object):
             if response.text:
                 yield response.text
 
-    def _send_request(self, url, headers=None, type='GET', data=None, params=None, stream=False):
+    def _send_request(self, url, headers=None, type_='GET', data=None, params=None, stream=False):
         """
         Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
 
         :param url: the http url to use.
         :param headers: additional http headers to send.
-        :param type: the http request type to use.
+        :param type_: the http request type to use.
         :param data: post data.
         :param params: (optional) Dictionary or bytes to be sent in the url query string.
         :return: the HTTP return body.
@@ -373,13 +373,13 @@ class BaseClient(object):
         result = None
         for retry in range(self.AUTH_RETRIES + 1):
             try:
-                if type == 'GET':
+                if type_ == 'GET':
                     result = self.session.get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, stream=True)
-                elif type == 'PUT':
+                elif type_ == 'PUT':
                     result = self.session.put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
-                elif type == 'POST':
+                elif type_ == 'POST':
                     result = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout, stream=stream)
-                elif type == 'DEL':
+                elif type_ == 'DEL':
                     result = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:
                     return

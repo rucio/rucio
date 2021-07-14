@@ -149,7 +149,7 @@ class JSONDidMeta(DidMetaPlugin):
             raise exception.DataIdentifierNotFound("Key not found for data identifier '%(scope)s:%(name)s'" % locals())
 
     @stream_session
-    def list_dids(self, scope, filters, type='collection', ignore_case=False, limit=None,
+    def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
                   offset=None, long=False, recursive=False, session=None):
         # Currently for sqlite only add, get and delete is implemented.
         if not json_implemented(session=session):

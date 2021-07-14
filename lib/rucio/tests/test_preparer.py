@@ -140,14 +140,12 @@ def dataset(db_session, vo):
     name = generate_uuid()
     account = InternalAccount('root', vo=vo)
 
-    kwargs = {'scope': scope, 'name': name, 'type': DIDType.DATASET, 'account': account}
+    kwargs = {'scope': scope, 'name': name, 'did_type': DIDType.DATASET, 'account': account}
     add_did(**kwargs, session=db_session)
     db_session.commit()
 
     yield kwargs
 
-    kwargs['did_type'] = kwargs['type']
-    del kwargs['type']
     del kwargs['account']
     kwargs['purge_replicas'] = True
     delete_dids(dids=[kwargs], account=account)

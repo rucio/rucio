@@ -278,9 +278,9 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
                          account=account, **archive2)
 
     dataset1, dataset2 = [{'scope': scope, 'name': 'dataset_%s.%i' % (uuid, i)} for i in range(2)]
-    did_core.add_did(type='DATASET', account=account, **dataset1)
+    did_core.add_did(did_type='DATASET', account=account, **dataset1)
     did_core.attach_dids(dids=constituents, account=account, **dataset1)
-    did_core.add_did(type='DATASET', account=account, **dataset2)
+    did_core.add_did(did_type='DATASET', account=account, **dataset2)
     did_core.attach_dids(dids=[c_first_archive_only, c_with_expired_replica], account=account, **dataset2)
 
     @read_session

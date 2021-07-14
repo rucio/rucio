@@ -258,8 +258,8 @@ class TestReplicaCore:
         nbfiles = 5
         files1 = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
 
-        add_did(scope=mock_scope, name=tmp_dsn1, type=DIDType.DATASET, account=root_account)
-        add_did(scope=mock_scope, name=tmp_dsn2, type=DIDType.DATASET, account=root_account)
+        add_did(scope=mock_scope, name=tmp_dsn1, did_type=DIDType.DATASET, account=root_account)
+        add_did(scope=mock_scope, name=tmp_dsn2, did_type=DIDType.DATASET, account=root_account)
 
         attach_dids(scope=mock_scope, name=tmp_dsn1, rse_id=rse_id, dids=files1, account=root_account)
         attach_dids(scope=mock_scope, name=tmp_dsn2, dids=files1, account=root_account)
@@ -551,7 +551,7 @@ class TestReplicaCore:
         """ REPLICA (CORE): Add and list file replicas with updated_after filter """
         _, rse_id = rse_factory.make_mock_rse()
         dsn = 'ds_ua_test_%s' % generate_uuid()
-        add_did(scope=mock_scope, name=dsn, type='DATASET', account=root_account)
+        add_did(scope=mock_scope, name=dsn, did_type='DATASET', account=root_account)
         #
         t0 = datetime.utcnow()
         time.sleep(2)
@@ -586,7 +586,7 @@ class TestReplicaCore:
         _, rse3_id = rse_factory.make_mock_rse()
 
         dsn = 'ds_cov_test_%s' % generate_uuid()
-        add_did(scope=mock_scope, name=dsn, type='DATASET', account=root_account)
+        add_did(scope=mock_scope, name=dsn, did_type='DATASET', account=root_account)
 
         # test empty dataset
         cov = get_RSEcoverage_of_dataset(scope=mock_scope, name=dsn)

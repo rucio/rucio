@@ -997,7 +997,7 @@ class DownloadClient:
         if dids is None:
             self.logger(logging.DEBUG, 'Resolving DIDs by using filter options')
             scope = filters.pop('scope')
-            yield scope, list(self.client.list_dids(scope, filters=filters, type='all'))
+            yield scope, list(self.client.list_dids(scope, filters=filters, did_type='all'))
             return
 
         if not isinstance(dids, list):
@@ -1007,7 +1007,7 @@ class DownloadClient:
             scope, did_name = self._split_did_str(did_str)
             if '*' in did_name:
                 filters['name'] = did_name
-                resolved_dids = list(self.client.list_dids(scope, filters=filters, type='all'))
+                resolved_dids = list(self.client.list_dids(scope, filters=filters, did_type='all'))
                 yield scope, resolved_dids
             else:
                 yield scope, [did_name]

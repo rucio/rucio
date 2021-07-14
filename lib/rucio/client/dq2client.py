@@ -707,7 +707,7 @@ class DQ2Client:
                 dataset = dataset[:-1]
                 collection = 'container'
             filters = {'name': dataset}
-            for name in self.client.list_dids(scope, filters, type=collection):
+            for name in self.client.list_dids(scope, filters, did_type=collection):
                 vuid = hashlib.md5(scope + ':' + name).hexdigest()
                 vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
                 duid = vuid

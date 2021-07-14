@@ -1316,13 +1316,13 @@ def update_rule(rule_id, options, session=None):
                 # Cancel transfers and re-submit them:
                 for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
                     request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
-                    md5, bytes, adler32 = session.query(models.RSEFileAssociation.md5, models.RSEFileAssociation.bytes, models.RSEFileAssociation.adler32).filter(models.RSEFileAssociation.scope == lock.scope,
-                                                                                                                                                                  models.RSEFileAssociation.name == lock.name,
-                                                                                                                                                                  models.RSEFileAssociation.rse_id == lock.rse_id).one()
+                    md5, bytes_, adler32 = session.query(models.RSEFileAssociation.md5, models.RSEFileAssociation.bytes, models.RSEFileAssociation.adler32).filter(models.RSEFileAssociation.scope == lock.scope,
+                                                                                                                                                                   models.RSEFileAssociation.name == lock.name,
+                                                                                                                                                                   models.RSEFileAssociation.rse_id == lock.rse_id).one()
                     session.flush()
                     request_core.queue_requests(requests=[create_transfer_dict(dest_rse_id=lock.rse_id,
                                                                                request_type=RequestType.TRANSFER,
-                                                                               scope=lock.scope, name=lock.name, rule=rule, lock=lock, bytes=bytes, md5=md5, adler32=adler32,
+                                                                               scope=lock.scope, name=lock.name, rule=rule, lock=lock, bytes=bytes_, md5=md5, adler32=adler32,
                                                                                ds_scope=rule.scope, ds_name=rule.name, lifetime=None, activity=rule.activity, session=session)], session=session)
 
             elif key == 'account':
@@ -1566,8 +1566,8 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
                       "index(CONTENTS CONTENTS_PK)", 'oracle').\
             filter(models.DataIdentifierAssociation.scope == scope,
                    models.DataIdentifierAssociation.name == name)
-        for bytes, length in stmt:
-            did.bytes = bytes
+        for bytes_, length in stmt:
+            did.bytes = bytes_
             did.length = length
 
     # Add an updated_col_rep
@@ -1768,14 +1768,14 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blocked_r
 
 
 @transactional_session
-def delete_updated_did(id, session=None):
+def delete_updated_did(id_, session=None):
     """
     Delete an updated_did by id.
 
-    :param id:                      Id of the row not to delete.
+    :param id_:                      Id of the row not to delete.
     :param session:                 The database session in use.
     """
-    session.query(models.UpdatedDID).filter(models.UpdatedDID.id == id).delete()
+    session.query(models.UpdatedDID).filter(models.UpdatedDID.id == id_).delete()
 
 
 @transactional_session
@@ -1905,12 +1905,12 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
         try:
             request_core.get_request_by_did(scope, name, rse_id, session=session)
         except RequestNotFound:
-            bytes = replica.bytes
+            bytes_ = replica.bytes
             md5 = replica.md5
             adler32 = replica.adler32
             request_core.queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
                                                                        request_type=RequestType.TRANSFER,
-                                                                       scope=scope, name=name, rule=rule, lock=lock, bytes=bytes, md5=md5, adler32=adler32,
+                                                                       scope=scope, name=name, rule=rule, lock=lock, bytes=bytes_, md5=md5, adler32=adler32,
                                                                        ds_scope=ds_scope, ds_name=ds_name, lifetime=None, activity='Recovery', session=session)], session=session)
         lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
@@ -2150,7 +2150,7 @@ def approve_rule(rule_id, approver=None, notify_approvers=True, session=None):
                 text = template.safe_substitute({'rule_id': str(rule.id),
                                                  'approver': approver})
                 vo = rule.account.vo
-                recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter={'vo': vo}, session=session)
+                recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
                 for recipent in recipents:
                     add_message(event_type='email',
                                 payload={'body': text,
@@ -2209,7 +2209,7 @@ def deny_rule(rule_id, approver=None, reason=None, session=None):
                                                    'approver': approver,
                                                    'reason': reason})
             vo = rule.account.vo
-            recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter={'vo': vo}, session=session)
+            recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
             for recipent in recipents:
                 add_message(event_type='email',
                             payload={'body': email_body,
@@ -3082,7 +3082,7 @@ def __create_rule_approval_email(rule, session=None):
             pass
 
     # Resolve recipents:
-    recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter={'vo': vo}, session=session)
+    recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
 
     for recipent in recipents:
         text = template.safe_substitute({'rule_id': str(rule.id),
@@ -3113,7 +3113,7 @@ def __create_rule_approval_email(rule, session=None):
 
 
 @transactional_session
-def __create_recipents_list(rse_expression, filter=None, session=None):
+def __create_recipents_list(rse_expression, filter_=None, session=None):
     """
     Create a list of recipents for a notification email based on rse_expression.
 
@@ -3125,7 +3125,7 @@ def __create_recipents_list(rse_expression, filter=None, session=None):
 
     # APPROVERS-LIST
     # If there are accounts in the approvers-list of any of the RSEs only these should be used
-    for rse in parse_expression(rse_expression, filter=filter, session=session):
+    for rse in parse_expression(rse_expression, filter=filter_, session=session):
         rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
         if rse_attr.get('rule_approvers'):
             for account in rse_attr.get('rule_approvers').split(','):
@@ -3139,7 +3139,7 @@ def __create_recipents_list(rse_expression, filter=None, session=None):
 
     # LOCALGROUPDISK/LOCALGROUPTAPE
     if not recipents:
-        for rse in parse_expression(rse_expression, filter=filter, session=session):
+        for rse in parse_expression(rse_expression, filter=filter_, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
@@ -3154,7 +3154,7 @@ def __create_recipents_list(rse_expression, filter=None, session=None):
 
     # GROUPDISK
     if not recipents:
-        for rse in parse_expression(rse_expression, filter=filter, session=session):
+        for rse in parse_expression(rse_expression, filter=filter_, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') == 'GROUPDISK':
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='group-%s' % rse_attr.get('physgroup', ''),
@@ -3229,7 +3229,7 @@ def archive_localgroupdisk_datasets(scope, name, session=None, logger=logging.lo
             new_meta = {k: v for k, v in meta.items() if k in ['project', 'datatype', 'run_number', 'stream_name', 'prod_step', 'version', 'campaign', 'task_id', 'panda_id'] and v is not None}
             rucio.core.did.add_did(scope=archive,
                                    name=name,
-                                   type=DIDType.DATASET,
+                                   did_type=DIDType.DATASET,
                                    account=did['account'],
                                    statuses={},
                                    meta=new_meta,

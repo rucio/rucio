@@ -105,7 +105,7 @@ def re_evaluator(once=False):
                     if did_tag in done_dids:
                         if did.rule_evaluation_action in done_dids[did_tag]:
                             logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s already done' % (heartbeat['assign_thread'], heartbeat['nr_threads'], did.scope, did.name))
-                            delete_updated_did(id=did.id)
+                            delete_updated_did(id_=did.id)
                             continue
                     else:
                         done_dids[did_tag] = []
@@ -118,10 +118,10 @@ def re_evaluator(once=False):
                         start_time = time.time()
                         re_evaluate_did(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action)
                         logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'], did.scope, did.name, time.time() - start_time))
-                        delete_updated_did(id=did.id)
+                        delete_updated_did(id_=did.id)
                         done_dids[did_tag].append(did.rule_evaluation_action)
                     except DataIdentifierNotFound:
-                        delete_updated_did(id=did.id)
+                        delete_updated_did(id_=did.id)
                     except (DatabaseException, DatabaseError) as e:
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_dids[(did.scope.internal, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))

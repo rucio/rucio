@@ -95,7 +95,7 @@ def add_files(lfns, account, ignore_availability, session=None):
             print('Will create %s' % dsn_name)
             add_did(scope=dsn_scope,
                     name=dsn_name,
-                    type=DIDType.DATASET,
+                    did_type=DIDType.DATASET,
                     account=InternalAccount(account),
                     statuses=None,
                     meta=None,
@@ -152,7 +152,7 @@ def add_files(lfns, account, ignore_availability, session=None):
                 print('Will create %s' % lpn)
                 add_did(scope=child_scope,
                         name=lpn,
-                        type=DIDType.CONTAINER,
+                        did_type=DIDType.CONTAINER,
                         account=InternalAccount(account),
                         statuses=None,
                         meta=None,

@@ -223,14 +223,14 @@ class DidColumnMeta(DidMetaPlugin):
                         raise exception.InvalidMetadata("Some of the keys are not accepted recursively: " + str(list(remainder.keys())))
 
     @stream_session
-    def list_dids(self, scope, filters, type='collection', ignore_case=False, limit=None,
+    def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
                   offset=None, long=False, recursive=False, session=None):
         """
         Search data identifiers
 
         :param scope: the scope name.
         :param filters: dictionary of attributes by which the results should be filtered.
-        :param type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
+        :param did_type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
         :param ignore_case: ignore case distinctions.
         :param limit: limit number.
         :param offset: offset number.
@@ -239,7 +239,7 @@ class DidColumnMeta(DidMetaPlugin):
         :param recursive: Recursively list DIDs content.
         """
         types = ['all', 'collection', 'container', 'dataset', 'file']
-        if type not in types:
+        if did_type not in types:
             raise exception.UnsupportedOperation("Valid type are: %(types)s" % locals())
 
         query = session.query(models.DataIdentifier.scope,
@@ -252,18 +252,18 @@ class DidColumnMeta(DidMetaPlugin):
         # Exclude suppressed dids
         query = query.filter(models.DataIdentifier.suppressed != true())
 
-        if type == 'all':
+        if did_type == 'all':
             query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
                                      models.DataIdentifier.did_type == DIDType.DATASET,
                                      models.DataIdentifier.did_type == DIDType.FILE))
-        elif type.lower() == 'collection':
+        elif did_type.lower() == 'collection':
             query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
                                      models.DataIdentifier.did_type == DIDType.DATASET))
-        elif type.lower() == 'container':
+        elif did_type.lower() == 'container':
             query = query.filter(models.DataIdentifier.did_type == DIDType.CONTAINER)
-        elif type.lower() == 'dataset':
+        elif did_type.lower() == 'dataset':
             query = query.filter(models.DataIdentifier.did_type == DIDType.DATASET)
-        elif type.lower() == 'file':
+        elif did_type.lower() == 'file':
             query = query.filter(models.DataIdentifier.did_type == DIDType.FILE)
 
         for (k, v) in filters.items():
@@ -322,25 +322,25 @@ class DidColumnMeta(DidMetaPlugin):
 
             from rucio.core.did import list_content
 
-            for scope, name, did_type, bytes, length in query.yield_per(100):
+            for scope, name, did_type, bytes_, length in query.yield_per(100):
                 if (did_type == DIDType.CONTAINER or did_type == DIDType.DATASET):
                     collections_content += [did for did in list_content(scope=scope, name=name)]
 
             # List DIDs again to use filter
             for did in collections_content:
                 filters['name'] = did['name']
-                for result in self.list_dids(scope=did['scope'], filters=filters, recursive=True, type=type, limit=limit, offset=offset, long=long, session=session):
+                for result in self.list_dids(scope=did['scope'], filters=filters, recursive=True, did_type=did_type, limit=limit, offset=offset, long=long, session=session):
                     yield result
 
         if long:
-            for scope, name, did_type, bytes, length in query.yield_per(5):
+            for scope, name, type_, bytes_, length in query.yield_per(5):
                 yield {'scope': scope,
                        'name': name,
-                       'did_type': str(did_type),
-                       'bytes': bytes,
+                       'did_type': str(type_),
+                       'bytes': bytes_,
                        'length': length}
         else:
-            for scope, name, did_type, bytes, length in query.yield_per(5):
+            for scope, name, type_, bytes_, length in query.yield_per(5):
                 yield name
 
     def delete_metadata(self, scope, name, key, session=None):
