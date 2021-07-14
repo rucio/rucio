@@ -1322,7 +1322,7 @@ def update_rule(rule_id, options, session=None):
                     session.flush()
                     request_core.queue_requests(requests=[create_transfer_dict(dest_rse_id=lock.rse_id,
                                                                                request_type=RequestType.TRANSFER,
-                                                                               scope=lock.scope, name=lock.name, rule=rule, lock=lock, bytes=bytes_, md5=md5, adler32=adler32,
+                                                                               scope=lock.scope, name=lock.name, rule=rule, lock=lock, bytes_=bytes_, md5=md5, adler32=adler32,
                                                                                ds_scope=rule.scope, ds_name=rule.name, lifetime=None, activity=rule.activity, session=session)], session=session)
 
             elif key == 'account':
