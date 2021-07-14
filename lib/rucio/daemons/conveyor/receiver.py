@@ -64,7 +64,7 @@ class Receiver(object):
     def __init__(self, broker, id, total_threads, full_mode=False, all_vos=False):
         self.__all_vos = all_vos
         self.__broker = broker
-        self.__id = id
+        self.__id = id_
         self.__total_threads = total_threads
         self.__full_mode = full_mode
 

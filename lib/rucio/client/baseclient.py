@@ -365,7 +365,7 @@ class BaseClient(object):
 
         :param url: the http url to use.
         :param headers: additional http headers to send.
-        :param type: the http request type to use.
+        :param type_: the http request type to use.
         :param data: post data.
         :param params: (optional) Dictionary or bytes to be sent in the url query string.
         :param get_token: (optional) if it is called from a _get_token function.

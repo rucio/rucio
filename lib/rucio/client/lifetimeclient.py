@@ -77,7 +77,7 @@ class LifetimeClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
         data = {'dids': dids, 'account': account, 'pattern': pattern, 'comments': comments, 'expires_at': expires_at}
         print(render_json(**data))
-        result = self._send_request(url, type='POST', data=render_json(**data))
+        result = self._send_request(url, type_='POST', data=render_json(**data))
         print(result.text)
         if result.status_code == codes.created:
             return loads(result.text)

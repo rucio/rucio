@@ -45,7 +45,7 @@ class PingClient(BaseClient):
         headers = None
         path = 'ping'
         url = build_url(self.host, path=path)
-        r = self._send_request(url, headers=headers, type='GET')
+        r = self._send_request(url, headers=headers, type_='GET')
 
         if r.status_code == codes.ok:
             server_info = loads(r.text)

@@ -175,7 +175,7 @@ class TestSubscriptionCoreApi(unittest.TestCase):
         # add a new dataset
         dsn = 'dataset-%s' % uuid()
         add_did(scope=tmp_scope, name=dsn,
-                type=DIDType.DATASET, account=root)
+                did_type=DIDType.DATASET, account=root)
 
         subscription_name = uuid()
         subid = add_subscription(name=subscription_name,
@@ -284,7 +284,7 @@ def test_list_rules_states(vo, rest_client, auth_token):
     # add a new dataset
     dsn = 'dataset-%s' % uuid()
     add_did(scope=tmp_scope, name=dsn,
-            type=DIDType.DATASET, account=root)
+            did_type=DIDType.DATASET, account=root)
 
     subscription_name = uuid()
     subid = add_subscription(name=subscription_name,
@@ -397,7 +397,7 @@ class TestSubscriptionClient(unittest.TestCase):
         add_scope(tmp_scope, root)
         subscription_name = uuid()
         dsn = 'dataset-%s' % uuid()
-        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root)
 
         subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'scope': [tmp_scope.external, ], 'pattern': 'dataset-.*', 'split_rule': True},
                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK-POSIX|MOCK2|MOCK3', 'copies': 2, 'activity': 'Data Brokering'}],
@@ -418,7 +418,7 @@ class TestSubscriptionClient(unittest.TestCase):
         add_scope(tmp_scope, root)
         subscription_name = uuid()
         dsn = 'dataset-%s' % uuid()
-        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root)
 
         subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'scope': [tmp_scope.external, ], 'pattern': 'dataset-.*', 'split_rule': True, 'did_type': ['DATASET', ]},
                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK-POSIX|MOCK2|MOCK3', 'copies': 2, 'activity': 'Data Brokering'}],

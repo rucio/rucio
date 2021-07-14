@@ -1334,7 +1334,7 @@ class TestBinRucio(unittest.TestCase):
         # Setup data for CLI check
         tmp_dsn_name = 'Container' + rse_name_generator()
         tmp_dsn_did = self.user + ':' + tmp_dsn_name
-        self.did_client.add_did(scope=self.user, name=tmp_dsn_name, type='CONTAINER')
+        self.did_client.add_did(scope=self.user, name=tmp_dsn_name, did_type='CONTAINER')
 
         files = [{'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'} for i in range(0, 1500)]
         self.did_client.add_dids(files[:1000])
@@ -1393,7 +1393,7 @@ class TestBinRucio(unittest.TestCase):
         # Setup data for CLI check
         container_name = 'container' + generate_uuid()
         container = self.user + ':' + container_name
-        self.did_client.add_did(scope=self.user, name=container_name, type='CONTAINER')
+        self.did_client.add_did(scope=self.user, name=container_name, did_type='CONTAINER')
 
         datasets = [{'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'} for i in range(0, 1500)]
         self.did_client.add_dids(datasets[:1000])
@@ -1415,7 +1415,7 @@ class TestBinRucio(unittest.TestCase):
         # Attaching twice plus one DID that is not already attached
         new_dataset = {'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'}
         datasets.append(new_dataset)
-        self.did_client.add_did(scope=self.user, name=new_dataset['name'], type='DATASET')
+        self.did_client.add_did(scope=self.user, name=new_dataset['name'], did_type='DATASET')
         cmd = 'rucio attach {0}'.format(container)
         for dataset in datasets:
             cmd += ' {0}:{1}'.format(dataset['scope'], dataset['name'])

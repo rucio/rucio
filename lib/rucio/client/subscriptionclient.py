@@ -73,7 +73,7 @@ class SubscriptionClient(BaseClient):
             raise TypeError('replication_rules should be a list')
         data = dumps({'options': {'filter': filter, 'replication_rules': replication_rules, 'comments': comments,
                                   'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority}})
-        result = self._send_request(url, type='POST', data=data)
+        result = self._send_request(url, type_='POST', data=data)
         if result.status_code == codes.created:   # pylint: disable=no-member
             return result.text
         else:
@@ -103,7 +103,7 @@ class SubscriptionClient(BaseClient):
         else:
             path += '/'
         url = build_url(choice(self.list_hosts), path=path)
-        result = self._send_request(url, type='GET')
+        result = self._send_request(url, type_='GET')
         if result.status_code == codes.ok:   # pylint: disable=no-member
             return self._load_json_data(result)
         else:
@@ -147,7 +147,7 @@ class SubscriptionClient(BaseClient):
             raise TypeError('replication_rules should be a list')
         data = dumps({'options': {'filter': filter, 'replication_rules': replication_rules, 'comments': comments,
                                   'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority}})
-        result = self._send_request(url, type='PUT', data=data)
+        result = self._send_request(url, type_='PUT', data=data)
         if result.status_code == codes.created:   # pylint: disable=no-member
             return True
         else:
@@ -164,7 +164,7 @@ class SubscriptionClient(BaseClient):
 
         path = '/'.join([self.SUB_BASEURL, account, name, 'Rules'])
         url = build_url(choice(self.list_hosts), path=path)
-        result = self._send_request(url, type='GET')
+        result = self._send_request(url, type_='GET')
         if result.status_code == codes.ok:   # pylint: disable=no-member
             return self._load_json_data(result)
         else:

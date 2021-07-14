@@ -96,7 +96,7 @@ class AccountLimitClient(BaseClient):
         path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'local', account, rse])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type='POST', data=data)
+        r = self._send_request(url, type_='POST', data=data)
 
         if r.status_code == codes.created:
             return True
@@ -118,7 +118,7 @@ class AccountLimitClient(BaseClient):
         path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'local', account, rse])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type='DEL')
+        r = self._send_request(url, type_='DEL')
 
         if r.status_code == codes.ok:
             return True
@@ -140,7 +140,7 @@ class AccountLimitClient(BaseClient):
         path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'global', account, quote_plus(rse_expression)])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type='POST', data=data)
+        r = self._send_request(url, type_='POST', data=data)
 
         if r.status_code == codes.created:
             return True
@@ -162,7 +162,7 @@ class AccountLimitClient(BaseClient):
         path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'global', account, quote_plus(rse_expression)])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type='DEL')
+        r = self._send_request(url, type_='DEL')
 
         if r.status_code == codes.ok:
             return True
