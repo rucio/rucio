@@ -57,7 +57,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
                             get_metadata, set_metadata, get_did, get_did_access_cnt, add_did_to_followed,
-                            get_users_following_did, remove_did_from_followed)
+                            get_users_following_did, remove_did_from_followed, set_status)
 from rucio.core.replica import add_replica
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType
@@ -404,33 +404,6 @@ class TestDIDClients(unittest.TestCase):
         assert tmp_dataset_1 not in dids
         assert tmp_dataset_2 not in dids
         assert len(dids) == 2
-
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined scope, fails when run in parallel')
-    def test_list_by_length(self):
-        """ DATA IDENTIFIERS (CLIENT): List did with length """
-        tmp_scope = 'mock'
-
-        tmp_dsn = 'dsn_%s' % generate_uuid()
-        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn)
-
-        dids = self.did_client.list_dids(tmp_scope, {'length.gt': 0})
-        results = []
-        for d in dids:
-            results.append(d)
-        assert len(results) != 0
-
-        dids = self.did_client.list_dids(tmp_scope, {'length.gt': -1, 'length.lt': 1})
-        results = []
-        for d in dids:
-            results.append(d)
-        assert len(results) == 0
-
-        dids = self.did_client.list_dids(tmp_scope, {'length': 0})
-        results = []
-        for d in dids:
-            results.append(d)
-        assert len(results) == 0
 
     @pytest.mark.dirty
     def test_list_by_metadata(self):
@@ -1179,3 +1152,33 @@ def test_bulk_get_meta_inheritance(vo, rse_factory, mock_scope, did_factory, ruc
         met = meta_mapping[did]
         for key in met:
             assert met[key] == meta[key]
+
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined scope')
+def test_list_by_length(vo, root_account, rse_factory, mock_scope, did_factory, did_client):
+    """ DATA IDENTIFIERS (CLIENT): List did with length """
+
+    tmp_scope = scope_name_generator()
+    scope.add_scope(tmp_scope, 'root', 'root', vo)
+    rse, rse_id = rse_factory.make_posix_rse()
+    dataset = did_factory.upload_test_dataset(rse, tmp_scope)
+    set_status(InternalScope(tmp_scope, vo), dataset[0]['dataset_name'], open=False)
+
+    dids = did_client.list_dids(tmp_scope, {'length.gt': 0})
+    results = []
+    for d in dids:
+        results.append(d)
+    print(results)
+    assert len(results) != 0
+
+    dids = did_client.list_dids(tmp_scope, {'length.gt': -1, 'length.lt': 1})
+    results = []
+    for d in dids:
+        results.append(d)
+    assert len(results) == 0
+
+    dids = did_client.list_dids(tmp_scope, {'length': 0})
+    results = []
+    for d in dids:
+        results.append(d)
+    assert len(results) == 0
