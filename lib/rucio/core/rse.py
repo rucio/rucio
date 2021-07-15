@@ -39,6 +39,7 @@
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
+from datetime import datetime
 import json
 from io import StringIO
 from re import match
@@ -51,7 +52,7 @@ from six import string_types
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
-from sqlalchemy.sql.expression import or_, false
+from sqlalchemy.sql.expression import or_, false, func, case
 
 import rucio.core.account_counter
 from rucio.common import exception, utils
@@ -60,7 +61,7 @@ from rucio.common.config import get_lfn2pfn_algorithm_default
 from rucio.common.utils import CHECKSUM_KEY, is_checksum_valid, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RSEType
+from rucio.db.sqla.constants import (RSEType, ReplicaState)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 if TYPE_CHECKING:
@@ -1398,3 +1399,27 @@ def list_qos_policies(rse_id, session=None):
         raise exception.RucioException(error.args)
 
     return qos_policies
+
+
+@transactional_session
+def fill_rse_expired(rse_id, session=None):
+    """
+    Fill the rse_usage for source expired
+
+    :param rse_id: The RSE id.
+
+    :returns: True if successful, except otherwise.
+    """
+    none_value = None  # Hack to get pep8 happy...
+    query = session.query(func.sum(models.RSEFileAssociation.bytes).label("bytes"), func.count().label("length")).\
+        with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
+        filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
+        filter(models.RSEFileAssociation.lock_cnt == 0).\
+        filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
+        filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD))))
+    result = query.all()
+    sum_bytes, sum_files = result[0]
+    models.RSEUsage(rse_id=rse_id,
+                    used=sum_bytes,
+                    files=sum_files,
+                    source='expired').save(session=session)

@@ -138,6 +138,13 @@ def root_account(vo):
     return InternalAccount('root', vo=vo)
 
 
+@pytest.fixture(scope='module')
+def jdoe_account(vo):
+    from rucio.common.types import InternalAccount
+
+    return InternalAccount('jdoe', vo=vo)
+
+
 @pytest.fixture(scope="module")
 def containerized_rses(rucio_client):
     """
