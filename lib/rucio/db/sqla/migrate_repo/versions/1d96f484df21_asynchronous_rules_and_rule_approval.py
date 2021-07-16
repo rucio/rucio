@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,10 +14,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2015-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2021
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 ''' asynchronous rules and rule approval '''
 
@@ -39,19 +41,19 @@ def upgrade():
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
-        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False))
+        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False))
         try_drop_constraint('RULES_STATE_CHK', 'rules')
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False), schema=schema[:-1])
+        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False), schema=schema[:-1])
         op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_STATE_CHK", ALTER COLUMN state TYPE CHAR')
         op.execute("DROP TYPE \"RULES_STATE_CHK\"")
         op.execute("CREATE TYPE \"RULES_STATE_CHK\" AS ENUM('S', 'R', 'U', 'O', 'W', 'I')")
         op.execute("ALTER TABLE %srules ALTER COLUMN state TYPE \"RULES_STATE_CHK\" USING state::\"RULES_STATE_CHK\"" % schema)
 
     elif context.get_context().dialect.name == 'mysql':
-        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False), schema=schema[:-1])
+        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False), schema=schema[:-1])
         op.execute('ALTER TABLE ' + schema + 'rules DROP CHECK RULES_STATE_CHK')  # pylint: disable=no-member
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 

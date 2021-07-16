@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 ''' create collection replica table '''
 
@@ -45,11 +46,18 @@ def upgrade():
         create_table('collection_replicas',
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', sa.Enum(DIDType, name='COLLECTION_REPLICAS_TYPE_CHK', values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('did_type', sa.Enum(DIDType,
+                                                   name='COLLECTION_REPLICAS_TYPE_CHK',
+                                                   create_constraint=True,
+                                                   values_callable=lambda obj: [e.value for e in obj])),
                      sa.Column('rse_id', GUID()),
                      sa.Column('bytes', sa.BigInteger),
                      sa.Column('length', sa.BigInteger),
-                     sa.Column('state', sa.Enum(ReplicaState, name='COLLECTION_REPLICAS_STATE_CHK', values_callable=lambda obj: [e.value for e in obj]), default=ReplicaState.UNAVAILABLE),
+                     sa.Column('state', sa.Enum(ReplicaState,
+                                                name='COLLECTION_REPLICAS_STATE_CHK',
+                                                create_constraint=True,
+                                                values_callable=lambda obj: [e.value for e in obj]),
+                               default=ReplicaState.UNAVAILABLE),
                      sa.Column('accessed_at', sa.DateTime),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))

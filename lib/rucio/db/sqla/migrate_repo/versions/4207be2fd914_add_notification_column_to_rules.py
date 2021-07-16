@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 ''' add notification column to rules '''
 
@@ -40,7 +41,9 @@ def upgrade():
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'mysql']:
-        add_column('rules', sa.Column('notification', sa.Enum(RuleNotification, name='RULES_NOTIFICATION_CHK',
+        add_column('rules', sa.Column('notification', sa.Enum(RuleNotification,
+                                                              name='RULES_NOTIFICATION_CHK',
+                                                              create_constraint=True,
                                                               values_callable=lambda obj: [e.value for e in obj]),
                                       default=RuleNotification.NO), schema=schema[:-1])
     elif context.get_context().dialect.name == 'postgresql':

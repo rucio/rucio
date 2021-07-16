@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
 # - Wen Guan <wen.guan@cern.ch>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2020
 # - asket <asket.agarwal96@gmail.com>, 2018
@@ -29,6 +29,7 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
+# - joaquinbogado <joaquinbogado@gmail.com>, 2021
 
 import datetime
 import sys
@@ -313,8 +314,10 @@ class Account(BASE, ModelBase):
     __tablename__ = 'accounts'
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
     account_type = Column(Enum(AccountType, name='ACCOUNTS_TYPE_CHK',
+                               create_constraint=True,
                                values_callable=lambda obj: [e.value for e in obj]))
     status = Column(Enum(AccountStatus, name='ACCOUNTS_STATUS_CHK',
+                         create_constraint=True,
                          values_callable=lambda obj: [e.value for e in obj]),
                     default=AccountStatus.ACTIVE, )
     email = Column(String(255))
@@ -341,6 +344,7 @@ class Identity(BASE, SoftModelBase):
     __tablename__ = 'identities'
     identity = Column(String(2048))
     identity_type = Column(Enum(IdentityType, name='IDENTITIES_TYPE_CHK',
+                                create_constraint=True,
                                 values_callable=lambda obj: [e.value for e in obj]))
     username = Column(String(255))
     password = Column(String(255))
@@ -356,9 +360,11 @@ class IdentityAccountAssociation(BASE, ModelBase):
     __tablename__ = 'account_map'
     identity = Column(String(2048))
     identity_type = Column(Enum(IdentityType, name='ACCOUNT_MAP_ID_TYPE_CHK',
+                                create_constraint=True,
                                 values_callable=lambda obj: [e.value for e in obj]))
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
-    is_default = Column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK'), default=False)
+    is_default = Column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK', create_constraint=True),
+                        default=False)
     _table_args = (PrimaryKeyConstraint('identity', 'identity_type', 'account', name='ACCOUNT_MAP_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_MAP_ACCOUNT_FK'),
                    ForeignKeyConstraint(['identity', 'identity_type'], ['identities.identity', 'identities.identity_type'], name='ACCOUNT_MAP_ID_TYPE_FK'),
@@ -371,8 +377,10 @@ class Scope(BASE, ModelBase):
     __tablename__ = 'scopes'
     scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
-    is_default = Column(Boolean(name='SCOPES_DEFAULT_CHK'), default=False)
+    is_default = Column(Boolean(name='SCOPES_DEFAULT_CHK', create_constraint=True),
+                        default=False)
     status = Column(Enum(ScopeStatus, name='SCOPE_STATUS_CHK',
+                         create_constraint=True,
                          values_callable=lambda obj: [e.value for e in obj]),
                     default=ScopeStatus.OPEN)
     closed_at = Column(DateTime)
@@ -391,23 +399,32 @@ class DataIdentifier(BASE, ModelBase):
     name = Column(String(get_schema_value('NAME_LENGTH')))
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
     did_type = Column(Enum(DIDType, name='DIDS_TYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
-    is_open = Column(Boolean(name='DIDS_IS_OPEN_CHK'))
-    monotonic = Column(Boolean(name='DIDS_MONOTONIC_CHK'), server_default='0')
-    hidden = Column(Boolean(name='DIDS_HIDDEN_CHK'), server_default='0')
-    obsolete = Column(Boolean(name='DIDS_OBSOLETE_CHK'), server_default='0')
-    complete = Column(Boolean(name='DIDS_COMPLETE_CHK'), server_default=None)
-    is_new = Column(Boolean(name='DIDS_IS_NEW_CHK'), server_default='1')
+    is_open = Column(Boolean(name='DIDS_IS_OPEN_CHK', create_constraint=True))
+    monotonic = Column(Boolean(name='DIDS_MONOTONIC_CHK', create_constraint=True),
+                       server_default='0')
+    hidden = Column(Boolean(name='DIDS_HIDDEN_CHK', create_constraint=True),
+                    server_default='0')
+    obsolete = Column(Boolean(name='DIDS_OBSOLETE_CHK', create_constraint=True),
+                      server_default='0')
+    complete = Column(Boolean(name='DIDS_COMPLETE_CHK', create_constraint=True),
+                      server_default=None)
+    is_new = Column(Boolean(name='DIDS_IS_NEW_CHK', create_constraint=True),
+                    server_default='1')
     availability = Column(Enum(DIDAvailability, name='DIDS_AVAILABILITY_CHK',
+                               create_constraint=True,
                                values_callable=lambda obj: [e.value for e in obj]),
                           default=DIDAvailability.AVAILABLE)
-    suppressed = Column(Boolean(name='FILES_SUPP_CHK'), server_default='0')
+    suppressed = Column(Boolean(name='FILES_SUPP_CHK', create_constraint=True),
+                        server_default='0')
     bytes = Column(BigInteger)
     length = Column(BigInteger)
     md5 = Column(String(32))
     adler32 = Column(String(8))
     expired_at = Column(DateTime)
-    purge_replicas = Column(Boolean(name='DIDS_PURGE_RPLCS_CHK'), server_default='1')
+    purge_replicas = Column(Boolean(name='DIDS_PURGE_RPLCS_CHK', create_constraint=True),
+                            server_default='1')
     deleted_at = Column(DateTime)
     # hardcoded meta-data to populate the db
     events = Column(BigInteger)
@@ -424,12 +441,13 @@ class DataIdentifier(BASE, ModelBase):
     lumiblocknr = Column(Integer())
     provenance = Column(String(2))
     phys_group = Column(String(25))
-    transient = Column(Boolean(name='DID_TRANSIENT_CHK'), server_default='0')
+    transient = Column(Boolean(name='DID_TRANSIENT_CHK', create_constraint=True),
+                       server_default='0')
     accessed_at = Column(DateTime)
     closed_at = Column(DateTime)
     eol_at = Column(DateTime)
-    is_archive = Column(Boolean(name='DIDS_ARCHIVE_CHK'))
-    constituent = Column(Boolean(name='DIDS_CONSTITUENT_CHK'))
+    is_archive = Column(Boolean(name='DIDS_ARCHIVE_CHK', create_constraint=True))
+    constituent = Column(Boolean(name='DIDS_CONSTITUENT_CHK', create_constraint=True))
     access_cnt = Column(Integer())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
@@ -449,6 +467,7 @@ class DidMeta(BASE, ModelBase):
     name = Column(String(get_schema_value('NAME_LENGTH')))
     meta = Column(JSON())
     did_type = Column(Enum(DIDType, name='DID_META_DID_TYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DID_META_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_META_FK'),
@@ -462,17 +481,24 @@ class DeletedDataIdentifier(BASE, ModelBase):
     name = Column(String(get_schema_value('NAME_LENGTH')))
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
     did_type = Column(Enum(DIDType, name='DEL_DIDS_TYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
-    is_open = Column(Boolean(name='DEL_DIDS_IS_OPEN_CHK'))
-    monotonic = Column(Boolean(name='DEL_DIDS_MONO_CHK'), server_default='0')
-    hidden = Column(Boolean(name='DEL_DIDS_HIDDEN_CHK'), server_default='0')
-    obsolete = Column(Boolean(name='DEL_DIDS_OBSOLETE_CHK'), server_default='0')
-    complete = Column(Boolean(name='DEL_DIDS_COMPLETE_CHK'))
-    is_new = Column(Boolean(name='DEL_DIDS_IS_NEW_CHK'), server_default='1')
+    is_open = Column(Boolean(name='DEL_DIDS_IS_OPEN_CHK', create_constraint=True))
+    monotonic = Column(Boolean(name='DEL_DIDS_MONO_CHK', create_constraint=True),
+                       server_default='0')
+    hidden = Column(Boolean(name='DEL_DIDS_HIDDEN_CHK', create_constraint=True),
+                    server_default='0')
+    obsolete = Column(Boolean(name='DEL_DIDS_OBSOLETE_CHK', create_constraint=True),
+                      server_default='0')
+    complete = Column(Boolean(name='DEL_DIDS_COMPLETE_CHK', create_constraint=True))
+    is_new = Column(Boolean(name='DEL_DIDS_IS_NEW_CHK', create_constraint=True),
+                    server_default='1')
     availability = Column(Enum(DIDAvailability, name='DEL_DIDS_AVAIL_CHK',
+                               create_constraint=True,
                                values_callable=lambda obj: [e.value for e in obj]),
                           default=DIDAvailability.AVAILABLE)
-    suppressed = Column(Boolean(name='DEL_FILES_SUPP_CHK'), server_default='0')
+    suppressed = Column(Boolean(name='DEL_FILES_SUPP_CHK', create_constraint=True),
+                        server_default='0')
     bytes = Column(BigInteger)
     length = Column(BigInteger)
     md5 = Column(String(32))
@@ -493,13 +519,14 @@ class DeletedDataIdentifier(BASE, ModelBase):
     lumiblocknr = Column(Integer())
     provenance = Column(String(2))
     phys_group = Column(String(25))
-    transient = Column(Boolean(name='DEL_DID_TRANSIENT_CHK'), server_default='0')
-    purge_replicas = Column(Boolean(name='DELETED_DIDS_PURGE_RPLCS_CHK'))
+    transient = Column(Boolean(name='DEL_DID_TRANSIENT_CHK', create_constraint=True),
+                       server_default='0')
+    purge_replicas = Column(Boolean(name='DELETED_DIDS_PURGE_RPLCS_CHK', create_constraint=True))
     accessed_at = Column(DateTime)
     closed_at = Column(DateTime)
     eol_at = Column(DateTime)
-    is_archive = Column(Boolean(name='DEL_DIDS_ARCH_CHK'))
-    constituent = Column(Boolean(name='DEL_DIDS_CONST_CHK'))
+    is_archive = Column(Boolean(name='DEL_DIDS_ARCH_CHK', create_constraint=True))
+    constituent = Column(Boolean(name='DEL_DIDS_CONST_CHK', create_constraint=True))
     access_cnt = Column(Integer())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DELETED_DIDS_PK'), )
 
@@ -511,6 +538,7 @@ class UpdatedDID(BASE, ModelBase):
     scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name = Column(String(get_schema_value('NAME_LENGTH')))
     rule_evaluation_action = Column(Enum(DIDReEvaluation, name='UPDATED_DIDS_RULE_EVAL_ACT_CHK',
+                                         create_constraint=True,
                                          values_callable=lambda obj: [e.value for e in obj]))
     _table_args = (PrimaryKeyConstraint('id', name='UPDATED_DIDS_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='UPDATED_DIDS_SCOPE_NN'),
@@ -526,6 +554,7 @@ class BadReplicas(BASE, ModelBase):
     rse_id = Column(GUID())
     reason = Column(String(255))
     state = Column(Enum(BadFilesStatus, name='BAD_REPLICAS_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]),
                    default=BadFilesStatus.SUSPICIOUS)
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
@@ -546,6 +575,7 @@ class BadPFNs(BASE, ModelBase):
     __tablename__ = 'bad_pfns'
     path = Column(String(2048))  # PREFIX + PFN
     state = Column(Enum(BadPFNStatus, name='BAD_PFNS_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]),
                    default=BadPFNStatus.SUSPICIOUS)
     reason = Column(String(255))
@@ -591,8 +621,10 @@ class DIDKey(BASE, ModelBase):
     """Represents Data IDentifier property keys"""
     __tablename__ = 'did_keys'
     key = Column(String(255))
-    is_enum = Column(Boolean(name='DID_KEYS_IS_ENUM_CHK'), server_default='0')
+    is_enum = Column(Boolean(name='DID_KEYS_IS_ENUM_CHK', create_constraint=True),
+                     server_default='0')
     key_type = Column(Enum(KeyType, name='DID_KEYS_TYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     value_type = Column(String(255))
     value_regexp = Column(String(255))
@@ -618,15 +650,17 @@ class DataIdentifierAssociation(BASE, ModelBase):
     child_scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))  # Provenance scope
     child_name = Column(String(get_schema_value('NAME_LENGTH')))    # Provenance name
     did_type = Column(Enum(DIDType, name='CONTENTS_DID_TYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     child_type = Column(Enum(DIDType, name='CONTENTS_CHILD_TYPE_CHK',
+                             create_constraint=True,
                              values_callable=lambda obj: [e.value for e in obj]))
     bytes = Column(BigInteger)
     adler32 = Column(String(8))
     md5 = Column(String(32))
     guid = Column(GUID())
     events = Column(BigInteger)
-    rule_evaluation = Column(Boolean(name='CONTENTS_RULE_EVALUATION_CHK'))
+    rule_evaluation = Column(Boolean(name='CONTENTS_RULE_EVALUATION_CHK', create_constraint=True))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='CONTENTS_ID_FK'),
                    ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
@@ -685,15 +719,17 @@ class DataIdentifierAssociationHistory(BASE, ModelBase):
     child_scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))          # Provenance scope
     child_name = Column(String(get_schema_value('NAME_LENGTH')))  # Provenance name
     did_type = Column(Enum(DIDType, name='CONTENTS_HIST_DID_TYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     child_type = Column(Enum(DIDType, name='CONTENTS_HIST_CHILD_TYPE_CHK',
+                             create_constraint=True,
                              values_callable=lambda obj: [e.value for e in obj]))
     bytes = Column(BigInteger)
     adler32 = Column(String(8))
     md5 = Column(String(32))
     guid = Column(GUID())
     events = Column(BigInteger)
-    rule_evaluation = Column(Boolean(name='CONTENTS_HIST_RULE_EVAL_CHK'))
+    rule_evaluation = Column(Boolean(name='CONTENTS_HIST_RULE_EVAL_CHK', create_constraint=True))
     did_created_at = Column(DateTime)
     deleted_at = Column(DateTime)
     __mapper_args__ = {
@@ -711,11 +747,15 @@ class RSE(BASE, SoftModelBase):
     rse = Column(String(255))
     vo = Column(String(3), nullable=False, server_default='def')
     rse_type = Column(Enum(RSEType, name='RSES_TYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]),
                       default=RSEType.DISK)
-    deterministic = Column(Boolean(name='RSE_DETERMINISTIC_CHK'), default=True)
-    volatile = Column(Boolean(name='RSE_VOLATILE_CHK'), default=False)
-    staging_area = Column(Boolean(name='RSE_STAGING_AREA_CHK'), default=False)
+    deterministic = Column(Boolean(name='RSE_DETERMINISTIC_CHK', create_constraint=True),
+                           default=True)
+    volatile = Column(Boolean(name='RSE_VOLATILE_CHK', create_constraint=True),
+                      default=False)
+    staging_area = Column(Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True),
+                          default=False)
     city = Column(String(255))
     region_code = Column(String(2))
     country_name = Column(String(255))
@@ -895,6 +935,7 @@ class RSEFileAssociation(BASE, ModelBase):
     adler32 = Column(String(8))
     path = Column(String(1024))
     state = Column(Enum(ReplicaState, name='REPLICAS_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]),
                    default=ReplicaState.UNAVAILABLE)
     lock_cnt = Column(Integer, server_default='0')
@@ -918,6 +959,7 @@ class CollectionReplica(BASE, ModelBase):
     scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name = Column(String(get_schema_value('NAME_LENGTH')))
     did_type = Column(Enum(DIDType, name='COLLECTION_REPLICAS_TYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     rse_id = Column(GUID())
     bytes = Column(BigInteger)
@@ -925,6 +967,7 @@ class CollectionReplica(BASE, ModelBase):
     available_bytes = Column(BigInteger)
     available_replicas_cnt = Column(BigInteger)
     state = Column(Enum(ReplicaState, name='COLLECTION_REPLICAS_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]),
                    default=ReplicaState.UNAVAILABLE)
     accessed_at = Column(DateTime)
@@ -943,6 +986,7 @@ class UpdatedCollectionReplica(BASE, ModelBase):
     scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name = Column(String(get_schema_value('NAME_LENGTH')))
     did_type = Column(Enum(DIDType, name='UPDATED_COL_REP_TYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     rse_id = Column(GUID())
     _table_args = (PrimaryKeyConstraint('id', name='UPDATED_COL_REP_PK'),
@@ -972,8 +1016,10 @@ class ReplicationRule(BASE, ModelBase):
     scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name = Column(String(get_schema_value('NAME_LENGTH')))
     did_type = Column(Enum(DIDType, name='RULES_DID_TYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     state = Column(Enum(RuleState, name='RULES_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]),
                    default=RuleState.REPLICATING)
     error = Column(String(255))
@@ -981,27 +1027,34 @@ class ReplicationRule(BASE, ModelBase):
     copies = Column(SmallInteger, server_default='1')
     expires_at = Column(DateTime)
     weight = Column(String(255))
-    locked = Column(Boolean(name='RULES_LOCKED_CHK'), default=False)
+    locked = Column(Boolean(name='RULES_LOCKED_CHK', create_constraint=True),
+                    default=False)
     locks_ok_cnt = Column(BigInteger, server_default='0')
     locks_replicating_cnt = Column(BigInteger, server_default='0')
     locks_stuck_cnt = Column(BigInteger, server_default='0')
     source_replica_expression = Column(String(255))
     activity = Column(String(50), default='default')
     grouping = Column(Enum(RuleGrouping, name='RULES_GROUPING_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]),
                       default=RuleGrouping.ALL)
     notification = Column(Enum(RuleNotification, name='RULES_NOTIFICATION_CHK',
+                               create_constraint=True,
                                values_callable=lambda obj: [e.value for e in obj]),
                           default=RuleNotification.NO)
     stuck_at = Column(DateTime)
-    purge_replicas = Column(Boolean(name='RULES_PURGE_REPLICAS_CHK'), default=False)
-    ignore_availability = Column(Boolean(name='RULES_IGNORE_AVAILABILITY_CHK'), default=False)
-    ignore_account_limit = Column(Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False)
+    purge_replicas = Column(Boolean(name='RULES_PURGE_REPLICAS_CHK', create_constraint=True),
+                            default=False)
+    ignore_availability = Column(Boolean(name='RULES_IGNORE_AVAILABILITY_CHK', create_constraint=True),
+                                 default=False)
+    ignore_account_limit = Column(Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True),
+                                  default=False)
     priority = Column(Integer)
     comments = Column(String(255))
     child_rule_id = Column(GUID())
     eol_at = Column(DateTime)
-    split_container = Column(Boolean(name='RULES_SPLIT_CONTAINER_CHK'), default=False)
+    split_container = Column(Boolean(name='RULES_SPLIT_CONTAINER_CHK', create_constraint=True),
+                             default=False)
     meta = Column(String(4000))
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
@@ -1036,8 +1089,10 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name = Column(String(get_schema_value('NAME_LENGTH')))
     did_type = Column(Enum(DIDType, name='RULES_HIST_RECENT_DIDTYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     state = Column(Enum(RuleState, name='RULES_HIST_RECENT_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]))
     error = Column(String(255))
     rse_expression = Column(String(3000))
@@ -1051,8 +1106,10 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     source_replica_expression = Column(String(255))
     activity = Column(String(50))
     grouping = Column(Enum(RuleGrouping, name='RULES_HIST_RECENT_GROUPING_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     notification = Column(Enum(RuleNotification, name='RULES_HIST_RECENT_NOTIFY_CHK',
+                               create_constraint=True,
                                values_callable=lambda obj: [e.value for e in obj]))
     stuck_at = Column(DateTime)
     purge_replicas = Column(Boolean())
@@ -1080,8 +1137,10 @@ class ReplicationRuleHistory(BASE, ModelBase):
     scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name = Column(String(get_schema_value('NAME_LENGTH')))
     did_type = Column(Enum(DIDType, name='RULES_HISTORY_DIDTYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     state = Column(Enum(RuleState, name='RULES_HISTORY_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]))
     error = Column(String(255))
     rse_expression = Column(String(3000))
@@ -1095,8 +1154,10 @@ class ReplicationRuleHistory(BASE, ModelBase):
     source_replica_expression = Column(String(255))
     activity = Column(String(50))
     grouping = Column(Enum(RuleGrouping, name='RULES_HISTORY_GROUPING_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     notification = Column(Enum(RuleNotification, name='RULES_HISTORY_NOTIFY_CHK',
+                               create_constraint=True,
                                values_callable=lambda obj: [e.value for e in obj]))
     stuck_at = Column(DateTime)
     priority = Column(Integer)
@@ -1124,6 +1185,7 @@ class ReplicaLock(BASE, ModelBase):
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
     bytes = Column(BigInteger)
     state = Column(Enum(LockState, name='LOCKS_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]),
                    default=LockState.REPLICATING)
     repair_cnt = Column(BigInteger)
@@ -1144,6 +1206,7 @@ class DatasetLock(BASE, ModelBase):
     rse_id = Column(GUID())
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
     state = Column(Enum(LockState, name='DATASET_LOCKS_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]),
                    default=LockState.REPLICATING)
     length = Column(BigInteger)
@@ -1178,17 +1241,20 @@ class Request(BASE, ModelBase):
     __tablename__ = 'requests'
     id = Column(GUID(), default=utils.generate_uuid)
     request_type = Column(Enum(RequestType, name='REQUESTS_TYPE_CHK',
+                               create_constraint=True,
                                values_callable=lambda obj: [e.value for e in obj]),
                           default=RequestType.TRANSFER)
     scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name = Column(String(get_schema_value('NAME_LENGTH')))
     did_type = Column(Enum(DIDType, name='REQUESTS_DIDTYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]),
                       default=DIDType.FILE)
     dest_rse_id = Column(GUID())
     source_rse_id = Column(GUID())
     attributes = Column(String(4000))
     state = Column(Enum(RequestState, name='REQUESTS_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]),
                    default=RequestState.QUEUED)
     external_id = Column(String(64))
@@ -1234,17 +1300,20 @@ class RequestHistory(BASE, ModelBase):
     __tablename__ = 'requests_history'
     id = Column(GUID(), default=utils.generate_uuid)
     request_type = Column(Enum(RequestType, name='REQUESTS_HIST_TYPE_CHK',
+                               create_constraint=True,
                                values_callable=lambda obj: [e.value for e in obj]),
                           default=RequestType.TRANSFER)
     scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name = Column(String(get_schema_value('NAME_LENGTH')))
     did_type = Column(Enum(DIDType, name='REQUESTS_HIST_DIDTYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]),
                       default=DIDType.FILE)
     dest_rse_id = Column(GUID())
     source_rse_id = Column(GUID())
     attributes = Column(String(4000))
     state = Column(Enum(RequestState, name='REQUESTS_HIST_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]),
                    default=RequestState.QUEUED)
     external_id = Column(String(64))
@@ -1354,13 +1423,15 @@ class Subscription(BASE, ModelBase):
     replication_rules = Column(String(4000))
     policyid = Column(SmallInteger, server_default='0')
     state = Column(Enum(SubscriptionState, name='SUBSCRIPTIONS_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]),
                    default=SubscriptionState.ACTIVE)
     last_processed = Column(DateTime, default=datetime.datetime.utcnow())
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
     lifetime = Column(DateTime)
     comments = Column(String(4000))
-    retroactive = Column(Boolean(name='SUBSCRIPTIONS_RETROACTIVE_CHK'), default=False)
+    retroactive = Column(Boolean(name='SUBSCRIPTIONS_RETROACTIVE_CHK', create_constraint=True),
+                         default=False)
     expired_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('id', name='SUBSCRIPTIONS_PK'),
                    UniqueConstraint('name', 'account', name='SUBSCRIPTIONS_NAME_ACCOUNT_UQ'),
@@ -1379,13 +1450,15 @@ class SubscriptionHistory(BASE, ModelBase):
     replication_rules = Column(String(4000))
     policyid = Column(SmallInteger, server_default='0')
     state = Column(Enum(SubscriptionState, name='SUBSCRIPTIONS_HIST_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]),
                    default=SubscriptionState.ACTIVE)
     last_processed = Column(DateTime, default=datetime.datetime.utcnow())
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
     lifetime = Column(DateTime)
     comments = Column(String(4000))
-    retroactive = Column(Boolean(name='SUBSCRIPTIONS_HIST_RETROACTIVE_CHK'), default=False)
+    retroactive = Column(Boolean(name='SUBS_HISTORY_RETROACTIVE_CHK', create_constraint=True),
+                         default=False)
     expired_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('id', 'updated_at', name='SUBSCRIPTIONS_PK'),)
 
@@ -1396,7 +1469,8 @@ class Token(BASE, ModelBase):
     token = Column(String(3072))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
     refresh_token = Column(String(315), default=None)
-    refresh = Column(Boolean(name='TOKENS_REFRESH_CHK'), default=False)
+    refresh = Column(Boolean(name='TOKENS_REFRESH_CHK', create_constraint=True),
+                     default=False)
     refresh_start = Column(DateTime, default=None)
     refresh_expired_at = Column(DateTime, default=None)
     refresh_lifetime = Column(Integer())
@@ -1502,6 +1576,7 @@ class NamingConvention(BASE, ModelBase):
     scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     regexp = Column(String(255))
     convention_type = Column(Enum(KeyType, name='CVT_TYPE_CHK',
+                                  create_constraint=True,
                                   values_callable=lambda obj: [e.value for e in obj]))
     _table_args = (PrimaryKeyConstraint('scope', name='NAMING_CONVENTIONS_PK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='NAMING_CONVENTIONS_SCOPE_FK'))
@@ -1536,11 +1611,13 @@ class LifetimeExceptions(BASE, ModelBase):
     scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name = Column(String(get_schema_value('NAME_LENGTH')))
     did_type = Column(Enum(DIDType, name='LIFETIME_EXCEPT_TYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
     pattern = Column(String(255))
     comments = Column(String(4000))
     state = Column(Enum(LifetimeExceptionsState, name='LIFETIME_EXCEPT_STATE_CHK',
+                        create_constraint=True,
                         values_callable=lambda obj: [e.value for e in obj]))
     expires_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('id', 'scope', 'name', 'did_type', 'account', name='LIFETIME_EXCEPT_PK'),
@@ -1566,6 +1643,7 @@ class DidsFollowed(BASE, ModelBase):
     name = Column(String(get_schema_value('NAME_LENGTH')))
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
     did_type = Column(Enum(DIDType, name='DIDS_FOLLOWED_TYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='DIDS_FOLLOWED_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='DIDS_FOLLOWED_SCOPE_NN'),
@@ -1583,6 +1661,7 @@ class FollowEvents(BASE, ModelBase):
     name = Column(String(get_schema_value('NAME_LENGTH')))
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
     did_type = Column(Enum(DIDType, name='DIDS_FOLLOWED_EVENTS_TYPE_CHK',
+                           create_constraint=True,
                            values_callable=lambda obj: [e.value for e in obj]))
     event_type = Column(String(1024))
     payload = Column(Text)

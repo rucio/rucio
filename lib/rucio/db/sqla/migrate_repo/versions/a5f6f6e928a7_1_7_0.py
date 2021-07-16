@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 ''' add columns for 1.7.0 release '''
 
@@ -37,12 +39,12 @@ def upgrade():
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('dids', sa.Column('purge_replicas',
-                                     sa.Boolean(name='DIDS_PURGE_RPLCS_CHK'),
+                                     sa.Boolean(name='DIDS_PURGE_RPLCS_CHK', create_constraint=True),
                                      server_default='1'), schema=schema)
         add_column('dids', sa.Column('eol_at', sa.DateTime), schema=schema)
 
         add_column('deleted_dids', sa.Column('purge_replicas',
-                                             sa.Boolean(name='DEL_DIDS_PURGE_RPLCS_CHK')), schema=schema)
+                                             sa.Boolean(name='DEL_DIDS_PURGE_RPLCS_CHK', create_constraint=True)), schema=schema)
         add_column('deleted_dids', sa.Column('eol_at', sa.DateTime), schema=schema)
 
         create_check_constraint('DIDS_PURGE_REPLICAS_NN', 'dids', 'purge_replicas is not null')
