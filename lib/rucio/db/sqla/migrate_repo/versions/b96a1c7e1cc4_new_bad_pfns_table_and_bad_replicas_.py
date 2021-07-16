@@ -17,6 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2021
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 ''' new bad_pfns table and bad_replicas changes '''
 
@@ -48,7 +49,11 @@ def upgrade():
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
-                     sa.Column('state', sa.Enum(BadPFNStatus, name='BAD_PFNS_STATE_CHK', values_callable=lambda obj: [e.value for e in obj]), default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('state', sa.Enum(BadPFNStatus,
+                                                name='BAD_PFNS_STATE_CHK',
+                                                create_constraint=True,
+                                                values_callable=lambda obj: [e.value for e in obj]),
+                               default=BadPFNStatus.SUSPICIOUS),
                      sa.Column('reason', sa.String(255)),
                      sa.Column('account', sa.String(25)),
                      sa.Column('expires_at', sa.DateTime),
@@ -76,7 +81,11 @@ def upgrade():
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
-                     sa.Column('state', sa.Enum(BadPFNStatus, name='BAD_PFNS_STATE_CHK', values_callable=lambda obj: [e.value for e in obj]), default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('state', sa.Enum(BadPFNStatus,
+                                                name='BAD_PFNS_STATE_CHK',
+                                                create_constraint=True,
+                                                values_callable=lambda obj: [e.value for e in obj]),
+                               default=BadPFNStatus.SUSPICIOUS),
                      sa.Column('reason', sa.String(255)),
                      sa.Column('account', sa.String(25)),
                      sa.Column('expires_at', sa.DateTime),
