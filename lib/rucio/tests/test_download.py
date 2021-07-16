@@ -409,22 +409,32 @@ def test_trace_copy_out_and_checksum_validation(vo, rse_factory, did_factory, do
         assert len(traces) == 1 and traces[0]['clientState'] == 'DONE'
 
 
-def test_norandom_respected(rse_factory, did_factory, download_client, root_account):
+def test_nrandom_respected(rse_factory, did_factory, download_client, root_account):
     rse, _ = rse_factory.make_posix_rse()
     did1 = did_factory.upload_test_file(rse)
     did2 = did_factory.upload_test_file(rse)
-    dataset = did_factory.make_dataset()
-    did_core.attach_dids(dids=[did1, did2], account=root_account, **dataset)
+    did3 = did_factory.upload_test_file(rse)
+    did4 = did_factory.upload_test_file(rse)
+    dataset1 = did_factory.make_dataset()
+    dataset2 = did_factory.make_dataset()
+    did_core.attach_dids(dids=[did1, did2], account=root_account, **dataset1)
+    did_core.attach_dids(dids=[did3, did4], account=root_account, **dataset2)
 
-    dataset_did_str = '%s:%s' % (dataset['scope'], dataset['name'])
+    dataset1_did_str = '%s:%s' % (dataset1['scope'], dataset1['name'])
+    dataset2_did_str = '%s:%s' % (dataset2['scope'], dataset2['name'])
 
     with TemporaryDirectory() as tmp_dir:
         nrandom = 1
-        result = download_client.download_dids([{'did': dataset_did_str, 'nrandom': nrandom, 'base_dir': tmp_dir}])
+        result = download_client.download_dids([{'did': dataset1_did_str, 'nrandom': nrandom, 'base_dir': tmp_dir}])
         assert len(result) == nrandom
 
+        nrandom = 1
+        result = download_client.download_dids([{'did': dataset1_did_str, 'nrandom': nrandom, 'base_dir': tmp_dir},
+                                                {'did': dataset2_did_str, 'nrandom': nrandom, 'base_dir': tmp_dir}])
+        assert len(result) == 2 * nrandom
+
         nrandom = 2
-        result = download_client.download_dids([{'did': dataset_did_str, 'nrandom': nrandom, 'base_dir': tmp_dir}])
+        result = download_client.download_dids([{'did': dataset1_did_str, 'nrandom': nrandom, 'base_dir': tmp_dir}])
         assert len(result) == nrandom
 
 
