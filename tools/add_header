@@ -216,7 +216,9 @@ def main(arguments):
                     raise RuntimeError('Cannot read file ' + str(MyFile)) from e
 
                 with open(MyFile, 'w') as modified:
-                    if lines[0].startswith('#!/usr/bin/env'):
+                    if not lines:
+                        print('Empty lines at file', MyFile, file=sys.stderr)
+                    elif lines[0].startswith('#!/usr/bin/env'):
                         modified.write(lines[0])
                     elif lines[0].rstrip() == '#!/bin/bash':
                         modified.write(lines[0])
