@@ -1511,7 +1511,7 @@ def __list_transfer_requests_and_source_replicas(
                           sub_requests.c.dest_rse_id,
                           sub_requests.c.account,
                           sub_requests.c.retry_count,
-                          models.RSEFileAssociation.rse_id,
+                          models.RSE.id,
                           models.RSE.rse,
                           models.RSEFileAssociation.path,
                           models.Source.ranking.label("source_ranking"),
