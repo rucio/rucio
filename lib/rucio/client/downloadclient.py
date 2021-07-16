@@ -1051,7 +1051,7 @@ class DownloadClient:
                     logger(logging.DEBUG, item)
                     raise InputValidationError('Item without did and filter/scope')
 
-        distinct_keys = ['rse', 'force_scheme', 'nrandom']
+        distinct_keys = ['rse', 'force_scheme']
         all_resolved_did_strs = set()
 
         did_to_options = {}
@@ -1098,11 +1098,14 @@ class DownloadClient:
                 continue
 
             was_merged = False
-            for merged_item in merged_items:
-                if all(item.get(k) == merged_item.get(k) for k in distinct_keys):
-                    merged_item['dids'].extend(resolved_dids)
-                    was_merged = True
-                    break
+            if not item.get('nrandom'):
+                # Don't merge items if nrandom is set. Otherwise two items with the same nrandom will be merged into one
+                # and we'll effectively download only half of the desired replicas for each item.
+                for merged_item in merged_items:
+                    if all(item.get(k) == merged_item.get(k) for k in distinct_keys):
+                        merged_item['dids'].extend(resolved_dids)
+                        was_merged = True
+                        break
             if not was_merged:
                 item['dids'] = resolved_dids
                 merged_items.append(item)
