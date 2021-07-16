@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 ''' add didtype_chck to requests '''
 
@@ -41,7 +42,10 @@ def upgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql']:  # pylint: disable=no-member
         add_column('requests', sa.Column('did_type',
-                                         sa.Enum(DIDType, name='REQUESTS_DIDTYPE_CHK', values_callable=lambda obj: [e.value for e in obj]),
+                                         sa.Enum(DIDType,
+                                                 name='REQUESTS_DIDTYPE_CHK',
+                                                 create_constraint=True,
+                                                 values_callable=lambda obj: [e.value for e in obj]),
                                          default=DIDType.FILE), schema=schema[:-1])
         # we don't want checks on the history table, fake the DID type
         add_column('requests_history', sa.Column('did_type', sa.String(1)), schema=schema[:-1])

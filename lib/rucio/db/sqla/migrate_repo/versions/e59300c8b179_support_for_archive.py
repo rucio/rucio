@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2017-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 ''' support for archive '''
 
@@ -86,9 +88,11 @@ def upgrade():
 
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('dids', sa.Column('is_archive',
-                                     sa.Boolean(name='DIDS_ARCHIVE_CHK')), schema=schema)
+                                     sa.Boolean(name='DIDS_ARCHIVE_CHK', create_constraint=True)),
+                   schema=schema)
         add_column('dids', sa.Column('constituent',
-                                     sa.Boolean(name='DIDS_CONSTITUENT_CHK')), schema=schema)
+                                     sa.Boolean(name='DIDS_CONSTITUENT_CHK', create_constraint=True)),
+                   schema=schema)
         add_column('deleted_dids', sa.Column('is_archive', sa.Boolean()), schema=schema)
         add_column('deleted_dids', sa.Column('constituent', sa.Boolean()), schema=schema)
 
