@@ -36,6 +36,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 '''
  Client class for callers of the Rucio system
@@ -148,6 +149,12 @@ class BaseClient(object):
                 self.auth_host = config_get('client', 'auth_host')
         except (NoOptionError, NoSectionError) as error:
             raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % error.args[0])
+
+        try:
+            self.trace_host = config_get('trace', 'trace_host')
+        except (NoOptionError, NoSectionError) as error:
+            self.trace_host = self.host
+            LOG.warning('No trace_host passed. Using rucio_host instead')
 
         self.account = account
         self.vo = vo

@@ -117,6 +117,7 @@ port=61013
 username = _________
 password = _________
 topic = /topic/rucio.tracer
+trace_host = https://rucio-server-prod.cern.ch:443
 
 [tracer-kronos]
 brokers=atlas-test-mb.cern.ch
