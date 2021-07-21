@@ -58,6 +58,7 @@ from rucio.common.didtype import DIDType
 from rucio.common.pcache import Pcache
 from rucio.common.utils import adler32, detect_client_location, generate_uuid, parse_replicas_from_string, \
     send_trace, sizefmt, execute, parse_replicas_from_file, extract_scope
+from rucio.common.config import config_get, config_set, config_add_section
 from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_ALGO_DICT, PREFERRED_CHECKSUM
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
@@ -1163,7 +1164,10 @@ class DownloadClient:
                                                      metalink=True)
             file_items = parse_replicas_from_string(metalink_str)
             for file in file_items:
-                file['impl'] = impl or None
+                if impl:
+                    file['impl'] = impl
+                elif not item.get('force_scheme'):
+                    file['impl'] = self.preferred_impl(file['sources'])
 
             logger(logging.DEBUG, 'num resolved files: %s' % len(file_items))
 
@@ -1564,6 +1568,69 @@ class DownloadClient:
         """
         if self.tracing:
             send_trace(trace, self.client.trace_host, self.client.user_agent)
+
+    def preferred_impl(self, sources):
+        """
+            Finds the optimum protocol impl preferred by the client and
+            supported by the remote RSE.
+
+            :param sources: List of sources for a given DID
+
+            :raises RucioException(msg): general exception with msg for more details.
+        """
+
+        preferred_protocols = []
+        checked_rses = []
+        supported_impl = None
+
+        try:
+            preferred_impls = config_get('download', 'preferred_impl')
+        except Exception as error:
+            self.logger(logging.INFO, 'No preferred protocol impl in rucio.cfg: %s' % (error))
+            return supported_impl
+        else:
+            preferred_impls = list(preferred_impls.split(', '))
+            i = 0
+            while i < len(preferred_impls):
+                impl = preferred_impls[i]
+                impl_split = impl.split('.')
+                if len(impl_split) == 1:
+                    preferred_impls[i] = 'rucio.rse.protocols.' + impl + '.Default'
+                else:
+                    preferred_impls[i] = 'rucio.rse.protocols.' + impl
+                i += 1
+
+        for source in sources:
+            if source['rse'] in checked_rses:
+                continue
+            try:
+                rse_settings = rsemgr.get_rse_info(source['rse'], vo=self.client.vo)
+                checked_rses.append(str(source['rse']))
+            except RucioException as error:
+                self.logger(logging.DEBUG, 'Could not get info of RSE %s: %s' % (source['source'], error))
+                continue
+
+            preferred_protocols = [protocol for protocol in reversed(rse_settings['protocols']) if protocol['impl'] in preferred_impls]
+
+            if len(preferred_protocols) == 0:
+                continue
+
+            for protocol in preferred_protocols:
+                if not protocol['domains']['wan'].get("read"):
+                    self.logger(logging.WARNING, 'Unsuitable protocol "%s": All operations are not supported' % (protocol['impl']))
+                    continue
+                try:
+                    supported_protocol = rsemgr.create_protocol(rse_settings, 'read', impl_passed=protocol['impl'], auth_token=self.auth_token, logger=self.logger)
+                    supported_protocol.connect()
+                except Exception as error:
+                    self.logger(logging.WARNING, 'Failed to create protocol "%s", exception: %s' % (protocol['impl'], error))
+                    pass
+                else:
+                    self.logger(logging.INFO, 'Preferred protocol impl supported locally and remotely: %s' % (protocol['impl']))
+                    supported_impl = protocol['impl']
+                    break
+
+        return supported_impl
 
 
 def _verify_checksum(item, path):

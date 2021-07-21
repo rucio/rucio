@@ -136,7 +136,7 @@ class Default(protocol.RSEProtocol):
 
             if not access_key or not secret_key:
                 self.logger(logging.ERROR, 'rclone.init: Missing key(s) for s3 host: {}'.format(self.host))
-                return False                
+                return False
 
             try:
                 cmd = 'rclone config create {0} s3 provider AWS env_auth false access_key_id {1} secret_access_key {2} region us-east-1 acl private'.format(self.hostname, access_key, secret_key)

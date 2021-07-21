@@ -79,7 +79,6 @@ class MgrTestCases:
             if scheme and protocol['scheme'] != scheme:
                 self.rse_settings['protocols'].remove(protocol)
 
-
     # Mgr-Tests: GET
     # These tests will fail as rsemanager.download has been removed. Commenting out to avoid syntax errors.
     # def test_multi_get_mgr_ok(self):
@@ -130,24 +129,25 @@ class MgrTestCases:
     # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):
         """(RSE/PROTOCOLS): Put multiple files to storage (Success)"""
+
         if self.rse_settings['protocols'][0]['hostname'] == 'ssh1':
             result = mgr.upload(self.rse_settings, [{'name': '1_rse_local_put.raw', 'scope': 'user.%s' % self.user,
-                                                 'md5': md5(str(self.tmpdir) + '/1_rse_local_put.raw'),
-                                                 'filesize': os.stat('%s/1_rse_local_put.raw' % self.tmpdir)[
-                                                     os.path.stat.ST_SIZE]},
-                                                {'name': '2_rse_local_put.raw', 'scope': 'user.%s' % self.user,
-                                                 'md5': md5(str(self.tmpdir) + '/2_rse_local_put.raw'),
-                                                 'filesize': os.stat('%s/2_rse_local_put.raw' % self.tmpdir)[
-                                                     os.path.stat.ST_SIZE]}], source_dir=self.tmpdir, impl=self.impl)
+                                                     'md5': md5(str(self.tmpdir) + '/1_rse_local_put.raw'),
+                                                     'filesize': os.stat('%s/1_rse_local_put.raw' % self.tmpdir)[
+                                                         os.path.stat.ST_SIZE]},
+                                                    {'name': '2_rse_local_put.raw', 'scope': 'user.%s' % self.user,
+                                                     'md5': md5(str(self.tmpdir) + '/2_rse_local_put.raw'),
+                                                     'filesize': os.stat('%s/2_rse_local_put.raw' % self.tmpdir)[
+                                                         os.path.stat.ST_SIZE]}], source_dir=self.tmpdir, impl=self.impl)
         else:
             result = mgr.upload(self.rse_settings, [{'name': '1_rse_local_put.raw', 'scope': 'user.%s' % self.user,
-                                                 'adler32': adler32('%s/1_rse_local_put.raw' % self.tmpdir),
-                                                 'filesize': os.stat('%s/1_rse_local_put.raw' % self.tmpdir)[
-                                                     os.path.stat.ST_SIZE]},
-                                                {'name': '2_rse_local_put.raw', 'scope': 'user.%s' % self.user,
-                                                 'adler32': adler32('%s/2_rse_local_put.raw' % self.tmpdir),
-                                                 'filesize': os.stat('%s/2_rse_local_put.raw' % self.tmpdir)[
-                                                     os.path.stat.ST_SIZE]}], source_dir=self.tmpdir)
+                                                     'adler32': adler32('%s/1_rse_local_put.raw' % self.tmpdir),
+                                                     'filesize': os.stat('%s/1_rse_local_put.raw' % self.tmpdir)[
+                                                         os.path.stat.ST_SIZE]},
+                                                    {'name': '2_rse_local_put.raw', 'scope': 'user.%s' % self.user,
+                                                     'adler32': adler32('%s/2_rse_local_put.raw' % self.tmpdir),
+                                                     'filesize': os.stat('%s/2_rse_local_put.raw' % self.tmpdir)[
+                                                         os.path.stat.ST_SIZE]}], source_dir=self.tmpdir)
 
         status = result[0]
         details = result[1]

@@ -26,6 +26,7 @@ from tempfile import TemporaryDirectory
 
 from rucio.client.downloadclient import DownloadClient
 from rucio.core.rse import add_protocol, add_rse_attribute
+from rucio.common.config import config_set, config_add_section
 from rucio.client.uploadclient import UploadClient
 from rucio.common.exception import NotAllFilesUploaded, NoFilesUploaded, InputValidationError
 from rucio.common.utils import generate_uuid
@@ -277,6 +278,107 @@ def test_upload_file_with_impl(rse_factory, upload_client, mock_scope, file_fact
                 patch('rucio.rse.protocols.%s.Default.rename' % impl),\
                 patch('rucio.rse.protocols.%s.Default.stat' % impl, side_effect=lambda pfn: {'filesize': os.stat(path)[os.path.stat.ST_SIZE], 'adler32': adler32(path)}),\
                 patch('rucio.rse.protocols.%s.Default.close' % impl):
+            mock_put.__name__ = "mock_put"
+            upload_client.upload([item])
+            mock_put.assert_called()
+
+
+def test_upload_file_with_supported_protocol(rse_factory, upload_client, mock_scope, file_factory):
+    """ Upload (CLIENT): Ensure the module associated to the first protocol supported by both the remote and local config is called """
+
+    rse_name, rse_id = rse_factory.make_rse()
+
+    add_protocol(rse_id, {'scheme': 'scp',
+                          'hostname': '%s.cern.ch' % rse_id,
+                          'port': 0,
+                          'prefix': '/test/',
+                          'impl': 'rucio.rse.protocols.ssh.Default',
+                          'domains': {
+                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+    add_protocol(rse_id, {'scheme': 'root',
+                          'hostname': '%s.cern.ch' % rse_id,
+                          'port': 0,
+                          'prefix': '/test/',
+                          'impl': 'rucio.rse.protocols.xrootd.Default',
+                          'domains': {
+                              'lan': {'read': 2, 'write': 2, 'delete': 2},
+                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+    add_protocol(rse_id, {'scheme': 'file',
+                          'hostname': '%s.cern.ch' % rse_id,
+                          'port': 0,
+                          'prefix': '/test/',
+                          'impl': 'rucio.rse.protocols.posix.Default',
+                          'domains': {
+                              'lan': {'read': 3, 'write': 3, 'delete': 3},
+                              'wan': {'read': 3, 'write': 3, 'delete': 3}}})
+
+    path = file_factory.file_generator()
+    name = os.path.basename(path)
+    item = {
+        'path': path,
+        'rse': rse_name,
+        'did_scope': str(mock_scope),
+        'did_name': name,
+        'guid': generate_uuid()
+    }
+
+    status = upload_client.upload([item])
+    assert status == 0
+
+def test_upload_file_with_supported_protocol_from_config(rse_factory, upload_client, mock_scope, file_factory):
+    """ Upload (CLIENT): Ensure the module associated to the first protocol supported by both the remote and local config read from rucio.cfg is called """
+
+    rse_name, rse_id = rse_factory.make_rse()
+
+    add_protocol(rse_id, {'scheme': 'scp',
+                          'hostname': '%s.cern.ch' % rse_id,
+                          'port': 0,
+                          'prefix': '/test/',
+                          'impl': 'rucio.rse.protocols.ssh.Default',
+                          'domains': {
+                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+    add_protocol(rse_id, {'scheme': 'file',
+                          'hostname': '%s.cern.ch' % rse_id,
+                          'port': 0,
+                          'prefix': '/test/',
+                          'impl': 'rucio.rse.protocols.posix.Default',
+                          'domains': {
+                              'lan': {'read': 2, 'write': 2, 'delete': 2},
+                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+    add_protocol(rse_id, {'scheme': 'root',
+                          'hostname': '%s.cern.ch' % rse_id,
+                          'port': 0,
+                          'prefix': '/test/',
+                          'impl': 'rucio.rse.protocols.xrootd.Default',
+                          'domains': {
+                              'lan': {'read': 3, 'write': 3, 'delete': 3},
+                              'wan': {'read': 3, 'write': 3, 'delete': 3}}})
+
+    config_add_section('upload')
+    config_set('upload', 'preferred_impl', 'rclone, xrootd')
+
+    supported_impl = 'xrootd'
+
+    path = file_factory.file_generator()
+    name = os.path.basename(path)
+    item = {
+        'path': path,
+        'rse': rse_name,
+        'did_scope': str(mock_scope),
+        'did_name': name,
+        'guid': generate_uuid()
+    }
+
+    with TemporaryDirectory() as tmp_dir:
+        with patch('rucio.rse.protocols.%s.Default.put' % supported_impl, side_effect=lambda pfn, dest, dir, **kw: shutil.copy(path, tmp_dir)) as mock_put, \
+                patch('rucio.rse.protocols.%s.Default.connect' % supported_impl),\
+                patch('rucio.rse.protocols.%s.Default.exists' % supported_impl, side_effect=lambda pfn, **kw: False),\
+                patch('rucio.rse.protocols.%s.Default.delete' % supported_impl),\
+                patch('rucio.rse.protocols.%s.Default.rename' % supported_impl),\
+                patch('rucio.rse.protocols.%s.Default.stat' % supported_impl, side_effect=lambda pfn: {'filesize': os.stat(path)[os.path.stat.ST_SIZE], 'adler32': adler32(path)}),\
+                patch('rucio.rse.protocols.%s.Default.close' % supported_impl):
             mock_put.__name__ = "mock_put"
             upload_client.upload([item])
             mock_put.assert_called()
