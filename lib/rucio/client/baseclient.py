@@ -152,9 +152,9 @@ class BaseClient(object):
 
         try:
             self.trace_host = config_get('trace', 'trace_host')
-        except (NoOptionError, NoSectionError) as error:
+        except (NoOptionError, NoSectionError):
             self.trace_host = self.host
-            LOG.warning('No trace_host passed. Using rucio_host instead')
+            LOG.debug('No trace_host passed. Using rucio_host instead')
 
         self.account = account
         self.vo = vo
