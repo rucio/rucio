@@ -51,7 +51,7 @@ import time
 import random
 
 from rucio.client.client import Client
-from rucio.common.config import config_get_int
+from rucio.common.config import config_get_int, config_get
 from rucio.common.exception import (RucioException, RSEWriteBlocked, DataIdentifierAlreadyExists, RSEOperationNotSupported,
                                     DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded, FileReplicaAlreadyExists,
                                     ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable,
@@ -214,6 +214,9 @@ class UploadClient:
                 if self.client_location['site'] == rse_attributes['site']:
                     domain = 'lan'
             logger(logging.DEBUG, '{} domain is used for the upload'.format(domain))
+
+            if not impl_passed and not force_scheme:
+                impl_passed = self.preferred_impl(rse_settings, domain)
 
             if not no_register and not register_after_upload:
                 self._register_file(file, registered_dataset_dids)
@@ -623,7 +626,7 @@ class UploadClient:
             logger(logging.DEBUG, 'Removing remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
-                protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain)
+                protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain, impl_chosen=impl)
                 protocol_delete.delete('%s.rucio.upload' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
                 protocol_delete.close()
             except Exception as e:
@@ -634,7 +637,7 @@ class UploadClient:
             logger(logging.DEBUG, 'Removing not-registered remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
-                protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain)
+                protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain, impl_chosen=impl)
                 protocol_delete.delete('%s' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
                 protocol_delete.close()
             except Exception as error:
@@ -804,3 +807,61 @@ class UploadClient:
                 self.logger(logging.ERROR, error)
                 self.logger(logging.ERROR, 'It was not possible to attach to collection with DID %s:%s' % (att['scope'], att['name']))
         return files
+
+    def preferred_impl(self, rse_settings, domain):
+        """
+            Finds the optimum protocol impl preferred by the client and
+            supported by the remote RSE.
+
+            :param rse_settings: dictionary containing the RSE settings
+            :param domain:     The network domain, either 'wan' (default) or 'lan'
+
+            :raises RucioException(msg): general exception with msg for more details.
+        """
+
+        preferred_protocols = []
+        supported_impl = None
+
+        try:
+            preferred_impls = config_get('upload', 'preferred_impl')
+        except Exception as error:
+                self.logger(logging.INFO, 'No preferred protocol impl in rucio.cfg: %s' % (error))
+                pass
+        else:
+            preferred_impls = list(preferred_impls.split(', '))
+            i = 0
+            while i < len(preferred_impls):
+                impl = preferred_impls[i]
+                impl_split = impl.split('.')
+                if len(impl_split) == 1:
+                    preferred_impls[i] = 'rucio.rse.protocols.' + impl + '.Default'
+                else:
+                    preferred_impls[i] = 'rucio.rse.protocols.' + impl
+                i += 1
+
+            preferred_protocols = [protocol for protocol in reversed(rse_settings['protocols']) if protocol['impl'] in preferred_impls]
+
+        if len(preferred_protocols) > 0:
+            preferred_protocols += [protocol for protocol in reversed(rse_settings['protocols']) if protocol not in preferred_protocols]
+        else:
+            preferred_protocols = reversed(rse_settings['protocols'])
+
+        for protocol in preferred_protocols:
+            if domain not in list(protocol['domains'].keys()):
+                self.logger(logging.WARNING, 'Unsuitable protocol "%s": Domain %s not supported' % (protocol['impl'], domain))
+                continue
+            if not all(operations in protocol['domains'][domain] for operations in ("read", "write", "delete")):
+                self.logger(logging.WARNING, 'Unsuitable protocol "%s": All operations are not supported' % (protocol['impl']))
+                continue
+            try:
+                supported_protocol = rsemgr.create_protocol(rse_settings, 'read', domain=domain, impl_passed=protocol['impl'], auth_token=self.auth_token, logger=self.logger)
+                supported_protocol.connect()
+            except Exception as error:
+                self.logger(logging.WARNING, 'Failed to create protocol "%s", exception: %s' % (protocol['impl'], error))
+                pass
+            else:
+                self.logger(logging.INFO, 'Preferred protocol impl supported locally and remotely: %s' % (protocol['impl']))
+                supported_impl = protocol['impl']
+                break
+
+        return supported_impl

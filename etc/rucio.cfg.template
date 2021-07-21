@@ -58,9 +58,11 @@ protocol_stat_retries = 6
 
 [upload]
 #transfer_timeout = 3600
+#preferred_impl = xrootd, rclone
 
 [download]
 #transfer_timeout = 3600
+#preferred_impl = xrootd, rclone
 
 [core]
 geoip_licence_key = LICENCEKEYGOESHERE  # Get a free licence key at https://www.maxmind.com/en/geolite2/signup
