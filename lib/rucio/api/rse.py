@@ -1,4 +1,4 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2021 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 # - Gabriele <sucre.91@hotmail.it>, 2019
 # - elichad <eli.chadwick.256@gmail.com>, 2020
 # - patrick-austin <patrick.austin@stfc.ac.uk>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 #
 #  PY3K COMPATIBLE
 
@@ -485,6 +486,23 @@ def get_distance(source, destination, issuer, vo='def'):
                                               dest_rse_id=rse_module.get_rse_id(destination, vo=vo))
 
     return [api_update_return_dict(d) for d in distances]
+
+
+def delete_distance(source, destination, issuer, vo='def'):
+    """
+    Delete distances with the given RSE ids.
+
+    :param source: The source RSE.
+    :param destination: The destination RSE.
+    :param issuer: The issuer account.
+    :param vo: The VO to act on.
+    """
+    kwargs = {'source': source, 'destination': destination}
+    if not permission.has_permission(issuer=issuer, vo=vo, action='delete_distance', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not update RSE distances' % issuer)
+
+    return distance_module.delete_distances(src_rse_id=rse_module.get_rse_id(source, vo=vo),
+                                            dest_rse_id=rse_module.get_rse_id(destination, vo=vo))
 
 
 def add_qos_policy(rse, qos_policy, issuer, vo='def'):

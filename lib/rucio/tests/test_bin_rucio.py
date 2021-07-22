@@ -273,6 +273,40 @@ class TestBinRucio(unittest.TestCase):
         assert exitcode != 0
         assert 'Distance from %s to %s already exists!' % (temprse2, temprse1) in err
 
+    def test_rse_delete_distance(self):
+        """CLIENT (ADMIN): Delete distance to RSE"""
+        # add RSEs
+        temprse1 = rse_name_generator()
+        cmd = 'rucio-admin rse add %s' % temprse1
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        temprse2 = rse_name_generator()
+        cmd = 'rucio-admin rse add %s' % temprse2
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+
+        # add distance between the RSEs
+        cmd = 'rucio-admin rse add-distance --distance 1 --ranking 1 %s %s' % (temprse1, temprse2)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+
+        # delete distance OK
+        cmd = 'rucio-admin rse delete-distance %s %s' % (temprse1, temprse2)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        assert "Deleted distance information from %s to %s." % (temprse1, temprse2) in out
+
+        # delete distance RSE not found
+        cmd = 'rucio-admin rse delete-distance %s %s' % (temprse1, generate_uuid())
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert 'RSE does not exist.' in err
+
     def test_upload(self):
         """CLIENT(USER): Upload"""
         tmp_val = rse_name_generator()
