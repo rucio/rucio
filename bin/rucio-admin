@@ -680,6 +680,7 @@ def update_distance_rses(args):
         print("- Ranking set to %d" % args.ranking)
     return SUCCESS
 
+
 @exception_handler
 def delete_distance_rses(args):
     """
