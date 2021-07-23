@@ -1010,7 +1010,8 @@ class DownloadClient:
         if dids is None:
             self.logger(logging.DEBUG, 'Resolving DIDs by using filter options')
             scope = filters.pop('scope')
-            yield scope, list(self.client.list_dids(scope, filters=filters, did_type='all'))
+            for did in self.client.list_dids(scope, filters=filters, did_type='all', long=True):
+                yield did
             return
 
         if not isinstance(dids, list):
@@ -1018,12 +1019,16 @@ class DownloadClient:
 
         for did_str in dids:
             scope, did_name = self._split_did_str(did_str)
-            if '*' in did_name:
-                filters['name'] = did_name
-                resolved_dids = list(self.client.list_dids(scope, filters=filters, did_type='all'))
-                yield scope, resolved_dids
-            else:
-                yield scope, [did_name]
+            filters['name'] = did_name
+            any_did_resolved = False
+            for did in self.client.list_dids(scope, filters=filters, did_type='all', long=True):
+                yield did
+                any_did_resolved = True
+
+            # Maintain compatibility with existing code, which expects non-existing DIDs be
+            # passed through in order to correctly set trace state to FILE_NOT_FOUND
+            if not any_did_resolved and '*' not in did_name:
+                yield {'scope': scope, 'name': did_name}
 
     def _resolve_and_merge_input_items(self, items):
         """
@@ -1066,31 +1071,30 @@ class DownloadClient:
 
             resolved_dids = item.setdefault('dids', [])
 
-            for did_scope, did_names in self._resolve_one_item_dids(item):
-                for did_name in did_names:
-                    resolved_did_str = '%s:%s' % (did_scope, did_name)
-                    options = did_to_options.setdefault(resolved_did_str, {})
-                    options.setdefault('destinations', set()).add((base_dir, no_subdir))
+            for did in self._resolve_one_item_dids(item):
+                resolved_did_str = '%s:%s' % (did['scope'], did['name'])
+                options = did_to_options.setdefault(resolved_did_str, {})
+                options.setdefault('destinations', set()).add((base_dir, no_subdir))
 
-                    # Merge some options
-                    # The other options of this DID will be inherited from the first item that contained the DID
-                    options['ignore_checksum'] = (options.get('ignore_checksum') or ignore_checksum)
+                # Merge some options
+                # The other options of this DID will be inherited from the first item that contained the DID
+                options['ignore_checksum'] = (options.get('ignore_checksum') or ignore_checksum)
 
-                    cur_transfer_timeout = options.setdefault('transfer_timeout', None)
-                    if cur_transfer_timeout is not None and new_transfer_timeout is not None:
-                        options['transfer_timeout'] = max(int(cur_transfer_timeout), int(new_transfer_timeout))
-                    elif new_transfer_timeout is not None:
-                        options['transfer_timeout'] = int(new_transfer_timeout)
+                cur_transfer_timeout = options.setdefault('transfer_timeout', None)
+                if cur_transfer_timeout is not None and new_transfer_timeout is not None:
+                    options['transfer_timeout'] = max(int(cur_transfer_timeout), int(new_transfer_timeout))
+                elif new_transfer_timeout is not None:
+                    options['transfer_timeout'] = int(new_transfer_timeout)
 
-                    cur_transfer_speed_timeout = options.setdefault('transfer_speed_timeout', None)
-                    if cur_transfer_speed_timeout is not None and new_transfer_speed_timeout is not None:
-                        options['transfer_speed_timeout'] = min(float(cur_transfer_speed_timeout), float(new_transfer_speed_timeout))
-                    elif new_transfer_speed_timeout is not None:
-                        options['transfer_speed_timeout'] = float(new_transfer_speed_timeout)
+                cur_transfer_speed_timeout = options.setdefault('transfer_speed_timeout', None)
+                if cur_transfer_speed_timeout is not None and new_transfer_speed_timeout is not None:
+                    options['transfer_speed_timeout'] = min(float(cur_transfer_speed_timeout), float(new_transfer_speed_timeout))
+                elif new_transfer_speed_timeout is not None:
+                    options['transfer_speed_timeout'] = float(new_transfer_speed_timeout)
 
-                    if resolved_did_str not in all_resolved_did_strs:
-                        resolved_dids.append({'scope': did_scope, 'name': did_name})
-                        all_resolved_did_strs.add(resolved_did_str)
+                if resolved_did_str not in all_resolved_did_strs:
+                    resolved_dids.append(did)
+                    all_resolved_did_strs.add(resolved_did_str)
 
             if len(resolved_dids) == 0:
                 logger(logging.WARNING, 'An item didnt have any DIDs after resolving the input. Ignoring it.')
@@ -1145,7 +1149,8 @@ class DownloadClient:
             logger(logging.DEBUG, 'num DIDs for list_replicas call: %d' % len(item['dids']))
 
             nrandom = item.get('nrandom')
-            metalink_str = self.client.list_replicas(item['dids'],
+            dids = [{'scope': did['scope'], 'name': did['name']} for did in item['dids']]
+            metalink_str = self.client.list_replicas(dids,
                                                      schemes=schemes,
                                                      ignore_availability=False,
                                                      rse_expression=rse_expression,
@@ -1161,7 +1166,7 @@ class DownloadClient:
             # list_replicas returns nothing if the DID does not exist and we dont want to
             # do another server call so we check if there is a result from list_replicas
             # for each given DID. If not the DID does not exist
-            for input_did in item['dids']:
+            for input_did in dids:
                 input_did = DIDType(input_did)
                 if not any([input_did == f['did'] or str(input_did) in f['parent_dids'] for f in file_items]):
                     logger(logging.ERROR, 'DID does not exist: %s' % input_did)
