@@ -64,6 +64,7 @@ import requests
 from six import string_types, text_type, binary_type, ensure_text, PY3
 from six.moves import StringIO, zip_longest as izip_longest
 from six.moves.urllib.parse import urlparse, urlencode, quote, parse_qsl, urlunparse
+from six.moves.configparser import NoOptionError, NoSectionError
 
 from rucio.common.config import config_get
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
@@ -531,6 +532,7 @@ def construct_surl_BelleII(dsn, filename):
 
 _SURL_ALGORITHMS = {}
 _DEFAULT_SURL = 'DQ2'
+_loaded_policy_modules = False
 
 
 def register_surl_algorithm(surl_callable, name=None):
@@ -544,9 +546,39 @@ register_surl_algorithm(construct_surl_DQ2, 'DQ2')
 register_surl_algorithm(construct_surl_BelleII, 'BelleII')
 
 
+def _register_policy_package_surl_algorithms():
+    def try_importing_policy(vo=None):
+        import importlib
+        try:
+            package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo['vo']))
+            module = importlib.import_module(package)
+            if hasattr(module, 'get_surl_algorithms'):
+                _SURL_ALGORITHMS.update(module.get_surl_algorithms())
+        except (NoOptionError, NoSectionError, ImportError):
+            pass
+
+    from rucio.common import config
+    from rucio.core.vo import list_vos
+    try:
+        multivo = config.config_get_bool('common', 'multi_vo')
+    except (NoOptionError, NoSectionError):
+        multivo = False
+    if not multivo:
+        # single policy package
+        try_importing_policy()
+    else:
+        # policy package per VO
+        vos = list_vos()
+        for vo in vos:
+            try_importing_policy(vo)
+
+
 def construct_surl(dsn, filename, naming_convention=None):
-    # ensure that policy package is loaded in case it registers its own algorithms
-    import rucio.common.schema  # noqa: F401
+    global _loaded_policy_modules
+    if not _loaded_policy_modules:
+        # on first call, register any SURL functions from the policy packages
+        _register_policy_package_surl_algorithms()
+        _loaded_policy_modules = True
 
     if naming_convention is None or naming_convention not in _SURL_ALGORITHMS:
         naming_convention = _DEFAULT_SURL
