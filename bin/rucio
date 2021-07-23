@@ -1025,6 +1025,7 @@ def download(args):
     item_defaults['transfer_timeout'] = args.transfer_timeout
     item_defaults['transfer_speed_timeout'] = args.transfer_speed_timeout
     item_defaults['no_resolve_archives'] = args.no_resolve_archives
+    item_defaults['ignore_checksum'] = args.ignore_checksum
     archive_did = args.archive_did
     if archive_did:
         logger.warning("Archives are treated transparently. --archive-did option is being obsoleted.")  # TODO
@@ -2195,6 +2196,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
         selected_parser.add_argument('--archive-did', action='store', dest='archive_did', help="Download from archive is transparent. This option is obsolete.")
         selected_parser.add_argument('--no-resolve-archives', action='store_true', default=False, help="If set archives will not be considered for download.")
+        selected_parser.add_argument('--ignore-checksum', action='store_true', default=False, help="Don't validate checksum for downloaded files.")
         selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, None), help='Transfer timeout (in seconds). Default: computed dynamically from --transfer-speed-timeout. If set to any value >= 0, --transfer-speed-timeout is ignored.')
         selected_parser.add_argument('--transfer-speed-timeout', dest='transfer_speed_timeout', type=float, action='store', default=config_get('download', 'transfer_speed_timeout', False, 500), help='Minimum allowed average transfer speed (in KBps). Default: 500. Used to dynamically compute the timeout if --transfer-timeout not set. Is not supported for --pfn.')
         selected_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
