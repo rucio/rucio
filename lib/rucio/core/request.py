@@ -31,6 +31,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import datetime
 import json
@@ -42,7 +43,7 @@ from itertools import filterfalse
 from typing import TYPE_CHECKING
 
 from six import string_types
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, or_, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, false, true
 
@@ -552,11 +553,13 @@ def touch_requests_by_rule(rule_id, session=None):
     record_counter('core.request.touch_requests_by_rule')
 
     try:
-        session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_RULEID_IDX)", 'oracle')\
+        stmt = update(models.Request).prefix_with("/*+ INDEX(REQUESTS REQUESTS_RULEID_IDX) */", dialect='oracle')\
                                      .filter_by(rule_id=rule_id)\
-                                     .filter(models.Request.state.in_([RequestState.FAILED, RequestState.DONE, RequestState.LOST, RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES]))\
-                                     .filter(models.Request.updated_at < datetime.datetime.utcnow())\
-                                     .update({'updated_at': datetime.datetime.utcnow() + datetime.timedelta(minutes=20)}, synchronize_session=False)
+                                     .where(models.Request.state.in_([RequestState.FAILED, RequestState.DONE, RequestState.LOST, RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES]))\
+                                     .where(models.Request.updated_at < datetime.datetime.utcnow())\
+                                     .execution_options(synchronize_session=False)\
+                                     .values(updated_at=datetime.datetime.utcnow() + datetime.timedelta(minutes=20))
+        session.execute(stmt)
     except IntegrityError as error:
         raise RucioException(error.args)
 

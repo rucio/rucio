@@ -37,6 +37,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 # - Petr Vokac <petr.vokac@fjfi.cvut.cz>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import division
 
@@ -51,7 +52,7 @@ from typing import TYPE_CHECKING
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
-from sqlalchemy import and_
+from sqlalchemy import and_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import false
 
@@ -859,11 +860,13 @@ def touch_transfer(external_host, transfer_id, session=None):
 
     try:
         # don't touch it if it's already touched in 30 seconds
-        session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_EXTERNALID_UQ)", 'oracle')\
+        stmt = update(models.Request).prefix_with("/*+ INDEX(REQUESTS REQUESTS_EXTERNALID_UQ) */", dialect='oracle')\
                                      .filter_by(external_id=transfer_id)\
-                                     .filter(models.Request.state == RequestState.SUBMITTED)\
-                                     .filter(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=30))\
-                                     .update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+                                     .where(models.Request.state == RequestState.SUBMITTED)\
+                                     .where(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=30))\
+                                     .execution_options(synchronize_session=False)\
+                                     .values(updated_at=datetime.datetime.utcnow())
+        session.execute(stmt)
     except IntegrityError as error:
         raise RucioException(error.args)
 
