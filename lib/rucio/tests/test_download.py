@@ -25,6 +25,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 import logging
+import os
 import shutil
 import tarfile
 from unittest.mock import patch, MagicMock, ANY
@@ -34,12 +35,14 @@ from zipfile import ZipFile
 import pytest
 
 from rucio.client.downloadclient import DownloadClient
-from rucio.common.exception import InputValidationError, NoFilesDownloaded
+from rucio.common.exception import InputValidationError, NoFilesDownloaded, RucioException
+from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core import did as did_core
+from rucio.core import scope as scope_core
 from rucio.rse import rsemanager as rsemgr
 from rucio.rse.protocols.posix import Default as PosixProtocol
-from rucio.tests.common import skip_rse_tests_with_accounts
+from rucio.tests.common import skip_rse_tests_with_accounts, scope_name_generator
 
 
 @pytest.fixture
@@ -90,6 +93,101 @@ def test_download_without_base_dir(rse_factory, did_factory, download_client):
         )
     finally:
         shutil.rmtree(scope)
+
+
+@pytest.mark.dirty(reason='creates a new scope which is not cleaned up')
+def test_overlapping_did_names(rse_factory, did_factory, download_client, root_account, mock_scope, vo):
+    """
+    Downloading two different did with different scope but same name to the same directory must fail
+    """
+    rse, _ = rse_factory.make_posix_rse()
+    scope1 = mock_scope
+    scope2 = InternalScope(scope_name_generator(), vo=vo)
+    scope_core.add_scope(scope2, root_account)
+    did1 = did_factory.upload_test_file(rse, scope=scope1)
+    did2 = did_factory.upload_test_file(rse, scope=scope2, name=did1['name'])
+    dataset = did_factory.make_dataset()
+    did_core.attach_dids(dids=[did1, did2], account=root_account, **dataset)
+
+    did1_str = '%s:%s' % (did1['scope'], did1['name'])
+    did2_str = '%s:%s' % (did2['scope'], did2['name'])
+    dataset1_did_str = '%s:%s' % (dataset['scope'], dataset['name'])
+
+    with TemporaryDirectory() as tmp_dir:
+        with pytest.raises(RucioException):
+            download_client.download_dids([{'did': dataset1_did_str, 'base_dir': tmp_dir, 'no_subdir': True}])
+
+    with TemporaryDirectory() as tmp_dir:
+        with pytest.raises(RucioException):
+            download_client.download_dids([{'did': did1_str, 'base_dir': tmp_dir, 'no_subdir': True},
+                                           {'did': did2_str, 'base_dir': tmp_dir, 'no_subdir': True}])
+
+
+def test_overlapping_containers_and_wildcards(rse_factory, did_factory, download_client, root_account):
+    """
+    Verify that wildcard resolution is correctly done. Overlapping containers and wildcards are handled without issues.
+    """
+    rse1, _ = rse_factory.make_posix_rse()
+    rse2, _ = rse_factory.make_posix_rse()
+    dids_on_rse1 = [did_factory.upload_test_file(rse1) for _ in range(5)]
+    dids_on_rse2 = [did_factory.upload_test_file(rse2) for _ in range(5)]
+    dids = dids_on_rse1 + dids_on_rse2
+    datasets = [did_factory.make_dataset() for _ in range(3)]
+    container = did_factory.make_container()
+    dids_in_dataset1, dids_in_dataset2, dids_in_dataset3 = dids[:6], dids[3:7], dids[4:]
+    did_core.attach_dids(dids=dids_in_dataset1, account=root_account, **datasets[0])
+    did_core.attach_dids(dids=dids_in_dataset2, account=root_account, **datasets[1])
+    did_core.attach_dids(dids=dids_in_dataset3, account=root_account, **datasets[2])
+    did_core.attach_dids(dids=datasets, account=root_account, **container)
+
+    dataset1_str, dataset2_str, dataset3_str = ['%s:%s' % (d['scope'], d['name']) for d in datasets]
+    container_str = '%s:%s' % (container['scope'], container['name'])
+
+    with TemporaryDirectory() as tmp_dir:
+        # No filters: all dids will be grouped and downloaded together
+        result = download_client.download_dids([{'did': dataset1_str, 'base_dir': tmp_dir},
+                                                {'did': dataset2_str, 'base_dir': tmp_dir},
+                                                {'did': dataset3_str, 'base_dir': tmp_dir},
+                                                {'did': container_str, 'base_dir': tmp_dir}])
+        assert len(result) == len(dids)
+
+    with TemporaryDirectory() as tmp_dir:
+        # Verify that wildcard resolution works correctly
+        result = download_client.download_dids([{'did': '%s:dataset_%s*' % (did_factory.default_scope, did_factory.base_uuid), 'base_dir': tmp_dir},
+                                                {'did': container_str, 'base_dir': tmp_dir}])
+        assert len(result) == len(dids)
+
+    with TemporaryDirectory() as tmp_dir:
+        # Test with an RSE filter
+        result = download_client.download_dids([{'did': dataset1_str, 'base_dir': tmp_dir, 'rse': rse1},
+                                                {'did': dataset2_str, 'base_dir': tmp_dir, 'rse': rse1},
+                                                {'did': dataset3_str, 'base_dir': tmp_dir, 'rse': rse1}])
+        assert len(result) == len(dids_on_rse1)
+
+    with TemporaryDirectory() as tmp_dir1, TemporaryDirectory() as tmp_dir2, TemporaryDirectory() as tmp_dir3:
+        # Test with nrandom
+        result = download_client.download_dids([{'did': dataset1_str, 'base_dir': tmp_dir1, 'nrandom': 3},
+                                                {'did': dataset2_str, 'base_dir': tmp_dir2, 'nrandom': 3},
+                                                {'did': dataset3_str, 'base_dir': tmp_dir3, 'nrandom': 3}])
+        assert 3 <= len(result) <= 9
+
+    with TemporaryDirectory() as tmp_dir1, TemporaryDirectory() as tmp_dir2:
+        # Test with filters complex overlapping of filters and different destination directories
+        download_client.download_dids([{'did': dataset1_str, 'base_dir': tmp_dir1, 'rse': rse1},
+                                       {'did': dataset2_str, 'base_dir': tmp_dir1, 'rse': rse2},
+                                       {'did': dataset3_str, 'base_dir': tmp_dir2, 'rse': rse2}])
+        dids_on_rse1_and_dataset1 = [d for d in dids_on_rse1 if d in dids_in_dataset1]
+        dids_on_rse2_and_dataset2 = [d for d in dids_on_rse2 if d in dids_in_dataset2]
+        dids_on_rse2_and_dataset3 = [d for d in dids_on_rse2 if d in dids_in_dataset3]
+
+        for dst_dir, expected_dids in (('%s/%s' % (tmp_dir1, datasets[0]['name']), dids_on_rse1_and_dataset1),
+                                       ('%s/%s' % (tmp_dir1, datasets[1]['name']), dids_on_rse2_and_dataset2),
+                                       ('%s/%s' % (tmp_dir2, datasets[2]['name']), dids_on_rse2_and_dataset3)):
+            files_in_dir = os.listdir(dst_dir)
+            for did in expected_dids:
+                assert did['name'] in files_in_dir
+
+            assert len(files_in_dir) == len(expected_dids)
 
 
 def test_download_to_two_paths(rse_factory, did_factory, download_client):
@@ -324,6 +422,11 @@ def test_download_archive_client_extract(rse_factory, did_factory, download_clie
         ])
 
     with TemporaryDirectory() as tmp_dir:
+        with pytest.raises(NoFilesDownloaded):
+            # If archive resolution is disabled, the download must fail
+            download_client.download_dids([{'did': '%s:%s' % (scope, name), 'base_dir': tmp_dir, 'no_resolve_archives': True}])
+
+    with TemporaryDirectory() as tmp_dir:
         result = download_client.download_dids([{'did': '%s:%s' % (scope, name), 'base_dir': tmp_dir}])
         assert len(result) == 1
         with open('%s/%s/%s' % (tmp_dir, scope, name), 'r') as file:
@@ -428,11 +531,20 @@ def test_nrandom_respected(rse_factory, did_factory, download_client, root_accou
         result = download_client.download_dids([{'did': dataset1_did_str, 'nrandom': nrandom, 'base_dir': tmp_dir}])
         assert len(result) == nrandom
 
+    with TemporaryDirectory() as tmp_dir:
+        # If two separate items are provided, nrandom applies to each item separately
         nrandom = 1
         result = download_client.download_dids([{'did': dataset1_did_str, 'nrandom': nrandom, 'base_dir': tmp_dir},
                                                 {'did': dataset2_did_str, 'nrandom': nrandom, 'base_dir': tmp_dir}])
         assert len(result) == 2 * nrandom
 
+    with TemporaryDirectory() as tmp_dir:
+        # If a single item is provided, but it resolves to two datasets, only a single file will be downloaded
+        nrandom = 1
+        result = download_client.download_dids([{'did': '%s:dataset_%s*' % (did_factory.default_scope, did_factory.base_uuid), 'nrandom': nrandom, 'base_dir': tmp_dir}])
+        assert len(result) == nrandom
+
+    with TemporaryDirectory() as tmp_dir:
         nrandom = 2
         result = download_client.download_dids([{'did': dataset1_did_str, 'nrandom': nrandom, 'base_dir': tmp_dir}])
         assert len(result) == nrandom

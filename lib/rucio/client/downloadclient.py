@@ -37,6 +37,7 @@
 from __future__ import division
 
 import copy
+import itertools
 import logging
 import os
 import random
@@ -289,15 +290,10 @@ class DownloadClient:
         trace_custom_fields['uuid'] = generate_uuid()
 
         logger(logging.INFO, 'Processing %d item(s) for input' % len(items))
-        did_to_options, merged_items = self._resolve_and_merge_input_items(copy.deepcopy(items))
+        did_to_input_items, file_items_with_sources = self._resolve_and_merge_input_items(copy.deepcopy(items))
+        self.logger(logging.DEBUG, 'num_unmerged_items=%d; num_dids=%d; num_file_items=%d' % (len(items), len(did_to_input_items), len(file_items_with_sources)))
 
-        self.logger(logging.DEBUG, 'num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
-
-        logger(logging.INFO, 'Getting sources of DIDs')
-        # if one item wants to resolve archives we enable it for all items
-        resolve_archives = not all(item.get('no_resolve_archives') for item in merged_items)
-        merged_items_with_sources = self._get_sources(merged_items, resolve_archives=resolve_archives)
-        input_items = self._prepare_items_for_download(did_to_options, merged_items_with_sources, resolve_archives=resolve_archives)
+        input_items = self._prepare_items_for_download(did_to_input_items, file_items_with_sources)
 
         num_files_in = len(input_items)
         output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields, traces_copy_out)
@@ -336,11 +332,11 @@ class DownloadClient:
         trace_custom_fields['uuid'] = generate_uuid()
 
         did_to_options = {}
-        item.setdefault('destinations', set()).add((item['base_dir'], item['no_subdir']))
         for metalink in metalinks:
-            did_to_options[metalink['did']] = item
+            did = DIDType(metalink['did'])
+            did_to_options[did] = [item]
+            metalink['input_dids'] = {did: {}}
 
-        metalinks = [metalinks]
         input_items = self._prepare_items_for_download(did_to_options, metalinks)
 
         num_files_in = len(input_items)
@@ -750,15 +746,13 @@ class DownloadClient:
 
         for item in items:
             item['force_scheme'] = ['https', 'davs']
+            item['no_resolve_archives'] = True
 
         logger(logging.INFO, 'Processing %d item(s) for input' % len(items))
-        did_to_options, merged_items = self._resolve_and_merge_input_items(copy.deepcopy(items))
+        did_to_input_items, file_items_with_sources = self._resolve_and_merge_input_items(copy.deepcopy(items))
+        self.logger(logging.DEBUG, 'num_unmerged_items=%d; num_dids=%d; num_file_items=%d' % (len(items), len(did_to_input_items), len(file_items_with_sources)))
 
-        self.logger(logging.DEBUG, 'num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
-
-        logger(logging.INFO, 'Getting sources of DIDs')
-        merged_items_with_sources = self._get_sources(merged_items)
-        input_items = self._prepare_items_for_download(did_to_options, merged_items_with_sources, resolve_archives=False)
+        input_items = self._prepare_items_for_download(did_to_input_items, file_items_with_sources)
 
         try:
             output_items = self._download_items_aria2c(input_items, aria_rpc, rpc_auth, trace_custom_fields)
@@ -1030,101 +1024,50 @@ class DownloadClient:
             if not any_did_resolved and '*' not in did_name:
                 yield {'scope': scope, 'name': did_name}
 
-    def _resolve_and_merge_input_items(self, items):
+    def _resolve_and_merge_input_items(self, input_items):
         """
-        This function takes the input items given to download_dids etc. and merges them
-        respecting their individual options. This way functions can operate on these items
-        in batch mode. E.g., list_replicas calls are reduced.
+        This function takes the input items given to download_dids etc.
+        and resolves the sources.
 
-        :param items: List of dictionaries. Each dictionary describing an input item
+        - It first performs a list_dids call to dereference any wildcards and
+        retrieve DID stats (size, length, type).
+        - Next, input items are grouped together by common list_replicas options.
+        For each group, a single list_replicas call is performed.
+        - The resolved File DIDs with sources are finally mapped back to initial
+        input items to be able to correctly retrieve download options
+        (timeout, destination directories, etc)
 
-        :returns: a dictionary that maps the input DIDs to options
-                  and a list with a dictionary for each merged download item
+        :param input_items: List of dictionaries. Each dictionary describing an input item
+
+        :returns: a tuple:
+        - a dictionary that maps the dereferenced(w/o wildcards) input DIDs to a list of input items
+        - and a list with a dictionary for each file DID which has to be downloaded
 
         :raises InputValidationError: if one of the input items is in the wrong format
         """
         logger = self.logger
 
         # check mandatory options before doing any server calls
-        for item in items:
+        resolve_archives = False
+        for item in input_items:
             if item.get('resolve_archives') is not None:
                 logger(logging.WARNING, 'resolve_archives option is deprecated and will be removed in a future release.')
                 item.setdefault('no_resolve_archives', not item.pop('resolve_archives'))
+
+            # If any item needs to resolve archives
+            if not item.get('no_resolve_archives'):
+                resolve_archives = True
 
             if not item.get('did'):
                 if not item.get('filters', {}).get('scope'):
                     logger(logging.DEBUG, item)
                     raise InputValidationError('Item without did and filter/scope')
-
-        distinct_keys = ['rse', 'force_scheme']
-        all_resolved_did_strs = set()
-
-        did_to_options = {}
-        merged_items = []
-
-        for item in items:
-            base_dir = item.pop('base_dir', '.')
-            no_subdir = item.pop('no_subdir', False)
-            ignore_checksum = item.pop('ignore_checksum', False)
-            new_transfer_timeout = item.pop('transfer_timeout', None)
-            new_transfer_speed_timeout = item.pop('transfer_speed_timeout', None)
-
-            resolved_dids = item.setdefault('dids', [])
-
-            for did in self._resolve_one_item_dids(item):
-                resolved_did_str = '%s:%s' % (did['scope'], did['name'])
-                options = did_to_options.setdefault(resolved_did_str, {})
-                options.setdefault('destinations', set()).add((base_dir, no_subdir))
-
-                # Merge some options
-                # The other options of this DID will be inherited from the first item that contained the DID
-                options['ignore_checksum'] = (options.get('ignore_checksum') or ignore_checksum)
-
-                cur_transfer_timeout = options.setdefault('transfer_timeout', None)
-                if cur_transfer_timeout is not None and new_transfer_timeout is not None:
-                    options['transfer_timeout'] = max(int(cur_transfer_timeout), int(new_transfer_timeout))
-                elif new_transfer_timeout is not None:
-                    options['transfer_timeout'] = int(new_transfer_timeout)
-
-                cur_transfer_speed_timeout = options.setdefault('transfer_speed_timeout', None)
-                if cur_transfer_speed_timeout is not None and new_transfer_speed_timeout is not None:
-                    options['transfer_speed_timeout'] = min(float(cur_transfer_speed_timeout), float(new_transfer_speed_timeout))
-                elif new_transfer_speed_timeout is not None:
-                    options['transfer_speed_timeout'] = float(new_transfer_speed_timeout)
-
-                if resolved_did_str not in all_resolved_did_strs:
-                    resolved_dids.append(did)
-                    all_resolved_did_strs.add(resolved_did_str)
-
-            if len(resolved_dids) == 0:
-                logger(logging.WARNING, 'An item didnt have any DIDs after resolving the input. Ignoring it.')
-                logger(logging.DEBUG, item)
-                continue
-
-            was_merged = False
-            if not item.get('nrandom'):
-                # Don't merge items if nrandom is set. Otherwise two items with the same nrandom will be merged into one
-                # and we'll effectively download only half of the desired replicas for each item.
-                for merged_item in merged_items:
-                    if all(item.get(k) == merged_item.get(k) for k in distinct_keys):
-                        merged_item['dids'].extend(resolved_dids)
-                        was_merged = True
-                        break
-            if not was_merged:
-                item['dids'] = resolved_dids
-                merged_items.append(item)
-        return did_to_options, merged_items
-
-    def _get_sources(self, merged_items, resolve_archives=True):
-        """
-        Get sources (PFNs) of the DIDs.
-
-        :param merged_items: list of dictionaries. Each dictionary describes a bunch of DIDs to download
-
-        :returns: list of list of dictionaries.
-        """
-        logger = self.logger
-        merged_items_with_sources = []
+        if resolve_archives:
+            # perhaps we'll need an extraction tool so check what is installed
+            self.extraction_tools = [tool for tool in self.extraction_tools if tool.is_useable()]
+            if len(self.extraction_tools) < 1:
+                logger(logging.WARNING, 'Archive resolution is enabled but no extraction tool is available. '
+                                        'Sources whose protocol doesnt support extraction wont be considered for download.')
 
         # if excluding tapes, we need to list them first
         tape_rses = []
@@ -1134,7 +1077,43 @@ class DownloadClient:
             except:
                 logger(logging.DEBUG, 'No tapes found.')
 
-        for item in merged_items:
+        # Matches each dereferenced DID back to a list of input items
+        did_to_input_items = {}
+
+        # Resolve DIDs
+        for item in input_items:
+            resolved_dids = list(self._resolve_one_item_dids(item))
+            if not resolved_dids:
+                logger(logging.WARNING, 'An item didnt have any DIDs after resolving the input: %s.' % item.get('did', item))
+            item['dids'] = resolved_dids
+            for did in resolved_dids:
+                did_to_input_items.setdefault(DIDType(did), []).append(item)
+
+        # group input items by common options to reduce the number of calls to list_replicas
+        distinct_keys = ['rse', 'force_scheme', 'no_resolve_archives']
+        item_groups = []
+        for item in input_items:
+            found_compatible_group = False
+            if not item.get('nrandom'):
+                # Don't merge items if nrandom is set. Otherwise two items with the same nrandom will be merged into one
+                # and we'll effectively download only half of the desired replicas for each item.
+                for item_group in item_groups:
+                    if all(item.get(k) == item_group[0].get(k) for k in distinct_keys):
+                        item_group.append(item)
+                        found_compatible_group = True
+                        break
+            if not found_compatible_group:
+                item_groups.append([item])
+
+        # List replicas for dids
+        merged_items_with_sources = []
+        for item_group in item_groups:
+            # Take configuration from the first item in the group; but dids from all items
+            item = item_group[0]
+            input_dids = {DIDType(did): did
+                          for item in item_group
+                          for did in item.get('dids')}
+
             # since we're using metalink we need to explicitly give all schemes
             schemes = item.get('force_scheme')
             if schemes:
@@ -1149,13 +1128,15 @@ class DownloadClient:
             logger(logging.DEBUG, 'num DIDs for list_replicas call: %d' % len(item['dids']))
 
             nrandom = item.get('nrandom')
-            dids = [{'scope': did['scope'], 'name': did['name']} for did in item['dids']]
-            metalink_str = self.client.list_replicas(dids,
+            if nrandom:
+                logger(logging.INFO, 'Selecting %d random replicas from DID(s): %s' % (nrandom, [str(did) for did in input_dids]))
+
+            metalink_str = self.client.list_replicas([{'scope': did.scope, 'name': did.name} for did in input_dids],
                                                      schemes=schemes,
                                                      ignore_availability=False,
                                                      rse_expression=rse_expression,
                                                      client_location=self.client_location,
-                                                     resolve_archives=resolve_archives,
+                                                     resolve_archives=not item.get('no_resolve_archives'),
                                                      resolve_parents=True,
                                                      nrandom=nrandom,
                                                      metalink=True)
@@ -1163,15 +1144,17 @@ class DownloadClient:
 
             logger(logging.DEBUG, 'num resolved files: %s' % len(file_items))
 
-            # list_replicas returns nothing if the DID does not exist and we dont want to
-            # do another server call so we check if there is a result from list_replicas
-            # for each given DID. If not the DID does not exist
-            for input_did in dids:
-                input_did = DIDType(input_did)
-                if not any([input_did == f['did'] or str(input_did) in f['parent_dids'] for f in file_items]):
-                    logger(logging.ERROR, 'DID does not exist: %s' % input_did)
-                    # TODO: store did directly as DIDType object
-                    file_items.append({'did': str(input_did), 'adler32': None, 'md5': None, 'sources': [], 'parent_dids': set()})
+            if not nrandom or nrandom != len(file_items):
+                # If list_replicas didn't resolve any file DIDs for any input did, we pass through the input DID.
+                # This is done to keep compatibility with later code which generates "FILE_NOT_FOUND" traces
+                # and output items.
+                # In the special case of nrandom, when serverside filtering is applied, it's "normal" for some input
+                # dids to be ignored as long as we got exactly nrandom file_items from the server.
+                for input_did in input_dids:
+                    if not any([input_did == f['did'] or str(input_did) in f['parent_dids'] for f in file_items]):
+                        logger(logging.ERROR, 'DID does not exist: %s' % input_did)
+                        # TODO: store did directly as DIDType object
+                        file_items.append({'did': str(input_did), 'adler32': None, 'md5': None, 'sources': [], 'parent_dids': set()})
 
             # filtering out tape sources
             if self.is_tape_excluded:
@@ -1184,41 +1167,76 @@ class DownloadClient:
                         logger(logging.WARNING, 'The requested DID {} only has replicas on tape. Direct download from tape is prohibited. '
                                                 'Please request a transfer to a non-tape endpoint.'.format(file_item['did']))
 
-            if nrandom:
-                logger(logging.INFO, 'Selecting %d random replicas from DID(s): %s' % (nrandom, item['dids']))
-                random.shuffle(file_items)
-                file_items = file_items[0:nrandom]
-                merged_items_with_sources.append(file_items)
-            else:
-                merged_items_with_sources.append(file_items)
+            # Match the file did back to the dids which were provided to list_replicas.
+            # Later, this will allow to match the file back to input_items via did_to_input_items
+            for file_item in file_items:
+                file_did = DIDType(file_item['did'])
 
-        return merged_items_with_sources
+                file_input_dids = {DIDType(did) for did in file_item.get('parent_dids', [])}.intersection(input_dids)
+                if file_did in input_dids:
+                    file_input_dids.add(file_did)
+                file_item['input_dids'] = {did: input_dids[did] for did in file_input_dids}
+            merged_items_with_sources.extend(file_items)
 
-    def _prepare_items_for_download(self, did_to_options, merged_items_with_sources, resolve_archives=True):
+        return did_to_input_items, merged_items_with_sources
+
+    def _options_from_input_items(self, input_items):
+        """
+        Best-effort generation of download options from multiple input items which resolve to the same file DID.
+        This is done to download each file DID only once, even if it is requested multiple times via overlapping
+        datasets and/or wildcard resolutions in distinct input items.
+
+        Some options can be easily merged. For example: multiple base_dir are all appended to a list. As a result,
+        the file is downloaded once and copied to all desired destinations.
+        Other options are not necessarily compatible. For example, two items requesting two different values for
+        download timeout. We make our best to merge the options in such cases.
+        """
+        options = {}
+        for item in input_items:
+            base_dir = item.get('base_dir', '.')
+            no_subdir = item.get('no_subdir', False)
+            ignore_checksum = item.get('ignore_checksum', False)
+            new_transfer_timeout = item.get('transfer_timeout', None)
+            new_transfer_speed_timeout = item.get('transfer_speed_timeout', None)
+
+            options.setdefault('destinations', set()).add((base_dir, no_subdir))
+
+            # Merge some options
+            # The other options of this DID will be inherited from the first item that contained the DID
+            options['ignore_checksum'] = (options.get('ignore_checksum') or ignore_checksum)
+
+            # if one item wants to resolve archives we enable it for all items
+            options['resolve_archives'] = (options.get('resolve_archives') or not item.get('no_resolve_archives'))
+
+            cur_transfer_timeout = options.setdefault('transfer_timeout', None)
+            if cur_transfer_timeout is not None and new_transfer_timeout is not None:
+                options['transfer_timeout'] = max(int(cur_transfer_timeout), int(new_transfer_timeout))
+            elif new_transfer_timeout is not None:
+                options['transfer_timeout'] = int(new_transfer_timeout)
+
+            cur_transfer_speed_timeout = options.setdefault('transfer_speed_timeout', None)
+            if cur_transfer_speed_timeout is not None and new_transfer_speed_timeout is not None:
+                options['transfer_speed_timeout'] = min(float(cur_transfer_speed_timeout), float(new_transfer_speed_timeout))
+            elif new_transfer_speed_timeout is not None:
+                options['transfer_speed_timeout'] = float(new_transfer_speed_timeout)
+        return options
+
+    def _prepare_items_for_download(self, did_to_input_items, file_items):
         """
         Optimises the amount of files to download
         (This function is meant to be used as class internal only)
 
-        :param did_to_options: dictionary that maps each input DID to some input options
-        :param merged_items_with_sources: list of dictionaries. Each dictionary describes a bunch of DIDs to download
+        :param did_to_input_items: dictionary that maps resolved input DIDs to input items
+        :param file_items: list of dictionaries. Each dictionary describes a File DID to download
 
         :returns: list of dictionaries. Each dictionary describes an element to download
 
         :raises InputValidationError: if the given input is not valid or incomplete
         """
         logger = self.logger
-        if resolve_archives:
-            # perhaps we'll need an extraction tool so check what is installed
-            self.extraction_tools = [tool for tool in self.extraction_tools if tool.is_useable()]
-            if len(self.extraction_tools) < 1:
-                logger(logging.WARNING, 'Archive resolution is enabled but no extraction tool is available. '
-                                        'Sources whose protocol doesnt support extraction wont be considered for download.')
 
         # maps file item IDs (fiid) to the file item object
         fiid_to_file_item = {}
-
-        # list of all file item objects
-        all_file_items = []
 
         # cea -> client_extract archives to avoid confusion with archives that dont need explicit extraction
         # this dict will contain all ids of cea's that definitely will be downloaded
@@ -1227,133 +1245,115 @@ class DownloadClient:
         # this dict will contain ids of cea's that have higher prioritised non cea sources
         cea_id_mixed_to_fiids = {}
 
-        all_input_dids = set(did_to_options.keys())
         all_dest_file_paths = set()
 
         # get replicas for every file of the given dids
-        for file_items in merged_items_with_sources:
-            all_file_items.extend(file_items)
-            for file_item in file_items:
-                # parent_dids contains all parents, so we take the intersection with the input dids
-                dataset_did_strs = file_item.setdefault('parent_dids', set())
-                dataset_did_strs.intersection_update(all_input_dids)
+        for file_item in file_items:
+            file_did = DIDType(file_item['did'])
+            input_items = list(itertools.chain.from_iterable(did_to_input_items.get(did, []) for did in file_item['input_dids']))
+            options = self._options_from_input_items(input_items)
 
-                file_did_str = file_item['did']
-                file_did_scope, file_did_name = self._split_did_str(file_did_str)
-                file_item['scope'] = file_did_scope
-                file_item['name'] = file_did_name
+            file_item['scope'] = file_did.scope
+            file_item['name'] = file_did.name
 
-                logger(logging.DEBUG, 'Queueing file: %s' % file_did_str)
-                logger(logging.DEBUG, 'real parents: %s' % dataset_did_strs)
-                logger(logging.DEBUG, 'options: %s' % did_to_options)
+            logger(logging.DEBUG, 'Queueing file: %s' % file_did)
+            logger(logging.DEBUG, 'real parents: %s' % [str(did) for did in file_item['input_dids'] if did != file_did])
+            logger(logging.DEBUG, 'options: %s' % options)
 
-                # prepare destinations:
-                # if datasets were given: prepare the destination paths for each dataset
-                options = None
-                dest_file_paths = file_item.get('dest_file_paths', set())
-                for dataset_did_str in dataset_did_strs:
-                    options = did_to_options.get(dataset_did_str)
-                    if not options:
-                        logger(logging.ERROR, 'No input options available for %s' % dataset_did_str)
-                        continue
+            # prepare destinations folders:
+            dest_file_paths = file_item.get('dest_file_paths', set())
+            for input_did in file_item['input_dids']:
+                for item in did_to_input_items[input_did]:
+                    base_dir = item.get('base_dir', '.')
+                    no_subdir = item.get('no_subdir', False)
+                    file_did_path = file_did.name
+                    if input_did != file_did:
+                        # if datasets were given: prepare the destination paths for each dataset
+                        if self.extract_scope_convention == 'belleii' and file_did_path.startswith('/'):
+                            file_did_path = file_did_path.split('/')[-1]
+                        path = os.path.join(self._prepare_dest_dir(base_dir, input_did.name, no_subdir), file_did_path)
+                    else:
+                        # if no datasets were given only prepare the given destination paths
+                        if self.extract_scope_convention == 'belleii' and file_did_path.startswith('/'):
+                            file_did_path = file_did_path[1:]
+                        path = os.path.join(self._prepare_dest_dir(base_dir, file_did.scope, no_subdir), file_did_path)
 
-                    destinations = options['destinations']
-                    dataset_scope, dataset_name = self._split_did_str(dataset_did_str)
-                    file_did_path = file_did_name
-                    if self.extract_scope_convention == 'belleii' and file_did_path.startswith('/'):
-                        file_did_path = file_did_name.split('/')[-1]
-                    paths = [os.path.join(self._prepare_dest_dir(dest[0], dataset_name, dest[1]), file_did_path) for dest in destinations]
-                    if any(path in all_dest_file_paths for path in paths):
+                    if path in all_dest_file_paths:
                         raise RucioException("Multiple file items with same destination file path")
 
-                    all_dest_file_paths.update(paths)
-                    dest_file_paths.update(paths)
+                    all_dest_file_paths.add(path)
+                    dest_file_paths.add(path)
 
                     # workaround: just take any given dataset for the traces and the output
-                    file_item.setdefault('dataset_scope', dataset_scope)
-                    file_item.setdefault('dataset_name', dataset_name)
+                    file_item.setdefault('dataset_scope', input_did.scope)
+                    file_item.setdefault('dataset_name', input_did.name)
 
-                # if no datasets were given only prepare the given destination paths
-                if len(dataset_did_strs) == 0:
-                    options = did_to_options.get(file_did_str)
-                    if not options:
-                        logger(logging.ERROR, 'No input options available for %s' % file_did_str)
-                        continue
-                    destinations = options['destinations']
-                    file_did_path = file_did_name
-                    if self.extract_scope_convention == 'belleii' and file_did_path.startswith('/'):
-                        file_did_path = file_did_name[1:]
-                    paths = [os.path.join(self._prepare_dest_dir(dest[0], file_did_scope, dest[1]), file_did_path) for dest in destinations]
-                    if any(path in all_dest_file_paths for path in paths):
-                        raise RucioException("Multiple file items with same destination file path")
-                    all_dest_file_paths.update(paths)
-                    dest_file_paths.update(paths)
+            if not options:
+                continue
+            resolve_archives = options.get('resolve_archives')
+            file_item['merged_options'] = options
+            file_item['dest_file_paths'] = list(dest_file_paths)
+            file_item['temp_file_path'] = '%s.part' % file_item['dest_file_paths'][0]
 
-                if options is None:
+            # the file did str ist not an unique key for this dict because multiple calls of list_replicas
+            # could result in the same DID multiple times. So we're using the id of the dictionary objects
+            fiid = id(file_item)
+            fiid_to_file_item[fiid] = file_item
+
+            if resolve_archives:
+                min_cea_priority = None
+                num_non_cea_sources = 0
+                cea_ids = []
+                sources = []
+                # go through sources and check how many (non-)cea sources there are,
+                # index cea sources, or remove cea sources if there is no extraction tool
+                for source in file_item['sources']:
+                    is_cea = source.get('client_extract', False)
+                    if is_cea and (len(self.extraction_tools) > 0):
+                        priority = int(source['priority'])
+                        if min_cea_priority is None or priority < min_cea_priority:
+                            min_cea_priority = priority
+
+                        # workaround since we dont have the archive DID use the part behind the last slash of the PFN
+                        # this doesn't respect the scope of the archive DID!!!
+                        # and we trust that client_extract==True sources dont have any parameters at the end of the PFN
+                        cea_id = source['pfn'].split('/')
+                        cea_id = cea_id[-1] if len(cea_id[-1]) > 0 else cea_id[-2]
+                        cea_ids.append(cea_id)
+
+                        sources.append(source)
+                    elif not is_cea:
+                        num_non_cea_sources += 1
+                        sources.append(source)
+                    else:
+                        # no extraction tool
+                        logger(logging.DEBUG, 'client_extract=True; ignoring source: %s' % source['pfn'])
+
+                logger(logging.DEBUG, 'Prepared sources: num_sources=%d/%d; num_non_cea_sources=%d; num_cea_ids=%d'
+                                      % (len(sources), len(file_item['sources']), num_non_cea_sources, len(cea_ids)))
+
+                file_item['sources'] = sources
+
+                # if there are no cea sources we are done for this item
+                if min_cea_priority is None:
                     continue
-                file_item['merged_options'] = options
-                file_item['dest_file_paths'] = list(dest_file_paths)
-                file_item['temp_file_path'] = '%s.part' % file_item['dest_file_paths'][0]
-
-                # the file did str ist not an unique key for this dict because multiple calls of list_replicas
-                # could result in the same DID multiple times. So we're using the id of the dictionary objects
-                fiid = id(file_item)
-                fiid_to_file_item[fiid] = file_item
-
-                if resolve_archives:
-                    min_cea_priority = None
-                    num_non_cea_sources = 0
-                    cea_ids = []
-                    sources = []
-                    # go through sources and check how many (non-)cea sources there are,
-                    # index cea sources, or remove cea sources if there is no extraction tool
-                    for source in file_item['sources']:
-                        is_cea = source.get('client_extract', False)
-                        if is_cea and (len(self.extraction_tools) > 0):
-                            priority = int(source['priority'])
-                            if min_cea_priority is None or priority < min_cea_priority:
-                                min_cea_priority = priority
-
-                            # workaround since we dont have the archive DID use the part behind the last slash of the PFN
-                            # this doesn't respect the scope of the archive DID!!!
-                            # and we trust that client_extract==True sources dont have any parameters at the end of the PFN
-                            cea_id = source['pfn'].split('/')
-                            cea_id = cea_id[-1] if len(cea_id[-1]) > 0 else cea_id[-2]
-                            cea_ids.append(cea_id)
-
-                            sources.append(source)
-                        elif not is_cea:
-                            num_non_cea_sources += 1
-                            sources.append(source)
-                        else:
-                            # no extraction tool
-                            logger(logging.DEBUG, 'client_extract=True; ignoring source: %s' % source['pfn'])
-
-                    logger(logging.DEBUG, 'Prepared sources: num_sources=%d/%d; num_non_cea_sources=%d; num_cea_ids=%d'
-                                          % (len(sources), len(file_item['sources']), num_non_cea_sources, len(cea_ids)))
-
-                    file_item['sources'] = sources
-
-                    # if there are no cea sources we are done for this item
-                    if min_cea_priority is None:
-                        continue
-                    # decide if file item belongs to the pure or mixed map
-                    # if no non-archive src exists or the highest prio src is an archive src we put it in the pure map
-                    elif num_non_cea_sources == 0 or min_cea_priority == 1:
-                        logger(logging.DEBUG, 'Adding fiid to cea pure map: '
-                                              'num_non_cea_sources=%d; min_cea_priority=%d; num_cea_sources=%d'
-                                              % (num_non_cea_sources, min_cea_priority, len(cea_ids)))
-                        for cea_id in cea_ids:
-                            cea_id_pure_to_fiids.setdefault(cea_id, set()).add(fiid)
-                            file_item.setdefault('cea_ids_pure', set()).add(cea_id)
-                    # if there are non-archive sources and archive sources we put it in the mixed map
-                    elif len(cea_ids) > 0:
-                        logger(logging.DEBUG, 'Adding fiid to cea mixed map: '
-                                              'num_non_cea_sources=%d; min_cea_priority=%d; num_cea_sources=%d'
-                                              % (num_non_cea_sources, min_cea_priority, len(cea_ids)))
-                        for cea_id in cea_ids:
-                            cea_id_mixed_to_fiids.setdefault(cea_id, set()).add(fiid)
-                            file_item.setdefault('cea_ids_mixed', set()).add(cea_id)
+                # decide if file item belongs to the pure or mixed map
+                # if no non-archive src exists or the highest prio src is an archive src we put it in the pure map
+                elif num_non_cea_sources == 0 or min_cea_priority == 1:
+                    logger(logging.DEBUG, 'Adding fiid to cea pure map: '
+                                          'num_non_cea_sources=%d; min_cea_priority=%d; num_cea_sources=%d'
+                                          % (num_non_cea_sources, min_cea_priority, len(cea_ids)))
+                    for cea_id in cea_ids:
+                        cea_id_pure_to_fiids.setdefault(cea_id, set()).add(fiid)
+                        file_item.setdefault('cea_ids_pure', set()).add(cea_id)
+                # if there are non-archive sources and archive sources we put it in the mixed map
+                elif len(cea_ids) > 0:
+                    logger(logging.DEBUG, 'Adding fiid to cea mixed map: '
+                                          'num_non_cea_sources=%d; min_cea_priority=%d; num_cea_sources=%d'
+                                          % (num_non_cea_sources, min_cea_priority, len(cea_ids)))
+                    for cea_id in cea_ids:
+                        cea_id_mixed_to_fiids.setdefault(cea_id, set()).add(fiid)
+                        file_item.setdefault('cea_ids_mixed', set()).add(cea_id)
 
         # put all archives from the mixed list into the pure list if they meet
         # certain conditions, e.g., an archive that is already in the pure list
@@ -1390,7 +1390,7 @@ class DownloadClient:
             # finally remove cea_id from mixed map
             cea_id_mixed_to_fiids.pop(cea_id_mixed)
 
-        for file_item in all_file_items:
+        for file_item in file_items:
             cea_ids_pure = file_item.get('cea_ids_pure', set())
             cea_ids_mixed = file_item.get('cea_ids_mixed', set())
 
@@ -1423,7 +1423,7 @@ class DownloadClient:
 
         download_packs = []
         cea_id_to_pack = {}
-        for file_item in all_file_items:
+        for file_item in file_items:
             cea_ids = file_item.get('cea_ids_pure', set())
             if len(cea_ids) > 0:
                 cea_id = next(iter(cea_ids))
