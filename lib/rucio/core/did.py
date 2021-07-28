@@ -36,6 +36,7 @@
 # - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2020
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import logging
 import random
@@ -45,7 +46,7 @@ from hashlib import md5
 from re import match
 
 from six import string_types
-from sqlalchemy import and_, or_, exists
+from sqlalchemy import and_, or_, exists, update, delete
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
@@ -316,11 +317,13 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
         new_files and session.bulk_insert_mappings(models.DataIdentifier, new_files)
         if existing_files_condition:
             for chunk in chunks(existing_files_condition, 20):
-                session.query(models.DataIdentifier).\
-                    with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-                    filter(models.DataIdentifier.did_type == DIDType.FILE).\
-                    filter(or_(models.DataIdentifier.constituent.is_(None), models.DataIdentifier.constituent == false())).\
-                    filter(or_(*chunk)).update({'constituent': True})
+                stmt = update(models.DataIdentifier).\
+                    prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
+                    where(models.DataIdentifier.did_type == DIDType.FILE).\
+                    where(or_(models.DataIdentifier.constituent.is_(None), models.DataIdentifier.constituent == false())).\
+                    where(or_(*chunk)).\
+                    values(constituent=True)
+                session.execute(stmt)
         contents and session.bulk_insert_mappings(models.ConstituentAssociation, contents)
         session.flush()
     except IntegrityError as error:
@@ -1710,11 +1713,10 @@ def resurrect(dids, session=None):
             kargs['expired_at'] = None
         kargs.pop("_sa_instance_state", None)
 
-        session.query(models.DeletedDataIdentifier).\
-            with_hint(models.DeletedDataIdentifier,
-                      "INDEX(DELETED_DIDS DELETED_DIDS_PK)", 'oracle').\
-            filter_by(scope=did['scope'], name=did['name']).\
-            delete()
+        stmt = delete(models.DeletedDataIdentifier).\
+            prefix_with("/*+ INDEX(DELETED_DIDS DELETED_DIDS_PK) */", dialect='oracle').\
+            filter_by(scope=did['scope'], name=did['name'])
+        session.execute(stmt)
 
         models.DataIdentifier(**kargs).\
             save(session=session, flush=False)
