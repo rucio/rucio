@@ -1089,6 +1089,11 @@ class DownloadClient:
             for did in resolved_dids:
                 did_to_input_items.setdefault(DIDType(did), []).append(item)
 
+                if 'length' in did and not did['length']:
+                    did_with_size = self.client.get_did(scope=did['scope'], name=did['name'], dynamic=True)
+                    did['length'] = did_with_size['length']
+                    did['bytes'] = did_with_size['bytes']
+
         # group input items by common options to reduce the number of calls to list_replicas
         distinct_keys = ['rse', 'force_scheme', 'no_resolve_archives']
         item_groups = []
