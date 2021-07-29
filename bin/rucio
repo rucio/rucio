@@ -1110,15 +1110,12 @@ def download(args):
 
     summary = {}
     for item in result:
-        scope = item.get('dataset_scope', item['scope'])
-        name = item.get('dataset_name', item['name'])
-        summary_key = '%s:%s' % (scope, name)
-
-        summary.setdefault(summary_key, {'DONE': 0, 'ALREADY_DONE': 0, '_total': 0})
-        summary[summary_key]['_total'] += 1
-        state = item['clientState'].upper()
-        if state in summary[summary_key]:
-            summary[summary_key][state] += 1
+        for did, did_stats in item.get('input_dids').items():
+            did_summary = summary.setdefault(did, {'length': did_stats.get('length'), 'DONE': 0, 'ALREADY_DONE': 0, '_total': 0})
+            did_summary['_total'] += 1
+            state = item['clientState'].upper()
+            if state in did_summary:
+                did_summary[state] += 1
 
     print('----------------------------------')
     print('Download summary')
@@ -1126,14 +1123,20 @@ def download(args):
         print('-' * 40)
         print('No DID matching the pattern')
 
-    for summary_key in summary:
+    for summary_key, did_summary in summary.items():
         print('-' * 40)
-        print('DID %s' % (summary_key))
-        ds_total = summary[summary_key]['_total']
-        downloaded_files = summary[summary_key]['DONE']
-        local_files = summary[summary_key]['ALREADY_DONE']
+        print('DID %s' % summary_key)
+        length = did_summary['length']
+        ds_total = did_summary['_total']
+        downloaded_files = did_summary['DONE']
+        local_files = did_summary['ALREADY_DONE']
         not_downloaded_files = ds_total - downloaded_files - local_files
-        print('{0:40} {1:6d}'.format('Total files: ', ds_total))
+
+        if length:
+            print('{0:40} {1:6d}'.format('Total files (DID): ', length))
+            print('{0:40} {1:6d}'.format('Total files (filtered):   ', ds_total))
+        else:
+            print('{0:40} {1:6d}'.format('Total files:   ', ds_total))
         print('{0:40} {1:6d}'.format('Downloaded files: ', downloaded_files))
         print('{0:40} {1:6d}'.format('Files already found locally: ', local_files))
         print('{0:40} {1:6d}'.format('Files that cannot be downloaded: ', not_downloaded_files))

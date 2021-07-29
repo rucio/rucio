@@ -833,6 +833,8 @@ class TestBinRucio(unittest.TestCase):
         cmd = 'rucio download --dir /tmp --metalink {0}'.format(metalink_file_path)
         exitcode, out, err = execute(cmd)
         print(out, err)
+        assert '{} successfully downloaded'.format(tmp_file_name) in err
+        assert re.search('Total files.*1', out) is not None
         remove(metalink_file_path)
         cmd = 'ls /tmp/{0}'.format(scope)
         exitcode, out, err = execute(cmd)
