@@ -52,7 +52,7 @@ from rucio.common.utils import chunks, set_checksum_value
 from rucio.core import request, transfer as transfer_core
 from rucio.core.config import get
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import list_rses, get_rse_supported_checksums
+from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
 from rucio.db.sqla.session import read_session
@@ -264,34 +264,8 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
 
     for request_id in transfers:
         transfer = transfers[request_id]
-        verify_checksum = transfer['file_metadata'].get('verify_checksum', 'both')
 
-        dest_rse_id = transfer['file_metadata']['dest_rse_id']
-        source_rse_id = transfer['file_metadata']['src_rse_id']
-
-        dest_supported_checksums = get_rse_supported_checksums(rse_id=dest_rse_id, session=session)
-        source_supported_checksums = get_rse_supported_checksums(rse_id=source_rse_id, session=session)
-        common_checksum_names = set(source_supported_checksums).intersection(dest_supported_checksums)
-
-        if source_supported_checksums == ['none']:
-            if dest_supported_checksums == ['none']:
-                # both endpoints support none
-                verify_checksum = 'none'
-            else:
-                # src supports none but dst does
-                verify_checksum = 'destination'
-        else:
-            if dest_supported_checksums == ['none']:
-                # source supports some but destination does not
-                verify_checksum = 'source'
-            else:
-                if len(common_checksum_names) == 0:
-                    # source and dst support some bot none in common (dst priority)
-                    verify_checksum = 'destination'
-                else:
-                    # Don't override the value in the file_metadata
-                    pass
-
+        verify_checksum, checksums_to_use = transfer_core.checksum_validation_strategy(transfer.src.rse.attributes, transfer.dst.rse.attributes, logger=logger)
         t_file = {'sources': transfer['sources'],
                   'destinations': transfer['dest_urls'],
                   'metadata': transfer['file_metadata'],
@@ -303,12 +277,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                   'activity': str(transfer['file_metadata']['activity'])}
 
         if verify_checksum != 'none':
-            if verify_checksum == 'both':
-                set_checksum_value(t_file, common_checksum_names)
-            if verify_checksum == 'source':
-                set_checksum_value(t_file, source_supported_checksums)
-            if verify_checksum == 'destination':
-                set_checksum_value(t_file, dest_supported_checksums)
+            set_checksum_value(t_file, checksums_to_use)
 
         multihop = transfer.get('multihop', False)
         strict_copy = transfer.get('strict_copy', False)
@@ -334,7 +303,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
         current_jobs_group = grouped_jobs[external_host][scope_str]
 
         job_params = {'account': transfer['account'],
-                      'use_oidc': transfer.get('use_oidc', False),
+                      'use_oidc': transfer_core.oidc_supported(transfer),
                       'verify_checksum': verify_checksum,
                       'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
                       'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
