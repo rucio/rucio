@@ -135,6 +135,7 @@ class Default(protocol.RSEProtocol):
 
         :returns: path.
         """
+        path = pfn
         if pfn.startswith(str(self.scheme) + '://'):
             self.logger(logging.DEBUG, 'ssh.pfn2path: pfn: {}'.format(pfn))
             prefix = self.attributes['prefix']

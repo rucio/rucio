@@ -326,6 +326,7 @@ def test_upload_file_with_supported_protocol(rse_factory, upload_client, mock_sc
     status = upload_client.upload([item])
     assert status == 0
 
+
 def test_upload_file_with_supported_protocol_from_config(rse_factory, upload_client, mock_scope, file_factory):
     """ Upload (CLIENT): Ensure the module associated to the first protocol supported by both the remote and local config read from rucio.cfg is called """
 

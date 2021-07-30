@@ -58,7 +58,7 @@ from rucio.common.didtype import DIDType
 from rucio.common.pcache import Pcache
 from rucio.common.utils import adler32, detect_client_location, generate_uuid, parse_replicas_from_string, \
     send_trace, sizefmt, execute, parse_replicas_from_file, extract_scope
-from rucio.common.config import config_get, config_set, config_add_section
+from rucio.common.config import config_get
 from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_ALGO_DICT, PREFERRED_CHECKSUM
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
@@ -598,12 +598,12 @@ class DownloadClient:
 
             logger(logging.INFO, '%sTrying to download with %s%s from %s: %s ' % (log_prefix, scheme, timeout_log_string, rse_name, did_str))
 
-            impl_str = item.get('impl')
-            if impl_str:
-                logger(logging.INFO, '%sUsing Implementation (impl): %s ' % (log_prefix, impl_str))
+            impl = item.get('impl')
+            if impl:
+                logger(logging.INFO, '%sUsing Implementation (impl): %s ' % (log_prefix, impl))
 
             try:
-                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, impl_passed=impl_str, auth_token=self.auth_token, logger=logger)
+                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, impl=impl, auth_token=self.auth_token, logger=logger)
                 protocol.connect()
             except Exception as error:
                 logger(logging.WARNING, '%sFailed to create protocol for PFN: %s' % (log_prefix, pfn))
@@ -1620,7 +1620,7 @@ class DownloadClient:
                     self.logger(logging.WARNING, 'Unsuitable protocol "%s": All operations are not supported' % (protocol['impl']))
                     continue
                 try:
-                    supported_protocol = rsemgr.create_protocol(rse_settings, 'read', impl_passed=protocol['impl'], auth_token=self.auth_token, logger=self.logger)
+                    supported_protocol = rsemgr.create_protocol(rse_settings, 'read', impl=protocol['impl'], auth_token=self.auth_token, logger=self.logger)
                     supported_protocol.connect()
                 except Exception as error:
                     self.logger(logging.WARNING, 'Failed to create protocol "%s", exception: %s' % (protocol['impl'], error))

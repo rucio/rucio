@@ -662,6 +662,7 @@ def test_download_file_with_impl(rse_factory, did_factory, download_client, mock
         download_client.download_dids([{'did': did_str, 'impl': impl}])
         mock_get.assert_called()
 
+
 def test_download_file_with_supported_protocol_from_config(rse_factory, did_factory, download_client, mock_scope):
     """ Download (CLIENT): Ensure the module associated to the first protocol supported by both the remote and local config read from rucio.cfg is called """
 

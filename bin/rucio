@@ -950,6 +950,10 @@ def upload(args):
     for arg in args.args:
         if arg.count(':') > 0:
             continue
+        if args.pfn:
+            if args.impl:
+                logger.warning('Ignoring --impl option because --pfn option given')
+                args.impl = None
         items.append({'path': arg,
                       'rse': args.rse,
                       'did_scope': args.scope,
