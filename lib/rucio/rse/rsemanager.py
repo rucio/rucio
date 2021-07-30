@@ -175,7 +175,7 @@ def select_protocol(rse_settings, operation, scheme=None, domain='wan'):
     return min(candidates, key=lambda k: k['domains'][domain][operation])
 
 
-def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_token=None, protocol_attr=None, logger=logging.log, impl_passed=None):
+def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_token=None, protocol_attr=None, logger=logging.log, impl=None):
     """
     Instanciates the protocol defined for the given operation.
 
@@ -197,10 +197,10 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_tok
     if domain and domain not in utils.rse_supported_protocol_domains():
         raise exception.RSEProtocolDomainNotSupported('Domain %s not supported' % domain)
 
-    if impl_passed:
-        candidate = _get_possible_protocols(rse_settings, operation, scheme, domain, impl=impl_passed)
+    if impl:
+        candidate = _get_possible_protocols(rse_settings, operation, scheme, domain, impl=impl)
         if len(candidate) == 0:
-            raise exception.RSEProtocolNotSupported('Protocol implementation %s operation %s on domain %s not supported' % (impl_passed, operation, domain))
+            raise exception.RSEProtocolNotSupported('Protocol implementation %s operation %s on domain %s not supported' % (impl, operation, domain))
         protocol_attr = candidate[0]
     elif not protocol_attr:
         protocol_attr = select_protocol(rse_settings, operation, scheme, domain)
@@ -240,7 +240,7 @@ def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan', 
         :returns:           a dict with scope:name as key and the PFN as value
 
     """
-    return create_protocol(rse_settings, operation, scheme, domain, auth_token=auth_token, logger=logger, impl_passed=impl).lfns2pfns(lfns)
+    return create_protocol(rse_settings, operation, scheme, domain, auth_token=auth_token, logger=logger, impl=impl).lfns2pfns(lfns)
 
 
 def parse_pfns(rse_settings, pfns, operation='read', domain='wan', auth_token=None):
@@ -265,7 +265,7 @@ def parse_pfns(rse_settings, pfns, operation='read', domain='wan', auth_token=No
     return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme, domain, auth_token=auth_token).parse_pfns(pfns)
 
 
-def exists(rse_settings, files, domain='wan', impl=None, auth_token=None, logger=logging.log):
+def exists(rse_settings, files, domain='wan', scheme=None, impl=None, auth_token=None, logger=logging.log):
     """
         Checks if a file is present at the connected storage.
         Providing a list indicates the bulk mode.
@@ -286,12 +286,12 @@ def exists(rse_settings, files, domain='wan', impl=None, auth_token=None, logger
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'read', impl_passed=impl, domain=domain, auth_token=auth_token, logger=logger)
+    protocol = create_protocol(rse_settings, 'read', scheme=scheme, impl=impl, domain=domain, auth_token=auth_token, logger=logger)
     protocol.connect()
     try:
         protocol.exists(None)
     except NotImplementedError:
-        protocol = create_protocol(rse_settings, 'write', impl_passed=impl, domain=domain, auth_token=auth_token, logger=logger)
+        protocol = create_protocol(rse_settings, 'write', scheme=scheme, impl=impl, domain=domain, auth_token=auth_token, logger=logger)
         protocol.connect()
     except:
         pass
@@ -358,9 +358,9 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
     ret = {}
     gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme, domain=domain, auth_token=auth_token, logger=logger, impl_passed=impl)
+    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme, domain=domain, auth_token=auth_token, logger=logger, impl=impl)
     protocol.connect()
-    protocol_delete = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger, impl_passed=impl)
+    protocol_delete = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger, impl=impl)
     protocol_delete.connect()
     lfns = [lfns] if not type(lfns) is list else lfns
     for lfn in lfns:
@@ -543,7 +543,7 @@ def delete(rse_settings, lfns, domain='wan', auth_token=None, logger=logging.log
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger, impl_passed=impl)
+    protocol = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger, impl=impl)
     protocol.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
@@ -594,7 +594,7 @@ def rename(rse_settings, files, domain='wan', auth_token=None, logger=logging.lo
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write', domain=domain, auth_token=auth_token, logger=logger, impl_passed=impl)
+    protocol = create_protocol(rse_settings, 'write', domain=domain, auth_token=auth_token, logger=logger, impl=impl)
     protocol.connect()
 
     files = [files] if not type(files) is list else files
@@ -659,7 +659,7 @@ def get_space_usage(rse_settings, scheme=None, domain='wan', auth_token=None, lo
     gs = True
     ret = {}
 
-    protocol = create_protocol(rse_settings, 'read', scheme=scheme, domain=domain, auth_token=auth_token, logger=logger, impl_passed=impl)
+    protocol = create_protocol(rse_settings, 'read', scheme=scheme, domain=domain, auth_token=auth_token, logger=logger, impl=impl)
     protocol.connect()
 
     try:

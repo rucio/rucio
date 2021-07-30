@@ -158,10 +158,10 @@ class MgrTestCases:
         """(RSE/PROTOCOLS): Put a single file to storage (Success)"""
         if self.rse_settings['protocols'][0]['hostname'] == 'ssh1':
             mgr.upload(self.rse_settings, {'name': '3_rse_local_put.raw', 'scope': 'user.%s' % self.user,
-                                       'md5': md5('%s/3_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/3_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}, source_dir=self.tmpdir, impl=self.impl)
+                                           'md5': md5('%s/3_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/3_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}, source_dir=self.tmpdir, impl=self.impl)
         else:
             mgr.upload(self.rse_settings, {'name': '3_rse_local_put.raw', 'scope': 'user.%s' % self.user,
-                                       'adler32': adler32('%s/3_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/3_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}, source_dir=self.tmpdir)
+                                           'adler32': adler32('%s/3_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/3_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}, source_dir=self.tmpdir)
 
     def test_put_mgr_SourceNotFound_multi(self):
         """(RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
@@ -271,7 +271,7 @@ class MgrTestCases:
     # MGR-Tests: RENAME
     def test_rename_mgr_ok_multi(self):
         """(RSE/PROTOCOLS): Rename multiple files on storage (Success)"""
-        protocol = mgr.create_protocol(self.rse_settings, 'write', impl_passed=self.impl)
+        protocol = mgr.create_protocol(self.rse_settings, 'write', impl=self.impl)
         pfn_a = list(protocol.lfns2pfns({'name': '7_rse_remote_rename.raw', 'scope': 'user.%s' % self.user}).values())[0]
         pfn_a_new = list(protocol.lfns2pfns({'name': '7_rse_new_rename.raw', 'scope': 'user.%s' % self.user}).values())[0]
         pfn_b = list(protocol.lfns2pfns({'name': '8_rse_remote_rename.raw', 'scope': 'user.%s' % self.user}).values())[0]

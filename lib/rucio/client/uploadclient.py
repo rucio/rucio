@@ -176,7 +176,7 @@ class UploadClient:
             register_after_upload = file.get('register_after_upload') and not no_register
             pfn = file.get('pfn')
             force_scheme = file.get('force_scheme')
-            impl_passed = file.get('impl')
+            impl = file.get('impl')
             delete_existing = False
 
             trace = copy.deepcopy(self.trace)
@@ -215,15 +215,15 @@ class UploadClient:
                     domain = 'lan'
             logger(logging.DEBUG, '{} domain is used for the upload'.format(domain))
 
-            if not impl_passed and not force_scheme:
-                impl_passed = self.preferred_impl(rse_settings, domain)
+            if not impl and not force_scheme:
+                impl = self.preferred_impl(rse_settings, domain)
 
             if not no_register and not register_after_upload:
                 self._register_file(file, registered_dataset_dids)
             # if register_after_upload, file should be overwritten if it is not registered
             # otherwise if file already exists on RSE we're done
             if register_after_upload:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, impl=impl_passed, auth_token=self.auth_token, logger=logger):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, scheme=force_scheme, impl=impl, auth_token=self.auth_token, logger=logger):
                     try:
                         self.client.get_did(file['did_scope'], file['did_name'])
                         logger(logging.INFO, 'File already registered. Skipping upload.')
@@ -233,22 +233,22 @@ class UploadClient:
                         logger(logging.INFO, 'File already exists on RSE. Previous left overs will be overwritten.')
                         delete_existing = True
             elif not is_deterministic and not no_register:
-                if rsemgr.exists(rse_settings, pfn, domain=domain, impl=impl_passed, auth_token=self.auth_token, logger=logger):
+                if rsemgr.exists(rse_settings, pfn, domain=domain, scheme=force_scheme, impl=impl, auth_token=self.auth_token, logger=logger):
                     logger(logging.INFO, 'File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
                     trace['stateReason'] = 'File already exists'
                     continue
-                elif rsemgr.exists(rse_settings, file_did, domain=domain, impl=impl_passed, auth_token=self.auth_token, logger=logger):
+                elif rsemgr.exists(rse_settings, file_did, domain=domain, scheme=force_scheme, impl=impl, auth_token=self.auth_token, logger=logger):
                     logger(logging.INFO, 'File already exists on RSE with different pfn. Skipping upload.')
                     trace['stateReason'] = 'File already exists'
                     continue
             else:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, impl=impl_passed, auth_token=self.auth_token, logger=logger):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, scheme=force_scheme, impl=impl, auth_token=self.auth_token, logger=logger):
                     logger(logging.INFO, 'File already exists on RSE. Skipping upload')
                     trace['stateReason'] = 'File already exists'
                     continue
 
             # protocol handling and upload
-            protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme, domain=domain, impl=impl_passed)
+            protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme, domain=domain, impl=impl)
             protocols.reverse()
             success = False
             state_reason = ''
@@ -281,7 +281,7 @@ class UploadClient:
                                             lfn=lfn,
                                             source_dir=file['dirname'],
                                             domain=domain,
-                                            impl=impl_passed,
+                                            impl=impl,
                                             force_scheme=cur_scheme,
                                             force_pfn=pfn,
                                             transfer_timeout=file.get('transfer_timeout'),
@@ -582,8 +582,8 @@ class UploadClient:
         logger = self.logger
 
         # Construct protocol for write and read operation.
-        protocol_write = self._create_protocol(rse_settings, 'write', force_scheme=force_scheme, domain=domain, impl_chosen=impl)
-        protocol_read = self._create_protocol(rse_settings, 'read', domain=domain, impl_chosen=impl)
+        protocol_write = self._create_protocol(rse_settings, 'write', force_scheme=force_scheme, domain=domain, impl=impl)
+        protocol_read = self._create_protocol(rse_settings, 'read', domain=domain, impl=impl)
 
         base_name = lfn.get('filename', lfn['name'])
         name = lfn.get('name', base_name)
@@ -626,7 +626,7 @@ class UploadClient:
             logger(logging.DEBUG, 'Removing remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
-                protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain, impl_chosen=impl)
+                protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain, impl=impl)
                 protocol_delete.delete('%s.rucio.upload' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
                 protocol_delete.close()
             except Exception as e:
@@ -637,7 +637,7 @@ class UploadClient:
             logger(logging.DEBUG, 'Removing not-registered remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
-                protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain, impl_chosen=impl)
+                protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain, impl=impl)
                 protocol_delete.delete('%s' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
                 protocol_delete.close()
             except Exception as error:
@@ -716,7 +716,7 @@ class UploadClient:
                 time.sleep(2**attempt)
         return protocol.stat(pfn)
 
-    def _create_protocol(self, rse_settings, operation, impl_chosen=None, force_scheme=None, domain='wan'):
+    def _create_protocol(self, rse_settings, operation, impl=None, force_scheme=None, domain='wan'):
         """
         Protol construction.
         :param: rse_settings        rse_settings
@@ -725,7 +725,7 @@ class UploadClient:
         :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
         """
         try:
-            protocol = rsemgr.create_protocol(rse_settings, operation, scheme=force_scheme, domain=domain, impl_passed=impl_chosen, auth_token=self.auth_token, logger=self.logger)
+            protocol = rsemgr.create_protocol(rse_settings, operation, scheme=force_scheme, domain=domain, impl=impl, auth_token=self.auth_token, logger=self.logger)
             protocol.connect()
         except Exception as error:
             self.logger(logging.WARNING, 'Failed to create protocol for operation: %s' % operation)
@@ -825,8 +825,8 @@ class UploadClient:
         try:
             preferred_impls = config_get('upload', 'preferred_impl')
         except Exception as error:
-                self.logger(logging.INFO, 'No preferred protocol impl in rucio.cfg: %s' % (error))
-                pass
+            self.logger(logging.INFO, 'No preferred protocol impl in rucio.cfg: %s' % (error))
+            pass
         else:
             preferred_impls = list(preferred_impls.split(', '))
             i = 0
@@ -854,7 +854,7 @@ class UploadClient:
                 self.logger(logging.WARNING, 'Unsuitable protocol "%s": All operations are not supported' % (protocol['impl']))
                 continue
             try:
-                supported_protocol = rsemgr.create_protocol(rse_settings, 'read', domain=domain, impl_passed=protocol['impl'], auth_token=self.auth_token, logger=self.logger)
+                supported_protocol = rsemgr.create_protocol(rse_settings, 'read', domain=domain, impl=protocol['impl'], auth_token=self.auth_token, logger=self.logger)
                 supported_protocol.connect()
             except Exception as error:
                 self.logger(logging.WARNING, 'Failed to create protocol "%s", exception: %s' % (protocol['impl'], error))

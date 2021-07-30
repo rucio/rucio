@@ -240,6 +240,7 @@ class Default(protocol.RSEProtocol):
 
         :returns: path.
         """
+        path = pfn
         if pfn.startswith('rclone://'):
             self.logger(logging.DEBUG, 'rclone.pfn2path: pfn: {}'.format(pfn))
             prefix = self.attributes['prefix']

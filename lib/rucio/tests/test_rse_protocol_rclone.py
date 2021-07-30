@@ -95,7 +95,7 @@ class TestRseRCLONE(unittest.TestCase):
         for f in MgrTestCases.files_local:
             shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        protocol = rsemanager.create_protocol(rsemanager.get_rse_info(rse_id), 'write', impl_passed='rucio.rse.protocols.rclone.Default')
+        protocol = rsemanager.create_protocol(rsemanager.get_rse_info(rse_id), 'write', impl='rucio.rse.protocols.rclone.Default')
         protocol.connect()
 
         os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
