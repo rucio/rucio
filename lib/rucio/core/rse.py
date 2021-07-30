@@ -602,24 +602,35 @@ def get_rse_attribute(key, rse_id=None, value=None, use_cache=True, session=None
 
 
 @read_session
-def get_rse_supported_checksums(rse_id=None, session=None):
+def get_rse_supported_checksums(rse_id, session=None):
     """
-    Retrieve RSE attribute value.
+    Retrieve from the DB and parse the RSE attribute defining the checksum supported by the RSE
+    """
+    return parse_checksum_support_attribute(get_rse_attribute(key=CHECKSUM_KEY, rse_id=rse_id, session=session))
 
-    :param rse_id: The RSE id.
-    :param session: The database session in use.
+
+def get_rse_supported_checksums_from_attributes(rse_attributes):
+    """
+    Parse the RSE attribute defining the checksum supported by the RSE
+    :param rse_attributes: attributes retrieved using list_rse_attributes
+    """
+    return parse_checksum_support_attribute(rse_attributes.get(CHECKSUM_KEY))
+
+
+def parse_checksum_support_attribute(checksum_attribute):
+    """
+    Parse the checksum support RSE attribute.
+    :param checksum_attribute: The value of the RSE attribute storing the checksum value
 
     :returns: The list of checksums supported by the selected RSE.
               If the list is empty (aka attribute is not set) it returns all the default checksums.
               Use 'none' to explicitly tell the RSE does not support any checksum algorithm.
     """
 
-    checksum_support_attribute_list = get_rse_attribute(key=CHECKSUM_KEY, rse_id=rse_id, session=session)
-
-    if not checksum_support_attribute_list:
+    if not checksum_attribute:
         return GLOBALLY_SUPPORTED_CHECKSUMS
     else:
-        supported_checksum_list = checksum_support_attribute_list[0].split(',')
+        supported_checksum_list = checksum_attribute[0].split(',')
         if 'none' in supported_checksum_list:
             return []
         return supported_checksum_list
