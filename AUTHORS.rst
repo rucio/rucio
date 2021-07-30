@@ -34,6 +34,7 @@ Individual contributors to the source code
 - Shreyansh Khajanchi <shreyansh_k@live.com>, 2018
 - Robert Illingworth <illingwo@fnal.gov>, 2018
 - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+- Gabriele Gaetano Fronzé <gabriele.fronze@to.infn.it>, 2018-2021
 - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2019 - 2020
 - Kaustubh Hiware <hiwarekaustubh@gmail.com>, 2019
