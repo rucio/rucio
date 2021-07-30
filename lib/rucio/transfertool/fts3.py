@@ -94,12 +94,7 @@ class FTS3Transfertool(Transfertool):
         """
 
         self.multi_vo = config_get_bool('common', 'multi_vo', False, None)
-        if self.multi_vo:
-            # a default cert that can be used incase of no selection for each VO that has basic permissions for the public methods
-            usercert = config_get('conveyor', 'usercert', False, None)
-        else:
-            # a cert that is used for the single VO
-            usercert = config_get('conveyor', 'usercert', False, None)
+        usercert = config_get('conveyor', 'usercert', False, None)
 
         # token for OAuth 2.0 OIDC authorization scheme (working only with dCache + davs/https protocols as of Sep 2019)
         self.token = token
@@ -184,47 +179,7 @@ class FTS3Transfertool(Transfertool):
 
                 self.cert = (vo_cert, vo_cert)
 
-                try:
-                    start_time = time.time()
-                    post_result = requests.post('%s/jobs' % self.external_host,
-                                                verify=self.verify,
-                                                cert=self.cert,
-                                                data=params_str,
-                                                headers=self.headers,
-                                                timeout=timeout)
-                    record_timer('transfertool.fts3.submit_transfer.%s' % self.__extract_host(self.external_host), (time.time() - start_time) * 1000 / len(files))
-                    labels = {'host': self.__extract_host(self.external_host)}
-                    SUBMISSION_TIMER.labels(**labels).observe((time.time() - start_time) * 1000 / len(files))
-                except ReadTimeout as error:
-                    raise TransferToolTimeout(error)
-                except JSONDecodeError as error:
-                    raise TransferToolWrongAnswer(error)
-                except Exception as error:
-                    logging.warning('Could not submit transfer to %s - %s' % (self.external_host, str(error)))
-
-                if post_result and post_result.status_code == 200:
-                    record_counter('transfertool.fts3.%s.submission.success' % self.__extract_host(self.external_host), len(files))
-                    labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
-                    SUBMISSION_COUNTER.labels(**labels).inc(len(files))
-                    transfer_id = str(post_result.json()['job_id'])
-                elif post_result and post_result.status_code == 409:
-                    record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
-                    labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-                    SUBMISSION_COUNTER.labels(**labels).inc(len(files))
-                    raise DuplicateFileTransferSubmission()
-                else:
-                    if expected_transfer_id:
-                        transfer_id = expected_transfer_id
-                        logging.warning("Failed to submit transfer to %s, will use expected transfer id %s, error: %s", self.external_host, transfer_id, post_result.text if post_result is not None else post_result)
-                    else:
-                        logging.warning("Failed to submit transfer to %s, error: %s", self.external_host, post_result.text if post_result is not None else post_result)
-                    record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
-                    labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-                    SUBMISSION_COUNTER.labels(**labels).inc(len(files))
-
-                if not transfer_id:
-                    raise TransferToolWrongAnswer('No transfer id returned by %s' % self.external_host)
-                return transfer_id
+                self.__attempt_transfer(params_str, timeout, files, expected_transfer_id)
 
         else:
             # single VO mode
@@ -234,6 +189,7 @@ class FTS3Transfertool(Transfertool):
             params_str = json.dumps(params_dict, cls=APIEncoder)
 
             post_result = None
+            self.__attempt_transfer(params_str, timeout, files, expected_transfer_id)
             try:
                 start_time = time.time()
                 post_result = requests.post('%s/jobs' % self.external_host,
@@ -977,3 +933,46 @@ class FTS3Transfertool(Transfertool):
                 vo_sorted_dict[vo] = []
             vo_sorted_dict[vo].append(id)
         return vo_sorted_dict
+
+    def __attempt_transfer(self, params_str, timeout, files, expected_transfer_id):
+        try:
+            start_time = time.time()
+            post_result = requests.post('%s/jobs' % self.external_host,
+                                        verify=self.verify,
+                                        cert=self.cert,
+                                        data=params_str,
+                                        headers=self.headers,
+                                        timeout=timeout)
+            record_timer('transfertool.fts3.submit_transfer.%s' % self.__extract_host(self.external_host), (time.time() - start_time) * 1000 / len(files))
+            labels = {'host': self.__extract_host(self.external_host)}
+            SUBMISSION_TIMER.labels(**labels).observe((time.time() - start_time) * 1000 / len(files))
+        except ReadTimeout as error:
+            raise TransferToolTimeout(error)
+        except JSONDecodeError as error:
+            raise TransferToolWrongAnswer(error)
+        except Exception as error:
+            logging.warning('Could not submit transfer to %s - %s' % (self.external_host, str(error)))
+
+        if post_result and post_result.status_code == 200:
+            record_counter('transfertool.fts3.%s.submission.success' % self.__extract_host(self.external_host), len(files))
+            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+            SUBMISSION_COUNTER.labels(**labels).inc(len(files))
+            transfer_id = str(post_result.json()['job_id'])
+        elif post_result and post_result.status_code == 409:
+            record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
+            labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+            SUBMISSION_COUNTER.labels(**labels).inc(len(files))
+            raise DuplicateFileTransferSubmission()
+        else:
+            if expected_transfer_id:
+                transfer_id = expected_transfer_id
+                logging.warning("Failed to submit transfer to %s, will use expected transfer id %s, error: %s", self.external_host, transfer_id, post_result.text if post_result is not None else post_result)
+            else:
+                logging.warning("Failed to submit transfer to %s, error: %s", self.external_host, post_result.text if post_result is not None else post_result)
+            record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
+            labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+            SUBMISSION_COUNTER.labels(**labels).inc(len(files))
+
+        if not transfer_id:
+            raise TransferToolWrongAnswer('No transfer id returned by %s' % self.external_host)
+        return transfer_id
