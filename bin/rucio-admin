@@ -2327,16 +2327,12 @@ if __name__ == '__main__':
                 'delete_limit_rse': delete_limit_rse,
                 }
 
-    try:
-        if args.verbose:
-            logger.setLevel(logging.DEBUG)
-        start_time = time.time()
-        command = commands.get(args.which)
-        result = command(args)
-        end_time = time.time()
-        if args.verbose:
-            print("Completed in %-0.4f sec." % (end_time - start_time))
-        sys.exit(result)
-    except Exception:
-        logger.exception("Uncaught exception")
-        sys.exit(FAILURE)
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+    start_time = time.time()
+    command = commands.get(args.which)
+    result = command(args)
+    end_time = time.time()
+    if args.verbose:
+        print("Completed in %-0.4f sec." % (end_time - start_time))
+    sys.exit(result)

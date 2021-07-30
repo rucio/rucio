@@ -2403,15 +2403,10 @@ if __name__ == '__main__':
 
     args = oparser.parse_args(arguments)
 
-    logger = None
-    try:
-        logger = setup_logger(module_name=__name__, logger_name='user', verbose=args.verbose)
-        start_time = time.time()
-        result = args.function(args)
-        end_time = time.time()
-        if args.verbose:
-            print("Completed in %-0.4f sec." % (end_time - start_time))
-        sys.exit(result)
-    except Exception as error:
-        logging.log(logging.ERROR, "Strange error: {0}".format(error))
-        sys.exit(FAILURE)
+    logger = setup_logger(module_name=__name__, logger_name='user', verbose=args.verbose)
+    start_time = time.time()
+    result = args.function(args)
+    end_time = time.time()
+    if args.verbose:
+        print("Completed in %-0.4f sec." % (end_time - start_time))
+    sys.exit(result)
