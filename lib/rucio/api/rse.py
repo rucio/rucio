@@ -1,4 +1,5 @@
-# Copyright 2012-2021 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,20 +14,21 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario@lassnig.net>, 2012-2020
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Gabriele <sucre.91@hotmail.it>, 2019
-# - elichad <eli.chadwick.256@gmail.com>, 2020
-# - patrick-austin <patrick.austin@stfc.ac.uk>, 2020
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-#
-#  PY3K COMPATIBLE
 
 from rucio.api import permission
 from rucio.common import exception
