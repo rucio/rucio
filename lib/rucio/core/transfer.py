@@ -753,12 +753,19 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
                 fts_resps[transfer_id] = Exception("Transfer id %s is not returned" % transfer_id)
             if fts_resps[transfer_id] and not isinstance(fts_resps[transfer_id], Exception):
                 for request_id in fts_resps[transfer_id]:
-                    if fts_resps[transfer_id][request_id]['file_state'] in (FTS_STATE.FAILED,
-                                                                            FTS_STATE.FINISHEDDIRTY,
-                                                                            FTS_STATE.CANCELED):
-                        fts_resps[transfer_id][request_id]['new_state'] = RequestState.FAILED
-                    elif fts_resps[transfer_id][request_id]['file_state'] in FTS_STATE.FINISHED:
-                        fts_resps[transfer_id][request_id]['new_state'] = RequestState.DONE
+                    status_dict = fts_resps[transfer_id][request_id]
+                    job_state = status_dict['job_state']
+                    file_state = status_dict['file_state']
+                    if job_state in (FTS_STATE.FAILED, FTS_STATE.CANCELED):
+                        status_dict['new_state'] = RequestState.FAILED
+                    elif job_state == FTS_STATE.FINISHED:
+                        status_dict['new_state'] = RequestState.DONE
+                    elif job_state == FTS_STATE.FINISHEDDIRTY:
+                        # Job partially completed. Verify the state of the file in the job
+                        if file_state in (FTS_STATE.FAILED, FTS_STATE.CANCELED):
+                            status_dict['new_state'] = RequestState.FAILED
+                        elif file_state == FTS_STATE.FINISHED:
+                            status_dict['new_state'] = RequestState.DONE
         return fts_resps
     elif transfertool == 'globus':
         try:

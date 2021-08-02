@@ -32,7 +32,7 @@ from rucio.daemons.conveyor.submitter import submitter
 from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, ReplicaState
-from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.session import read_session, transactional_session
 from rucio.tests.common import skip_rse_tests_with_accounts
 
 
@@ -49,6 +49,20 @@ def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=60):
             break
         time.sleep(1)
     return replica
+
+
+def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=60):
+    """
+    Wait for the request state to be updated to the given expected state as a result of a pending transfer
+    """
+    request = None
+    for _ in range(max_wait_seconds):
+        poller(once=True, older_than=0, partition_wait_time=None)
+        request = request_core.get_request_by_did(rse_id=dst_rse_id, scope=scope, name=name)
+        if request['state'] == state:
+            break
+        time.sleep(1)
+    return request
 
 
 @skip_rse_tests_with_accounts
@@ -139,3 +153,133 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
             session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='storage').delete()
 
         _cleanup_all_usage_and_limits(rse_id=jump_rse_id)
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter, poller and finisher")
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', True),
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
+    'rucio.core.config',
+]}], indirect=True)
+def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_account, replica_client, core_config_mock, caches_mock):
+    """
+    Verify that the poller correctly handles non-recoverable FTS job failures
+    """
+    src_rse = 'XRD1'
+    src_rse_id = rse_core.get_rse_id(rse=src_rse, vo=vo)
+    jump_rse = 'XRD3'
+    jump_rse_id = rse_core.get_rse_id(rse=jump_rse, vo=vo)
+    dst_rse = 'XRD4'
+    dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
+
+    all_rses = [src_rse_id, jump_rse_id, dst_rse_id]
+
+    # Register a did which doesn't exist. It will trigger an non-recoverable error during the FTS transfer.
+    did = did_factory.random_did()
+    replica_client.add_replicas(rse=src_rse, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+    request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, **did)
+    assert request['state'] == RequestState.FAILED
+    request = request_core.get_request_by_did(rse_id=jump_rse_id, **did)
+    assert request['state'] == RequestState.FAILED
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.dirty(reason="leaves files in XRD containers")
+@pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter, poller and finisher")
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', True),
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
+    'rucio.core.config',
+]}], indirect=True)
+def test_fts_recoverable_failures_handled_on_multihop(vo, did_factory, root_account, replica_client, file_factory, core_config_mock, caches_mock):
+    """
+    Verify that the poller correctly handles recoverable FTS job failures
+    """
+    src_rse = 'XRD1'
+    src_rse_id = rse_core.get_rse_id(rse=src_rse, vo=vo)
+    jump_rse = 'XRD3'
+    jump_rse_id = rse_core.get_rse_id(rse=jump_rse, vo=vo)
+    dst_rse = 'XRD4'
+    dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
+
+    all_rses = [src_rse_id, jump_rse_id, dst_rse_id]
+
+    # Create and upload a real file, but register it with wrong checksum. This will trigger
+    # a FTS "Recoverable" failure on checksum validation
+    local_file = file_factory.file_generator()
+    did = did_factory.random_did()
+    did_factory.upload_client.upload(
+        [
+            {
+                'path': local_file,
+                'rse': src_rse,
+                'did_scope': did['scope'].external,
+                'did_name': did['name'],
+                'no_register': True,
+            }
+        ]
+    )
+    replica_client.add_replicas(rse=src_rse, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+    request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, **did)
+    assert request['state'] == RequestState.FAILED
+    request = request_core.get_request_by_did(rse_id=jump_rse_id, **did)
+    assert request['state'] == RequestState.FAILED
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.dirty(reason="leaves files in XRD containers")
+@pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter, poller and finisher")
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', True),
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
+    'rucio.core.config',
+]}], indirect=True)
+def test_multisource(vo, did_factory, root_account, replica_client, core_config_mock, caches_mock):
+    src_rse1 = 'XRD4'
+    src_rse1_id = rse_core.get_rse_id(rse=src_rse1, vo=vo)
+    src_rse2 = 'XRD1'
+    src_rse2_id = rse_core.get_rse_id(rse=src_rse2, vo=vo)
+    dst_rse = 'XRD3'
+    dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
+
+    all_rses = [src_rse1_id, src_rse2_id, dst_rse_id]
+
+    # Add a good replica on the RSE which has a higher distance ranking
+    did = did_factory.upload_test_file(src_rse1)
+    # Add non-existing replica which will fail during multisource transfers on the RSE with lower cost (will be the preferred source)
+    replica_client.add_replicas(rse=src_rse2, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+    @read_session
+    def __source_exists(src_rse_id, scope, name, session=None):
+        return session.query(models.Source) \
+            .filter(models.Source.rse_id == src_rse_id) \
+            .filter(models.Source.scope == scope) \
+            .filter(models.Source.name == name) \
+            .count() != 0
+
+    # Entries in the source table must be created for both sources of the multi-source transfer
+    assert __source_exists(src_rse_id=src_rse1_id, **did)
+    assert __source_exists(src_rse_id=src_rse2_id, **did)
+
+    replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, **did)
+    assert replica['state'] == ReplicaState.AVAILABLE
+    assert not __source_exists(src_rse_id=src_rse1_id, **did)
+    assert not __source_exists(src_rse_id=src_rse2_id, **did)
