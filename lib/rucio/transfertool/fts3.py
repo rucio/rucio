@@ -672,122 +672,55 @@ class FTS3Transfertool(Transfertool):
         :param fts_files_response: FTS3 files query response.
         :returns: formatted response.
         """
-        last_src_file = 0
-        for i in range(len(fts_files_response)):
-            if fts_files_response[i]['file_state'] in [FTS_STATE.FINISHED]:
-                last_src_file = i
-                break
-            if fts_files_response[i]['file_state'] != 'NOT_USED':
-                last_src_file = i
-
-        # for multiple sources, if not only the first source is used, we need to mark job_m_replica,
-        # then conveyor.common.add_monitor_message will correct the src_rse
-        job_m_replica = 'false'
-        if last_src_file > 0:
-            job_m_replica = 'true'
-
-        if fts_files_response[last_src_file]['start_time'] is None or fts_files_response[last_src_file]['finish_time'] is None:
-            duration = 0
-        else:
-            duration = (datetime.datetime.strptime(fts_files_response[last_src_file]['finish_time'], '%Y-%m-%dT%H:%M:%S')
-                        - datetime.datetime.strptime(fts_files_response[last_src_file]['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds  # NOQA: W503
-
-        response = {'new_state': None,
-                    'transfer_id': fts_job_response.get('job_id'),
-                    'job_state': fts_job_response.get('job_state', None),
-                    'file_state': fts_files_response[last_src_file].get('file_state', None),
-                    'src_url': fts_files_response[last_src_file].get('source_surl', None),
-                    'dst_url': fts_files_response[last_src_file].get('dest_surl', None),
-                    'started_at': datetime.datetime.strptime(fts_files_response[last_src_file]['start_time'], '%Y-%m-%dT%H:%M:%S') if fts_files_response[last_src_file]['start_time'] else None,
-                    'transferred_at': datetime.datetime.strptime(fts_files_response[last_src_file]['finish_time'], '%Y-%m-%dT%H:%M:%S') if fts_files_response[last_src_file]['finish_time'] else None,
-                    'duration': duration,
-                    'reason': fts_files_response[last_src_file].get('reason', None),
-                    'scope': fts_job_response['job_metadata'].get('scope', None),
-                    'name': fts_job_response['job_metadata'].get('name', None),
-                    'src_rse': fts_job_response['job_metadata'].get('src_rse', None),
-                    'dst_rse': fts_job_response['job_metadata'].get('dst_rse', None),
-                    'request_id': fts_job_response['job_metadata'].get('request_id', None),
-                    'activity': fts_job_response['job_metadata'].get('activity', None),
-                    'src_rse_id': fts_job_response['file_metadata'].get('src_rse_id', None),
-                    'dest_rse_id': fts_job_response['job_metadata'].get('dest_rse_id', None),
-                    'previous_attempt_id': fts_job_response['job_metadata'].get('previous_attempt_id', None),
-                    'adler32': fts_job_response['job_metadata'].get('adler32', None),
-                    'md5': fts_job_response['job_metadata'].get('md5', None),
-                    'filesize': fts_job_response['job_metadata'].get('filesize', None),
-                    'external_host': self.external_host,
-                    'job_m_replica': job_m_replica,
-                    'details': {'files': fts_job_response['job_metadata']}}
-        return response
-
-    def __format_new_response(self, fts_job_response, fts_files_response):
-        """
-        Format the response format of FTS3 query.
-
-        :param fts_job_response: FTSs job query response.
-        :param fts_files_response: FTS3 files query response.
-        :returns: formatted response.
-        """
 
         resps = {}
-        if 'request_id' in fts_job_response['job_metadata']:
-            # submitted by old submitter
-            request_id = fts_job_response['job_metadata']['request_id']
-            resps[request_id] = self.__format_response(fts_job_response, fts_files_response)
-        else:
-            multi_sources = fts_job_response['job_metadata'].get('multi_sources', False)
-            for file_resp in fts_files_response:
-                # for multiple source replicas jobs, the file_metadata(request_id) will be the same.
-                # The next used file will overwrite the current used one. Only the last used file will return.
-                if file_resp['file_state'] == 'NOT_USED':
-                    continue
+        multi_sources = fts_job_response['job_metadata'].get('multi_sources', False)
+        for file_resp in fts_files_response:
+            # for multiple source replicas jobs, the file_metadata(request_id) will be the same.
+            # The next used file will overwrite the current used one. Only the last used file will return.
+            if multi_sources and file_resp['file_state'] == 'NOT_USED':
+                continue
 
-                # not terminated job
-                if file_resp['file_state'] not in [FTS_STATE.FAILED,
-                                                   FTS_STATE.FINISHEDDIRTY,
-                                                   FTS_STATE.CANCELED,
-                                                   FTS_STATE.FINISHED]:
-                    continue
+            if file_resp['start_time'] is None or file_resp['finish_time'] is None:
+                duration = 0
+            else:
+                duration = (datetime.datetime.strptime(file_resp['finish_time'], '%Y-%m-%dT%H:%M:%S')
+                            - datetime.datetime.strptime(file_resp['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds  # NOQA: W503
 
-                if file_resp['start_time'] is None or file_resp['finish_time'] is None:
-                    duration = 0
-                else:
-                    duration = (datetime.datetime.strptime(file_resp['finish_time'], '%Y-%m-%dT%H:%M:%S')
-                                - datetime.datetime.strptime(file_resp['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds  # NOQA: W503
+            request_id = file_resp['file_metadata']['request_id']
+            resps[request_id] = {'new_state': None,
+                                 'transfer_id': fts_job_response.get('job_id'),
+                                 'job_state': fts_job_response.get('job_state', None),
+                                 'file_state': file_resp.get('file_state', None),
+                                 'src_url': file_resp.get('source_surl', None),
+                                 'dst_url': file_resp.get('dest_surl', None),
+                                 'started_at': datetime.datetime.strptime(file_resp['start_time'], '%Y-%m-%dT%H:%M:%S') if file_resp['start_time'] else None,
+                                 'staging_start': datetime.datetime.strptime(file_resp['staging_start'], '%Y-%m-%dT%H:%M:%S') if file_resp['staging_start'] else None,
+                                 'staging_finished': datetime.datetime.strptime(file_resp['staging_finished'], '%Y-%m-%dT%H:%M:%S') if file_resp['staging_finished'] else None,
+                                 'transferred_at': datetime.datetime.strptime(file_resp['finish_time'], '%Y-%m-%dT%H:%M:%S') if file_resp['finish_time'] else None,
+                                 'duration': duration,
+                                 'reason': file_resp.get('reason', None),
+                                 'scope': file_resp['file_metadata'].get('scope', None),
+                                 'name': file_resp['file_metadata'].get('name', None),
+                                 'src_type': file_resp['file_metadata'].get('src_type', None),
+                                 'dst_type': file_resp['file_metadata'].get('dst_type', None),
+                                 'src_rse': file_resp['file_metadata'].get('src_rse', None),
+                                 'dst_rse': file_resp['file_metadata'].get('dst_rse', None),
+                                 'request_id': file_resp['file_metadata'].get('request_id', None),
+                                 'activity': file_resp['file_metadata'].get('activity', None),
+                                 'src_rse_id': file_resp['file_metadata'].get('src_rse_id', None),
+                                 'dest_rse_id': file_resp['file_metadata'].get('dest_rse_id', None),
+                                 'previous_attempt_id': file_resp['file_metadata'].get('previous_attempt_id', None),
+                                 'adler32': file_resp['file_metadata'].get('adler32', None),
+                                 'md5': file_resp['file_metadata'].get('md5', None),
+                                 'filesize': file_resp['file_metadata'].get('filesize', None),
+                                 'external_host': self.external_host,
+                                 'job_m_replica': multi_sources,
+                                 'details': {'files': file_resp['file_metadata']}}
 
-                request_id = file_resp['file_metadata']['request_id']
-                resps[request_id] = {'new_state': None,
-                                     'transfer_id': fts_job_response.get('job_id'),
-                                     'job_state': fts_job_response.get('job_state', None),
-                                     'file_state': file_resp.get('file_state', None),
-                                     'src_url': file_resp.get('source_surl', None),
-                                     'dst_url': file_resp.get('dest_surl', None),
-                                     'started_at': datetime.datetime.strptime(file_resp['start_time'], '%Y-%m-%dT%H:%M:%S') if file_resp['start_time'] else None,
-                                     'staging_start': datetime.datetime.strptime(file_resp['staging_start'], '%Y-%m-%dT%H:%M:%S') if file_resp['staging_start'] else None,
-                                     'staging_finished': datetime.datetime.strptime(file_resp['staging_finished'], '%Y-%m-%dT%H:%M:%S') if file_resp['staging_finished'] else None,
-                                     'transferred_at': datetime.datetime.strptime(file_resp['finish_time'], '%Y-%m-%dT%H:%M:%S') if file_resp['finish_time'] else None,
-                                     'duration': duration,
-                                     'reason': file_resp.get('reason', None),
-                                     'scope': file_resp['file_metadata'].get('scope', None),
-                                     'name': file_resp['file_metadata'].get('name', None),
-                                     'src_type': file_resp['file_metadata'].get('src_type', None),
-                                     'dst_type': file_resp['file_metadata'].get('dst_type', None),
-                                     'src_rse': file_resp['file_metadata'].get('src_rse', None),
-                                     'dst_rse': file_resp['file_metadata'].get('dst_rse', None),
-                                     'request_id': file_resp['file_metadata'].get('request_id', None),
-                                     'activity': file_resp['file_metadata'].get('activity', None),
-                                     'src_rse_id': file_resp['file_metadata'].get('src_rse_id', None),
-                                     'dest_rse_id': file_resp['file_metadata'].get('dest_rse_id', None),
-                                     'previous_attempt_id': file_resp['file_metadata'].get('previous_attempt_id', None),
-                                     'adler32': file_resp['file_metadata'].get('adler32', None),
-                                     'md5': file_resp['file_metadata'].get('md5', None),
-                                     'filesize': file_resp['file_metadata'].get('filesize', None),
-                                     'external_host': self.external_host,
-                                     'job_m_replica': multi_sources,
-                                     'details': {'files': file_resp['file_metadata']}}
-
-                # multiple source replicas jobs and we found the successful one, it's the final state.
-                if multi_sources and file_resp['file_state'] in [FTS_STATE.FINISHED]:
-                    break
+            # multiple source replicas jobs and we found the successful one, it's the final state.
+            if multi_sources and file_resp['file_state'] in [FTS_STATE.FINISHED]:
+                break
         return resps
 
     def __bulk_query_responses(self, jobs_response):
@@ -808,7 +741,7 @@ class FTS3Transfertool(Transfertool):
                     responses[transfer_id] = {}
                     continue
 
-                resps = self.__format_new_response(job_response, files_response)
+                resps = self.__format_response(job_response, files_response)
                 responses[transfer_id] = resps
             elif job_response['http_status'] == '404 Not Found':
                 # Lost transfer
