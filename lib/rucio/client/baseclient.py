@@ -149,6 +149,12 @@ class BaseClient(object):
         except (NoOptionError, NoSectionError) as error:
             raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % error.args[0])
 
+        try:
+            self.trace_host = config_get('trace', 'trace_host')
+        except (NoOptionError, NoSectionError):
+            self.trace_host = self.host
+            LOG.debug('No trace_host passed. Using rucio_host instead')
+
         self.account = account
         self.vo = vo
         self.ca_cert = ca_cert
