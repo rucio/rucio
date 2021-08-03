@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
@@ -32,8 +32,10 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2020
+# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import logging
 import random
@@ -851,7 +853,7 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
     """
 
     stmt = select([1]).\
-        prefix_with("/*+ INDEX(RULES ATLAS_RUCIO.RULES_SCOPE_NAME_IDX) */",
+        prefix_with("/*+ INDEX(RULES RULES_SCOPE_NAME_IDX) */",
                     dialect='oracle').\
         where(and_(models.DataIdentifier.scope == models.ReplicationRule.scope,
                    models.DataIdentifier.name == models.ReplicationRule.name,
