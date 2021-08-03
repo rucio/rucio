@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
-# - Tomas Kouba <tomas.kouba@cern.ch>, 2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
@@ -277,7 +273,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
         tottime = time() - starttime
         if status:
             logger(logging.INFO, 'It took %s seconds to upload one dataset on %s', str(tottime), str(sites))
-            daemon_sleep(start_time=starttime, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
+            daemon_sleep(start_time=starttime, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP, logger=logger)
         else:
             logger(logging.INFO, 'Retrying a new upload')
     heartbeat.die(executable, hostname, pid, hb_thread)

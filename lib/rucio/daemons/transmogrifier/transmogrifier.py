@@ -459,7 +459,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
             monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
         if once is True:
             break
-        daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop)
+        daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=logger)
     heartbeat.die(executable, hostname, pid, hb_thread)
     logger(logging.INFO, 'Graceful stop requested')
     logger(logging.INFO, 'Graceful stop done')

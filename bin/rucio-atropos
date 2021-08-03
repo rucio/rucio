@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2016-2021 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,14 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016
-# - Vincent Garonne, <vgaronne@gmail.com>, 2018
-# - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2018-2019
-# - David Población Criado, <david.poblacion.criado@cern.ch>, 2021
-#
-# PY3K COMPATIBLE
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2016
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 '''
 Atropos Daemon : End the life of the rules according to the Lifetime Model

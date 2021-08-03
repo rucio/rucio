@@ -16,7 +16,7 @@
 # Authors:
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """

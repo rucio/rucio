@@ -92,7 +92,7 @@ def rule_injector(once=False, sleep_time=60):
 
             if not rules and not once:
                 logger(logging.DEBUG, 'did not get any work (paused_rules=%s)' % str(len(paused_rules)))
-                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop)
+                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=logger)
             else:
                 for rule in rules:
                     rule_id = rule[0]

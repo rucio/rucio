@@ -124,7 +124,7 @@ def preparer(once, sleep_time, bulk):
             end_time = time()
             time_diff = end_time - start_time
             daemon_logger(logging.INFO, '%s, taking %.3f seconds' % (updated_msg, time_diff))
-            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop)
+            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=daemon_logger)
 
         daemon_logger(logging.INFO, 'gracefully stopping')
 

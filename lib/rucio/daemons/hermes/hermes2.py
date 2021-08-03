@@ -553,7 +553,7 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
 
             if once:
                 break
-            daemon_sleep(start_time=stime, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
+            daemon_sleep(start_time=stime, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP, logger=logger)
 
         except Exception:
             logger(logging.ERROR, "Failed to submit messages", exc_info=True)

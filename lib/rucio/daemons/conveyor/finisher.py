@@ -159,7 +159,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
         if once:
             break
 
-        daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop)
+        daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=logger)
 
     logger(logging.INFO, 'Graceful stop requests')
 

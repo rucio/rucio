@@ -261,7 +261,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
         if len(pfns) == bulk:
             logger(logging.INFO, 'Processed maximum number of pfns according to the bulk size. Restart immediately next cycle')
         else:
-            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
+            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP, logger=logger)
 
     heartbeat.die(executable, hostname, pid, hb_thread)
     logger(logging.INFO, 'Graceful stop requested')
