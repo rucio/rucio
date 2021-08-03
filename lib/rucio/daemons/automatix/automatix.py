@@ -261,8 +261,8 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
                     remove(physical_fname)
                 rmdir(tmpdir)
                 if status:
-                    monitor.record_counter(counters='automatix.addnewdataset.done', delta=1)
-                    monitor.record_counter(counters='automatix.addnewfile.done', delta=nbfiles)
+                    monitor.record_counter(name='automatix.addnewdataset.done', delta=1)
+                    monitor.record_counter(name='automatix.addnewfile.done', delta=nbfiles)
                     monitor.record_timer('automatix.datasetinjection', (time() - start_time) * 1000)
                     break
                 else:
