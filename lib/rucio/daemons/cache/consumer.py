@@ -139,7 +139,7 @@ def consumer(id, num_thread=1):
 
             if not conn.is_connected():
                 logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
-                record_counter('daemons.messaging.cache.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
+                record_counter('daemons.messaging.cache.reconnect.{}', labels={'host': conn.transport._Transport__host_and_ports[0][0].split('.')[0]})
 
                 conn.set_listener('rucio-cache-messaging', conns[conn])
                 conn.connect()

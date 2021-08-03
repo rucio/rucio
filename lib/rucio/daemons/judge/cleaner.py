@@ -109,32 +109,32 @@ def rule_cleaner(once=False, sleep_time=60):
                     except (DatabaseException, DatabaseError, UnsupportedOperation) as e:
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
-                            record_counter('rule.judge.exceptions.LocksDetected')
+                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': 'LocksDetected'})
                             logger(logging.WARNING, 'Locks detected for %s' % rule_id)
                         elif match('.*QueuePool.*', str(e.args[0])):
                             logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                         elif match('.*ORA-03135.*', str(e.args[0])):
                             logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                         else:
                             logger(logging.ERROR, 'DatabaseException', exc_info=True)
-                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                     except RuleNotFound:
                         pass
         except (DatabaseException, DatabaseError) as e:
             if match('.*QueuePool.*', str(e.args[0])):
                 logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
             elif match('.*ORA-03135.*', str(e.args[0])):
                 logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
             else:
                 logger(logging.CRITICAL, 'DatabaseException', exc_info=True)
-                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
         except Exception as e:
             logger(logging.CRITICAL, 'DatabaseException', exc_info=True)
-            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
         if once:
             break
 

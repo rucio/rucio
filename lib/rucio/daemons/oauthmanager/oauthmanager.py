@@ -101,21 +101,21 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100, sleep_time=300):
             nrefreshed = refresh_jwt_tokens(total_workers, worker_number, refreshrate=int(sleep_time), limit=max_rows)
             logging.info('oauth_manager[%i/%i]: successfully refreshed %i tokens', worker_number, total_workers, nrefreshed)
             logging.info('oauth_manager[%i/%i]: ----- END ----- ACCESS TOKEN REFRESH ----- ', worker_number, total_workers)
-            record_counter(counters='oauth_manager.tokens.refreshed', delta=nrefreshed)
+            record_counter(name='oauth_manager.tokens.refreshed', delta=nrefreshed)
 
         except (DatabaseException, DatabaseError) as err:
             if match('.*QueuePool.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
             elif match('.*ORA-03135.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
             else:
                 logging.critical(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
         except Exception as err:
             logging.critical(traceback.format_exc())
-            record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
+            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
 
         try:
             # waiting 1 sec as DBs does not store milisecond and tokens
@@ -127,21 +127,21 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100, sleep_time=300):
             ndeleted += delete_expired_tokens(total_workers, worker_number, limit=max_rows)
             logging.info('oauth_manager[%i/%i]: deleted %i expired tokens', worker_number, total_workers, ndeleted)
             logging.info('oauth_manager[%i/%i]: ----- END ----- DELETION OF EXPIRED TOKENS ----- ', worker_number, total_workers)
-            record_counter(counters='oauth_manager.tokens.deleted', delta=ndeleted)
+            record_counter(name='oauth_manager.tokens.deleted', delta=ndeleted)
 
         except (DatabaseException, DatabaseError) as err:
             if match('.*QueuePool.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
             elif match('.*ORA-03135.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
             else:
                 logging.critical(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
         except Exception as err:
             logging.critical(traceback.format_exc())
-            record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
+            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
 
         try:
             # DELETING EXPIRED OAUTH SESSION PARAMETERS
@@ -150,21 +150,21 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100, sleep_time=300):
             ndeletedreq += delete_expired_oauthrequests(total_workers, worker_number, limit=max_rows)
             logging.info('oauth_manager[%i/%i]: expired parameters of %i authentication requests were deleted', worker_number, total_workers, ndeletedreq)
             logging.info('oauth_manager[%i/%i]: ----- END ----- DELETION OF EXPIRED OAUTH SESSION REQUESTS ----- ', worker_number, total_workers)
-            record_counter(counters='oauth_manager.oauthreq.deleted', delta=ndeletedreq)
+            record_counter(name='oauth_manager.oauthreq.deleted', delta=ndeletedreq)
 
         except (DatabaseException, DatabaseError) as err:
             if match('.*QueuePool.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
             elif match('.*ORA-03135.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
             else:
                 logging.critical(traceback.format_exc())
-                record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
+                record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
         except Exception as err:
             logging.critical(traceback.format_exc())
-            record_counter('oauth_manager.exceptions.' + err.__class__.__name__)
+            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
 
         tottime = time.time() - start
         logging.info('oauth_manager[%i/%i]: took %f seconds to delete %i tokens, %i session parameters and refreshed %i tokens', worker_number, total_workers, tottime, ndeleted, ndeletedreq, nrefreshed)

@@ -368,7 +368,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                                            (subscription['name'],
                                                             account,
                                                             str(error)))
-                                                    monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
+                                                    monitor.record_counter(name='transmogrifier.addnewrule.errortype.{exception}', labels={'exception': str(error.__class__.__name__)})
                                                     # The DID won't be reevaluated at the next cycle
                                                     did_success = did_success and True
                                                     continue
@@ -401,24 +401,24 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                                                     purge_replicas=purge_replicas, ignore_availability=ignore_availability, comment=comment)
                                                 created_rules[cnt].append(rule_ids[0])
                                                 nb_rule += 1
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.done', delta=nb_rule)
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.activity.%s' % str_activity, delta=nb_rule)
+                                            monitor.record_counter(name='transmogrifier.addnewrule.done', delta=nb_rule)
+                                            monitor.record_counter(name='transmogrifier.addnewrule.activity.{activity}', delta=nb_rule, labels={'activity': str_activity})
                                             success = True
                                             break
                                         except (InvalidReplicationRule, InvalidRuleWeight, InvalidRSEExpression, StagingAreaRuleRequiresLifetime, DuplicateRule) as error:
                                             # Errors that won't be retried
                                             success = True
                                             logger(logging.ERROR, str(error))
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
+                                            monitor.record_counter(name='transmogrifier.addnewrule.errortype.{exception}', labels={'exception': str(error.__class__.__name__)})
                                             break
                                         except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs,
                                                 InsufficientAccountLimit, DatabaseException, RSEWriteBlocked) as error:
                                             # Errors to be retried
                                             logger(logging.ERROR, '%s Will perform an other attempt %i/%i' % (str(error), attempt + 1, nattempt))
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
+                                            monitor.record_counter(name='transmogrifier.addnewrule.errortype.{exception}', labels={'exception': str(error.__class__.__name__)})
                                         except Exception:
                                             # Unexpected errors
-                                            monitor.record_counter(counters='transmogrifier.addnewrule.errortype.unknown', delta=1)
+                                            monitor.record_counter(name='transmogrifier.addnewrule.errortype.{exception}', labels={'exception': 'unknown'})
                                             logger(logging.ERROR, "Unexpected error", exc_info=True)
 
                                     did_success = (did_success and success)
@@ -431,12 +431,12 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
 
                 if did_success:
                     if did['did_type'] == str(DIDType.FILE):
-                        monitor.record_counter(counters='transmogrifier.did.file.processed', delta=1)
+                        monitor.record_counter(name='transmogrifier.did.file.processed')
                     elif did['did_type'] == str(DIDType.DATASET):
-                        monitor.record_counter(counters='transmogrifier.did.dataset.processed', delta=1)
+                        monitor.record_counter(name='transmogrifier.did.dataset.processed')
                     elif did['did_type'] == str(DIDType.CONTAINER):
-                        monitor.record_counter(counters='transmogrifier.did.container.processed', delta=1)
-                    monitor.record_counter(counters='transmogrifier.did.processed', delta=1)
+                        monitor.record_counter(name='transmogrifier.did.container.processed', delta=1)
+                    monitor.record_counter(name='transmogrifier.did.processed', delta=1)
                     identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': did['did_type']})
 
             time1 = time.time()
@@ -451,12 +451,12 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                 update_subscription(name=sub['name'], account=sub['account'], metadata={'last_processed': datetime.now()})
             logger(logging.INFO, 'It took %f seconds to process %i DIDs' % (tottime, len(dids)))
             logger(logging.DEBUG, 'DIDs processed : %s' % (str(dids)))
-            monitor.record_counter(counters='transmogrifier.job.done', delta=1)
+            monitor.record_counter(name='transmogrifier.job.done', delta=1)
             monitor.record_timer(stat='transmogrifier.job.duration', time=1000 * tottime)
         except Exception:
             logger(logging.ERROR, "Failed to run transmogrifier", exc_info=True)
-            monitor.record_counter(counters='transmogrifier.job.error', delta=1)
-            monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
+            monitor.record_counter(name='transmogrifier.job.error', delta=1)
+            monitor.record_counter(name='transmogrifier.addnewrule.error', delta=1)
         if once is True:
             break
         daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=logger)

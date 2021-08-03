@@ -129,7 +129,7 @@ def _submit_transfers(external_host, transfers, job_params, submitter='submitter
         duration = time.time() - start_time
         logger(logging.INFO, 'Submit job %s to %s in %s seconds' % (eid, external_host, duration))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - start_time) * 1000 / len(transfers) or 1)
-        record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, len(transfers))
+        record_counter('daemons.conveyor.{submitter}.submit_bulk_transfer', delta=len(transfers), labels={'submitter': submitter})
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, len(transfers))
 
     if state_to_set:

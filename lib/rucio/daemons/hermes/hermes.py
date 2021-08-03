@@ -41,7 +41,6 @@ import traceback
 from email.mime.text import MIMEText
 
 import stomp
-from prometheus_client import Counter
 from six import PY2
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -52,14 +51,15 @@ from rucio.common.logging import setup_logging
 from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import retrieve_messages, delete_messages
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import MultiCounter
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 logging.getLogger('stomp').setLevel(logging.CRITICAL)
 
 GRACEFUL_STOP = threading.Event()
 
-RECONNECT_COUNTER = Counter('rucio_daemons_hermes_reconnect', 'Counts Hermes reconnects to different ActiveMQ brokers', labelnames=('host',))
+RECONNECT_COUNTER = MultiCounter(prom='rucio_daemons_hermes_reconnect', statsd='daemons.hermes.reconnect.{host}',
+                                 documentation='Counts Hermes reconnects to different ActiveMQ brokers', labelnames=('host',))
 
 
 def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=60, sleep_time=60):
@@ -260,9 +260,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                         conn = random.sample(conns, 1)[0]
                         if not conn.is_connected():
                             host_and_ports = conn.transport._Transport__host_and_ports[0][0]
-                            record_counter('daemons.hermes.reconnect.%s' % host_and_ports.split('.')[0])
-                            labels = {'host': host_and_ports.split('.')[0]}
-                            RECONNECT_COUNTER.labels(**labels).inc()
+                            RECONNECT_COUNTER.labels(host=host_and_ports.split('.')[0]).inc()
                             if not use_ssl:
                                 logging.info('[broker] %i:%i - connecting with USERPASS to %s',
                                              heartbeat['assign_thread'],

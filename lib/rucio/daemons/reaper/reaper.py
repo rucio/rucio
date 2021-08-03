@@ -48,7 +48,7 @@ from typing import TYPE_CHECKING
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
-from prometheus_client import Counter, Gauge
+from prometheus_client import Gauge
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
@@ -81,7 +81,8 @@ REGION = make_region().configure('dogpile.cache.memcached',
                                  arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
                                             'distributed_lock': True})
 
-DELETION_COUNTER = Counter('rucio_daemons_reaper_deletion_done', 'Number of deleted replicas')
+DELETION_COUNTER = monitor.MultiCounter(prom='rucio_daemons_reaper_deletion_done', statsd='reaper.deletion.done',
+                                        documentation='Number of deleted replicas')
 EXCLUDED_RSE_GAUGE = Gauge('rucio_daemons_reaper_excluded_rses', 'Temporarly excluded RSEs', labelnames=('rse',))
 
 
@@ -601,7 +602,6 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                         with monitor.record_timer_block('reaper.delete_replicas'):
                             delete_replicas(rse_id=rse_id, files=deleted_files)
                         logger(logging.DEBUG, 'delete_replicas successed on %s : %s replicas in %s seconds', rse_name, len(deleted_files), time.time() - del_start)
-                        monitor.record_counter(counters='reaper.deletion.done', delta=len(deleted_files))
                         DELETION_COUNTER.inc(len(deleted_files))
                 except Exception:
                     logger(logging.CRITICAL, 'Exception', exc_info=True)

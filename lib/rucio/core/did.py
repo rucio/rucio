@@ -716,7 +716,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
         with record_timer_block('undertaker.content'):
             rowcount = session.query(models.DataIdentifierAssociation).filter(or_(*content_clause)).\
                 delete(synchronize_session=False)
-        record_counter(counters='undertaker.content.rowcount', delta=rowcount)
+        record_counter(name='undertaker.content.rowcount', delta=rowcount)
 
     # Remove CollectionReplica
     if collection_replica_clause:
