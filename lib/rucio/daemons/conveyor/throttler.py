@@ -262,7 +262,7 @@ def __release_all_activities(stats, direction, rse_name, rse_id, logger, session
         logger(logging.DEBUG, "Throttler remove limits(threshold: %s) and release all waiting requests, rse %s" % (threshold, rse_name))
         delete_rse_transfer_limits(rse_id, activity='all_activities', session=session)
         release_all_waiting_requests(rse_id, direction=direction, session=session)
-        record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s' % (rse_name))
+        record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.{activity}.{rse}', labels={'activity': 'all_activities', 'rse': rse_name})
 
 
 def __release_per_activity(stats, direction, rse_name, rse_id, logger, session):
@@ -285,7 +285,7 @@ def __release_per_activity(stats, direction, rse_name, rse_id, logger, session):
                 logger(logging.DEBUG, "Throttler remove limits(threshold: %s) and release all waiting requests for activity %s, rse_id %s" % (threshold, activity, rse_id))
                 delete_rse_transfer_limits(rse_id, activity=activity, session=session)
                 release_all_waiting_requests(rse_id, activity=activity, direction=direction, session=session)
-                record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s.%s' % (activity, rse_name))
+                record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.{activity}.{rse}', labels={'activity': activity, 'rse': rse_name})
             elif transfer + waiting > threshold:
                 logger(logging.DEBUG, "Throttler set limits for activity %s, rse %s" % (activity, rse_name))
                 set_rse_transfer_limits(rse_id, activity=activity, max_transfers=threshold, transfers=transfer, waitings=waiting, session=session)
@@ -330,4 +330,4 @@ def __release_per_activity(stats, direction, rse_name, rse_id, logger, session):
                 logger(logging.DEBUG, "Throttler remove limits(threshold: %s) and release all waiting requests for activity %s, rse %s" % (threshold, activity, rse_name))
                 delete_rse_transfer_limits(rse_id, activity=activity, session=session)
                 release_all_waiting_requests(rse_id, activity=activity, direction=direction, session=session)
-                record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s.%s' % (activity, rse_name))
+                record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.{activity}.{rse}', labels={'activity': activity, 'rse': rse_name})

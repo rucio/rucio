@@ -128,35 +128,35 @@ def re_evaluator(once=False, sleep_time=30, did_limit=100):
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_dids[(did.scope.internal, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                             logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'], did.scope, did.name))
-                            record_counter('rule.judge.exceptions.LocksDetected')
+                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': 'LocksDetected'})
                         elif match('.*QueuePool.*', str(e.args[0])):
                             logging.warning(traceback.format_exc())
-                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                         elif match('.*ORA-03135.*', str(e.args[0])):
                             logging.warning(traceback.format_exc())
-                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                         else:
                             logging.error(traceback.format_exc())
-                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                     except ReplicationRuleCreationTemporaryFailed as e:
-                        record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                        record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                         logging.warning('re_evaluator[%s/%s]: Replica Creation temporary failed, retrying later for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'], did.scope, did.name))
                     except FlushError as e:
-                        record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                        record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                         logging.warning('re_evaluator[%s/%s]: Flush error for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'], did.scope, did.name))
         except (DatabaseException, DatabaseError) as e:
             if match('.*QueuePool.*', str(e.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
             elif match('.*ORA-03135.*', str(e.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
             else:
                 logging.critical(traceback.format_exc())
-                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
         except Exception as e:
             logging.critical(traceback.format_exc())
-            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
 
         if once:
             break

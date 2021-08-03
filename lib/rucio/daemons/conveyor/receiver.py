@@ -135,7 +135,7 @@ class Receiver(object):
 
                         if self.__full_mode:
                             ret = request.update_request_state(response)
-                            record_counter('daemons.conveyor.receiver.update_request_state.%s' % ret)
+                            record_counter('daemons.conveyor.receiver.update_request_state.{updated}', labels={'updated': ret})
                         else:
                             try:
                                 logging.debug("Update request %s update time" % response['request_id'])
@@ -221,7 +221,7 @@ def receiver(id_, total_threads=1, full_mode=False, all_vos=False):
 
             if not conn.is_connected():
                 logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
-                record_counter('daemons.messaging.fts3.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
+                record_counter('daemons.messaging.fts3.reconnect.{host}', labels={'host': conn.transport._Transport__host_and_ports[0][0].split('.')[0]})
 
                 conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0],
                                                                    id_=id_, total_threads=total_threads,

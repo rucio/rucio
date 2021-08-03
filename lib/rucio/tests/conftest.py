@@ -295,3 +295,17 @@ def caches_mock(request):
             stack.enter_context(mock.patch('{}.{}'.format(module, 'REGION'), new=region))
 
         yield
+
+
+@pytest.fixture
+def metrics_mock():
+    """
+    Overrides the prometheus metric registry and allows to verify if the desired
+    prometheus metrics were correctly recorded.
+    """
+
+    from unittest import mock
+    from prometheus_client import CollectorRegistry
+
+    with mock.patch('rucio.core.monitor.REGISTRY', new=CollectorRegistry()) as registry, mock.patch('rucio.core.monitor.COUNTERS', new={}):
+        yield registry
