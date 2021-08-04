@@ -1029,7 +1029,7 @@ def __search_shortest_paths(source_rse_ids, dest_rse_id, include_multihop, multi
                 continue
 
             new_adjacent_distance = current_distance + link_distance + HOP_PENALTY
-            if next_hop.get(adjacent_node, {'cumulated_distance': 9999})['cumulated_distance'] <= new_adjacent_distance:
+            if next_hop.get(adjacent_node, {}).get('cumulated_distance', 9999) <= new_adjacent_distance:
                 continue
 
             try:
