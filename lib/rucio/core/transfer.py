@@ -1356,6 +1356,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         for source in rws.sources:
             ctx.ensure_fully_loaded(source.rse)
 
+        logger(logging.DEBUG, 'Found following sources for %s: %s', rws, [str(src.rse) for src in rws.sources])
         # Assume request doesn't have any sources. Will be removed later if sources are found.
         reqs_no_source.add(rws.request_id)
 
@@ -1390,6 +1391,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             filtered_sources = filter(lambda s: not s.rse.is_tape_or_staging_required(), filtered_sources)
 
         filtered_sources = list(filtered_sources)
+        if len(rws.sources) != len(filtered_sources):
+            logger(logging.DEBUG, 'Sources after filtering for %s: %s', rws, [str(src.rse) for src in filtered_sources])
         any_source_had_scheme_mismatch = False
         candidate_paths = []
 
@@ -1411,11 +1414,14 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 continue
 
             if len(transfer_path) > 1:
-                logger(logging.DEBUG, 'From %s to %s requires multihop: %s', source.rse, rws.dest_rse, transfer_path)
+                logger(logging.DEBUG, 'From %s to %s requires multihop: %s', source.rse, rws.dest_rse, [str(hop) for hop in transfer_path])
             for hop in transfer_path:
                 hop.init_legacy_transfer_definition(bring_online=bring_online, logger=logger)
 
             candidate_paths.append(transfer_path)
+
+        if len(filtered_sources) != len(candidate_paths):
+            logger(logging.DEBUG, 'Sources after path computation for %s: %s', rws, [str(path[0].src.rse) for path in candidate_paths])
 
         best_path = None
         candidate_paths = __filter_unwanted_paths(candidate_paths)
@@ -1431,11 +1437,16 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             # of scheme mismatch. However, we can only have one state in the database. I picked to
             # prioritize setting only_tape_source without any particular reason.
             if had_tape_sources and not filtered_sources:
+                logger(logging.DEBUG, 'Only tape sources found for %s' % rws)
                 reqs_only_tape_source.add(rws.request_id)
                 reqs_no_source.remove(rws.request_id)
             elif any_source_had_scheme_mismatch:
+                logger(logging.DEBUG, 'Scheme mismatch detected for %s' % rws)
                 reqs_scheme_mismatch.add(rws.request_id)
                 reqs_no_source.remove(rws.request_id)
+            else:
+                logger(logging.DEBUG, 'No candidate path found for %s' % rws)
+            continue
 
         for i, hop in enumerate(best_path):
             hop['file_metadata']['request_id'] = hop.rws.request_id
@@ -1444,6 +1455,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 hop['multihop'] = True
                 hop['initial_request_id'] = rws.request_id
                 hop['parent_request'] = best_path[i - 1].rws.request_id if i > 0 else None
+
+        if len(best_path) > 1:
+            logger(logging.DEBUG, 'Best path is multihop for %s: %s' % (rws, [str(hop) for hop in best_path]))
+        else:
+            logger(logging.DEBUG, 'Best path is direct for %s: %s' % (rws, best_path[0]))
 
         transfer_path_for_request.append((rws, best_path))
         reqs_no_source.remove(rws.request_id)
