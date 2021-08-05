@@ -589,7 +589,7 @@ class Default(protocol.RSEProtocol):
 
 class NoRename(Default):
 
-    """ Do not rename files on upload/download. Necessary for some storage endpoints. """
+    """ Implementing access to RSEs using the srm protocol without renaming files on upload/download. Necessary for some storage endpoints. """
 
     def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.
@@ -615,6 +615,8 @@ class NoRename(Default):
 
 
 class CLI(Default):
+
+    """ Implementing access to RSEs using the srm protocol through CLI with 'gfal' commands. """
 
     def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.

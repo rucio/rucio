@@ -28,7 +28,7 @@ from uuid import uuid4 as uuid
 import pytest
 
 from rucio.common import exception
-from rucio.common.utils import execute
+from rucio.common.utils import execute, PREFERRED_CHECKSUM, set_preferred_checksum
 from rucio.rse import rsemanager
 from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 from rucio.tests.rsemgr_api_test import MgrTestCases
@@ -68,6 +68,7 @@ class TestRseSSH(unittest.TestCase):
     hostname = None
     port = None
     sshuser = None
+    original_prefchecksum = PREFERRED_CHECKSUM
 
     @classmethod
     def get_rse_info(cls):
@@ -89,6 +90,7 @@ class TestRseSSH(unittest.TestCase):
         cls.tmpdir = tempfile.mkdtemp()
         cls.user = uuid()
 
+        set_preferred_checksum('md5')
         cmd = 'ssh-keygen -R %s' % (cls.hostname)
         execute(cmd)
         cmd = 'ssh-keyscan %s  >> /root/.ssh/known_hosts' % (cls.hostname)
@@ -146,6 +148,7 @@ class TestRseSSH(unittest.TestCase):
             clean_cmd = 'ssh %s@%s rm -r %s' % (sshuser, hostname, directory)
             execute(clean_cmd)
 
+        set_preferred_checksum(cls.original_prefchecksum)
         cmd = 'ssh-keygen -R %s' % (hostname)
         execute(cmd)
 

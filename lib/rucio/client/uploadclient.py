@@ -104,7 +104,7 @@ class UploadClient:
             did_name              - Optional: custom did name (Default: name of the file)
             dataset_scope         - Optional: custom dataset scope
             dataset_name          - Optional: custom dataset name
-            impl                   - Optional: name of the protocol implementation to be used to upload this item.
+            impl                  - Optional: name of the protocol implementation to be used to upload this item.
             force_scheme          - Optional: force a specific scheme (if PFN upload this will be overwritten) (Default: None)
             pfn                   - Optional: use a given PFN (this sets no_register to True, and no_register becomes mandatory)
             no_register           - Optional: if True, the file will not be registered in the rucio catalogue
@@ -848,16 +848,16 @@ class UploadClient:
 
         for protocol in preferred_protocols:
             if domain not in list(protocol['domains'].keys()):
-                self.logger(logging.WARNING, 'Unsuitable protocol "%s": Domain %s not supported' % (protocol['impl'], domain))
+                self.logger(logging.DEBUG, 'Unsuitable protocol "%s": Domain %s not supported' % (protocol['impl'], domain))
                 continue
             if not all(operations in protocol['domains'][domain] for operations in ("read", "write", "delete")):
-                self.logger(logging.WARNING, 'Unsuitable protocol "%s": All operations are not supported' % (protocol['impl']))
+                self.logger(logging.DEBUG, 'Unsuitable protocol "%s": All operations are not supported' % (protocol['impl']))
                 continue
             try:
                 supported_protocol = rsemgr.create_protocol(rse_settings, 'read', domain=domain, impl=protocol['impl'], auth_token=self.auth_token, logger=self.logger)
                 supported_protocol.connect()
             except Exception as error:
-                self.logger(logging.WARNING, 'Failed to create protocol "%s", exception: %s' % (protocol['impl'], error))
+                self.logger(logging.DEBUG, 'Failed to create protocol "%s", exception: %s' % (protocol['impl'], error))
                 pass
             else:
                 self.logger(logging.INFO, 'Preferred protocol impl supported locally and remotely: %s' % (protocol['impl']))

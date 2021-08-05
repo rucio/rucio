@@ -29,18 +29,17 @@ import logging
 import os
 import shutil
 import tarfile
-from unittest.mock import patch, MagicMock, ANY
-import os
 from tempfile import TemporaryDirectory
+from unittest.mock import ANY, MagicMock, patch
 from zipfile import ZipFile
 
 import pytest
 
 from rucio.client.downloadclient import DownloadClient
+from rucio.common.config import config_add_section, config_set
 from rucio.common.exception import InputValidationError, NoFilesDownloaded, RucioException
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.common.config import config_set, config_add_section
 from rucio.core import did as did_core
 from rucio.core import scope as scope_core
 from rucio.core.rse import add_protocol
