@@ -31,6 +31,7 @@ Highly recommended usage: add_header -i <source_file{.py,.sh}>
 import argparse
 import collections
 import datetime
+import os
 import sys
 import traceback
 
@@ -175,7 +176,8 @@ def main(arguments):
 
             sys.exit(0)
 
-        if str(MyFile).endswith('.py') or MyFile.split('/')[0] == "bin":
+        absolute_path = os.path.abspath(MyFile)
+        if str(MyFile).endswith('.py') or absolute_path.split('/')[-2] == "bin":
             header += '# -*- coding: utf-8 -*-\n'
 
         if int(min) == int(max):
