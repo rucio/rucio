@@ -18,9 +18,9 @@
 
 from __future__ import print_function
 
-import unittest
 from os import remove, path
 import re
+import unittest
 
 from rucio.common.utils import generate_uuid as uuid, execute
 from rucio.tests.common import skip_rse_tests_with_accounts

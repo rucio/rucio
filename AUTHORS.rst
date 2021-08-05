@@ -57,6 +57,7 @@ Individual contributors to the source code
 - Ilija Vukotic <ivukotic@uchicago.edu>, 2020-2021
 - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 - Nick Smith <nick.smith@cern.ch>, 2021
+- Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 
 Organisations employing contributors

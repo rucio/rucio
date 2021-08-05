@@ -224,6 +224,19 @@ def is_checksum_valid(checksum_name):
     return checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS
 
 
+def set_preferred_checksum(checksum_name):
+    """
+    A simple function to check wether a checksum algorithm is supported.
+    Relies on GLOBALLY_SUPPORTED_CHECKSUMS to allow for expandability.
+
+    :param checksum_name: The name of the checksum to be verified.
+    :returns: True if checksum_name is in GLOBALLY_SUPPORTED_CHECKSUMS list, False otherwise.
+    """
+    if is_checksum_valid(checksum_name):
+        global PREFERRED_CHECKSUM
+        PREFERRED_CHECKSUM = checksum_name
+
+
 def set_checksum_value(file, checksum_names_list):
     for checksum_name in checksum_names_list:
         if checksum_name in file['metadata'].keys() and file['metadata'][checksum_name]:

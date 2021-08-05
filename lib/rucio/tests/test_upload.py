@@ -16,21 +16,22 @@
 # Authors:
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+
 import json
 import logging
-import pytest
 import os
+import pytest
 import shutil
-from unittest.mock import patch
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from rucio.client.downloadclient import DownloadClient
-from rucio.core.rse import add_protocol, add_rse_attribute
-from rucio.common.config import config_set, config_add_section
 from rucio.client.uploadclient import UploadClient
-from rucio.common.exception import NotAllFilesUploaded, NoFilesUploaded, InputValidationError
-from rucio.common.utils import generate_uuid
-from rucio.common.utils import adler32
+from rucio.common.config import config_add_section, config_set
+from rucio.common.exception import InputValidationError, NoFilesUploaded, NotAllFilesUploaded
+from rucio.common.utils import adler32, generate_uuid
+from rucio.core.rse import add_protocol, add_rse_attribute
 
 
 @pytest.fixture

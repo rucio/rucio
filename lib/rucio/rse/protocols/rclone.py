@@ -16,14 +16,14 @@
 # Authors:
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
+import json
 import os
 import logging
-import json
 
 from rucio.common import exception
-from rucio.rse.protocols import protocol
-from rucio.common.utils import execute, PREFERRED_CHECKSUM
 from rucio.common.config import get_config_dirs, get_rse_credentials
+from rucio.common.utils import execute, PREFERRED_CHECKSUM
+from rucio.rse.protocols import protocol
 
 
 def load_conf_file(file_name):
@@ -42,7 +42,7 @@ class Default(protocol.RSEProtocol):
         """
         super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
         if len(rse_settings['protocols']) == 1:
-            raise exception.RucioException('rclone requires atleast one other base protocol to be initialized upon.')
+            raise exception.RucioException('rclone initialization requires at least one other protocol defined on the RSE. (from ssh, sftp, posix, webdav, s3)')
         self.scheme = self.attributes['scheme']
         setuprclone = False
         for protocols in reversed(rse_settings['protocols']):
@@ -54,7 +54,7 @@ class Default(protocol.RSEProtocol):
                     break
 
         if not setuprclone:
-            raise exception.RucioException('rclone could not be initialized due to insufficient required data.')
+            raise exception.RucioException('rclone could not be initialized.')
         self.logger = logger
 
     def setuphostname(self, protocols):
@@ -69,7 +69,7 @@ class Default(protocol.RSEProtocol):
             if protocols['extended_attributes'] is not None and 'user' in list(protocols['extended_attributes'].keys()):
                 self.user = protocols['extended_attributes']['user']
             else:
-                self.user = 'root'
+                self.user = None
             try:
                 data = load_conf_file('rclone-init.cfg')
                 key_file = data[self.host + '_ssh']['key_file']
@@ -77,20 +77,27 @@ class Default(protocol.RSEProtocol):
                 self.logger(logging.ERROR, 'rclone.init: rclone-init.cfg:- Field value missing for "{}_ssh: key_file"'.format(self.host))
                 return False
             try:
-                cmd = 'rclone config create {0} sftp host {1} user {2} port {3} key_file {4}'.format(self.hostname, self.host, self.user, str(self.port), key_file)
-                self.logger(logging.INFO, 'rclone.init: cmd: {}'.format(cmd))
-                status, out, err = execute(cmd)
-                if status:
-                    return False
+                if self.user:
+                    cmd = 'rclone config create {0} sftp host {1} user {2} port {3} key_file {4}'.format(self.hostname, self.host, self.user, str(self.port), key_file)
+                    self.logger(logging.DEBUG, 'rclone.init: cmd: {}'.format(cmd))
+                    status, out, err = execute(cmd)
+                    if status:
+                        return False
+                else:
+                    cmd = 'rclone config create {0} sftp host {1} port {2} key_file {3}'.format(self.hostname, self.host, str(self.port), key_file)
+                    self.logger(logging.DEBUG, 'rclone.init: cmd: {}'.format(cmd))
+                    status, out, err = execute(cmd)
+                    if status:
+                        return False
             except Exception as e:
                 raise exception.ServiceUnavailable(e)
 
         elif protocols['scheme'] == 'file':
-            self.hostname = 'Local'
+            self.hostname = '%s_rclone_rse' % (protocols['scheme'])
             self.host = 'localhost'
             try:
-                cmd = 'rclone config create Local local'
-                self.logger(logging.INFO, 'rclone.init: cmd: {}'.format(cmd))
+                cmd = 'rclone config create {0} local'.format(self.hostname)
+                self.logger(logging.DEBUG, 'rclone.init: cmd: {}'.format(cmd))
                 status, out, err = execute(cmd)
                 if status:
                     return False
@@ -109,7 +116,7 @@ class Default(protocol.RSEProtocol):
                 return False
             try:
                 cmd = 'rclone config create {0} webdav url {1} vendor other bearer_token {2}'.format(self.hostname, url, bearer_token)
-                self.logger(logging.INFO, 'rclone.init: cmd: {}'.format(cmd))
+                self.logger(logging.DEBUG, 'rclone.init: cmd: {}'.format(cmd))
                 status, out, err = execute(cmd)
                 if status:
                     return False
@@ -140,12 +147,15 @@ class Default(protocol.RSEProtocol):
 
             try:
                 cmd = 'rclone config create {0} s3 provider AWS env_auth false access_key_id {1} secret_access_key {2} region us-east-1 acl private'.format(self.hostname, access_key, secret_key)
-                self.logger(logging.INFO, 'rclone.init: cmd: {}'.format(cmd))
+                self.logger(logging.DEBUG, 'rclone.init: cmd: {}'.format(cmd))
                 status, out, err = execute(cmd)
                 if status:
                     return False
             except Exception as e:
                 raise exception.ServiceUnavailable(e)
+        else:
+            self.logger(logging.DEBUG, 'rclone.init: {} protocol impl not supported by rucio rclone'.format(protocols['impl']))
+            return False
 
         return True
 
@@ -177,7 +187,7 @@ class Default(protocol.RSEProtocol):
         try:
             path = self.pfn2path(pfn)
             cmd = 'rclone lsf %s:%s' % (self.hostname, path)
-            self.logger(logging.INFO, 'rclone.exists: cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'rclone.exists: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status:
                 return False
@@ -205,7 +215,7 @@ class Default(protocol.RSEProtocol):
         try:
             # rclone stat for getting filesize
             cmd = 'rclone size {0}:{1}'.format(self.hostname, path)
-            self.logger(logging.INFO, 'rclone.stat: filesize cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'rclone.stat: filesize cmd: {}'.format(cmd))
             status_stat, out, err = execute(cmd)
             if status_stat == 0:
                 fsize = (out.split('\n')[1]).split(' ')[4][1:]
@@ -213,7 +223,7 @@ class Default(protocol.RSEProtocol):
 
             # rclone query checksum for getting md5 checksum
             cmd = 'rclone md5sum %s:%s' % (self.hostname, path)
-            self.logger(logging.INFO, 'rclone.stat: checksum cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'rclone.stat: checksum cmd: {}'.format(cmd))
             status_query, out, err = execute(cmd)
 
             if status_query == 0:
@@ -305,7 +315,7 @@ class Default(protocol.RSEProtocol):
         try:
             path = self.pfn2path(pfn)
             cmd = 'rclone copyto %s:%s %s' % (self.hostname, path, dest)
-            self.logger(logging.INFO, 'rclone.get: cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'rclone.get: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status:
                 raise exception.RucioException(err)
@@ -335,7 +345,7 @@ class Default(protocol.RSEProtocol):
             raise exception.SourceNotFound()
         try:
             cmd = 'rclone copyto %s %s:%s' % (source_url, self.hostname, path)
-            self.logger(logging.INFO, 'rclone.put: cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'rclone.put: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status:
                 raise exception.RucioException(err)
@@ -357,7 +367,7 @@ class Default(protocol.RSEProtocol):
         try:
             path = self.pfn2path(pfn)
             cmd = 'rclone delete %s:%s' % (self.hostname, path)
-            self.logger(logging.INFO, 'rclone.delete: cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'rclone.delete: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
                 raise exception.RucioException(err)
@@ -380,7 +390,7 @@ class Default(protocol.RSEProtocol):
             path = self.pfn2path(pfn)
             new_path = self.pfn2path(new_pfn)
             cmd = 'rclone moveto %s:%s %s:%s' % (self.hostname, path, self.hostname, new_path)
-            self.logger(logging.INFO, 'rclone.stat: rename cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'rclone.stat: rename cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
                 raise exception.RucioException(err)

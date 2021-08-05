@@ -414,7 +414,7 @@ class TestBinRucio(unittest.TestCase):
         assert upload_string_1 in out or upload_string_1 in err
 
     def test_upload_file_with_impl(self):
-        """CLIENT(USER): Rucio upload file using impl"""
+        """CLIENT(USER): Rucio upload file with impl parameter assigned 'posix' value"""
         tmp_file1 = file_generator()
         impl = 'posix'
         cmd = 'rucio -v upload --rse {0} --scope {1} --impl {2} {3}'.format(self.def_rse, self.user, impl, tmp_file1)
@@ -648,7 +648,7 @@ class TestBinRucio(unittest.TestCase):
             pass
 
     def test_download_file_with_impl(self):
-        """CLIENT(USER): Rucio download files using impl"""
+        """CLIENT(USER): Rucio download files with impl parameter assigned 'posix' value"""
         tmp_file1 = file_generator()
         impl = 'posix'
         # add files
