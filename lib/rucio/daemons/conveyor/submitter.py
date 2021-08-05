@@ -347,9 +347,15 @@ def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, lim
                                                                                                                                      retry_other_fts=retry_other_fts,
                                                                                                                                      failover_schemes=failover_schemes,
                                                                                                                                      transfertool=transfertool)
-    request_core.set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
-    request_core.set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
-    request_core.set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
+    if reqs_no_source:
+        logger(logging.INFO, "Marking requests as no-sources: %s", reqs_no_source)
+        request_core.set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
+    if reqs_only_tape_source:
+        logger(logging.INFO, "Marking requests as only-tape-sources: %s", reqs_only_tape_source)
+        request_core.set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
+    if reqs_scheme_mismatch:
+        logger(logging.INFO, "Marking requests as scheme-mismatch: %s", reqs_scheme_mismatch)
+        request_core.set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
 
     for request_id in transfers:
         logger(logging.DEBUG, "Transfer for request(%s): %s", request_id, transfers[request_id])
