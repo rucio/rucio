@@ -738,7 +738,6 @@ class UploadClient:
 
         :param: item        dictionary containing all descriptions of the files to upload
         """
-        logger = self.logger
         files = []
         datasets = []
         containers = []
@@ -748,59 +747,49 @@ class UploadClient:
         path = item.get('path')
         if path[-1] == '/':
             path = path[0:-1]
+        i = 0
+        path = os.path.abspath(path)
         for root, dirs, fnames in os.walk(path):
-            if len(dirs) > 0 and len(fnames) > 0:
-                logger(logging.ERROR, 'A container can only have either collections or files, not both')
+            if len(dirs) > 0 and len(fnames) > 0 and i == 0:
+                self.logger(logging.ERROR, 'A container can only have either collections or files, not both')
                 raise InputValidationError('Invalid input folder structure')
-            if path == root:
-                root2 = root.split('/')[-1] if root.__contains__('/') else root
-                if len(fnames) > 0:
-                    datasets.append({'scope': scope, 'name': root2, 'rse': rse})
-                    logger(logging.DEBUG, 'Appended dataset with DID %s:%s' % (scope, path))
-                elif len(dirs) > 0:
-                    containers.append({'scope': scope, 'name': root2})
-                    logger(logging.DEBUG, 'Appended container with DID %s:%s' % (scope, path))
-                else:
-                    logger(logging.WARNING, 'The folder %s is empty, skipping' % root)
-            if len(dirs) > 0:
-                for directory in dirs:
-                    root_dir, dir_dir, fnames_dir = next(os.walk(os.path.join(root, directory)))
-                    if len(dir_dir) > 0:
-                        containers.append({'scope': scope, 'name': directory})
-                        logger(logging.DEBUG, 'Appended container with DID %s:%s' % (scope, directory))
-                    elif len(fnames_dir) > 0:
-                        datasets.append({'scope': scope, 'name': directory, 'rse': rse})
-                        logger(logging.DEBUG, 'Appended dataset with DID %s:%s' % (scope, directory))
-                    else:
-                        logger(logging.WARNING, 'The folder %s is empty, skipping' % root_dir)
-                        continue
-                    attach.append({'scope': scope, 'name': root.split('/')[-1], 'rse': rse, 'dids': {'scope': scope, 'name': directory}})
-            else:
+            if len(fnames) > 0:
+                datasets.append({'scope': scope, 'name': root.split('/')[-1], 'rse': rse})
+                self.logger(logging.DEBUG, 'Appended dataset with DID %s:%s' % (scope, path))
                 for fname in fnames:
                     file = self._collect_file_info(os.path.join(root, fname), item)
                     file['dataset_scope'] = scope
                     file['dataset_name'] = root.split('/')[-1]
                     files.append(file)
+                    self.logger(logging.DEBUG, 'Appended file with DID %s:%s' % (scope, fname))
+            elif len(dirs) > 0:
+                containers.append({'scope': scope, 'name': root.split('/')[-1]})
+                self.logger(logging.DEBUG, 'Appended container with DID %s:%s' % (scope, path))
+                attach.extend([{'scope': scope, 'name': root.split('/')[-1], 'rse': rse, 'dids': {'scope': scope, 'name': dir_}} for dir_ in dirs])
+            elif len(dirs) == 0 and len(fnames) == 0:
+                self.logger(logging.WARNING, 'The folder %s is empty, skipping' % root)
+                continue
+            i += 1
         # if everything went ok, replicate the folder structure in Rucio storage
         for dataset in datasets:
             try:
                 self.client.add_dataset(scope=dataset['scope'], name=dataset['name'], rse=dataset['rse'])
-                logger(logging.INFO, 'Created dataset with DID %s:%s' % (dataset['scope'], dataset['name']))
+                self.logger(logging.INFO, 'Created dataset with DID %s:%s' % (dataset['scope'], dataset['name']))
             except RucioException as error:
-                logger(logging.ERROR, error)
-                logger(logging.ERROR, 'It was not possible to create dataset with DID %s:%s' % (dataset['scope'], dataset['name']))
+                self.logger(logging.ERROR, error)
+                self.logger(logging.ERROR, 'It was not possible to create dataset with DID %s:%s' % (dataset['scope'], dataset['name']))
         for container in containers:
             try:
                 self.client.add_container(scope=container['scope'], name=container['name'])
-                logger(logging.INFO, 'Created container with DID %s:%s' % (container['scope'], container['name']))
+                self.logger(logging.INFO, 'Created container with DID %s:%s' % (container['scope'], container['name']))
             except RucioException as error:
-                logger(logging.ERROR, error)
-                logger(logging.ERROR, 'It was not possible to create dataset with DID %s:%s' % (container['scope'], container['name']))
+                self.logger(logging.ERROR, error)
+                self.logger(logging.ERROR, 'It was not possible to create dataset with DID %s:%s' % (container['scope'], container['name']))
         for att in attach:
             try:
                 self.client.attach_dids(scope=att['scope'], name=att['name'], dids=[att['dids']])
-                logger(logging.INFO, 'DIDs attached to collection %s:%s' % (att['scope'], att['name']))
+                self.logger(logging.INFO, 'DIDs attached to collection %s:%s' % (att['scope'], att['name']))
             except RucioException as error:
-                logger(logging.ERROR, error)
-                logger(logging.ERROR, 'It was not possible to attach to collection with DID %s:%s' % (att['scope'], att['name']))
+                self.logger(logging.ERROR, error)
+                self.logger(logging.ERROR, 'It was not possible to attach to collection with DID %s:%s' % (att['scope'], att['name']))
         return files
