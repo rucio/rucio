@@ -56,8 +56,12 @@ from rucio.rse.protocols import protocol
 try:
     import gfal2  # pylint: disable=import-error
 except:
-    if not config.config_has_section('database'):
-        raise exception.MissingDependency('Missing dependency : gfal2')
+    if 'RUCIO_CLIENT_MODE' not in os.environ:
+        if not config.config_has_section('database'):
+            raise exception.MissingDependency('Missing dependency : gfal2')
+    else:
+        if os.environ['RUCIO_CLIENT_MODE']:
+            raise exception.MissingDependency('Missing dependency : gfal2')
 
 
 class Default(protocol.RSEProtocol):
