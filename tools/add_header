@@ -17,8 +17,10 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Utility script to generate header file
@@ -29,6 +31,7 @@ Highly recommended usage: add_header -i <source_file{.py,.sh}>
 import argparse
 import collections
 import datetime
+import os
 import sys
 import traceback
 
@@ -69,6 +72,7 @@ author_map = {
     ("Mario Lassnig", "<mlassnig@users.noreply.github.com>"): ("Mario Lassnig", "<mario.lassnig@cern.ch>"),
     ("rcarpa", "<2905943+rcarpa@users.noreply.github.com>"): ("Radu Carpa", "<radu.carpa@cern.ch>"),
     ("Dhruv Sondhi", "<66117751+DhruvSondhi@users.noreply.github.com>"): ("Dhruv Sondhi", "<dhruvsondhi05@gmail.com>"),
+    ("David Población Criado", "<13998309+davidpob99@users.noreply.github.com>"): ("David Población Criado", "<david.poblacion.criado@cern.ch>"),
 }
 
 
@@ -172,7 +176,8 @@ def main(arguments):
 
             sys.exit(0)
 
-        if str(MyFile).endswith('.py'):
+        absolute_path = os.path.abspath(MyFile)
+        if str(MyFile).endswith('.py') or absolute_path.split('/')[-2] == "bin":
             header += '# -*- coding: utf-8 -*-\n'
 
         if int(min) == int(max):
