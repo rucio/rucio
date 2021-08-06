@@ -315,6 +315,7 @@ class TestJudgeRepairer(unittest.TestCase):
             expiration_time=3600,
             arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True}
         )
+
         def change_availability(new_value):
             update_rse(rse_id, {'availability_write': new_value})
             # clear cache
