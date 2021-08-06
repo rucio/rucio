@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,9 +23,9 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - David Cameron <david.cameron@cern.ch>, 2014-2020
-# - Tomas Kouba <tomas.kouba@cern.ch>, 2014
+# - Tomáš Kouba <tomas.kouba@cern.ch>, 2014
 # - Wen Guan <wen.guan@cern.ch>, 2014
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
 # - Tobias Wegner <twegner@cern.ch>, 2017-2019
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
@@ -43,6 +44,9 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import print_function
