@@ -131,6 +131,7 @@ Therefor a second replica in state COPYING got created on RSE MOCK.
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads for this process')
     parser.add_argument('--sleep-time', action="store", default=30, type=int, help='Concurrency control: thread sleep time after each chunk of work')
+    parser.add_argument("--did-limit", action="store", default=100, type=int, help='Maximum number of dids to evaluate')
     return parser
 
 
@@ -140,6 +141,6 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
     try:
-        run(once=args.run_once, threads=args.threads, sleep_time=args.sleep_time)
+        run(once=args.run_once, threads=args.threads, sleep_time=args.sleep_time, did_limit=args.did_limit)
     except KeyboardInterrupt:
         stop()
