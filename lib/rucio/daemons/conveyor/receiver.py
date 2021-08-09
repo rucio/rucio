@@ -61,7 +61,8 @@ graceful_stop = threading.Event()
 
 class Receiver(object):
 
-    def __init__(self, broker, id_, total_threads, full_mode=False):
+    def __init__(self, broker, id_, total_threads, full_mode=False, all_vos=False):
+        self.__all_vos = all_vos
         self.__broker = broker
         self.__id = id_
         self.__total_threads = total_threads

@@ -599,7 +599,7 @@ class BaseClient(object):
             # getting the login URL and logging in the user
             login_url = auth_res.url
             start = time.time()
-            result = self._send_request(login_url, type='POST', data=userpass)
+            result = self._send_request(login_url, type_='POST', data=userpass)
 
             # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
             # the user will get an OAuth error
@@ -621,7 +621,7 @@ class BaseClient(object):
                 LOG.warning('Automatically authorising request of the following info on behalf of user: %s',
                             str(form_data))
                 # authorizing info request on behalf of the user until he/she revokes this authorization !
-                result = self._send_request(result.url, type='POST', data=form_data)
+                result = self._send_request(result.url, type_='POST', data=form_data)
 
         if not result or 'result' not in locals():
             LOG.error('Cannot retrieve authentication token!')
@@ -787,7 +787,7 @@ class BaseClient(object):
         if SAML_auth_result.headers['X-Rucio-Auth-Token']:
             return SAML_auth_result.headers['X-Rucio-Auth-Token']
         SAML_auth_url = SAML_auth_result.headers['X-Rucio-SAML-Auth-URL']
-        result = self._send_request(SAML_auth_url, type='POST', data=userpass, verify=False)
+        result = self._send_request(SAML_auth_url, type_='POST', data=userpass, verify=False)
         result = self._send_request(url, get_token=True)
 
         if not result or 'result' not in locals():
