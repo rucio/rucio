@@ -358,7 +358,8 @@ class BaseClient(object):
             if response.text:
                 yield response.text
 
-    def _send_request(self, url, headers=None, type_='GET', data=None, params=None, stream=False):
+    def _send_request(self, url, headers=None, type_='GET', data=None, params=None, stream=False, get_token=False,
+                      cert=None, auth=None, verify=None):
         """
         Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
 
@@ -388,13 +389,13 @@ class BaseClient(object):
         for retry in range(self.AUTH_RETRIES + 1):
             try:
                 if type_ == 'GET':
-                    result = self.session.get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, stream=True)
+                    result = self.session.get(url, headers=hds, verify=verify, timeout=self.timeout, params=params, stream=True, cert=cert, auth=auth)
                 elif type_ == 'PUT':
-                    result = self.session.put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    result = self.session.put(url, headers=hds, data=data, verify=verify, timeout=self.timeout)
                 elif type_ == 'POST':
-                    result = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout, stream=stream)
+                    result = self.session.post(url, headers=hds, data=data, verify=verify, timeout=self.timeout, stream=stream)
                 elif type_ == 'DEL':
-                    result = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    result = self.session.delete(url, headers=hds, data=data, verify=verify, timeout=self.timeout)
                 else:
                     return
                 if result.status_code in STATUS_CODES_TO_RETRY:

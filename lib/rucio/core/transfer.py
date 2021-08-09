@@ -1111,7 +1111,7 @@ def __create_transfer_definitions(ctx, rws, sources, include_multihop, multihop_
                 destination=dst,
                 # keep the current rws for last hop; create a new one for other hops
                 rws=rws if hop_dst_rse == rws.dest_rse else RequestWithSources(
-                    id=None,
+                    id_=None,
                     rule_id=None,
                     scope=rws.scope,
                     name=rws.name,
