@@ -22,6 +22,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
 Judge-Repairer is a daemon to repair stuck replication rules.

@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021

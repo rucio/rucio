@@ -17,6 +17,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import json
 import random
