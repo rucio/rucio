@@ -25,6 +25,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
 Conveyor is a daemon to manage file transfers.

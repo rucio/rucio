@@ -28,6 +28,7 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import logging
 import os
