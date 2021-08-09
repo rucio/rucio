@@ -147,7 +147,7 @@ class Receiver(object):
                     logging.critical(traceback.format_exc())
 
 
-def receiver(id_, total_threads=1, full_mode=False):
+def receiver(id_, total_threads=1, full_mode=False, all_vos=False):
     """
     Main loop to consume messages from the FTS3 producer.
     """
@@ -223,7 +223,9 @@ def receiver(id_, total_threads=1, full_mode=False):
                 logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
                 record_counter('daemons.messaging.fts3.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
 
-                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id_=id_, total_threads=total_threads, full_mode=full_mode))
+                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0],
+                                                                   id_=id_, total_threads=total_threads,
+                                                                   full_mode=full_mode, all_vos=all_vos))
                 if not use_ssl:
                     conn.connect(username, password, wait=True)
                 else:
