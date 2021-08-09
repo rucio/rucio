@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 ''' create collection_replicas_updates table '''
 
@@ -52,7 +53,9 @@ def upgrade():
                      sa.Column('id', GUID()),
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', sa.Enum(DIDType, name='UPDATED_COL_REP_TYPE_CHK',
+                     sa.Column('did_type', sa.Enum(DIDType,
+                                                   name='UPDATED_COL_REP_TYPE_CHK',
+                                                   create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj])),
                      sa.Column('rse_id', GUID()),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),

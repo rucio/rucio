@@ -17,6 +17,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 ''' OAuth2.0 and JWT feature support; adding table oauth_requests & several columns to tokens table '''
 
@@ -64,7 +65,7 @@ def upgrade():
         add_column('tokens', sa.Column('oidc_scope', sa.String(2048), nullable=True, default=None), schema=schema[:-1])
         add_column('tokens', sa.Column('audience', sa.String(315), nullable=True, default=None), schema=schema[:-1])
         add_column('tokens', sa.Column('refresh_token', sa.String(315), nullable=True, default=None), schema=schema[:-1])
-        add_column('tokens', sa.Column('refresh', sa.Boolean(name='TOKENS_REFRESH_CHK'), default=False), schema=schema[:-1])
+        add_column('tokens', sa.Column('refresh', sa.Boolean(name='TOKENS_REFRESH_CHK', create_constraint=True), default=False), schema=schema[:-1])
         add_column('tokens', sa.Column('refresh_start', sa.DateTime(), nullable=True, default=None), schema=schema[:-1])
         add_column('tokens', sa.Column('refresh_expired_at', sa.DateTime(), nullable=True, default=None), schema=schema[:-1])
         add_column('tokens', sa.Column('refresh_lifetime', sa.Integer(), nullable=True, default=None), schema=schema[:-1])

@@ -30,15 +30,16 @@ from __future__ import print_function
 from datetime import datetime
 from hashlib import sha256
 from os import urandom
-from traceback import format_exc
 from typing import TYPE_CHECKING
 
+import sqlalchemy
 from alembic import command, op
 from alembic.config import Config
-from sqlalchemy import func
-from sqlalchemy.engine import reflection
+from sqlalchemy import func, inspect
+from sqlalchemy.dialects.postgresql.base import PGInspector
 from sqlalchemy.exc import IntegrityError, DatabaseError
 from sqlalchemy.schema import CreateSchema, MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
+from sqlalchemy.sql.ddl import DropSchema
 from sqlalchemy.sql.expression import select, text
 
 from rucio import alembicrevision
@@ -50,13 +51,14 @@ from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType
 from rucio.db.sqla.session import get_engine, get_session, get_dump_engine
 
 if TYPE_CHECKING:
-    from typing import Optional  # noqa: F401
+    from typing import Optional, Union  # noqa: F401
     from sqlalchemy.orm import Session  # noqa: F401
+    from sqlalchemy.engine import Inspector  # noqa: F401
 
 
-def build_database(echo=True):
+def build_database():
     """ Applies the schema to the database. Run this command once to build the database. """
-    engine = get_engine(echo=echo)
+    engine = get_engine()
 
     schema = config_get('database', 'schema', raise_exception=False)
     if schema:
@@ -79,9 +81,9 @@ def dump_schema():
     models.register_models(engine)
 
 
-def destroy_database(echo=True):
+def destroy_database():
     """ Removes the schema from the database. Only useful for test cases or malicious intents. """
-    engine = get_engine(echo=echo)
+    engine = get_engine()
 
     try:
         models.unregister_models(engine)
@@ -89,53 +91,43 @@ def destroy_database(echo=True):
         print('Cannot destroy schema -- assuming already gone, continuing:', e)
 
 
-def drop_everything(echo=True):
-    """ Pre-gather all named constraints and table names, and drop everything. This is better than using metadata.reflect();
-        metadata.drop_all() as it handles cyclical constraints between tables.
-        Ref. http://www.sqlalchemy.org/trac/wiki/UsageRecipes/DropEverything
+def drop_everything():
     """
-    engine = get_engine(echo=echo)
-    conn = engine.connect()
+    Pre-gather all named constraints and table names, and drop everything.
+    This is better than using metadata.reflect(); metadata.drop_all()
+    as it handles cyclical constraints between tables.
+    Ref. https://github.com/sqlalchemy/sqlalchemy/wiki/DropEverything
+    """
+    engine = get_engine()
 
     # the transaction only applies if the DB supports
     # transactional DDL, i.e. Postgresql, MS SQL Server
-    trans = conn.begin()
+    with engine.begin() as conn:
 
-    inspector = reflection.Inspector.from_engine(engine)
+        inspector = inspect(conn)  # type: Union[Inspector, PGInspector]
 
-    # gather all data first before dropping anything.
-    # some DBs lock after things have been dropped in
-    # a transaction.
-    metadata = MetaData()
+        for tname, fkcs in reversed(
+                inspector.get_sorted_table_and_fkc_names(schema='*')):
+            if tname:
+                drop_table_stmt = DropTable(Table(tname, MetaData(), schema='*'))
+                conn.execute(drop_table_stmt)
+            elif fkcs:
+                if not engine.dialect.supports_alter:
+                    continue
+                for tname, fkc in fkcs:
+                    fk_constraint = ForeignKeyConstraint((), (), name=fkc)
+                    Table(tname, MetaData(), fk_constraint)
+                    drop_constraint_stmt = DropConstraint(fk_constraint)
+                    conn.execute(drop_constraint_stmt)
 
-    tbs = []
-    all_fks = []
+        schema = config_get('database', 'schema', raise_exception=False)
+        if schema:
+            conn.execute(DropSchema(schema, cascade=True))
 
-    for table_name in inspector.get_table_names():
-        fks = []
-        for fk in inspector.get_foreign_keys(table_name):
-            if not fk['name']:
-                continue
-            fks.append(ForeignKeyConstraint((), (), name=fk['name']))
-        t = Table(table_name, metadata, *fks)
-        tbs.append(t)
-        all_fks.extend(fks)
-
-    for fkc in all_fks:
-        try:
-            print(str(DropConstraint(fkc)) + ';')
-            conn.execute(DropConstraint(fkc))
-        except:
-            print(format_exc())
-
-    for table in tbs:
-        try:
-            print(str(DropTable(table)).strip() + ';')
-            conn.execute(DropTable(table))
-        except:
-            print(format_exc())
-
-    trans.commit()
+        if engine.dialect.name == 'postgresql':
+            assert isinstance(inspector, PGInspector), 'expected a PGInspector'
+            for enum in inspector.get_enums(schema='*'):
+                sqlalchemy.Enum(**enum).drop(bind=conn)
 
 
 def create_base_vo():

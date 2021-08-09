@@ -39,7 +39,7 @@ from rucio.core.rse import list_rses, get_rses_with_attribute, get_rse_attribute
 from rucio.db.sqla.session import transactional_session
 
 
-DEFAULT_RSE_ATTRIBUTE = r'([A-Z0-9]+([_-][A-Za-z0-9]+)*)'
+DEFAULT_RSE_ATTRIBUTE = r'([A-Za-z0-9]+([_-][A-Za-z0-9]+)*)'
 RSE_ATTRIBUTE = r'([A-Za-z0-9\._-]+[=<>][A-Za-z0-9_-]+)'
 PRIMITIVE = r'(\(*(%s|%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE, r'\*')
 UNION = r'(\|%s)' % (PRIMITIVE)

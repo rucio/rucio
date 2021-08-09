@@ -30,7 +30,7 @@
 # |      |<--+   |      |
 # | XRD3 |       | XRD4 |
 # |      |<----->|      |
-# +------+   1   +------+
+# +------+   2   +------+
 
 # First, create the RSEs
 rucio-admin rse add XRD1
@@ -72,8 +72,8 @@ rucio-admin rse add-distance --distance 1 --ranking 1 XRD2 XRD1
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD2 XRD3
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD3 XRD1
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD3 XRD2
-rucio-admin rse add-distance --distance 1 --ranking 1 XRD3 XRD4
-rucio-admin rse add-distance --distance 1 --ranking 1 XRD4 XRD3
+rucio-admin rse add-distance --distance 2 --ranking 2 XRD3 XRD4
+rucio-admin rse add-distance --distance 2 --ranking 2 XRD4 XRD3
 
 # Indefinite limits for root
 rucio-admin account set-limits root XRD1 -1

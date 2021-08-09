@@ -62,13 +62,13 @@ class InternalType(object):
         val = self.external <= other.external
         if val is NotImplemented:
             return NotImplemented
-        return not val
+        return val
 
     def __lt__(self, other):
         val = self.external < other.external
         if val is NotImplemented:
             return NotImplemented
-        return not val
+        return val
 
     def __hash__(self):
         return hash(self.internal)

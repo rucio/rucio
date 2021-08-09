@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 import sys
@@ -34,7 +34,7 @@ except ImportError:
     from setuputil import get_rucio_version
 
 name = 'rucio-webui'
-packages = ['rucio', 'rucio.web', 'rucio.web.ui', 'rucio.web.ui.common']
+packages = ['rucio', 'rucio.web', 'rucio.web.ui', 'rucio.web.ui.flask', 'rucio.web.flask.common']
 data_files = []
 description = "Rucio WebUI Package"
 

@@ -113,11 +113,6 @@ def test_get_hops(rse_factory):
     assert hop2['source_rse_id'] == rse3_id
     assert hop2['dest_rse_id'] == rse4_id
 
-    # A direct connection is preferred over a multihop one with smaller cost
-    [hop] = get_hops(source_rse_id=rse3_id, dest_rse_id=rse5_id, include_multihop=True, multihop_rses=all_rses)
-    assert hop['source_rse_id'] == rse3_id
-    assert hop['dest_rse_id'] == rse5_id
-
     # A link with cost only in one direction will not be used in the opposite direction
     with pytest.raises(NoDistance):
         get_hops(source_rse_id=rse6_id, dest_rse_id=rse5_id, include_multihop=True, multihop_rses=all_rses)

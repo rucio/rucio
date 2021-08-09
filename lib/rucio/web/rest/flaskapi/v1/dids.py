@@ -498,7 +498,7 @@ class Attachment(ErrorHandlingMethodView):
 
         .. sourcecode:: http
 
-            GET /dids/scope1/dataset1?dynamic HTTP/1.1
+            GET /dids/scope1/dataset1 HTTP/1.1
             Host: rucio.cern.ch
 
         **Example response**:
@@ -513,7 +513,6 @@ class Attachment(ErrorHandlingMethodView):
              "bytes": 234, "length": 3, "account": "jdoe", "open": True,
              "monotonic": False, "expired_at": null}
 
-        :query dynamic: Flag to dynamically calculate size for open DIDs
         :resheader Content-Type: application/x-json-stream
         :status 200: DID found
         :status 401: Invalid Auth Token

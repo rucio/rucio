@@ -33,10 +33,12 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import print_function
 
 import os
+import random
 import re
 import unittest
 from datetime import datetime, timedelta
@@ -1532,3 +1534,44 @@ class TestBinRucio(unittest.TestCase):
         assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out) is not None
         self.account_client.set_local_account_limit(account, rse, -1)
         self.account_client.set_global_account_limit(account, rse_exp, -1)
+
+    def test_get_set_delete_limits_rse(self):
+        """CLIENT(ADMIN): Get, set and delete RSE limits"""
+        name = generate_uuid()
+        value = random.randint(0, 100000)
+        name2 = generate_uuid()
+        value2 = random.randint(0, 100000)
+        name3 = generate_uuid()
+        value3 = account_name_generator()
+        cmd = 'rucio-admin rse set-limit %s %s %s' % (self.def_rse, name, value)
+        execute(cmd)
+        cmd = 'rucio-admin rse set-limit %s %s %s' % (self.def_rse, name2, value2)
+        execute(cmd)
+        cmd = 'rucio-admin rse info %s' % self.def_rse
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}: {1}".format(name, value), out) is not None
+        assert re.search("{0}: {1}".format(name2, value2), out) is not None
+        new_value = random.randint(100001, 999999999)
+        cmd = 'rucio-admin rse set-limit %s %s %s' % (self.def_rse, name, new_value)
+        execute(cmd)
+        cmd = 'rucio-admin rse info %s' % self.def_rse
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}: {1}".format(name, new_value), out) is not None
+        assert re.search("{0}: {1}".format(name, value), out) is None
+        assert re.search("{0}: {1}".format(name2, value2), out) is not None
+        cmd = 'rucio-admin rse delete-limit %s %s' % (self.def_rse, name)
+        execute(cmd)
+        cmd = 'rucio-admin rse info %s' % self.def_rse
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}: {1}".format(name, new_value), out) is None
+        assert re.search("{0}: {1}".format(name2, value2), out) is not None
+        cmd = 'rucio-admin rse delete-limit %s %s' % (self.def_rse, name)
+        exitcode, out, err = execute(cmd)
+        assert re.search('Limit {0} not defined in RSE {1}'.format(name, self.def_rse), err) is not None
+        cmd = 'rucio-admin rse set-limit %s %s %s' % (self.def_rse, name3, value3)
+        exitcode, out, err = execute(cmd)
+        assert re.search('The RSE limit value must be an integer', err) is not None
+        cmd = 'rucio-admin rse info %s' % self.def_rse
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}: {1}".format(name3, value3), out) is None
+        assert re.search("{0}: {1}".format(name2, value2), out) is not None

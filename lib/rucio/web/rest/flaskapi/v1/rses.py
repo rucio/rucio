@@ -21,6 +21,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from json import dumps
 
@@ -875,7 +876,7 @@ def blueprint():
     usage_history_view = UsageHistory.as_view('usage_history')
     bp.add_url_rule('/<rse>/usage/history', view_func=usage_history_view, methods=['get', ])
     limits_view = Limits.as_view('limits')
-    bp.add_url_rule('/<rse>/limits', view_func=limits_view, methods=['get', 'put'])
+    bp.add_url_rule('/<rse>/limits', view_func=limits_view, methods=['get', 'put', 'delete'])
     qos_policy_view = QoSPolicy.as_view('qos_policy')
     bp.add_url_rule('/<rse>/qos_policy', view_func=qos_policy_view, methods=['get', ])
     bp.add_url_rule('/<rse>/qos_policy/<policy>', view_func=qos_policy_view, methods=['post', 'delete'])
