@@ -38,6 +38,7 @@
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import division
 from __future__ import print_function
@@ -551,6 +552,7 @@ def info_rse(args):
     rseinfo = client.get_rse(rse=args.rse)
     attributes = client.list_rse_attributes(rse=args.rse)
     usage = client.get_rse_usage(rse=args.rse)
+    rse_limits = client.get_rse_limits(args.rse)
     print('Settings:')
     print('=========')
     for key in sorted(rseinfo):
@@ -575,6 +577,10 @@ def info_rse(args):
         print('  ' + elem['source'])
         for item in sorted(elem):
             print('    ' + item + ': ' + str(elem[item]))
+    print('RSE limits:')
+    print('===========')
+    for limit in rse_limits:
+        print('  ' + limit + ': ' + str(rse_limits[limit]) + ' B')
 
     return SUCCESS
 
@@ -760,6 +766,42 @@ def list_qos_policies(args):
     qos_policies = client.list_qos_policies(args.rse)
     for qos_policy in sorted(qos_policies):
         print(qos_policy)
+    return SUCCESS
+
+
+@exception_handler
+def set_limit_rse(args):
+    """
+    %(prog)s set-limit <rse> <name> <value>
+
+    Set the RSE limit given the rse name and the name and value of the limit
+    """
+    client = get_client(args)
+    try:
+        args.value = int(args.value)
+        if client.set_rse_limits(args.rse, args.name, args.value):
+            logger.info('Set RSE limit successfully for %s: %s = %s' % (args.rse, args.name, args.value))
+    except ValueError:
+        logger.error('The RSE limit value must be an integer')
+
+    return SUCCESS
+
+
+@exception_handler
+def delete_limit_rse(args):
+    """
+    %(prog)s delete-limit <rse> <name>
+
+    Delete the RSE limit given the rse name and the name of the limit
+    """
+    client = get_client(args)
+    limits = client.get_rse_limits(args.rse)
+    if args.name not in limits.keys():
+        logger.error('Limit %s not defined in RSE %s' % (args.name, args.rse))
+    else:
+        if client.delete_rse_limits(args.rse, args.name):
+            logger.info('Deleted RSE limit successfully for %s: %s' % (args.rse, args.name))
+
     return SUCCESS
 
 
@@ -1925,6 +1967,31 @@ def get_parser():
     list_qos_policies_parser.set_defaults(which='list_qos_policies')
     list_qos_policies_parser.add_argument('rse', action='store', help='RSE name')
 
+    # The set_limit_rse command
+    set_limit_rse_parser = rse_subparser.add_parser('set-limit',
+                                                    help='Set a RSE limit',
+                                                    formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                    epilog='Usage example\n'
+                                                           '"""""""""""""\n'
+                                                           '\n'
+                                                           '  $ rucio-admin rse set-limit XRD1 MinFreeSpace 10000')
+    set_limit_rse_parser.set_defaults(which='set_limit_rse')
+    set_limit_rse_parser.add_argument('rse', action='store', help='RSE name')
+    set_limit_rse_parser.add_argument('name', action='store', help='Name of the limit')
+    set_limit_rse_parser.add_argument('value', action='store', help='Value of the limit')
+
+    # The delete_limit_rse command
+    set_limit_rse_parser = rse_subparser.add_parser('delete-limit',
+                                                    help='Delete a RSE limit',
+                                                    formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                    epilog='Usage example\n'
+                                                           '"""""""""""""\n'
+                                                           '\n'
+                                                           '  $ rucio-admin rse delete-limit XRD3 MaxBeingDeletedFiles')
+    set_limit_rse_parser.set_defaults(which='delete_limit_rse')
+    set_limit_rse_parser.add_argument('rse', action='store', help='RSE name')
+    set_limit_rse_parser.add_argument('name', action='store', help='Name of the limit')
+
     # The scope subparser
     scope_parser = subparsers.add_parser('scope', help='Scope methods')
     scope_subparser = scope_parser.add_subparsers(dest='scope_subcommand', **required_arg)
@@ -2255,19 +2322,17 @@ if __name__ == '__main__':
                 'list_pfns': list_pfns,
                 'import': import_data,
                 'export': export_data,
-                'set_tombstone': set_tombstone
+                'set_tombstone': set_tombstone,
+                'set_limit_rse': set_limit_rse,
+                'delete_limit_rse': delete_limit_rse,
                 }
 
-    try:
-        if args.verbose:
-            logger.setLevel(logging.DEBUG)
-        start_time = time.time()
-        command = commands.get(args.which)
-        result = command(args)
-        end_time = time.time()
-        if args.verbose:
-            print("Completed in %-0.4f sec." % (end_time - start_time))
-        sys.exit(result)
-    except Exception:
-        logger.exception("Uncaught exception")
-        sys.exit(FAILURE)
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+    start_time = time.time()
+    command = commands.get(args.which)
+    result = command(args)
+    end_time = time.time()
+    if args.verbose:
+        print("Completed in %-0.4f sec." % (end_time - start_time))
+    sys.exit(result)

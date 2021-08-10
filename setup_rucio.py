@@ -31,11 +31,15 @@ import sys
 
 from setuptools import setup, find_packages
 
-from setuputil import server_requirements_table, match_define_requirements, get_rucio_version
-
 if sys.version_info < (3, 6):
     print('ERROR: Rucio Server requires at least Python 3.6 to run.')
     sys.exit(1)
+
+try:
+    from setuputil import server_requirements_table, match_define_requirements, get_rucio_version
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+    from setuputil import server_requirements_table, match_define_requirements, get_rucio_version
 
 install_requires, extras_require = match_define_requirements(server_requirements_table)
 

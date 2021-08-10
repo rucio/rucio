@@ -32,6 +32,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Nick Smith <nick.smith@cern.ch>, 2021
 
 """
 Conveyor transfer submitter is a daemon to manage non-tape file transfers.
@@ -72,7 +73,7 @@ GET_TRANSFERS_COUNTER = Counter('rucio_daemons_conveyor_submitter_get_transfers'
 
 def submitter(once=False, rses=None, partition_wait_time=10,
               bulk=100, group_bulk=1, group_policy='rule', source_strategy=None,
-              activities=None, sleep_time=600, max_sources=4, retry_other_fts=False,
+              activities=None, sleep_time=600, max_sources=4, retry_other_fts=False, archive_timeout_override=None,
               filter_transfertool=FILTER_TRANSFERTOOL, transfertool=TRANSFER_TOOL, transfertype=TRANSFER_TYPE):
     """
     Main loop to submit a new transfer primitive to a transfertool.
@@ -183,7 +184,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                 logger(logging.INFO, 'Starting to group transfers for %s', activity)
                 start_time = time.time()
 
-                grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue, group_by_scope=user_transfer)
+                grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue, group_by_scope=user_transfer, archive_timeout_override=archive_timeout_override)
                 record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
 
                 logger(logging.INFO, 'Starting to submit transfers for %s', activity)
@@ -252,7 +253,8 @@ def stop(signum=None, frame=None):
 
 def run(once=False, group_bulk=1, group_policy='rule', mock=False,
         rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
-        activities=None, exclude_activities=None, sleep_time=600, max_sources=4, retry_other_fts=False, total_threads=1):
+        activities=None, exclude_activities=None, sleep_time=600, max_sources=4, retry_other_fts=False,
+        archive_timeout_override=None, total_threads=1):
     """
     Starts up the conveyer threads.
     """
@@ -300,7 +302,8 @@ def run(once=False, group_bulk=1, group_policy='rule', mock=False,
                                                           'sleep_time': sleep_time,
                                                           'max_sources': max_sources,
                                                           'source_strategy': source_strategy,
-                                                          'retry_other_fts': retry_other_fts}) for _ in range(0, total_threads)]
+                                                          'retry_other_fts': retry_other_fts,
+                                                          'archive_timeout_override': archive_timeout_override}) for _ in range(0, total_threads)]
 
     [thread.start() for thread in threads]
 
@@ -344,9 +347,15 @@ def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, lim
                                                                                                                                      retry_other_fts=retry_other_fts,
                                                                                                                                      failover_schemes=failover_schemes,
                                                                                                                                      transfertool=transfertool)
-    request_core.set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
-    request_core.set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
-    request_core.set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
+    if reqs_no_source:
+        logger(logging.INFO, "Marking requests as no-sources: %s", reqs_no_source)
+        request_core.set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
+    if reqs_only_tape_source:
+        logger(logging.INFO, "Marking requests as only-tape-sources: %s", reqs_only_tape_source)
+        request_core.set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
+    if reqs_scheme_mismatch:
+        logger(logging.INFO, "Marking requests as scheme-mismatch: %s", reqs_scheme_mismatch)
+        request_core.set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
 
     for request_id in transfers:
         logger(logging.DEBUG, "Transfer for request(%s): %s", request_id, transfers[request_id])

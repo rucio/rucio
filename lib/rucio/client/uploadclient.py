@@ -38,6 +38,7 @@
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import copy
 import json
@@ -719,4 +720,4 @@ class UploadClient:
         :param trace: the trace
         """
         if self.tracing:
-            send_trace(trace, self.client.host, self.client.user_agent)
+            send_trace(trace, self.client.trace_host, self.client.user_agent)

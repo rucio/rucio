@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2021
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
@@ -25,12 +25,13 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 from __future__ import print_function
 
-import json
 import contextlib
 import itertools
+import json
 import os
 import tempfile
 from random import choice
@@ -39,13 +40,24 @@ from string import ascii_uppercase
 import pytest
 from six import PY3
 
+from rucio.common.config import config_get, config_get_bool, get_config_dirs
 from rucio.common.utils import generate_uuid as uuid, execute
-from rucio.common.config import get_config_dirs
 
 skip_rse_tests_with_accounts = pytest.mark.skipif(not any(os.path.exists(os.path.join(d, 'rse-accounts.cfg')) for d in get_config_dirs()),
                                                   reason='fails if no rse-accounts.cfg found')
-skiplimitedsql = pytest.mark.skipif('RDBMS' in os.environ and (os.environ['RDBMS'] == 'sqlite' or os.environ['RDBMS'] == 'mysql5'),
-                                    reason="does not work in SQLite or MySQL 5, because of missing features")
+skiplimitedsql = pytest.mark.skipif('RDBMS' in os.environ and os.environ['RDBMS'] == 'sqlite',
+                                    reason="does not work in SQLite because of missing features")
+
+
+def get_long_vo():
+    """ Get the VO name from the config file for testing.
+    Don't map the name to a short version.
+    :returns: VO name string.
+    """
+    vo_name = 'def'
+    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        vo_name = config_get('client', 'vo', raise_exception=False, default=None)
+    return vo_name
 
 
 def account_name_generator():

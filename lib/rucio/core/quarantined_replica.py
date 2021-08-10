@@ -1,4 +1,5 @@
-# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +14,15 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2016-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
-#
-# PY3K COMPATIBLE
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 import datetime
 
@@ -97,7 +100,7 @@ def delete_quarantined_replicas(rse_id, replicas, session=None):
             delete(synchronize_session=False)
 
     session.\
-        bulk_insert_mappings(models.QuarantinedReplica.__history_mapper__.class_,
+        bulk_insert_mappings(models.QuarantinedReplicaHistory,
                              [{'rse_id': rse_id, 'path': replica['path'],
                                'bytes': replica.get('bytes'),
                                'created_at': replica.get('created_at'),

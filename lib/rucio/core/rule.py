@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2021
 # - David Cameron <david.cameron@cern.ch>, 2014
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
@@ -2248,7 +2248,7 @@ def examine_rule(rule_id, session=None):
             stuck_locks = session.query(models.ReplicaLock).filter_by(rule_id=rule_id, state=LockState.STUCK).all()
             for lock in stuck_locks:
                 # Get the count of requests in the request_history for each lock
-                transfers = session.query(models.Request.__history_mapper__.class_).filter_by(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id).order_by(models.Request.__history_mapper__.class_.created_at.desc()).all()
+                transfers = session.query(models.RequestHistory).filter_by(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id).order_by(models.RequestHistory.created_at.desc()).all()  # pylint: disable=no-member
                 transfer_cnt = len(transfers)
                 # Get the error of the last request that has been tried and also the SOURCE used for the last request
                 last_error, last_source, last_time, sources = None, None, None, []
@@ -2481,6 +2481,7 @@ def __evaluate_did_detach(eval_did, session=None, logger=logging.log):
     """
 
     logger(logging.INFO, "Re-Evaluating did %s:%s for DETACH", eval_did.scope, eval_did.name)
+    force_epoch = core_config_get('rules', 'force_epoch_when_detach', default=False, session=session)
 
     with record_timer_block('rule.evaluate_did_detach'):
         # Get all parent DID's
@@ -2504,7 +2505,7 @@ def __evaluate_did_detach(eval_did, session=None, logger=logging.log):
             query = session.query(models.ReplicaLock).filter_by(rule_id=rule.id)
             for lock in query:
                 if (lock.scope, lock.name) not in files:
-                    if __delete_lock_and_update_replica(lock=lock, purge_replicas=rule.purge_replicas, nowait=True, session=session):
+                    if __delete_lock_and_update_replica(lock=lock, purge_replicas=force_epoch or rule.purge_replicas, nowait=True, session=session):
                         transfers_to_delete.append({'scope': lock.scope, 'name': lock.name, 'rse_id': lock.rse_id})
                     if lock.rse_id not in account_counter_decreases:
                         account_counter_decreases[lock.rse_id] = []

@@ -1,4 +1,5 @@
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,18 +14,24 @@
 # limitations under the License.
 #
 # Authors:
-# - Tomas Javurek <tomasjavurek09@gmail.com>, 2018
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2018-2021
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018-2019
-# - Tobias Wegner <tobias.wegner@cern.ch>, 2018-2019
+# - Tobias Wegner <twegner@cern.ch>, 2018-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2018-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - David Cameron <david.cameron@cern.ch>, 2019
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
-#
-# PY3K COMPATIBLE
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - David Población Criado <13998309+davidpob99@users.noreply.github.com>, 2021
 
 from __future__ import division
 
@@ -1508,7 +1515,7 @@ class DownloadClient:
         :param trace: the trace
         """
         if self.tracing:
-            send_trace(trace, self.client.host, self.client.user_agent)
+            send_trace(trace, self.client.trace_host, self.client.user_agent)
 
 
 def _verify_checksum(item, path):

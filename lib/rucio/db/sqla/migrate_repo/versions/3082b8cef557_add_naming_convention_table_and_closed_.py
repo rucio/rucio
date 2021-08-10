@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 ''' add convention table and closed_at to dids '''
 
@@ -50,7 +51,10 @@ def upgrade():
         create_table('naming_conventions',
                      sa.Column('scope', sa.String(get_schema_value('SCOPE_LENGTH'))),
                      sa.Column('regexp', sa.String(255)),
-                     sa.Column('convention_type', sa.Enum(KeyType, name='CVT_TYPE_CHK', values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('convention_type', sa.Enum(KeyType,
+                                                          name='CVT_TYPE_CHK',
+                                                          create_constraint=True,
+                                                          values_callable=lambda obj: [e.value for e in obj])),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
         create_primary_key('NAMING_CONVENTIONS_PK', 'naming_conventions', ['scope'])

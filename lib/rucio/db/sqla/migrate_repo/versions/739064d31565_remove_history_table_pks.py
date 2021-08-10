@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Copyright 2015-2021 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,22 +13,16 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
-# - Martin Barisits <martin.barisits@cern.ch>, 2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
-''' add ignore_availability column to rules '''
-
-import sqlalchemy as sa
+''' remove history table pks '''
 
 from alembic import context
-from alembic.op import add_column, drop_column
-
+from alembic.op import drop_constraint, create_primary_key
 
 # Alembic revision identifiers
-revision = '271a46ea6244'
-down_revision = 'd6dceb1de2d'
+revision = '739064d31565'
+down_revision = 'ccdbcd48206e'
 
 
 def upgrade():
@@ -38,16 +31,14 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('rules', sa.Column('ignore_availability', sa.Boolean(name='RULES_IGNORE_AVAILABILITY_CHK', create_constraint=True), default=False), schema=schema)
+        # CONFIGS_HISTORY
+        drop_constraint('CONFIGS_HISTORY_PK', 'configs_history', type_='primary')
 
 
 def downgrade():
-
     '''
     Downgrade the database to the previous revision
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        drop_column('rules', 'ignore_availability', schema=schema)
+        create_primary_key('CONFIGS_HISTORY_PK', 'configs_history', ['section', 'opt', 'updated_at'])

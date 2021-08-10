@@ -167,7 +167,7 @@ def my_on_connect(dbapi_con, connection_record):
     dbapi_con.action = caller
 
 
-def get_engine(echo=True):
+def get_engine():
     """ Creates a engine to a specific database.
         :returns: engine
     """

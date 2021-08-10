@@ -1,4 +1,5 @@
-# Copyright 2015-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,10 +14,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2015-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2021
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 ''' added staging_area column '''
 
@@ -39,24 +41,19 @@ def upgrade():
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
-        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False))
+        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False))
         try_drop_constraint('REQUESTS_TYPE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False), schema=schema[:-1])
+        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False), schema=schema[:-1])
         drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
-        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False), schema=schema[:-1])
-        create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
-                                condition="request_type in ('U', 'D', 'T', 'I', '0')")
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
-        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False), schema=schema[:-1])
+    elif context.get_context().dialect.name == 'mysql':
+        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False), schema=schema[:-1])
         op.execute('ALTER TABLE ' + schema + 'requests DROP CHECK REQUESTS_TYPE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
@@ -82,12 +79,7 @@ def downgrade():
                                 condition="request_type in ('U', 'D', 'T')")
         drop_column('rses', 'staging_area', schema=schema[:-1])
 
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
-        create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
-                                condition="request_type in ('U', 'D', 'T')")
-        drop_column('rses', 'staging_area', schema=schema[:-1])
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+    elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T')")
         drop_column('rses', 'staging_area', schema=schema[:-1])

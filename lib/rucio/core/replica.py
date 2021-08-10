@@ -58,7 +58,7 @@ import requests
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from six import string_types
-from sqlalchemy import func, and_, or_, exists, not_
+from sqlalchemy import func, and_, or_, exists, not_, update, delete
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
@@ -635,7 +635,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
     Resolve list of DIDs into a list of conditions.
 
     :param dids: The list of data identifiers (DIDs).
-    :param unavailable: Also include unavailable replicas in the list.
+    :param unavailable: (deprecated) Also include unavailable replicas in the list.
     :param ignore_availability: Ignore the RSE blocklisting.
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param resolve_archives: When set to true, find archives which contain the replicas.
@@ -1277,12 +1277,12 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
 
     :param dids: The list of data identifiers (DIDs).
     :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
-    :param unavailable: Also include unavailable replicas in the list.
+    :param unavailable: (deprecated) Also include unavailable replicas in the list.
     :param request_id: ID associated with the request for debugging.
     :param ignore_availability: Ignore the RSE blocklisting.
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param rse_expression: The RSE expression to restrict list_replicas on a set of RSEs.
-    :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
+    :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
     :param domain: The network domain for the call, either None, 'wan' or 'lan'. None is automatic mode, 'all' is both ['lan','wan']
     :param sign_urls: If set, will sign the PFNs if necessary.
     :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
@@ -1640,10 +1640,13 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
             bytes += replica_bytes
             delta += 1
 
-        rowcount += session.query(models.RSEFileAssociation). \
-            filter(models.RSEFileAssociation.rse_id == rse_id). \
-            filter(or_(*chunk)). \
-            delete(synchronize_session=False)
+        stmt = delete(models.RSEFileAssociation). \
+            prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle'). \
+            where(models.RSEFileAssociation.rse_id == rse_id). \
+            where(or_(*chunk)). \
+            execution_options(synchronize_session=False)
+        result = session.execute(stmt)
+        rowcount += result.rowcount
 
     if rowcount != len(files):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
@@ -1842,15 +1845,17 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
 
     # Update incomplete state
     for chunk in chunks(incomplete_condition, 10):
-        session.query(models.DataIdentifier).\
-            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-            filter(or_(*chunk)).\
-            filter(models.DataIdentifier.complete != false()).\
-            update({'complete': False}, synchronize_session=False)
+        stmt = update(models.DataIdentifier).\
+            prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
+            where(or_(*chunk)).\
+            where(models.DataIdentifier.complete != false()).\
+            execution_options(synchronize_session=False).\
+            values(complete=False)
+        session.execute(stmt)
 
     # delete empty dids
     messages, deleted_dids, deleted_rules, deleted_did_meta = [], [], [], []
-    for chunk in chunks(did_condition, 100):
+    for chunk in chunks(did_condition, 10):
         query = session.query(models.DataIdentifier.scope,
                               models.DataIdentifier.name,
                               models.DataIdentifier.did_type).\
@@ -1905,29 +1910,32 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
             ).save(session=session, flush=False)
 
             if len(constituents_to_delete_condition) > 200:
-                session.query(models.ConstituentAssociation).\
-                    with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle').\
-                    filter(or_(*constituents_to_delete_condition)).\
-                    delete(synchronize_session=False)
+                stmt = delete(models.ConstituentAssociation).\
+                    prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle').\
+                    where(or_(*constituents_to_delete_condition)).\
+                    execution_options(synchronize_session=False)
+                session.execute(stmt)
                 constituents_to_delete_condition.clear()
 
                 __cleanup_after_replica_deletion(rse_id=rse_id, files=removed_constituents, session=session)
                 removed_constituents.clear()
     if constituents_to_delete_condition:
-        session.query(models.ConstituentAssociation). \
-            with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle'). \
-            filter(or_(*constituents_to_delete_condition)). \
-            delete(synchronize_session=False)
+        stmt = delete(models.ConstituentAssociation). \
+            prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle'). \
+            where(or_(*constituents_to_delete_condition)). \
+            execution_options(synchronize_session=False)
+        session.execute(stmt)
         __cleanup_after_replica_deletion(rse_id=rse_id, files=removed_constituents, session=session)
 
     # Remove rules in Waiting for approval or Suspended
     for chunk in chunks(deleted_rules, 100):
-        session.query(models.ReplicationRule).\
-            with_hint(models.ReplicationRule, "INDEX(RULES RULES_SCOPE_NAME_IDX)", 'oracle').\
-            filter(or_(*chunk)).\
-            filter(models.ReplicationRule.state.in_((RuleState.SUSPENDED,
-                                                     RuleState.WAITING_APPROVAL))).\
-            delete(synchronize_session=False)
+        stmt = delete(models.ReplicationRule).\
+            prefix_with("/*+ INDEX(RULES RULES_SCOPE_NAME_IDX) */", dialect='oracle').\
+            where(or_(*chunk)).\
+            where(models.ReplicationRule.state.in_((RuleState.SUSPENDED,
+                                                    RuleState.WAITING_APPROVAL))).\
+            execution_options(synchronize_session=False)
+        session.execute(stmt)
 
     # Remove DID Metadata
     for chunk in chunks(deleted_did_meta, 100):
@@ -1939,10 +1947,11 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
         session.bulk_insert_mappings(models.Message, chunk)
 
     for chunk in chunks(deleted_dids, 100):
-        session.query(models.DataIdentifier).\
-            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-            filter(or_(*chunk)).\
-            delete(synchronize_session=False)
+        stmt = delete(models.DataIdentifier).\
+            prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
+            where(or_(*chunk)).\
+            execution_options(synchronize_session=False)
+        session.execute(stmt)
         if session.bind.dialect.name != 'oracle':
             rucio.core.did.insert_deleted_dids(chunk, session=session)
 
@@ -1956,13 +1965,15 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
                              .with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
                              .filter(or_(*chunk)))
         if clt_to_update:
-            session.query(models.DataIdentifier).\
-                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-                filter(or_(and_(models.DataIdentifier.scope == scope,
-                                models.DataIdentifier.name == name,
-                                models.DataIdentifier.is_archive == true())
-                           for scope, name in clt_to_update)).\
-                update({'is_archive': False}, synchronize_session=False)
+            stmt = update(models.DataIdentifier).\
+                prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
+                where(or_(and_(models.DataIdentifier.scope == scope,
+                               models.DataIdentifier.name == name,
+                               models.DataIdentifier.is_archive == true())
+                          for scope, name in clt_to_update)).\
+                execution_options(synchronize_session=False).\
+                values(is_archive=False)
+            session.execute(stmt)
 
 
 @transactional_session
@@ -2078,9 +2089,12 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
                                            models.RSEFileAssociation.name == name,
                                            models.RSEFileAssociation.rse_id == rse_id))
     for chunk in chunks(replica_clause, 100):
-        session.query(models.RSEFileAssociation).filter(or_(*chunk)).\
-            with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
-            update({'updated_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED, 'tombstone': datetime(1970, 1, 1)}, synchronize_session=False)
+        stmt = update(models.RSEFileAssociation).\
+            prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle').\
+            where(or_(*chunk)).\
+            execution_options(synchronize_session=False).\
+            values(updated_at=datetime.utcnow(), state=ReplicaState.BEING_DELETED, tombstone=datetime(1970, 1, 1))
+        session.execute(stmt)
 
     return rows
 
@@ -2332,7 +2346,8 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                               models.RSEFileAssociation)\
             .with_hint(models.DataIdentifierAssociation,
                        "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                       'oracle')\
+                       'oracle') \
+            .with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle')\
             .outerjoin(models.RSEFileAssociation,
                        and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
                             models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
@@ -2815,11 +2830,6 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
         if BASE.metadata.schema:
             schema = BASE.metadata.schema + '.'
         session.execute('DELETE FROM {schema}updated_col_rep A WHERE A.rowid > ANY (SELECT B.rowid FROM {schema}updated_col_rep B WHERE A.scope = B.scope AND A.name=B.name AND A.did_type=B.did_type AND (A.rse_id=B.rse_id OR (A.rse_id IS NULL and B.rse_id IS NULL)))'.format(schema=schema))
-        # subquery = session.query(func.max(models.UpdatedCollectionReplica.id)).\
-        #     group_by(models.UpdatedCollectionReplica.scope,
-        #              models.UpdatedCollectionReplica.name,
-        #              models.UpdatedCollectionReplica.rse_id).subquery()
-        # session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.notin_(subquery)).delete(synchronize_session=False)
     elif session.bind.dialect.name == 'mysql':
         subquery1 = session.query(func.max(models.UpdatedCollectionReplica.id).label('max_id')).\
             group_by(models.UpdatedCollectionReplica.scope,

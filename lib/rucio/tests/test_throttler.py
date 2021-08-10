@@ -19,13 +19,15 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import unittest
 from datetime import datetime, timedelta
 
 import pytest
 
-from rucio.common.config import config_get, config_get_bool, config_set, config_remove_option
+from rucio.common.config import config_get_bool, config_set, config_remove_option
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import attach_dids, add_did
@@ -36,6 +38,7 @@ from rucio.daemons.conveyor import throttler, preparer
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import DIDType, RequestType, RequestState
 from rucio.tests.common import skiplimitedsql
+from rucio.tests.common_server import get_vo
 
 
 @pytest.mark.dirty
@@ -53,7 +56,7 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 
@@ -426,7 +429,7 @@ class TestThrottlerFIFO(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 
@@ -679,7 +682,7 @@ class TestThrottlerFIFOSRCACT(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 
@@ -808,7 +811,7 @@ class TestThrottlerFIFOSRCALLACT(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 
@@ -909,7 +912,7 @@ class TestThrottlerFIFODESTALLACT(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 
@@ -1040,7 +1043,7 @@ class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 
@@ -1203,7 +1206,7 @@ class TestRequestCoreRelease(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 

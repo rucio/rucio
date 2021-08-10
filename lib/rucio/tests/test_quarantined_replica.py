@@ -20,21 +20,23 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import pytest
 
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.utils import generate_uuid
 from rucio.core.quarantined_replica import add_quarantined_replicas, list_quarantined_replicas, \
     delete_quarantined_replicas
 from rucio.core.rse import get_rse_id
+from rucio.tests.common_server import get_vo
 
 
 @pytest.mark.noparallel(reason='uses pre-defined rses')
 def test_quarantined_replicas():
     """ QUARANTINED REPLICA (CORE): Add, List and Delete quarantined replicas """
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        vo = {'vo': get_vo()}
     else:
         vo = {}
 

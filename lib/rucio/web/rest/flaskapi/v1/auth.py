@@ -21,6 +21,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 from __future__ import print_function
 
@@ -42,7 +43,7 @@ from rucio.common.exception import AccessDenied, IdentityError, CannotAuthentica
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, error_headers, \
-    generate_http_error_flask, ErrorHandlingMethodView
+    extract_vo, generate_http_error_flask, ErrorHandlingMethodView
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -111,7 +112,7 @@ class UserPass(ErrorHandlingMethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request.headers.get('X-Rucio-VO', default='def')
+        vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
         username = request.headers.get('X-Rucio-Username', default=None)
         password = request.headers.get('X-Rucio-Password', default=None)
@@ -174,7 +175,7 @@ class OIDC(ErrorHandlingMethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers.set('Pragma', 'no-cache')
 
-        vo = request.headers.get('X-Rucio-VO', default='def')
+        vo = extract_vo(request.headers)
         account = request.environ.get('HTTP_X_RUCIO_ACCOUNT', 'webui')
         auth_scope = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE', "")
         audience = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUDIENCE', "")
@@ -465,7 +466,7 @@ class RefreshOIDC(ErrorHandlingMethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers.set('Pragma', 'no-cache')
 
-        vo = request.headers.get('X-Rucio-VO', default='def')
+        vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
         token = request.headers.get('X-Rucio-Auth-Token', default=None)
         if token is None or account is None:
@@ -536,7 +537,7 @@ class GSS(ErrorHandlingMethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request.headers.get('X-Rucio-VO', default='def')
+        vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
         gsscred = request.environ.get('REMOTE_USER')
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
@@ -615,7 +616,7 @@ class x509(ErrorHandlingMethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request.headers.get('X-Rucio-VO', default='def')
+        vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
         dn = request.environ.get('SSL_CLIENT_S_DN')
         if not dn:
@@ -721,7 +722,7 @@ class SSH(ErrorHandlingMethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request.headers.get('X-Rucio-VO', default='def')
+        vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
         signature = request.headers.get('X-Rucio-SSH-Signature', default=None)
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
@@ -812,7 +813,7 @@ class SSHChallengeToken(ErrorHandlingMethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request.headers.get('X-Rucio-VO', default='def')
+        vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
@@ -879,7 +880,7 @@ class SAML(ErrorHandlingMethodView):
             return "SAML not configured on the server side.", 400, headers
 
         saml_nameid = request.cookies.get('saml-nameid', default=None)
-        vo = request.headers.get('X-Rucio-VO', default='def')
+        vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)

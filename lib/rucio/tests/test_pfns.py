@@ -1,4 +1,5 @@
-# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2017-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,18 +18,20 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import unittest
 
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.rse import rsemanager as rsemgr
+from rucio.tests.common_server import get_vo
 
 
 class TestPFNs(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_vo()}
         else:
             self.vo = {}
 
