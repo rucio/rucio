@@ -47,7 +47,8 @@ valid_date_formats = (
     '%Y-%m-%d %H:%M:%S',
     '%Y-%m-%dT%H:%M:%S',
     '%Y-%m-%d %H:%M:%S.%fZ',
-    '%Y-%m-%dT%H:%M:%S.%fZ'
+    '%Y-%m-%dT%H:%M:%S.%fZ',
+    '%a, %d %b %Y %H:%M:%S UTC'
 )
 
 
