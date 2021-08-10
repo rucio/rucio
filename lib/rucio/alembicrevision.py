@@ -18,5 +18,6 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
+# - Joaquin Bogado <joaquinbogado@gmail.com>, 2021
 
-ALEMBIC_REVISION = '30fa38b6434e'  # the current alembic head revision
+ALEMBIC_REVISION = '739064d31565'  # the current alembic head revision

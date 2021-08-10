@@ -22,18 +22,20 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import unittest
 
 import pytest
 
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account, del_account
 from rucio.core.identity import add_identity, del_identity, add_account_identity, del_account_identity, list_identities
 from rucio.db.sqla.constants import AccountType, IdentityType
 from rucio.tests.common import account_name_generator, headers, hdrdict, auth
+from rucio.tests.common_server import get_vo
 
 
 @pytest.mark.noparallel(reason='adds/removes entities with non-unique names')
@@ -45,7 +47,7 @@ class TestIdentity(unittest.TestCase):
     def setUp(self):
         """ Setup the Test Case """
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_vo()}
         else:
             self.vo = {}
 

@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,31 +14,39 @@
 # limitations under the License.
 #
 # Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013 - 2014
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2019
-# - James Perry, <j.perry@epcc.ed.ac.uk>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White, <bjwhite@fnal.gov>, 2019
-# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2013
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 from dogpile.cache import make_region
 
 from rucio.rse import rsemanager
 from rucio.common import config
+from os import environ
 
-
-if config.config_has_section('database'):
-    setattr(rsemanager, 'CLIENT_MODE', False)
-    setattr(rsemanager, 'SERVER_MODE', True)
-elif config.config_has_section('client'):
-    setattr(rsemanager, 'CLIENT_MODE', True)
-    setattr(rsemanager, 'SERVER_MODE', False)
+if 'RUCIO_CLIENT_MODE' not in environ:
+    if config.config_has_section('database'):
+        setattr(rsemanager, 'CLIENT_MODE', False)
+        setattr(rsemanager, 'SERVER_MODE', True)
+    elif config.config_has_section('client'):
+        setattr(rsemanager, 'CLIENT_MODE', True)
+        setattr(rsemanager, 'SERVER_MODE', False)
+    else:
+        setattr(rsemanager, 'CLIENT_MODE', False)
+        setattr(rsemanager, 'SERVER_MODE', True)
 else:
-    setattr(rsemanager, 'CLIENT_MODE', False)
-    setattr(rsemanager, 'SERVER_MODE', True)
+    if environ['RUCIO_CLIENT_MODE']:
+        setattr(rsemanager, 'CLIENT_MODE', True)
+        setattr(rsemanager, 'SERVER_MODE', False)
+    else:
+        setattr(rsemanager, 'CLIENT_MODE', False)
+        setattr(rsemanager, 'SERVER_MODE', True)
 
 
 def get_rse_client(rse, vo='def', **kwarg):
@@ -93,10 +102,15 @@ if rsemanager.CLIENT_MODE:   # pylint:disable=no-member
 
 if rsemanager.SERVER_MODE:   # pylint:disable=no-member
     from rucio.core.rse import get_rse_protocols, get_rse_id
+    from rucio.core.vo import map_vo
 
     def tmp_rse_info(rse=None, vo='def', rse_id=None, session=None):
         if rse_id is None:
-            rse_id = get_rse_id(rse=rse, vo=vo)
+            # This can be called directly by client tools if they're co-located on a server
+            # i.e. running rucio cli on a server and during the test suite.
+            # We have to map to VO name here for this situations, despite this nominally
+            # not being a client interface.
+            rse_id = get_rse_id(rse=rse, vo=map_vo(vo))
         return get_rse_protocols(rse_id=rse_id, session=session)
 
     setattr(rsemanager, '__request_rse_info', tmp_rse_info)

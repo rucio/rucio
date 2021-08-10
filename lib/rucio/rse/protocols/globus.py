@@ -14,12 +14,14 @@
 # limitations under the License.
 #
 # Authors:
-# - Matt Snyder <msnyder@bnl.gov>, 2019-2020
+# - Matt Snyder <msnyder@bnl.gov>, 2019-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 from __future__ import print_function
+
+import logging
 
 from six import string_types
 from six.moves.urllib.parse import urlparse
@@ -28,7 +30,7 @@ from rucio.common import exception
 from rucio.common.extra import import_extras
 from rucio.core.rse import get_rse_attribute
 from rucio.rse.protocols.protocol import RSEProtocol
-from rucio.transfertool.globusLibrary import getTransferClient, send_delete_task
+from rucio.transfertool.globus_library import get_transfer_client, send_delete_task, send_bulk_delete_task
 
 EXTRA_MODULES = import_extras(['globus_sdk'])
 
@@ -39,13 +41,14 @@ if EXTRA_MODULES['globus_sdk']:
 class GlobusRSEProtocol(RSEProtocol):
     """ This class is to support Globus as a Rucio RSE protocol.  Inherits from abstract base class RSEProtocol."""
 
-    def __init__(self, protocol_attr, rse_settings, logger=None):
+    def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.
 
             :param props: Properties of the requested protocol
         """
         super(GlobusRSEProtocol, self).__init__(protocol_attr, rse_settings, logger=logger)
         self.globus_endpoint_id = get_rse_attribute(key='globus_endpoint_id', rse_id=self.rse.get('id'))
+        self.logger = logger
 
     def lfns2pfns(self, lfns):
         """
@@ -152,7 +155,7 @@ class GlobusRSEProtocol(RSEProtocol):
         filepath = '/'.join(path.split('/')[0:-1]) + '/'
         filename = path.split('/')[-1]
 
-        transfer_client = getTransferClient()
+        transfer_client = get_transfer_client()
         exists = False
 
         if self.globus_endpoint_id:
@@ -177,7 +180,7 @@ class GlobusRSEProtocol(RSEProtocol):
 
         """
 
-        transfer_client = getTransferClient()
+        transfer_client = get_transfer_client()
         items = []
 
         if self.globus_endpoint_id:
@@ -212,6 +215,38 @@ class GlobusRSEProtocol(RSEProtocol):
             print('delete_task not accepted by Globus')
             print('delete_response: %s' % delete_response)
 
+    def bulk_delete(self, pfns):
+        """
+            Submits an async task to bulk delete files on globus endpoint.
+
+            :param pfns: list of pfns to delete
+
+            :raises TransferAPIError: if unexpected response from the service.
+        """
+        if self.globus_endpoint_id:
+            try:
+                bulk_delete_response = send_bulk_delete_task(endpoint_id=self.globus_endpoint_id[0], pfns=pfns)
+            except TransferAPIError as err:
+                self.logger(logging.WARNING, str(err))
+        else:
+            self.logger(logging.WARNING, 'No rse attribute found for globus endpoint id.')
+
+        if bulk_delete_response['code'] != 'Accepted':
+            self.logger(logging.WARNING, 'delete_task not accepted by Globus')
+            self.logger(logging.WARNING, 'delete_response: %s' % bulk_delete_response)
+
+    def connect(self):
+        """
+            Establishes the actual connection to the referred RSE.
+
+            reaper2 daemon requires implementation of protocol.connect
+        """
+        pass
+
     def close(self):
-        """ Closes the connection to RSE."""
-        raise NotImplementedError
+        """
+            Closes the connection to RSE.
+
+            reaper2 daemon requires implementation of protocol.close
+        """
+        pass

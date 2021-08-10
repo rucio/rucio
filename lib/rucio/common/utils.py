@@ -65,6 +65,7 @@ import requests
 from six import string_types, text_type, binary_type, ensure_text, PY3
 from six.moves import StringIO, zip_longest as izip_longest
 from six.moves.urllib.parse import urlparse, urlencode, quote, parse_qsl, urlunparse
+from six.moves.configparser import NoOptionError, NoSectionError
 
 from rucio.common.config import config_get
 from rucio.common.exception import (MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException,
@@ -533,6 +534,7 @@ def construct_surl_BelleII(dsn, filename):
 
 _SURL_ALGORITHMS = {}
 _DEFAULT_SURL = 'DQ2'
+_loaded_policy_modules = False
 
 
 def register_surl_algorithm(surl_callable, name=None):
@@ -546,9 +548,39 @@ register_surl_algorithm(construct_surl_DQ2, 'DQ2')
 register_surl_algorithm(construct_surl_BelleII, 'BelleII')
 
 
+def _register_policy_package_surl_algorithms():
+    def try_importing_policy(vo=None):
+        import importlib
+        try:
+            package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo['vo']))
+            module = importlib.import_module(package)
+            if hasattr(module, 'get_surl_algorithms'):
+                _SURL_ALGORITHMS.update(module.get_surl_algorithms())
+        except (NoOptionError, NoSectionError, ImportError):
+            pass
+
+    from rucio.common import config
+    from rucio.core.vo import list_vos
+    try:
+        multivo = config.config_get_bool('common', 'multi_vo')
+    except (NoOptionError, NoSectionError):
+        multivo = False
+    if not multivo:
+        # single policy package
+        try_importing_policy()
+    else:
+        # policy package per VO
+        vos = list_vos()
+        for vo in vos:
+            try_importing_policy(vo)
+
+
 def construct_surl(dsn, filename, naming_convention=None):
-    # ensure that policy package is loaded in case it registers its own algorithms
-    import rucio.common.schema  # noqa: F401
+    global _loaded_policy_modules
+    if not _loaded_policy_modules:
+        # on first call, register any SURL functions from the policy packages
+        _register_policy_package_surl_algorithms()
+        _loaded_policy_modules = True
 
     if naming_convention is None or naming_convention not in _SURL_ALGORITHMS:
         naming_convention = _DEFAULT_SURL
@@ -825,39 +857,58 @@ class Color:
 
 def detect_client_location():
     """
-    Open a UDP socket to a machine on the internet, to get the local IPv4 and IPv6
-    addresses of the requesting client.
-
+    Normally client IP will be set on the server side (request.remote_addr)
+    Here setting ip on the one seen by the host itself. There is no connection
+    to Google DNS servers.
     Try to determine the sitename automatically from common environment variables,
     in this order: SITE_NAME, ATLAS_SITE_NAME, OSG_SITE_NAME. If none of these exist
     use the fixed string 'ROAMING'.
+
+    If environment variables sets location, it uses it.
     """
 
-    ip = '0.0.0.0'
+    ip = None
+
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
+        s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        s.connect(("2001:4860:4860:0:0:0:0:8888", 80))
         ip = s.getsockname()[0]
     except Exception:
         pass
 
-    ip6 = '::'
-    try:
-        s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-        s.connect(("2001:4860:4860:0:0:0:0:8888", 80))
-        ip6 = s.getsockname()[0]
-    except Exception:
-        pass
+    if not ip:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+        except Exception:
+            pass
+
+    if not ip:
+        ip = '0.0.0.0'
 
     site = os.environ.get('SITE_NAME',
                           os.environ.get('ATLAS_SITE_NAME',
                                          os.environ.get('OSG_SITE_NAME',
                                                         'ROAMING')))
 
+    latitude = os.environ.get('RUCIO_LATITUDE')
+    longitude = os.environ.get('RUCIO_LONGITUDE')
+    if latitude and longitude:
+        try:
+            latitude = float(latitude)
+            longitude = float(longitude)
+        except ValueError:
+            latitude = longitude = 0
+            print('Client set latitude and longitude are not valid.')
+    else:
+        latitude = longitude = None
+
     return {'ip': ip,
-            'ip6': ip6,
             'fqdn': socket.getfqdn(),
-            'site': site}
+            'site': site,
+            'latitude': latitude,
+            'longitude': longitude}
 
 
 def ssh_sign(private_key, message):

@@ -35,10 +35,10 @@ jobs:
         id: images
         shell: bash
         run: |
-          docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           i=0; until [ "$i" -ge 3 ]; do
             IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
-                --cache-repo docker.pkg.github.com/${{ github.repository }} \
+                --cache-repo ghcr.io/${{ github.repository }} \
                 --branch "${{ needs.setup.outputs.branch }}" ./etc/docker/test || echo "")
             if [[ -n $IMAGES ]]; then break;
             else
@@ -46,7 +46,7 @@ jobs:
               echo "::warning::Building images failed, retrying…"
             fi
           done
-          docker logout https://docker.pkg.github.com
+          docker logout https://ghcr.io
           if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
           echo "::set-output name=images::$IMAGES"
       - name: Run test with cfg
@@ -108,10 +108,10 @@ jobs:
         id: images
         shell: bash
         run: |
-          docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           i=0; until [ "$i" -ge 3 ]; do
             IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
-                --cache-repo docker.pkg.github.com/${{ github.repository }} \
+                --cache-repo ghcr.io/${{ github.repository }} \
                 --branch "${{ needs.release-patch-setup.outputs.release_branch }}" ./etc/docker/test || echo "")
             if [[ -n $IMAGES ]]; then break;
             else
@@ -119,7 +119,7 @@ jobs:
               echo "::warning::Building images failed, retrying…"
             fi
           done
-          docker logout https://docker.pkg.github.com
+          docker logout https://ghcr.io
           if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
           echo "::set-output name=images::$IMAGES"
       - name: Run test with cfg

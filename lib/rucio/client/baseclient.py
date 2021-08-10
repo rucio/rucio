@@ -36,6 +36,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 '''
  Client class for callers of the Rucio system
@@ -48,14 +49,13 @@ import os
 import random
 import sys
 import time
-import traceback
 from os import environ, fdopen, path, makedirs, geteuid
 from shutil import move
 from tempfile import mkstemp
 
 from dogpile.cache import make_region
 from requests import Session, Response
-from requests.exceptions import ConnectionError, RequestException
+from requests.exceptions import ConnectionError
 from requests.status_codes import codes
 from six.moves.configparser import NoOptionError, NoSectionError
 from six.moves.urllib.parse import urlparse
@@ -148,6 +148,12 @@ class BaseClient(object):
                 self.auth_host = config_get('client', 'auth_host')
         except (NoOptionError, NoSectionError) as error:
             raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % error.args[0])
+
+        try:
+            self.trace_host = config_get('trace', 'trace_host')
+        except (NoOptionError, NoSectionError):
+            self.trace_host = self.host
+            LOG.debug('No trace_host passed. Using rucio_host instead')
 
         self.account = account
         self.vo = vo
@@ -352,7 +358,8 @@ class BaseClient(object):
             if response.text:
                 yield response.text
 
-    def _send_request(self, url, headers=None, type='GET', data=None, params=None, stream=False):
+    def _send_request(self, url, headers=None, type='GET', data=None, params=None, stream=False, get_token=False,
+                      cert=None, auth=None, verify=None):
         """
         Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
 
@@ -361,6 +368,11 @@ class BaseClient(object):
         :param type: the http request type to use.
         :param data: post data.
         :param params: (optional) Dictionary or bytes to be sent in the url query string.
+        :param get_token: (optional) if it is called from a _get_token function.
+        :param cert: (optional) if String, path to the SSL client cert file (.pem). If Tuple, (cert, key) pair.
+        :param auth: (optional) auth tuple to enable Basic/Digest/Custom HTTP Auth.
+        :param verify: (optional) either a boolean, in which case it controls whether we verify the server’s TLS
+                       certificate, or a string, in which case it must be a path to a CA bundle to use.
         :return: the HTTP return body.
         """
         hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'X-Rucio-VO': self.vo,
@@ -370,17 +382,20 @@ class BaseClient(object):
         if headers is not None:
             hds.update(headers)
 
+        if verify is None:
+            verify = self.ca_cert
+
         result = None
         for retry in range(self.AUTH_RETRIES + 1):
             try:
                 if type == 'GET':
-                    result = self.session.get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, stream=True)
+                    result = self.session.get(url, headers=hds, verify=verify, timeout=self.timeout, params=params, stream=True, cert=cert, auth=auth)
                 elif type == 'PUT':
-                    result = self.session.put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    result = self.session.put(url, headers=hds, data=data, verify=verify, timeout=self.timeout)
                 elif type == 'POST':
-                    result = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout, stream=stream)
+                    result = self.session.post(url, headers=hds, data=data, verify=verify, timeout=self.timeout, stream=stream)
                 elif type == 'DEL':
-                    result = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    result = self.session.delete(url, headers=hds, data=data, verify=verify, timeout=self.timeout)
                 else:
                     return
                 if result.status_code in STATUS_CODES_TO_RETRY:
@@ -401,7 +416,7 @@ class BaseClient(object):
                     raise
                 continue
 
-            if result is not None and result.status_code == codes.unauthorized:  # pylint: disable-msg=E1101
+            if result is not None and result.status_code == codes.unauthorized and not get_token:  # pylint: disable-msg=E1101
                 self.session = Session()
                 self.__get_token()
                 hds['X-Rucio-Auth-Token'] = self.auth_token
@@ -419,24 +434,12 @@ class BaseClient(object):
         :returns: True if the token was successfully received. False otherwise.
         """
 
-        headers = {'X-Rucio-VO': self.vo,
-                   'X-Rucio-Account': self.account,
-                   'X-Rucio-Username': self.creds['username'],
+        headers = {'X-Rucio-Username': self.creds['username'],
                    'X-Rucio-Password': self.creds['password']}
 
         url = build_url(self.auth_host, path='auth/userpass')
 
-        result = None
-        for retry in range(self.AUTH_RETRIES + 1):
-            try:
-                result = self.session.get(url, headers=headers, verify=self.ca_cert)
-                if result.status_code in STATUS_CODES_TO_RETRY:
-                    back_off(retry, reason='server returned {}'.format(result.status_code))
-                    continue
-            except ConnectionError as error:
-                LOG.error('ConnectionError: ' + str(error))
-                if retry > self.request_retries:
-                    raise
+        result = self._send_request(url, headers=headers, get_token=True)
 
         if not result:
             # result is either None or not OK.
@@ -488,47 +491,31 @@ class BaseClient(object):
         else:
             return False
 
-        headers = {'X-Rucio-VO': self.vo,
-                   'X-Rucio-Account': self.account,
-                   'X-Rucio-Auth-Token': self.auth_token}
-
-        for retry in range(self.AUTH_RETRIES + 1):
-            try:
-                LOG.debug("JWT refresh attempt nr. %i" % int(retry + 1))
-                request_refresh_url = build_url(self.auth_host, path='auth/oidc_refresh')
-                refresh_result = self.session.get(request_refresh_url, headers=headers, verify=self.ca_cert)
-                if refresh_result.status_code == codes.ok:
-                    if 'X-Rucio-Auth-Token-Expires' not in refresh_result.headers or \
-                       'X-Rucio-Auth-Token' not in refresh_result.headers:
-                        print("Rucio Server response does not contain the expected headers.")
-                        return False
-                    else:
-                        new_token = refresh_result.headers['X-Rucio-Auth-Token']
-                        new_exp_epoch = refresh_result.headers['X-Rucio-Auth-Token-Expires']
-                        if new_token and new_exp_epoch:
-                            LOG.debug("Saving token %s and expiration epoch %s to files" % (str(new_token), str(new_exp_epoch)))
-                            # save to the file
-                            self.auth_token = new_token
-                            self.token_exp_epoch = new_exp_epoch
-                            self.__write_token()
-                            self.headers['X-Rucio-Auth-Token'] = self.auth_token
-                            return True
-                        LOG.debug("No new token was received, possibly invalid/expired \
-                                   \ntoken or a token with no refresh token in Rucio DB")
-                        return False
-                elif refresh_result.status_code in STATUS_CODES_TO_RETRY:
-                    back_off(retry, reason='server returned {}'.format(refresh_result.status_code))
-                    continue
-                else:
-                    print("Rucio Client did not succeed to contact the \
-                           \nRucio Auth Server when attempting token refresh.")
-                    return False
-
-                break
-            except RequestException:
-                LOG.error('RequestException: %s', str(traceback.format_exc()))
-                if retry > self.request_retries:
-                    raise
+        request_refresh_url = build_url(self.auth_host, path='auth/oidc_refresh')
+        refresh_result = self._send_request(request_refresh_url, get_token=True)
+        if refresh_result.status_code == codes.ok:
+            if 'X-Rucio-Auth-Token-Expires' not in refresh_result.headers or \
+                    'X-Rucio-Auth-Token' not in refresh_result.headers:
+                print("Rucio Server response does not contain the expected headers.")
+                return False
+            else:
+                new_token = refresh_result.headers['X-Rucio-Auth-Token']
+                new_exp_epoch = refresh_result.headers['X-Rucio-Auth-Token-Expires']
+                if new_token and new_exp_epoch:
+                    LOG.debug("Saving token %s and expiration epoch %s to files" % (str(new_token), str(new_exp_epoch)))
+                    # save to the file
+                    self.auth_token = new_token
+                    self.token_exp_epoch = new_exp_epoch
+                    self.__write_token()
+                    self.headers['X-Rucio-Auth-Token'] = self.auth_token
+                    return True
+                LOG.debug("No new token was received, possibly invalid/expired \
+                           \ntoken or a token with no refresh token in Rucio DB")
+                return False
+        else:
+            print("Rucio Client did not succeed to contact the \
+                   \nRucio Auth Server when attempting token refresh.")
+            return False
 
     def __get_token_OIDC(self):
         """
@@ -544,9 +531,7 @@ class BaseClient(object):
         :returns: True if the token was successfully received. False otherwise.
         """
         oidc_scope = str(self.creds['oidc_scope'])
-        headers = {'X-Rucio-VO': self.vo,
-                   'X-Rucio-Account': self.account,
-                   'X-Rucio-Client-Authorize-Auto': str(self.creds['oidc_auto']),
+        headers = {'X-Rucio-Client-Authorize-Auto': str(self.creds['oidc_auto']),
                    'X-Rucio-Client-Authorize-Polling': str(self.creds['oidc_polling']),
                    'X-Rucio-Client-Authorize-Scope': str(self.creds['oidc_scope']),
                    'X-Rucio-Client-Authorize-Refresh-Lifetime': str(self.creds['oidc_refresh_lifetime'])}
@@ -556,94 +541,87 @@ class BaseClient(object):
             headers['X-Rucio-Client-Authorize-Issuer'] = str(self.creds['oidc_issuer'])
         if self.creds['oidc_auto']:
             userpass = {'username': self.creds['oidc_username'], 'password': self.creds['oidc_password']}
-        for retry in range(self.AUTH_RETRIES + 1):
-            LOG.debug("Authentication attempt nr. %i" % int(retry + 1))
-            try:
+
+        result = None
+        request_auth_url = build_url(self.auth_host, path='auth/oidc')
+        # requesting authorization URL specific to the user & Rucio OIDC Client
+        LOG.debug("Initial auth URL request headers %s to files" % str(headers))
+        OIDC_auth_res = self._send_request(request_auth_url, headers=headers, get_token=True)
+        LOG.debug("Response headers %s and text %s" % (str(OIDC_auth_res.headers), str(OIDC_auth_res.text)))
+        # with the obtained authorization URL we will contact the Identity Provider to get to the login page
+        if 'X-Rucio-OIDC-Auth-URL' not in OIDC_auth_res.headers:
+            print("Rucio Client did not succeed to get AuthN/Z URL from the Rucio Auth Server. \
+                                   \nThis could be due to wrongly requested/configured scope, audience or issuer.")
+            return False
+        auth_url = OIDC_auth_res.headers['X-Rucio-OIDC-Auth-URL']
+        if not self.creds['oidc_auto']:
+            print("\nPlease use your internet browser, go to:")
+            print("\n    " + auth_url + "    \n")
+            print("and authenticate with your Identity Provider.")
+
+            headers['X-Rucio-Client-Fetch-Token'] = 'True'
+            if self.creds['oidc_polling']:
+                timeout = 180
                 start = time.time()
-                result = None
-                request_auth_url = build_url(self.auth_host, path='auth/oidc')
-                # requesting authorization URL specific to the user & Rucio OIDC Client
-                LOG.debug("Initial auth URL request headers %s to files" % str(headers))
-                OIDC_auth_res = self.session.get(request_auth_url, headers=headers, verify=self.ca_cert)
-                LOG.debug("Response headers %s and text %s" % (str(OIDC_auth_res.headers), str(OIDC_auth_res.text)))
-                # with the obtained authorization URL we will contact the Identity Provider to get to the login page
-                if 'X-Rucio-OIDC-Auth-URL' not in OIDC_auth_res.headers:
-                    print("Rucio Client did not succeed to get AuthN/Z URL from the Rucio Auth Server. \
-                           \nThis could be due to wrongly requested/configured scope, audience or issuer.")
-                    return False
-                auth_url = OIDC_auth_res.headers['X-Rucio-OIDC-Auth-URL']
-                if not self.creds['oidc_auto']:
-                    print("\nPlease use your internet browser, go to:")
-                    print("\n    " + auth_url + "    \n")
-                    print("and authenticate with your Identity Provider.")
-
-                    headers['X-Rucio-Client-Fetch-Token'] = 'True'
-                    if self.creds['oidc_polling']:
-                        timeout = 180
-                        start = time.time()
-                        print("In the next 3 minutes, Rucio Client will be polling \
-                               \nthe Rucio authentication server for a token.")
-                        print("----------------------------------------------")
-                        while time.time() - start < timeout:
-                            result = self.session.get(auth_url, headers=headers, verify=self.ca_cert)
-                            if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
-                                break
-                            time.sleep(2)
+                print("In the next 3 minutes, Rucio Client will be polling \
+                                           \nthe Rucio authentication server for a token.")
+                print("----------------------------------------------")
+                while time.time() - start < timeout:
+                    result = self._send_request(auth_url, headers=headers, get_token=True)
+                    if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
+                        break
+                    time.sleep(2)
+            else:
+                print("Copy paste the code from the browser to the terminal and press enter:")
+                count = 0
+                while count < 3:
+                    # Python3 default
+                    get_input = input
+                    # if Python version <= 2.7 use raw_input
+                    if sys.version_info[:2] <= (2, 7):
+                        get_input = raw_input  # noqa: F821 pylint: disable=undefined-variable
+                    fetchcode = get_input()
+                    fetch_url = build_url(self.auth_host, path='auth/oidc_redirect', params=fetchcode)
+                    result = self._send_request(fetch_url, headers=headers, get_token=True)
+                    if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
+                        break
                     else:
-                        print("Copy paste the code from the browser to the terminal and press enter:")
-                        count = 0
-                        while count < 3:
-                            # Python3 default
-                            get_input = input
-                            # if Python version <= 2.7 use raw_input
-                            if sys.version_info[:2] <= (2, 7):
-                                get_input = raw_input  # noqa: F821 pylint: disable=undefined-variable
-                            fetchcode = get_input()
-                            fetch_url = build_url(self.auth_host, path='auth/oidc_redirect', params=fetchcode)
-                            result = self.session.get(fetch_url, headers=headers, verify=self.ca_cert)
-                            if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
-                                break
-                            else:
-                                print("The Rucio Auth Server did not respond as expected. Please, "
-                                      + "try again and make sure you typed the correct code.")  # NOQA: W503
-                                count += 1
-                else:
-                    print("\nAccording to the OAuth2/OIDC standard you should NOT be sharing \n"
-                          + "your password with any 3rd party appplication, therefore, \n"  # NOQA: W503
-                          + "we strongly discourage you from following this --oidc-auto approach.")   # NOQA: W503
-                    print("-------------------------------------------------------------------------")
-                    auth_res = self.session.get(auth_url, verify=self.ca_cert)
-                    # getting the login URL and logging in the user
-                    login_url = auth_res.url
-                    start = time.time()
-                    result = self.session.post(login_url, data=userpass, verify=self.ca_cert, allow_redirects=True)
+                        print("The Rucio Auth Server did not respond as expected. Please, "
+                              + "try again and make sure you typed the correct code.")  # NOQA: W503
+                        count += 1
 
-                    # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
-                    # the user will get an OAuth error
-                    if 'OAuth Error' in result.text:
-                        LOG.error('Identity Provider does not allow to proceed. Could be due \
-                                   \nto misconfigured redirection server name of the Rucio OIDC Client.')
-                        return False
-                    # In case Rucio Client is not authorized to request information about this user yet,
-                    # it will automatically authorize itself on behalf of the user.
-                    if result.url == auth_url:
-                        form_data = {}
-                        for scope_item in oidc_scope.split():
-                            form_data["scope_" + scope_item] = scope_item
-                        default_data = {"remember": "until-revoked",
-                                        "user_oauth_approval": True,
-                                        "authorize": "Authorize"}
-                        form_data.update(default_data)
-                        print('Automatically authorising request of the following info on behalf of user: %s', str(form_data))
-                        LOG.warning('Automatically authorising request of the following info on behalf of user: %s', str(form_data))
-                        # authorizing info request on behalf of the user until he/she revokes this authorization !
-                        result = self.session.post(result.url, data=form_data, verify=self.ca_cert, allow_redirects=True)
+        else:
+            print("\nAccording to the OAuth2/OIDC standard you should NOT be sharing \n"
+                  + "your password with any 3rd party appplication, therefore, \n"  # NOQA: W503
+                  + "we strongly discourage you from following this --oidc-auto approach.")  # NOQA: W503
+            print("-------------------------------------------------------------------------")
+            auth_res = self._send_request(auth_url, get_token=True)
+            # getting the login URL and logging in the user
+            login_url = auth_res.url
+            start = time.time()
+            result = self._send_request(login_url, type='POST', data=userpass)
 
-                break
-            except RequestException:
-                LOG.error('RequestException: %s', str(traceback.format_exc()))
-                if retry > self.request_retries:
-                    raise
+            # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
+            # the user will get an OAuth error
+            if 'OAuth Error' in result.text:
+                LOG.error('Identity Provider does not allow to proceed. Could be due \
+                           \nto misconfigured redirection server name of the Rucio OIDC Client.')
+                return False
+            # In case Rucio Client is not authorized to request information about this user yet,
+            # it will automatically authorize itself on behalf of the user.
+            if result.url == auth_url:
+                form_data = {}
+                for scope_item in oidc_scope.split():
+                    form_data["scope_" + scope_item] = scope_item
+                default_data = {"remember": "until-revoked",
+                                "user_oauth_approval": True,
+                                "authorize": "Authorize"}
+                form_data.update(default_data)
+                print('Automatically authorising request of the following info on behalf of user: %s', str(form_data))
+                LOG.warning('Automatically authorising request of the following info on behalf of user: %s',
+                            str(form_data))
+                # authorizing info request on behalf of the user until he/she revokes this authorization !
+                result = self._send_request(result.url, type='POST', data=form_data)
 
         if not result or 'result' not in locals():
             LOG.error('Cannot retrieve authentication token!')
@@ -674,9 +652,6 @@ class BaseClient(object):
 
         :returns: True if the token was successfully received. False otherwise.
         """
-
-        headers = {'X-Rucio-Account': self.account, 'X-Rucio-VO': self.vo}
-
         client_cert = None
         client_key = None
         if self.auth_type == 'x509':
@@ -699,20 +674,7 @@ class BaseClient(object):
         else:
             cert = (client_cert, client_key)
 
-        result = None
-        for retry in range(self.AUTH_RETRIES + 1):
-            try:
-                result = self.session.get(url, headers=headers, cert=cert, verify=self.ca_cert)
-                if result.status_code in STATUS_CODES_TO_RETRY:
-                    back_off(retry, reason='server returned {}'.format(result.status_code))
-                    continue
-                break
-            except ConnectionError as error:
-                if 'alert certificate expired' in str(error):
-                    raise CannotAuthenticate(str(error))
-                LOG.error('ConnectionError: ' + str(error))
-                if retry > self.request_retries:
-                    raise
+        result = self._send_request(url, get_token=True, cert=cert)
 
         # Note a response object for a failed request evaluates to false, so we cannot
         # use "not result" here
@@ -735,7 +697,7 @@ class BaseClient(object):
 
         :returns: True if the token was successfully received. False otherwise.
         """
-        headers = {'X-Rucio-Account': self.account, 'X-Rucio-VO': self.vo}
+        headers = {}
 
         private_key_path = self.creds['ssh_private_key']
         if not path.exists(private_key_path):
@@ -747,20 +709,7 @@ class BaseClient(object):
 
         url = build_url(self.auth_host, path='auth/ssh_challenge_token')
 
-        result = None
-        for retry in range(self.AUTH_RETRIES + 1):
-            try:
-                result = self.session.get(url, headers=headers, verify=self.ca_cert)
-                if result.status_code in STATUS_CODES_TO_RETRY:
-                    back_off(retry, reason='server returned {}'.format(result.status_code))
-                    continue
-                break
-            except ConnectionError as error:
-                if 'alert certificate expired' in str(error):
-                    raise CannotAuthenticate(str(error))
-                LOG.error('ConnectionError: ' + str(error))
-                if retry > self.request_retries:
-                    raise
+        result = self._send_request(url, get_token=True)
 
         if not result:
             LOG.error('cannot get ssh_challenge_token')
@@ -783,20 +732,7 @@ class BaseClient(object):
 
         url = build_url(self.auth_host, path='auth/ssh')
 
-        result = None
-        for retry in range(self.AUTH_RETRIES + 1):
-            try:
-                result = self.session.get(url, headers=headers, verify=self.ca_cert)
-                if result.status_code in STATUS_CODES_TO_RETRY:
-                    back_off(retry, reason='server returned {}'.format(result.status_code))
-                    continue
-                break
-            except ConnectionError as error:
-                if 'alert certificate expired' in str(error):
-                    raise CannotAuthenticate(str(error))
-                LOG.error('ConnectionError: ' + str(error))
-                if retry > self.request_retries:
-                    raise
+        result = self._send_request(url, headers=headers, get_token=True)
 
         if not result:
             LOG.error('Cannot retrieve authentication token!')
@@ -820,22 +756,9 @@ class BaseClient(object):
         if not EXTRA_MODULES['requests_kerberos']:
             raise MissingModuleException('The requests-kerberos module is not installed.')
 
-        headers = {'X-Rucio-Account': self.account, 'X-Rucio-VO': self.vo}
         url = build_url(self.auth_host, path='auth/gss')
 
-        result = None
-        for retry in range(self.AUTH_RETRIES + 1):
-            try:
-                result = self.session.get(url, headers=headers,
-                                          verify=self.ca_cert, auth=HTTPKerberosAuth())
-                if result.status_code in STATUS_CODES_TO_RETRY:
-                    back_off(retry, reason='server returned {}'.format(result.status_code))
-                    continue
-                break
-            except ConnectionError as error:
-                LOG.error('ConnectionError: ' + str(error))
-                if retry > self.request_retries:
-                    raise
+        result = self._send_request(url, get_token=True, auth=HTTPKerberosAuth())
 
         if not result:
             LOG.error('Cannot retrieve authentication token!')
@@ -856,30 +779,16 @@ class BaseClient(object):
 
         :returns: True if the token was successfully received. False otherwise.
         """
-
-        headers = {'X-Rucio-Account': self.account, 'X-Rucio-VO': self.vo}
         userpass = {'username': self.creds['username'], 'password': self.creds['password']}
         url = build_url(self.auth_host, path='auth/saml')
 
         result = None
-        for retry in range(self.AUTH_RETRIES + 1):
-            try:
-                SAML_auth_result = self.session.get(url, headers=headers)
-                if SAML_auth_result.status_code in STATUS_CODES_TO_RETRY:
-                    back_off(retry, reason='server returned {}'.format(SAML_auth_result.status_code))
-                    continue
-
-                if SAML_auth_result.headers['X-Rucio-Auth-Token']:
-                    return SAML_auth_result.headers['X-Rucio-Auth-Token']
-
-                SAML_auth_url = SAML_auth_result.headers['X-Rucio-SAML-Auth-URL']
-                result = self.session.post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
-                result = self.session.get(url, headers=headers)
-                break
-            except ConnectionError as error:
-                LOG.error('ConnectionError: ' + str(error))
-                if retry > self.request_retries:
-                    raise
+        SAML_auth_result = self._send_request(url, get_token=True)
+        if SAML_auth_result.headers['X-Rucio-Auth-Token']:
+            return SAML_auth_result.headers['X-Rucio-Auth-Token']
+        SAML_auth_url = SAML_auth_result.headers['X-Rucio-SAML-Auth-URL']
+        result = self._send_request(SAML_auth_url, type='POST', data=userpass, verify=False)
+        result = self._send_request(url, get_token=True)
 
         if not result or 'result' not in locals():
             LOG.error('Cannot retrieve authentication token!')

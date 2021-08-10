@@ -16,19 +16,20 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
-# - Martin Barisits <martin.barisits@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2021
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import unittest
 
 import pytest
 
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_usage
@@ -36,13 +37,14 @@ from rucio.core.rse import get_rse_id
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
 from rucio.db.sqla import session, models
+from rucio.tests.common_server import get_vo
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE, fails when run in parallel')
 class TestCoreRSECounter(unittest.TestCase):
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_vo()}
         else:
             self.vo = {}
 
@@ -96,10 +98,10 @@ class TestCoreRSECounter(unittest.TestCase):
     def test_fill_counter_history(self):
         """RSE COUNTER (CORE): Fill the usage history with the current value."""
         db_session = session.get_session()
-        db_session.query(models.RSEUsage.__history_mapper__.class_).delete()
+        db_session.query(models.RSEUsageHistory).delete()
         db_session.commit()
         rse_counter.fill_rse_counter_history_table()
-        history_usage = [(usage['rse_id'], usage['files'], usage['source'], usage['used']) for usage in db_session.query(models.RSEUsage.__history_mapper__.class_)]
+        history_usage = [(usage['rse_id'], usage['files'], usage['source'], usage['used']) for usage in db_session.query(models.RSEUsageHistory)]
         current_usage = [(usage['rse_id'], usage['files'], usage['source'], usage['used']) for usage in db_session.query(models.RSEUsage)]
         for usage in history_usage:
             assert usage in current_usage
@@ -109,7 +111,7 @@ class TestCoreRSECounter(unittest.TestCase):
 class TestCoreAccountCounter(unittest.TestCase):
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_vo()}
         else:
             self.vo = {}
 
@@ -164,10 +166,10 @@ class TestCoreAccountCounter(unittest.TestCase):
     def test_fill_counter_history(self):
         """ACCOUNT COUNTER (CORE): Fill the usage history with the current value."""
         db_session = session.get_session()
-        db_session.query(models.AccountUsage.__history_mapper__.class_).delete()
+        db_session.query(models.AccountUsageHistory).delete()
         db_session.commit()
         account_counter.fill_account_counter_history_table()
-        history_usage = [(usage['rse_id'], usage['files'], usage['account'], usage['bytes']) for usage in db_session.query(models.AccountUsage.__history_mapper__.class_)]
+        history_usage = [(usage['rse_id'], usage['files'], usage['account'], usage['bytes']) for usage in db_session.query(models.AccountUsageHistory)]
         current_usage = [(usage['rse_id'], usage['files'], usage['account'], usage['bytes']) for usage in db_session.query(models.AccountUsage)]
         for usage in history_usage:
             assert usage in current_usage

@@ -56,7 +56,7 @@ jobs:
         id: images
         shell: bash
         run: |
-          BUILD_ARGS=("--output" "list" "--cache-repo" "docker.pkg.github.com/${{ github.repository }}" "--push-cache")
+          BUILD_ARGS=("--output" "list" "--cache-repo" "ghcr.io/${{ github.repository }}" "--push-cache")
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             # only build without cache on schedule (to update distro packages)
             BUILD_ARGS=("${BUILD_ARGS[@]}" "--build-no-cache")
@@ -70,7 +70,7 @@ jobs:
             echo "::warning::Not building image for branch ${{ matrix.branch }}, because it would overwrite master"
             exit 0
           fi
-          docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           i=0; until [ "$i" -ge 3 ]; do
             IMAGES="$(echo '${{ steps.matrix.outputs.matrix }}' | "${{ steps.files.outputs.build_images }}" ${BUILD_ARGS[@]} ./etc/docker/test || echo "")"
             if [[ -n "$IMAGES" ]]; then break;
@@ -79,7 +79,7 @@ jobs:
               echo "::warning::Building images failed, retrying…"
             fi
           done
-          docker logout https://docker.pkg.github.com
+          docker logout https://ghcr.io
           if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
   build_integration_tests:
     runs-on: ubuntu-latest
@@ -124,7 +124,7 @@ jobs:
         id: images
         shell: bash
         run: |
-          BUILD_ARGS=("--output" "list" "--cache-repo" "docker.pkg.github.com/${{ github.repository }}" "--push-cache")
+          BUILD_ARGS=("--output" "list" "--cache-repo" "ghcr.io/${{ github.repository }}" "--push-cache")
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             # only build without cache on schedule (to update distro packages)
             BUILD_ARGS=("${BUILD_ARGS[@]}" "--build-no-cache")
@@ -138,7 +138,7 @@ jobs:
             echo "::warning::Not building image for branch ${{ matrix.branch }}, because it would overwrite master"
             exit 0
           fi
-          docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           i=0; until [ "$i" -ge 3 ]; do
             IMAGES="$(echo '${{ steps.matrix.outputs.matrix }}' | "${{ steps.files.outputs.build_images }}" ${BUILD_ARGS[@]} \
                 ${{ github.workspace }}/dev || echo "")"
@@ -148,5 +148,5 @@ jobs:
               echo "::warning::Building images failed, retrying…"
             fi
           done
-          docker logout https://docker.pkg.github.com
+          docker logout https://ghcr.io
           if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi

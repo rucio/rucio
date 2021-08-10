@@ -24,6 +24,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import itertools
 from typing import TYPE_CHECKING
@@ -35,7 +36,7 @@ from rucio.api.replica import list_replicas
 from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound
 from rucio.core.replica_sorter import site_selector, sort_replicas
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
-    generate_http_error_flask, ErrorHandlingMethodView
+    extract_vo, generate_http_error_flask, ErrorHandlingMethodView
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -71,7 +72,7 @@ class MetaLinkRedirector(ErrorHandlingMethodView):
         headers = self.get_headers()
 
         try:
-            scope, name = parse_scope_name(scope_name, request.headers.get('X-Rucio-VO', default='def'))
+            scope, name = parse_scope_name(scope_name, extract_vo(request.headers))
         except ValueError as error:
             return generate_http_error_flask(400, error, headers=headers)
 
@@ -90,7 +91,7 @@ class MetaLinkRedirector(ErrorHandlingMethodView):
         sortby = request.args.get('sort', default=sortby)
 
         # get vo if given
-        vo = request.headers.get('X-Rucio-VO', default='def')
+        vo = extract_vo(request.headers)
 
         try:
             replicas_iter = list_replicas(dids=dids, schemes=schemes, client_location=client_location, vo=vo)
@@ -170,7 +171,7 @@ class HeaderRedirector(ErrorHandlingMethodView):
         headers = self.get_headers()
 
         try:
-            scope, name = parse_scope_name(scope_name, request.headers.get('X-Rucio-VO', default='def'))
+            scope, name = parse_scope_name(scope_name, extract_vo(request.headers))
         except ValueError as error:
             return generate_http_error_flask(400, error, headers=headers)
 
@@ -195,7 +196,7 @@ class HeaderRedirector(ErrorHandlingMethodView):
             headers.set('Link', f'<{cleaned_url}/metalink?schemes={",".join(schemes)}&select={sortby}>; rel=describedby; type="application/metalink+xml"')
 
             # get vo if given
-            vo = request.headers.get('X-Rucio-VO', default='def')
+            vo = extract_vo(request.headers)
 
             replicas = list(
                 list_replicas(

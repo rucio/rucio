@@ -1,4 +1,5 @@
-# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +15,12 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
-# - Vincent Garonne <vgaronne@gmail.com>, 2015-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
-#
-# PY3K COMPATIBLE
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
@@ -242,9 +242,9 @@ def set(section, option, value, session=None):
         old_value = session.query(models.Config.value).filter_by(section=section,
                                                                  opt=option).first()[0]
         if old_value != str(value):
-            old_option = models.Config.__history_mapper__.class_(section=section,
-                                                                 opt=option,
-                                                                 value=old_value)
+            old_option = models.ConfigHistory(section=section,
+                                              opt=option,
+                                              value=old_value)
             old_option.save(session=session)
             session.query(models.Config).filter_by(section=section, opt=option).update({'value': str(value)})
             delete_from_cache(key=_value_cache_key(section, option))
@@ -265,9 +265,9 @@ def remove_section(section, session=None):
         return False
     else:
         for old in session.query(models.Config.value).filter_by(section=section).all():
-            old_option = models.Config.__history_mapper__.class_(section=old[0],
-                                                                 opt=old[1],
-                                                                 value=old[2])
+            old_option = models.ConfigHistory(section=old[0],
+                                              opt=old[1],
+                                              value=old[2])
             old_option.save(session=session)
             delete_from_cache(key=_has_option_cache_key(old[0], old[1]))
             delete_from_cache(key=_value_cache_key(old[0], old[1]))
@@ -292,10 +292,10 @@ def remove_option(section, option, session=None):
     if not has_option(section=section, option=option, session=session, use_cache=False):
         return False
     else:
-        old_option = models.Config.__history_mapper__.class_(section=section,
-                                                             opt=option,
-                                                             value=session.query(models.Config.value).filter_by(section=section,
-                                                                                                                opt=option).first()[0])
+        old_option = models.ConfigHistory(section=section,
+                                          opt=option,
+                                          value=session.query(models.Config.value).filter_by(section=section,
+                                                                                             opt=option).first()[0])
         old_option.save(session=session)
         session.query(models.Config).filter_by(section=section, opt=option).delete()
 

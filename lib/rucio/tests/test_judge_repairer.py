@@ -22,6 +22,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import unittest
 from hashlib import sha256
@@ -46,6 +47,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RuleState, ReplicaState
 from rucio.db.sqla.session import get_session
 from rucio.tests.common import rse_name_generator
+from rucio.tests.common_server import get_vo
 from rucio.tests.test_rule import create_files, tag_generator
 
 
@@ -56,7 +58,7 @@ class TestJudgeRepairer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 

@@ -114,7 +114,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_replicas(self, dids, schemes=None, unavailable=False, ignore_availability=True,
+    def list_replicas(self, dids, schemes=None, ignore_availability=True,
                       all_states=False, metalink=False, rse_expression=None,
                       client_location=None, sort=None, domain=None,
                       signature_lifetime=None, nrandom=None,
@@ -126,12 +126,11 @@ class ReplicaClient(BaseClient):
         :param dids: The list of data identifiers (DIDs) like :
             [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
         :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
-        :param unavailable: Also include unavailable replicas in the list (deprecated)
         :param ignore_availability: Also include replicas from blocked RSEs into the list
         :param metalink: ``False`` (default) retrieves as JSON,
                          ``True`` retrieves as metalink4+xml.
         :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
-        :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}
+        :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
         :param sort: Sort the replicas: ``geoip`` - based on src/dst IP topographical distance
                                         ``closeness`` - based on src/dst closeness
                                         ``dynamic`` - Rucio Dynamic Smart Sort (tm)
@@ -150,8 +149,6 @@ class ReplicaClient(BaseClient):
 
         if schemes:
             data['schemes'] = schemes
-        if unavailable:
-            data['unavailable'] = True
         if ignore_availability is not None:
             data['ignore_availability'] = ignore_availability
         data['all_states'] = all_states

@@ -30,6 +30,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
+# - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 
 import datetime
 import json
@@ -484,13 +485,11 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
         if err_msg:
             update_items['err_msg'] = err_msg
 
-        if transfer_id:
-            rowcount = session.query(models.Request).filter_by(id=request_id, external_id=transfer_id).update(update_items, synchronize_session=False)
+        request = get_request(request_id, session=session)
+        if new_state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST] and (request["external_id"] != transfer_id):
+            logger(logging.ERROR, "Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
         else:
-            if new_state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST]:
-                logger(logging.ERROR, "Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
-            else:
-                rowcount = session.query(models.Request).filter_by(id=request_id).update(update_items, synchronize_session=False)
+            rowcount = session.query(models.Request).filter_by(id=request_id).update(update_items, synchronize_session=False)
     except IntegrityError as error:
         raise RucioException(error.args)
 
@@ -664,37 +663,37 @@ def archive_request(request_id, session=None):
     req = get_request(request_id=request_id, session=session)
 
     if req:
-        hist_request = models.Request.__history_mapper__.class_(id=req['id'],
-                                                                created_at=req['created_at'],
-                                                                request_type=req['request_type'],
-                                                                scope=req['scope'],
-                                                                name=req['name'],
-                                                                dest_rse_id=req['dest_rse_id'],
-                                                                source_rse_id=req['source_rse_id'],
-                                                                attributes=req['attributes'],
-                                                                state=req['state'],
-                                                                account=req['account'],
-                                                                external_id=req['external_id'],
-                                                                retry_count=req['retry_count'],
-                                                                err_msg=req['err_msg'],
-                                                                previous_attempt_id=req['previous_attempt_id'],
-                                                                external_host=req['external_host'],
-                                                                rule_id=req['rule_id'],
-                                                                activity=req['activity'],
-                                                                bytes=req['bytes'],
-                                                                md5=req['md5'],
-                                                                adler32=req['adler32'],
-                                                                dest_url=req['dest_url'],
-                                                                requested_at=req['requested_at'],
-                                                                submitted_at=req['submitted_at'],
-                                                                staging_started_at=req['staging_started_at'],
-                                                                staging_finished_at=req['staging_finished_at'],
-                                                                started_at=req['started_at'],
-                                                                estimated_started_at=req['estimated_started_at'],
-                                                                estimated_at=req['estimated_at'],
-                                                                transferred_at=req['transferred_at'],
-                                                                estimated_transferred_at=req['estimated_transferred_at'],
-                                                                transfertool=req['transfertool'])
+        hist_request = models.RequestHistory(id=req['id'],
+                                             created_at=req['created_at'],
+                                             request_type=req['request_type'],
+                                             scope=req['scope'],
+                                             name=req['name'],
+                                             dest_rse_id=req['dest_rse_id'],
+                                             source_rse_id=req['source_rse_id'],
+                                             attributes=req['attributes'],
+                                             state=req['state'],
+                                             account=req['account'],
+                                             external_id=req['external_id'],
+                                             retry_count=req['retry_count'],
+                                             err_msg=req['err_msg'],
+                                             previous_attempt_id=req['previous_attempt_id'],
+                                             external_host=req['external_host'],
+                                             rule_id=req['rule_id'],
+                                             activity=req['activity'],
+                                             bytes=req['bytes'],
+                                             md5=req['md5'],
+                                             adler32=req['adler32'],
+                                             dest_url=req['dest_url'],
+                                             requested_at=req['requested_at'],
+                                             submitted_at=req['submitted_at'],
+                                             staging_started_at=req['staging_started_at'],
+                                             staging_finished_at=req['staging_finished_at'],
+                                             started_at=req['started_at'],
+                                             estimated_started_at=req['estimated_started_at'],
+                                             estimated_at=req['estimated_at'],
+                                             transferred_at=req['transferred_at'],
+                                             estimated_transferred_at=req['estimated_transferred_at'],
+                                             transfertool=req['transfertool'])
         hist_request.save(session=session)
         try:
             time_diff = req['updated_at'] - req['created_at']

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019-2020 CERN
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,8 @@
 # Authors:
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 ''' OAuth2.0 and JWT feature support; adding table oauth_requests & several columns to tokens table '''
 
@@ -50,15 +51,7 @@ def upgrade():
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')")
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:  # pylint: disable=no-member
-        create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
-                                table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')")
-        create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
-                                table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')")
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:  # pylint: disable=no-member
+    elif context.get_context().dialect.name == 'mysql':  # pylint: disable=no-member
         execute('ALTER TABLE ' + schema + 'identities DROP CHECK IDENTITIES_TYPE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
@@ -72,7 +65,7 @@ def upgrade():
         add_column('tokens', sa.Column('oidc_scope', sa.String(2048), nullable=True, default=None), schema=schema[:-1])
         add_column('tokens', sa.Column('audience', sa.String(315), nullable=True, default=None), schema=schema[:-1])
         add_column('tokens', sa.Column('refresh_token', sa.String(315), nullable=True, default=None), schema=schema[:-1])
-        add_column('tokens', sa.Column('refresh', sa.Boolean(name='TOKENS_REFRESH_CHK'), default=False), schema=schema[:-1])
+        add_column('tokens', sa.Column('refresh', sa.Boolean(name='TOKENS_REFRESH_CHK', create_constraint=True), default=False), schema=schema[:-1])
         add_column('tokens', sa.Column('refresh_start', sa.DateTime(), nullable=True, default=None), schema=schema[:-1])
         add_column('tokens', sa.Column('refresh_expired_at', sa.DateTime(), nullable=True, default=None), schema=schema[:-1])
         add_column('tokens', sa.Column('refresh_lifetime', sa.Integer(), nullable=True, default=None), schema=schema[:-1])
@@ -124,25 +117,7 @@ def downgrade():
         drop_table('oauth_requests')
         alter_column('tokens', 'token', existing_type=sa.String(length=3072), type_=sa.String(length=352), schema=schema[:-1])
 
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:  # pylint: disable=no-member
-        create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
-                                table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
-
-        create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
-                                table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
-        drop_column('tokens', 'oidc_scope', schema=schema[:-1])
-        drop_column('tokens', 'audience', schema=schema[:-1])
-        drop_column('tokens', 'refresh_token', schema=schema[:-1])
-        drop_column('tokens', 'refresh', schema=schema[:-1])
-        drop_column('tokens', 'refresh_start', schema=schema[:-1])
-        drop_column('tokens', 'refresh_expired_at', schema=schema[:-1])
-        drop_column('tokens', 'refresh_lifetime', schema=schema[:-1])
-        alter_column('tokens', 'token', existing_type=sa.String(length=3072), type_=sa.String(length=352), existing_nullable=False, nullable=False, schema=schema[:-1])
-        drop_table('oauth_requests')
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:  # pylint: disable=no-member
+    elif context.get_context().dialect.name == 'mysql':  # pylint: disable=no-member
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")

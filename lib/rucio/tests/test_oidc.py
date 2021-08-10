@@ -19,6 +19,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import time
 import traceback
@@ -30,7 +31,7 @@ from urllib.parse import urlparse, parse_qs
 import pytest
 from oic import rndstr
 
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.exception import (CannotAuthenticate, DatabaseException)
 from rucio.common.exception import Duplicate
 from rucio.common.types import InternalAccount
@@ -43,6 +44,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import get_session
+from rucio.tests.common_server import get_vo
 
 NEW_TOKEN_DICT = {'access_token': 'eyJ3bG...',
                   'expires_in': 3599,
@@ -277,7 +279,7 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_vo()}
         else:
             self.vo = {}
 

@@ -1,4 +1,4 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - John Doe <john.doe@asdf.com>, 2020
+# - John Doe <john.doe@asdf.com>, 2021
 
 ''' ${message} '''
 
@@ -40,10 +40,7 @@ def upgrade():
     elif context.get_context().dialect.name == 'postgresql':
         pass
 
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
-        pass
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+    elif context.get_context().dialect.name == 'mysql':
         pass
 
 
@@ -60,8 +57,5 @@ def downgrade():
     elif context.get_context().dialect.name == 'postgresql':
         pass
 
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
-        pass
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+    elif context.get_context().dialect.name == 'mysql':
         pass

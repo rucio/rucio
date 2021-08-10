@@ -18,12 +18,13 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 import unittest
 
 import pytest
 
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs
 from rucio.common.types import InternalAccount
 from rucio.core.account_counter import update_account_counter, increase
@@ -31,6 +32,7 @@ from rucio.core.account_limit import set_local_account_limit, set_global_account
 from rucio.core.rse import get_rse_id
 from rucio.core.rse_selector import RSESelector
 from rucio.db.sqla import session, models
+from rucio.tests.common_server import get_vo
 
 
 @pytest.mark.dirty
@@ -40,7 +42,7 @@ class TestRSESelectorInit(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 
@@ -141,7 +143,7 @@ class TestRSESelectorDynamic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
 

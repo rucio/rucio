@@ -61,7 +61,8 @@ graceful_stop = threading.Event()
 
 class Receiver(object):
 
-    def __init__(self, broker, id, total_threads, full_mode=False):
+    def __init__(self, broker, id, total_threads, full_mode=False, all_vos=False):
+        self.__all_vos = all_vos
         self.__broker = broker
         self.__id = id
         self.__total_threads = total_threads
@@ -74,75 +75,47 @@ class Receiver(object):
     def on_message(self, frame):
         record_counter('daemons.conveyor.receiver.message_all')
 
-        try:
-            msg = json.loads(frame.body)
-        except Exception:
-            msg = json.loads(frame.body[:-1])  # Note: I am not sure if this is needed anymore, this was due to an unparsable EOT character
+        msg = json.loads(frame.body)
 
-        if 'vo' not in msg or msg['vo'] != get_policy():
-            return
+        if not self.__all_vos:
+            if 'vo' not in msg or msg['vo'] != get_policy():
+                return
 
         if 'job_metadata' in msg.keys() \
            and isinstance(msg['job_metadata'], dict) \
            and 'issuer' in msg['job_metadata'].keys() \
            and str(msg['job_metadata']['issuer']) == str('rucio'):
 
-            if 'job_m_replica' in msg.keys() and 'job_state' in msg.keys() \
-               and (str(msg['job_m_replica']).lower() == str('false') or (str(msg['job_m_replica']).lower() == str('true') and str(msg['job_state']) != str('ACTIVE'))):
+            if 'job_state' in msg.keys() and (
+                    str(msg['job_state']) != str('ACTIVE')
+                    or str(msg['job_state']) == str('ACTIVE') and 'job_m_replica' in msg.keys() and (str(msg['job_m_replica']).lower() == str('true'))):
 
-                if 'request_id' in msg['job_metadata']:
-                    # submitted by old submitter
-                    response = {'new_state': None,
-                                'transfer_id': msg.get('tr_id').split("__")[-1],
-                                'job_state': msg.get('t_final_transfer_state', None),
-                                'src_url': msg.get('src_url', None),
-                                'dst_url': msg.get('dst_url', None),
-                                'transferred_at': datetime.datetime.utcfromtimestamp(float(msg.get('tr_timestamp_complete', 0)) / 1000),
-                                'duration': (float(msg.get('tr_timestamp_complete', 0)) - float(msg.get('tr_timestamp_start', 0))) / 1000,
-                                'reason': msg.get('t__error_message', None),
-                                'scope': msg['job_metadata'].get('scope', None),
-                                'name': msg['job_metadata'].get('name', None),
-                                'src_rse': msg['job_metadata'].get('src_rse', None),
-                                'dst_rse': msg['job_metadata'].get('dst_rse', None),
-                                'request_id': msg['job_metadata'].get('request_id', None),
-                                'activity': msg['job_metadata'].get('activity', None),
-                                'src_rse_id': msg['job_metadata'].get('src_rse_id', None),
-                                'dest_rse_id': msg['job_metadata'].get('dest_rse_id', None),
-                                'previous_attempt_id': msg['job_metadata'].get('previous_attempt_id', None),
-                                'adler32': msg['job_metadata'].get('adler32', None),
-                                'md5': msg['job_metadata'].get('md5', None),
-                                'filesize': msg['job_metadata'].get('filesize', None),
-                                'external_host': msg.get('endpnt', None),
-                                'job_m_replica': msg.get('job_m_replica', None),
-                                'details': {'files': msg['job_metadata']}}
-                else:
-                    # for new submitter, file_metadata replace the job_metadata
-                    response = {'new_state': None,
-                                'transfer_id': msg.get('tr_id').split("__")[-1],
-                                'job_state': msg.get('t_final_transfer_state', None),
-                                'src_url': msg.get('src_url', None),
-                                'dst_url': msg.get('dst_url', None),
-                                'started_at': datetime.datetime.utcfromtimestamp(float(msg.get('tr_timestamp_start', 0)) / 1000),
-                                'transferred_at': datetime.datetime.utcfromtimestamp(float(msg.get('tr_timestamp_complete', 0)) / 1000),
-                                'duration': (float(msg.get('tr_timestamp_complete', 0)) - float(msg.get('tr_timestamp_start', 0))) / 1000,
-                                'reason': msg.get('t__error_message', None),
-                                'scope': msg['file_metadata'].get('scope', None),
-                                'name': msg['file_metadata'].get('name', None),
-                                'src_type': msg['file_metadata'].get('src_type', None),
-                                'dst_type': msg['file_metadata'].get('dst_type', None),
-                                'src_rse': msg['file_metadata'].get('src_rse', None),
-                                'dst_rse': msg['file_metadata'].get('dst_rse', None),
-                                'request_id': msg['file_metadata'].get('request_id', None),
-                                'activity': msg['file_metadata'].get('activity', None),
-                                'src_rse_id': msg['file_metadata'].get('src_rse_id', None),
-                                'dest_rse_id': msg['file_metadata'].get('dest_rse_id', None),
-                                'previous_attempt_id': msg['file_metadata'].get('previous_attempt_id', None),
-                                'adler32': msg['file_metadata'].get('adler32', None),
-                                'md5': msg['file_metadata'].get('md5', None),
-                                'filesize': msg['file_metadata'].get('filesize', None),
-                                'external_host': msg.get('endpnt', None),
-                                'job_m_replica': msg.get('job_m_replica', None),
-                                'details': {'files': msg['file_metadata']}}
+                response = {'new_state': None,
+                            'transfer_id': msg.get('tr_id').split("__")[-1],
+                            'job_state': msg.get('t_final_transfer_state', None),
+                            'src_url': msg.get('src_url', None),
+                            'dst_url': msg.get('dst_url', None),
+                            'started_at': datetime.datetime.utcfromtimestamp(float(msg.get('tr_timestamp_start', 0)) / 1000),
+                            'transferred_at': datetime.datetime.utcfromtimestamp(float(msg.get('tr_timestamp_complete', 0)) / 1000),
+                            'duration': (float(msg.get('tr_timestamp_complete', 0)) - float(msg.get('tr_timestamp_start', 0))) / 1000,
+                            'reason': msg.get('t__error_message', None),
+                            'scope': msg['file_metadata'].get('scope', None),
+                            'name': msg['file_metadata'].get('name', None),
+                            'src_type': msg['file_metadata'].get('src_type', None),
+                            'dst_type': msg['file_metadata'].get('dst_type', None),
+                            'src_rse': msg['file_metadata'].get('src_rse', None),
+                            'dst_rse': msg['file_metadata'].get('dst_rse', None),
+                            'request_id': msg['file_metadata'].get('request_id', None),
+                            'activity': msg['file_metadata'].get('activity', None),
+                            'src_rse_id': msg['file_metadata'].get('src_rse_id', None),
+                            'dest_rse_id': msg['file_metadata'].get('dest_rse_id', None),
+                            'previous_attempt_id': msg['file_metadata'].get('previous_attempt_id', None),
+                            'adler32': msg['file_metadata'].get('adler32', None),
+                            'md5': msg['file_metadata'].get('md5', None),
+                            'filesize': msg['file_metadata'].get('filesize', None),
+                            'external_host': msg.get('endpnt', None),
+                            'job_m_replica': msg.get('job_m_replica', None),
+                            'details': {'files': msg['file_metadata']}}
 
                 record_counter('daemons.conveyor.receiver.message_rucio')
                 if str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.OK:  # pylint:disable=no-member
@@ -174,7 +147,7 @@ class Receiver(object):
                     logging.critical(traceback.format_exc())
 
 
-def receiver(id, total_threads=1, full_mode=False):
+def receiver(id, total_threads=1, full_mode=False, all_vos=False):
     """
     Main loop to consume messages from the FTS3 producer.
     """
@@ -250,7 +223,9 @@ def receiver(id, total_threads=1, full_mode=False):
                 logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
                 record_counter('daemons.messaging.fts3.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
 
-                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id=id, total_threads=total_threads, full_mode=full_mode))
+                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0],
+                                                                   id=id, total_threads=total_threads,
+                                                                   full_mode=full_mode, all_vos=all_vos))
                 if not use_ssl:
                     conn.connect(username, password, wait=True)
                 else:
