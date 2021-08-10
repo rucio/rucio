@@ -197,5 +197,5 @@ def list_dids(scope=None, filters=None, type='collection', ignore_case=False, li
         return meta_handler_to_use.list_dids(scope=scope, filters=filters, type=type,
                                              ignore_case=ignore_case, limit=limit,
                                              offset=offset, long=long, recursive=recursive, session=session)
-    else: 
+    else:
         raise NotImplementedError('There is no metadata plugin that manages the filter you used.')

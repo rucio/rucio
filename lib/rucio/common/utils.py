@@ -52,7 +52,6 @@ import os.path
 import re
 import socket
 import subprocess
-from sys import hash_info
 import tempfile
 import threading
 import time
