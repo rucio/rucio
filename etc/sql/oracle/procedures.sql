@@ -522,7 +522,7 @@ FOR i IN ( SELECT scope FROM scopes WHERE scope NOT LIKE 'mock%' AND scope NOT I
     SPACETOKEN,
     GRP_DATATYPE,
     SITE)
-        SELECT  /*+ FULL(d) FULL(r) PARALLEL(d 2) PARALLEL(r 2) NO_INDEX_RS(d DIDS_PK) NO_INDEX_FFS(d DIDS_PK) */
+        SELECT /*+ LEADING(D R RS) USE_HASH(RS) USE_HASH(R) SWAP_JOIN_INPUTS(RS) INDEX_FFS(RS ("RSES"."ID")) FULL(R) FULL(D) USE_HASH_AGGREGATION */ 
 	-- curr_time,
         rs.rse,
         CASE WHEN d.scope LIKE 'user%' THEN 'user'
