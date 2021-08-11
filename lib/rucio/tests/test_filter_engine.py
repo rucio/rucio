@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 import unittest
 
 from rucio.common.exception import DuplicateCriteriaInDIDFilter
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did
@@ -32,6 +32,7 @@ from rucio.core.did_meta_plugins import set_metadata
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
+from rucio.tests.common_server import get_vo
 
 
 class TestFilterEngineDummy(unittest.TestCase):
@@ -130,18 +131,18 @@ class TestFilterEngineDummy(unittest.TestCase):
 
 
 class TestFilterEngineReal(unittest.TestCase):
-    def _create_tmp_DID(self, type='DATASET'):
-        did_name = 'fe_test_did_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=did_name, type='DATASET', account=self.root)
-        return did_name
-
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo = {'vo': get_vo()}
         else:
             self.vo = {}
         self.tmp_scope = InternalScope('mock', **self.vo)
         self.root = InternalAccount('root', **self.vo)
+
+    def _create_tmp_DID(self, type='DATASET'):
+        did_name = 'fe_test_did_%s' % generate_uuid()
+        add_did(scope=self.tmp_scope, name=did_name, type='DATASET', account=self.root)
+        return did_name
 
     @read_session
     def test_OperatorsEqualNotEqual(self, session=None):
