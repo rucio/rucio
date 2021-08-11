@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,20 +24,22 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2014
 # - David Cameron <david.cameron@cern.ch>, 2014-2015
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2019
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2019
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - nataliaratnikova <natasha@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019-2020
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019-2021
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2020
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import division
@@ -678,6 +680,19 @@ def update_distance_rses(args):
         print("- Distance set to %d" % args.distance)
     if args.ranking is not None:
         print("- Ranking set to %d" % args.ranking)
+    return SUCCESS
+
+
+@exception_handler
+def delete_distance_rses(args):
+    """
+    %(prog)s delete-distance [options] SOURCE_RSE DEST_RSE
+
+    Update the existing distance entry between two RSEs.
+    """
+    client = get_client(args)
+    client.delete_distance(args.source, args.destination)
+    print('Deleted distance information from %s to %s.' % (args.source, args.destination))
     return SUCCESS
 
 
@@ -1830,6 +1845,21 @@ def get_parser():
     update_distance_rses_parser.add_argument('--distance', dest='distance', type=int, help='Distance between RSEs')
     update_distance_rses_parser.add_argument('--ranking', dest='ranking', type=int, help='Ranking of link')
 
+    # The delete_distance_rses command
+    delete_distance_rses_parser = rse_subparser.add_parser('delete-distance',
+                                                           help='Delete the distance between a pair of RSEs. The mandatory parameters are source and destination.',
+                                                           formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                           epilog='Usage example\n'
+                                                                  '"""""""""""""\n'
+                                                                  '::\n'
+                                                                  '\n'
+                                                                  '    $ rucio-admin rse delete-distance JDOE_DATADISK JDOE_SCRATCHDISK\n'
+                                                                  '    Delete distance information from JDOE_DATADISK to JDOE_SCRATCHDISK:\n'
+                                                                  '\n')
+    delete_distance_rses_parser.set_defaults(which='delete_distance_rses')
+    delete_distance_rses_parser.add_argument(dest='source', action='store', help='Source RSE name')
+    delete_distance_rses_parser.add_argument(dest='destination', action='store', help='Destination RSE name')
+
     # The get_distance_rses command
     get_distance_rses_parser = rse_subparser.add_parser('get-distance',
                                                         help='Get the distance information between a pair of RSEs.',
@@ -2300,6 +2330,7 @@ if __name__ == '__main__':
                 'add_distance_rses': add_distance_rses,
                 'update_distance_rses': update_distance_rses,
                 'get_distance_rses': get_distance_rses,
+                'delete_distance_rses': delete_distance_rses,
                 'add_protocol_rse': add_protocol_rse,
                 'del_protocol_rse': del_protocol_rse,
                 'list_rses': list_rses,
