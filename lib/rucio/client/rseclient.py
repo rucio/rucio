@@ -28,6 +28,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from json import dumps, loads
 
@@ -663,4 +664,22 @@ class RSEClient(BaseClient):
         if r.status_code == codes.ok:
             return next(self._load_json_data(r))
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
+
+    def delete_distance(self, source, destination):
+        """
+        Delete distances with the given RSE ids.
+
+        :param source: The source.
+        :param destination: The destination.
+        """
+        path = [self.RSE_BASEURL, source, 'distances', destination]
+        path = '/'.join(path)
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='DEL')
+        if r.status_code == codes.ok:
+            return True
+        exc_cls, exc_msg = self._get_exception(headers=r.headers,
+                                               status_code=r.status_code,
+                                               data=r.content)
         raise exc_cls(exc_msg)

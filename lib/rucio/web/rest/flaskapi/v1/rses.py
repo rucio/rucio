@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,8 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from json import dumps
@@ -31,7 +26,7 @@ from rucio.api.account_limit import get_rse_account_usage
 from rucio.api.rse import add_rse, update_rse, list_rses, del_rse, add_rse_attribute, list_rse_attributes, \
     del_rse_attribute, add_protocol, get_rse_protocols, del_protocols, update_protocols, get_rse, set_rse_usage, \
     get_rse_usage, list_rse_usage_history, set_rse_limits, get_rse_limits, delete_rse_limits, parse_rse_expression, \
-    add_distance, get_distance, update_distance, list_qos_policies, add_qos_policy, delete_qos_policy
+    add_distance, get_distance, update_distance, delete_distance, list_qos_policies, add_qos_policy, delete_qos_policy
 from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RSEOperationNotSupported, \
     RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, \
     InvalidRSEExpression, RSEAttributeNotFound, CounterNotFound, InvalidPath, ReplicaNotFound
@@ -789,6 +784,31 @@ class Distance(ErrorHandlingMethodView):
 
         return '', 200
 
+    def delete(self, source, destination):
+        """ Delete distance information between source RSE and destination RSE.
+
+        .. :quickref: Distance; Delete RSE distances.
+
+        :param source: The source RSE name.
+        :param destination: The destination RSE name.
+        :status 200: OK.
+        :status 401: Invalid Auth Token.
+        :status 404: RSE Not Found.
+        """
+        try:
+            delete_distance(
+                source=source,
+                destination=destination,
+                issuer=request.environ.get('issuer'),
+                vo=request.environ.get('vo')
+            )
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error)
+        except RSENotFound as error:
+            return generate_http_error_flask(404, error)
+
+        return 'Deleted', 200
+
 
 class QoSPolicy(ErrorHandlingMethodView):
     """ Add/Delete/List QoS policies on an RSE. """
@@ -860,7 +880,7 @@ def blueprint():
     bp.add_url_rule('/<rse>/attr/<key>', view_func=attributes_view, methods=['post', 'delete'])
     bp.add_url_rule('/<rse>/attr/', view_func=attributes_view, methods=['get', ])
     distance_view = Distance.as_view('distance')
-    bp.add_url_rule('/<source>/distances/<destination>', view_func=distance_view, methods=['get', 'post', 'put'])
+    bp.add_url_rule('/<source>/distances/<destination>', view_func=distance_view, methods=['get', 'post', 'put', 'delete'])
     protocol_view = Protocol.as_view('protocol')
     bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>/<port>', view_func=protocol_view, methods=['delete', 'put'])
     bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>', view_func=protocol_view, methods=['delete', 'put'])
