@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,9 +23,9 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - David Cameron <david.cameron@cern.ch>, 2014-2020
-# - Tomas Kouba <tomas.kouba@cern.ch>, 2014
+# - Tomáš Kouba <tomas.kouba@cern.ch>, 2014
 # - Wen Guan <wen.guan@cern.ch>, 2014
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
 # - Tobias Wegner <twegner@cern.ch>, 2017-2019
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
@@ -43,6 +44,10 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -947,7 +952,8 @@ def upload(args):
                       'lifetime': args.lifetime,
                       'register_after_upload': args.register_after_upload,
                       'transfer_timeout': args.transfer_timeout,
-                      'guid': args.guid})
+                      'guid': args.guid,
+                      'recursive': args.recursive})
 
     if len(items) < 1:
         raise InputValidationError('No files could be extracted from the given arguments')
@@ -959,6 +965,11 @@ def upload(args):
     if len(items) > 1 and args.name:
         logger.error("A single LFN was specified on the command line, but there are multiple files to upload.")
         logger.error("If LFN auto-detection is not used, only one file may be uploaded at a time")
+        raise InputValidationError('Invalid input argument composition')
+
+    if args.recursive and args.pfn:
+        logger.error("It is not possible to create the folder structure into collections with a non-deterministic way.")
+        logger.error("If PFN is specified, you cannot use --recursive")
         raise InputValidationError('Invalid input argument composition')
 
     client = get_client(args)
@@ -2178,6 +2189,7 @@ You can filter by key/value, e.g.::
     upload_parser.add_argument('--name', dest='name', action='store', help='Specify the exact LFN for the upload.')
     upload_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('upload', 'transfer_timeout', False, 360), help='Transfer timeout (in seconds).')
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
+    upload_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='Convert recursively the folder structure into collections')
 
     # The download and get subparser
     get_parser = subparsers.add_parser('get', help='Download method (synonym for download)')
