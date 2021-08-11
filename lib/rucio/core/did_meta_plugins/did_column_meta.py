@@ -30,11 +30,12 @@
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from datetime import datetime, timedelta
 
 from six import string_types
-from sqlalchemy import or_
+from sqlalchemy import or_, update
 from sqlalchemy.exc import CompileError, InvalidRequestError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
@@ -215,8 +216,12 @@ class DidColumnMeta(DidMetaPlugin):
 
                 for child_scope, child_name in content_query:
                     try:
-                        child_did_query = session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter_by(scope=child_scope, name=child_name)
-                        child_did_query.update(remainder, synchronize_session='fetch')
+                        stmt = update(models.DataIdentifier)\
+                            .prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')\
+                            .filter_by(scope=child_scope, name=child_name)\
+                            .execution_options(synchronize_session='fetch')\
+                            .values(remainder)
+                        session.execute(stmt)
                     except CompileError as error:
                         raise exception.InvalidMetadata(error)
                     except InvalidRequestError:
