@@ -18,6 +18,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
+import os
 import sys
 
 from setuptools import setup
