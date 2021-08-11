@@ -105,7 +105,7 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
     exceptions_raised = 0
     for vo in vos:
         try:
-            parsed_rses = parse_expression(expression=rse_expression, filter={'vo': vo})
+            parsed_rses = parse_expression(expression=rse_expression, filter_={'vo': vo})
         except InvalidRSEExpression:
             exceptions_raised += 1
             parsed_rses = []
@@ -157,7 +157,7 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
             exceptions_raised = 0
             for vo in vos:
                 try:
-                    recoverable_replicas.extend(get_suspicious_files(rse_expression, filter={'vo': vo}, **getfileskwargs))
+                    recoverable_replicas.extend(get_suspicious_files(rse_expression, filter_={'vo': vo}, **getfileskwargs))
                 except InvalidRSEExpression:
                     exceptions_raised += 1
             if exceptions_raised == len(vos):

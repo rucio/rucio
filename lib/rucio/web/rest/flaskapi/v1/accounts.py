@@ -295,7 +295,7 @@ class Account(ErrorHandlingMethodView):
         """
 
         def generate(_filter, vo):
-            for account in list_accounts(filter=_filter, vo=vo):
+            for account in list_accounts(filter_=_filter, vo=vo):
                 yield render_json(**account) + "\n"
 
         return try_stream(generate(_filter=dict(request.args.items(multi=False)), vo=request.environ.get('vo')))

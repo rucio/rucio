@@ -56,7 +56,7 @@ def test_core_temporary_dids():
     add_temporary_dids(dids=temporary_dids, account=root)
 
     compose(scope=scope, name='file_%s' % generate_uuid(), rse_id=rse_id,
-            bytes=10, sources=temporary_dids, account=root,
+            bytes_=10, sources=temporary_dids, account=root,
             md5=None, adler32=None, pfn=None, meta={}, rules=[],
             parent_scope=None, parent_name=None)
 

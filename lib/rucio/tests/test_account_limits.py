@@ -56,7 +56,7 @@ class TestCoreAccountLimits(unittest.TestCase):
 
         # Add test account
         cls.account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for x in range(10)), **cls.vo)
-        add_account(account=cls.account, type=AccountType.USER, email='rucio@email.com')
+        add_account(account=cls.account, type_=AccountType.USER, email='rucio@email.com')
 
         # Add test RSE
         cls.rse1 = 'MOCK'
@@ -81,7 +81,7 @@ class TestCoreAccountLimits(unittest.TestCase):
 
     def test_local_account_limit(self):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete local account limit """
-        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes=100000, session=self.db_session)
+        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes_=100000, session=self.db_session)
         assert account_limit.get_local_account_limit(account=self.account, rse_id=self.rse1_id, session=self.db_session) == 100000
         assert account_limit.get_local_account_limit(account=self.account, rse_id=self.rse2_id, session=self.db_session) is None
         account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id, session=self.db_session)
@@ -127,8 +127,8 @@ class TestCoreAccountLimits(unittest.TestCase):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete local account limits """
         limit1 = 100
         limit2 = 200
-        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes=limit1, session=self.db_session)
-        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse2_id, bytes=limit2, session=self.db_session)
+        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes_=limit1, session=self.db_session)
+        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse2_id, bytes_=limit2, session=self.db_session)
         results = account_limit.get_local_account_limits(account=self.account, session=self.db_session)
         assert len(results) == 2
         assert results[self.rse1_id] == limit1
@@ -154,7 +154,7 @@ class TestAccountClient(unittest.TestCase):
 
         # Add test account
         cls.account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for x in range(10)), **cls.vo)
-        add_account(account=cls.account, type=AccountType.USER, email='rucio@email.com')
+        add_account(account=cls.account, type_=AccountType.USER, email='rucio@email.com')
 
         # Add test RSE
         cls.rse1 = 'MOCK'
@@ -208,8 +208,8 @@ class TestAccountClient(unittest.TestCase):
 
     def test_get_local_account_limits(self):
         """ ACCOUNT_LIMIT (CLIENTS): Get local account limits """
-        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes=12345)
-        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse2_id, bytes=12345)
+        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes_=12345)
+        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse2_id, bytes_=12345)
 
         limits = self.client.get_local_account_limits(account=self.account.external)
 
@@ -222,7 +222,7 @@ class TestAccountClient(unittest.TestCase):
     def test_get_local_account_limit(self):
         """ ACCOUNT_LIMIT (CLIENTS): Get local account limit """
         account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id)
-        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes=333)
+        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes_=333)
 
         limit = self.client.get_local_account_limit(account=self.account.external, rse=self.rse1)
 
@@ -231,7 +231,7 @@ class TestAccountClient(unittest.TestCase):
 
     def test_set_local_account_limit(self):
         """ ACCOUNTLIMIT (CLIENTS): Set local account limit """
-        self.alclient.set_local_account_limit(account=self.account.external, rse=self.rse1, bytes=987)
+        self.alclient.set_local_account_limit(account=self.account.external, rse=self.rse1, bytes_=987)
 
         limit = self.client.get_local_account_limit(account=self.account.external, rse=self.rse1)
 
@@ -240,7 +240,7 @@ class TestAccountClient(unittest.TestCase):
 
     def test_delete_local_account_limit(self):
         """ ACCOUNTLIMIT (CLIENTS): Delete local account limit """
-        self.alclient.set_local_account_limit(account=self.account.external, rse=self.rse1, bytes=786)
+        self.alclient.set_local_account_limit(account=self.account.external, rse=self.rse1, bytes_=786)
 
         limit = self.client.get_local_account_limit(account=self.account.external, rse=self.rse1)
         assert limit == {self.rse1: 786}
@@ -253,7 +253,7 @@ class TestAccountClient(unittest.TestCase):
     def test_delete_global_account_limit(self):
         """ ACCOUNTLIMIT (CLIENTS): Delete global account limit """
         rse_exp = 'MOCK'
-        account_limit.set_global_account_limit(account=self.account, rse_expression=rse_exp, bytes=10, session=self.db_session)
+        account_limit.set_global_account_limit(account=self.account, rse_expression=rse_exp, bytes_=10, session=self.db_session)
         self.alclient.delete_global_account_limit(account=self.account.external, rse_expression=rse_exp)
         result = account_limit.get_global_account_limit(account=self.account, rse_expression=rse_exp)
         assert result is None

@@ -55,7 +55,7 @@ class CredentialClient(BaseClient):
         params['op'] = operation
         params['url'] = url
         rurl = build_url(choice(self.list_hosts), path=path, params=params)
-        r = self._send_request(rurl, type='GET')
+        r = self._send_request(rurl, type_='GET')
 
         if r.status_code == codes.ok:
             return r.text

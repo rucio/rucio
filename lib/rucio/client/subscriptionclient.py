@@ -39,7 +39,7 @@ class SubscriptionClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
         super(SubscriptionClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent, vo=vo)
 
-    def add_subscription(self, name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, priority=3):
+    def add_subscription(self, name, account, filter_, replication_rules, comments, lifetime, retroactive, dry_run, priority=3):
         """
         Adds a new subscription which will be verified against every new added file and dataset
 
@@ -47,9 +47,9 @@ class SubscriptionClient(BaseClient):
         :type:  String
         :param account: Account identifier
         :type account:  String
-        :param filter: Dictionary of attributes by which the input data should be filtered
+        :param filter_: Dictionary of attributes by which the input data should be filtered
                        **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
-        :type filter:  Dict
+        :type filter_:  Dict
         :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
         :type replication_rules:  Dict
         :param comments: Comments for the subscription
@@ -67,13 +67,13 @@ class SubscriptionClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
         if retroactive:
             raise NotImplementedError('Retroactive mode is not implemented')
-        if filter and not isinstance(filter, dict):
+        if filter_ and not isinstance(filter_, dict):
             raise TypeError('filter should be a dict')
         if replication_rules and not isinstance(replication_rules, list):
             raise TypeError('replication_rules should be a list')
-        data = dumps({'options': {'filter': filter, 'replication_rules': replication_rules, 'comments': comments,
+        data = dumps({'options': {'filter': filter_, 'replication_rules': replication_rules, 'comments': comments,
                                   'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority}})
-        result = self._send_request(url, type='POST', data=data)
+        result = self._send_request(url, type_='POST', data=data)
         if result.status_code == codes.created:   # pylint: disable=no-member
             return result.text
         else:
@@ -103,14 +103,14 @@ class SubscriptionClient(BaseClient):
         else:
             path += '/'
         url = build_url(choice(self.list_hosts), path=path)
-        result = self._send_request(url, type='GET')
+        result = self._send_request(url, type_='GET')
         if result.status_code == codes.ok:   # pylint: disable=no-member
             return self._load_json_data(result)
         else:
             exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
             raise exc_cls(exc_msg)
 
-    def update_subscription(self, name, account=None, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, priority=None):
+    def update_subscription(self, name, account=None, filter_=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, priority=None):
         """
         Updates a subscription
 
@@ -118,9 +118,9 @@ class SubscriptionClient(BaseClient):
         :type:  String
         :param account: Account identifier
         :type account:  String
-        :param filter: Dictionary of attributes by which the input data should be filtered
+        :param filter_: Dictionary of attributes by which the input data should be filtered
                        **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
-        :type filter:  Dict
+        :type filter_:  Dict
         :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
         :type replication_rules:  Dict
         :param comments: Comments for the subscription
@@ -141,13 +141,13 @@ class SubscriptionClient(BaseClient):
             raise NotImplementedError('Retroactive mode is not implemented')
         path = self.SUB_BASEURL + '/' + account + '/' + name
         url = build_url(choice(self.list_hosts), path=path)
-        if filter and not isinstance(filter, dict):
+        if filter_ and not isinstance(filter_, dict):
             raise TypeError('filter should be a dict')
         if replication_rules and not isinstance(replication_rules, list):
             raise TypeError('replication_rules should be a list')
-        data = dumps({'options': {'filter': filter, 'replication_rules': replication_rules, 'comments': comments,
+        data = dumps({'options': {'filter': filter_, 'replication_rules': replication_rules, 'comments': comments,
                                   'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority}})
-        result = self._send_request(url, type='PUT', data=data)
+        result = self._send_request(url, type_='PUT', data=data)
         if result.status_code == codes.created:   # pylint: disable=no-member
             return True
         else:
@@ -164,7 +164,7 @@ class SubscriptionClient(BaseClient):
 
         path = '/'.join([self.SUB_BASEURL, account, name, 'Rules'])
         url = build_url(choice(self.list_hosts), path=path)
-        result = self._send_request(url, type='GET')
+        result = self._send_request(url, type_='GET')
         if result.status_code == codes.ok:   # pylint: disable=no-member
             return self._load_json_data(result)
         else:

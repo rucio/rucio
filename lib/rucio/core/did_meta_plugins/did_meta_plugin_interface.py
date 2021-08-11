@@ -89,14 +89,14 @@ class DidMetaPlugin(object):
         pass
 
     @abstractmethod
-    def list_dids(self, scope, filters, type='collection', ignore_case=False, limit=None,
+    def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
                   offset=None, long=False, recursive=False, session=None):
         """
         Search data identifiers
 
         :param scope: the scope name.
         :param filters: dictionary of attributes by which the results should be filtered.
-        :param type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
+        :param did_type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
         :param ignore_case: ignore case distinctions.
         :param limit: limit number.
         :param offset: offset number.

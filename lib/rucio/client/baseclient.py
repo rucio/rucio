@@ -358,14 +358,14 @@ class BaseClient(object):
             if response.text:
                 yield response.text
 
-    def _send_request(self, url, headers=None, type='GET', data=None, params=None, stream=False, get_token=False,
+    def _send_request(self, url, headers=None, type_='GET', data=None, params=None, stream=False, get_token=False,
                       cert=None, auth=None, verify=None):
         """
         Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
 
         :param url: the http url to use.
         :param headers: additional http headers to send.
-        :param type: the http request type to use.
+        :param type_: the http request type to use.
         :param data: post data.
         :param params: (optional) Dictionary or bytes to be sent in the url query string.
         :param get_token: (optional) if it is called from a _get_token function.
@@ -388,13 +388,13 @@ class BaseClient(object):
         result = None
         for retry in range(self.AUTH_RETRIES + 1):
             try:
-                if type == 'GET':
+                if type_ == 'GET':
                     result = self.session.get(url, headers=hds, verify=verify, timeout=self.timeout, params=params, stream=True, cert=cert, auth=auth)
-                elif type == 'PUT':
+                elif type_ == 'PUT':
                     result = self.session.put(url, headers=hds, data=data, verify=verify, timeout=self.timeout)
-                elif type == 'POST':
+                elif type_ == 'POST':
                     result = self.session.post(url, headers=hds, data=data, verify=verify, timeout=self.timeout, stream=stream)
-                elif type == 'DEL':
+                elif type_ == 'DEL':
                     result = self.session.delete(url, headers=hds, data=data, verify=verify, timeout=self.timeout)
                 else:
                     return
@@ -599,7 +599,7 @@ class BaseClient(object):
             # getting the login URL and logging in the user
             login_url = auth_res.url
             start = time.time()
-            result = self._send_request(login_url, type='POST', data=userpass)
+            result = self._send_request(login_url, type_='POST', data=userpass)
 
             # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
             # the user will get an OAuth error
@@ -621,7 +621,7 @@ class BaseClient(object):
                 LOG.warning('Automatically authorising request of the following info on behalf of user: %s',
                             str(form_data))
                 # authorizing info request on behalf of the user until he/she revokes this authorization !
-                result = self._send_request(result.url, type='POST', data=form_data)
+                result = self._send_request(result.url, type_='POST', data=form_data)
 
         if not result or 'result' not in locals():
             LOG.error('Cannot retrieve authentication token!')
@@ -787,7 +787,7 @@ class BaseClient(object):
         if SAML_auth_result.headers['X-Rucio-Auth-Token']:
             return SAML_auth_result.headers['X-Rucio-Auth-Token']
         SAML_auth_url = SAML_auth_result.headers['X-Rucio-SAML-Auth-URL']
-        result = self._send_request(SAML_auth_url, type='POST', data=userpass, verify=False)
+        result = self._send_request(SAML_auth_url, type_='POST', data=userpass, verify=False)
         result = self._send_request(url, get_token=True)
 
         if not result or 'result' not in locals():

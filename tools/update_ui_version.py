@@ -27,11 +27,11 @@ files = ['/static/rucio.js', '/static/base.js', '/static/rucio.css']
 
 
 def md5_file(filename):
-    hash = md5()
+    hash_ = md5()
     with open(filename) as f:
         for chunk in iter(lambda: f.read(4096), ""):
-            hash.update(chunk)
-    return hash.hexdigest()
+            hash_.update(chunk)
+    return hash_.hexdigest()
 
 
 with open(argv[1], 'r') as f:

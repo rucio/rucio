@@ -39,7 +39,7 @@ class TestDIDClients(unittest.TestCase):
         """ LIFETIME (CLIENT): Test the creation of a Lifetime Model exception """
         tmp_scope = 'mock'
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
-        self.did_client.add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET)
+        self.did_client.add_did(scope=tmp_scope, name=tmp_dsn1, did_type=DIDType.DATASET)
         dids = [{'scope': tmp_scope, 'name': tmp_dsn1, 'did_type': DIDType.DATASET}, ]
         exceptions = self.lifetime_client.list_exceptions()
         exception_id = self.lifetime_client.add_exception(dids, account='root', pattern='wekhewfk', comments='This is a comment', expires_at=datetime.now())

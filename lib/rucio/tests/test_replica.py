@@ -258,8 +258,8 @@ class TestReplicaCore:
         nbfiles = 5
         files1 = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
 
-        add_did(scope=mock_scope, name=tmp_dsn1, type=DIDType.DATASET, account=root_account)
-        add_did(scope=mock_scope, name=tmp_dsn2, type=DIDType.DATASET, account=root_account)
+        add_did(scope=mock_scope, name=tmp_dsn1, did_type=DIDType.DATASET, account=root_account)
+        add_did(scope=mock_scope, name=tmp_dsn2, did_type=DIDType.DATASET, account=root_account)
 
         attach_dids(scope=mock_scope, name=tmp_dsn1, rse_id=rse_id, dids=files1, account=root_account)
         attach_dids(scope=mock_scope, name=tmp_dsn2, dids=files1, account=root_account)
@@ -531,12 +531,12 @@ class TestReplicaCore:
 
         # Will use the default tombstone delay
         did1 = did_factory.random_did()
-        add_replica(rse1_id, bytes=4, account=root_account, **did1)
+        add_replica(rse1_id, bytes_=4, account=root_account, **did1)
         assert get_replica(rse1_id, **did1)['tombstone'] is None
 
         # Will use the configured value on the RSE
         did2 = did_factory.random_did()
-        add_replica(rse2_id, bytes=4, account=root_account, **did2)
+        add_replica(rse2_id, bytes_=4, account=root_account, **did2)
         tombstone = get_replica(rse2_id, **did2)['tombstone']
         expected_tombstone = datetime.utcnow() + timedelta(seconds=tombstone_delay)
         assert expected_tombstone - timedelta(minutes=5) < tombstone < expected_tombstone + timedelta(minutes=5)
@@ -551,24 +551,24 @@ class TestReplicaCore:
         """ REPLICA (CORE): Add and list file replicas with updated_after filter """
         _, rse_id = rse_factory.make_mock_rse()
         dsn = 'ds_ua_test_%s' % generate_uuid()
-        add_did(scope=mock_scope, name=dsn, type='DATASET', account=root_account)
+        add_did(scope=mock_scope, name=dsn, did_type='DATASET', account=root_account)
         #
         t0 = datetime.utcnow()
         time.sleep(2)
         lfn = '%s._%s.data' % (dsn, '0001')
-        add_replica(rse_id=rse_id, scope=mock_scope, name=lfn, bytes=12345, account=root_account)
+        add_replica(rse_id=rse_id, scope=mock_scope, name=lfn, bytes_=12345, account=root_account)
         attach_dids(scope=mock_scope, name=dsn, dids=[{'scope': mock_scope, 'name': lfn}], account=root_account)
         time.sleep(2)
         t1 = datetime.utcnow()
         time.sleep(2)
         lfn = '%s._%s.data' % (dsn, '0002')
-        add_replica(rse_id=rse_id, scope=mock_scope, name=lfn, bytes=12345, account=root_account)
+        add_replica(rse_id=rse_id, scope=mock_scope, name=lfn, bytes_=12345, account=root_account)
         attach_dids(scope=mock_scope, name=dsn, dids=[{'scope': mock_scope, 'name': lfn}], account=root_account)
         time.sleep(2)
         t2 = datetime.utcnow()
         time.sleep(2)
         lfn = '%s._%s.data' % (dsn, '0003')
-        add_replica(rse_id=rse_id, scope=mock_scope, name=lfn, bytes=12345, account=root_account)
+        add_replica(rse_id=rse_id, scope=mock_scope, name=lfn, bytes_=12345, account=root_account)
         attach_dids(scope=mock_scope, name=dsn, dids=[{'scope': mock_scope, 'name': lfn}], account=root_account)
         time.sleep(2)
         t3 = datetime.utcnow()
@@ -586,7 +586,7 @@ class TestReplicaCore:
         _, rse3_id = rse_factory.make_mock_rse()
 
         dsn = 'ds_cov_test_%s' % generate_uuid()
-        add_did(scope=mock_scope, name=dsn, type='DATASET', account=root_account)
+        add_did(scope=mock_scope, name=dsn, did_type='DATASET', account=root_account)
 
         # test empty dataset
         cov = get_RSEcoverage_of_dataset(scope=mock_scope, name=dsn)
@@ -594,11 +594,11 @@ class TestReplicaCore:
         assert cov == {}
         # add files/replicas
         for i in range(1, 8):
-            add_replica(rse_id=rse1_id, scope=mock_scope, name=dsn + '_%06d.data' % i, bytes=100, account=root_account)
+            add_replica(rse_id=rse1_id, scope=mock_scope, name=dsn + '_%06d.data' % i, bytes_=100, account=root_account)
         for i in range(8, 11):
-            add_replica(rse_id=rse2_id, scope=mock_scope, name=dsn + '_%06d.data' % i, bytes=100, account=root_account)
+            add_replica(rse_id=rse2_id, scope=mock_scope, name=dsn + '_%06d.data' % i, bytes_=100, account=root_account)
         for i in range(11, 16):
-            add_replica(rse_id=rse3_id, scope=mock_scope, name=dsn + '_%06d.data' % i, bytes=100, account=root_account)
+            add_replica(rse_id=rse3_id, scope=mock_scope, name=dsn + '_%06d.data' % i, bytes_=100, account=root_account)
 
         attach_dids(scope=mock_scope, name=dsn, dids=[{'scope': mock_scope, 'name': dsn + '_%06d.data' % i} for i in range(1, 16)], account=root_account)
         cov = get_RSEcoverage_of_dataset(scope=mock_scope, name=dsn)
@@ -1081,27 +1081,27 @@ class TestReplicaMetalink:
         rse, rse_id = rse_factory.make_srm_rse(deterministic=False)
         nbfiles = 3
         pfns = []
-        input = {}
+        input_ = {}
         rse_info = rsemgr.get_rse_info(rse=rse, vo=vo)
         assert rse_info['deterministic'] is False
         files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
                   'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test/%s/%s' % (rse_id, mock_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
         for f in files:
-            input[f['pfn']] = {'scope': f['scope'].external, 'name': f['name']}
+            input_[f['pfn']] = {'scope': f['scope'].external, 'name': f['name']}
         add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm'], ignore_availability=True):
             for r in replica['rses']:
                 pfns.extend(replica['rses'][r])
         for result in replica_client.get_did_from_pfns(pfns, rse):
             pfn = list(result.keys())[0]
-            assert input[pfn] == list(result.values())[0]
+            assert input_[pfn] == list(result.values())[0]
 
     def test_client_get_did_from_pfns_deterministic(self, vo, rse_factory, mock_scope, root_account, replica_client):
         """ REPLICA (CLIENT): Get list of DIDs associated to PFNs for deterministic sites"""
         rse, rse_id = rse_factory.make_srm_rse()
         nbfiles = 3
         pfns = []
-        input = {}
+        input_ = {}
         rse_info = rsemgr.get_rse_info(rse=rse, vo=vo)
         assert rse_info['deterministic'] is True
         files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
@@ -1109,11 +1109,11 @@ class TestReplicaMetalink:
         for f in files:
             pfn = list(p.lfns2pfns(lfns={'scope': f['scope'].external, 'name': f['name']}).values())[0]
             pfns.append(pfn)
-            input[pfn] = {'scope': f['scope'].external, 'name': f['name']}
+            input_[pfn] = {'scope': f['scope'].external, 'name': f['name']}
         add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
         for result in replica_client.get_did_from_pfns(pfns, rse):
             pfn = list(result.keys())[0]
-            assert input[pfn] == list(result.values())[0]
+            assert input_[pfn] == list(result.values())[0]
 
 
 @pytest.mark.parametrize("content_type", [Mime.METALINK, Mime.JSON_STREAM])

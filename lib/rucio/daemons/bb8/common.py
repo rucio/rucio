@@ -312,18 +312,18 @@ def select_target_rse(parent_rule, current_rse_id, rse_expression, subscription_
     else:
         target_rse = current_rse_expr
 
-    rses = parse_expression(expression=rse_expression, filter={'vo': vo}, session=session)
+    rses = parse_expression(expression=rse_expression, filter_={'vo': vo}, session=session)
     # TODO: dest rse selection should be configurable, there might be cases when tier is not defined, or concept of DATADISKS is not present.
     # if subscription_id:
     #     pass
     #     # get_subscription_by_id(subscription_id, session)
     if force_expression is not None:
         if parent_rule['grouping'] != RuleGrouping.NONE:
-            rses = parse_expression(expression='(%s)\\%s' % (force_expression, target_rse), filter={'vo': vo, 'availability_write': True}, session=session)
+            rses = parse_expression(expression='(%s)\\%s' % (force_expression, target_rse), filter_={'vo': vo, 'availability_write': True}, session=session)
         else:
             # in order to avoid replication of the part of distributed dataset not present at rabalanced rse -> rses in force_expression
             # this will be extended with development of delayed rule
-            rses = parse_expression(expression='((%s)|(%s))\\%s' % (force_expression, rse_expression, target_rse), filter={'vo': vo, 'availability_write': True}, session=session)
+            rses = parse_expression(expression='((%s)|(%s))\\%s' % (force_expression, rse_expression, target_rse), filter_={'vo': vo, 'availability_write': True}, session=session)
     elif len(rses) > 1:
         # Just define the RSE Expression without the current_rse
         return '(%s)\\%s' % (rse_expression, target_rse)
@@ -337,7 +337,7 @@ def select_target_rse(parent_rule, current_rse_id, rse_expression, subscription_
         elif int(rse_attributes['tier']) == 3:
             # Tier 3 will go to Tier 2, since we don't have enough t3s
             expression = '((tier=2&type=DATADISK)\\datapolicynucleus=1)\\{}'.format(target_rse)
-        rses = parse_expression(expression=expression, filter={'vo': vo, 'availability_write': True}, session=session)
+        rses = parse_expression(expression=expression, filter_={'vo': vo, 'availability_write': True}, session=session)
     rseselector = RSESelector(account=InternalAccount('ddmadmin', vo=vo), rses=rses, weight='freespace', copies=1, ignore_account_limit=True, session=session)
     return get_rse_name([rse_id for rse_id, _, _ in rseselector.select_rse(size=0, preferred_rse_ids=[], blocklist=other_rses)][0], session=session)
 
@@ -374,11 +374,11 @@ def rebalance_rse(rse_id, max_bytes=1E9, max_files=None, dry_run=False, exclude_
 
     print('scope:name rule_id bytes(Gb) target_rse child_rule_id')
 
-    for scope, name, rule_id, rse_expression, subscription_id, bytes, length, fsize in list_rebalance_rule_candidates(rse_id=rse_id, mode=mode):
+    for scope, name, rule_id, rse_expression, subscription_id, bytes_, length, fsize in list_rebalance_rule_candidates(rse_id=rse_id, mode=mode):
         if force_expression is not None and subscription_id is not None:
             continue
 
-        if rebalanced_bytes + bytes > max_bytes:
+        if rebalanced_bytes + bytes_ > max_bytes:
             continue
         if max_files:
             if rebalanced_files + length > max_files:
@@ -410,13 +410,13 @@ def rebalance_rse(rse_id, max_bytes=1E9, max_files=None, dry_run=False, exclude_
                     child_rule_id = ''
             except (InsufficientTargetRSEs, DuplicateRule, RuleNotFound, InsufficientAccountLimit):
                 continue
-            print('%s:%s %s %d %s %s' % (scope, name, str(rule_id), int(bytes / 1E9), target_rse_exp, child_rule_id))
+            print('%s:%s %s %d %s %s' % (scope, name, str(rule_id), int(bytes_ / 1E9), target_rse_exp, child_rule_id))
             if 'Concurrent' in str(child_rule_id):
                 print(str(child_rule_id))
                 continue
-            rebalanced_bytes += bytes
+            rebalanced_bytes += bytes_
             rebalanced_files += length
-            rebalanced_datasets.append((scope, name, bytes, length, target_rse_exp, rule_id, child_rule_id))
+            rebalanced_datasets.append((scope, name, bytes_, length, target_rse_exp, rule_id, child_rule_id))
         except Exception as error:
             print('Exception %s occured while rebalancing %s:%s, rule_id: %s!' % (str(error), scope, name, str(rule_id)))
             raise error

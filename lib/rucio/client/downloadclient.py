@@ -452,8 +452,8 @@ class DownloadClient:
             return transfer_timeout
 
         transfer_speed_timeout = item.get('merged_options', {}).get('transfer_speed_timeout')
-        bytes = item.get('bytes')
-        if not bytes or transfer_speed_timeout is None:
+        bytes_ = item.get('bytes')
+        if not bytes_ or transfer_speed_timeout is None:
             return default_transfer_timeout
 
         if not transfer_speed_timeout > 0:
@@ -461,7 +461,7 @@ class DownloadClient:
 
         # Convert from KBytes/s to bytes/s
         transfer_speed_timeout = transfer_speed_timeout * 1000
-        timeout = bytes // transfer_speed_timeout + transfer_speed_timeout_static_increment
+        timeout = bytes_ // transfer_speed_timeout + transfer_speed_timeout_static_increment
         return timeout
 
     def _download_item(self, item, trace, traces_copy_out, log_prefix=''):
@@ -1004,7 +1004,7 @@ class DownloadClient:
         if dids is None:
             self.logger(logging.DEBUG, 'Resolving DIDs by using filter options')
             scope = filters.pop('scope')
-            yield scope, list(self.client.list_dids(scope, filters=filters, type='all'))
+            yield scope, list(self.client.list_dids(scope, filters=filters, did_type='all'))
             return
 
         if not isinstance(dids, list):
@@ -1014,7 +1014,7 @@ class DownloadClient:
             scope, did_name = self._split_did_str(did_str)
             if '*' in did_name:
                 filters['name'] = did_name
-                resolved_dids = list(self.client.list_dids(scope, filters=filters, type='all'))
+                resolved_dids = list(self.client.list_dids(scope, filters=filters, did_type='all'))
                 yield scope, resolved_dids
             else:
                 yield scope, [did_name]

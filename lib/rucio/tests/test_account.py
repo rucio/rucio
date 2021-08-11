@@ -278,18 +278,18 @@ class TestAccountClient(unittest.TestCase):
     def test_add_account_success(self):
         """ ACCOUNT (CLIENTS): create a new account and get information about account."""
         account = account_name_generator()
-        type, email = 'USER', 'rucio@email.com'
-        ret = self.client.add_account(account, type, email)
+        type_, email = 'USER', 'rucio@email.com'
+        ret = self.client.add_account(account, type_, email)
         assert ret
 
         with pytest.raises(Duplicate):
-            self.client.add_account(account, type, email)
+            self.client.add_account(account, type_, email)
 
         with pytest.raises(InvalidObject):
-            self.client.add_account('BAD_ACCOUNT_NAME', type, email)
+            self.client.add_account('BAD_ACCOUNT_NAME', type_, email)
 
         with pytest.raises(InvalidObject):
-            self.client.add_account('toooooooloooooonaccounnnnnnnntnammmmme', type, email)
+            self.client.add_account('toooooooloooooonaccounnnnnnnntnammmmme', type_, email)
 
         acc_info = self.client.get_account(account)
         assert acc_info['account'] == account
@@ -317,8 +317,8 @@ class TestAccountClient(unittest.TestCase):
     def test_update_account(self):
         """ ACCOUNT (CLIENTS): create a new account and update it."""
         account = account_name_generator()
-        type, email = 'USER', 'rucio@email.com'
-        ret = self.client.add_account(account, type, email)
+        type_, email = 'USER', 'rucio@email.com'
+        ret = self.client.add_account(account, type_, email)
         assert ret
         self.client.update_account(account=account, key='status', value='SUSPENDED')
         status = self.client.get_account(account=account)['status']

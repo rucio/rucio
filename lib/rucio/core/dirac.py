@@ -95,7 +95,7 @@ def add_files(lfns, account, ignore_availability, session=None):
             print('Will create %s' % dsn_name)
             add_did(scope=dsn_scope,
                     name=dsn_name,
-                    type=DIDType.DATASET,
+                    did_type=DIDType.DATASET,
                     account=InternalAccount(account),
                     statuses=None,
                     meta=None,
@@ -114,11 +114,11 @@ def add_files(lfns, account, ignore_availability, session=None):
         rse_id = lfn.get('rse_id', None)
         if not rse_id:
             raise InvalidType('Missing rse_id')
-        bytes = lfn.get('bytes', None)
+        bytes_ = lfn.get('bytes', None)
         guid = lfn.get('guid', None)
         adler32 = lfn.get('adler32', None)
         pfn = lfn.get('pfn', None)
-        files = {'scope': lfn_scope, 'name': filename, 'bytes': bytes, 'adler32': adler32}
+        files = {'scope': lfn_scope, 'name': filename, 'bytes': bytes_, 'adler32': adler32}
         if pfn:
             files['pfn'] = str(pfn)
         if guid:
@@ -152,7 +152,7 @@ def add_files(lfns, account, ignore_availability, session=None):
                 print('Will create %s' % lpn)
                 add_did(scope=child_scope,
                         name=lpn,
-                        type=DIDType.CONTAINER,
+                        did_type=DIDType.CONTAINER,
                         account=InternalAccount(account),
                         statuses=None,
                         meta=None,

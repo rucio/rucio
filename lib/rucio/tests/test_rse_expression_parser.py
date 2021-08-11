@@ -55,10 +55,10 @@ class TestRSEExpressionParserCore(unittest.TestCase):
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': get_vo()}
-            self.filter = {'filter': self.vo}
+            self.filter = {'filter_': self.vo}
         else:
             self.vo = {}
-            self.filter = {'filter': {'vo': 'def'}}
+            self.filter = {'filter_': {'vo': 'def'}}
 
         self.rse1 = rse_name_generator()
         self.rse2 = rse_name_generator()
@@ -126,7 +126,7 @@ class TestRSEExpressionParserCore(unittest.TestCase):
 
     def test_all_rse(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test reference on all RSE """
-        all_rses = rse.list_rses(filters=self.filter['filter'])
+        all_rses = rse.list_rses(filters=self.filter['filter_'])
         value = sorted(rse_expression_parser.parse_expression("*", **self.filter), key=lambda rse: rse['rse'])
         expected = sorted(all_rses, key=lambda rse: rse['rse'])
         assert value == expected

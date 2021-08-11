@@ -65,7 +65,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                                                                     session=session)
 
     transfers, rses_info, protocols, rse_attrs, reqs_no_source = {}, {}, {}, {}, []
-    for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, staging_buffer, retry_count, previous_attempt_id, src_url, ranking in req_sources:
+    for req_id, rule_id, scope, name, md5, adler32, bytes_, activity, attributes, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, staging_buffer, retry_count, previous_attempt_id, src_url, ranking in req_sources:
         try:
             if rses and dest_rse_id not in rses:
                 continue
@@ -103,7 +103,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                     source_replica_expression = attr["source_replica_expression"] if "source_replica_expression" in attr else None
                     if source_replica_expression:
                         try:
-                            parsed_rses = parse_expression(source_replica_expression, filter={'vo': scope.vo}, session=session)
+                            parsed_rses = parse_expression(source_replica_expression, filter_={'vo': scope.vo}, session=session)
                         except InvalidRSEExpression as error:
                             logger(logging.ERROR, "Invalid RSE exception %s: %s" % (source_replica_expression, error))
                             continue
@@ -189,7 +189,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                                  'dst_rse': dest_rse_name,
                                  'src_rse_id': source_rse_id,
                                  'dest_rse_id': dest_rse_id,
-                                 'filesize': bytes,
+                                 'filesize': bytes_,
                                  'md5': md5,
                                  'adler32': adler32}
                 if previous_attempt_id:

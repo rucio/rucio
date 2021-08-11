@@ -36,12 +36,12 @@ from rucio.common.types import InternalAccount
 from rucio.db.sqla.constants import AccountType
 
 
-def add_account(account, type, email, issuer, vo='def'):
+def add_account(account, type_, email, issuer, vo='def'):
     """
     Creates an account with the provided account name, contact information, etc.
 
     :param account: The account name.
-    :param type: The account type
+    :param type_: The account type
     :param email: The Email address associated with the account.
 
     :param issuer: The issuer account_core.
@@ -51,13 +51,13 @@ def add_account(account, type, email, issuer, vo='def'):
 
     validate_schema(name='account', obj=account, vo=vo)
 
-    kwargs = {'account': account, 'type': type}
+    kwargs = {'account': account, 'type': type_}
     if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_account', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add account' % (issuer))
 
     account = InternalAccount(account, vo=vo)
 
-    account_core.add_account(account, AccountType[type.upper()], email)
+    account_core.add_account(account, AccountType[type_.upper()], email)
 
 
 def del_account(account, issuer, vo='def'):
@@ -113,26 +113,26 @@ def update_account(account, key, value, issuer='root', vo='def'):
     return account_core.update_account(account, key, value)
 
 
-def list_accounts(filter={}, vo='def'):
+def list_accounts(filter_={}, vo='def'):
     """
     Lists all the Rucio account names.
 
     REST API: http://<host>:<port>/rucio/accounts
 
-    :param filter: Dictionary of attributes by which the input data should be filtered
+    :param filter_: Dictionary of attributes by which the input data should be filtered
     :param vo: The VO to act on.
 
     :returns: List of all accounts.
     """
     # If filter is empty, create a new dict to avoid overwriting the function's default
-    if not filter:
-        filter = {}
+    if not filter_:
+        filter_ = {}
 
-    if 'account' in filter:
-        filter['account'] = InternalAccount(filter['account'], vo=vo)
+    if 'account' in filter_:
+        filter_['account'] = InternalAccount(filter_['account'], vo=vo)
     else:
-        filter['account'] = InternalAccount(account='*', vo=vo)
-    for result in account_core.list_accounts(filter=filter):
+        filter_['account'] = InternalAccount(account='*', vo=vo)
+    for result in account_core.list_accounts(filter_=filter_):
         yield api_update_return_dict(result)
 
 
