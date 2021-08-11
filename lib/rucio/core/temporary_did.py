@@ -11,13 +11,14 @@
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
   - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
   - Brandon White <bjwhite@fnal.gov>, 2019-2020
+  - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
   PY3K COMPATIBLE
 """
 
 from datetime import datetime
 
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, or_, func, delete
 from sqlalchemy.sql.expression import case
 
 from rucio.core.did import attach_dids
@@ -156,9 +157,11 @@ def delete_temporary_dids(dids, session=None):
                                  models.TemporaryDataIdentifier.name == did['name']))
 
     if where_clause:
-        return session.query(models.TemporaryDataIdentifier).\
-            with_hint(models.TemporaryDataIdentifier, "INDEX(tmp_dids TMP_DIDS_PK)", 'oracle').\
-            filter(or_(*where_clause)).delete(synchronize_session=False)
+        stmt = delete(models.TemporaryDataIdentifier).\
+            prefix_with("/*+ INDEX(tmp_dids TMP_DIDS_PK) */", dialect='oracle').\
+            where(or_(*where_clause)).execution_options(synchronize_session=False)
+        result = session.execute(stmt)
+        return result.rowcount
     return
 
 

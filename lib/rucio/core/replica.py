@@ -38,6 +38,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -2169,24 +2170,28 @@ def touch_replica(replica, session=None):
             with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
             with_for_update(nowait=True).one()
 
-        session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\
-            with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
-            update({'accessed_at': accessed_at,
-                    'tombstone': case([(and_(models.RSEFileAssociation.tombstone != none_value,
-                                             models.RSEFileAssociation.tombstone != OBSOLETE),
-                                        accessed_at)],
-                                      else_=models.RSEFileAssociation.tombstone)},
-                   synchronize_session=False)
+        stmt = update(models.RSEFileAssociation).\
+            filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\
+            prefix_with("/*+ index(REPLICAS REPLICAS_PK) */", dialect='oracle').\
+            execution_options(synchronize_session=False).\
+            values(accessed_at=accessed_at,
+                   tombstone=case([(and_(models.RSEFileAssociation.tombstone != none_value,
+                                         models.RSEFileAssociation.tombstone != OBSOLETE),
+                                    accessed_at)],
+                                  else_=models.RSEFileAssociation.tombstone))
+        session.execute(stmt)
 
         session.query(models.DataIdentifier).\
             filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
             with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
             with_for_update(nowait=True).one()
 
-        session.query(models.DataIdentifier).\
+        stmt = update(models.DataIdentifier).\
             filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
-            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-            update({'accessed_at': accessed_at}, synchronize_session=False)
+            prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
+            execution_options(synchronize_session=False).\
+            values(accessed_at=accessed_at)
+        session.execute(stmt)
 
     except DatabaseError:
         return False
@@ -3272,7 +3277,7 @@ def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
     :param tombstone: the tombstone to set. Default is OBSOLETE
     :param session: database session in use.
     """
-    rowcount = session.query(models.RSEFileAssociation).filter(
+    stmt = update(models.RSEFileAssociation).where(
         and_(
             models.RSEFileAssociation.rse_id == rse_id,
             models.RSEFileAssociation.name == name,
@@ -3285,11 +3290,13 @@ def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
                 )
             )
         )
-    ) \
-        .with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle') \
-        .update({models.RSEFileAssociation.tombstone: tombstone}, synchronize_session=False)
+    )\
+        .prefix_with("/*+ index(REPLICAS REPLICAS_PK) */", dialect='oracle')\
+        .execution_options(synchronize_session=False)\
+        .values(tombstone=tombstone)
+    result = session.execute(stmt)
 
-    if rowcount == 0:
+    if result.rowcount == 0:
         try:
             session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).one()
             raise exception.ReplicaIsLocked('Replica %s:%s on RSE %s is locked.' % (scope, name, get_rse_name(rse_id=rse_id, session=session)))

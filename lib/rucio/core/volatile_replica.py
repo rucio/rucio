@@ -9,13 +9,14 @@
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
   - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+  - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
   PY3K COMPATIBLE
 """
 
 from datetime import datetime
 
-from sqlalchemy import and_, or_, exists
+from sqlalchemy import and_, or_, exists, update
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import select
 
@@ -55,10 +56,12 @@ def add_volatile_replicas(rse_id, replicas, session=None):
 
     if replica_clause:
         now = datetime.utcnow()
-        session.query(models.RSEFileAssociation).\
-            with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
-            filter(or_(*replica_clause)).\
-            update({'updated_at': now, 'tombstone': now}, synchronize_session=False)
+        stmt = update(models.RSEFileAssociation).\
+            prefix_with("/*+ index(REPLICAS REPLICAS_PK) */", dialect='oracle').\
+            where(or_(*replica_clause)).\
+            execution_options(synchronize_session=False).\
+            values(updated_at=now, tombstone=now)
+        session.execute(stmt)
 
     if file_clause:
         file_query = session.query(models.DataIdentifier.scope,
