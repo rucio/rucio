@@ -49,7 +49,7 @@ class LocalAccountLimit(ErrorHandlingMethodView):
         parameters = json_parameters()
         bytes_param = param_get(parameters, 'bytes')
         try:
-            set_local_account_limit(account=account, rse=rse, bytes=bytes_param, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            set_local_account_limit(account=account, rse=rse, bytes_=bytes_param, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except (RSENotFound, AccountNotFound) as error:
@@ -98,7 +98,7 @@ class GlobalAccountLimit(ErrorHandlingMethodView):
             set_global_account_limit(
                 account=account,
                 rse_expression=rse_expression,
-                bytes=bytes_param,
+                bytes_=bytes_param,
                 issuer=request.environ.get('issuer'),
                 vo=request.environ.get('vo'),
             )

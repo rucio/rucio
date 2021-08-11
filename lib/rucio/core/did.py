@@ -38,6 +38,7 @@
 # - Rob Barnsley <rob.barnsley@skao.int>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import logging
 import operator
@@ -48,7 +49,7 @@ from hashlib import md5
 from re import match
 
 from six import string_types
-from sqlalchemy import and_, or_, exists
+from sqlalchemy import and_, or_, exists, update, delete
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
@@ -116,14 +117,14 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
 
 
 @transactional_session
-def add_did(scope, name, type, account, statuses=None, meta=None, rules=None,
+def add_did(scope, name, did_type, account, statuses=None, meta=None, rules=None,
             lifetime=None, dids=None, rse_id=None, session=None):
     """
     Add data identifier.
 
     :param scope: The scope name.
     :param name: The data identifier name.
-    :param type: The data identifier type.
+    :param did_type: The data identifier type.
     :param account: The account owner.
     :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
     :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
@@ -133,7 +134,7 @@ def add_did(scope, name, type, account, statuses=None, meta=None, rules=None,
     :param rse_id: The RSE id when registering replicas.
     :param session: The database session in use.
     """
-    return add_dids(dids=[{'scope': scope, 'name': name, 'type': type,
+    return add_dids(dids=[{'scope': scope, 'name': name, 'type': did_type,
                            'statuses': statuses or {}, 'meta': meta or {},
                            'rules': rules, 'lifetime': lifetime,
                            'dids': dids, 'rse_id': rse_id}],
@@ -320,11 +321,13 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
         new_files and session.bulk_insert_mappings(models.DataIdentifier, new_files)
         if existing_files_condition:
             for chunk in chunks(existing_files_condition, 20):
-                session.query(models.DataIdentifier).\
-                    with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-                    filter(models.DataIdentifier.did_type == DIDType.FILE).\
-                    filter(or_(models.DataIdentifier.constituent.is_(None), models.DataIdentifier.constituent == false())).\
-                    filter(or_(*chunk)).update({'constituent': True})
+                stmt = update(models.DataIdentifier).\
+                    prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
+                    where(models.DataIdentifier.did_type == DIDType.FILE).\
+                    where(or_(models.DataIdentifier.constituent.is_(None), models.DataIdentifier.constituent == false())).\
+                    where(or_(*chunk)).\
+                    values(constituent=True)
+                session.execute(stmt)
         contents and session.bulk_insert_mappings(models.ConstituentAssociation, contents)
         session.flush()
     except IntegrityError as error:
@@ -1106,16 +1109,16 @@ def list_files(scope, name, long=False, session=None):
                         filter(and_(models.DataIdentifierAssociation.scope == s,
                                     models.DataIdentifierAssociation.name == n))
 
-                    for child_scope, child_name, child_type, bytes, adler32, guid, events, lumiblocknr in query.yield_per(500):
+                    for child_scope, child_name, child_type, bytes_, adler32, guid, events, lumiblocknr in query.yield_per(500):
                         if long:
                             yield {'scope': child_scope, 'name': child_name,
-                                   'bytes': bytes, 'adler32': adler32,
+                                   'bytes': bytes_, 'adler32': adler32,
                                    'guid': guid and guid.upper(),
                                    'events': events,
                                    'lumiblocknr': lumiblocknr}
                         else:
                             yield {'scope': child_scope, 'name': child_name,
-                                   'bytes': bytes, 'adler32': adler32,
+                                   'bytes': bytes_, 'adler32': adler32,
                                    'guid': guid and guid.upper(),
                                    'events': events}
                 else:
@@ -1200,16 +1203,16 @@ def get_did(scope, name, dynamic=False, session=None):
                     'md5': result.md5, 'adler32': result.adler32}
         else:
             if dynamic:
-                bytes, length, events = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
+                bytes_, length, events = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
                 # replace None value for bytes with zero
-                if bytes is None:
-                    bytes = 0
+                if bytes_ is None:
+                    bytes_ = 0
             else:
-                bytes, length = result.bytes, result.length
+                bytes_, length = result.bytes, result.length
             return {'scope': result.scope, 'name': result.name, 'type': result.did_type,
                     'account': result.account, 'open': result.is_open,
                     'monotonic': result.monotonic, 'expired_at': result.expired_at,
-                    'length': length, 'bytes': bytes}
+                    'length': length, 'bytes': bytes_}
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
@@ -1259,7 +1262,7 @@ def get_files(files, session=None):
 
 
 @transactional_session
-def set_metadata(scope, name, key, value, type=None, did=None,
+def set_metadata(scope, name, key, value, did_type=None, did=None,
                  recursive=False, session=None):
     """
     Add metadata to data identifier.
@@ -1404,14 +1407,14 @@ def set_status(scope, name, session=None, **kwargs):
 
 
 @stream_session
-def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
+def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=None,
               offset=None, long=False, recursive=False, session=None, ignore_dids=None):
     """
     Search data identifiers
 
     :param scope: the scope name.
     :param filters: dictionary of attributes by which the results should be filtered.
-    :param type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
+    :param did_type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
     :param ignore_case: ignore case distinctions.
     :param limit: limit number.
     :param offset: offset number.
@@ -1441,14 +1444,14 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
     filters_tmp = []
     for or_group in filters:
         if 'type' not in or_group:
-            or_group_type = type.lower()
+            or_group_type = did_type.lower()
         else:
             or_group_type = or_group.pop('type').lower()
         if or_group_type not in type_to_did_type_mapping.keys():
             raise exception.UnsupportedOperation('{} is not a valid type. Valid types are {}'.format(or_group_type, type_to_did_type_mapping.keys()))
 
-        for did_type in type_to_did_type_mapping[or_group_type]:
-            or_group['did_type'] = did_type
+        for mapped_did_type in type_to_did_type_mapping[or_group_type]:
+            or_group['did_type'] = mapped_did_type
             filters_tmp.append(or_group.copy())
     filters = filters_tmp
 
@@ -1472,49 +1475,50 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
     if recursive:
         # Get attached DIDs and save in list because query has to be finished before starting a new one in the recursion
         collections_content = []
-
-        from rucio.core.did import list_content
+        parent_scope = scope
+        for scope, name, type_, bytes_, length in query.yield_per(100):
+            if (type_ == DIDType.CONTAINER or type_ == DIDType.DATASET):
+                collections_content += [did for did in list_content(scope=scope, name=name)]
 
         for did in query.yield_per(100):
             if (did.did_type == DIDType.CONTAINER or did.did_type == DIDType.DATASET):
                 collections_content += [d for d in list_content(scope=did.scope, name=did.name)]
 
-        print("Recursive DIDs: ", collections_content)
-
         # Replace any name filtering with recursed DID names.
         for did in collections_content:
             for or_group in filters:
                 or_group['name'] = did['name']
-            for result in list_dids(scope=did['scope'], filters=filters, recursive=True, type=type, limit=limit, offset=offset, long=long, session=session,
+            for result in list_dids(scope=did['scope'], filters=filters, recursive=True, did_type=did_type, limit=limit, offset=offset, long=long, session=session,
                                     ignore_dids=ignore_dids):
                 yield result
 
-    try:
-        if long:
-            for did in query.yield_per(5):
-                did_full = "{}:{}".format(did.scope, did.name)
-                if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
-                    ignore_dids.add(did_full)
-                    yield {'scope': did.scope, 'name': did.name, 'did_type': str(did.did_type), 'bytes': did.bytes, 'length': did.length}
-        else:
-            for did in query.yield_per(5):
-                did_full = "{}:{}".format(did.scope, did.name)
-                if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
-                    ignore_dids.add(did_full)
-                    yield did.name
-    except Exception as e:
-        raise exception.UnsupportedOperation(e)
+    if long:
+        for scope, name, type_, bytes_, length in query.yield_per(5):
+            did_full = "{}:{}".format(scope, name)
+            if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
+                ignore_dids.add(did_full)
+                yield {'scope': scope,
+                       'name': name,
+                       'did_type': type_.name,
+                       'bytes': bytes_,
+                       'length': length}
+    else:
+        for scope, name, type_, bytes_, length in query.yield_per(5):
+            did_full = "{}:{}".format(scope, name)
+            if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
+                ignore_dids.add(did_full)
+                yield name
 
 
 @read_session
-def list_dids_extended(scope, filters, type='collection', ignore_case=False, limit=None,
+def list_dids_extended(scope, filters, did_type='collection', ignore_case=False, limit=None,
                        offset=None, long=False, recursive=False, session=None):
     """
     Search data identifiers
 
     :param scope: the scope name.
     :param filters: dictionary of attributes by which the results should be filtered.
-    :param type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
+    :param did_type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
     :param ignore_case: ignore case distinctions.
     :param limit: limit number.
     :param offset: offset number.
@@ -1522,7 +1526,7 @@ def list_dids_extended(scope, filters, type='collection', ignore_case=False, lim
     :param session: The database session in use.
     :param recursive: Recursively list DIDs content.
     """
-    return did_meta_plugins.list_dids(scope, filters, type, ignore_case, limit, offset, long, recursive, session=session)
+    return did_meta_plugins.list_dids(scope, filters, did_type, ignore_case, limit, offset, long, recursive, session=session)
 
 
 @read_session
@@ -1615,7 +1619,7 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, accoun
     files = [did for did in list_files(scope=input_scope, name=input_name, long=False, session=session)]
     random.shuffle(files)
     output_files = files[:int(nbfiles)]
-    add_did(scope=output_scope, name=output_name, type=DIDType.DATASET, account=account, statuses={}, meta=[], rules=[], lifetime=None, dids=[], rse_id=None, session=session)
+    add_did(scope=output_scope, name=output_name, did_type=DIDType.DATASET, account=account, statuses={}, meta=[], rules=[], lifetime=None, dids=[], rse_id=None, session=session)
     attach_dids(scope=output_scope, name=output_name, dids=output_files, account=account, rse_id=None, session=session)
 
 
@@ -1634,18 +1638,18 @@ def __resolve_bytes_length_events_did(scope, name, session):
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
 
-    bytes, length, events = 0, 0, 0
+    bytes_, length, events = 0, 0, 0
     if did.did_type == DIDType.FILE:
-        bytes, length, events = did.bytes, 1, did.events
+        bytes_, length, events = did.bytes, 1, did.events
     elif did.did_type == DIDType.DATASET:
         try:
-            length, bytes, events = session.query(func.count(models.DataIdentifierAssociation.scope),
-                                                  func.sum(models.DataIdentifierAssociation.bytes),
-                                                  func.sum(models.DataIdentifierAssociation.events)).\
+            length, bytes_, events = session.query(func.count(models.DataIdentifierAssociation.scope),
+                                                   func.sum(models.DataIdentifierAssociation.bytes),
+                                                   func.sum(models.DataIdentifierAssociation.events)).\
                 filter_by(scope=scope, name=name).\
                 one()
         except NoResultFound:
-            length, bytes, events = 0, 0, 0
+            length, bytes_, events = 0, 0, 0
 
     elif did.did_type == DIDType.CONTAINER:
         for dataset in list_child_datasets(scope=scope, name=name, session=session):
@@ -1658,10 +1662,10 @@ def __resolve_bytes_length_events_did(scope, name, session):
             except NoResultFound:
                 tmp_length, tmp_bytes, tmp_events = 0, 0, 0
 
-            bytes += tmp_bytes or 0
+            bytes_ += tmp_bytes or 0
             length += tmp_length or 0
             events += tmp_events or 0
-    return (bytes, length, events)
+    return (bytes_, length, events)
 
 
 @transactional_session
@@ -1698,11 +1702,10 @@ def resurrect(dids, session=None):
             kargs['expired_at'] = None
         kargs.pop("_sa_instance_state", None)
 
-        session.query(models.DeletedDataIdentifier).\
-            with_hint(models.DeletedDataIdentifier,
-                      "INDEX(DELETED_DIDS DELETED_DIDS_PK)", 'oracle').\
-            filter_by(scope=did['scope'], name=did['name']).\
-            delete()
+        stmt = delete(models.DeletedDataIdentifier).\
+            prefix_with("/*+ INDEX(DELETED_DIDS DELETED_DIDS_PK) */", dialect='oracle').\
+            filter_by(scope=did['scope'], name=did['name'])
+        session.execute(stmt)
 
         models.DataIdentifier(**kargs).\
             save(session=session, flush=False)

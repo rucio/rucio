@@ -21,24 +21,24 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.schema import validate_schema
 
 
-def list_scopes(filter={}, vo='def'):
+def list_scopes(filter_={}, vo='def'):
     """
     Lists all scopes.
 
-    :param filter: Dictionary of attributes by which the input data should be filtered
+    :param filter_: Dictionary of attributes by which the input data should be filtered
     :param vo: The VO to act on.
 
     :returns: A list containing all scopes.
     """
     # If filter is empty, create a new dict to avoid overwriting the function's default
-    if not filter:
-        filter = {}
+    if not filter_:
+        filter_ = {}
 
-    if 'scope' in filter:
-        filter['scope'] = InternalScope(scope=filter['scope'], vo=vo)
+    if 'scope' in filter_:
+        filter_['scope'] = InternalScope(scope=filter_['scope'], vo=vo)
     else:
-        filter['scope'] = InternalScope(scope='*', vo=vo)
-    return [scope.external for scope in core_scope.list_scopes(filter=filter)]
+        filter_['scope'] = InternalScope(scope='*', vo=vo)
+    return [scope.external for scope in core_scope.list_scopes(filter_=filter_)]
 
 
 def add_scope(scope, account, issuer, vo='def'):

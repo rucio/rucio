@@ -49,23 +49,23 @@ class AccountClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
         super(AccountClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent, vo=vo)
 
-    def add_account(self, account, type, email):
+    def add_account(self, account, type_, email):
         """
         Sends the request to create a new account.
 
         :param account: the name of the account.
-        :param type: The account type
+        :param type_: The account type
         :param email: The Email address associated with the account.
 
         :return: True if account was created successfully else False.
         :raises Duplicate: if account already exists.
         """
 
-        data = dumps({'type': type, 'email': email})
+        data = dumps({'type': type_, 'email': email})
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
         url = build_url(choice(self.list_hosts), path=path)
 
-        res = self._send_request(url, type='POST', data=data)
+        res = self._send_request(url, type_='POST', data=data)
         if res.status_code == codes.created:
             return True
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
@@ -83,7 +83,7 @@ class AccountClient(BaseClient):
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
         url = build_url(choice(self.list_hosts), path=path)
 
-        res = self._send_request(url, type='DEL')
+        res = self._send_request(url, type_='DEL')
 
         if res.status_code == codes.ok:
             return True
@@ -120,7 +120,7 @@ class AccountClient(BaseClient):
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
         url = build_url(choice(self.list_hosts), path=path)
 
-        res = self._send_request(url, type='PUT', data=data)
+        res = self._send_request(url, type_='PUT', data=data)
 
         if res.status_code == codes.ok:
             return True
@@ -185,7 +185,7 @@ class AccountClient(BaseClient):
 
         url = build_url(choice(self.list_hosts), path=path)
 
-        res = self._send_request(url, type='POST', data=data)
+        res = self._send_request(url, type_='POST', data=data)
 
         if res.status_code == codes.created:
             return True
@@ -208,7 +208,7 @@ class AccountClient(BaseClient):
 
         url = build_url(choice(self.list_hosts), path=path)
 
-        res = self._send_request(url, type='DEL', data=data)
+        res = self._send_request(url, type_='DEL', data=data)
 
         if res.status_code == codes.ok:
             return True
@@ -241,7 +241,7 @@ class AccountClient(BaseClient):
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'rules'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type='GET')
+        res = self._send_request(url, type_='GET')
         if res.status_code == codes.ok:
             return self._load_json_data(res)
         else:
@@ -275,7 +275,7 @@ class AccountClient(BaseClient):
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'global', quote_plus(rse_expression)])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type='GET')
+        res = self._send_request(url, type_='GET')
         if res.status_code == codes.ok:
             return next(self._load_json_data(res))
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
@@ -290,7 +290,7 @@ class AccountClient(BaseClient):
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'global'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type='GET')
+        res = self._send_request(url, type_='GET')
         if res.status_code == codes.ok:
             return next(self._load_json_data(res))
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
@@ -305,7 +305,7 @@ class AccountClient(BaseClient):
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'local'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type='GET')
+        res = self._send_request(url, type_='GET')
         if res.status_code == codes.ok:
             return next(self._load_json_data(res))
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
@@ -321,7 +321,7 @@ class AccountClient(BaseClient):
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'local', rse])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type='GET')
+        res = self._send_request(url, type_='GET')
         if res.status_code == codes.ok:
             return next(self._load_json_data(res))
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
@@ -339,7 +339,7 @@ class AccountClient(BaseClient):
         else:
             path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'local'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type='GET')
+        res = self._send_request(url, type_='GET')
         if res.status_code == codes.ok:
             return self._load_json_data(res)
         else:
@@ -358,7 +358,7 @@ class AccountClient(BaseClient):
         else:
             path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'global'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type='GET')
+        res = self._send_request(url, type_='GET')
         if res.status_code == codes.ok:
             return self._load_json_data(res)
         else:
@@ -374,7 +374,7 @@ class AccountClient(BaseClient):
         """
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage/history', rse])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type='GET')
+        res = self._send_request(url, type_='GET')
         if res.status_code == codes.ok:
             return next(self._load_json_data(res))
         else:
@@ -389,7 +389,7 @@ class AccountClient(BaseClient):
         """
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'attr/'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type='GET')
+        res = self._send_request(url, type_='GET')
         if res.status_code == codes.ok:
             return self._load_json_data(res)
         else:
@@ -408,7 +408,7 @@ class AccountClient(BaseClient):
         data = dumps({'key': key, 'value': value})
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'attr', key])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type='POST', data=data)
+        res = self._send_request(url, type_='POST', data=data)
         if res.status_code == codes.created:
             return True
         else:
@@ -425,7 +425,7 @@ class AccountClient(BaseClient):
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'attr', key])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type='DEL', data=None)
+        res = self._send_request(url, type_='DEL', data=None)
         if res.status_code == codes.ok:
             return True
         else:

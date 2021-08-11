@@ -162,7 +162,7 @@ def site_selector(replicas, site, vo):
     """
     result = []
     try:
-        rses = parse_expression("site=%s" % site, filter={'vo': vo})
+        rses = parse_expression("site=%s" % site, filter_={'vo': vo})
     except InvalidRSEExpression:
         return result
     except Exception:

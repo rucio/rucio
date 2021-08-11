@@ -53,7 +53,7 @@ def get_dataset_locks(scope, name, session=None):
                           models.DatasetLock.bytes,
                           models.DatasetLock.accessed_at).filter_by(scope=scope, name=name)
 
-    for rse_id, scope, name, rule_id, account, state, length, bytes, accessed_at in query.yield_per(500):
+    for rse_id, scope, name, rule_id, account, state, length, bytes_, accessed_at in query.yield_per(500):
         yield {'rse_id': rse_id,
                'rse': get_rse_name(rse_id, session=session),
                'scope': scope,
@@ -62,7 +62,7 @@ def get_dataset_locks(scope, name, session=None):
                'account': account,
                'state': state,
                'length': length,
-               'bytes': bytes,
+               'bytes': bytes_,
                'accessed_at': accessed_at}
 
 
@@ -86,7 +86,7 @@ def get_dataset_locks_by_rse_id(rse_id, session=None):
                           models.DatasetLock.accessed_at).filter_by(rse_id=rse_id).\
         with_hint(models.DatasetLock, "index(DATASET_LOCKS DATASET_LOCKS_RSE_ID_IDX)", 'oracle')
 
-    for rse_id, scope, name, rule_id, account, state, length, bytes, accessed_at in query.yield_per(500):
+    for rse_id, scope, name, rule_id, account, state, length, bytes_, accessed_at in query.yield_per(500):
         yield {'rse_id': rse_id,
                'rse': get_rse_name(rse_id, session=session),
                'scope': scope,
@@ -95,7 +95,7 @@ def get_dataset_locks_by_rse_id(rse_id, session=None):
                'account': account,
                'state': state,
                'length': length,
-               'bytes': bytes,
+               'bytes': bytes_,
                'accessed_at': accessed_at}
 
 

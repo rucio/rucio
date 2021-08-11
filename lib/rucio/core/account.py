@@ -49,11 +49,11 @@ from six import string_types
 
 
 @transactional_session
-def add_account(account, type, email, session=None):
+def add_account(account, type_, email, session=None):
     """ Add an account with the given account name and type.
 
     :param account: the name of the new account.
-    :param type: the type of the new account.
+    :param type_: the type of the new account.
     :param email: The Email address associated with the account.
     :param session: the database session in use.
     """
@@ -66,7 +66,7 @@ def add_account(account, type, email, session=None):
         if not (vo == 'def' and config_get_bool('common', 'multi_vo', raise_exception=False, default=False)):
             raise exception.UnsupportedAccountName('The name "%s" cannot be used.' % account.external)
 
-    new_account = models.Account(account=account, account_type=type, email=email,
+    new_account = models.Account(account=account, account_type=type_, email=email,
                                  status=AccountStatus.ACTIVE)
     try:
         new_account.save(session=session)
@@ -151,37 +151,37 @@ def update_account(account, key, value, session=None):
 
 
 @stream_session
-def list_accounts(filter={}, session=None):
+def list_accounts(filter_={}, session=None):
     """ Returns a list of all account names.
 
-    :param filter: Dictionary of attributes by which the input data should be filtered
+    :param filter_: Dictionary of attributes by which the input data should be filtered
     :param session: the database session in use.
 
     returns: a list of all account names.
     """
     query = session.query(models.Account.account, models.Account.account_type,
                           models.Account.email).filter_by(status=AccountStatus.ACTIVE)
-    for filter_type in filter:
+    for filter_type in filter_:
         if filter_type == 'account_type':
-            if isinstance(filter['account_type'], string_types):
-                query = query.filter_by(account_type=AccountType[filter['account_type']])
-            elif isinstance(filter['account_type'], Enum):
-                query = query.filter_by(account_type=filter['account_type'])
+            if isinstance(filter_['account_type'], string_types):
+                query = query.filter_by(account_type=AccountType[filter_['account_type']])
+            elif isinstance(filter_['account_type'], Enum):
+                query = query.filter_by(account_type=filter_['account_type'])
 
         elif filter_type == 'identity':
             query = query.join(models.IdentityAccountAssociation, models.Account.account == models.IdentityAccountAssociation.account).\
-                filter(models.IdentityAccountAssociation.identity == filter['identity'])
+                filter(models.IdentityAccountAssociation.identity == filter_['identity'])
 
         elif filter_type == 'account':
-            if '*' in filter['account'].internal:
-                account_str = filter['account'].internal.replace('*', '%')
+            if '*' in filter_['account'].internal:
+                account_str = filter_['account'].internal.replace('*', '%')
                 query = query.filter(models.Account.account.like(account_str))
             else:
-                query = query.filter_by(account=filter['account'])
+                query = query.filter_by(account=filter_['account'])
         else:
             query = query.join(models.AccountAttrAssociation, models.Account.account == models.AccountAttrAssociation.account).\
                 filter(models.AccountAttrAssociation.key == filter_type).\
-                filter(models.AccountAttrAssociation.value == filter[filter_type])
+                filter(models.AccountAttrAssociation.value == filter_[filter_type])
 
     for account, account_type, email in query.order_by(models.Account.account).yield_per(25):
         yield {'account': account, 'type': account_type, 'email': email}

@@ -74,7 +74,7 @@ class TestDIDCore(unittest.TestCase):
 
     def test_list_dids(self):
         """ DATA IDENTIFIERS (CORE): List dids """
-        for d in list_dids(scope=InternalScope('data13_hip', **self.vo), filters={'name': '*'}, type='collection'):
+        for d in list_dids(scope=InternalScope('data13_hip', **self.vo), filters={'name': '*'}, did_type='collection'):
             print(d)
 
     def test_delete_dids(self):
@@ -86,7 +86,7 @@ class TestDIDCore(unittest.TestCase):
                  'purge_replicas': False,
                  'did_type': DIDType.DATASET} for i in range(5)]
         for dsn in dsns:
-            add_did(scope=tmp_scope, name=dsn['name'], type='DATASET', account=root)
+            add_did(scope=tmp_scope, name=dsn['name'], did_type='DATASET', account=root)
         delete_dids(dids=dsns, account=root)
 
     @pytest.mark.dirty
@@ -97,8 +97,8 @@ class TestDIDCore(unittest.TestCase):
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
 
-        add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account=root)
-        add_did(scope=tmp_scope, name=tmp_dsn2, type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=tmp_dsn1, did_type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=tmp_dsn2, did_type=DIDType.DATASET, account=root)
         now = datetime.utcnow()
 
         now -= timedelta(microseconds=now.microsecond)
@@ -117,8 +117,8 @@ class TestDIDCore(unittest.TestCase):
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
 
-        add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account=root)
-        add_did(scope=tmp_scope, name=tmp_dsn2, type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=tmp_dsn1, did_type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=tmp_dsn2, did_type=DIDType.DATASET, account=root)
 
         assert get_did_access_cnt(scope=tmp_scope, name=tmp_dsn1) is None
         assert get_did_access_cnt(scope=tmp_scope, name=tmp_dsn2) is None
@@ -136,7 +136,7 @@ class TestDIDCore(unittest.TestCase):
         root = InternalAccount('root', **self.vo)
         dsn = 'dsn_%s' % generate_uuid()
         lfn = 'lfn.%s' % str(generate_uuid())
-        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root)
 
         files = [{'scope': tmp_scope, 'name': lfn,
                   'bytes': 724963570, 'adler32': '0cc737eb',
@@ -165,12 +165,12 @@ class TestDIDCore(unittest.TestCase):
 
         rse_id = get_rse_id(rse='MOCK', **self.vo)
 
-        add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account=root)
-        add_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_dsn2, bytes=10, account=root)
-        add_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_dsn3, bytes=10, account=root)
+        add_did(scope=tmp_scope, name=tmp_dsn1, did_type=DIDType.DATASET, account=root)
+        add_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_dsn2, bytes_=10, account=root)
+        add_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_dsn3, bytes_=10, account=root)
         attach_dids(scope=tmp_scope, name=tmp_dsn1, dids=[{'scope': tmp_scope, 'name': tmp_dsn2}, {'scope': tmp_scope, 'name': tmp_dsn3}], account=root)
 
-        add_did(scope=tmp_scope, name=tmp_dsn4, type=DIDType.CONTAINER, account=root)
+        add_did(scope=tmp_scope, name=tmp_dsn4, did_type=DIDType.CONTAINER, account=root)
         attach_dids(scope=tmp_scope, name=tmp_dsn4, dids=[{'scope': tmp_scope, 'name': tmp_dsn1}], account=root)
 
         assert get_did(scope=tmp_scope, name=tmp_dsn1, dynamic=True)['bytes'] == 20
@@ -183,7 +183,7 @@ class TestDIDCore(unittest.TestCase):
         tmp_scope = InternalScope('mock', **self.vo)
         root = InternalAccount('root', **self.vo)
         parent_name = 'parent_%s' % generate_uuid()
-        add_did(scope=tmp_scope, name=parent_name, type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=parent_name, did_type=DIDType.DATASET, account=root)
 
         child_name = 'child_%s' % generate_uuid()
         files = [{'scope': tmp_scope, 'name': child_name,
@@ -205,7 +205,7 @@ class TestDIDCore(unittest.TestCase):
         dsn = 'dsn_%s' % generate_uuid()
         root = InternalAccount('root', **self.vo)
 
-        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root)
         add_did_to_followed(scope=tmp_scope, name=dsn, account=root)
         users = get_users_following_did(scope=tmp_scope, name=dsn)
         rows = 0
@@ -221,7 +221,7 @@ class TestDIDCore(unittest.TestCase):
         dsn = 'dsn_%s' % generate_uuid()
         root = InternalAccount('root', **self.vo)
 
-        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root)
         add_did_to_followed(scope=tmp_scope, name=dsn, account=root)
 
         users = get_users_following_did(scope=tmp_scope, name=dsn)
@@ -238,7 +238,7 @@ class TestDIDCore(unittest.TestCase):
         dsn = 'dsn_%s' % generate_uuid()
         root = InternalAccount('root', **self.vo)
 
-        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root)
         add_did_to_followed(scope=tmp_scope, name=dsn, account=root)
 
         users = get_users_following_did(scope=tmp_scope, name=dsn)
@@ -272,7 +272,7 @@ class TestDIDApi(unittest.TestCase):
         tmp_dsn = 'dsn_%s' % generate_uuid()
         scope.add_scope(tmp_scope, 'jdoe', 'jdoe', **self.vo)
         for i in range(0, 5):
-            did.add_did(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='DATASET', issuer='root', **self.vo)
+            did.add_did(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), did_type='DATASET', issuer='root', **self.vo)
         for i in did.list_new_dids('DATASET', **self.vo):
             assert i != {}
             assert i['did_type'] == DIDType.DATASET
@@ -290,7 +290,7 @@ class TestDIDApi(unittest.TestCase):
         dids = []
         for i in range(0, 5):
             d = {'scope': tmp_scope, 'name': '%s-%i' % (tmp_dsn, i), 'did_type': DIDType.DATASET}
-            did.add_did(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='DATASET', issuer='root', **self.vo)
+            did.add_did(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), did_type='DATASET', issuer='root', **self.vo)
             dids.append(d)
         st = did.set_new_dids(dids, None, **self.vo)
         assert st
@@ -329,19 +329,19 @@ class TestDIDClients(unittest.TestCase):
             self.replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1, '0cc737eb')
 
         results = []
-        for result in self.did_client.list_dids(tmp_scope, {'name': 'file_a_*'}, type='file'):
+        for result in self.did_client.list_dids(tmp_scope, {'name': 'file_a_*'}, did_type='file'):
             results.append(result)
         assert len(results) == 2
         results = []
-        for result in self.did_client.list_dids(tmp_scope, {'name': 'file_a_1*'}, type='file'):
+        for result in self.did_client.list_dids(tmp_scope, {'name': 'file_a_1*'}, did_type='file'):
             results.append(result)
         assert len(results) == 1
         results = []
-        for result in self.did_client.list_dids(tmp_scope, {'name': 'file_*_1*'}, type='file'):
+        for result in self.did_client.list_dids(tmp_scope, {'name': 'file_*_1*'}, did_type='file'):
             results.append(result)
         assert len(results) == 2
         results = []
-        for result in self.did_client.list_dids(tmp_scope, {'name': 'file*'}, type='file'):
+        for result in self.did_client.list_dids(tmp_scope, {'name': 'file*'}, did_type='file'):
             results.append(result)
         assert len(results) == 3
         results = []
@@ -351,7 +351,7 @@ class TestDIDClients(unittest.TestCase):
             results.append(result)
         assert len(results) == 0
         with pytest.raises(UnsupportedOperation):
-            self.did_client.list_dids(tmp_scope, {'name': 'file*'}, type='whateverytype')
+            self.did_client.list_dids(tmp_scope, {'name': 'file*'}, did_type='whateverytype')
 
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined scope names')
@@ -380,11 +380,11 @@ class TestDIDClients(unittest.TestCase):
         self.did_client.attach_dids(scope=tmp_scope_1, name=tmp_container_1, dids=[{'scope': tmp_scope_1, 'name': tmp_container_2}])
 
         # List DIDs not recursive - only the first container is expected
-        dids = [str(did) for did in self.did_client.list_dids(scope=tmp_scope_1, recursive=False, type='all', filters={'name': tmp_container_1})]
+        dids = [str(did) for did in self.did_client.list_dids(scope=tmp_scope_1, recursive=False, did_type='all', filters={'name': tmp_container_1})]
         assert dids == [tmp_container_1]
 
         # List DIDs recursive - first container and all attached collections are expected
-        dids = [str(did) for did in self.did_client.list_dids(scope=tmp_scope_1, recursive=True, type='all', filters={'name': tmp_container_1})]
+        dids = [str(did) for did in self.did_client.list_dids(scope=tmp_scope_1, recursive=True, did_type='all', filters={'name': tmp_container_1})]
         assert tmp_container_1 in dids
         assert tmp_container_2 in dids
         assert tmp_dataset_1 in dids
@@ -392,7 +392,7 @@ class TestDIDClients(unittest.TestCase):
         assert len(dids) == 4
 
         # List DIDs recursive - only containers are expected
-        dids = [str(did) for did in self.did_client.list_dids(scope=tmp_scope_1, recursive=True, type='container', filters={'name': tmp_container_1})]
+        dids = [str(did) for did in self.did_client.list_dids(scope=tmp_scope_1, recursive=True, did_type='container', filters={'name': tmp_container_1})]
         assert tmp_container_1 in dids
         assert tmp_container_2 in dids
         assert tmp_dataset_1 not in dids
@@ -1009,7 +1009,7 @@ class TestDIDClients(unittest.TestCase):
 
         # Add file replica
         tmp_file = 'file_%s' % generate_uuid()
-        self.replica_client.add_replica(rse=tmp_rse, scope=tmp_scope, name=tmp_file, bytes=1, adler32='0cc737eb')
+        self.replica_client.add_replica(rse=tmp_rse, scope=tmp_scope, name=tmp_file, bytes_=1, adler32='0cc737eb')
 
         # Add dataset
         self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
@@ -1051,7 +1051,7 @@ class TestDIDClients(unittest.TestCase):
 
         # Add file replica
         tmp_file = 'file_%s' % generate_uuid()
-        self.replica_client.add_replica(rse=tmp_rse, scope=tmp_scope, name=tmp_file, bytes=1, adler32='0cc737eb')
+        self.replica_client.add_replica(rse=tmp_rse, scope=tmp_scope, name=tmp_file, bytes_=1, adler32='0cc737eb')
 
         # Add dataset
         self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)

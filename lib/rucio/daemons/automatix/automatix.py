@@ -322,7 +322,7 @@ def run(total_workers=1, once=False, inputfile=None):
         scope = get('automatix', 'scope')
         client = Client()
         filters = {'scope': InternalScope('*', vo=client.vo)}
-        if InternalScope(scope, vo=client.vo) not in list_scopes(filter=filters):
+        if InternalScope(scope, vo=client.vo) not in list_scopes(filter_=filters):
             logging.log(logging.ERROR, 'Scope %s does not exist. Exiting', scope)
             GRACEFUL_STOP.set()
     except Exception:

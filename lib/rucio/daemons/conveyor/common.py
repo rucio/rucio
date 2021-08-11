@@ -443,7 +443,7 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None,
     if include_rses:
         for vo in vos:
             try:
-                parsed_rses = parse_expression(include_rses, filter={'vo': vo}, session=None)
+                parsed_rses = parse_expression(include_rses, filter_={'vo': vo}, session=None)
             except InvalidRSEExpression:
                 logger(logging.ERROR, "Invalid RSE exception %s to include RSEs", include_rses)
             else:

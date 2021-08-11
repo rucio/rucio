@@ -51,7 +51,7 @@ class RequestClient(BaseClient):
 
         path = '/'.join(['requests', quote_plus(scope), quote_plus(name), rse])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
 
         if r.status_code == codes.ok:
             return next(self._load_json_data(r))

@@ -31,6 +31,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import datetime
 import json
@@ -42,7 +43,7 @@ from itertools import filterfalse
 from typing import TYPE_CHECKING
 
 from six import string_types
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, or_, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, false, true
 
@@ -552,11 +553,13 @@ def touch_requests_by_rule(rule_id, session=None):
     record_counter('core.request.touch_requests_by_rule')
 
     try:
-        session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_RULEID_IDX)", 'oracle')\
+        stmt = update(models.Request).prefix_with("/*+ INDEX(REQUESTS REQUESTS_RULEID_IDX) */", dialect='oracle')\
                                      .filter_by(rule_id=rule_id)\
-                                     .filter(models.Request.state.in_([RequestState.FAILED, RequestState.DONE, RequestState.LOST, RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES]))\
-                                     .filter(models.Request.updated_at < datetime.datetime.utcnow())\
-                                     .update({'updated_at': datetime.datetime.utcnow() + datetime.timedelta(minutes=20)}, synchronize_session=False)
+                                     .where(models.Request.state.in_([RequestState.FAILED, RequestState.DONE, RequestState.LOST, RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES]))\
+                                     .where(models.Request.updated_at < datetime.datetime.utcnow())\
+                                     .execution_options(synchronize_session=False)\
+                                     .values(updated_at=datetime.datetime.utcnow() + datetime.timedelta(minutes=20))
+        session.execute(stmt)
     except IntegrityError as error:
         raise RucioException(error.args)
 
@@ -1264,12 +1267,12 @@ def release_all_waiting_requests(rse_id, activity=None, account=None, direction=
 
 
 @transactional_session
-def update_requests_priority(priority, filter, session=None, logger=logging.log):
+def update_requests_priority(priority, filter_, session=None, logger=logging.log):
     """
     Update priority of requests.
 
     :param priority:  The priority as an integer from 1 to 5.
-    :param filter:    Dictionary such as {'rule_id': rule_id, 'request_id': request_id, 'older_than': time_stamp, 'activities': [activities]}.
+    :param filter_:    Dictionary such as {'rule_id': rule_id, 'request_id': request_id, 'older_than': time_stamp, 'activities': [activities]}.
     :param logger:    Optional decorated logger that can be passed from the calling daemons or servers.
     """
     try:
@@ -1277,16 +1280,16 @@ def update_requests_priority(priority, filter, session=None, logger=logging.log)
             .join(models.ReplicaLock, and_(models.ReplicaLock.scope == models.Request.scope,
                                            models.ReplicaLock.name == models.Request.name,
                                            models.ReplicaLock.rse_id == models.Request.dest_rse_id))
-        if 'rule_id' in filter:
-            query = query.filter(models.ReplicaLock.rule_id == filter['rule_id'])
-        if 'request_id' in filter:
-            query = query.filter(models.Request.id == filter['request_id'])
-        if 'older_than' in filter:
-            query = query.filter(models.Request.created_at < filter['older_than'])
-        if 'activities' in filter:
-            if type(filter['activities']) is not list:
-                filter['activities'] = filter['activities'].split(',')
-            query = query.filter(models.Request.activity.in_(filter['activities']))
+        if 'rule_id' in filter_:
+            query = query.filter(models.ReplicaLock.rule_id == filter_['rule_id'])
+        if 'request_id' in filter_:
+            query = query.filter(models.Request.id == filter_['request_id'])
+        if 'older_than' in filter_:
+            query = query.filter(models.Request.created_at < filter_['older_than'])
+        if 'activities' in filter_:
+            if type(filter_['activities']) is not list:
+                filter_['activities'] = filter_['activities'].split(',')
+            query = query.filter(models.Request.activity.in_(filter_['activities']))
 
         transfertool_map = {}
         for item in query.all():

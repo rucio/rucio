@@ -16,7 +16,7 @@
 # Authors:
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
-
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import os
 import shutil
@@ -264,7 +264,7 @@ class TemporaryDidFactory:
 
     def make_dataset(self, scope=None):
         did = self._random_did(scope=scope, name_prefix='dataset')
-        self.client.add_did(scope=did['scope'].external, name=did['name'], type=DIDType.DATASET)
+        self.client.add_did(scope=did['scope'].external, name=did['name'], did_type=DIDType.DATASET)
         return did
 
     def make_container(self, scope=None):
@@ -323,12 +323,12 @@ class TemporaryFileFactory:
 
         return self._base_dir
 
-    def _make_temp_file(self, data, size, namelen, use_basedir):
+    def _make_temp_file(self, data, size, namelen, use_basedir, path):
         fn = ''.join(choice(ascii_uppercase) for x in range(namelen))
         if use_basedir:
-            fp = self.base_dir / fn
+            fp = self.base_dir / path / fn if path is not None else self.base_dir / fn
         else:
-            fp = Path(tempfile.gettempdir(), fn)
+            fp = Path(tempfile.gettempdir()) / path / fn if path is not None else Path(tempfile.gettempdir()) / fn
             self.non_basedir_files.append(fp)
 
         if data is not None:
@@ -343,16 +343,39 @@ class TemporaryFileFactory:
 
         return fp
 
-    def file_generator(self, data=None, size=2, namelen=10, use_basedir=False):
+    def _make_temp_folder(self, namelen, use_basedir, path):
+        fn = ''.join(choice(ascii_uppercase) for x in range(namelen))
+        if use_basedir:
+            fp = self.base_dir / path / fn if path is not None else self.base_dir / fn
+        else:
+            fp = Path(tempfile.gettempdir()) / path / fn if path is not None else Path(tempfile.gettempdir()) / fn
+            self.non_basedir_files.append(fp)
+
+        os.makedirs(fp, exist_ok=True)
+
+        return fp
+
+    def file_generator(self, data=None, size=2, namelen=10, use_basedir=False, path=None):
         """
         Creates a temporary file
         :param data        : The content to be written in the file. If provided, the size parameter is ignored.
         :param size        : The size of random bytes to be written in the file
         :param namelen     : The length of filename
         :param use_basedir : If True, the file is created under the base_dir for this TemporaryFileFactory instance.
+        :param path        : Relative path of the file, can be under basedir (if use_basedir True) or from the temp dir
         :returns: The absolute path of the generated file
         """
-        return self._make_temp_file(data, size, namelen, use_basedir)
+        return self._make_temp_file(data, size, namelen, use_basedir, path)
+
+    def folder_generator(self, namelen=10, use_basedir=False, path=None):
+        """
+        Creates an empty temporary folder
+        :param namelen     : The length of folder. Only used if path is None.
+        :param use_basedir : If True, the folder is created under the base_dir for this TemporaryFileFactory instance.
+        :param path        : Relative path of the folder, can be under basedir (if use_basedir True).
+        :returns: The absolute path of the generated folder
+        """
+        return self._make_temp_folder(namelen, use_basedir, path)
 
     def cleanup(self):
         for fp in self.non_basedir_files:

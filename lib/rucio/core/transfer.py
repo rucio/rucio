@@ -37,6 +37,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 # - Petr Vokac <petr.vokac@fjfi.cvut.cz>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import division
 
@@ -51,7 +52,7 @@ from typing import TYPE_CHECKING
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
-from sqlalchemy import and_
+from sqlalchemy import and_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import false
 
@@ -110,8 +111,8 @@ class RseData:
     """
     Helper data class storing rse data grouped in one place.
     """
-    def __init__(self, id, name=None, attributes=None, info=None):
-        self.id = id
+    def __init__(self, id_, name=None, attributes=None, info=None):
+        self.id = id_
         self.name = name
         self.attributes = attributes
         self.info = info
@@ -179,10 +180,10 @@ class TransferDestination:
 
 
 class RequestWithSources:
-    def __init__(self, id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes,
+    def __init__(self, id_, rule_id, scope, name, md5, adler32, byte_count, activity, attributes,
                  previous_attempt_id, dest_rse_data, account, retry_count):
 
-        self.request_id = id
+        self.request_id = id_
         self.rule_id = rule_id
         self.scope = scope
         self.name = name
@@ -859,11 +860,13 @@ def touch_transfer(external_host, transfer_id, session=None):
 
     try:
         # don't touch it if it's already touched in 30 seconds
-        session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_EXTERNALID_UQ)", 'oracle')\
+        stmt = update(models.Request).prefix_with("/*+ INDEX(REQUESTS REQUESTS_EXTERNALID_UQ) */", dialect='oracle')\
                                      .filter_by(external_id=transfer_id)\
-                                     .filter(models.Request.state == RequestState.SUBMITTED)\
-                                     .filter(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=30))\
-                                     .update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+                                     .where(models.Request.state == RequestState.SUBMITTED)\
+                                     .where(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=30))\
+                                     .execution_options(synchronize_session=False)\
+                                     .values(updated_at=datetime.datetime.utcnow())
+        session.execute(stmt)
     except IntegrityError as error:
         raise RucioException(error.args)
 
@@ -1111,7 +1114,7 @@ def __create_transfer_definitions(ctx, rws, sources, include_multihop, multihop_
                 destination=dst,
                 # keep the current rws for last hop; create a new one for other hops
                 rws=rws if hop_dst_rse == rws.dest_rse else RequestWithSources(
-                    id=None,
+                    id_=None,
                     rule_id=None,
                     scope=rws.scope,
                     name=rws.name,
@@ -1653,13 +1656,13 @@ def __list_transfer_requests_and_source_replicas(
 
         request = requests_by_id.get(request_id)
         if not request:
-            request = RequestWithSources(id=request_id, rule_id=rule_id, scope=scope, name=name, md5=md5, adler32=adler32, byte_count=byte_count,
+            request = RequestWithSources(id_=request_id, rule_id=rule_id, scope=scope, name=name, md5=md5, adler32=adler32, byte_count=byte_count,
                                          activity=activity, attributes=attributes, previous_attempt_id=previous_attempt_id,
-                                         dest_rse_data=RseData(id=dest_rse_id), account=account, retry_count=retry_count)
+                                         dest_rse_data=RseData(id_=dest_rse_id), account=account, retry_count=retry_count)
             requests_by_id[request_id] = request
 
         if source_rse_id is not None:
-            request.sources.append(TransferSource(rse_data=RseData(id=source_rse_id, name=source_rse_name), file_path=file_path,
+            request.sources.append(TransferSource(rse_data=RseData(id_=source_rse_id, name=source_rse_name), file_path=file_path,
                                                   source_ranking=source_ranking, distance_ranking=distance_ranking))
     return list(requests_by_id.values())
 

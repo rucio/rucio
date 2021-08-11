@@ -169,7 +169,7 @@ class Search(ErrorHandlingMethodView):
         recursive = request.args.get('recursive', type='True'.__eq__, default=False)
         try:
             def generate(vo):
-                for did in list_dids(scope=scope, filters=filters, type=did_type, limit=limit, long=long, recursive=recursive, vo=vo):
+                for did in list_dids(scope=scope, filters=filters, did_type=did_type, limit=limit, long=long, recursive=recursive, vo=vo):
                     yield dumps(did) + '\n'
             return try_stream(generate(vo=request.environ.get('vo')))
         except UnsupportedOperation as error:
@@ -239,7 +239,7 @@ class SearchExtended(ErrorHandlingMethodView):
         recursive = request.args.get('recursive', type='True'.__eq__, default=False)
         try:
             def generate(vo):
-                for did in list_dids_extended(scope=scope, filters=filters, type=type_param, limit=limit, long=long, recursive=recursive, vo=vo):
+                for did in list_dids_extended(scope=scope, filters=filters, did_type=type_param, limit=limit, long=long, recursive=recursive, vo=vo):
                     yield dumps(did) + '\n'
 
             return try_stream(generate(vo=request.environ.get('vo')))
@@ -425,7 +425,7 @@ class DIDs(ErrorHandlingMethodView):
             add_did(
                 scope=scope,
                 name=name,
-                type=type_param,
+                did_type=type_param,
                 statuses=param_get(parameters, 'statuses', default={}),
                 meta=param_get(parameters, 'meta', default={}),
                 rules=param_get(parameters, 'rules', default=[]),
@@ -1048,7 +1048,7 @@ class NewDIDs(ErrorHandlingMethodView):
         :returns: List recently created DIDs.
         """
         def generate(_type, vo):
-            for did in list_new_dids(type=_type, vo=vo):
+            for did in list_new_dids(did_type=_type, vo=vo):
                 yield dumps(did, cls=APIEncoder) + '\n'
 
         type_param = request.args.get('type', default=None)

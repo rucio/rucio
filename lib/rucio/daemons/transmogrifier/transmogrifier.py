@@ -335,12 +335,12 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                         # In the case of chained subscription, don't use rseselector but use the rses returned by the algorithm
                                         if split_rule:
                                             vo = account.vo
-                                            rses = parse_expression(rse_expression, filter={'vo': vo})
+                                            rses = parse_expression(rse_expression, filter_={'vo': vo})
                                             list_of_rses = [rse['id'] for rse in rses]
                                             # Check that some rule doesn't already exist for this DID and subscription
                                             preferred_rse_ids = []
                                             for rule in list_rules(filters={'subscription_id': subscription_id, 'scope': did['scope'], 'name': did['name']}):
-                                                already_existing_rses = [(rse['rse'], rse['id']) for rse in parse_expression(rule['rse_expression'], filter={'vo': vo})]
+                                                already_existing_rses = [(rse['rse'], rse['id']) for rse in parse_expression(rule['rse_expression'], filter_={'vo': vo})]
                                                 for rse, rse_id in already_existing_rses:
                                                     if (rse_id in list_of_rses) and (rse_id not in preferred_rse_ids):
                                                         preferred_rse_ids.append(rse_id)

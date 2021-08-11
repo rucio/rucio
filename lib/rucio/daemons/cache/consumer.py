@@ -54,13 +54,13 @@ class Consumer(object):
     '''
     class Consumer
     '''
-    def __init__(self, broker, account, id, num_thread):
+    def __init__(self, broker, account, id_, num_thread):
         '''
         __init__
         '''
         self.__broker = broker
         self.__account = account
-        self.__id = id
+        self.__id = id_
         self.__num_thread = num_thread
 
     def on_error(self, frame):
@@ -98,7 +98,7 @@ class Consumer(object):
             logging.error(str(format_exc()))
 
 
-def consumer(id, num_thread=1):
+def consumer(id_, num_thread=1):
     """
     Main loop to consume messages from the Rucio Cache producer.
     """
@@ -129,7 +129,7 @@ def consumer(id, num_thread=1):
                                 ssl_cert_file=config_get('messaging-cache', 'ssl_cert_file'),
                                 vhost=config_get('messaging-cache', 'broker_virtual_host', raise_exception=False)
                                 )
-        conns[conn] = Consumer(conn.transport._Transport__host_and_ports[0], account=config_get('messaging-cache', 'account'), id=id, num_thread=num_thread)
+        conns[conn] = Consumer(conn.transport._Transport__host_and_ports[0], account=config_get('messaging-cache', 'account'), id_=id_, num_thread=num_thread)
 
     logging.info('consumer started')
 

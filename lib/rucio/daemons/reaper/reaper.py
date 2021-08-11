@@ -558,7 +558,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                         if only_delete_obsolete:
                             logger(logging.DEBUG, 'Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', rse_name)
                         replicas = list_and_mark_unlocked_replicas(limit=chunk_size,
-                                                                   bytes=needed_free_space,
+                                                                   bytes_=needed_free_space,
                                                                    rse_id=rse_id,
                                                                    delay_seconds=delay_seconds,
                                                                    only_delete_obsolete=only_delete_obsolete,

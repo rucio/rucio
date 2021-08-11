@@ -76,13 +76,13 @@ def error(text, exit_code=1):
     exit(1)
 
 
-def mkdir(dir):
+def mkdir(dir_):
     '''
-    This functions creates the `dir` directory if it doesn't exist. If `dir`
+    This functions creates the `dir_` directory if it doesn't exist. If `dir_`
     already exists this function does nothing.
     '''
     try:
-        os.mkdir(dir)
+        os.mkdir(dir_)
     except OSError as error:
         assert error.errno == 17
 
