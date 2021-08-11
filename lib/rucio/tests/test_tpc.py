@@ -31,6 +31,8 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.utils import run_cmd_process
 
+MAX_POLL_WAIT_SECONDS = 60
+
 
 @pytest.fixture
 def did_factory(vo, test_scope):
@@ -130,9 +132,14 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
 
     # Check FTS transfer job
     assert fts_transfer_id is not None
-    assert fts_transfer_status in ['SUBMITTED', 'ACTIVE']
 
-    fts_transfer_status = poll_fts_transfer_status(fts_transfer_id)
+    # Wait for the FTS transfer to finish
+    fts_transfer_status = None
+    for _ in range(MAX_POLL_WAIT_SECONDS):
+        fts_transfer_status = poll_fts_transfer_status(fts_transfer_id)
+        if fts_transfer_status not in ['SUBMITTED', 'ACTIVE']:
+            break
+        time.sleep(1)
     assert fts_transfer_status == 'FINISHED'
 
     poller.run(once=True, older_than=0)
