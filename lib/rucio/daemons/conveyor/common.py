@@ -378,6 +378,10 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
             if policy_key not in current_transfers_group[job_key]:
                 current_transfers_group[job_key][policy_key] = {'files': [], 'job_params': job_params}
             current_transfers_policy = current_transfers_group[job_key][policy_key]
+
+            # Only allow overwrite if all transfers grouped together allow it
+            current_transfers_policy['job_params']['overwrite'] = current_transfers_policy['job_params']['overwrite'] and job_params['overwrite']
+
             if multihop:
                 # The parent transfer should be the first of the list
                 # TODO : Only work for a single hop now, need to be able to handle multiple hops

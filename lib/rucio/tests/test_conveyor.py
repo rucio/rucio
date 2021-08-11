@@ -18,29 +18,33 @@
 import threading
 import time
 from datetime import datetime
+from unittest.mock import patch
+from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
 
 import pytest
 
 import rucio.daemons.reaper.reaper
 from rucio.common.exception import ReplicaNotFound
+from rucio.core import distance as distance_core
 from rucio.core import replica as replica_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
+from rucio.core import transfer as transfer_core
 from rucio.daemons.conveyor.finisher import finisher
 from rucio.daemons.conveyor.poller import poller
 from rucio.daemons.conveyor.submitter import submitter
 from rucio.daemons.conveyor.receiver import receiver, graceful_stop as receiver_graceful_stop
 from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RequestState, ReplicaState
+from rucio.db.sqla.constants import RequestState, ReplicaState, RSEType
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.tests.common import skip_rse_tests_with_accounts
 
 MAX_POLL_WAIT_SECONDS = 60
 
 
-def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=MAX_POLL_WAIT_SECONDS):
+def __wait_for_replica_transfer(dst_rse_id, scope, name, state=ReplicaState.AVAILABLE, max_wait_seconds=MAX_POLL_WAIT_SECONDS):
     """
     Wait for the replica to become AVAILABLE on the given RSE as a result of a pending transfer
     """
@@ -49,7 +53,7 @@ def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=MAX_PO
         poller(once=True, older_than=0, partition_wait_time=None)
         finisher(once=True, partition_wait_time=None)
         replica = replica_core.get_replica(rse_id=dst_rse_id, scope=scope, name=name)
-        if replica['state'] == ReplicaState.AVAILABLE:
+        if replica['state'] == state:
             break
         time.sleep(1)
     return replica
@@ -68,6 +72,19 @@ def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MA
             break
         time.sleep(1)
     return request
+
+
+def set_query_parameters(url, params):
+    """
+    Set a query parameter in an url which may, or may not, have other existing query parameters
+    """
+    url_parts = list(urlparse(url))
+
+    query = dict(parse_qsl(url_parts[4]))
+    query.update(params)
+    url_parts[4] = urlencode(query)
+
+    return urlunparse(url_parts)
 
 
 @skip_rse_tests_with_accounts
@@ -419,3 +436,60 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config
         receiver_graceful_stop.set()
         receiver_thread.join(timeout=5)
         receiver_graceful_stop.clear()
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter and poller;")
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', True)
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by an expression
+    'rucio.core.config',
+]}], indirect=True)
+def test_overwrite_on_tape(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
+    """
+    Ensure that overwrite is not set for transfers towards TAPE RSEs
+
+    Submit a real transfer to FTS and rely on the gfal "mock" plugin to trigger a failure. The failure is triggered
+    when gfal_stat is called on the destination URL and it returns a result. To achieve this via the mock
+    plugin, it's enough to have a mock:// protocol/scheme and add size_pre=<something> url parameter.
+    https://gitlab.cern.ch/dmc/gfal2/-/blob/master/src/plugins/mock/README_PLUGIN_MOCK
+    """
+    # +------+    +------+    +------+
+    # |      |    |      |    |      |
+    # | RSE1 +--->| RSE2 |--->| RSE3 |
+    # |      |    |      |    |(tape)|
+    # +------+    +------+    +------+
+    rse1, rse1_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    rse2, rse2_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    rse3, rse3_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
+    all_rses = [rse1_id, rse2_id, rse3_id]
+
+    distance_core.add_distance(rse1_id, rse2_id, ranking=10)
+    distance_core.add_distance(rse2_id, rse3_id, ranking=10)
+    rse_core.add_rse_attribute(rse2_id, 'available_for_multihop', True)
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, 'fts', 'https://fts:8446')
+
+    # multihop transfer:
+    did1 = did_factory.upload_test_file(rse1)
+    # direct transfer:
+    did2 = did_factory.upload_test_file(rse2)
+
+    rule_core.add_rule(dids=[did1, did2], account=root_account, copies=1, rse_expression=rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    # Wrap dest url generation to add size_pre=2 query parameter
+    non_mocked_dest_url = transfer_core.DirectTransferDefinition._dest_url
+
+    def mocked_dest_url(cls, *args):
+        return set_query_parameters(non_mocked_dest_url(*args), {'size_pre': 2})
+
+    with patch('rucio.core.transfer.DirectTransferDefinition._dest_url', new=mocked_dest_url):
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+    request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did1)
+    assert request['state'] == RequestState.FAILED
+    request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did2)
+    assert request['state'] == RequestState.FAILED
+    assert 'Destination file exists and overwrite is not enabled' in request['err_msg']
