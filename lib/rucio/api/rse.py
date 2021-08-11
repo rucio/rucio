@@ -391,7 +391,7 @@ def parse_rse_expression(rse_expression, vo='def'):
     :returns:  List of RSEs
     :raises:   InvalidRSEExpression
     """
-    rses = parse_expression(rse_expression, filter={'vo': vo})
+    rses = parse_expression(rse_expression, filter_={'vo': vo})
     return [rse['rse'] for rse in rses]
 
 

@@ -62,7 +62,7 @@ class MetaClient(BaseClient):
                       'value_regexp': value_regexp,
                       'key_type': key_type})
 
-        r = self._send_request(url, type='POST', data=data)
+        r = self._send_request(url, type_='POST', data=data)
 
         if r.status_code == codes.created:
             return True
@@ -116,7 +116,7 @@ class MetaClient(BaseClient):
         path = '/'.join([self.META_BASEURL, quote_plus(key)]) + '/'
         data = dumps({'value': value})
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='POST', data=data)
+        r = self._send_request(url, type_='POST', data=data)
         if r.status_code == codes.created:
             return True
         else:
@@ -140,12 +140,12 @@ class MetaClient(BaseClient):
         """
         pass
 
-    def update_key(self, key, type=None, regepx=None):
+    def update_key(self, key, type_=None, regexp=None):
         """
         Update a key.
 
         :param key: the name for key.
-        :param type: the type of the value, if defined.
+        :param type_: the type of the value, if defined.
         :param regexp: the regular expression that values should match, if defined.
         """
         pass

@@ -57,7 +57,7 @@ class FileClient(BaseClient):
         path = '/'.join([self.BASEURL, quote_plus(scope), quote_plus(lfn), 'rses'])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
 
         if r.status_code == codes.ok:
             rses = loads(r.text)

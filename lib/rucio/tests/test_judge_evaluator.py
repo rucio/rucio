@@ -145,7 +145,7 @@ class TestJudgeEvaluator(unittest.TestCase):
         account_update(once=True)
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
 
@@ -169,7 +169,7 @@ class TestJudgeEvaluator(unittest.TestCase):
         account_update(once=True)
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
@@ -196,7 +196,7 @@ class TestJudgeEvaluator(unittest.TestCase):
         re_evaluator(once=True)
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
@@ -229,21 +229,21 @@ class TestJudgeEvaluator(unittest.TestCase):
         add_did(scope, container, DIDType.CONTAINER, self.jdoe)
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
         attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
         attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
         scope = InternalScope('mock', **self.vo)
-        files = create_files(3, scope, self.rse1_id, bytes=100)
+        files = create_files(3, scope, self.rse1_id, bytes_=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)

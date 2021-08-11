@@ -56,13 +56,13 @@ class DIDClient(BaseClient):
         super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert,
                                         auth_type, creds, timeout, user_agent, vo=vo)
 
-    def list_dids(self, scope, filters, type='collection', long=False, recursive=False):
+    def list_dids(self, scope, filters, did_type='collection', long=False, recursive=False):
         """
         List all data identifiers in a scope which match a given pattern.
 
         :param scope: The scope name.
         :param filters: A dictionary of key/value pairs like {'type': 'dataset', 'scope': 'test'}.
-        :param type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
+        :param did_type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
         :param long: Long format option to display more information for each DID.
         :param recursive: Recursively list DIDs content.
         """
@@ -75,12 +75,12 @@ class DIDClient(BaseClient):
             else:
                 payload[k] = v
         payload['long'] = long
-        payload['type'] = type
+        payload['type'] = did_type
         payload['recursive'] = recursive
 
         url = build_url(choice(self.list_hosts), path=path, params=payload)
 
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             dids = self._load_json_data(r)
             return dids
@@ -88,13 +88,13 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_dids_extended(self, scope, filters, type='collection', long=False, recursive=False):
+    def list_dids_extended(self, scope, filters, did_type='collection', long=False, recursive=False):
         """
         List all data identifiers in a scope which match a given pattern. Extended version that goes through plugin mechanism.
 
         :param scope: The scope name.
         :param filters: A dictionary of key/value pairs like {'type': 'dataset', 'scope': 'test'}.
-        :param type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
+        :param did_type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
         :param long: Long format option to display more information for each DID.
         :param recursive: Recursively list DIDs content.
         """
@@ -107,11 +107,11 @@ class DIDClient(BaseClient):
             else:
                 payload[k] = v
         payload['long'] = long
-        payload['type'] = type
+        payload['type'] = did_type
         payload['recursive'] = recursive
 
         url = build_url(choice(self.list_hosts), path=path, params=payload)
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             dids = self._load_json_data(r)
             return dids
@@ -119,7 +119,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def add_did(self, scope, name, type, statuses=None, meta=None, rules=None, lifetime=None, dids=None, rse=None):
+    def add_did(self, scope, name, did_type, statuses=None, meta=None, rules=None, lifetime=None, dids=None, rse=None):
         """
         Add data identifier for a dataset or container.
 
@@ -136,7 +136,7 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
         # Build json
-        data = {'type': type}
+        data = {'type': did_type}
         if statuses:
             data['statuses'] = statuses
         if meta:
@@ -149,7 +149,7 @@ class DIDClient(BaseClient):
             data['dids'] = dids
         if rse:
             data['rse'] = rse
-        r = self._send_request(url, type='POST', data=render_json(**data))
+        r = self._send_request(url, type_='POST', data=render_json(**data))
         if r.status_code == codes.created:
             return True
         else:
@@ -162,7 +162,7 @@ class DIDClient(BaseClient):
         """
         path = '/'.join([self.DIDS_BASEURL])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='POST', data=render_json_list(dids))
+        r = self._send_request(url, type_='POST', data=render_json_list(dids))
         if r.status_code == codes.created:
             return True
         else:
@@ -182,7 +182,7 @@ class DIDClient(BaseClient):
         :param files: The content.
         :param rse: The RSE name when registering replicas.
         """
-        return self.add_did(scope=scope, name=name, type='DATASET',
+        return self.add_did(scope=scope, name=name, did_type='DATASET',
                             statuses=statuses, meta=meta, rules=rules,
                             lifetime=lifetime, dids=files, rse=rse)
 
@@ -205,7 +205,7 @@ class DIDClient(BaseClient):
         :param rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
         :param lifetime: DID's lifetime (in seconds).
         """
-        return self.add_did(scope=scope, name=name, type='CONTAINER', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
+        return self.add_did(scope=scope, name=name, did_type='CONTAINER', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
 
     def add_containers(self, cnts):
         """
@@ -229,7 +229,7 @@ class DIDClient(BaseClient):
         data = {'dids': dids}
         if rse:
             data['rse'] = rse
-        r = self._send_request(url, type='POST', data=render_json(**data))
+        r = self._send_request(url, type_='POST', data=render_json(**data))
         if r.status_code == codes.created:
             return True
         else:
@@ -248,7 +248,7 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids'])
         url = build_url(choice(self.list_hosts), path=path)
         data = {'dids': dids}
-        r = self._send_request(url, type='DEL', data=render_json(**data))
+        r = self._send_request(url, type_='DEL', data=render_json(**data))
         if r.status_code == codes.ok:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -267,7 +267,7 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, 'attachments'])
         url = build_url(choice(self.list_hosts), path=path)
         data = {'ignore_duplicate': ignore_duplicate, 'attachments': attachments}
-        r = self._send_request(url, type='POST', data=dumps(data))
+        r = self._send_request(url, type_='POST', data=dumps(data))
         if r.status_code in (codes.ok, codes.no_content, codes.created):
             return True
 
@@ -360,7 +360,7 @@ class DIDClient(BaseClient):
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -376,7 +376,7 @@ class DIDClient(BaseClient):
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids', 'history'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -397,7 +397,7 @@ class DIDClient(BaseClient):
             payload['long'] = True
         url = build_url(choice(self.list_hosts), path=path, params=payload)
 
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
@@ -417,7 +417,7 @@ class DIDClient(BaseClient):
         if dynamic:
             path += '?dynamic=True'
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return next(self._load_json_data(r))
         else:
@@ -435,7 +435,7 @@ class DIDClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
         payload = {}
         payload['plugin'] = plugin
-        r = self._send_request(url, type='GET', params=payload)
+        r = self._send_request(url, type_='GET', params=payload)
         if r.status_code == codes.ok:
             meta = self._load_json_data(r)
             return next(meta)
@@ -451,7 +451,7 @@ class DIDClient(BaseClient):
         data = {'dids': dids}
         path = '/'.join([self.DIDS_BASEURL, 'bulkmeta'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='POST', data=dumps(data))
+        r = self._send_request(url, type_='POST', data=dumps(data))
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -470,7 +470,7 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta', key])
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'value': value, 'recursive': recursive})
-        r = self._send_request(url, type='POST', data=data)
+        r = self._send_request(url, type_='POST', data=data)
         if r.status_code == codes.created:
             return True
         else:
@@ -490,7 +490,7 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'meta': meta, 'recursive': recursive})
-        r = self._send_request(url, type='POST', data=data)
+        r = self._send_request(url, type_='POST', data=data)
         if r.status_code == codes.created:
             return True
         else:
@@ -508,7 +508,7 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'status'])
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps(kwargs)
-        r = self._send_request(url, type='PUT', data=data)
+        r = self._send_request(url, type_='PUT', data=data)
         if r.status_code in (codes.ok, codes.no_content, codes.created):
             return True
 
@@ -535,7 +535,7 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
         url = build_url(choice(self.list_hosts), path=path, params={'key': key})
 
-        r = self._send_request(url, type='DEL')
+        r = self._send_request(url, type_='DEL')
         if r.status_code == codes.ok:
             return True
         else:
@@ -552,7 +552,7 @@ class DIDClient(BaseClient):
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'rules'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
@@ -569,7 +569,7 @@ class DIDClient(BaseClient):
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'associated_rules'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
@@ -586,7 +586,7 @@ class DIDClient(BaseClient):
 
         path = '/'.join([self.DIDS_BASEURL, guid, 'guid'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
@@ -610,7 +610,7 @@ class DIDClient(BaseClient):
             payload['recursive'] = True
         url = build_url(choice(self.list_hosts), path=path, params=payload)
 
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
@@ -628,7 +628,7 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'parents'])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
@@ -648,7 +648,7 @@ class DIDClient(BaseClient):
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(input_scope), quote_plus(input_name), quote_plus(output_scope), quote_plus(output_name), str(nbfiles), 'sample'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='POST', data=dumps({}))
+        r = self._send_request(url, type_='POST', data=dumps({}))
         if r.status_code == codes.created:
             return True
         else:
@@ -663,7 +663,7 @@ class DIDClient(BaseClient):
         """
         path = '/'.join([self.DIDS_BASEURL, 'resurrect'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='POST', data=dumps(dids))
+        r = self._send_request(url, type_='POST', data=dumps(dids))
         if r.status_code == codes.created:
             return True
         else:
@@ -677,7 +677,7 @@ class DIDClient(BaseClient):
         :param dids: A list of dids.
         """
         url = build_url(choice(self.list_hosts), path='tmp_dids')
-        r = self._send_request(url, type='POST', data=dumps(dids))
+        r = self._send_request(url, type_='POST', data=dumps(dids))
         if r.status_code == codes.created:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -693,7 +693,7 @@ class DIDClient(BaseClient):
         path = '/'.join([self.ARCHIVES_BASEURL, quote_plus(scope), quote_plus(name), 'files'])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -711,7 +711,7 @@ class DIDClient(BaseClient):
             payload['scope'] = scope
         payload['select'] = dumps(select)
         url = build_url(choice(self.list_hosts), path=path, params=payload)
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return loads(next(self._load_json_data(r)))
         else:

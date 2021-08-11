@@ -161,7 +161,7 @@ def delete_metadata(scope, name, key, session=None):
 
 
 @read_session
-def list_dids(scope=None, filters=None, type='collection', ignore_case=False, limit=None,
+def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False, limit=None,
               offset=None, long=False, recursive=False, session=None):
     """
     List dids according to metadata.
@@ -170,7 +170,7 @@ def list_dids(scope=None, filters=None, type='collection', ignore_case=False, li
 
     :param scope: the scope name.
     :param filters: dictionary of attributes by which the results should be filtered.
-    :param type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
+    :param did_type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
     :param ignore_case: ignore case distinctions.
     :param limit: limit number.
     :param offset: offset number.
@@ -197,7 +197,7 @@ def list_dids(scope=None, filters=None, type='collection', ignore_case=False, li
                 raise NotImplementedError('Filter keys used do not all belong on the same metadata plugin.')
 
     if meta_handler_to_use:
-        return meta_handler_to_use.list_dids(scope=scope, filters=filters, type=type,
+        return meta_handler_to_use.list_dids(scope=scope, filters=filters, did_type=did_type,
                                              ignore_case=ignore_case, limit=limit,
                                              offset=offset, long=long, recursive=recursive, session=session)
     else:

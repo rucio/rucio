@@ -120,11 +120,11 @@ class DataModel(object):
         return ','.join(self.formated_fields(fields))
 
     @classmethod
-    def tabulate_from(cls, iter, format='simple', fields=None):
+    def tabulate_from(cls, iter_, format_='simple', fields=None):
         return tabulate(
-            (row.formated_fields(fields) for row in iter),
+            (row.formated_fields(fields) for row in iter_),
             (t[0] for t in cls.SCHEMA),
-            format,
+            format_,
         )
 
     @classmethod

@@ -298,7 +298,7 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account):
     Run receiver as a background thread to automatically handle fts notifications.
     Ensure that a multi-source job in which the first source fails is correctly handled by receiver.
     """
-    receiver_thread = threading.Thread(target=receiver, kwargs={'id': 0, 'full_mode': True, 'all_vos': True, 'total_threads': 1})
+    receiver_thread = threading.Thread(target=receiver, kwargs={'id_': 0, 'full_mode': True, 'all_vos': True, 'total_threads': 1})
     receiver_thread.start()
 
     try:
@@ -348,7 +348,7 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
     """
     Verify that the receiver correctly handles multihop jobs which fail
     """
-    receiver_thread = threading.Thread(target=receiver, kwargs={'id': 0, 'full_mode': True, 'all_vos': True, 'total_threads': 1})
+    receiver_thread = threading.Thread(target=receiver, kwargs={'id_': 0, 'full_mode': True, 'all_vos': True, 'total_threads': 1})
     receiver_thread.start()
 
     try:
@@ -394,7 +394,7 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config
     """
     Verify that the receiver correctly handles successful multihop jobs
     """
-    receiver_thread = threading.Thread(target=receiver, kwargs={'id': 0, 'full_mode': True, 'all_vos': True, 'total_threads': 1})
+    receiver_thread = threading.Thread(target=receiver, kwargs={'id_': 0, 'full_mode': True, 'all_vos': True, 'total_threads': 1})
     receiver_thread.start()
 
     try:

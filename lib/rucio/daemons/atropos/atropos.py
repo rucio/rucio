@@ -107,7 +107,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
 
                     # We compute the expected eol_at
                     try:
-                        rses = parse_expression(rule.rse_expression, filter={'vo': rule.account.vo})
+                        rses = parse_expression(rule.rse_expression, filter_={'vo': rule.account.vo})
                     except InvalidRSEExpression:
                         logging.warning(prepend_str + 'Rule %s has an RSE expression that results in an empty set: %s' % (rule.id, rule.rse_expression))
                         continue

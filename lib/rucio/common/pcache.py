@@ -966,8 +966,8 @@ class Pcache:
     def update_stats(self, name, delta=1):
         return self.update_stat_file("stats", name, delta)
 
-    def update_cache_size(self, bytes):
-        return self.update_stat_file("CACHE", "size", bytes)
+    def update_cache_size(self, bytes_):
+        return self.update_stat_file("CACHE", "size", bytes_)
 
     def get_cache_size(self):
         filename = os.path.join(self.pcache_dir, "CACHE", "size")

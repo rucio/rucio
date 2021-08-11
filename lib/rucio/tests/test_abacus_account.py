@@ -105,7 +105,7 @@ class TestAbacusAccount(unittest.TestCase):
         cleaner.run(once=True)
         account.run(once=True)
         # set account limit because return value of get_local_account_usage differs if a limit is set or not
-        set_local_account_limit(account=self.account, rse_id=self.rse_id, bytes=10)
+        set_local_account_limit(account=self.account, rse_id=self.rse_id, bytes_=10)
         account_usages = get_local_account_usage(account=self.account, rse_id=self.rse_id)[0]
         assert account_usages['bytes'] == 0
         assert account_usages['files'] == 0

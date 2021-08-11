@@ -87,23 +87,23 @@ def bulk_add_scopes(scopes, account, skipExisting=False, session=None):
 
 
 @read_session
-def list_scopes(filter={}, session=None):
+def list_scopes(filter_={}, session=None):
     """
     Lists all scopes.
-    :param filter: Dictionary of attributes by which the input data should be filtered
+    :param filter_: Dictionary of attributes by which the input data should be filtered
     :param session: The database session in use.
 
     :returns: A list containing all scopes.
     """
     scope_list = []
     query = session.query(models.Scope).filter(models.Scope.status != ScopeStatus.DELETED)
-    for filter_type in filter:
+    for filter_type in filter_:
         if filter_type == 'scope':
-            if '*' in filter['scope'].internal:
-                scope_str = filter['scope'].internal.replace('*', '%')
+            if '*' in filter_['scope'].internal:
+                scope_str = filter_['scope'].internal.replace('*', '%')
                 query = query.filter(models.Scope.scope.like(scope_str))
             else:
-                query = query.filter_by(scope=filter['scope'])
+                query = query.filter_by(scope=filter_['scope'])
 
     for s in query:
         scope_list.append(s.scope)

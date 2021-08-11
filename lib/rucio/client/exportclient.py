@@ -46,7 +46,7 @@ class ExportClient(BaseClient):
         path = '/'.join([self.EXPORT_BASEURL])
         url = build_url(choice(self.list_hosts), path=path, params=payload)
 
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return parse_response(r.text)
         else:

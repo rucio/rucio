@@ -141,8 +141,8 @@ def list_quarantined_replicas(rse_id, limit, worker_number=None, total_workers=N
              'created_at': created_at,
              'scope': scope,
              'name': name,
-             'bytes': bytes}
-            for path, bytes, scope, name, created_at in query.limit(limit)]
+             'bytes': bytes_}
+            for path, bytes_, scope, name, created_at in query.limit(limit)]
 
 
 @read_session

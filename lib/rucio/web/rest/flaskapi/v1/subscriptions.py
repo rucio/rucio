@@ -131,7 +131,7 @@ class Subscription(ErrorHandlingMethodView):
             subscription_id = add_subscription(
                 name=name,
                 account=account,
-                filter=filter_param,
+                filter_=filter_param,
                 replication_rules=replication_rules,
                 comments=comments,
                 lifetime=lifetime,

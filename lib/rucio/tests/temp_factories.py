@@ -264,7 +264,7 @@ class TemporaryDidFactory:
 
     def make_dataset(self, scope=None):
         did = self._random_did(scope=scope, name_prefix='dataset')
-        self.client.add_did(scope=did['scope'].external, name=did['name'], type=DIDType.DATASET)
+        self.client.add_did(scope=did['scope'].external, name=did['name'], did_type=DIDType.DATASET)
         return did
 
     def make_container(self, scope=None):
