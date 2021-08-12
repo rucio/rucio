@@ -101,7 +101,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1, sleep_time=10):
+def run(once=False, threads=1, sleep_time=10, limit=1000):
     """
     Starts up the Abacus-Collection-Replica threads.
     """
@@ -119,8 +119,8 @@ def run(once=False, threads=1, sleep_time=10):
         collection_replica_update(once)
     else:
         logging.info('main: starting threads')
-        threads = [threading.Thread(target=collection_replica_update, kwargs={'once': once, 'sleep_time': sleep_time})
-                   for i in range(0, threads)]
+        threads = [threading.Thread(target=collection_replica_update, kwargs={'once': once, 'sleep_time': sleep_time, 'limit': limit})
+                   for _ in range(0, threads)]
         [t.start() for t in threads]
         logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
