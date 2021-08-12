@@ -323,7 +323,7 @@ class TestJudgeRepairer(unittest.TestCase):
 
         for grouping, ignore_availability in itertools.product(["NONE", "DATASET", "ALL"], [True, False]):
             scope = InternalScope('mock', **self.vo)
-            files = create_files(1, scope, self.rse4_id, bytes=100)
+            files = create_files(1, scope, self.rse4_id, bytes_=100)
             dataset = 'dataset_' + str(uuid())
             add_did(scope, dataset, DIDType.DATASET, self.jdoe)
             attach_dids(scope, dataset, files, self.jdoe)
