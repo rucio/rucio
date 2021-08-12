@@ -56,9 +56,9 @@ from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import generate_uuid, get_tmp_dir, md5, render_json
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator, get_long_vo
-from rucio.tests.temp_factories import TemporaryFileFactory
 
 
+@pytest.mark.usefixtures("file_factory_class")
 class TestBinRucio(unittest.TestCase):
 
     def conf_vo(self):
@@ -1613,76 +1613,72 @@ class TestBinRucio(unittest.TestCase):
 
     def test_upload_recursive_ok(self):
         """CLIENT(USER): Upload and preserve folder structure"""
-        with TemporaryFileFactory() as file_factory:
-            folder = file_factory.base_dir
-            folder1 = file_factory.folder_generator(use_basedir=True)
-            folder2 = file_factory.folder_generator(use_basedir=True)
-            folder3 = file_factory.folder_generator(use_basedir=True)
-            folder11 = file_factory.folder_generator(use_basedir=True, path=str(folder1).split('/')[-1])
-            folder12 = file_factory.folder_generator(use_basedir=True, path=str(folder1).split('/')[-1])
-            folder13 = file_factory.folder_generator(use_basedir=True, path=str(folder1).split('/')[-1])
-            file1 = str(file_factory.file_generator(path=folder11)).split('/')[-1]
-            file2 = str(file_factory.file_generator(path=folder2)).split('/')[-1]
+        folder = self.file_factory.base_dir
+        folder1 = self.file_factory.folder_generator(use_basedir=True)
+        folder2 = self.file_factory.folder_generator(use_basedir=True)
+        folder3 = self.file_factory.folder_generator(use_basedir=True)
+        folder11 = self.file_factory.folder_generator(use_basedir=True, path=str(folder1).split('/')[-1])
+        folder12 = self.file_factory.folder_generator(use_basedir=True, path=str(folder1).split('/')[-1])
+        folder13 = self.file_factory.folder_generator(use_basedir=True, path=str(folder1).split('/')[-1])
+        file1 = str(self.file_factory.file_generator(path=folder11)).split('/')[-1]
+        file2 = str(self.file_factory.file_generator(path=folder2)).split('/')[-1]
 
-            exitcode, out, err = execute('rucio upload --scope %s --rse %s --recursive %s' % (self.user, self.def_rse, folder))
-            print(err)
-            exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder).split('/')[-1]))
-            assert re.search("{0}:{1}".format(self.user, str(folder1).split('/')[-1]), out) is not None
-            assert re.search("{0}:{1}".format(self.user, str(folder2).split('/')[-1]), out) is not None
-            assert re.search("{0}:{1}".format(self.user, str(folder3).split('/')[-1]), out) is None
+        exitcode, out, err = execute('rucio upload --scope %s --rse %s --recursive %s' % (self.user, self.def_rse, folder))
+        print(err)
+        exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder).split('/')[-1]))
+        assert re.search("{0}:{1}".format(self.user, str(folder1).split('/')[-1]), out) is not None
+        assert re.search("{0}:{1}".format(self.user, str(folder2).split('/')[-1]), out) is not None
+        assert re.search("{0}:{1}".format(self.user, str(folder3).split('/')[-1]), out) is None
 
-            exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder1).split('/')[-1]))
-            assert re.search("{0}:{1}".format(self.user, str(folder11).split('/')[-1]), out) is not None
-            assert re.search("{0}:{1}".format(self.user, str(folder12).split('/')[-1]), out) is None
-            assert re.search("{0}:{1}".format(self.user, str(folder13).split('/')[-1]), out) is None
+        exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder1).split('/')[-1]))
+        assert re.search("{0}:{1}".format(self.user, str(folder11).split('/')[-1]), out) is not None
+        assert re.search("{0}:{1}".format(self.user, str(folder12).split('/')[-1]), out) is None
+        assert re.search("{0}:{1}".format(self.user, str(folder13).split('/')[-1]), out) is None
 
-            exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder11).split('/')[-1]))
-            assert re.search("{0}:{1}".format(self.user, file1), out) is not None
+        exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder11).split('/')[-1]))
+        assert re.search("{0}:{1}".format(self.user, file1), out) is not None
 
-            exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder2).split('/')[-1]))
-            assert re.search("{0}:{1}".format(self.user, file2), out) is not None
+        exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder2).split('/')[-1]))
+        assert re.search("{0}:{1}".format(self.user, file2), out) is not None
 
     def test_upload_recursive_subfolder(self):
         """CLIENT(USER): Upload and preserve folder structure in a subfolder"""
-        with TemporaryFileFactory() as file_factory:
-            folder = file_factory.base_dir
-            folder1 = file_factory.folder_generator(use_basedir=True)
-            folder11 = file_factory.folder_generator(use_basedir=True, path=str(folder1).split('/')[-1])
-            file1 = str(file_factory.file_generator(path=folder11)).split('/')[-1]
+        folder = self.file_factory.base_dir
+        folder1 = self.file_factory.folder_generator(use_basedir=True)
+        folder11 = self.file_factory.folder_generator(use_basedir=True, path=str(folder1).split('/')[-1])
+        file1 = str(self.file_factory.file_generator(path=folder11)).split('/')[-1]
 
-            execute('rucio upload --scope %s --rse %s --recursive %s' % (self.user, self.def_rse, folder1))
-            exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder).split('/')[-1]))
-            assert re.search("{0}:{1}".format(self.user, str(folder1).split('/')[-1]), out) is None
+        execute('rucio upload --scope %s --rse %s --recursive %s' % (self.user, self.def_rse, folder1))
+        exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder).split('/')[-1]))
+        assert re.search("{0}:{1}".format(self.user, str(folder1).split('/')[-1]), out) is None
 
-            exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder1).split('/')[-1]))
-            assert re.search("{0}:{1}".format(self.user, str(folder11).split('/')[-1]), out) is not None
+        exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder1).split('/')[-1]))
+        assert re.search("{0}:{1}".format(self.user, str(folder11).split('/')[-1]), out) is not None
 
-            exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder11).split('/')[-1]))
-            assert re.search("{0}:{1}".format(self.user, file1), out) is not None
+        exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder11).split('/')[-1]))
+        assert re.search("{0}:{1}".format(self.user, file1), out) is not None
 
     def test_recursive_empty(self):
         """CLIENT(USER): Upload and preserve folder structure with an empty folder"""
-        with TemporaryFileFactory() as file_factory:
-            folder = file_factory.base_dir
-            folder1 = file_factory.folder_generator(use_basedir=True)
+        folder = self.file_factory.base_dir
+        folder1 = self.file_factory.folder_generator(use_basedir=True)
 
-            execute('rucio upload --scope %s --rse %s --recursive %s' % (self.user, self.def_rse, folder))
-            exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder).split('/')[-1]))
-            assert re.search("{0}:{1}".format(self.user, str(folder1).split('/')[-1]), out) is None
+        execute('rucio upload --scope %s --rse %s --recursive %s' % (self.user, self.def_rse, folder))
+        exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder).split('/')[-1]))
+        assert re.search("{0}:{1}".format(self.user, str(folder1).split('/')[-1]), out) is None
 
     def test_upload_recursive_only_files(self):
         """CLIENT(USER): Upload and preserve folder structure only with files"""
-        with TemporaryFileFactory() as file_factory:
-            folder = file_factory.base_dir
-            file1 = str(file_factory.file_generator(use_basedir=True)).split('/')[-1]
-            file2 = str(file_factory.file_generator(use_basedir=True)).split('/')[-1]
-            file3 = str(file_factory.file_generator(use_basedir=True)).split('/')[-1]
+        folder = self.file_factory.base_dir
+        file1 = str(self.file_factory.file_generator(use_basedir=True)).split('/')[-1]
+        file2 = str(self.file_factory.file_generator(use_basedir=True)).split('/')[-1]
+        file3 = str(self.file_factory.file_generator(use_basedir=True)).split('/')[-1]
 
-            execute('rucio upload --scope %s --rse %s --recursive %s' % (self.user, self.def_rse, folder))
-            exitcode, out, err = execute('rucio ls %s:%s' % (self.user, str(folder).split('/')[-1]))
-            assert re.search("DATASET", out) is not None
+        execute('rucio upload --scope %s --rse %s --recursive %s' % (self.user, self.def_rse, folder))
+        exitcode, out, err = execute('rucio ls %s:%s' % (self.user, str(folder).split('/')[-1]))
+        assert re.search("DATASET", out) is not None
 
-            exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder).split('/')[-1]))
-            assert re.search("{0}:{1}".format(self.user, file1), out) is not None
-            assert re.search("{0}:{1}".format(self.user, file2), out) is not None
-            assert re.search("{0}:{1}".format(self.user, file3), out) is not None
+        exitcode, out, err = execute('rucio list-content %s:%s' % (self.user, str(folder).split('/')[-1]))
+        assert re.search("{0}:{1}".format(self.user, file1), out) is not None
+        assert re.search("{0}:{1}".format(self.user, file2), out) is not None
+        assert re.search("{0}:{1}".format(self.user, file3), out) is not None

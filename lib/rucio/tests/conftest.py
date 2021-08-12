@@ -14,10 +14,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -166,6 +167,16 @@ def file_factory(tmp_path_factory):
 
     with TemporaryFileFactory(pytest_path_factory=tmp_path_factory) as factory:
         yield factory
+
+
+@pytest.fixture(scope="class")
+def file_factory_class(request):
+    """
+    Similar to file_factory but this can be used inside a unittest class, as self.file_factory (see test_bin_rucio.py)
+    """
+    from rucio.tests.temp_factories import TemporaryFileFactory
+
+    request.cls.file_factory = TemporaryFileFactory()
 
 
 def __get_fixture_param(request):
