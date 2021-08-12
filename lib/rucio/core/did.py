@@ -1475,7 +1475,6 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
     if recursive:
         # Get attached DIDs and save in list because query has to be finished before starting a new one in the recursion
         collections_content = []
-        parent_scope = scope
         for scope, name, type_, bytes_, length in query.yield_per(100):
             if (type_ == DIDType.CONTAINER or type_ == DIDType.DATASET):
                 collections_content += [did for did in list_content(scope=scope, name=name)]

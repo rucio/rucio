@@ -141,7 +141,7 @@ class TestFilterEngineReal(unittest.TestCase):
 
     def _create_tmp_DID(self, type='DATASET'):
         did_name = 'fe_test_did_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=did_name, type='DATASET', account=self.root)
+        add_did(scope=self.tmp_scope, name=did_name, did_type='DATASET', account=self.root)
         return did_name
 
     @read_session
