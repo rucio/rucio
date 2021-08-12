@@ -676,7 +676,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='DEL')
+        r = self._send_request(url, type_='DEL')
         if r.status_code == codes.ok:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers,
