@@ -34,6 +34,7 @@ clients_requirements_table = {
         'tabulate',
         'six',
         'jsonschema',
+        'typing',
     ],
     'ssh': ['paramiko'],
     'kerberos': [
