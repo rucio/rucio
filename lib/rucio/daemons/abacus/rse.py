@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,8 +18,9 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Abacus-RSE is a daemon to update RSE counters.
@@ -35,14 +36,14 @@ import traceback
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.logging import setup_logging
-from rucio.common.utils import get_thread_with_periodic_running_function
+from rucio.common.utils import get_thread_with_periodic_running_function, daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.rse_counter import get_updated_rse_counters, update_rse_counter, fill_rse_counter_history_table
 
 graceful_stop = threading.Event()
 
 
-def rse_update(once=False):
+def rse_update(once=False, sleep_time=10):
     """
     Main loop to check and update the RSE Counters.
     """
@@ -72,7 +73,7 @@ def rse_update(once=False):
             # If the list is empty, sent the worker to sleep
             if not rse_ids and not once:
                 logging.info('rse_update[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1))
-                time.sleep(10)
+                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop)
             else:
                 for rse_id in rse_ids:
                     if graceful_stop.is_set():
@@ -98,7 +99,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1, fill_history_table=False):
+def run(once=False, threads=1, fill_history_table=False, sleep_time=10):
     """
     Starts up the Abacus-RSE threads.
     """
@@ -116,7 +117,8 @@ def run(once=False, threads=1, fill_history_table=False):
         rse_update(once)
     else:
         logging.info('main: starting threads')
-        threads = [threading.Thread(target=rse_update, kwargs={'once': once}) for i in range(0, threads)]
+        threads = [threading.Thread(target=rse_update, kwargs={'once': once, 'sleep_time': sleep_time}) for i in
+                   range(0, threads)]
         if fill_history_table:
             threads.append(get_thread_with_periodic_running_function(3600, fill_rse_counter_history_table, graceful_stop))
         [t.start() for t in threads]
