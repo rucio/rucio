@@ -1338,7 +1338,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
     unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
-    transfer_path_for_request, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = [], set(), set(), set()
+    transfers, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, set(), set(), set()
 
     include_multihop = False
     if transfertool in ['fts3', None]:
@@ -1464,13 +1464,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         else:
             logger(logging.DEBUG, 'Best path is direct for %s: %s' % (rws, best_path[0]))
 
-        transfer_path_for_request.append((rws, best_path))
+        transfers[rws.request_id] = best_path
         reqs_no_source.remove(rws.request_id)
-
-    transfers = {}
-    for _, transfer_path in transfer_path_for_request:
-        for hop in transfer_path:
-            transfers[hop.rws.request_id] = hop
 
     return transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
 

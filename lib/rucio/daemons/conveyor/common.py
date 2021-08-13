@@ -222,8 +222,46 @@ def submit_transfer(external_host, job, submitter='submitter', timeout=None, log
         logger(logging.ERROR, 'Failed to submit a job with error %s', str(error), exc_info=True)
 
 
+def bulk_group_transfers_for_globus(transfers, policy, group_bulk=200):
+    """
+    Group transfers in bulk based on certain criterias
+
+    :param transfers:  List of transfers to group.
+    :param policy:     Policy to use to group.
+    :param group_bulk: Bulk sizes.
+    :param logger:     Optional decorated logger that can be passed from the calling daemons or servers.
+    :return:           List of grouped transfers
+    """
+
+    grouped_transfers = {}
+    for transfer_path in transfers.values():
+        # Globus doesn't support multihop. Get the first hop only.
+        transfer = transfer_path[0]
+        external_host = transfer['external_host']
+
+        # Some dict elements are not needed by globus transfertool, but are accessed by further common fts/globus code
+        t_file = {'sources': transfer['sources'],
+                  'destinations': transfer['dest_urls'],
+                  'metadata': transfer['file_metadata'],
+                  'filesize': int(transfer['file_metadata']['filesize']),
+                  'request_type': transfer['file_metadata'].get('request_type', None),
+                  'activity': str(transfer['file_metadata']['activity'])}
+
+        grouped_transfers.setdefault(external_host, []).append(t_file)
+
+    if policy == 'single':
+        group_bulk = 1
+
+    grouped_jobs = {}
+    for external_host in grouped_transfers:
+        for xfers_files in chunks(grouped_transfers[external_host], group_bulk):
+            # Job params are not used by globus trasnfertool, but are needed for further common fts/globus code
+            grouped_jobs.setdefault(external_host, []).append({'files': xfers_files, 'job_params': {}})
+    return grouped_jobs
+
+
 @read_session
-def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None, logger=logging.log, archive_timeout_override=None):
+def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None, logger=logging.log, archive_timeout_override=None):
     """
     Group transfers in bulk based on certain criterias
 
