@@ -1492,21 +1492,23 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
                 yield result
 
     if long:
-        for scope, name, type_, bytes_, length in query.yield_per(5):
-            did_full = "{}:{}".format(scope, name)
+        for did in query.yield_per(5):              # don't unpack this as it makes it dependent on query return order!
+            did_full = "{}:{}".format(did.scope, did.name)
             if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
                 ignore_dids.add(did_full)
-                yield {'scope': scope,
-                       'name': name,
-                       'did_type': type_.name,
-                       'bytes': bytes_,
-                       'length': length}
+                yield {
+                    'scope': did.scope, 
+                    'name': did.name, 
+                    'did_type': str(did.did_type), 
+                    'bytes': did.bytes, 
+                    'length': did.length
+                    }
     else:
-        for scope, name, type_, bytes_, length in query.yield_per(5):
-            did_full = "{}:{}".format(scope, name)
+        for did in query.yield_per(5):              # don't unpack this as it makes it dependent on query return order!
+            did_full = "{}:{}".format(did.scope, did.name)
             if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
                 ignore_dids.add(did_full)
-                yield name
+                yield did.name
 
 
 @read_session
