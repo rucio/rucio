@@ -47,7 +47,7 @@ from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.request import set_requests_state
 from rucio.core.staging import get_stagein_requests_and_source_replicas
-from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses
+from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfers_for_fts, get_conveyor_rses
 from rucio.db.sqla.constants import RequestState
 
 graceful_stop = threading.Event()
@@ -147,7 +147,7 @@ def stager(once=False, rses=None, mock=False, bulk=100, group_bulk=1, group_poli
                 # group transfers
                 logger(logging.INFO, 'Starting to group transfers for %s' % (activity))
                 start_time = time.time()
-                grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue)
+                grouped_jobs = bulk_group_transfers_for_fts(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue)
                 record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
 
                 logger(logging.INFO, 'Starting to submit transfers for %s' % (activity))

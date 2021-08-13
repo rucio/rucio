@@ -118,9 +118,9 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
     transfer_requestss = get_transfer_requests_and_source_replicas(rses=[rse1_id, rse2_id])
     for transfer_requests in transfer_requestss:
         for transfer_request in transfer_requests:
-            if transfer_requests[transfer_request]['rule_id'] == rule_id[0]:
-                src_url = transfer_requests[transfer_request]['sources'][0][1]
-                dest_url = transfer_requests[transfer_request]['dest_urls'][0]
+            if transfer_requests[transfer_request][0]['rule_id'] == rule_id[0]:
+                src_url = transfer_requests[transfer_request][0]['sources'][0][1]
+                dest_url = transfer_requests[transfer_request][0]['dest_urls'][0]
                 check_url(src_url, rse1_hostname, test_file_expected_pfn)
                 check_url(dest_url, rse2_hostname, test_file_expected_pfn)
 
