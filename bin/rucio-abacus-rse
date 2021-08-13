@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +15,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Vincent Garonne, <vgaronne@gmail.com>, 2018
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
-#
-# PY3K COMPATIBLE
+# - Martin Barisits <martin.barisits@cern.ch>, 2014
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Abacus rse is a daemon to update rse counters.
@@ -70,6 +71,7 @@ Check RSE usage again::
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads on this process')
     parser.add_argument("--enable-history", action="store_true", default=False, help='Record RSE usage into history table every hour.')
+    parser.add_argument('--sleep-time', action="store", default=10, type=int, help='Concurrency control: thread sleep time after each chunk of work')
     return parser
 
 
@@ -79,6 +81,6 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
     try:
-        run(once=args.run_once, threads=args.threads, fill_history_table=args.enable_history)
+        run(once=args.run_once, threads=args.threads, fill_history_table=args.enable_history, sleep_time=args.sleep_time)
     except KeyboardInterrupt:
         stop()

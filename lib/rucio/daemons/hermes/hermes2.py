@@ -21,6 +21,7 @@
 # - Eric Vaandering <ewv@fnal.gov>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 '''
    Hermes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).
@@ -50,6 +51,7 @@ import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_int, config_get_bool
 from rucio.common.exception import ConfigNotFound, DatabaseException
 from rucio.common.logging import setup_logging, formatted_logger
+from rucio.common.utils import daemon_sleep
 from rucio.core import heartbeat
 from rucio.core.config import get
 from rucio.core.message import retrieve_messages, delete_messages, update_messages_services
@@ -551,10 +553,7 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
 
             if once:
                 break
-            tottime = time.time() - stime
-            if tottime < sleep_time:
-                logger(logging.INFO, 'Will sleep for %s seconds', sleep_time - tottime)
-                time.sleep(sleep_time - tottime)
+            daemon_sleep(start_time=stime, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP, logger=logger)
 
         except Exception:
             logger(logging.ERROR, "Failed to submit messages", exc_info=True)
