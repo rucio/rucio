@@ -25,6 +25,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 This daemon consumes tracer messages from ActiveMQ and updates the atime for replicas.
@@ -46,6 +47,7 @@ from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import ConfigNotFound, RSENotFound, DatabaseException
 from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import daemon_sleep
 from rucio.core.config import get
 from rucio.core.did import touch_dids, list_parent_dids
 from rucio.core.heartbeat import live, die, sanity_check
@@ -458,10 +460,7 @@ def kronos_dataset(thread=0, dataset_queue=None, sleep_time=60):
             __update_datasets(dataset_queue, logger=logger)
             start = datetime.now()
 
-        tottime = time() - start_time
-        if tottime < sleep_time:
-            logger(logging.INFO, 'Will sleep for %s seconds' % (sleep_time - tottime))
-            sleep(sleep_time - tottime)
+        daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop)
 
     die(executable=executable, hostname=hostname, pid=pid, thread=thread)
 

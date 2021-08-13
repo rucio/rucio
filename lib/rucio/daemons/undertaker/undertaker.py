@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,15 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 '''
 Undertaker is a daemon to manage expired did.
@@ -46,7 +45,7 @@ import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
-from rucio.common.utils import chunks
+from rucio.common.utils import chunks, daemon_sleep
 from rucio.core.did import list_expired_dids, delete_dids
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
@@ -56,7 +55,7 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 GRACEFUL_STOP = threading.Event()
 
 
-def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
+def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False, sleep_time=60):
     """
     Main loop to select and delete dids.
     """
@@ -75,6 +74,8 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
             heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, older_than=6000)
             logging.info('Undertaker({0[worker_number]}/{0[total_workers]}): Live gives {0[heartbeat]}'.format(locals()))
 
+            start = time.time()
+
             # Refresh paused dids
             iter_paused_dids = deepcopy(paused_dids)
             for key in iter_paused_dids:
@@ -87,7 +88,7 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
 
             if not dids and not once:
                 logging.info('Undertaker(%s): Nothing to do. sleep 60.', worker_number)
-                time.sleep(60)
+                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
                 continue
 
             for chunk in chunks(dids, chunk_size):
@@ -125,7 +126,7 @@ def stop(signum=None, frame=None):
     GRACEFUL_STOP.set()
 
 
-def run(once=False, total_workers=1, chunk_size=10):
+def run(once=False, total_workers=1, chunk_size=10, sleep_time=60):
     """
     Starts up the undertaker threads.
     """
@@ -135,7 +136,9 @@ def run(once=False, total_workers=1, chunk_size=10):
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.info('main: starting threads')
-    threads = [threading.Thread(target=undertaker, kwargs={'worker_number': i, 'total_workers': total_workers, 'once': once, 'chunk_size': chunk_size}) for i in range(0, total_workers)]
+    threads = [threading.Thread(target=undertaker, kwargs={'worker_number': i, 'total_workers': total_workers,
+                                                           'once': once, 'chunk_size': chunk_size,
+                                                           'sleep_time': sleep_time}) for i in range(0, total_workers)]
     [t.start() for t in threads]
     logging.info('main: waiting for interrupts')
 

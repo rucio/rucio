@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +15,13 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2018
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
-# - Vincent Garonne, <vgaronne@gmail.com>, 2018
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-#
-# PY3K COMPATIBLE
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2015
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Ocean Monjur <75680423+OCM-7898@users.noreply.github.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 '''
 Necromancer Daemon : Bring the dead files back to life
@@ -111,6 +113,7 @@ Check replicas again::
     parser.add_argument("--run-once", action="store_true", default=False, help='Runs one loop iteration')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
     parser.add_argument("--bulk", action="store", default=1000, type=int, help='Bulk control: number of requests per cycle')
+    parser.add_argument('--sleep-time', action="store", default=60, type=int, help='Concurrency control: thread sleep time after each chunk of work')
     return parser
 
 
@@ -122,6 +125,6 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
     try:
-        run(threads=args.threads, bulk=args.bulk, once=args.run_once)
+        run(threads=args.threads, bulk=args.bulk, once=args.run_once, sleep_time=args.sleep_time)
     except KeyboardInterrupt:
         stop()

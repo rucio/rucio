@@ -23,6 +23,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import division
 
@@ -37,7 +38,7 @@ from datetime import datetime
 import rucio.db.sqla.util
 from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound, ReplicaNotFound, DatabaseException
 from rucio.common.logging import formatted_logger, setup_logging
-from rucio.common.utils import chunks
+from rucio.common.utils import chunks, daemon_sleep
 from rucio.core import heartbeat
 from rucio.core.did import get_metadata
 from rucio.core.replica import (get_bad_pfns, get_pfn_to_rse, declare_bad_file_replicas,
@@ -255,14 +256,12 @@ def minos(bulk=1000, once=False, sleep_time=60):
         except Exception as error:
             logger(logging.ERROR, '%s' % (str(error)))
 
-        tottime = time.time() - start_time
         if once:
             break
         if len(pfns) == bulk:
             logger(logging.INFO, 'Processed maximum number of pfns according to the bulk size. Restart immediately next cycle')
-        elif tottime < sleep_time:
-            logger(logging.INFO, 'Will sleep for %s seconds' % (sleep_time - tottime))
-            time.sleep(sleep_time - tottime)
+        else:
+            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP, logger=logger)
 
     heartbeat.die(executable, hostname, pid, hb_thread)
     logger(logging.INFO, 'Graceful stop requested')
