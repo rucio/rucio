@@ -159,12 +159,13 @@ class RseData:
 
 
 class TransferSource:
-    def __init__(self, rse_data, source_ranking=None, distance_ranking=None, file_path=None, scheme=None):
+    def __init__(self, rse_data, source_ranking=None, distance_ranking=None, file_path=None, scheme=None, url=None):
         self.rse = rse_data
         self.distance_ranking = distance_ranking if distance_ranking is not None else 9999
         self.source_ranking = source_ranking if source_ranking is not None else 0
         self.file_path = file_path
         self.scheme = scheme
+        self.url = url
 
     def __str__(self):
         return "source rse={}".format(self.rse)
@@ -180,10 +181,11 @@ class TransferDestination:
 
 
 class RequestWithSources:
-    def __init__(self, id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes,
+    def __init__(self, id, request_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes,
                  previous_attempt_id, dest_rse_data, account, retry_count):
 
         self.request_id = id
+        self.request_type = request_type
         self.rule_id = rule_id
         self.scope = scope
         self.name = name
@@ -277,13 +279,16 @@ class DirectTransferDefinition:
     The class wraps the legacy dict-based transfer definition to maintain compatibility with existing code
     during the migration.
     """
-    def __init__(self, source, destination, rws, protocol_factory, legacy_definition=None):
+    def __init__(self, source, destination, rws, protocol_factory, operation_src, operation_dest):
         self.sources = [source]
         self.destination = destination
 
         self.rws = rws
         self.protocol_factory = protocol_factory
-        self.legacy_def = legacy_definition or {}
+        self.operation_src = operation_src
+        self.operation_dest = operation_dest
+
+        self.legacy_def = {}
 
     def __str__(self):
         return 'transfer {} from {} to {}'.format(self.rws, ' and '.join([str(s) for s in self.sources]), self.dst.rse)
@@ -301,7 +306,7 @@ class DirectTransferDefinition:
 
     def __getitem__(self, key):
         if key == 'dest_urls':
-            return [self._dest_url(self.dst, self.rws, self.protocol_factory)]
+            return [self.dest_url]
         if key == 'sources':
             return self.legacy_sources
         if key == 'use_ipv4':
@@ -310,7 +315,7 @@ class DirectTransferDefinition:
 
     def get(self, key, default=None):
         if key == 'dest_urls':
-            return [self._dest_url(self.dst, self.rws, self.protocol_factory)]
+            return [self.dest_url]
         if key == 'sources':
             return self.legacy_sources
         if key == 'use_ipv4':
@@ -318,9 +323,20 @@ class DirectTransferDefinition:
         return self.legacy_def.get(key, default)
 
     @property
+    def dest_url(self):
+        return self._dest_url(self.dst, self.rws, self.protocol_factory, self.operation_dest)
+
+    @property
     def legacy_sources(self):
         return [
-            (src.rse.name, self._source_url(src, self.dst, rws=self.rws, protocol_factory=self.protocol_factory), src.rse.id, src.source_ranking)
+            (src.rse.name,
+             self._source_url(src,
+                              self.dst,
+                              rws=self.rws,
+                              protocol_factory=self.protocol_factory,
+                              operation=self.operation_src),
+             src.rse.id,
+             src.source_ranking)
             for src in self.sources
         ]
 
@@ -373,12 +389,12 @@ class DirectTransferDefinition:
         return dest_url
 
     @classmethod
-    def _source_url(cls, src, dst, rws, protocol_factory):
+    def _source_url(cls, src, dst, rws, protocol_factory, operation):
         """
         Generate the source url which will be used as origin to copy the file from request rws towards the given dst endpoint
         """
         # Get source protocol
-        protocol = protocol_factory.protocol(src.rse, src.scheme, 'third_party_copy')
+        protocol = protocol_factory.protocol(src.rse, src.scheme, operation)
 
         # Compute the source URL
         source_sign_url = src.rse.attributes.get('sign_url', None)
@@ -388,12 +404,12 @@ class DirectTransferDefinition:
         return source_url
 
     @classmethod
-    def _dest_url(cls, dst, rws, protocol_factory):
+    def _dest_url(cls, dst, rws, protocol_factory, operation):
         """
         Generate the destination url for copying the file of request rws
         """
         # Get destination protocol
-        protocol = protocol_factory.protocol(dst.rse, dst.scheme, 'third_party_copy')
+        protocol = protocol_factory.protocol(dst.rse, dst.scheme, operation)
 
         if dst.rse.info['deterministic']:
             dest_url = list(protocol.lfns2pfns(lfns={'scope': rws.scope.external, 'name': rws.name}).values())[0]
@@ -414,7 +430,7 @@ class DirectTransferDefinition:
         dest_url = cls.__rewrite_dest_url(dest_url, dest_sign_url=dest_sign_url)
         return dest_url
 
-    def init_legacy_transfer_definition(self, bring_online, logger):
+    def init_legacy_transfer_definition(self, bring_online, default_lifetime, logger):
         """
         initialize the legacy transfer definition:
         a dictionary with transfer parameters which were not yet migrated to the new, class-based, model
@@ -439,7 +455,7 @@ class DirectTransferDefinition:
             transfer_dst_type = "TAPE"
 
         # Get dest space token
-        dest_protocol = self.protocol_factory.protocol(dst.rse, dst.scheme, 'third_party_copy')
+        dest_protocol = self.protocol_factory.protocol(dst.rse, dst.scheme, self.operation_dest)
         dest_spacetoken = None
         if dest_protocol.attributes and 'extended_attributes' in dest_protocol.attributes and \
                 dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
@@ -454,7 +470,7 @@ class DirectTransferDefinition:
                          'scope': rws.scope,
                          'name': rws.name,
                          'activity': rws.activity,
-                         'request_type': RequestType.TRANSFER,
+                         'request_type': self.rws.request_type,
                          'src_type': transfer_src_type,
                          'dst_type': transfer_dst_type,
                          'src_rse': src.rse.name,
@@ -472,7 +488,7 @@ class DirectTransferDefinition:
                     'dest_spacetoken': dest_spacetoken,
                     'overwrite': overwrite,
                     'bring_online': bring_online_local,
-                    'copy_pin_lifetime': rws.attributes.get('lifetime', 172800),
+                    'copy_pin_lifetime': rws.attributes.get('lifetime', default_lifetime),
                     'selection_strategy': 'auto',
                     'rule_id': rws.rule_id,
                     'file_metadata': file_metadata}
@@ -487,6 +503,43 @@ class DirectTransferDefinition:
                 pass
 
         self.legacy_def = transfer
+
+
+class StageinTransferDefinition(DirectTransferDefinition):
+    """
+    A definition of a transfer which triggers a stagein operation.
+        - The source and destination url are identical
+        - must be from TAPE to non-TAPE RSE
+        - can only have one source
+        - bring_online must be set
+    """
+    def __init__(self, source, destination, rws, protocol_factory, operation_src, operation_dest):
+        if not source.rse.is_tape() or destination.rse.is_tape():
+            raise RucioException("Stageing request {} must be from TAPE to DISK rse. Got {} and {}.".format(rws, source, destination))
+        super().__init__(source, destination, rws, protocol_factory, operation_src, operation_dest)
+
+    @property
+    def dest_url(self):
+        return self.src.url if self.src.url else self._source_url(self.src,
+                                                                  self.dst,
+                                                                  rws=self.rws,
+                                                                  protocol_factory=self.protocol_factory,
+                                                                  operation=self.operation_dest)
+
+    @property
+    def legacy_sources(self):
+        return [(
+            self.src.rse.name,
+            self.dest_url,  # Source and dest url is the same for stagein requests
+            self.src.rse.id,
+            self.src.source_ranking
+        )]
+
+    def init_legacy_transfer_definition(self, bring_online, default_lifetime, logger):
+        if not bring_online:
+            raise RucioException("Stageing request {} requires bring_online to be set. Got {}".format(self.rws, bring_online))
+
+        return super().init_legacy_transfer_definition(bring_online, default_lifetime, logger)
 
 
 def oidc_supported(transfer_hop):
@@ -959,7 +1012,8 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
         limit_dest_schemes = []
 
     shortest_paths = __search_shortest_paths(source_rse_ids=[source_rse_id], dest_rse_id=dest_rse_id,
-                                             include_multihop=include_multihop, multihop_rses=multihop_rses,
+                                             operation_src='third_party_copy', operation_dest='third_party_copy',
+                                             domain='wan', include_multihop=include_multihop, multihop_rses=multihop_rses,
                                              limit_dest_schemes=limit_dest_schemes, session=session)
 
     result = REGION_SHORT.get('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))))
@@ -977,7 +1031,8 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
     return path
 
 
-def __search_shortest_paths(source_rse_ids, dest_rse_id, include_multihop, multihop_rses, limit_dest_schemes, inbound_links_by_node=None, session=None):
+def __search_shortest_paths(source_rse_ids, dest_rse_id, operation_src, operation_dest, domain, include_multihop, multihop_rses,
+                            limit_dest_schemes, inbound_links_by_node=None, session=None):
     """
     Find the shortest paths from multiple sources towards dest_rse_id.
     Does a Backwards Dijkstra's algorithm: start from destination and follow inbound links towards the sources.
@@ -1041,9 +1096,9 @@ def __search_shortest_paths(source_rse_ids, dest_rse_id, include_multihop, multi
                 matching_scheme = rsemgr.find_matching_scheme(
                     rse_settings_src=__load_rse_settings(rse_id=adjacent_node, session=session),
                     rse_settings_dest=__load_rse_settings(rse_id=current_node, session=session),
-                    operation_src='third_party_copy',
-                    operation_dest='third_party_copy',
-                    domain='wan',
+                    operation_src=operation_src,
+                    operation_dest=operation_dest,
+                    domain=domain,
                     scheme=limit_dest_schemes if adjacent_node == dest_rse_id and limit_dest_schemes else None
                 )
                 next_hop[adjacent_node] = {
@@ -1080,7 +1135,8 @@ def __search_shortest_paths(source_rse_ids, dest_rse_id, include_multihop, multi
 
 
 @read_session
-def __create_transfer_definitions(ctx, rws, sources, include_multihop, multihop_rses, limit_dest_schemes, session=None):
+def __create_transfer_definitions(ctx, rws, sources, include_multihop, multihop_rses, limit_dest_schemes,
+                                  operation_src, operation_dest, domain, session=None):
     """
     Find the all paths from sources towards the destination of the given transfer request.
     Create the transfer definitions for each point-to-point transfer (multi-source, when possible)
@@ -1088,6 +1144,7 @@ def __create_transfer_definitions(ctx, rws, sources, include_multihop, multihop_
     protocol_factory = ProtocolFactory()
     inbound_links_by_node = {}
     shortest_paths = __search_shortest_paths(source_rse_ids=[s.rse.id for s in sources], dest_rse_id=rws.dest_rse.id,
+                                             operation_src=operation_src, operation_dest=operation_dest, domain=domain,
                                              include_multihop=include_multihop, multihop_rses=multihop_rses,
                                              limit_dest_schemes=limit_dest_schemes,
                                              inbound_links_by_node=inbound_links_by_node, session=session)
@@ -1114,9 +1171,12 @@ def __create_transfer_definitions(ctx, rws, sources, include_multihop, multihop_
             hop_definition = DirectTransferDefinition(
                 source=src,
                 destination=dst,
+                operation_src=operation_src,
+                operation_dest=operation_dest,
                 # keep the current rws for last hop; create a new one for other hops
                 rws=rws if hop_dst_rse == rws.dest_rse else RequestWithSources(
                     id=None,
+                    request_type=rws.request_type,
                     rule_id=None,
                     scope=rws.scope,
                     name=rws.name,
@@ -1175,9 +1235,9 @@ def __create_transfer_definitions(ctx, rws, sources, include_multihop, multihop_
                     matching_scheme = rsemgr.find_matching_scheme(
                         rse_settings_src=source.rse.info,
                         rse_settings_dest=transfer_path[0].dst.rse.info,
-                        operation_src='third_party_copy',
-                        operation_dest='third_party_copy',
-                        domain='wan',
+                        operation_src=operation_src,
+                        operation_dest=operation_dest,
+                        domain=domain,
                         scheme=main_source_schemes)
                 except RSEProtocolNotSupported:
                     continue
@@ -1331,6 +1391,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         activity=activity,
         older_than=older_than,
         rses=rses,
+        request_type=RequestType.TRANSFER,
         request_state=RequestState.QUEUED,
         transfertool=transfertool,
         session=session,
@@ -1407,6 +1468,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                               include_multihop=include_multihop,
                                               multihop_rses=multihop_rses,
                                               limit_dest_schemes=None,
+                                              operation_src='third_party_copy',
+                                              operation_dest='third_party_copy',
+                                              domain='wan',
                                               session=session)
         for source in filtered_sources:
             transfer_path = paths.get(source.rse.id)
@@ -1421,7 +1485,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             if len(transfer_path) > 1:
                 logger(logging.DEBUG, 'From %s to %s requires multihop: %s', source.rse, rws.dest_rse, [str(hop) for hop in transfer_path])
             for hop in transfer_path:
-                hop.init_legacy_transfer_definition(bring_online=bring_online, logger=logger)
+                hop.init_legacy_transfer_definition(bring_online=bring_online, default_lifetime=172800, logger=logger)
 
             candidate_paths.append(transfer_path)
 
@@ -1472,6 +1536,113 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     return transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
 
 
+def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, schemes=None, failover_schemes=None, limit=None, activity=None, older_than=None,
+                                             rses=None, bring_online=43200, retry_other_fts=False, session=None, logger=logging.log):
+    """
+    Get staging requests and the associated source replicas
+
+    :param total_workers:         Number of total workers.
+    :param worker_number:         Id of the executing worker.
+    :param failover_schemes:      Failover schemes.
+    :param limit:                 Limit.
+    :param activity:              Activity.
+    :param older_than:            Get transfers older than.
+    :param rses:                  Include RSES.
+    :param mock:                  Mock testing.
+    :param schemes:               Include schemes.
+    :param bring_online:          Bring online timeout.
+    :param retry_other_fts:       Retry other fts servers.
+    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
+    :session:                     The database session in use.
+    :returns:                     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
+    """
+
+    # Other transfertools not supported
+    transfertool = 'fts3'
+
+    request_with_sources = __list_transfer_requests_and_source_replicas(
+        total_workers=total_workers,
+        worker_number=worker_number,
+        limit=limit,
+        activity=activity,
+        older_than=older_than,
+        rses=rses,
+        request_type=RequestType.STAGEIN,
+        request_state=RequestState.QUEUED,
+        session=session,
+    )
+
+    ctx = _RseLoaderContext(session)
+    protocol_factory = ProtocolFactory()
+    transfers, reqs_no_source = {}, set()
+
+    for rws in request_with_sources:
+
+        ctx.ensure_fully_loaded(rws.dest_rse)
+        for source in rws.sources:
+            ctx.ensure_fully_loaded(source.rse)
+
+        transfer_schemes = schemes
+        if rws.previous_attempt_id and failover_schemes:
+            transfer_schemes = failover_schemes
+
+        logger(logging.DEBUG, 'Found following sources for %s: %s', rws, [str(src.rse) for src in rws.sources])
+        # Assume request doesn't have any sources. Will be removed later if sources are found.
+        reqs_no_source.add(rws.request_id)
+
+        # parse source expression
+        source_replica_expression = rws.attributes.get('source_replica_expression', None)
+        allowed_source_rses = None
+        if source_replica_expression:
+            try:
+                parsed_rses = parse_expression(source_replica_expression, session=session)
+            except InvalidRSEExpression as error:
+                logger(logging.ERROR, "Invalid RSE exception %s: %s", source_replica_expression, str(error))
+                continue
+            else:
+                allowed_source_rses = [x['id'] for x in parsed_rses]
+
+        filtered_sources = rws.sources
+        # Only keep allowed sources
+        if allowed_source_rses is not None:
+            filtered_sources = filter(lambda s: s.rse.id in allowed_source_rses, filtered_sources)
+        # For staging requests, the staging_buffer attribute must be correctly set
+        filtered_sources = filter(lambda s: s.rse.attributes.get('staging_buffer') == rws.dest_rse.name, filtered_sources)
+        filtered_sources = list(filtered_sources)
+
+        if len(rws.sources) != len(filtered_sources):
+            logger(logging.DEBUG, 'Sources after filtering for %s: %s', rws, [str(src.rse) for src in filtered_sources])
+
+        if not filtered_sources:
+            continue
+
+        source = filtered_sources[0]
+
+        transfer = StageinTransferDefinition(
+            source=TransferSource(
+                rse_data=source.rse,
+                file_path=source.file_path,
+                url=source.url,
+                scheme=transfer_schemes,
+            ),
+            destination=TransferDestination(
+                rse_data=rws.dest_rse,
+                scheme=transfer_schemes,
+            ),
+            operation_src='read',
+            operation_dest='write',
+            rws=rws,
+            protocol_factory=protocol_factory,
+        )
+
+        transfer.init_legacy_transfer_definition(bring_online=bring_online, default_lifetime=-1, logger=logger)
+        [[transfer]] = __filter_for_transfertool_and_set_external_host([[transfer]], rws=rws, transfertool=transfertool, retry_other_fts=retry_other_fts, logger=logger)
+
+        transfers[rws.request_id] = transfer
+        reqs_no_source.remove(rws.request_id)
+    return transfers, reqs_no_source
+
+
 @transactional_session
 def __create_missing_replicas_and_requests(transfer_path, default_tombstone_delay, logger, session=None):
     # Create replicas and requests in the database for the intermediate hops
@@ -1508,7 +1679,7 @@ def __create_missing_replicas_and_requests(transfer_path, default_tombstone_dela
                                             'name': rws.name,
                                             'rule_id': '00000000000000000000000000000000',  # Dummy Rule ID used for multihop. TODO: Replace with actual rule_id once we can flag intermediate requests
                                             'attributes': rws.attributes,
-                                            'request_type': RequestType.TRANSFER,
+                                            'request_type': rws.request_type,
                                             'retry_count': rws.retry_count,
                                             'account': rws.account,
                                             'requested_at': datetime.datetime.now()}], session=session)
@@ -1540,6 +1711,7 @@ def __list_transfer_requests_and_source_replicas(
     activity=None,
     older_than=None,
     rses=None,
+    request_type=RequestType.TRANSFER,
     request_state=None,
     transfertool=None,
     session=None,
@@ -1552,6 +1724,8 @@ def __list_transfer_requests_and_source_replicas(
     :param activity:         Activity to be selected.
     :param older_than:       Only select requests older than this DateTime.
     :param rses:             List of rse_id to select requests.
+    :param request_type:     Filter on the given request type.
+    :param request_state:    Filter on the given request state
     :param transfertool:     The transfer tool as specified in rucio.cfg.
     :param session:          Database session to use.
     :returns:                List of RequestWithSources objects.
@@ -1576,7 +1750,7 @@ def __list_transfer_requests_and_source_replicas(
                                  models.Request.created_at) \
         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle') \
         .filter(models.Request.state == request_state) \
-        .filter(models.Request.request_type == RequestType.TRANSFER) \
+        .filter(models.Request.request_type == request_type) \
         .join(models.RSE, models.RSE.id == models.Request.dest_rse_id) \
         .filter(models.RSE.deleted == false()) \
         .order_by(models.Request.created_at) \
@@ -1619,6 +1793,7 @@ def __list_transfer_requests_and_source_replicas(
                           models.RSE.rse,
                           models.RSEFileAssociation.path,
                           models.Source.ranking.label("source_ranking"),
+                          models.Source.url.label("source_url"),
                           models.Distance.ranking.label("distance_ranking")) \
         .order_by(sub_requests.c.created_at) \
         .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
@@ -1645,7 +1820,7 @@ def __list_transfer_requests_and_source_replicas(
 
     requests_by_id = {}
     for (request_id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, dest_rse_id, account, retry_count,
-         source_rse_id, source_rse_name, file_path, source_ranking, distance_ranking) in query:
+         source_rse_id, source_rse_name, file_path, source_ranking, source_url, distance_ranking) in query:
 
         # rses (of unknown length) should be a temporary table to check against instead of this special case
         if rses and dest_rse_id not in rses:
@@ -1653,14 +1828,15 @@ def __list_transfer_requests_and_source_replicas(
 
         request = requests_by_id.get(request_id)
         if not request:
-            request = RequestWithSources(id=request_id, rule_id=rule_id, scope=scope, name=name, md5=md5, adler32=adler32, byte_count=byte_count,
-                                         activity=activity, attributes=attributes, previous_attempt_id=previous_attempt_id,
-                                         dest_rse_data=RseData(id=dest_rse_id), account=account, retry_count=retry_count)
+            request = RequestWithSources(id=request_id, request_type=request_type, rule_id=rule_id, scope=scope, name=name,
+                                         md5=md5, adler32=adler32, byte_count=byte_count, activity=activity, attributes=attributes,
+                                         previous_attempt_id=previous_attempt_id, dest_rse_data=RseData(id=dest_rse_id),
+                                         account=account, retry_count=retry_count)
             requests_by_id[request_id] = request
 
         if source_rse_id is not None:
             request.sources.append(TransferSource(rse_data=RseData(id=source_rse_id, name=source_rse_name), file_path=file_path,
-                                                  source_ranking=source_ranking, distance_ranking=distance_ranking))
+                                                  source_ranking=source_ranking, distance_ranking=distance_ranking, url=source_url))
     return list(requests_by_id.values())
 
 
