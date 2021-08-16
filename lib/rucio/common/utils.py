@@ -37,6 +37,8 @@
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Anil Panta <47672624+panta-123@users.noreply.github.com>, 2021
+# - Ilija Vukotic <ivukotic@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import absolute_import, print_function
 
@@ -1482,6 +1484,15 @@ def setup_logger(module_name=None, logger_name=None, logger_level=None, verbose=
         add_handler(logger)
 
     return logger
+
+
+def daemon_sleep(start_time, sleep_time, graceful_stop, logger=logging.log):
+    """Sleeps a daemon the time provided by sleep_time"""
+    end_time = time.time()
+    time_diff = end_time - start_time
+    if time_diff < sleep_time:
+        logger(logging.INFO, 'Sleeping for a while :  %s seconds', (sleep_time - time_diff))
+        graceful_stop.wait(sleep_time - time_diff)
 
 
 class retry:

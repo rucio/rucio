@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2016-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +15,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Reaper is a daemon to manage sub-file deletion
@@ -41,6 +45,7 @@ def get_parser():
     parser.add_argument('--exclude-rses', action="store", default=None, type=str, help='RSEs expression to exclude RSEs')
     parser.add_argument('--include-rses', action="store", default=None, type=str, help='RSEs expression to include RSEs')
     parser.add_argument('--vos', nargs='+', type=str, help='Optional list of VOs to consider. Only used in multi-VO mode.')
+    parser.add_argument('--sleep-time', action="store", default=60, type=int, help='Concurrency control: thread sleep time after each chunk of work')
     return parser
 
 
@@ -51,6 +56,6 @@ if __name__ == '__main__':
     try:
         run(total_workers=args.total_workers, chunk_size=args.chunk_size,
             once=args.run_once, scheme=args.scheme, rses=args.rses,
-            exclude_rses=args.exclude_rses, include_rses=args.include_rses, vos=args.vos)
+            exclude_rses=args.exclude_rses, include_rses=args.include_rses, vos=args.vos, sleep_time=args.sleep_time)
     except KeyboardInterrupt:
         stop()

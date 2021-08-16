@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
-# - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2015
-# - Wen Guan <wguan.icedew@gmail.com>, 2015
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import division
 
@@ -39,7 +36,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
-from rucio.common.utils import chunks
+from rucio.common.utils import chunks, daemon_sleep
 from rucio.core import monitor, heartbeat
 from rucio.core.replica import list_bad_replicas, get_replicas_state, list_bad_replicas_history, update_bad_replicas_history
 from rucio.core.rule import update_rules_for_lost_replica, update_rules_for_bad_replica
@@ -48,7 +45,7 @@ from rucio.db.sqla.constants import ReplicaState
 graceful_stop = threading.Event()
 
 
-def necromancer(thread=0, bulk=5, once=False):
+def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
     """
     Creates a Necromancer Worker that gets a list of bad replicas for a given hash,
     identify lost DIDs and for non-lost ones, set the locks and rules for reevaluation.
@@ -56,9 +53,9 @@ def necromancer(thread=0, bulk=5, once=False):
     :param thread: Thread number at startup.
     :param bulk: The number of requests to process.
     :param once: Run only once.
+    :param sleep_time: Thread sleep time after each chunk of work.
     """
 
-    sleep_time = 60
     update_history_threshold = 3600
     update_history_time = time.time()
 
@@ -127,20 +124,17 @@ def necromancer(thread=0, bulk=5, once=False):
                 logging.info(prepend_str + 'History table updated in %s seconds' % (time.time() - now))
                 update_history_time = time.time()
 
-            tottime = time.time() - stime
             if len(replicas) == bulk:
                 logging.info(prepend_str + 'Processed maximum number of replicas according to the bulk size. Restart immediately next cycle')
-            elif tottime < sleep_time:
-                logging.info(prepend_str + 'Will sleep for %s seconds' % (str(sleep_time - tottime)))
-                time.sleep(sleep_time - tottime)
-                continue
+            else:
+                daemon_sleep(start_time=stime, sleep_time=sleep_time, graceful_stop=graceful_stop)
 
     logging.info(prepend_str + 'Graceful stop requested')
     heartbeat.die(executable, hostname, pid, hb_thread)
     logging.info(prepend_str + 'Graceful stop done')
 
 
-def run(threads=1, bulk=100, once=False):
+def run(threads=1, bulk=100, once=False, sleep_time=60):
     """
     Starts up the necromancer threads.
     """
@@ -156,7 +150,8 @@ def run(threads=1, bulk=100, once=False):
         logging.info('starting necromancer threads')
         thread_list = [threading.Thread(target=necromancer, kwargs={'once': once,
                                                                     'thread': i,
-                                                                    'bulk': bulk}) for i in range(0, threads)]
+                                                                    'bulk': bulk,
+                                                                    'sleep_time': sleep_time}) for i in range(0, threads)]
         [t.start() for t in thread_list]
 
         logging.info('waiting for interrupts')

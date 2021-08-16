@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +15,13 @@
 # limitations under the License.
 #
 # Authors:
-# - Wen Guan, <wguan.icedew@gmail.com>, 2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2016
-# - Vincent Garonne, <vgaronne@gmail.com>, 2018
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
-#
-# PY3K COMPATIBLE
+# - Wen Guan <wen.guan@cern.ch>, 2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2016
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -44,6 +46,8 @@ def get_parser():
     parser.add_argument("--last-nhours", action="store", default=1, type=int,
                         help='Poll control: poll FTS jobs in last n hours with given state in "latest" mode')
     parser.add_argument("--fts-wait", action="store", default=1800, type=int,
+                        help='OBSOLETE, PLEASE USE --sleep-time INSTEAD. Poll control: wait seconds to poll FTS server in "latest" mode')
+    parser.add_argument("--sleep-time", action="store", default=1800, type=int,
                         help='Poll control: wait seconds to poll FTS server in "latest" mode')
     parser.add_argument("--external-hosts", nargs='+', type=str,
                         help='Poll control: List of FTS hosts')
@@ -65,7 +69,8 @@ if __name__ == "__main__":
                 last_nhours=args.last_nhours,
                 fts_wait=args.fts_wait,
                 total_threads=args.total_threads,
-                external_hosts=args.external_hosts)
+                external_hosts=args.external_hosts,
+                sleep_time=args.sleep_time)
         except KeyboardInterrupt:
             stop()
 
