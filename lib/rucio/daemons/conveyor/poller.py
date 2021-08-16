@@ -48,7 +48,7 @@ from six.moves.configparser import NoOptionError
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.utils import chunks
@@ -145,7 +145,7 @@ def poller(once=False, activities=None, sleep_time=60,
                 external_ids = []
                 for external_host in xfers_ids:
                     if TRANSFER_TOOL == 'fts3':
-                        if config_get('common', 'multi_vo', False, None):
+                        if config_get_bool('common', 'multi_vo', False, None):
                             for trf in xfers_ids[external_host]:
                                 vo = trf[2].vo
                                 external_id = trf[0] + '@' + vo
