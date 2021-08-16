@@ -175,7 +175,7 @@ class FTS3Transfertool(Transfertool):
 
                 post_result = None
 
-                vo_cert = config_get('vo_certs', vo, False, None)
+                vo_cert = config_get('vo_certs', vo, False, config_get('conveyor', 'usercert', False, None))
 
                 self.cert = (vo_cert, vo_cert)
 
@@ -454,7 +454,7 @@ class FTS3Transfertool(Transfertool):
             vo_sorted_dict = self.__multi_vo_cert_selection_from_transfer_ids(transfer_ids)
             for vo in vo_sorted_dict:
                 xfer_ids = ','.join(vo_sorted_dict[vo])
-                usercert = config_get('vo_certs', vo, True, None)
+                usercert = config_get('vo_certs', vo, True, config_get('conveyor', 'usercert', False, None))
                 self.cert = (usercert, usercert)
                 jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,staging_start,staging_finished,reason,source_surl,file_metadata' % (self.external_host, xfer_ids),
                                        verify=self.verify,
