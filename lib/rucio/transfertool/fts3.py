@@ -74,7 +74,6 @@ UPDATE_PRIORITY_COUNTER = Counter('rucio_transfertool_fts3_update_priority', 'Nu
 QUERY_COUNTER = Counter('rucio_transfertool_fts3_query', 'Number of queried transfers', labelnames=('state', 'host'))
 WHOAMI_COUNTER = Counter('rucio_transfertool_fts3_whoami', 'Number of whoami requests', labelnames=('state', 'host'))
 VERSION_COUNTER = Counter('rucio_transfertool_fts3_version', 'Number of version requests', labelnames=('state', 'host'))
-QUERY_LATEST_COUNTER = Counter('rucio_transfertool_fts3_query_latest', 'Number of latest status queries', labelnames=('state', 'host'))
 BULK_QUERY_COUNTER = Counter('rucio_transfertool_fts3_bulk_query', 'Number of bulk queries', labelnames=('state', 'host'))
 QUERY_DETAILS_COUNTER = Counter('rucio_transfertool_fts3_query_details', 'Number of detailed status queries', labelnames=('state', 'host'))
 SUBMISSION_TIMER = Summary('rucio_transfertool_fts3_submit_transfer', 'Timer for transfer submission', labelnames=('host',))
@@ -348,58 +347,6 @@ class FTS3Transfertool(Transfertool):
         labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
         VERSION_COUNTER.labels(**labels).inc()
         raise Exception('Could not retrieve version: %s', get_result.content)
-
-    def query_latest(self, state, last_nhours=1):
-        """
-        Query the latest status transfers status in FTS3 via JSON.
-
-        :param state: Transfer state as a string or a dictionary.
-        :returns: Transfer status information as a dictionary.
-        """
-
-        jobs = None
-
-        try:
-            whoami = requests.get('%s/whoami' % (self.external_host),
-                                  verify=self.verify,
-                                  cert=self.cert,
-                                  headers=self.headers)
-            if whoami and whoami.status_code == 200:
-                delegation_id = whoami.json()['delegation_id']
-            else:
-                raise Exception('Could not retrieve delegation id: %s', whoami.content)
-            state_string = ','.join(state)
-            jobs = requests.get('%s/jobs?dlg_id=%s&state_in=%s&time_window=%s' % (self.external_host,
-                                                                                  delegation_id,
-                                                                                  state_string,
-                                                                                  last_nhours),
-                                verify=self.verify,
-                                cert=self.cert,
-                                headers=self.headers)
-        except ReadTimeout as error:
-            raise TransferToolTimeout(error)
-        except JSONDecodeError as error:
-            raise TransferToolWrongAnswer(error)
-        except Exception:
-            logging.warning('Could not query latest terminal states from %s', self.external_host)
-
-        if jobs and (jobs.status_code == 200 or jobs.status_code == 207):
-            record_counter('transfertool.fts3.%s.query_latest.success' % self.__extract_host(self.external_host))
-            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
-            QUERY_LATEST_COUNTER.labels(**labels).inc()
-            try:
-                jobs_json = jobs.json()
-                return jobs_json
-            except ReadTimeout as error:
-                raise TransferToolTimeout(error)
-            except JSONDecodeError as error:
-                raise TransferToolWrongAnswer(error)
-            except Exception as error:
-                logging.error("Failed to parse the jobs status %s" % (str(error)))
-
-        record_counter('transfertool.fts3.%s.query.failure' % self.__extract_host(self.external_host))
-        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-        QUERY_LATEST_COUNTER.labels(**labels).inc()
 
     def bulk_query(self, transfer_ids, timeout=None):
         """
