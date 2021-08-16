@@ -34,6 +34,7 @@ Individual contributors to the source code
 - Shreyansh Khajanchi <shreyansh_k@live.com>, 2018
 - Robert Illingworth <illingwo@fnal.gov>, 2018
 - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+- Gabriele Gaetano Fronzé <gabriele.fronze@to.infn.it>, 2018-2021
 - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2019 - 2020
 - Kaustubh Hiware <hiwarekaustubh@gmail.com>, 2019
@@ -54,6 +55,8 @@ Individual contributors to the source code
 - Dhruv Sondhi <dhruvsondhi05@gmail.com>, 2021
 - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 - Ilija Vukotic <ivukotic@uchicago.edu>, 2020-2021
+- David Población Criado <david.poblacion.criado@cern.ch>, 2021
+- Nick Smith <nick.smith@cern.ch>, 2021
 
 
 Organisations employing contributors

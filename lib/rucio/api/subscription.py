@@ -38,7 +38,7 @@ from rucio.core import subscription
 SubscriptionRuleState = namedtuple('SubscriptionRuleState', ['account', 'name', 'state', 'count'])
 
 
-def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, priority=None, issuer=None, vo='def'):
+def add_subscription(name, account, filter_, replication_rules, comments, lifetime, retroactive, dry_run, priority=None, issuer=None, vo='def'):
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
@@ -46,9 +46,9 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     :type account:  String
     :param name: Name of the subscription
     :type:  String
-    :param filter: Dictionary of attributes by which the input data should be filtered
+    :param filter_: Dictionary of attributes by which the input data should be filtered
                    **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
-    :type filter:  Dict
+    :type filter_:  Dict
     :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
     :type replication_rules:  Dict
     :param comments: Comments for the subscription
@@ -71,10 +71,10 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     if not has_permission(issuer=issuer, vo=vo, action='add_subscription', kwargs={'account': account}):
         raise AccessDenied('Account %s can not add subscription' % (issuer))
     try:
-        if filter:
-            if not isinstance(filter, dict):
+        if filter_:
+            if not isinstance(filter_, dict):
                 raise TypeError('filter should be a dict')
-            validate_schema(name='subscription_filter', obj=filter, vo=vo)
+            validate_schema(name='subscription_filter', obj=filter_, vo=vo)
         if replication_rules:
             if not isinstance(replication_rules, list):
                 raise TypeError('replication_rules should be a list')
@@ -91,13 +91,13 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     keys = ['scope', 'account']
     types = [InternalScope, InternalAccount]
     for _key, _type in zip(keys, types):
-        if _key in filter:
-            if isinstance(filter[_key], list):
-                filter[_key] = [_type(val, vo=vo).internal for val in filter[_key]]
+        if _key in filter_:
+            if isinstance(filter_[_key], list):
+                filter_[_key] = [_type(val, vo=vo).internal for val in filter_[_key]]
             else:
-                filter[_key] = _type(filter[_key], vo=vo).internal
+                filter_[_key] = _type(filter_[_key], vo=vo).internal
 
-    return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority)
+    return subscription.add_subscription(name=name, account=account, filter_=dumps(filter_), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority)
 
 
 def update_subscription(name, account, metadata=None, issuer=None, vo='def'):
@@ -137,16 +137,16 @@ def update_subscription(name, account, metadata=None, issuer=None, vo='def'):
     account = InternalAccount(account, vo=vo)
 
     if 'filter' in metadata and metadata['filter'] is not None:
-        filter = metadata['filter']
+        filter_ = metadata['filter']
         keys = ['scope', 'account']
         types = [InternalScope, InternalAccount]
 
         for _key, _type in zip(keys, types):
-            if _key in filter and filter[_key] is not None:
-                if isinstance(filter[_key], list):
-                    filter[_key] = [_type(val, vo=vo).internal for val in filter[_key]]
+            if _key in filter_ and filter_[_key] is not None:
+                if isinstance(filter_[_key], list):
+                    filter_[_key] = [_type(val, vo=vo).internal for val in filter_[_key]]
                 else:
-                    filter[_key] = _type(filter[_key], vo=vo).internal
+                    filter_[_key] = _type(filter_[_key], vo=vo).internal
 
     return subscription.update_subscription(name=name, account=account, metadata=metadata)
 

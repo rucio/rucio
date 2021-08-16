@@ -128,7 +128,7 @@ class TestVOCoreAPI(unittest.TestCase):
         rse_name = 'MOCK_%s' % rse_str
         rse_id = add_rse(rse_name, 'root', **self.vo)
 
-        add_replica(rse_id=rse_id, scope=scope, name=dataset, bytes=10, account=account)
+        add_replica(rse_id=rse_id, scope=scope, name=dataset, bytes_=10, account=account)
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=account, copies=1, rse_expression='MOCK', grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
         with pytest.raises(AccessDenied):
@@ -188,7 +188,7 @@ class TestVOCoreAPI(unittest.TestCase):
         with pytest.raises(AccessDenied):
             add_scope(scope, 'root', 'super_root', vo='def')
         add_scope(scope, 'super_root', 'super_root', vo='def')
-        assert scope in [s for s in list_scopes(filter={}, vo='def')]
+        assert scope in [s for s in list_scopes(filter_={}, vo='def')]
 
     @pytest.mark.noparallel(reason='changes global configuration value')
     def test_super_root_naming(self):
@@ -722,7 +722,7 @@ class TestMultiVoClients(unittest.TestCase):
         add_account(new, 'USER', 'rucio@email.com', 'root', **self.new_vo)
         add_account(shr, 'USER', 'rucio@email.com', 'root', **self.new_vo)
         account_list_tst = [a['account'] for a in account_client.list_accounts()]
-        account_list_new = [a['account'] for a in list_accounts(filter={}, **self.new_vo)]
+        account_list_new = [a['account'] for a in list_accounts(filter_={}, **self.new_vo)]
         assert tst in account_list_tst
         assert new not in account_list_tst
         assert shr in account_list_tst
@@ -796,11 +796,11 @@ class TestMultiVoClients(unittest.TestCase):
         assert len(rses_new_2) != 0
 
         # check parse_expression
-        rses_tst_3 = parse_expression(shr, filter={'vo': self.vo['vo']})
-        rses_tst_4 = parse_expression(tst, filter={'vo': self.vo['vo']})
-        rses_new_3 = parse_expression(shr, filter={'vo': self.new_vo['vo']})
+        rses_tst_3 = parse_expression(shr, filter_={'vo': self.vo['vo']})
+        rses_tst_4 = parse_expression(tst, filter_={'vo': self.vo['vo']})
+        rses_new_3 = parse_expression(shr, filter_={'vo': self.new_vo['vo']})
         with pytest.raises(InvalidRSEExpression):
-            parse_expression(tst, filter={'vo': self.new_vo['vo']})
+            parse_expression(tst, filter_={'vo': self.new_vo['vo']})
         assert len(rses_tst_3) == 1
         assert shr_id_tst == rses_tst_3[0]['id']
         assert len(rses_tst_4) == 1
@@ -820,7 +820,7 @@ class TestMultiVoClients(unittest.TestCase):
         add_scope(new, 'root', 'root', **self.new_vo)
         add_scope(shr, 'root', 'root', **self.new_vo)
         scope_list_tst = list(scope_client.list_scopes())
-        scope_list_new = list(list_scopes(filter={}, **self.new_vo))
+        scope_list_new = list(list_scopes(filter_={}, **self.new_vo))
         assert tst in scope_list_tst
         assert new not in scope_list_tst
         assert shr in scope_list_tst

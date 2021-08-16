@@ -70,7 +70,7 @@ def get_global_account_limits(account=None, session=None):
     resolved_global_account_limits = {}
     for limit in global_account_limits:
         if account:
-            resolved_rses = parse_expression(limit['rse_expression'], filter={'vo': account.vo}, session=session)
+            resolved_rses = parse_expression(limit['rse_expression'], filter_={'vo': account.vo}, session=session)
         else:
             resolved_rses = parse_expression(limit['rse_expression'], session=session)
         limit_in_bytes = limit['bytes']
@@ -160,39 +160,39 @@ def get_local_account_limits(account, rse_ids=None, session=None):
 
 
 @transactional_session
-def set_local_account_limit(account, rse_id, bytes, session=None):
+def set_local_account_limit(account, rse_id, bytes_, session=None):
     """
     Returns the limits for the account on the rse.
 
     :param account:  Account to check the limit for.
     :param rse_id:   RSE id to check the limit for.
-    :param bytes:    The limit value, in bytes, to set.
+    :param bytes_:    The limit value, in bytes, to set.
     :param session:  Database session in use.
     """
     try:
         account_limit = session.query(models.AccountLimit).filter(models.AccountLimit.account == account,
                                                                   models.AccountLimit.rse_id == rse_id).one()
-        account_limit.bytes = bytes
+        account_limit.bytes = bytes_
     except NoResultFound:
-        models.AccountLimit(account=account, rse_id=rse_id, bytes=bytes).save(session=session)
+        models.AccountLimit(account=account, rse_id=rse_id, bytes=bytes_).save(session=session)
 
 
 @transactional_session
-def set_global_account_limit(account, rse_expression, bytes, session=None):
+def set_global_account_limit(account, rse_expression, bytes_, session=None):
     """
     Sets the global limit for the account on a RSE expression.
 
     :param account:         Account to check the limit for.
     :param rse_expression:  RSE expression to check the limit for.
-    :param bytes:           The limit value, in bytes, to set.
+    :param bytes_:           The limit value, in bytes, to set.
     :param session:         Database session in use.
     """
     try:
         account_limit = session.query(models.AccountGlobalLimit).filter(models.AccountGlobalLimit.account == account,
                                                                         models.AccountGlobalLimit.rse_expression == rse_expression).one()
-        account_limit.bytes = bytes
+        account_limit.bytes = bytes_
     except NoResultFound:
-        models.AccountGlobalLimit(account=account, rse_expression=rse_expression, bytes=bytes).save(session=session)
+        models.AccountGlobalLimit(account=account, rse_expression=rse_expression, bytes=bytes_).save(session=session)
 
 
 @transactional_session
@@ -292,7 +292,7 @@ def get_global_account_usage(account, rse_expression=None, session=None):
         # One RSE Expression
         limit = get_global_account_limit(account=account, rse_expression=rse_expression, session=session)
         vo = account.vo
-        resolved_rses = [resolved_rse['id'] for resolved_rse in parse_expression(rse_expression, filter={'vo': vo}, session=session)]
+        resolved_rses = [resolved_rse['id'] for resolved_rse in parse_expression(rse_expression, filter_={'vo': vo}, session=session)]
         usage = session.query(func.sum(models.AccountUsage.bytes), func.sum(models.AccountUsage.files))\
                        .filter(models.AccountUsage.account == account, models.AccountUsage.rse_id.in_(resolved_rses))\
                        .group_by(models.AccountUsage.account).first()

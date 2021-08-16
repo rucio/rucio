@@ -26,6 +26,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Matt Snyder <msnyder@bnl.gov>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -43,6 +44,7 @@ import traceback
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from math import ceil
+from typing import TYPE_CHECKING
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
@@ -56,7 +58,7 @@ from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFou
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
                                     VONotFound)
 from rucio.common.logging import formatted_logger, setup_logging
-from rucio.common.utils import chunks
+from rucio.common.utils import chunks, daemon_sleep
 from rucio.core import monitor
 from rucio.core.config import get
 from rucio.core.credential import get_signed_url
@@ -68,6 +70,9 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
 from rucio.core.vo import list_vos
 from rucio.rse import rsemanager as rsemgr
+
+if TYPE_CHECKING:
+    from typing import Callable, Tuple
 
 GRACEFUL_STOP = threading.Event()
 
@@ -293,7 +298,8 @@ def get_max_deletion_threads_by_hostname(hostname):
     return result
 
 
-def __check_rse_usage(rse, rse_id, greedy=False, logger=logging.log):
+def __check_rse_usage(rse: str, rse_id: str, greedy: bool = False,
+                      logger: 'Callable' = logging.log) -> 'Tuple[int, bool]':
     """
     Internal method to check RSE usage and limits.
 
@@ -318,12 +324,7 @@ def __check_rse_usage(rse, rse_id, greedy=False, logger=logging.log):
 
         # Get RSE limits
         limits = get_rse_limits(rse_id=rse_id)
-        if not limits and 'MinFreeSpace' not in limits:
-            result = (needed_free_space, False)
-            REGION.set('rse_usage_%s' % rse_id, result)
-            return result
-
-        min_free_space = limits.get('MinFreeSpace')
+        min_free_space = limits.get('MinFreeSpace', 0)
 
         # Check from which sources to get used and total spaces
         # Default is storage
@@ -558,7 +559,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                         if only_delete_obsolete:
                             logger(logging.DEBUG, 'Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', rse_name)
                         replicas = list_and_mark_unlocked_replicas(limit=chunk_size,
-                                                                   bytes=needed_free_space,
+                                                                   bytes_=needed_free_space,
                                                                    rse_id=rse_id,
                                                                    delay_seconds=delay_seconds,
                                                                    only_delete_obsolete=only_delete_obsolete,
@@ -608,10 +609,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             if once:
                 break
 
-            tottime = time.time() - start_time
-            if tottime < sleep_time:
-                logger(logging.INFO, 'Will sleep for %s seconds', sleep_time - tottime)
-                GRACEFUL_STOP.wait(sleep_time - tottime)
+            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP, logger=logger)
 
         except DatabaseException as error:
             logger(logging.WARNING, 'Reaper:  %s', str(error))

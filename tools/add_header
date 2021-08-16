@@ -17,8 +17,10 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Utility script to generate header file
@@ -29,6 +31,7 @@ Highly recommended usage: add_header -i <source_file{.py,.sh}>
 import argparse
 import collections
 import datetime
+import os
 import sys
 import traceback
 
@@ -69,6 +72,7 @@ author_map = {
     ("Mario Lassnig", "<mlassnig@users.noreply.github.com>"): ("Mario Lassnig", "<mario.lassnig@cern.ch>"),
     ("rcarpa", "<2905943+rcarpa@users.noreply.github.com>"): ("Radu Carpa", "<radu.carpa@cern.ch>"),
     ("Dhruv Sondhi", "<66117751+DhruvSondhi@users.noreply.github.com>"): ("Dhruv Sondhi", "<dhruvsondhi05@gmail.com>"),
+    ("David Población Criado", "<13998309+davidpob99@users.noreply.github.com>"): ("David Población Criado", "<david.poblacion.criado@cern.ch>"),
 }
 
 
@@ -95,7 +99,7 @@ def main(arguments):
 
         # parse git log output
         authors = collections.OrderedDict()
-        min, max = now.year, now.year
+        min_, max_ = now.year, now.year
         for line in output.split('\n'):
             # remove leading and trailing whitespace
             line = line.strip()
@@ -112,8 +116,8 @@ def main(arguments):
             author, mail = map_authors(author, mail)
             year = int(date.split('-')[0])
 
-            if int(min) > int(year):
-                min = year
+            if int(min_) > int(year):
+                min_ = year
 
             if author not in authors:
                 authors[author] = {'name': author,
@@ -132,16 +136,16 @@ def main(arguments):
         if username not in authors:
             authors[username] = {'name': username,
                                  'mail': email,
-                                 'max': max,
+                                 'max': max_,
                                  'min': now.year}
 
         header = ''
         if arguments.documentation:
 
-            if int(min) == int(max):
-                header += '..  Copyright %s CERN\n' % max
+            if int(min_) == int(max_):
+                header += '..  Copyright %s CERN\n' % max_
             else:
-                header += '..  Copyright %s-%s CERN\n' % (min, max)
+                header += '..  Copyright %s-%s CERN\n' % (min_, max_)
             header += '''    Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
@@ -172,13 +176,14 @@ def main(arguments):
 
             sys.exit(0)
 
-        if str(MyFile).endswith('.py'):
+        absolute_path = os.path.abspath(MyFile)
+        if str(MyFile).endswith('.py') or absolute_path.split('/')[-2] == "bin":
             header += '# -*- coding: utf-8 -*-\n'
 
-        if int(min) == int(max):
-            header += '# Copyright %s CERN\n' % max
+        if int(min_) == int(max_):
+            header += '# Copyright %s CERN\n' % max_
         else:
-            header += '# Copyright %s-%s CERN\n' % (min, max)
+            header += '# Copyright %s-%s CERN\n' % (min_, max_)
 
         header += '''#
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -216,7 +221,9 @@ def main(arguments):
                     raise RuntimeError('Cannot read file ' + str(MyFile)) from e
 
                 with open(MyFile, 'w') as modified:
-                    if lines[0].startswith('#!/usr/bin/env'):
+                    if not lines:
+                        print('Empty lines at file', MyFile, file=sys.stderr)
+                    elif lines[0].startswith('#!/usr/bin/env'):
                         modified.write(lines[0])
                     elif lines[0].rstrip() == '#!/bin/bash':
                         modified.write(lines[0])

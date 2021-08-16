@@ -159,4 +159,4 @@ if __name__ == "__main__":
         for record in data:
             print(record.csv(fields))
     elif args.tabulate:
-        print(record_type.tabulate_from(data, format=args.tabulate, fields=fields))
+        print(record_type.tabulate_from(data, format_=args.tabulate, fields=fields))

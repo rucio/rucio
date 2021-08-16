@@ -27,6 +27,7 @@
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import logging
 import os
@@ -48,7 +49,7 @@ from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, I
                                     StagingAreaRuleRequiresLifetime, SubscriptionWrongParameter, SubscriptionNotFound)
 from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.schema import validate_schema
-from rucio.common.utils import chunks
+from rucio.common.utils import chunks, daemon_sleep
 from rucio.core import monitor, heartbeat
 from rucio.core.did import list_new_dids, set_new_dids, get_metadata
 from rucio.core.rse import list_rses, rse_exists, get_rse_id, list_rse_attributes
@@ -335,12 +336,12 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                         # In the case of chained subscription, don't use rseselector but use the rses returned by the algorithm
                                         if split_rule:
                                             vo = account.vo
-                                            rses = parse_expression(rse_expression, filter={'vo': vo})
+                                            rses = parse_expression(rse_expression, filter_={'vo': vo})
                                             list_of_rses = [rse['id'] for rse in rses]
                                             # Check that some rule doesn't already exist for this DID and subscription
                                             preferred_rse_ids = []
                                             for rule in list_rules(filters={'subscription_id': subscription_id, 'scope': did['scope'], 'name': did['name']}):
-                                                already_existing_rses = [(rse['rse'], rse['id']) for rse in parse_expression(rule['rse_expression'], filter={'vo': vo})]
+                                                already_existing_rses = [(rse['rse'], rse['id']) for rse in parse_expression(rule['rse_expression'], filter_={'vo': vo})]
                                                 for rse, rse_id in already_existing_rses:
                                                     if (rse_id in list_of_rses) and (rse_id not in preferred_rse_ids):
                                                         preferred_rse_ids.append(rse_id)
@@ -458,9 +459,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
             monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
         if once is True:
             break
-        if tottime < sleep_time:
-            logger(logging.INFO, 'Will sleep for %s seconds' % (sleep_time - tottime))
-            time.sleep(sleep_time - tottime)
+        daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=logger)
     heartbeat.die(executable, hostname, pid, hb_thread)
     logger(logging.INFO, 'Graceful stop requested')
     logger(logging.INFO, 'Graceful stop done')

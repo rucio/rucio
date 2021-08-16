@@ -38,6 +38,7 @@
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import copy
 import json
@@ -110,6 +111,7 @@ class UploadClient:
             lifetime              - Optional: the lifetime of the file after it was uploaded
             transfer_timeout      - Optional: time after the upload will be aborted
             guid                  - Optional: guid of the file
+            recursive             - Optional: if set, parses the folder structure recursively into collections
         :param summary_file_path: Optional: a path where a summary in form of a json file will be stored
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
 
@@ -489,6 +491,7 @@ class UploadClient:
         for item in items:
             path = item.get('path')
             pfn = item.get('pfn')
+            recursive = item.get('recursive')
             if not path:
                 logger(logging.WARNING, 'Skipping source entry because the key "path" is missing')
                 continue
@@ -497,7 +500,7 @@ class UploadClient:
                 continue
             if pfn:
                 item['force_scheme'] = pfn.split(':')[0]
-            if os.path.isdir(path):
+            if os.path.isdir(path) and not recursive:
                 dname, subdirs, fnames = next(os.walk(path))
                 for fname in fnames:
                     file = self._collect_file_info(os.path.join(dname, fname), item)
@@ -506,9 +509,13 @@ class UploadClient:
                     logger(logging.WARNING, 'Skipping %s because it is empty.' % dname)
                 elif not len(fnames):
                     logger(logging.WARNING, 'Skipping %s because it has no files in it. Subdirectories are not supported.' % dname)
-            elif os.path.isfile(path):
+            elif os.path.isdir(path) and recursive:
+                files.extend(self._recursive(item))
+            elif os.path.isfile(path) and not recursive:
                 file = self._collect_file_info(path, item)
                 files.append(file)
+            elif os.path.isfile(path) and recursive:
+                logger(logging.WARNING, 'Skipping %s because of --recursive flag' % path)
             else:
                 logger(logging.WARNING, 'No such file or directory: %s' % path)
 
@@ -719,4 +726,70 @@ class UploadClient:
         :param trace: the trace
         """
         if self.tracing:
-            send_trace(trace, self.client.host, self.client.user_agent)
+            send_trace(trace, self.client.trace_host, self.client.user_agent)
+
+    def _recursive(self, item):
+        """
+        If the --recursive flag is set, it replicates the folder structure recursively into collections
+        A folder only can have either other folders inside or files, but not both of them
+            - If it has folders, the root folder will be a container
+            - If it has files, the root folder will be a dataset
+            - If it is empty, it does not create anything
+
+        :param: item        dictionary containing all descriptions of the files to upload
+        """
+        files = []
+        datasets = []
+        containers = []
+        attach = []
+        scope = item.get('did_scope') if item.get('did_scope') is not None else self.default_file_scope
+        rse = item.get('rse')
+        path = item.get('path')
+        if path[-1] == '/':
+            path = path[0:-1]
+        i = 0
+        path = os.path.abspath(path)
+        for root, dirs, fnames in os.walk(path):
+            if len(dirs) > 0 and len(fnames) > 0 and i == 0:
+                self.logger(logging.ERROR, 'A container can only have either collections or files, not both')
+                raise InputValidationError('Invalid input folder structure')
+            if len(fnames) > 0:
+                datasets.append({'scope': scope, 'name': root.split('/')[-1], 'rse': rse})
+                self.logger(logging.DEBUG, 'Appended dataset with DID %s:%s' % (scope, path))
+                for fname in fnames:
+                    file = self._collect_file_info(os.path.join(root, fname), item)
+                    file['dataset_scope'] = scope
+                    file['dataset_name'] = root.split('/')[-1]
+                    files.append(file)
+                    self.logger(logging.DEBUG, 'Appended file with DID %s:%s' % (scope, fname))
+            elif len(dirs) > 0:
+                containers.append({'scope': scope, 'name': root.split('/')[-1]})
+                self.logger(logging.DEBUG, 'Appended container with DID %s:%s' % (scope, path))
+                attach.extend([{'scope': scope, 'name': root.split('/')[-1], 'rse': rse, 'dids': {'scope': scope, 'name': dir_}} for dir_ in dirs])
+            elif len(dirs) == 0 and len(fnames) == 0:
+                self.logger(logging.WARNING, 'The folder %s is empty, skipping' % root)
+                continue
+            i += 1
+        # if everything went ok, replicate the folder structure in Rucio storage
+        for dataset in datasets:
+            try:
+                self.client.add_dataset(scope=dataset['scope'], name=dataset['name'], rse=dataset['rse'])
+                self.logger(logging.INFO, 'Created dataset with DID %s:%s' % (dataset['scope'], dataset['name']))
+            except RucioException as error:
+                self.logger(logging.ERROR, error)
+                self.logger(logging.ERROR, 'It was not possible to create dataset with DID %s:%s' % (dataset['scope'], dataset['name']))
+        for container in containers:
+            try:
+                self.client.add_container(scope=container['scope'], name=container['name'])
+                self.logger(logging.INFO, 'Created container with DID %s:%s' % (container['scope'], container['name']))
+            except RucioException as error:
+                self.logger(logging.ERROR, error)
+                self.logger(logging.ERROR, 'It was not possible to create dataset with DID %s:%s' % (container['scope'], container['name']))
+        for att in attach:
+            try:
+                self.client.attach_dids(scope=att['scope'], name=att['name'], dids=[att['dids']])
+                self.logger(logging.INFO, 'DIDs attached to collection %s:%s' % (att['scope'], att['name']))
+            except RucioException as error:
+                self.logger(logging.ERROR, error)
+                self.logger(logging.ERROR, 'It was not possible to attach to collection with DID %s:%s' % (att['scope'], att['name']))
+        return files

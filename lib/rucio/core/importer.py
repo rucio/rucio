@@ -175,9 +175,9 @@ def import_identities(identities, account_name, old_identities, old_identity_acc
         password = identity.get('password')
         identity = identity['identity']
         if identity_type == IdentityType.USERPASS:
-            identity_module.add_identity(identity=identity, password=password, email=account_email, type=identity_type, session=session)
+            identity_module.add_identity(identity=identity, password=password, email=account_email, type_=identity_type, session=session)
         elif identity_type == IdentityType.GSS or identity_type == IdentityType.SSH or identity_type == IdentityType.X509:
-            identity_module.add_identity(identity=identity, email=account_email, type=identity_type, session=session)
+            identity_module.add_identity(identity=identity, email=account_email, type_=identity_type, session=session)
 
     # add missing identity-account association
     for identity in missing_identity_account:
@@ -185,13 +185,13 @@ def import_identities(identities, account_name, old_identities, old_identity_acc
 
     # remove identities from account-identity association
     for identity in to_be_removed_identity_account:
-        identity_module.del_account_identity(identity=identity[0], type=identity[1], account=identity[2], session=session)
+        identity_module.del_account_identity(identity=identity[0], type_=identity[1], account=identity[2], session=session)
 
 
 @transactional_session
 def import_accounts(accounts, vo='def', session=None):
     vo_filter = {'account': InternalAccount(account='*', vo=vo)}
-    old_accounts = {account['account']: account for account in account_module.list_accounts(filter=vo_filter, session=session)}
+    old_accounts = {account['account']: account for account in account_module.list_accounts(filter_=vo_filter, session=session)}
     missing_accounts = [account for account in accounts if account['account'] not in old_accounts]
     outdated_accounts = [account for account in accounts if account['account'] in old_accounts]
     to_be_removed_accounts = [old_account for old_account in old_accounts if old_account not in [account['account'] for account in accounts]]
@@ -202,7 +202,7 @@ def import_accounts(accounts, vo='def', session=None):
     for account_dict in missing_accounts:
         account = account_dict['account']
         email = account_dict['email']
-        account_module.add_account(account=account, type=AccountType.USER, email=email, session=session)
+        account_module.add_account(account=account, type_=AccountType.USER, email=email, session=session)
         identities = account_dict.get('identities', [])
         if identities:
             import_identities(identities, account, old_identities, old_identity_account, email, session=session)

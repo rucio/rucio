@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -25,6 +25,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020-2021
 # - Eric Vaandering <ewv@fnal.gov>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 '''
 Dark Reaper is a daemon to manage quarantined file deletion.
@@ -47,6 +48,7 @@ from rucio.common.exception import (SourceNotFound, DatabaseException, ServiceUn
                                     RSEAccessDenied, ResourceTemporaryUnavailable,
                                     RSENotFound, VONotFound)
 from rucio.common.logging import setup_logging
+from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.quarantined_replica import (list_quarantined_replicas,
@@ -62,7 +64,7 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 GRACEFUL_STOP = threading.Event()
 
 
-def reaper(rses, worker_number=0, total_workers=1, chunk_size=100, once=False, scheme=None):
+def reaper(rses, worker_number=0, total_workers=1, chunk_size=100, once=False, scheme=None, sleep_time=60):
     """
     Main loop to select and delete files.
 
@@ -72,6 +74,7 @@ def reaper(rses, worker_number=0, total_workers=1, chunk_size=100, once=False, s
     :param chunk_size: the size of chunk for deletion.
     :param once: If True, only runs one iteration of the main loop.
     :param scheme: Force the reaper to use a particular protocol, e.g., mock.
+    :param sleep_time: Thread sleep time after each chunk of work.
     """
     logging.info('Starting Dark Reaper %s-%s: Will work on RSEs: %s', worker_number, total_workers, ', '.join(rses))
 
@@ -90,6 +93,7 @@ def reaper(rses, worker_number=0, total_workers=1, chunk_size=100, once=False, s
             logging.info('Dark Reaper({0[worker_number]}/{0[total_workers]}): Live gives {0[heartbeat]}'
                          .format(locals()))
             nothing_to_do = True
+            start_time = time.time()
 
             rses_to_process = list(set(rses) & set(list_rses()))
             random.shuffle(rses_to_process)
@@ -172,8 +176,8 @@ def reaper(rses, worker_number=0, total_workers=1, chunk_size=100, once=False, s
                 break
 
             if nothing_to_do:
-                logging.info('Dark Reaper %s-%s: Nothing to do. I will sleep for 60s', worker_number, total_workers)
-                time.sleep(60)
+                logging.info('Dark Reaper %s-%s: Nothing to do', worker_number, total_workers)
+                daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
         except DatabaseException as error:
             logging.warning('Reaper:  %s', str(error))
@@ -194,7 +198,7 @@ def stop(signum=None, frame=None):
 
 
 def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
-        exclude_rses=None, include_rses=None, vos=None, delay_seconds=0):
+        exclude_rses=None, include_rses=None, vos=None, delay_seconds=0, sleep_time=60):
     """
     Starts up the reaper threads.
 
@@ -265,7 +269,8 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
                   'rses': rses,
                   'once': once,
                   'chunk_size': chunk_size,
-                  'scheme': scheme}
+                  'scheme': scheme,
+                  'sleep_time': sleep_time}
         threads.append(threading.Thread(target=reaper, kwargs=kwargs,
                                         name='Worker: %s, Total_Workers: %s' % (worker, total_workers)))
     [t.start() for t in threads]

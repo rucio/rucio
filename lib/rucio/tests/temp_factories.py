@@ -16,7 +16,7 @@
 # Authors:
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
-
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import os
 import shutil
@@ -122,7 +122,7 @@ class TemporaryRSEFactory:
         rse_name = rse_name_generator()
         rse_id = rse_core.add_rse(rse_name, vo=self.vo, **(add_rse_kwargs or {}))
         if scheme and protocol_impl:
-            rse_core.add_protocol(rse_id=rse_id, parameter={
+            protocol_parameters = {
                 'scheme': scheme,
                 'hostname': '%s.cern.ch' % rse_id,
                 'port': 0,
@@ -135,14 +135,15 @@ class TemporaryRSEFactory:
                         'delete': 1,
                         'third_party_copy': 1
                     }
-                },
-                **(parameters or {})
-            })
+                }
+            }
+            protocol_parameters.update(parameters or {})
+            rse_core.add_protocol(rse_id=rse_id, parameter=protocol_parameters)
         self.created_rses.append(rse_id)
         return rse_name, rse_id
 
-    def make_rse(self, **kwargs):
-        return self._make_rse(scheme=None, protocol_impl=None, add_rse_kwargs=kwargs)
+    def make_rse(self, scheme=None, protocol_impl=None, **kwargs):
+        return self._make_rse(scheme=scheme, protocol_impl=protocol_impl, add_rse_kwargs=kwargs)
 
     def make_posix_rse(self, **kwargs):
         return self._make_rse(scheme='file', protocol_impl='rucio.rse.protocols.posix.Default', add_rse_kwargs=kwargs)
@@ -264,7 +265,7 @@ class TemporaryDidFactory:
 
     def make_dataset(self, scope=None):
         did = self._random_did(scope=scope, name_prefix='dataset')
-        self.client.add_did(scope=did['scope'].external, name=did['name'], type=DIDType.DATASET)
+        self.client.add_did(scope=did['scope'].external, name=did['name'], did_type=DIDType.DATASET)
         return did
 
     def make_container(self, scope=None):
@@ -323,12 +324,12 @@ class TemporaryFileFactory:
 
         return self._base_dir
 
-    def _make_temp_file(self, data, size, namelen, use_basedir):
+    def _make_temp_file(self, data, size, namelen, use_basedir, path):
         fn = ''.join(choice(ascii_uppercase) for x in range(namelen))
         if use_basedir:
-            fp = self.base_dir / fn
+            fp = self.base_dir / path / fn if path is not None else self.base_dir / fn
         else:
-            fp = Path(tempfile.gettempdir(), fn)
+            fp = Path(tempfile.gettempdir()) / path / fn if path is not None else Path(tempfile.gettempdir()) / fn
             self.non_basedir_files.append(fp)
 
         if data is not None:
@@ -343,16 +344,39 @@ class TemporaryFileFactory:
 
         return fp
 
-    def file_generator(self, data=None, size=2, namelen=10, use_basedir=False):
+    def _make_temp_folder(self, namelen, use_basedir, path):
+        fn = ''.join(choice(ascii_uppercase) for x in range(namelen))
+        if use_basedir:
+            fp = self.base_dir / path / fn if path is not None else self.base_dir / fn
+        else:
+            fp = Path(tempfile.gettempdir()) / path / fn if path is not None else Path(tempfile.gettempdir()) / fn
+            self.non_basedir_files.append(fp)
+
+        os.makedirs(fp, exist_ok=True)
+
+        return fp
+
+    def file_generator(self, data=None, size=2, namelen=10, use_basedir=False, path=None):
         """
         Creates a temporary file
         :param data        : The content to be written in the file. If provided, the size parameter is ignored.
         :param size        : The size of random bytes to be written in the file
         :param namelen     : The length of filename
         :param use_basedir : If True, the file is created under the base_dir for this TemporaryFileFactory instance.
+        :param path        : Relative path of the file, can be under basedir (if use_basedir True) or from the temp dir
         :returns: The absolute path of the generated file
         """
-        return self._make_temp_file(data, size, namelen, use_basedir)
+        return self._make_temp_file(data, size, namelen, use_basedir, path)
+
+    def folder_generator(self, namelen=10, use_basedir=False, path=None):
+        """
+        Creates an empty temporary folder
+        :param namelen     : The length of folder. Only used if path is None.
+        :param use_basedir : If True, the folder is created under the base_dir for this TemporaryFileFactory instance.
+        :param path        : Relative path of the folder, can be under basedir (if use_basedir True).
+        :returns: The absolute path of the generated folder
+        """
+        return self._make_temp_folder(namelen, use_basedir, path)
 
     def cleanup(self):
         for fp in self.non_basedir_files:

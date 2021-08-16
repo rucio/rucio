@@ -94,13 +94,13 @@ def file_generator(size=2, namelen=10):
     return fn
 
 
-def make_temp_file(dir, data):
+def make_temp_file(dir_, data):
     """
     Creates a temporal file and write `data` on it.
     :param data: String to be writen on the created file.
     :returns: Name of the temporal file.
     """
-    fd, path = tempfile.mkstemp(dir=dir)
+    fd, path = tempfile.mkstemp(dir=dir_)
     if PY3:
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             f.write(data)

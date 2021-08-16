@@ -23,6 +23,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Judge-Evaluator is a daemon to re-evaluate and execute replication rules.
@@ -46,6 +47,7 @@ import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalScope
+from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did
@@ -53,7 +55,7 @@ from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_di
 graceful_stop = threading.Event()
 
 
-def re_evaluator(once=False):
+def re_evaluator(once=False, sleep_time=30):
     """
     Main loop to check the re-evaluation of dids.
     """
@@ -93,7 +95,7 @@ def re_evaluator(once=False):
             # If the list is empty, sent the worker to sleep
             if not dids and not once:
                 logging.debug('re_evaluator[%s/%s] did not get any work (paused_dids=%s)' % (heartbeat['assign_thread'], heartbeat['nr_threads'], str(len(paused_dids))))
-                graceful_stop.wait(30)
+                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop)
             else:
                 done_dids = {}
                 for did in dids:
@@ -105,7 +107,7 @@ def re_evaluator(once=False):
                     if did_tag in done_dids:
                         if did.rule_evaluation_action in done_dids[did_tag]:
                             logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s already done' % (heartbeat['assign_thread'], heartbeat['nr_threads'], did.scope, did.name))
-                            delete_updated_did(id=did.id)
+                            delete_updated_did(id_=did.id)
                             continue
                     else:
                         done_dids[did_tag] = []
@@ -118,10 +120,10 @@ def re_evaluator(once=False):
                         start_time = time.time()
                         re_evaluate_did(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action)
                         logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'], did.scope, did.name, time.time() - start_time))
-                        delete_updated_did(id=did.id)
+                        delete_updated_did(id_=did.id)
                         done_dids[did_tag].append(did.rule_evaluation_action)
                     except DataIdentifierNotFound:
-                        delete_updated_did(id=did.id)
+                        delete_updated_did(id_=did.id)
                     except (DatabaseException, DatabaseError) as e:
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_dids[(did.scope.internal, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
@@ -170,7 +172,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1):
+def run(once=False, threads=1, sleep_time=30):
     """
     Starts up the Judge-Eval threads.
     """
@@ -187,7 +189,8 @@ def run(once=False, threads=1):
         re_evaluator(once)
     else:
         logging.info('Evaluator starting %s threads' % str(threads))
-        threads = [threading.Thread(target=re_evaluator, kwargs={'once': once}) for i in range(0, threads)]
+        threads = [threading.Thread(target=re_evaluator, kwargs={'once': once,
+                                                                 'sleep_time': sleep_time}) for i in range(0, threads)]
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():

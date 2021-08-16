@@ -82,13 +82,13 @@ class TestUtils(unittest.TestCase):
         }]
 
         for test_case in test_cases:
-            filters, type = parse_did_filter_from_string(test_case['input'])
+            filters, type_ = parse_did_filter_from_string(test_case['input'])
             assert test_case['expected_filter'] == filters
-            assert test_case['expected_type'] == type
+            assert test_case['expected_type'] == type_
 
         with pytest.raises(InvalidType):
-            input = 'type=g'
-            parse_did_filter_from_string(input)
+            input_ = 'type=g'
+            parse_did_filter_from_string(input_)
 
 
 def test_formatted_logger():

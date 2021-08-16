@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,10 +22,11 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import json
 
-from sqlalchemy import or_
+from sqlalchemy import or_, delete, update
 from sqlalchemy.exc import IntegrityError
 
 from dogpile.cache import make_region
@@ -134,15 +135,15 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
 
         # Step 3:
         # Assemble message object
-        for id, created_at, event_type, payload, services in query:
-            message = {'id': id,
+        for id_, created_at, event_type, payload, services in query:
+            message = {'id': id_,
                        'created_at': created_at,
                        'event_type': event_type,
                        'services': services}
 
             # Only switch SQL context when necessary
             if payload == 'nolimit':
-                nolimit_query = session.query(Message.payload_nolimit).filter(Message.id == id).one()[0]
+                nolimit_query = session.query(Message.payload_nolimit).filter(Message.id == id_).one()[0]
                 message['payload'] = json.loads(str(nolimit_query))
             else:
                 message['payload'] = json.loads(str(payload))
@@ -170,10 +171,11 @@ def delete_messages(messages, session=None):
 
     try:
         if message_condition:
-            session.query(Message).\
-                with_hint(Message, "index(messages MESSAGES_ID_PK)", 'oracle').\
-                filter(or_(*message_condition)).\
-                delete(synchronize_session=False)
+            stmt = delete(Message).\
+                prefix_with("/*+ index(messages MESSAGES_ID_PK) */", dialect='oracle').\
+                where(or_(*message_condition)).\
+                execution_options(synchronize_session=False)
+            session.execute(stmt)
 
             session.bulk_insert_mappings(MessageHistory, messages)
     except IntegrityError as e:
@@ -211,10 +213,12 @@ def update_messages_services(messages, services, session=None):
 
     try:
         if message_condition:
-            session.query(Message).\
-                with_hint(Message, "index(messages MESSAGES_ID_PK)", 'oracle').\
-                filter(or_(*message_condition)).\
-                update({'services': services}, synchronize_session=False)
+            stmt = update(Message).\
+                prefix_with("/*+ index(messages MESSAGES_ID_PK) */", dialect='oracle').\
+                where(or_(*message_condition)).\
+                execution_options(synchronize_session=False).\
+                values(services=services)
+            session.execute(stmt)
 
     except IntegrityError as err:
         raise RucioException(err.args)

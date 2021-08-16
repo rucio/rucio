@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +16,8 @@
 #
 # Authors:
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
+# - Gabriele Fronze' <gfronze@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 import sys
 import os.path
@@ -64,7 +66,7 @@ def split_vo(dialect, column, return_vo=False):
             return func.SUBSTR(column, bindparam('int_1'), i - 1)
 
 
-def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None, commit_changes=False, skip_history=False, echo=True):
+def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None, commit_changes=False, skip_history=False):
     """
     Updates rows so that entries associated with `old_vo` are now associated with `new_vo` as part of multi-VO migration.
 
@@ -78,7 +80,7 @@ def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None,
     :param skip_history:   If True then tables without FKC containing historical data will not be converted to save time.
     """
     success = True
-    engine = session.get_engine(echo=echo)
+    engine = session.get_engine()
     conn = engine.connect()
     trans = conn.begin()
     inspector = reflection.Inspector.from_engine(engine)
@@ -175,7 +177,7 @@ def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None,
     return success
 
 
-def remove_vo(vo, commit_changes=False, skip_history=False, echo=True):
+def remove_vo(vo, commit_changes=False, skip_history=False):
     """
     Deletes rows associated with `vo` as part of multi-VO migration.
 
@@ -185,7 +187,7 @@ def remove_vo(vo, commit_changes=False, skip_history=False, echo=True):
     :param skip_history:   If True then tables without FKC containing historical data will not be converted to save time.
     """
     success = True
-    engine = session.get_engine(echo=echo)
+    engine = session.get_engine()
     conn = engine.connect()
     trans = conn.begin()
     inspector = reflection.Inspector.from_engine(engine)
@@ -299,7 +301,7 @@ def convert_to_mvo(new_vo, description, email, create_super_root=False, commit_c
         insert_new_vo = False
 
     success = rename_vo('def', new_vo, insert_new_vo=insert_new_vo, description=description, email=email,
-                        commit_changes=commit_changes, skip_history=skip_history, echo=echo)
+                        commit_changes=commit_changes, skip_history=skip_history)
     if create_super_root and success:
         create_root_account(create_counters=False)
     s.close()
@@ -320,13 +322,13 @@ def convert_to_svo(old_vo, delete_vos=False, commit_changes=False, skip_history=
         print('Multi-VO mode is not enabled in the config file, aborting conversion.')
         return
 
-    rename_vo(old_vo, 'def', commit_changes=commit_changes, skip_history=skip_history, echo=echo)
+    rename_vo(old_vo, 'def', commit_changes=commit_changes, skip_history=skip_history)
     s = session.get_session()
     if delete_vos:
         success_all = True
         for vo in list_vos(session=s):
             if vo['vo'] != 'def':
-                success = remove_vo(vo['vo'], commit_changes=commit_changes, skip_history=skip_history, echo=echo)
+                success = remove_vo(vo['vo'], commit_changes=commit_changes, skip_history=skip_history)
                 success_all = success_all and success
         if commit_changes and success_all:
             del_account(InternalAccount('super_root', vo='def'), session=s)

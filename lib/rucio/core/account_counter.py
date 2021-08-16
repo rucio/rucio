@@ -79,31 +79,31 @@ def create_counters_for_new_rse(rse_id, session=None):
 
 
 @transactional_session
-def increase(rse_id, account, files, bytes, session=None):
+def increase(rse_id, account, files, bytes_, session=None):
     """
     Increments the specified counter by the specified amount.
 
     :param rse_id:  The id of the RSE.
     :param account: The account name.
     :param files:   The number of added/removed files.
-    :param bytes:   The corresponding amount in bytes.
+    :param bytes_:   The corresponding amount in bytes.
     :param session: The database session in use.
     """
-    models.UpdatedAccountCounter(account=account, rse_id=rse_id, files=files, bytes=bytes).save(session=session)
+    models.UpdatedAccountCounter(account=account, rse_id=rse_id, files=files, bytes=bytes_).save(session=session)
 
 
 @transactional_session
-def decrease(rse_id, account, files, bytes, session=None):
+def decrease(rse_id, account, files, bytes_, session=None):
     """
     Decreases the specified counter by the specified amount.
 
     :param rse_id:  The id of the RSE.
     :param account: The account name.
     :param files:   The amount of files.
-    :param bytes:   The amount of bytes.
+    :param bytes_:   The amount of bytes.
     :param session: The database session in use.
     """
-    return increase(rse_id=rse_id, account=account, files=-files, bytes=-bytes, session=session)
+    return increase(rse_id=rse_id, account=account, files=-files, bytes_=-bytes_, session=session)
 
 
 @transactional_session

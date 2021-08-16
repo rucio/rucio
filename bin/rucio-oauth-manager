@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +15,9 @@
 # limitations under the License.
 #
 # Authors:
-#  - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
-# PY3K COMPATIBLE
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 OAuth Manager is a daemon which is reponsible for:
@@ -48,9 +50,10 @@ can be specified by 'maxrows' parameter.
 
 ''')  # NOQA: E501
     parser.add_argument("--max-rows", action="store", default=1000, help='Max number of DB rows to deal with per operation.')
-    parser.add_argument("--loop-rate", action="store", default=300, help='The number of seconds the daemon will wait before running next loop of operations.')
+    parser.add_argument("--loop-rate", action="store", default=300, help='OBSOLETE, USE --sleep-time INSTEAD. The number of seconds the daemon will wait before running next loop of operations.')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only.')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads for this process')
+    parser.add_argument("--sleep-time", action="store", default=300, type=int, help='The number of seconds the daemon will wait before running next loop of operations.')
 
     return parser
 
@@ -60,6 +63,7 @@ if __name__ == "__main__":
     PARSER = get_parser()
     ARGS = PARSER.parse_args()
     try:
-        run(once=ARGS.run_once, max_rows=ARGS.max_rows, loop_rate=ARGS.loop_rate, threads=ARGS.threads)
+        run(once=ARGS.run_once, max_rows=ARGS.max_rows, loop_rate=ARGS.loop_rate, threads=ARGS.threads,
+            sleep_time=ARGS.sleep_time)
     except KeyboardInterrupt:
         stop()

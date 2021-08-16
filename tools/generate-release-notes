@@ -63,18 +63,18 @@ def load_milestones(github_token, page=1):
 
 def get_issue_component_type(issue):
     component = None
-    type = 'enhancement'
+    type_ = 'enhancement'
     for label in issue['labels']:
         if label['color'] == COMPONENT_COLOR and not component:
             component = label['name']
             next
         elif label['name'].lower() == 'enhancement':
-            type = 'enhancement'
+            type_ = 'enhancement'
         elif label['name'].lower() == 'bug':
-            type = 'bug'
+            type_ = 'bug'
         elif label['name'].lower() == 'feature':
-            type = 'feature'
-    return component, type
+            type_ = 'feature'
+    return component, type_
 
 root_git_dir = subprocess.check_output('git rev-parse --show-toplevel', shell=True).decode("utf-8").rstrip()
 # Load OAUTH token
@@ -102,9 +102,9 @@ r = requests.get(url='https://api.github.com/repos/rucio/rucio/issues',
                  headers={'Authorization': 'token %s' % github_token},
                  params={'milestone': milestone_number, 'state': 'closed', 'per_page': 100})
 for issue in json.loads(r.text):
-    component, type = get_issue_component_type(issue)
+    component, type_ = get_issue_component_type(issue)
     issues.append({'component': component,
-                   'type': type,
+                   'type': type_,
                    'number': issue['number'],
                    'title': issue['title']})
 # If --backport is specified, we additionally need to scan older issues
@@ -120,9 +120,9 @@ if option_backport:
         # Iterate comments
         for comment in json.loads(r.text):
             if 'backport %s' % milestone_title in comment['body'].lower():
-                component, type = get_issue_component_type(issue)
+                component, type_ = get_issue_component_type(issue)
                 issues.append({'component': component,
-                   'type': type,
+                   'type': type_,
                    'number': issue['number'],
                    'title': issue['title']})
 

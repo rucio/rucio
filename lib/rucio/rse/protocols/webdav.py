@@ -488,7 +488,7 @@ class Default(protocol.RSEProtocol):
         """
         raise NotImplementedError
         headers = {'Depth': '1'}
-        dict = {}
+        dict_ = {}
         try:
             result = self.session.request('PROPFIND', path, verify=False, headers=headers, timeout=self.timeout, cert=self.cert)
             if result.status_code in [404, ]:
@@ -501,9 +501,9 @@ class Default(protocol.RSEProtocol):
             parser.feed(result.text)
             for file_name in parser.sizes:
                 if '%s%s' % (self.server, file_name) == path:
-                    dict['size'] = parser.sizes[file_name]
+                    dict_['size'] = parser.sizes[file_name]
             parser.close()
-            return dict
+            return dict_
         except requests.exceptions.ConnectionError as error:
             raise exception.ServiceUnavailable(error)
         except requests.exceptions.ReadTimeout as error:

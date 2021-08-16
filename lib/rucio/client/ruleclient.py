@@ -82,7 +82,7 @@ class RuleClient(BaseClient):
                       'activity': activity, 'notify': notify, 'purge_replicas': purge_replicas,
                       'ignore_availability': ignore_availability, 'comment': comment, 'ask_approval': ask_approval,
                       'asynchronous': asynchronous, 'delay_injection': delay_injection, 'priority': priority, 'meta': meta})
-        r = self._send_request(url, type='POST', data=data)
+        r = self._send_request(url, type_='POST', data=data)
         if r.status_code == codes.created:
             return loads(r.text)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -102,7 +102,7 @@ class RuleClient(BaseClient):
 
         data = dumps({'purge_replicas': purge_replicas})
 
-        r = self._send_request(url, type='DEL', data=data)
+        r = self._send_request(url, type_='DEL', data=data)
 
         if r.status_code == codes.ok:
             return True
@@ -120,7 +120,7 @@ class RuleClient(BaseClient):
         path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'estimate_ttc': estimate_ttc})
-        r = self._send_request(url, type='GET', data=data)
+        r = self._send_request(url, type_='GET', data=data)
         if r.status_code == codes.ok:
             return next(self._load_json_data(r))
         else:
@@ -136,7 +136,7 @@ class RuleClient(BaseClient):
         path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'options': options})
-        r = self._send_request(url, type='PUT', data=data)
+        r = self._send_request(url, type_='PUT', data=data)
         if r.status_code == codes.ok:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -153,7 +153,7 @@ class RuleClient(BaseClient):
         path = self.RULE_BASEURL + '/' + rule_id + '/reduce'
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'copies': copies, 'exclude_expression': exclude_expression})
-        r = self._send_request(url, type='POST', data=data)
+        r = self._send_request(url, type_='POST', data=data)
         if r.status_code == codes.ok:
             return loads(r.text)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -171,7 +171,7 @@ class RuleClient(BaseClient):
         path = self.RULE_BASEURL + '/' + rule_id + '/move'
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'rule_id': rule_id, 'rse_expression': rse_expression})
-        r = self._send_request(url, type='POST', data=data)
+        r = self._send_request(url, type_='POST', data=data)
         if r.status_code == codes.created:
             return loads(r.text)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -186,7 +186,7 @@ class RuleClient(BaseClient):
         path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'options': {'approve': True}})
-        r = self._send_request(url, type='PUT', data=data)
+        r = self._send_request(url, type_='PUT', data=data)
         if r.status_code == codes.ok:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -201,7 +201,7 @@ class RuleClient(BaseClient):
         path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'options': {'approve': False}})
-        r = self._send_request(url, type='PUT', data=data)
+        r = self._send_request(url, type_='PUT', data=data)
         if r.status_code == codes.ok:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -216,7 +216,7 @@ class RuleClient(BaseClient):
         """
         path = '/'.join([self.RULE_BASEURL, quote_plus(scope), quote_plus(name), 'history'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
@@ -231,7 +231,7 @@ class RuleClient(BaseClient):
         """
         path = self.RULE_BASEURL + '/' + rule_id + '/analysis'
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return next(self._load_json_data(r))
         exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
@@ -246,7 +246,7 @@ class RuleClient(BaseClient):
         """
         path = self.RULE_BASEURL + '/' + rule_id + '/locks'
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
@@ -262,7 +262,7 @@ class RuleClient(BaseClient):
         filters = filters or {}
         path = self.RULE_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET', params=filters)
+        r = self._send_request(url, type_='GET', params=filters)
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:

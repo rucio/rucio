@@ -67,7 +67,7 @@ class ConfigClient(BaseClient):
 
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return r.json()
         else:
@@ -99,11 +99,11 @@ class ConfigClient(BaseClient):
                     option: value
                 }
             })
-            r = self._send_request(url, type='POST', data=data)
+            r = self._send_request(url, type_='POST', data=data)
         else:
             path = '/'.join([self.CONFIG_BASEURL, section, option, value])
             url = build_url(choice(self.list_hosts), path=path)
-            r = self._send_request(url, type='PUT')
+            r = self._send_request(url, type_='PUT')
 
         if r.status_code == codes.created:
             return True
@@ -123,7 +123,7 @@ class ConfigClient(BaseClient):
         path = '/'.join([self.CONFIG_BASEURL, section, option])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type='DEL')
+        r = self._send_request(url, type_='DEL')
 
         if r.status_code == codes.ok:
             return True

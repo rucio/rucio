@@ -46,13 +46,13 @@ from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType
 
 
-def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def'):
+def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def'):
     """
     List dids in a scope.
 
     :param scope: The scope name.
     :param pattern: The wildcard pattern.
-    :param type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container
+    :param did_type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container
     :param ignore_case: Ignore case distinctions.
     :param limit: The maximum number of DIDs returned.
     :param offset: Offset number.
@@ -69,20 +69,20 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     if 'scope' in filters:
         filters['scope'] = InternalScope(filters['scope'], vo=vo)
 
-    result = did.list_dids(scope=scope, filters=filters, type=type, ignore_case=ignore_case,
+    result = did.list_dids(scope=scope, filters=filters, did_type=did_type, ignore_case=ignore_case,
                            limit=limit, offset=offset, long=long, recursive=recursive)
 
     for d in result:
         yield api_update_return_dict(d)
 
 
-def list_dids_extended(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def'):
+def list_dids_extended(scope, filters, did_type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def'):
     """
     List dids in a scope.
 
     :param scope: The scope name.
     :param pattern: The wildcard pattern.
-    :param type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container
+    :param did_type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container
     :param ignore_case: Ignore case distinctions.
     :param limit: The maximum number of DIDs returned.
     :param offset: Offset number.
@@ -97,20 +97,20 @@ def list_dids_extended(scope, filters, type='collection', ignore_case=False, lim
     if 'scope' in filters:
         filters['scope'] = InternalScope(filters['scope'], vo=vo)
 
-    result = did.list_dids_extended(scope=scope, filters=filters, type=type, ignore_case=ignore_case,
+    result = did.list_dids_extended(scope=scope, filters=filters, did_type=did_type, ignore_case=ignore_case,
                                     limit=limit, offset=offset, long=long, recursive=recursive)
 
     for d in result:
         yield api_update_return_dict(d)
 
 
-def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None, vo='def'):
+def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None, vo='def'):
     """
     Add data did.
 
     :param scope: The scope name.
     :param name: The data identifier name.
-    :param type: The data identifier type.
+    :param did_type: The data identifier type.
     :param issuer: The issuer account.
     :param account: The account owner. If None, then issuer is selected as owner.
     :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
@@ -121,11 +121,11 @@ def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules
     :param rse: The RSE name when registering replicas.
     :param vo: The VO to act on.
     """
-    v_did = {'name': name, 'type': type.upper(), 'scope': scope}
+    v_did = {'name': name, 'type': did_type.upper(), 'scope': scope}
     validate_schema(name='did', obj=v_did, vo=vo)
     validate_schema(name='dids', obj=dids, vo=vo)
     validate_schema(name='rse', obj=rse, vo=vo)
-    kwargs = {'scope': scope, 'name': name, 'type': type, 'issuer': issuer, 'account': account, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}
+    kwargs = {'scope': scope, 'name': name, 'type': did_type, 'issuer': issuer, 'account': account, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}
     if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_did', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
 
@@ -142,7 +142,7 @@ def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules
     if rse is not None:
         rse_id = get_rse_id(rse=rse, vo=vo)
 
-    if type == 'DATASET':
+    if did_type == 'DATASET':
         # naming_convention validation
         extra_meta = naming_convention.validate_name(scope=scope, name=name, did_type='D')
 
@@ -155,9 +155,9 @@ def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules
                 raise rucio.common.exception.InvalidObject("Provided metadata %s doesn't match the naming convention: %s != %s" % (k, meta[k], extra_meta[k]))
 
         # Validate metadata
-        meta_core.validate_meta(meta=meta, did_type=DIDType[type.upper()])
+        meta_core.validate_meta(meta=meta, did_type=DIDType[did_type.upper()])
 
-    return did.add_did(scope=scope, name=name, type=DIDType[type.upper()], account=account or issuer,
+    return did.add_did(scope=scope, name=name, did_type=DIDType[did_type.upper()], account=account or issuer,
                        statuses=statuses, meta=meta, rules=rules, lifetime=lifetime,
                        dids=dids, rse_id=rse_id)
 
@@ -285,17 +285,17 @@ def detach_dids(scope, name, dids, issuer, vo='def'):
     return did.detach_dids(scope=scope, name=name, dids=dids)
 
 
-def list_new_dids(type=None, thread=None, total_threads=None, chunk_size=1000, vo='def'):
+def list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=1000, vo='def'):
     """
     List recent identifiers.
 
-    :param type : The DID type.
+    :param did_type : The DID type.
     :param thread: The assigned thread for this necromancer.
     :param total_threads: The total number of threads of all necromancers.
     :param chunk_size: Number of requests to return per yield.
     :param vo: The VO to act on.
     """
-    dids = did.list_new_dids(did_type=type and DIDType[type.upper()], thread=thread, total_threads=total_threads, chunk_size=chunk_size)
+    dids = did.list_new_dids(did_type=did_type and DIDType[did_type.upper()], thread=thread, total_threads=total_threads, chunk_size=chunk_size)
     for d in dids:
         if d['scope'].vo == vo:
             yield api_update_return_dict(d)

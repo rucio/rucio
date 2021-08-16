@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 ''' add new split_container column to rules '''
 
@@ -37,7 +39,7 @@ def upgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('rules', sa.Column('split_container', sa.Boolean(name='RULES_SPLIT_CONTAINER_CHK'), default=False), schema=schema)
+        add_column('rules', sa.Column('split_container', sa.Boolean(name='RULES_SPLIT_CONTAINER_CHK', create_constraint=True), default=False), schema=schema)
         add_column('rules_hist_recent', sa.Column('split_container', sa.Boolean()), schema=schema)
         add_column('rules_history', sa.Column('split_container', sa.Boolean()), schema=schema)
 

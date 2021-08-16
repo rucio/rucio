@@ -33,10 +33,12 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import print_function
 
 import os
+import random
 import re
 import unittest
 from datetime import datetime, timedelta
@@ -270,6 +272,40 @@ class TestBinRucio(unittest.TestCase):
         print(out, err, exitcode)
         assert exitcode != 0
         assert 'Distance from %s to %s already exists!' % (temprse2, temprse1) in err
+
+    def test_rse_delete_distance(self):
+        """CLIENT (ADMIN): Delete distance to RSE"""
+        # add RSEs
+        temprse1 = rse_name_generator()
+        cmd = 'rucio-admin rse add %s' % temprse1
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        temprse2 = rse_name_generator()
+        cmd = 'rucio-admin rse add %s' % temprse2
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+
+        # add distance between the RSEs
+        cmd = 'rucio-admin rse add-distance --distance 1 --ranking 1 %s %s' % (temprse1, temprse2)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+
+        # delete distance OK
+        cmd = 'rucio-admin rse delete-distance %s %s' % (temprse1, temprse2)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        assert "Deleted distance information from %s to %s." % (temprse1, temprse2) in out
+
+        # delete distance RSE not found
+        cmd = 'rucio-admin rse delete-distance %s %s' % (temprse1, generate_uuid())
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert 'RSE does not exist.' in err
 
     def test_upload(self):
         """CLIENT(USER): Upload"""
@@ -1332,7 +1368,7 @@ class TestBinRucio(unittest.TestCase):
         # Setup data for CLI check
         tmp_dsn_name = 'Container' + rse_name_generator()
         tmp_dsn_did = self.user + ':' + tmp_dsn_name
-        self.did_client.add_did(scope=self.user, name=tmp_dsn_name, type='CONTAINER')
+        self.did_client.add_did(scope=self.user, name=tmp_dsn_name, did_type='CONTAINER')
 
         files = [{'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'} for i in range(0, 1500)]
         self.did_client.add_dids(files[:1000])
@@ -1391,7 +1427,7 @@ class TestBinRucio(unittest.TestCase):
         # Setup data for CLI check
         container_name = 'container' + generate_uuid()
         container = self.user + ':' + container_name
-        self.did_client.add_did(scope=self.user, name=container_name, type='CONTAINER')
+        self.did_client.add_did(scope=self.user, name=container_name, did_type='CONTAINER')
 
         datasets = [{'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'} for i in range(0, 1500)]
         self.did_client.add_dids(datasets[:1000])
@@ -1413,7 +1449,7 @@ class TestBinRucio(unittest.TestCase):
         # Attaching twice plus one DID that is not already attached
         new_dataset = {'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'}
         datasets.append(new_dataset)
-        self.did_client.add_did(scope=self.user, name=new_dataset['name'], type='DATASET')
+        self.did_client.add_did(scope=self.user, name=new_dataset['name'], did_type='DATASET')
         cmd = 'rucio attach {0}'.format(container)
         for dataset in datasets:
             cmd += ' {0}:{1}'.format(dataset['scope'], dataset['name'])
@@ -1532,3 +1568,157 @@ class TestBinRucio(unittest.TestCase):
         assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out) is not None
         self.account_client.set_local_account_limit(account, rse, -1)
         self.account_client.set_global_account_limit(account, rse_exp, -1)
+
+    def test_get_set_delete_limits_rse(self):
+        """CLIENT(ADMIN): Get, set and delete RSE limits"""
+        name = generate_uuid()
+        value = random.randint(0, 100000)
+        name2 = generate_uuid()
+        value2 = random.randint(0, 100000)
+        name3 = generate_uuid()
+        value3 = account_name_generator()
+        cmd = 'rucio-admin rse set-limit %s %s %s' % (self.def_rse, name, value)
+        execute(cmd)
+        cmd = 'rucio-admin rse set-limit %s %s %s' % (self.def_rse, name2, value2)
+        execute(cmd)
+        cmd = 'rucio-admin rse info %s' % self.def_rse
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}: {1}".format(name, value), out) is not None
+        assert re.search("{0}: {1}".format(name2, value2), out) is not None
+        new_value = random.randint(100001, 999999999)
+        cmd = 'rucio-admin rse set-limit %s %s %s' % (self.def_rse, name, new_value)
+        execute(cmd)
+        cmd = 'rucio-admin rse info %s' % self.def_rse
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}: {1}".format(name, new_value), out) is not None
+        assert re.search("{0}: {1}".format(name, value), out) is None
+        assert re.search("{0}: {1}".format(name2, value2), out) is not None
+        cmd = 'rucio-admin rse delete-limit %s %s' % (self.def_rse, name)
+        execute(cmd)
+        cmd = 'rucio-admin rse info %s' % self.def_rse
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}: {1}".format(name, new_value), out) is None
+        assert re.search("{0}: {1}".format(name2, value2), out) is not None
+        cmd = 'rucio-admin rse delete-limit %s %s' % (self.def_rse, name)
+        exitcode, out, err = execute(cmd)
+        assert re.search('Limit {0} not defined in RSE {1}'.format(name, self.def_rse), err) is not None
+        cmd = 'rucio-admin rse set-limit %s %s %s' % (self.def_rse, name3, value3)
+        exitcode, out, err = execute(cmd)
+        assert re.search('The RSE limit value must be an integer', err) is not None
+        cmd = 'rucio-admin rse info %s' % self.def_rse
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}: {1}".format(name3, value3), out) is None
+        assert re.search("{0}: {1}".format(name2, value2), out) is not None
+
+    def test_upload_recursive_ok(self):
+        """CLIENT(USER): Upload and preserve folder structure"""
+        folder = 'folder_' + generate_uuid()
+        folder1 = '%s/folder_%s' % (folder, generate_uuid())
+        folder2 = '%s/folder_%s' % (folder, generate_uuid())
+        folder3 = '%s/folder_%s' % (folder, generate_uuid())
+        folder11 = '%s/folder_%s' % (folder1, generate_uuid())
+        folder12 = '%s/folder_%s' % (folder1, generate_uuid())
+        folder13 = '%s/folder_%s' % (folder1, generate_uuid())
+        file1 = 'file_%s' % generate_uuid()
+        file2 = 'file_%s' % generate_uuid()
+        cmd = 'mkdir %s' % folder
+        execute(cmd)
+        cmd = 'mkdir %s && mkdir %s && mkdir %s' % (folder1, folder2, folder3)
+        execute(cmd)
+        cmd = 'mkdir %s && mkdir %s && mkdir %s' % (folder11, folder12, folder13)
+        execute(cmd)
+        cmd = 'echo "%s" > %s/%s.txt' % (generate_uuid(), folder11, file1)
+        execute(cmd)
+        cmd = 'echo "%s" > %s/%s.txt' % (generate_uuid(), folder2, file2)
+        execute(cmd)
+        cmd = 'rucio upload --scope %s --rse %s --recursive %s/' % (self.user, self.def_rse, folder)
+        execute(cmd)
+        cmd = 'rucio list-content %s:%s' % (self.user, folder)
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}:{1}".format(self.user, folder1.split('/')[-1]), out) is not None
+        assert re.search("{0}:{1}".format(self.user, folder2.split('/')[-1]), out) is not None
+        assert re.search("{0}:{1}".format(self.user, folder3.split('/')[-1]), out) is None
+        cmd = 'rucio list-content %s:%s' % (self.user, folder1.split('/')[-1])
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}:{1}".format(self.user, folder11.split('/')[-1]), out) is not None
+        assert re.search("{0}:{1}".format(self.user, folder12.split('/')[-1]), out) is None
+        assert re.search("{0}:{1}".format(self.user, folder13.split('/')[-1]), out) is None
+        cmd = 'rucio list-content %s:%s' % (self.user, folder11.split('/')[-1])
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}:{1}".format(self.user, file1), out) is not None
+        cmd = 'rucio list-content %s:%s' % (self.user, folder2.split('/')[-1])
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}:{1}".format(self.user, file2), out) is not None
+        cmd = 'rm -rf %s' % folder
+        execute(cmd)
+
+    def test_upload_recursive_subfolder(self):
+        """CLIENT(USER): Upload and preserve folder structure in a subfolder"""
+        folder = 'folder_' + generate_uuid()
+        folder1 = '%s/folder_%s' % (folder, generate_uuid())
+        folder11 = '%s/folder_%s' % (folder1, generate_uuid())
+        file1 = 'file_%s' % generate_uuid()
+        cmd = 'mkdir %s' % (folder)
+        execute(cmd)
+        cmd = 'mkdir %s' % (folder1)
+        execute(cmd)
+        cmd = 'mkdir %s' % (folder11)
+        execute(cmd)
+        cmd = 'echo "%s" > %s/%s.txt' % (generate_uuid(), folder11, file1)
+        execute(cmd)
+        cmd = 'rucio upload --scope %s --rse %s --recursive %s/' % (self.user, self.def_rse, folder1)
+        execute(cmd)
+        cmd = 'rucio list-content %s:%s' % (self.user, folder)
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}:{1}".format(self.user, folder1.split('/')[-1]), out) is None
+        cmd = 'rucio list-content %s:%s' % (self.user, folder1.split('/')[-1])
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}:{1}".format(self.user, folder11.split('/')[-1]), out) is not None
+        cmd = 'rucio list-content %s:%s' % (self.user, folder11.split('/')[-1])
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}:{1}".format(self.user, file1), out) is not None
+        cmd = 'rm -rf %s' % folder
+        execute(cmd)
+
+    def test_recursive_empty(self):
+        """CLIENT(USER): Upload and preserve folder structure with an empty folder"""
+        folder = 'folder_' + generate_uuid()
+        folder1 = '%s/folder_%s' % (folder, generate_uuid())
+        cmd = 'mkdir %s' % (folder)
+        execute(cmd)
+        cmd = 'mkdir %s' % (folder1)
+        execute(cmd)
+        cmd = 'rucio upload --scope %s --rse %s --recursive %s/' % (self.user, self.def_rse, folder)
+        execute(cmd)
+        cmd = 'rucio list-content %s:%s' % (self.user, folder)
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}:{1}".format(self.user, folder1.split('/')[-1]), out) is None
+        cmd = 'rm -rf %s' % folder
+        execute(cmd)
+
+    def test_upload_recursive_only_files(self):
+        """CLIENT(USER): Upload and preserve folder structure only with files"""
+        folder = 'folder_' + generate_uuid()
+        file1 = 'file_%s' % generate_uuid()
+        file2 = 'file_%s' % generate_uuid()
+        file3 = 'file_%s' % generate_uuid()
+        cmd = 'mkdir %s' % folder
+        execute(cmd)
+        cmd = 'echo "%s" > %s/%s.txt' % (generate_uuid(), folder, file1)
+        execute(cmd)
+        cmd = 'echo "%s" > %s/%s.txt' % (generate_uuid(), folder, file2)
+        execute(cmd)
+        cmd = 'echo "%s" > %s/%s.txt' % (generate_uuid(), folder, file3)
+        execute(cmd)
+        cmd = 'rucio upload --scope %s --rse %s --recursive %s/' % (self.user, self.def_rse, folder)
+        execute(cmd)
+        cmd = 'rucio list-content %s:%s' % (self.user, folder)
+        exitcode, out, err = execute(cmd)
+        assert re.search("{0}:{1}".format(self.user, file1), out) is not None
+        assert re.search("{0}:{1}".format(self.user, file2), out) is not None
+        assert re.search("{0}:{1}".format(self.user, file3), out) is not None
+        cmd = 'rucio ls %s:%s' % (self.user, folder)
+        exitcode, out, err = execute(cmd)
+        assert re.search("DATASET", out) is not None
+        cmd = 'rm -rf %s' % folder
+        execute(cmd)

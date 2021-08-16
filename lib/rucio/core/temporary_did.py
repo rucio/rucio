@@ -11,13 +11,14 @@
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
   - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
   - Brandon White <bjwhite@fnal.gov>, 2019-2020
+  - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
   PY3K COMPATIBLE
 """
 
 from datetime import datetime
 
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, or_, func, delete
 from sqlalchemy.sql.expression import case
 
 from rucio.core.did import attach_dids
@@ -68,7 +69,7 @@ def add_temporary_dids(dids, account, session=None):
 
 
 @transactional_session
-def compose(scope, name, rse_id, bytes, sources, account,
+def compose(scope, name, rse_id, bytes_, sources, account,
             md5=None, adler32=None, pfn=None, meta={}, rules=[],
             parent_scope=None, parent_name=None,
             session=None):
@@ -78,7 +79,7 @@ def compose(scope, name, rse_id, bytes, sources, account,
     :param scope: the scope name.
     :param name: The data identifier name.
     :param rse_id: the rse id.
-    :param bytes: the size of the file.
+    :param bytes_: the size of the file.
     :sources sources: The list of temporary DIDs.
     :param account: The account owner.
     :param md5: The md5 checksum.
@@ -91,7 +92,7 @@ def compose(scope, name, rse_id, bytes, sources, account,
     :param session: The database session in use.
     """
     # Create the new file did and replica
-    add_replica(rse_id=rse_id, scope=scope, name=name, bytes=bytes, account=account,
+    add_replica(rse_id=rse_id, scope=scope, name=name, bytes_=bytes_, account=account,
                 adler32=adler32, md5=md5, pfn=pfn, meta=meta, rules=rules,
                 session=session)
 
@@ -138,8 +139,8 @@ def list_expired_temporary_dids(rse_id, limit, worker_number=None, total_workers
              'rse_id': rse_id,
              'scope': scope,
              'name': name,
-             'bytes': bytes}
-            for scope, name, path, bytes in query.limit(limit)]
+             'bytes': bytes_}
+            for scope, name, path, bytes_ in query.limit(limit)]
 
 
 @transactional_session
@@ -156,9 +157,11 @@ def delete_temporary_dids(dids, session=None):
                                  models.TemporaryDataIdentifier.name == did['name']))
 
     if where_clause:
-        return session.query(models.TemporaryDataIdentifier).\
-            with_hint(models.TemporaryDataIdentifier, "INDEX(tmp_dids TMP_DIDS_PK)", 'oracle').\
-            filter(or_(*where_clause)).delete(synchronize_session=False)
+        stmt = delete(models.TemporaryDataIdentifier).\
+            prefix_with("/*+ INDEX(tmp_dids TMP_DIDS_PK) */", dialect='oracle').\
+            where(or_(*where_clause)).execution_options(synchronize_session=False)
+        result = session.execute(stmt)
+        return result.rowcount
     return
 
 

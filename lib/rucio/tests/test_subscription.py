@@ -74,7 +74,7 @@ class TestSubscriptionCoreApi(unittest.TestCase):
         with pytest.raises(InvalidObject):
             result = add_subscription(name=subscription_name,
                                       account='root',
-                                      filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                                      filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                       replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'noactivity'}],
                                       lifetime=100000,
                                       retroactive=0,
@@ -85,7 +85,7 @@ class TestSubscriptionCoreApi(unittest.TestCase):
 
         result = add_subscription(name=subscription_name,
                                   account='root',
-                                  filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                                  filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                   replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
                                   lifetime=100000,
                                   retroactive=0,
@@ -113,7 +113,7 @@ class TestSubscriptionCoreApi(unittest.TestCase):
         subscription_name = uuid()
         subscription_id = add_subscription(name=subscription_name,
                                            account='root',
-                                           filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                                           filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                            replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
                                            lifetime=100000,
                                            retroactive=0,
@@ -134,7 +134,7 @@ class TestSubscriptionCoreApi(unittest.TestCase):
             kwargs = {
                 'name': subscription_name,
                 'account': 'root',
-                'filter': {'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                'filter_': {'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                 'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
                 'lifetime': 100000,
                 'retroactive': 0,
@@ -175,12 +175,12 @@ class TestSubscriptionCoreApi(unittest.TestCase):
         # add a new dataset
         dsn = 'dataset-%s' % uuid()
         add_did(scope=tmp_scope, name=dsn,
-                type=DIDType.DATASET, account=root)
+                did_type=DIDType.DATASET, account=root)
 
         subscription_name = uuid()
         subid = add_subscription(name=subscription_name,
                                  account='root',
-                                 filter={'account': ['root', ], 'scope': [tmp_scope.external, ]},
+                                 filter_={'account': ['root', ], 'scope': [tmp_scope.external, ]},
                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
                                  lifetime=100000,
                                  retroactive=0,
@@ -284,12 +284,12 @@ def test_list_rules_states(vo, rest_client, auth_token):
     # add a new dataset
     dsn = 'dataset-%s' % uuid()
     add_did(scope=tmp_scope, name=dsn,
-            type=DIDType.DATASET, account=root)
+            did_type=DIDType.DATASET, account=root)
 
     subscription_name = uuid()
     subid = add_subscription(name=subscription_name,
                              account='root',
-                             filter={'account': ['root', ], 'scope': [tmp_scope.external, ]},
+                             filter_={'account': ['root', ], 'scope': [tmp_scope.external, ]},
                              replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
                              lifetime=100000,
                              retroactive=0,
@@ -335,15 +335,15 @@ class TestSubscriptionClient(unittest.TestCase):
         """ SUBSCRIPTION (CLIENT): Test the creation of a new subscription, update it, list it """
         subscription_name = uuid()
         with pytest.raises(InvalidObject):
-            subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+            subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                                      replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'noactivity'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
-        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
         result = [sub['id'] for sub in list_subscriptions(name=subscription_name, account='root', **self.vo)]
         assert subid == result[0]
         with pytest.raises(TypeError):
-            result = self.sub_client.update_subscription(name=subscription_name, account='root', filter='toto')
-        result = self.sub_client.update_subscription(name=subscription_name, account='root', filter={'project': ['toto', ]})
+            result = self.sub_client.update_subscription(name=subscription_name, account='root', filter_='toto')
+        result = self.sub_client.update_subscription(name=subscription_name, account='root', filter_={'project': ['toto', ]})
         assert result
         result = list_subscriptions(name=subscription_name, account='root', **self.vo)
         sub = []
@@ -356,18 +356,18 @@ class TestSubscriptionClient(unittest.TestCase):
     def test_create_existing_subscription(self):
         """ SUBSCRIPTION (CLIENT): Test the creation of a existing subscription """
         subscription_name = uuid()
-        result = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+        result = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                                   replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
         assert result
         with pytest.raises(SubscriptionDuplicate):
-            self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+            self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                              replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
 
     def test_update_nonexisting_subscription(self):
         """ SUBSCRIPTION (CLIENT): Test the update of a non-existing subscription """
         subscription_name = uuid()
         with pytest.raises(SubscriptionNotFound):
-            self.sub_client.update_subscription(name=subscription_name, filter={'project': ['toto', ]})
+            self.sub_client.update_subscription(name=subscription_name, filter_={'project': ['toto', ]})
 
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_create_and_list_subscription_by_account(self):
@@ -375,7 +375,7 @@ class TestSubscriptionClient(unittest.TestCase):
         subscription_name = uuid()
         account_name = uuid()[:10]
         add_account(InternalAccount(account_name, **self.vo), AccountType.USER, 'rucio@email.com')
-        subid = self.sub_client.add_subscription(name=subscription_name, account=account_name, filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+        subid = self.sub_client.add_subscription(name=subscription_name, account=account_name, filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
         result = [sub['id'] for sub in self.sub_client.list_subscriptions(account=account_name)]
         assert subid == result[0]
@@ -384,7 +384,7 @@ class TestSubscriptionClient(unittest.TestCase):
     def test_create_and_list_subscription_by_name(self):
         """ SUBSCRIPTION (CLIENT): Test retrieval of subscriptions for an account """
         subscription_name = uuid()
-        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
         result = [sub['id'] for sub in self.sub_client.list_subscriptions(name=subscription_name)]
         assert subid == result[0]
@@ -397,9 +397,9 @@ class TestSubscriptionClient(unittest.TestCase):
         add_scope(tmp_scope, root)
         subscription_name = uuid()
         dsn = 'dataset-%s' % uuid()
-        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root)
 
-        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'scope': [tmp_scope.external, ], 'pattern': 'dataset-.*', 'split_rule': True},
+        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'scope': [tmp_scope.external, ], 'pattern': 'dataset-.*', 'split_rule': True},
                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK-POSIX|MOCK2|MOCK3', 'copies': 2, 'activity': 'Data Brokering'}],
                                                  lifetime=None, retroactive=0, dry_run=0, comments='Ni ! Ni!', priority=1)
         run(threads=1, bulk=1000000, once=True)
@@ -418,9 +418,9 @@ class TestSubscriptionClient(unittest.TestCase):
         add_scope(tmp_scope, root)
         subscription_name = uuid()
         dsn = 'dataset-%s' % uuid()
-        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root)
 
-        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'scope': [tmp_scope.external, ], 'pattern': 'dataset-.*', 'split_rule': True, 'did_type': ['DATASET', ]},
+        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'scope': [tmp_scope.external, ], 'pattern': 'dataset-.*', 'split_rule': True, 'did_type': ['DATASET', ]},
                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK-POSIX|MOCK2|MOCK3', 'copies': 2, 'activity': 'Data Brokering'}],
                                                  lifetime=None, retroactive=0, dry_run=0, comments='Ni ! Ni!', priority=1)
         run(threads=1, bulk=1000000, once=True)

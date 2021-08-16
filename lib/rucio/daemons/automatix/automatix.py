@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
-# - Tomas Kouba <tomas.kouba@cern.ch>, 2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
@@ -27,6 +23,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import division
 
@@ -47,7 +44,7 @@ from rucio.common import exception
 from rucio.common.exception import FileReplicaAlreadyExists, ConfigNotFound
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.types import InternalScope
-from rucio.common.utils import adler32
+from rucio.common.utils import adler32, daemon_sleep
 from rucio.common.utils import execute, generate_uuid
 from rucio.core import monitor, heartbeat
 from rucio.core.config import get
@@ -276,9 +273,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
         tottime = time() - starttime
         if status:
             logger(logging.INFO, 'It took %s seconds to upload one dataset on %s', str(tottime), str(sites))
-            if sleep_time > tottime:
-                logger(logging.INFO, 'Will sleep for %s seconds', str(sleep_time - tottime))
-                sleep(sleep_time - tottime)
+            daemon_sleep(start_time=starttime, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP, logger=logger)
         else:
             logger(logging.INFO, 'Retrying a new upload')
     heartbeat.die(executable, hostname, pid, hb_thread)
@@ -286,7 +281,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
     logger(logging.INFO, 'Graceful stop done')
 
 
-def run(total_workers=1, once=False, inputfile=None):
+def run(total_workers=1, once=False, inputfile=None, sleep_time=-1):
     """
     Starts up the automatix threads.
     """
@@ -301,10 +296,11 @@ def run(total_workers=1, once=False, inputfile=None):
         raise Exception('Could not load sites from configuration')
     if not inputfile:
         inputfile = '/opt/rucio/etc/automatix.json'
-    try:
-        sleep_time = get('automatix', 'sleep_time')
-    except Exception:
-        sleep_time = 30
+    if sleep_time == -1:
+        try:
+            sleep_time = get('automatix', 'sleep_time')
+        except Exception:
+            sleep_time = 30
     try:
         account = get('automatix', 'account')
     except Exception:
@@ -322,7 +318,7 @@ def run(total_workers=1, once=False, inputfile=None):
         scope = get('automatix', 'scope')
         client = Client()
         filters = {'scope': InternalScope('*', vo=client.vo)}
-        if InternalScope(scope, vo=client.vo) not in list_scopes(filter=filters):
+        if InternalScope(scope, vo=client.vo) not in list_scopes(filter_=filters):
             logging.log(logging.ERROR, 'Scope %s does not exist. Exiting', scope)
             GRACEFUL_STOP.set()
     except Exception:

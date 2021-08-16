@@ -37,6 +37,8 @@
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Anil Panta <47672624+panta-123@users.noreply.github.com>, 2021
+# - Ilija Vukotic <ivukotic@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import absolute_import, print_function
 
@@ -64,6 +66,7 @@ import requests
 from six import string_types, text_type, binary_type, ensure_text, PY3
 from six.moves import StringIO, zip_longest as izip_longest
 from six.moves.urllib.parse import urlparse, urlencode, quote, parse_qsl, urlunparse
+from six.moves.configparser import NoOptionError, NoSectionError
 
 from rucio.common.config import config_get
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
@@ -280,8 +283,8 @@ def sha256(file):
     :returns: string of 32 hexadecimal digits
     """
     with open(file, "rb") as f:
-        bytes = f.read()  # read entire file as bytes
-        readable_hash = hashlib.sha256(bytes).hexdigest()
+        bytes_ = f.read()  # read entire file as bytes
+        readable_hash = hashlib.sha256(bytes_).hexdigest()
         print(readable_hash)
         return readable_hash
 
@@ -364,10 +367,10 @@ def render_json(**data):
     return json.dumps(data, cls=APIEncoder)
 
 
-def render_json_list(list):
+def render_json_list(list_):
     """ JSON render function for list
     """
-    return json.dumps(list, cls=APIEncoder)
+    return json.dumps(list_, cls=APIEncoder)
 
 
 def datetime_parser(dct):
@@ -433,12 +436,12 @@ def grouper(iterable, n, fillvalue=None):
     return izip_longest(*args, fillvalue=fillvalue)
 
 
-def chunks(list, n):
+def chunks(list_, n):
     """
     Yield successive n-sized chunks from l.
     """
-    for i in range(0, len(list), n):
-        yield list[i:i + n]
+    for i in range(0, len(list_), n):
+        yield list_[i:i + n]
 
 
 def my_key_generator(namespace, fn, **kw):
@@ -531,6 +534,7 @@ def construct_surl_BelleII(dsn, filename):
 
 _SURL_ALGORITHMS = {}
 _DEFAULT_SURL = 'DQ2'
+_loaded_policy_modules = False
 
 
 def register_surl_algorithm(surl_callable, name=None):
@@ -544,9 +548,39 @@ register_surl_algorithm(construct_surl_DQ2, 'DQ2')
 register_surl_algorithm(construct_surl_BelleII, 'BelleII')
 
 
+def _register_policy_package_surl_algorithms():
+    def try_importing_policy(vo=None):
+        import importlib
+        try:
+            package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo['vo']))
+            module = importlib.import_module(package)
+            if hasattr(module, 'get_surl_algorithms'):
+                _SURL_ALGORITHMS.update(module.get_surl_algorithms())
+        except (NoOptionError, NoSectionError, ImportError):
+            pass
+
+    from rucio.common import config
+    from rucio.core.vo import list_vos
+    try:
+        multivo = config.config_get_bool('common', 'multi_vo')
+    except (NoOptionError, NoSectionError):
+        multivo = False
+    if not multivo:
+        # single policy package
+        try_importing_policy()
+    else:
+        # policy package per VO
+        vos = list_vos()
+        for vo in vos:
+            try_importing_policy(vo)
+
+
 def construct_surl(dsn, filename, naming_convention=None):
-    # ensure that policy package is loaded in case it registers its own algorithms
-    import rucio.common.schema  # noqa: F401
+    global _loaded_policy_modules
+    if not _loaded_policy_modules:
+        # on first call, register any SURL functions from the policy packages
+        _register_policy_package_surl_algorithms()
+        _loaded_policy_modules = True
 
     if naming_convention is None or naming_convention not in _SURL_ALGORITHMS:
         naming_convention = _DEFAULT_SURL
@@ -995,7 +1029,7 @@ def parse_did_filter_from_string(input_string):
     :return: filter dictionary and type as string.
     """
     filters = {}
-    type = 'collection'
+    type_ = 'collection'
     if input_string:
         filter_options = input_string.replace(' ', '').split(',')
         for option in filter_options:
@@ -1025,7 +1059,7 @@ def parse_did_filter_from_string(input_string):
 
             if key == 'type':
                 if value.upper() in ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']:
-                    type = value.lower()
+                    type_ = value.lower()
                 else:
                     raise InvalidType('{0} is not a valid type. Valid types are {1}'.format(value, ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']))
             elif key in ('length.gt', 'length.lt', 'length.gte', 'length.lte', 'length'):
@@ -1044,7 +1078,7 @@ def parse_did_filter_from_string(input_string):
             else:
                 filters[key] = value
 
-    return filters, type
+    return filters, type_
 
 
 def parse_replicas_from_file(path):
@@ -1340,6 +1374,15 @@ def setup_logger(module_name=None, logger_name=None, logger_level=None, verbose=
         add_handler(logger)
 
     return logger
+
+
+def daemon_sleep(start_time, sleep_time, graceful_stop, logger=logging.log):
+    """Sleeps a daemon the time provided by sleep_time"""
+    end_time = time.time()
+    time_diff = end_time - start_time
+    if time_diff < sleep_time:
+        logger(logging.INFO, 'Sleeping for a while :  %s seconds', (sleep_time - time_diff))
+        graceful_stop.wait(sleep_time - time_diff)
 
 
 class retry:

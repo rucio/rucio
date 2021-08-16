@@ -30,11 +30,12 @@
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from datetime import datetime, timedelta
 
 from six import string_types
-from sqlalchemy import or_
+from sqlalchemy import or_, update
 from sqlalchemy.exc import CompileError, InvalidRequestError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
@@ -178,15 +179,15 @@ class DidColumnMeta(DidMetaPlugin):
                 session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
                 session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
 
-                for account, bytes, rse_id, rule_id in session.query(models.ReplicaLock.account, models.ReplicaLock.bytes, models.ReplicaLock.rse_id, models.ReplicaLock.rule_id).filter_by(scope=scope, name=name):
+                for account, bytes_, rse_id, rule_id in session.query(models.ReplicaLock.account, models.ReplicaLock.bytes, models.ReplicaLock.rse_id, models.ReplicaLock.rule_id).filter_by(scope=scope, name=name):
                     session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rule_id=rule_id, rse_id=rse_id).update({key: value}, synchronize_session=False)
-                    account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes=bytes, session=session)
-                    account_counter.increase(rse_id=rse_id, account=account, files=1, bytes=value, session=session)
+                    account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=bytes_, session=session)
+                    account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=value, session=session)
 
-                for bytes, rse_id in session.query(models.RSEFileAssociation.bytes, models.RSEFileAssociation.rse_id).filter_by(scope=scope, name=name):
+                for bytes_, rse_id in session.query(models.RSEFileAssociation.bytes, models.RSEFileAssociation.rse_id).filter_by(scope=scope, name=name):
                     session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).update({key: value}, synchronize_session=False)
-                    rse_counter.decrease(rse_id=rse_id, files=1, bytes=bytes, session=session)
-                    rse_counter.increase(rse_id=rse_id, files=1, bytes=value, session=session)
+                    rse_counter.decrease(rse_id=rse_id, files=1, bytes_=bytes_, session=session)
+                    rse_counter.increase(rse_id=rse_id, files=1, bytes_=value, session=session)
 
                 for parent_scope, parent_name in session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=scope, child_name=name):
                     values = {}
@@ -215,22 +216,26 @@ class DidColumnMeta(DidMetaPlugin):
 
                 for child_scope, child_name in content_query:
                     try:
-                        child_did_query = session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter_by(scope=child_scope, name=child_name)
-                        child_did_query.update(remainder, synchronize_session='fetch')
+                        stmt = update(models.DataIdentifier)\
+                            .prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')\
+                            .filter_by(scope=child_scope, name=child_name)\
+                            .execution_options(synchronize_session='fetch')\
+                            .values(remainder)
+                        session.execute(stmt)
                     except CompileError as error:
                         raise exception.InvalidMetadata(error)
                     except InvalidRequestError:
                         raise exception.InvalidMetadata("Some of the keys are not accepted recursively: " + str(list(remainder.keys())))
 
     @stream_session
-    def list_dids(self, scope, filters, type='collection', ignore_case=False, limit=None,
+    def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
                   offset=None, long=False, recursive=False, session=None):
         """
         Search data identifiers
 
         :param scope: the scope name.
         :param filters: dictionary of attributes by which the results should be filtered.
-        :param type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
+        :param did_type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
         :param ignore_case: ignore case distinctions.
         :param limit: limit number.
         :param offset: offset number.
@@ -239,7 +244,7 @@ class DidColumnMeta(DidMetaPlugin):
         :param recursive: Recursively list DIDs content.
         """
         types = ['all', 'collection', 'container', 'dataset', 'file']
-        if type not in types:
+        if did_type not in types:
             raise exception.UnsupportedOperation("Valid type are: %(types)s" % locals())
 
         query = session.query(models.DataIdentifier.scope,
@@ -252,18 +257,18 @@ class DidColumnMeta(DidMetaPlugin):
         # Exclude suppressed dids
         query = query.filter(models.DataIdentifier.suppressed != true())
 
-        if type == 'all':
+        if did_type == 'all':
             query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
                                      models.DataIdentifier.did_type == DIDType.DATASET,
                                      models.DataIdentifier.did_type == DIDType.FILE))
-        elif type.lower() == 'collection':
+        elif did_type.lower() == 'collection':
             query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
                                      models.DataIdentifier.did_type == DIDType.DATASET))
-        elif type.lower() == 'container':
+        elif did_type.lower() == 'container':
             query = query.filter(models.DataIdentifier.did_type == DIDType.CONTAINER)
-        elif type.lower() == 'dataset':
+        elif did_type.lower() == 'dataset':
             query = query.filter(models.DataIdentifier.did_type == DIDType.DATASET)
-        elif type.lower() == 'file':
+        elif did_type.lower() == 'file':
             query = query.filter(models.DataIdentifier.did_type == DIDType.FILE)
 
         for (k, v) in filters.items():
@@ -322,25 +327,25 @@ class DidColumnMeta(DidMetaPlugin):
 
             from rucio.core.did import list_content
 
-            for scope, name, did_type, bytes, length in query.yield_per(100):
+            for scope, name, did_type, bytes_, length in query.yield_per(100):
                 if (did_type == DIDType.CONTAINER or did_type == DIDType.DATASET):
                     collections_content += [did for did in list_content(scope=scope, name=name)]
 
             # List DIDs again to use filter
             for did in collections_content:
                 filters['name'] = did['name']
-                for result in self.list_dids(scope=did['scope'], filters=filters, recursive=True, type=type, limit=limit, offset=offset, long=long, session=session):
+                for result in self.list_dids(scope=did['scope'], filters=filters, recursive=True, did_type=did_type, limit=limit, offset=offset, long=long, session=session):
                     yield result
 
         if long:
-            for scope, name, did_type, bytes, length in query.yield_per(5):
+            for scope, name, type_, bytes_, length in query.yield_per(5):
                 yield {'scope': scope,
                        'name': name,
-                       'did_type': str(did_type),
-                       'bytes': bytes,
+                       'did_type': str(type_),
+                       'bytes': bytes_,
                        'length': length}
         else:
-            for scope, name, did_type, bytes, length in query.yield_per(5):
+            for scope, name, type_, bytes_, length in query.yield_per(5):
                 yield name
 
     def delete_metadata(self, scope, name, key, session=None):

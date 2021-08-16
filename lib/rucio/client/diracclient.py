@@ -52,7 +52,7 @@ class DiracClient(BaseClient):
         """
         path = '/'.join([self.DIRAC_BASEURL, 'addfiles'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='POST', data=dumps({'lfns': lfns, 'ignore_availability': ignore_availability}))
+        r = self._send_request(url, type_='POST', data=dumps({'lfns': lfns, 'ignore_availability': ignore_availability}))
         if r.status_code == codes.created:
             return True
         else:

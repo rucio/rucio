@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2021 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
@@ -25,6 +23,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import datetime
 import logging
@@ -41,6 +40,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import InvalidRSEExpression, RuleNotFound
 from rucio.common.logging import setup_logging
+from rucio.common.utils import daemon_sleep
 from rucio.core import heartbeat
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rse import get_rse_name, get_rse_vo
@@ -52,7 +52,7 @@ GRACEFUL_STOP = threading.Event()
 
 
 def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
-            once=True, unlock=False, spread_period=0, purge_replicas=False):
+            once=True, unlock=False, spread_period=0, purge_replicas=False, sleep_time=60):
     """
     Creates an Atropos Worker that gets a list of rules which have an eol_at expired and delete them.
 
@@ -60,10 +60,8 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
     :param bulk: The number of requests to process.
     :param grace_period: The grace_period for the rules.
     :param once: Run only once.
+    :param sleep_time: Thread sleep time after each chunk of work.
     """
-
-    sleep_time = 60
-
     executable = 'atropos'
     hostname = socket.getfqdn()
     pid = os.getpid()
@@ -107,7 +105,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
 
                     # We compute the expected eol_at
                     try:
-                        rses = parse_expression(rule.rse_expression, filter={'vo': rule.account.vo})
+                        rses = parse_expression(rule.rse_expression, filter_={'vo': rule.account.vo})
                     except InvalidRSEExpression:
                         logging.warning(prepend_str + 'Rule %s has an RSE expression that results in an empty set: %s' % (rule.id, rule.rse_expression))
                         continue
@@ -183,11 +181,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
             if once:
                 break
             else:
-                tottime = time.time() - stime
-                if tottime < sleep_time:
-                    logging.info(prepend_str + 'Will sleep for %s seconds' % (str(sleep_time - tottime)))
-                    time.sleep(sleep_time - tottime)
-                    continue
+                daemon_sleep(start_time=stime, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
         logging.info(prepend_str + 'Graceful stop requested')
         heartbeat.die(executable, hostname, pid, hb_thread)
@@ -195,7 +189,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
 
 
 def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
-        once=True, unlock=False, spread_period=0, purge_replicas=False):
+        once=True, unlock=False, spread_period=0, purge_replicas=False, sleep_time=60):
     """
     Starts up the atropos threads.
     """
@@ -219,7 +213,8 @@ def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
                                                             'bulk': bulk,
                                                             'unlock': unlock,
                                                             'spread_period': spread_period,
-                                                            'purge_replicas': purge_replicas}) for i in range(0, threads)]
+                                                            'purge_replicas': purge_replicas,
+                                                            'sleep_time': sleep_time}) for i in range(0, threads)]
     [t.start() for t in thread_list]
 
     logging.info('waiting for interrupts')

@@ -16,6 +16,7 @@
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import logging
 import os
@@ -28,6 +29,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import RucioException
 from rucio.common.logging import formatted_logger, setup_logging
+from rucio.common.utils import daemon_sleep
 from rucio.core import heartbeat
 from rucio.core.request import preparer_update_requests, reduce_requests, sort_requests_minimum_distance, \
     get_transfertool_filter, get_supported_transfertools, rse_lookup_filter
@@ -122,10 +124,7 @@ def preparer(once, sleep_time, bulk):
             end_time = time()
             time_diff = end_time - start_time
             daemon_logger(logging.INFO, '%s, taking %.3f seconds' % (updated_msg, time_diff))
-            if time_diff < sleep_time:
-                sleep_remaining = sleep_time - time_diff
-                daemon_logger(logging.DEBUG, 'sleeping for a while :  %.2f seconds' % sleep_remaining)
-                graceful_stop.wait(sleep_remaining)
+            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=daemon_logger)
 
         daemon_logger(logging.INFO, 'gracefully stopping')
 

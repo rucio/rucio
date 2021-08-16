@@ -58,42 +58,42 @@ class TestCoreRSECounter(unittest.TestCase):
         del cnt['updated_at']
         assert cnt == {'files': 0, 'bytes': 0}
 
-        count, sum = 0, 0
+        count, sum_ = 0, 0
         for i in range(10):
-            rse_counter.increase(rse_id=rse_id, files=1, bytes=2.147e+9)
+            rse_counter.increase(rse_id=rse_id, files=1, bytes_=2.147e+9)
             rse_update(once=True)
             count += 1
-            sum += 2.147e+9
+            sum_ += 2.147e+9
             cnt = rse_counter.get_counter(rse_id=rse_id)
             del cnt['updated_at']
-            assert cnt == {'files': count, 'bytes': sum}
+            assert cnt == {'files': count, 'bytes': sum_}
 
         for i in range(4):
-            rse_counter.decrease(rse_id=rse_id, files=1, bytes=2.147e+9)
+            rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2.147e+9)
             rse_update(once=True)
             count -= 1
-            sum -= 2.147e+9
+            sum_ -= 2.147e+9
             cnt = rse_counter.get_counter(rse_id=rse_id)
             del cnt['updated_at']
-            assert cnt == {'files': count, 'bytes': sum}
+            assert cnt == {'files': count, 'bytes': sum_}
 
         for i in range(5):
-            rse_counter.increase(rse_id=rse_id, files=1, bytes=2.147e+9)
+            rse_counter.increase(rse_id=rse_id, files=1, bytes_=2.147e+9)
             rse_update(once=True)
             count += 1
-            sum += 2.147e+9
+            sum_ += 2.147e+9
             cnt = rse_counter.get_counter(rse_id=rse_id)
             del cnt['updated_at']
-            assert cnt == {'files': count, 'bytes': sum}
+            assert cnt == {'files': count, 'bytes': sum_}
 
         for i in range(8):
-            rse_counter.decrease(rse_id=rse_id, files=1, bytes=2.147e+9)
+            rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2.147e+9)
             rse_update(once=True)
             count -= 1
-            sum -= 2.147e+9
+            sum_ -= 2.147e+9
             cnt = rse_counter.get_counter(rse_id=rse_id)
             del cnt['updated_at']
-            assert cnt == {'files': count, 'bytes': sum}
+            assert cnt == {'files': count, 'bytes': sum_}
 
     def test_fill_counter_history(self):
         """RSE COUNTER (CORE): Fill the usage history with the current value."""
@@ -126,42 +126,42 @@ class TestCoreAccountCounter(unittest.TestCase):
         del cnt['updated_at']
         assert cnt == {'files': 0, 'bytes': 0}
 
-        count, sum = 0, 0
+        count, sum_ = 0, 0
         for i in range(10):
-            account_counter.increase(rse_id=rse_id, account=account, files=1, bytes=2.147e+9)
+            account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9)
             account_update(once=True)
             count += 1
-            sum += 2.147e+9
+            sum_ += 2.147e+9
             cnt = get_usage(rse_id=rse_id, account=account)
             del cnt['updated_at']
-            assert cnt == {'files': count, 'bytes': sum}
+            assert cnt == {'files': count, 'bytes': sum_}
 
         for i in range(4):
-            account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes=2.147e+9)
+            account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9)
             account_update(once=True)
             count -= 1
-            sum -= 2.147e+9
+            sum_ -= 2.147e+9
             cnt = get_usage(rse_id=rse_id, account=account)
             del cnt['updated_at']
-            assert cnt == {'files': count, 'bytes': sum}
+            assert cnt == {'files': count, 'bytes': sum_}
 
         for i in range(5):
-            account_counter.increase(rse_id=rse_id, account=account, files=1, bytes=2.147e+9)
+            account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9)
             account_update(once=True)
             count += 1
-            sum += 2.147e+9
+            sum_ += 2.147e+9
             cnt = get_usage(rse_id=rse_id, account=account)
             del cnt['updated_at']
-            assert cnt == {'files': count, 'bytes': sum}
+            assert cnt == {'files': count, 'bytes': sum_}
 
         for i in range(8):
-            account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes=2.147e+9)
+            account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9)
             account_update(once=True)
             count -= 1
-            sum -= 2.147e+9
+            sum_ -= 2.147e+9
             cnt = get_usage(rse_id=rse_id, account=account)
             del cnt['updated_at']
-            assert cnt == {'files': count, 'bytes': sum}
+            assert cnt == {'files': count, 'bytes': sum_}
 
     def test_fill_counter_history(self):
         """ACCOUNT COUNTER (CORE): Fill the usage history with the current value."""
