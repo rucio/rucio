@@ -812,41 +812,6 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
         raise UnsupportedOperation("Transfer %s doesn't exist or its status is not submitted." % transfer_id)
 
 
-def query_latest(external_host, state, last_nhours=1, logger=logging.log):
-    """
-    Query the latest transfers in last n hours with state.
-    :param external_host:  FTS host name as a string.
-    :param state:          FTS job state as a string or a dictionary.
-    :param last_nhours:    Latest n hours as an integer.
-    :param logger:         Optional decorated logger that can be passed from the calling daemons or servers.
-    :returns:              Requests status information as a dictionary.
-    """
-
-    record_counter('core.request.query_latest')
-
-    start_time = time.time()
-    resps = FTS3Transfertool(external_host=external_host).query_latest(state=state, last_nhours=last_nhours)
-    record_timer('core.request.query_latest_fts3.%s.%s_hours' % (external_host, last_nhours), (time.time() - start_time) * 1000)
-
-    if not resps:
-        return
-
-    ret_resps = []
-    for resp in resps:
-        if 'job_metadata' not in resp or resp['job_metadata'] is None or 'issuer' not in resp['job_metadata'] or resp['job_metadata']['issuer'] != 'rucio':
-            continue
-
-        if 'request_id' not in resp['job_metadata']:
-            # submitted by new submitter
-            try:
-                logger(logging.DEBUG, "Transfer %s on %s is %s, decrease its updated_at." % (resp['job_id'], external_host, resp['job_state']))
-                set_transfer_update_time(external_host, resp['job_id'], datetime.datetime.utcnow() - datetime.timedelta(hours=24))
-            except Exception as error:
-                logger(logging.DEBUG, "Exception happened when updating transfer updatetime: %s" % str(error).replace('\n', ''))
-
-    return ret_resps
-
-
 @transactional_session
 def touch_transfer(external_host, transfer_id, session=None):
     """
