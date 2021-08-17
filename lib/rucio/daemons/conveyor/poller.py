@@ -143,15 +143,12 @@ def poller(once=False, activities=None, sleep_time=60,
                         xfers_ids[transf['external_host']] = []
                     xfers_ids[transf['external_host']].append(TransferParams(transf['external_id'], transf['request_id'], transf['scope']))
                 external_ids = []
+                multi_vo_enabled = config_get_bool('common', 'multi_vo', False, None)
                 for external_host in xfers_ids:
-                    if TRANSFER_TOOL == 'fts3':
+                    if TRANSFER_TOOL == 'fts3' and multi_vo_enabled:
                         if config_get_bool('common', 'multi_vo', False, None):
-                            for trf in xfers_ids[external_host]:
-                                vo = trf.scope.vo
-                                external_id = trf.external_id + '@' + vo
-                                external_ids.append(external_id)
-                        else:
-                            external_ids = list({trf.external_id for trf in xfers_ids[external_host]})
+                            external_ids = list({trf.external_id + '@' + trf.scope.vo
+                                                 for trf in xfers_ids[external_host]})
                     else:
                         external_ids = list({trf.external_id for trf in xfers_ids[external_host]})
 
