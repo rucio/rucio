@@ -53,7 +53,7 @@ except:
 DATABASE_SECTION = 'database'
 try:
     if CURRENT_COMPONENT:
-        sql_connection = config_get('%s-database' % CURRENT_COMPONENT, 'default').strip()
+        sql_connection = config_get('%s-database' % CURRENT_COMPONENT, 'default', check_config_table=False).strip()
         if sql_connection and len(sql_connection):
             DATABASE_SECTION = '%s-database' % CURRENT_COMPONENT
 except:
@@ -61,7 +61,7 @@ except:
 
 BASE = declarative_base()
 DEFAULT_SCHEMA_NAME = config_get(DATABASE_SECTION, 'schema',
-                                 raise_exception=False, default=None)
+                                 raise_exception=False, default=None, check_config_table=False)
 if DEFAULT_SCHEMA_NAME:
     BASE.metadata.schema = DEFAULT_SCHEMA_NAME
 
