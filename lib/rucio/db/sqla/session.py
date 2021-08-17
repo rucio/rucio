@@ -173,7 +173,7 @@ def get_engine():
     """
     global _ENGINE
     if not _ENGINE:
-        sql_connection = config_get(DATABASE_SECTION, 'default')
+        sql_connection = config_get(DATABASE_SECTION, 'default', check_config_table=False)
         config_params = [('pool_size', int), ('max_overflow', int), ('pool_timeout', int),
                          ('pool_recycle', int), ('echo', int), ('echo_pool', str),
                          ('pool_reset_on_return', str), ('use_threadlocal', int)]
