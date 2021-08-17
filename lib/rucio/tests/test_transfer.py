@@ -183,8 +183,8 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
     transfers, _reqs_no_source, _reqs_scheme_mismatch, _reqs_only_tape_source = get_transfer_requests_and_source_replicas(rses=all_rses)
     assert len(transfers) == 1
     transfer = next(iter(transfers.values()))
-    assert len(transfer['sources']) == 2
-    assert transfer['sources'][0][0] in (disk1_rse_name, disk2_rse_name)
+    assert len(transfer[0]['sources']) == 2
+    assert transfer[0]['sources'][0][0] in (disk1_rse_name, disk2_rse_name)
 
     # Change the rating of the disk RSEs. Tape RSEs must now be preferred.
     # Multiple tape sources are not allowed. Only one tape RSE source must be returned.
@@ -193,23 +193,23 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
     transfers, _reqs_no_source, _reqs_scheme_mismatch, _reqs_only_tape_source = get_transfer_requests_and_source_replicas(rses=all_rses)
     assert len(transfers) == 1
     transfer = next(iter(transfers.values()))
-    assert len(transfer['sources']) == 1
-    assert transfer['sources'][0][0] in (tape1_rse_name, tape2_rse_name)
+    assert len(transfer[0]['sources']) == 1
+    assert transfer[0]['sources'][0][0] in (tape1_rse_name, tape2_rse_name)
 
     # On equal source ranking, but different distance; the smaller distance is preferred
     transfers, _reqs_no_source, _reqs_scheme_mismatch, _reqs_only_tape_source = get_transfer_requests_and_source_replicas(rses=all_rses)
     assert len(transfers) == 1
     transfer = next(iter(transfers.values()))
-    assert len(transfer['sources']) == 1
-    assert transfer['sources'][0][0] == tape2_rse_name
+    assert len(transfer[0]['sources']) == 1
+    assert transfer[0]['sources'][0][0] == tape2_rse_name
 
     # On different source ranking, the bigger ranking is preferred
     __fake_source_ranking(tape2_rse_id, -1)
     transfers, _reqs_no_source, _reqs_scheme_mismatch, _reqs_only_tape_source = get_transfer_requests_and_source_replicas(rses=all_rses)
     assert len(transfers) == 1
     transfer = next(iter(transfers.values()))
-    assert len(transfer['sources']) == 1
-    assert transfer['sources'][0][0] == tape1_rse_name
+    assert len(transfer[0]['sources']) == 1
+    assert transfer[0]['sources'][0][0] == tape1_rse_name
 
 
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
@@ -235,9 +235,9 @@ def test_multihop_requests_created(rse_factory, did_factory, root_account, core_
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
     transfers, _reqs_no_source, _reqs_scheme_mismatch, _reqs_only_tape_source = get_transfer_requests_and_source_replicas(rses=rse_factory.created_rses)
-    assert len(transfers) == 2
-    # ensure that one transfer is the parent of the other
-    assert any(t for t in transfers.values() if t.get('parent_request') in transfers)
+    assert len(transfers) == 1
+    transfer = next(iter(transfers.values()))
+    assert transfer[1].get('parent_request') == transfer[0].rws.request_id
     # the intermediate request was correctly created
     assert request_core.get_request_by_did(rse_id=intermediate_rse_id, **did)
 
@@ -289,8 +289,9 @@ def test_singlehop_vs_multihop_priority(rse_factory, root_account, mock_scope, c
     transfers, _reqs_no_source, _reqs_scheme_mismatch, _reqs_only_tape_source = get_transfer_requests_and_source_replicas(rses=rse_factory.created_rses)
     assert len(transfers) == 1
     transfer = next(iter(transfers.values()))
-    assert transfer['file_metadata']['src_rse_id'] == rse2_id
-    assert transfer['file_metadata']['dest_rse_id'] == rse3_id
+    assert len(transfer) == 1
+    assert transfer[0]['file_metadata']['src_rse_id'] == rse2_id
+    assert transfer[0]['file_metadata']['dest_rse_id'] == rse3_id
 
     # add same file to two source RSEs
     file = {'scope': mock_scope, 'name': 'lfn.' + generate_uuid(), 'type': 'FILE', 'bytes': 1, 'adler32': 'beefdead'}
@@ -302,4 +303,5 @@ def test_singlehop_vs_multihop_priority(rse_factory, root_account, mock_scope, c
 
     # The multihop must be prioritized
     transfers, _reqs_no_source, _reqs_scheme_mismatch, _reqs_only_tape_source = get_transfer_requests_and_source_replicas(rses=rse_factory.created_rses)
-    assert len([t for t in transfers.values() if t['file_metadata']['name'] == did['name']]) == 2
+    transfer = next(iter(t for t in transfers.values() if t[0].rws.name == file['name']))
+    assert len(transfer) == 2
