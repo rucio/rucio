@@ -863,7 +863,7 @@ def update_transfer_state(external_host, transfer_id, state, session=None, logge
     try:
         if config_get_bool('common', 'multi_vo', False, None):
             transfer_id, vo = transfer_id.split('@')
-            
+
         if state == RequestState.LOST:
             reqs = request_core.get_requests_by_transfer(external_host, transfer_id, session=session)
             for req in reqs:

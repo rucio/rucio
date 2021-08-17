@@ -149,7 +149,6 @@ def poller(once=False, activities=None, sleep_time=60,
                             for trf in xfers_ids[external_host]:
                                 vo = trf.scope.vo
                                 external_id = trf.external_id + '@' + vo
-
                                 external_ids.append(external_id)
                         else:
                             external_ids = list({trf.external_id for trf in xfers_ids[external_host]})
