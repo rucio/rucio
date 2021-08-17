@@ -48,7 +48,6 @@ import time
 from collections import defaultdict
 
 from prometheus_client import Counter
-from six import iteritems
 from six.moves.configparser import NoOptionError
 
 import rucio.db.sqla.util
@@ -58,12 +57,11 @@ from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.schema import get_schema_value
 from rucio.core import heartbeat, request as request_core, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
-from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses, USER_ACTIVITY
+from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfers_for_fts, bulk_group_transfers_for_globus, get_conveyor_rses
 from rucio.db.sqla.constants import RequestState
 
 graceful_stop = threading.Event()
 
-USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)  # NOTE: This should eventually be completely removed, as it can be fetched from the request
 FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)  # NOTE: TRANSFERTOOL to filter requests on
 TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
@@ -153,12 +151,6 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                 prefix = 'conveyor-submitter[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
                 logger = formatted_logger(logging.log, prefix + '%s')
 
-                user_transfer = False
-
-                if activity in USER_ACTIVITY and USER_TRANSFERS in ['cms']:
-                    logger(logging.INFO, 'CMS user transfer activity')
-                    user_transfer = True
-
                 logger(logging.INFO, 'Starting to get transfer transfers for %s', activity)
                 start_time = time.time()
                 transfers = __get_transfers(total_workers=heart_beat['nr_threads'],
@@ -180,51 +172,29 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', len(transfers))
                 logger(logging.INFO, 'Got %s transfers for %s in %s seconds', len(transfers), activity, time.time() - start_time)
 
-                # group transfers
                 logger(logging.INFO, 'Starting to group transfers for %s', activity)
                 start_time = time.time()
-
-                grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue, group_by_scope=user_transfer, archive_timeout_override=archive_timeout_override)
+                grouped_jobs = {}
+                if transfertool in ['fts3', 'mock']:
+                    # bulk_group_transfers_for_fts expects single hop transfers in parameter. Split multihop ones
+                    single_hop_transfers = {}
+                    for transfer_path in transfers.values():
+                        for hop in transfer_path:
+                            single_hop_transfers[hop.rws.request_id] = hop
+                    transfers = single_hop_transfers
+                    grouped_jobs = bulk_group_transfers_for_fts(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue, archive_timeout_override=archive_timeout_override)
+                elif transfertool == 'globus':
+                    grouped_jobs = bulk_group_transfers_for_globus(transfers, transfertype, group_bulk)
+                else:
+                    logger(logging.ERROR, 'Unknown transfer tool')
                 record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
 
                 logger(logging.INFO, 'Starting to submit transfers for %s', activity)
-
-                if transfertool in ['fts3', 'mock']:
-                    for external_host in grouped_jobs:
-                        if not user_transfer:
-                            for job in grouped_jobs[external_host]:
-                                # submit transfers
-                                submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                                timeout=timeout, logger=logger, transfertool=transfertool)
-                        else:
-                            for _, jobs in iteritems(grouped_jobs[external_host]):
-                                # submit transfers
-                                for job in jobs:
-                                    submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                                    timeout=timeout, user_transfer_job=user_transfer, logger=logger, transfertool=transfertool)
-                elif transfertool == 'globus':
-                    if transfertype == 'bulk':
-                        # build bulk job file list per external host to send to submit_transfer
-                        for external_host in grouped_jobs:
-                            # pad the job with job_params; irrelevant for globus but needed for further rucio parsing
-                            submitjob = {'files': [], 'job_params': grouped_jobs[''][0].get('job_params')}
-                            for job in grouped_jobs[external_host]:
-                                submitjob.get('files').append(job.get('files')[0])
-                            logger(logging.DEBUG, 'submitjob: %s' % submitjob)
-                            submit_transfer(external_host=external_host, job=submitjob, submitter='transfer_submitter',
-                                            timeout=timeout, logger=logger, transfertool=transfertool)
-                    else:
-                        # build single job files and individually send to submit_transfer
-                        job_params = grouped_jobs[''][0].get('job_params') if grouped_jobs else None
-                        for external_host in grouped_jobs:
-                            for job in grouped_jobs[external_host]:
-                                for file in job['files']:
-                                    singlejob = {'files': [file], 'job_params': job_params}
-                                    logger(logging.DEBUG, 'singlejob: %s' % singlejob)
-                                    submit_transfer(external_host=external_host, job=singlejob, submitter='transfer_submitter',
-                                                    timeout=timeout, logger=logger, transfertool=transfertool)
-                else:
-                    logger(logging.ERROR, 'Unknown transfer tool')
+                for external_host in grouped_jobs:
+                    for job in grouped_jobs[external_host]:
+                        logger(logging.DEBUG, 'submitjob: %s' % job)
+                        submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
+                                        timeout=timeout, logger=logger, transfertool=transfertool)
 
                 if len(transfers) < group_bulk:
                     logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', len(transfers), activity, group_bulk, sleep_time)
@@ -357,6 +327,6 @@ def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, lim
         logger(logging.INFO, "Marking requests as scheme-mismatch: %s", reqs_scheme_mismatch)
         request_core.set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
 
-    for request_id in transfers:
-        logger(logging.DEBUG, "Transfer for request(%s): %s", request_id, transfers[request_id])
+    for request_id, transfer_path in transfers.items():
+        logger(logging.DEBUG, "Transfer for request(%s): %s", request_id, [str(hop) for hop in transfer_path])
     return transfers
