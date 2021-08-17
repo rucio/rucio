@@ -57,7 +57,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import false
 
 from rucio.common import constants
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import SUPPORTED_PROTOCOLS, FTS_STATE
 from rucio.common.exception import (InvalidRSEExpression, NoDistance,
                                     RequestNotFound, RSEProtocolNotSupported,
@@ -749,7 +749,11 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
         except Exception:
             raise
 
-        if config_get('common', 'multi_vo', False, None):
+        fts_resp_list = []
+        for fts_resp in fts_resps:
+            fts_resp_list.append(fts_resp)
+
+        if config_get_bool('common', 'multi_vo', False, None):
             _transfer_ids = []
             for _transfer_id in transfer_ids:
                 id, vo = _transfer_id.split('@')

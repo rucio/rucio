@@ -48,7 +48,7 @@ from six.moves.configparser import NoOptionError
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.utils import chunks
@@ -137,24 +137,25 @@ def poller(once=False, activities=None, sleep_time=60,
                     logger(logging.DEBUG, 'Polling %i transfers for activity %s' % (len(transfs), activity))
 
                 xfers_ids = {}
-                TransferNamedTuple = namedtuple('TransferNamedTuple', ['external_id', 'request_id', 'scope'])
+                TransferParams = namedtuple('TransferNamedTuple', ['external_id', 'request_id', 'scope'])
                 for transf in transfs:
                     if not transf['external_host'] in xfers_ids:
                         xfers_ids[transf['external_host']] = []
-                    xfers_ids[transf['external_host']].append(TransferNamedTuple(transf['external_id'], transf['request_id'], transf['scope']))
-
+                    xfers_ids[transf['external_host']].append(TransferParams(transf['external_id'], transf['request_id'], transf['scope']))
                 external_ids = []
                 for external_host in xfers_ids:
                     if TRANSFER_TOOL == 'fts3':
-                        if config_get('common', 'multi_vo', False, None):
+                        if config_get_bool('common', 'multi_vo', False, config_get('conveyor', 'usercert', False, None)):
                             for trf in xfers_ids[external_host]:
                                 vo = trf.scope.vo
                                 external_id = trf.external_id + '@' + vo
+
                                 external_ids.append(external_id)
                         else:
                             external_ids = list({trf.external_id for trf in xfers_ids[external_host]})
                     else:
                         external_ids = list({trf.external_id for trf in xfers_ids[external_host]})
+
                     request_ids = [trf.request_id for trf in xfers_ids[external_host]]
 
                     for xfers in chunks(external_ids, fts_bulk):
@@ -296,6 +297,7 @@ def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=
                 record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
         else:
             for transfer_id in resps:
+
                 try:
                     transf_resp = resps[transfer_id]
                     # transf_resp is None: Lost.
