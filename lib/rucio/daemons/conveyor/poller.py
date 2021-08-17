@@ -151,9 +151,9 @@ def poller(once=False, activities=None, sleep_time=60,
                                 external_id = trf.external_id + '@' + vo
                                 external_ids.append(external_id)
                         else:
-                            external_ids = list({trf.external_id for trf in xfers_ids[external_host]})
+                            external_ids = list(trf.external_id for trf in xfers_ids[external_host])
                     else:
-                        external_ids = list({trf.external_id for trf in xfers_ids[external_host]})
+                        external_ids = list(trf.external_id for trf in xfers_ids[external_host])
 
                     request_ids = [trf.request_id for trf in xfers_ids[external_host]]
 
