@@ -183,7 +183,7 @@ def get_engine():
             params['connect_args'] = {'conv': conv}
         for param, param_type in config_params:
             try:
-                params[param] = param_type(config_get(DATABASE_SECTION, param))
+                params[param] = param_type(config_get(DATABASE_SECTION, param, check_config_table=False))
             except:
                 pass
         _ENGINE = create_engine(sql_connection, **params)
@@ -219,7 +219,7 @@ def get_dump_engine(echo=False):
             print(statement.replace(')', ');\n'))
         else:
             print(statement)
-    sql_connection = config_get(DATABASE_SECTION, 'default')
+    sql_connection = config_get(DATABASE_SECTION, 'default', check_config_table=False)
 
     engine = create_engine(sql_connection, echo=echo, strategy='mock', executor=dump)
     return engine

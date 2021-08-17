@@ -66,7 +66,6 @@ from rucio.common.extra import import_extras
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
-from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.oidc import get_token_for_account_operation
 from rucio.core.replica import add_replicas, tombstone_from_delay
@@ -939,7 +938,7 @@ def __search_shortest_paths(
     The inbound links retrieved from the database can be accumulated into the inbound_links_by_node, passed
     from the calling context. To be able to reuse them.
     """
-    HOP_PENALTY = core_config_get('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
+    HOP_PENALTY = config_get('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
 
     if multihop_rses:
         # Filter out island source RSEs

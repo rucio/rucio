@@ -41,6 +41,8 @@ Methods common to different conveyor submitter daemons.
 
 from __future__ import division
 
+from configparser import NoOptionError, NoSectionError
+from json import loads
 import datetime
 import functools
 import logging
@@ -49,10 +51,9 @@ from json import loads
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
-                                    ConfigNotFound, DuplicateFileTransferSubmission, VONotFound)
-from rucio.common.utils import chunks
+                                    DuplicateFileTransferSubmission, VONotFound)
+from rucio.common.utils import chunks, set_checksum_value
 from rucio.core import request, transfer as transfer_core
-from rucio.core.config import get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
@@ -262,14 +263,14 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
     grouped_jobs = []
 
     try:
-        default_source_strategy = get(section='conveyor', option='default-source-strategy')
-    except ConfigNotFound:
+        default_source_strategy = config_get(section='conveyor', option='default-source-strategy')
+    except (NoOptionError, NoSectionError, RuntimeError):
         default_source_strategy = 'orderly'
 
     try:
-        activity_source_strategy = get(section='conveyor', option='activity-source-strategy')
+        activity_source_strategy = config_get(section='conveyor', option='activity-source-strategy')
         activity_source_strategy = loads(activity_source_strategy)
-    except ConfigNotFound:
+    except (NoOptionError, NoSectionError, RuntimeError):
         activity_source_strategy = {}
     except ValueError:
         logger(logging.WARNING, 'activity_source_strategy not properly defined')

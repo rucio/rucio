@@ -69,9 +69,9 @@ from sqlalchemy.sql.expression import case, select, text, false, true
 import rucio.core.did
 import rucio.core.lock
 from rucio.common import exception
+from rucio.common.config import config_get
 from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
-from rucio.core.config import get as config_get
 from rucio.core.credential import get_signed_url
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase

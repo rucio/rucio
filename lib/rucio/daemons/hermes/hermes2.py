@@ -41,6 +41,7 @@ import socket
 import sys
 import threading
 import time
+from configparser import NoOptionError, NoSectionError
 from email.mime.text import MIMEText
 
 import requests
@@ -49,11 +50,10 @@ from six import PY2
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_int, config_get_bool
-from rucio.common.exception import ConfigNotFound, DatabaseException
+from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.utils import daemon_sleep
 from rucio.core import heartbeat
-from rucio.core.config import get
 from rucio.core.message import retrieve_messages, delete_messages, update_messages_services
 from rucio.core.monitor import MultiCounter
 
@@ -427,9 +427,9 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
     logger = formatted_logger(logging.log, prepend_str + '%s')
 
     try:
-        services_list = get('hermes', 'services_list')
+        services_list = config_get('hermes', 'services_list')
         services_list = services_list.split(',')
-    except ConfigNotFound:
+    except (NoOptionError, NoSectionError, RuntimeError):
         logger(logging.DEBUG, 'No services found, exiting')
         sys.exit(1)
     if 'influx' in services_list:
