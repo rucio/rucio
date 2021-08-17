@@ -146,9 +146,8 @@ def poller(once=False, activities=None, sleep_time=60,
                 multi_vo_enabled = config_get_bool('common', 'multi_vo', False, None)
                 for external_host in xfers_ids:
                     if TRANSFER_TOOL == 'fts3' and multi_vo_enabled:
-                        if config_get_bool('common', 'multi_vo', False, None):
-                            external_ids = list({trf.external_id + '@' + trf.scope.vo
-                                                 for trf in xfers_ids[external_host]})
+                        external_ids = list({trf.external_id + '@' + trf.scope.vo
+                                             for trf in xfers_ids[external_host]})
                     else:
                         external_ids = list({trf.external_id for trf in xfers_ids[external_host]})
 
