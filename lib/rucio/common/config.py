@@ -80,7 +80,7 @@ def config_get(section, option, raise_exception=True, default=None, clean_cached
                 return __config_get_table(section=section, option=option, raise_exception=raise_exception,
                                           default=default, clean_cached=clean_cached, session=session,
                                           use_cache=use_cache, expiration_time=expiration_time)
-            except (ConfigNotFound, DatabaseException):
+            except (ConfigNotFound, DatabaseException, ImportError):
                 raise err
         else:
             if raise_exception and default is None:
@@ -144,7 +144,7 @@ def config_get_int(section, option, raise_exception=True, default=None, check_co
                 return int(__config_get_table(section=section, option=option, raise_exception=raise_exception,
                                               default=default, session=session, use_cache=use_cache,
                                               expiration_time=expiration_time))
-            except (ConfigNotFound, DatabaseException):
+            except (ConfigNotFound, DatabaseException, ImportError):
                 raise err
             except ValueError as err_:
                 raise err_
@@ -191,7 +191,7 @@ def config_get_float(section, option, raise_exception=True, default=None, check_
                 return float(__config_get_table(section=section, option=option, raise_exception=raise_exception,
                                                 default=default, session=session, use_cache=use_cache,
                                                 expiration_time=expiration_time))
-            except (ConfigNotFound, DatabaseException):
+            except (ConfigNotFound, DatabaseException, ImportError):
                 raise err
             except ValueError as err_:
                 raise err_
@@ -238,7 +238,7 @@ def config_get_bool(section, option, raise_exception=True, default=None, check_c
                 return bool(__config_get_table(section=section, option=option, raise_exception=raise_exception,
                                                default=default, session=session, use_cache=use_cache,
                                                expiration_time=expiration_time))
-            except (ConfigNotFound, DatabaseException):
+            except (ConfigNotFound, DatabaseException, ImportError):
                 raise err
             except ValueError as err_:
                 raise err_
@@ -274,7 +274,7 @@ def __config_get_table(section, option, raise_exception=True, default=None, clea
         from rucio.core.config import get as core_config_get
         return core_config_get(section, option, default=default, session=session, use_cache=use_cache,
                                expiration_time=expiration_time)
-    except (ConfigNotFound, DatabaseException) as err:
+    except (ConfigNotFound, DatabaseException, ImportError) as err:
         if raise_exception and default is None:
             raise err
         if clean_cached:

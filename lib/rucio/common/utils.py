@@ -1390,7 +1390,7 @@ def is_client():
     """"
     Checks if the function is called from a client or from a server/daemon
 
-    :returns client: True if is called from a client, False if it is called from a server/daemon
+    :returns client_mode: True if is called from a client, False if it is called from a server/daemon
     """
     if 'RUCIO_CLIENT_MODE' not in os.environ:
         if config_has_section('database'):
