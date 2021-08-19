@@ -996,14 +996,13 @@ def update_transfer_state(external_host, transfer_id, state, session=None, logge
 
 
 @transactional_session
-def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=None, limit_dest_schemes=None, session=None):
+def get_hops(source_rse_id, dest_rse_id, multihop_rses=None, limit_dest_schemes=None, session=None):
     """
     Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
     Ideally, the list will only include one item (dest_rse_id) since no hops are needed.
     :param source_rse_id:       Source RSE id of the transfer.
     :param dest_rse_id:         Dest RSE id of the transfer.
-    :param include_multihop:    If no direct link can be made, also include multihop transfers.
-    :param multihop_rses:       List of RSE ids that can be used for multihop.
+    :param multihop_rses:       List of RSE ids that can be used for multihop. If empty, multihop is disabled.
     :param limit_dest_schemes:  List of destination schemes the matching scheme algorithm should be limited to for a single hop.
     :returns:                   List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}]
     :raises:                    NoDistance
@@ -1013,7 +1012,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
 
     shortest_paths = __search_shortest_paths(source_rse_ids=[source_rse_id], dest_rse_id=dest_rse_id,
                                              operation_src='third_party_copy', operation_dest='third_party_copy',
-                                             domain='wan', include_multihop=include_multihop, multihop_rses=multihop_rses,
+                                             domain='wan', multihop_rses=multihop_rses,
                                              limit_dest_schemes=limit_dest_schemes, session=session)
 
     result = REGION_SHORT.get('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))))
@@ -1031,7 +1030,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
     return path
 
 
-def __search_shortest_paths(source_rse_ids, dest_rse_id, operation_src, operation_dest, domain, include_multihop, multihop_rses,
+def __search_shortest_paths(source_rse_ids, dest_rse_id, operation_src, operation_dest, domain, multihop_rses,
                             limit_dest_schemes, inbound_links_by_node=None, session=None):
     """
     Find the shortest paths from multiple sources towards dest_rse_id.
@@ -1045,12 +1044,12 @@ def __search_shortest_paths(source_rse_ids, dest_rse_id, operation_src, operatio
     if not limit_dest_schemes:
         limit_dest_schemes = []
 
-    if not include_multihop or multihop_rses is None:
+    if multihop_rses is None:
         multihop_rses = []
 
     HOP_PENALTY = core_config_get('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
 
-    if include_multihop:
+    if multihop_rses:
         # Filter out island source RSEs
         sources_to_find = {rse_id for rse_id in source_rse_ids if __load_outgoing_distances_node(rse_id=rse_id, session=session)}
     else:
@@ -1116,7 +1115,7 @@ def __search_shortest_paths(source_rse_ids, dest_rse_id, operation_src, operatio
                 if next_hop.get(adjacent_node) is None:
                     next_hop[adjacent_node] = {}
 
-        if not include_multihop:
+        if not multihop_rses:
             # Stop after the first iteration, which finds direct connections to destination
             break
 
@@ -1135,18 +1134,16 @@ def __search_shortest_paths(source_rse_ids, dest_rse_id, operation_src, operatio
 
 
 @read_session
-def __create_transfer_definitions(ctx, rws, sources, include_multihop, multihop_rses, limit_dest_schemes,
+def __create_transfer_definitions(ctx, protocol_factory, rws, sources, multihop_rses, limit_dest_schemes,
                                   operation_src, operation_dest, domain, session=None):
     """
     Find the all paths from sources towards the destination of the given transfer request.
     Create the transfer definitions for each point-to-point transfer (multi-source, when possible)
     """
-    protocol_factory = ProtocolFactory()
     inbound_links_by_node = {}
     shortest_paths = __search_shortest_paths(source_rse_ids=[s.rse.id for s in sources], dest_rse_id=rws.dest_rse.id,
                                              operation_src=operation_src, operation_dest=operation_dest, domain=domain,
-                                             include_multihop=include_multihop, multihop_rses=multihop_rses,
-                                             limit_dest_schemes=limit_dest_schemes,
+                                             multihop_rses=multihop_rses, limit_dest_schemes=limit_dest_schemes,
                                              inbound_links_by_node=inbound_links_by_node, session=session)
 
     transfers_by_source = {}
@@ -1255,6 +1252,35 @@ def __create_transfer_definitions(ctx, rws, sources, include_multihop, multihop_
     return transfers_by_source
 
 
+def __create_stagein_definitions(rws, sources, limit_dest_schemes, operation_src, operation_dest, protocol_factory):
+    """
+    for each source, create a single-hop transfer path with a one stageing definition inside
+    """
+    transfers_by_source = {
+        source.rse.id: [
+            StageinTransferDefinition(
+                source=TransferSource(
+                    rse_data=source.rse,
+                    file_path=source.file_path,
+                    url=source.url,
+                    scheme=limit_dest_schemes,
+                ),
+                destination=TransferDestination(
+                    rse_data=rws.dest_rse,
+                    scheme=limit_dest_schemes,
+                ),
+                operation_src=operation_src,
+                operation_dest=operation_dest,
+                rws=rws,
+                protocol_factory=protocol_factory,
+            )
+
+        ]
+        for source in sources
+    }
+    return transfers_by_source
+
+
 def get_dsn(scope, name, dsn):
     if dsn:
         return dsn
@@ -1305,12 +1331,15 @@ def __sort_paths(candidate_paths):
     yield from sorted(candidate_paths, key=__transfer_order_key)
 
 
-def __filter_for_transfertool_and_set_external_host(candidate_paths, rws, transfertool, retry_other_fts, logger):
+def __filter_for_transfertool(candidate_paths, transfertool, retry_other_fts, logger):
     """
     Filter out paths which cannot be handled by the given transfertool (missing globus enpoint ids; no common fts server attribute; etc)
-    Set the external_host attribute on transfer definition.
+    Generates tuples: (<the external host which can handle the transfer>, <the associated transfer path>)
+    An empty string is a valid external host.
     """
     for transfer_path in candidate_paths:
+        # The last hop is the initial transfer for multihops
+        rws = transfer_path[-1].rws
 
         external_host = ''
         if transfertool == 'globus':
@@ -1348,66 +1377,36 @@ def __filter_for_transfertool_and_set_external_host(candidate_paths, rws, transf
                 else:
                     external_host = ''
 
-        for hop in transfer_path:
-            hop['external_host'] = external_host
-
-        yield transfer_path
+        yield external_host, transfer_path
 
 
 @transactional_session
-def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                                              bring_online=43200, retry_other_fts=False, failover_schemes=None, transfertool=None, logger=logging.log, session=None):
+def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
+                             retry_other_fts=False, failover_schemes=None, transfertool=None, request_type=RequestType.TRANSFER,
+                             logger=logging.log, session=None):
     """
-    Get transfer requests and the associated source replicas
+    Get next transfers to be submitted; grouped by the external host to which they will be submitted
     :param total_workers:         Number of total workers.
     :param worker_number:         Id of the executing worker.
-    :param limit:                 Limit.
+    :param limit:                 Maximum number of requests to retrieve from database.
     :param activity:              Activity.
     :param older_than:            Get transfers older than.
     :param rses:                  Include RSES.
     :param schemes:               Include schemes.
-    :param bring_online:          Bring online timeout.
     :param retry_other_fts:       Retry other fts servers.
     :param failover_schemes:      Failover schemes.
     :param transfertool:          The transfer tool as specified in rucio.cfg.
+    :param request_type           The type of requests to retrieve (Transfer/Stagein)
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     :param session:               The database session in use.
-    :returns:                     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
+    :returns:                     Dict: {external_host: list of transfers (possibly multihop) to be submitted to this host}
 
     Workflow:
-    - retrieve (from the database) the transfer requests with their possible source replicas
-    - for each source, compute the (possibly multihop) path between it and the transfer destination
-         build a multi-source transfer if possible: The scheme compatibility is important for multi-source transfers.
-         We iterate again over the single-hop sources and build a new transfer definition while enforcing the scheme compatibility
-         with the initial source.
-    - pick the best path among the ones computed previously
-    - if the chosen best path is a multihop, create intermediate replicas and the intermediate transfer requests
     """
-
-    request_with_sources = __list_transfer_requests_and_source_replicas(
-        total_workers=total_workers,
-        worker_number=worker_number,
-        limit=limit,
-        activity=activity,
-        older_than=older_than,
-        rses=rses,
-        request_type=RequestType.TRANSFER,
-        request_state=RequestState.QUEUED,
-        transfertool=transfertool,
-        session=session,
-    )
-
-    ctx = _RseLoaderContext(session)
-    unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
-    unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
-
-    transfers, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, set(), set(), set()
 
     include_multihop = False
     if transfertool in ['fts3', None]:
         include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
-
-    default_tombstone_delay = core_config_get('transfers', 'multihop_tombstone_delay', default=DEFAULT_MULTIHOP_TOMBSTONE_DELAY, expiration_time=600, session=session)
 
     multihop_rses = []
     if include_multihop:
@@ -1416,11 +1415,79 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         except InvalidRSEExpression:
             pass
 
-    for rws in request_with_sources:
+    # retrieve (from the database) the transfer requests with their possible source replicas
+    request_with_sources = __list_transfer_requests_and_source_replicas(
+        total_workers=total_workers,
+        worker_number=worker_number,
+        limit=limit,
+        activity=activity,
+        older_than=older_than,
+        rses=rses,
+        request_type=request_type,
+        request_state=RequestState.QUEUED,
+        transfertool=transfertool,
+        session=session,
+    )
+
+    # for each source, compute the (possibly multihop) path between it and the transfer destination
+    candidate_paths, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source = __build_transfer_paths(
+        request_with_sources,
+        multihop_rses=multihop_rses,
+        schemes=schemes,
+        failover_schemes=failover_schemes,
+        logger=logger,
+        session=session,
+    )
+
+    # pick the best path among the ones computed previously
+    # if the chosen best path is a multihop, create intermediate replicas and the intermediate transfer requests
+    paths_by_external_host, reqs_no_host = __pick_and_build_path_for_transfertool(
+        candidate_paths,
+        transfertool=transfertool,
+        retry_other_fts=retry_other_fts,
+        logger=logger
+    )
+
+    reqs_no_source.update(reqs_no_host)
+    if reqs_no_source:
+        logger(logging.INFO, "Marking requests as no-sources: %s", reqs_no_source)
+        request_core.set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger, session=session)
+    if reqs_only_tape_source:
+        logger(logging.INFO, "Marking requests as only-tape-sources: %s", reqs_only_tape_source)
+        request_core.set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger, session=session)
+    if reqs_scheme_mismatch:
+        logger(logging.INFO, "Marking requests as scheme-mismatch: %s", reqs_scheme_mismatch)
+        request_core.set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger, session=session)
+
+    return paths_by_external_host
+
+
+def __build_transfer_paths(requests_with_sources, multihop_rses=None, schemes=None, failover_schemes=None, logger=logging.log, session=None):
+    """
+    For each request, find all possible transfer paths from its sources, which respect the
+    constraints enforced by the request (attributes, type, etc) and the arguments of this function
+
+    build a multi-source transfer if possible: The scheme compatibility is important for multi-source transfers.
+    We iterate again over the single-hop sources and build a new transfer definition while enforcing the scheme compatibility
+    with the initial source.
+
+    Each path is a list of hops. Each hop is a transfer definition.
+    """
+    ctx = _RseLoaderContext(session)
+    protocol_factory = ProtocolFactory()
+    unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
+    unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
+
+    candidate_paths_by_request_id, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, set(), set(), set()
+    for rws in requests_with_sources:
 
         ctx.ensure_fully_loaded(rws.dest_rse)
         for source in rws.sources:
             ctx.ensure_fully_loaded(source.rse)
+
+        transfer_schemes = schemes
+        if rws.previous_attempt_id and failover_schemes:
+            transfer_schemes = failover_schemes
 
         logger(logging.DEBUG, 'Found following sources for %s: %s', rws, [str(src.rse) for src in rws.sources])
         # Assume request doesn't have any sources. Will be removed later if sources are found.
@@ -1450,6 +1517,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         filtered_sources = filter(lambda s: s.rse.name is not None, filtered_sources)
         # Ignore blocklisted RSEs
         filtered_sources = filter(lambda s: s.rse.id not in unavailable_read_rse_ids, filtered_sources)
+        # For staging requests, the staging_buffer attribute must be correctly set
+        if rws.request_type == RequestType.STAGEIN:
+            filtered_sources = filter(lambda s: s.rse.attributes.get('staging_buffer') == rws.dest_rse.name, filtered_sources)
         # Ignore tape sources if they are not desired
         filtered_sources = list(filtered_sources)
         had_tape_sources = len(filtered_sources) > 0
@@ -1462,16 +1532,25 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         any_source_had_scheme_mismatch = False
         candidate_paths = []
 
-        paths = __create_transfer_definitions(ctx,
-                                              rws=rws,
-                                              sources=filtered_sources,
-                                              include_multihop=include_multihop,
-                                              multihop_rses=multihop_rses,
-                                              limit_dest_schemes=None,
-                                              operation_src='third_party_copy',
-                                              operation_dest='third_party_copy',
-                                              domain='wan',
-                                              session=session)
+        if rws.request_type == RequestType.STAGEIN:
+            paths = __create_stagein_definitions(rws=rws,
+                                                 sources=filtered_sources,
+                                                 limit_dest_schemes=transfer_schemes,
+                                                 operation_src='read',
+                                                 operation_dest='write',
+                                                 protocol_factory=protocol_factory)
+        else:
+            paths = __create_transfer_definitions(ctx,
+                                                  rws=rws,
+                                                  sources=filtered_sources,
+                                                  multihop_rses=multihop_rses,
+                                                  limit_dest_schemes=None,
+                                                  operation_src='third_party_copy',
+                                                  operation_dest='third_party_copy',
+                                                  domain='wan',
+                                                  protocol_factory=protocol_factory,
+                                                  session=session)
+
         for source in filtered_sources:
             transfer_path = paths.get(source.rse.id)
             if transfer_path is None:
@@ -1484,24 +1563,16 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
             if len(transfer_path) > 1:
                 logger(logging.DEBUG, 'From %s to %s requires multihop: %s', source.rse, rws.dest_rse, [str(hop) for hop in transfer_path])
-            for hop in transfer_path:
-                hop.init_legacy_transfer_definition(bring_online=bring_online, default_lifetime=172800, logger=logger)
 
             candidate_paths.append(transfer_path)
 
         if len(filtered_sources) != len(candidate_paths):
             logger(logging.DEBUG, 'Sources after path computation for %s: %s', rws, [str(path[0].src.rse) for path in candidate_paths])
 
-        best_path = None
         candidate_paths = __filter_unwanted_paths(candidate_paths)
-        candidate_paths = __sort_paths(candidate_paths)
-        candidate_paths = __filter_for_transfertool_and_set_external_host(candidate_paths, rws=rws, transfertool=transfertool, retry_other_fts=retry_other_fts, logger=logger)
-        for transfer_path in candidate_paths:
-            if __create_missing_replicas_and_requests(transfer_path, default_tombstone_delay, logger=logger, session=session):
-                best_path = transfer_path
-                break
+        candidate_paths = list(__sort_paths(candidate_paths))
 
-        if not best_path:
+        if not candidate_paths:
             # It can happen that some sources are skipped because they are TAPE, and others because
             # of scheme mismatch. However, we can only have one state in the database. I picked to
             # prioritize setting only_tape_source without any particular reason.
@@ -1517,134 +1588,49 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 logger(logging.DEBUG, 'No candidate path found for %s' % rws)
             continue
 
-        for i, hop in enumerate(best_path):
-            hop['file_metadata']['request_id'] = hop.rws.request_id
-            hop['request_id'] = hop.rws.request_id
-            if len(best_path) > 1:
-                hop['multihop'] = True
-                hop['initial_request_id'] = rws.request_id
-                hop['parent_request'] = best_path[i - 1].rws.request_id if i > 0 else None
+        candidate_paths_by_request_id[rws.request_id] = candidate_paths
+        reqs_no_source.remove(rws.request_id)
 
+    return candidate_paths_by_request_id, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
+
+
+def __pick_and_build_path_for_transfertool(candidate_paths_by_request_id, retry_other_fts=False, transfertool=None, logger=logging.log):
+    """
+    for each request, pick the first path which can be submitted to the transfertool given in parameter.
+    If the chosen path is multihop, create all missing intermediate requests and replicas.
+    """
+    reqs_no_host = set()
+    transfers_by_host = {}
+    default_tombstone_delay = core_config_get('transfers', 'multihop_tombstone_delay', default=DEFAULT_MULTIHOP_TOMBSTONE_DELAY, expiration_time=600)
+    for request_id, candidate_paths in candidate_paths_by_request_id.items():
+
+        # Selects the first path which can be submitted by the given transfertool and for which the creation of
+        # intermediate hops (if it is a multihop) work correctly
+        best_path = None
+        external_host = None
+        for external_host, transfer_path in __filter_for_transfertool(candidate_paths, transfertool, retry_other_fts, logger):
+            if create_missing_replicas_and_requests(transfer_path, default_tombstone_delay, logger=logger):
+                best_path = transfer_path
+                break
+
+        if not best_path:
+            reqs_no_host.add(request_id)
+            logger(logging.DEBUG, 'Cannot assign transfer host, or create intermediate requests for %s' % request_id)
+            continue
+
+        # For multihop, the initial request is the last hop
+        rws = best_path[-1].rws
         if len(best_path) > 1:
             logger(logging.DEBUG, 'Best path is multihop for %s: %s' % (rws, [str(hop) for hop in best_path]))
         else:
             logger(logging.DEBUG, 'Best path is direct for %s: %s' % (rws, best_path[0]))
 
-        transfers[rws.request_id] = best_path
-        reqs_no_source.remove(rws.request_id)
-
-    return transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
-
-
-def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, schemes=None, failover_schemes=None, limit=None, activity=None, older_than=None,
-                                             rses=None, bring_online=43200, retry_other_fts=False, session=None, logger=logging.log):
-    """
-    Get staging requests and the associated source replicas
-
-    :param total_workers:         Number of total workers.
-    :param worker_number:         Id of the executing worker.
-    :param failover_schemes:      Failover schemes.
-    :param limit:                 Limit.
-    :param activity:              Activity.
-    :param older_than:            Get transfers older than.
-    :param rses:                  Include RSES.
-    :param mock:                  Mock testing.
-    :param schemes:               Include schemes.
-    :param bring_online:          Bring online timeout.
-    :param retry_other_fts:       Retry other fts servers.
-    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
-    :session:                     The database session in use.
-    :returns:                     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
-    """
-
-    # Other transfertools not supported
-    transfertool = 'fts3'
-
-    request_with_sources = __list_transfer_requests_and_source_replicas(
-        total_workers=total_workers,
-        worker_number=worker_number,
-        limit=limit,
-        activity=activity,
-        older_than=older_than,
-        rses=rses,
-        request_type=RequestType.STAGEIN,
-        request_state=RequestState.QUEUED,
-        session=session,
-    )
-
-    ctx = _RseLoaderContext(session)
-    protocol_factory = ProtocolFactory()
-    transfers, reqs_no_source = {}, set()
-
-    for rws in request_with_sources:
-
-        ctx.ensure_fully_loaded(rws.dest_rse)
-        for source in rws.sources:
-            ctx.ensure_fully_loaded(source.rse)
-
-        transfer_schemes = schemes
-        if rws.previous_attempt_id and failover_schemes:
-            transfer_schemes = failover_schemes
-
-        logger(logging.DEBUG, 'Found following sources for %s: %s', rws, [str(src.rse) for src in rws.sources])
-        # Assume request doesn't have any sources. Will be removed later if sources are found.
-        reqs_no_source.add(rws.request_id)
-
-        # parse source expression
-        source_replica_expression = rws.attributes.get('source_replica_expression', None)
-        allowed_source_rses = None
-        if source_replica_expression:
-            try:
-                parsed_rses = parse_expression(source_replica_expression, session=session)
-            except InvalidRSEExpression as error:
-                logger(logging.ERROR, "Invalid RSE exception %s: %s", source_replica_expression, str(error))
-                continue
-            else:
-                allowed_source_rses = [x['id'] for x in parsed_rses]
-
-        filtered_sources = rws.sources
-        # Only keep allowed sources
-        if allowed_source_rses is not None:
-            filtered_sources = filter(lambda s: s.rse.id in allowed_source_rses, filtered_sources)
-        # For staging requests, the staging_buffer attribute must be correctly set
-        filtered_sources = filter(lambda s: s.rse.attributes.get('staging_buffer') == rws.dest_rse.name, filtered_sources)
-        filtered_sources = list(filtered_sources)
-
-        if len(rws.sources) != len(filtered_sources):
-            logger(logging.DEBUG, 'Sources after filtering for %s: %s', rws, [str(src.rse) for src in filtered_sources])
-
-        if not filtered_sources:
-            continue
-
-        source = filtered_sources[0]
-
-        transfer = StageinTransferDefinition(
-            source=TransferSource(
-                rse_data=source.rse,
-                file_path=source.file_path,
-                url=source.url,
-                scheme=transfer_schemes,
-            ),
-            destination=TransferDestination(
-                rse_data=rws.dest_rse,
-                scheme=transfer_schemes,
-            ),
-            operation_src='read',
-            operation_dest='write',
-            rws=rws,
-            protocol_factory=protocol_factory,
-        )
-
-        transfer.init_legacy_transfer_definition(bring_online=bring_online, default_lifetime=-1, logger=logger)
-        [[transfer]] = __filter_for_transfertool_and_set_external_host([[transfer]], rws=rws, transfertool=transfertool, retry_other_fts=retry_other_fts, logger=logger)
-
-        transfers[rws.request_id] = transfer
-        reqs_no_source.remove(rws.request_id)
-    return transfers, reqs_no_source
+        transfers_by_host.setdefault(external_host, []).append(best_path)
+    return transfers_by_host, reqs_no_host
 
 
 @transactional_session
-def __create_missing_replicas_and_requests(transfer_path, default_tombstone_delay, logger, session=None):
+def create_missing_replicas_and_requests(transfer_path, default_tombstone_delay, logger, session=None):
     # Create replicas and requests in the database for the intermediate hops
     creation_successful = True
     created_requests = []
@@ -1789,7 +1775,7 @@ def __list_transfer_requests_and_source_replicas(
                           sub_requests.c.dest_rse_id,
                           sub_requests.c.account,
                           sub_requests.c.retry_count,
-                          models.RSE.id,
+                          models.RSE.id.label("source_rse_id"),
                           models.RSE.rse,
                           models.RSEFileAssociation.path,
                           models.Source.ranking.label("source_ranking"),
@@ -1814,7 +1800,7 @@ def __list_transfer_requests_and_source_replicas(
     if transfertool:
         query = query.subquery()
         query = session.query(query) \
-            .join(models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == query.c.rse_id) \
+            .join(models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == query.c.source_rse_id) \
             .filter(models.RSEAttrAssociation.key == 'transfertool',
                     models.RSEAttrAssociation.value.like('%' + transfertool + '%'))
 

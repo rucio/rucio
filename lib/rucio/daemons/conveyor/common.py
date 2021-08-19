@@ -20,7 +20,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
 # - Wen Guan <wen.guan@cern.ch>, 2014-2016
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2016
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2016
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Eric Vaandering <ewv@fnal.gov>, 2018-2020
 # - dciangot <diego.ciangottini@cern.ch>, 2018
@@ -33,6 +33,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Nick Smith <nick.smith@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Methods common to different conveyor submitter daemons.
@@ -44,6 +45,7 @@ from json import loads
 import datetime
 import logging
 import time
+from itertools import chain
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
@@ -222,41 +224,40 @@ def submit_transfer(external_host, job, submitter='submitter', timeout=None, log
         logger(logging.ERROR, 'Failed to submit a job with error %s', str(error), exc_info=True)
 
 
-def bulk_group_transfers_for_globus(transfers, policy, group_bulk=200):
+def bulk_group_transfers_for_globus(transfer_paths, policy, group_bulk=200):
     """
     Group transfers in bulk based on certain criterias
 
-    :param transfers:  List of transfers to group.
+    :param transfer_paths:  List of transfers to group.
     :param policy:     Policy to use to group.
     :param group_bulk: Bulk sizes.
-    :param logger:     Optional decorated logger that can be passed from the calling daemons or servers.
     :return:           List of grouped transfers
     """
-
-    grouped_transfers = {}
-    for transfer_path in transfers.values():
-        # Globus doesn't support multihop. Get the first hop only.
-        transfer = transfer_path[0]
-        external_host = transfer['external_host']
-
-        # Some dict elements are not needed by globus transfertool, but are accessed by further common fts/globus code
-        t_file = {'sources': transfer['sources'],
-                  'destinations': transfer['dest_urls'],
-                  'metadata': transfer['file_metadata'],
-                  'filesize': int(transfer['file_metadata']['filesize']),
-                  'request_type': transfer['file_metadata'].get('request_type', None),
-                  'activity': str(transfer['file_metadata']['activity'])}
-
-        grouped_transfers.setdefault(external_host, []).append(t_file)
-
     if policy == 'single':
         group_bulk = 1
 
-    grouped_jobs = {}
-    for external_host in grouped_transfers:
-        for xfers_files in chunks(grouped_transfers[external_host], group_bulk):
+    grouped_jobs = []
+    for chunk in chunks(transfer_paths, group_bulk):
+        # Globus doesn't support multihop. Get the first hop only.
+        transfers = [transfer_path[0] for transfer_path in chunk]
+
+        grouped_jobs.append({
+            'files': [
+                {
+                    # Some dict elements are not needed by globus transfertool, but are accessed by further common fts/globus code
+                    'sources': transfer['sources'],
+                    'destinations': transfer['dest_urls'],
+                    'metadata': transfer['file_metadata'],
+                    'filesize': int(transfer['file_metadata']['filesize']),
+                    'request_type': transfer['file_metadata'].get('request_type', None),
+                    'activity': str(transfer['file_metadata']['activity']),
+                }
+                for transfer in transfers
+            ],
             # Job params are not used by globus trasnfertool, but are needed for further common fts/globus code
-            grouped_jobs.setdefault(external_host, []).append({'files': xfers_files, 'job_params': {}})
+            'job_params': {}
+        })
+
     return grouped_jobs
 
 
@@ -276,7 +277,7 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
     """
 
     grouped_transfers = {}
-    grouped_jobs = {}
+    grouped_jobs = []
 
     try:
         default_source_strategy = get(section='conveyor', option='default-source-strategy')
@@ -292,9 +293,7 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
         logger(logging.WARNING, 'activity_source_strategy not properly defined')
         activity_source_strategy = {}
 
-    for request_id in transfers:
-        transfer = transfers[request_id]
-
+    for transfer in chain.from_iterable(transfers):
         verify_checksum, checksums_to_use = transfer_core.checksum_validation_strategy(transfer.src.rse.attributes, transfer.dst.rse.attributes, logger=logger)
         t_file = {'sources': transfer['sources'],
                   'destinations': transfer['dest_urls'],
@@ -313,15 +312,7 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
         strict_copy = transfer.get('strict_copy', False)
         use_ipv4 = transfer.get('use_ipv4', False)
 
-        external_host = transfer['external_host']
         activity = t_file['activity']
-
-        if external_host not in grouped_transfers:
-            grouped_transfers[external_host] = {}
-            grouped_jobs[external_host] = []
-
-        current_transfers_group = grouped_transfers[external_host]
-        current_jobs_group = grouped_jobs[external_host]
 
         job_params = {'account': transfer['account'],
                       'use_oidc': transfer_core.oidc_supported(transfer),
@@ -360,7 +351,7 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
         # for multiple source replicas, no bulk submission
         if len(transfer['sources']) > 1:
             job_params['job_metadata']['multi_sources'] = True
-            current_jobs_group.append({'files': [t_file], 'job_params': job_params})
+            grouped_jobs.append({'files': [t_file], 'job_params': job_params})
         else:
             job_params['job_metadata']['multi_sources'] = False
             job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params.get('spacetoken', None),
@@ -374,8 +365,8 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
             if multihop:
                 job_key = 'multihop_%s' % (transfer['initial_request_id'])
 
-            if job_key not in current_transfers_group:
-                current_transfers_group[job_key] = {}
+            if job_key not in grouped_transfers:
+                grouped_transfers[job_key] = {}
 
             if multihop:
                 policy_key = 'multihop_%s' % (transfer['initial_request_id'])
@@ -396,9 +387,9 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
                     policy_key = "_".join(policy_key.split(' '))
                     # maybe here we need to hash the key if it's too long
 
-            if policy_key not in current_transfers_group[job_key]:
-                current_transfers_group[job_key][policy_key] = {'files': [], 'job_params': job_params}
-            current_transfers_policy = current_transfers_group[job_key][policy_key]
+            if policy_key not in grouped_transfers[job_key]:
+                grouped_transfers[job_key][policy_key] = {'files': [], 'job_params': job_params}
+            current_transfers_policy = grouped_transfers[job_key][policy_key]
 
             # Only allow overwrite if all transfers grouped together allow it
             current_transfers_policy['job_params']['overwrite'] = current_transfers_policy['job_params']['overwrite'] and job_params['overwrite']
@@ -414,14 +405,13 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
                 current_transfers_policy['files'].append(t_file)
 
     # for jobs with different job_key, we cannot put in one job.
-    for external_host in grouped_transfers:
-        for job_key in grouped_transfers[external_host]:
-            # for all policy groups in job_key, the job_params is the same.
-            for policy_key in grouped_transfers[external_host][job_key]:
-                job_params = grouped_transfers[external_host][job_key][policy_key]['job_params']
-                for xfers_files in chunks(grouped_transfers[external_host][job_key][policy_key]['files'], group_bulk):
-                    # for the last small piece, just submit it.
-                    grouped_jobs[external_host].append({'files': xfers_files, 'job_params': job_params})
+    for job_key in grouped_transfers:
+        # for all policy groups in job_key, the job_params is the same.
+        for policy_key in grouped_transfers[job_key]:
+            job_params = grouped_transfers[job_key][policy_key]['job_params']
+            for xfers_files in chunks(grouped_transfers[job_key][policy_key]['files'], group_bulk):
+                # for the last small piece, just submit it.
+                grouped_jobs.append({'files': xfers_files, 'job_params': job_params})
 
     return grouped_jobs
 
