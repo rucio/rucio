@@ -463,7 +463,9 @@ class DirectTransferDefinition:
                          'dest_rse_id': dst.rse.id,
                          'filesize': rws.byte_count,
                          'md5': rws.md5,
-                         'adler32': rws.adler32}
+                         'adler32': rws.adler32,
+                         'source_globus_endpoint_id': src.rse.attributes.get('globus_endpoint_id', None),
+                         'dest_globus_endpoint_id': dst.rse.attributes.get('globus_endpoint_id', None)}
         transfer = {'request_id': rws.request_id,
                     'account': rws.account,
                     'src_spacetoken': None,
