@@ -7,6 +7,7 @@ tabulate>=0.8.0,<0.9.0                                      # Pretty-print tabul
 six>=1.12.0,<1.16.0                                         # Python 2 and 3 compatibility utilities
 jsonschema>=3.2.0                                           # For JSON schema validation (Policy modules)
 typing; python_version < '3.5'                              # typing package support for older Python versions
+enum34<=1.1.10; python_version < '3.5'                      # Enum package backport for python 2.7
 
 # All dependencies needed in extras for rucio client (and server/daemons) should be defined here
 paramiko==2.7.2                                             # ssh_extras; SSH2 protocol library (also needed in the server)
