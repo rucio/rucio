@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -34,6 +35,7 @@ clients_requirements_table = {
         'tabulate',
         'six',
         'jsonschema',
+        'enum34',
     ],
     'ssh': ['paramiko'],
     'kerberos': [
