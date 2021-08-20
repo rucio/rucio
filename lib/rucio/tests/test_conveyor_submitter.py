@@ -232,6 +232,8 @@ def test_globus(rse_factory, did_factory, root_account):
         assert job_did1['metadata']['src_rse'] == rse1
         assert job_did1['metadata']['dst_rse'] == rse2
         assert job_did1['metadata']['name'] == did1['name']
+        assert job_did1['metadata']['source_globus_endpoint_id'] == rse1_id
+        assert job_did1['metadata']['dest_globus_endpoint_id'] == rse2_id
 
         job_did2 = next(iter(filter(lambda job: did2['name'] in job['sources'][0], submitjob)))
         assert len(job_did2['sources']) == 1
