@@ -35,7 +35,7 @@ except ImportError:
     from setuputil import get_rucio_version
 
 name = 'rucio-webui'
-packages = ['rucio', 'rucio.web', 'rucio.web.ui', 'rucio.web.ui.flask', 'rucio.web.flask.common']
+packages = ['rucio', 'rucio.web', 'rucio.web.ui', 'rucio.web.ui.flask', 'rucio.web.ui.flask.common']
 data_files = []
 description = "Rucio WebUI Package"
 
