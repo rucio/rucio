@@ -1,4 +1,4 @@
-# Copyright 2017-2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2019
-# - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2017
-# - Frank Berghaus <frank.berghaus@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020-2021
 
 FROM centos:7
 ARG PYTHON
@@ -145,8 +140,8 @@ RUN mkdir -p /var/log/rucio/trace && \
     cp etc/certs/ruciouser.key.pem etc/ruciouser.key.pem && \
     chmod 0400 etc/ruciouser.key.pem
 
-RUN rpm -i etc/docker/test/extra/oic.rpm; \
-    echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
+RUN rpm -i https://download.oracle.com/otn_software/linux/instantclient/1912000/oracle-instantclient19.12-basiclite-19.12.0.0.0-1.x86_64.rpm && \
+    echo "/usr/lib/oracle/19.12/client64/lib" > /etc/ld.so.conf.d/oracle-instantclient.conf && \
     ldconfig
 
 # copy everything else except the git-dir (anything above is cache-friendly)
