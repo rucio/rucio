@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2018-2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2019
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 set -eo pipefail
 
@@ -35,15 +32,16 @@ echo
 RESTART_HTTPD=0
 
 if [ $RDBMS == "oracle" ]; then
-    CON_ORACLE=$(docker $CONTAINER_RUNTIME_ARGS run --no-healthcheck -d $CONTAINER_RUN_ARGS -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true -e ORACLE_DISABLE_ASYNCH_IO=true docker.io/wnameless/oracle-xe-11g-r2)
+    CON_ORACLE=$(docker $CONTAINER_RUNTIME_ARGS run --no-healthcheck -d $CONTAINER_RUN_ARGS -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true -e ORACLE_PASSWORD=oracle -e ORACLE_DISABLE_ASYNCH_IO=true docker.io/gvenzl/oracle-xe:18.4.0)
     docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS docker.io/webcenter/activemq:latest
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO sh -c 'echo 127.0.0.1 oracle activemq >> /etc/hosts'
     docker $CONTAINER_RUNTIME_ARGS cp tools/test/oracle_setup.sh ${CON_ORACLE}:/
     date
-    ORACLE_STARTUP_STRING="Starting Oracle Database 11g Express Edition instance."
-    for i in {1..60}; do
+    ORACLE_STARTUP_STRING="DATABASE IS READY TO USE!"
+    for i in {1..300}; do
         sleep 2
         cont=$(bash -c 'docker '"$CONTAINER_RUNTIME_ARGS"' logs '"$CON_ORACLE"' | grep "'"$ORACLE_STARTUP_STRING"'" | wc -l')
+        echo "inside db: $cont$"
         [ "$cont" -eq "2" ] && break
     done
     date
