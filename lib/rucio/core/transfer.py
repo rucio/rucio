@@ -558,7 +558,7 @@ def checksum_validation_strategy(src_attributes, dst_attributes, logger):
     return verify_checksum, checksums_to_use
 
 
-def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, logger=logging.log):
+def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, logger=logging.log, vo=None):
     """
     Submit transfer request to a transfertool.
     :param external_host:  External host name as string
@@ -605,7 +605,7 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 if 'token' in token_dict:
                     logger(logging.DEBUG, 'Access token used as transfer token.')
                     transfer_token = token_dict['token']
-        transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
+        transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token, vo=vo).submit(files=job_files, job_params=job_params, timeout=timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(files))
     elif transfertool == 'globus':
         logger(logging.DEBUG, '... Starting globus xfer ...')
@@ -729,7 +729,7 @@ def set_transfers_state(transfers, submitted_at, session=None):
         raise RucioException(error.args)
 
 
-def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeout=None, logger=logging.log):
+def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeout=None, logger=logging.log, vo=None):
     """
     Query the status of a transfer.
     :param request_host:  Name of the external host.
@@ -744,21 +744,10 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
     if transfertool == 'fts3':
         try:
             start_time = time.time()
-            fts_resps = FTS3Transfertool(external_host=request_host).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
+            fts_resps = FTS3Transfertool(external_host=request_host, vo=vo).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
             record_timer('core.request.bulk_query_transfers', (time.time() - start_time) * 1000 / len(transfer_ids))
         except Exception:
             raise
-
-        fts_resp_list = []
-        for fts_resp in fts_resps:
-            fts_resp_list.append(fts_resp)
-
-        if config_get_bool('common', 'multi_vo', False, None):
-            _transfer_ids = []
-            for _transfer_id in transfer_ids:
-                id, vo = _transfer_id.split('@')
-                _transfer_ids.append(id)
-            transfer_ids = _transfer_ids
 
         for transfer_id in transfer_ids:
             if transfer_id not in fts_resps:
@@ -779,6 +768,7 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
                         elif file_state == FTS_STATE.FINISHED:
                             status_dict['new_state'] = RequestState.DONE
         return fts_resps
+
     elif transfertool == 'globus':
         try:
             start_time = time.time()
@@ -848,7 +838,7 @@ def touch_transfer(external_host, transfer_id, session=None):
 
 
 @transactional_session
-def update_transfer_state(external_host, transfer_id, state, session=None, logger=logging.log):
+def update_transfer_state(external_host, transfer_id, state, session=None, logger=logging.log, vo=None):
     """
     Used by poller to update the internal state of transfer,
     after the response by the external transfertool.
@@ -860,63 +850,61 @@ def update_transfer_state(external_host, transfer_id, state, session=None, logge
     :returns commit_or_rollback:  Boolean.
     """
 
-    try:
-        if config_get_bool('common', 'multi_vo', False, None):
-            transfer_id, vo = transfer_id.split('@')
+    if state == RequestState.LOST:
+        reqs = request_core.get_requests_by_transfer(external_host, transfer_id, session=session)
+        for req in reqs:
+            logger(logging.INFO, 'REQUEST %s OF TRANSFER %s ON %s STATE %s' % (str(req['request_id']), external_host, transfer_id, str(state)))
+            src_rse_id = req.get('source_rse_id', None)
+            dst_rse_id = req.get('dest_rse_id', None)
+            src_rse = None
+            dst_rse = None
+            if src_rse_id:
+                src_rse = get_rse_name(src_rse_id, session=session)
+            if dst_rse_id:
+                dst_rse = get_rse_name(dst_rse_id, session=session)
+            response = {'new_state': state,
+                        'transfer_id': transfer_id,
+                        'job_state': state,
+                        'src_url': None,
+                        'dst_url': req['dest_url'],
+                        'duration': 0,
+                        'reason': "The FTS job lost",
+                        'scope': req.get('scope', None),
+                        'name': req.get('name', None),
+                        'src_rse': src_rse,
+                        'dst_rse': dst_rse,
+                        'request_id': req.get('request_id', None),
+                        'activity': req.get('activity', None),
+                        'src_rse_id': req.get('source_rse_id', None),
+                        'dst_rse_id': req.get('dest_rse_id', None),
+                        'previous_attempt_id': req.get('previous_attempt_id', None),
+                        'adler32': req.get('adler32', None),
+                        'md5': req.get('md5', None),
+                        'filesize': req.get('filesize', None),
+                        'external_host': external_host,
+                        'job_m_replica': None,
+                        'created_at': req.get('created_at', None),
+                        'submitted_at': req.get('submitted_at', None),
+                        'details': None,
+                        'account': req.get('account', None)}
 
-        if state == RequestState.LOST:
-            reqs = request_core.get_requests_by_transfer(external_host, transfer_id, session=session)
-            for req in reqs:
-                logger(logging.INFO, 'REQUEST %s OF TRANSFER %s ON %s STATE %s' % (str(req['request_id']), external_host, transfer_id, str(state)))
-                src_rse_id = req.get('source_rse_id', None)
-                dst_rse_id = req.get('dest_rse_id', None)
-                src_rse = None
-                dst_rse = None
-                if src_rse_id:
-                    src_rse = get_rse_name(src_rse_id, session=session)
-                if dst_rse_id:
-                    dst_rse = get_rse_name(dst_rse_id, session=session)
-                response = {'new_state': state,
-                            'transfer_id': transfer_id,
-                            'job_state': state,
-                            'src_url': None,
-                            'dst_url': req['dest_url'],
-                            'duration': 0,
-                            'reason': "The FTS job lost",
-                            'scope': req.get('scope', None),
-                            'name': req.get('name', None),
-                            'src_rse': src_rse,
-                            'dst_rse': dst_rse,
-                            'request_id': req.get('request_id', None),
-                            'activity': req.get('activity', None),
-                            'src_rse_id': req.get('source_rse_id', None),
-                            'dst_rse_id': req.get('dest_rse_id', None),
-                            'previous_attempt_id': req.get('previous_attempt_id', None),
-                            'adler32': req.get('adler32', None),
-                            'md5': req.get('md5', None),
-                            'filesize': req.get('filesize', None),
-                            'external_host': external_host,
-                            'job_m_replica': None,
-                            'created_at': req.get('created_at', None),
-                            'submitted_at': req.get('submitted_at', None),
-                            'details': None,
-                            'account': req.get('account', None)}
+            err_msg = request_core.get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
+            request_core.set_request_state(req['request_id'],
+                                           response['new_state'],
+                                           transfer_id=transfer_id,
+                                           src_rse_id=src_rse_id,
+                                           err_msg=err_msg,
+                                           session=session)
 
-                err_msg = request_core.get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
-                request_core.set_request_state(req['request_id'],
-                                               response['new_state'],
-                                               transfer_id=transfer_id,
-                                               src_rse_id=src_rse_id,
-                                               err_msg=err_msg,
-                                               session=session)
-
-                request_core.add_monitor_message(req, response, session=session)
-        else:
-            __set_transfer_state(external_host, transfer_id, state, session=session)
+            request_core.add_monitor_message(req, response, session=session)
+    else:
+        __set_transfer_state(external_host, transfer_id, state, session=session)
         return True
-    except UnsupportedOperation as error:
-        logger(logging.WARNING, "Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(error).replace('\n', '')))
-        return False
+
+
+"""except UnsupportedOperation as error:
+    logger(logging.WARNING, "Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(error).replace('\n', '')))
+    return False"""
 
 
 @transactional_session

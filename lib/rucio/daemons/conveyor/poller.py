@@ -136,26 +136,46 @@ def poller(once=False, activities=None, sleep_time=60,
                 if transfs:
                     logger(logging.DEBUG, 'Polling %i transfers for activity %s' % (len(transfs), activity))
 
+                multi_vo = config_get_bool('common', 'multi_vo', False, None)
                 xfers_ids = {}
-                TransferParams = namedtuple('TransferNamedTuple', ['external_id', 'request_id', 'scope'])
-                for transf in transfs:
-                    if not transf['external_host'] in xfers_ids:
-                        xfers_ids[transf['external_host']] = []
-                    xfers_ids[transf['external_host']].append(TransferParams(transf['external_id'], transf['request_id'], transf['scope']))
-                external_ids = []
-                multi_vo_enabled = config_get_bool('common', 'multi_vo', False, None)
-                for external_host in xfers_ids:
-                    if TRANSFER_TOOL == 'fts3' and multi_vo_enabled:
-                        external_ids = list({trf.external_id + '@' + trf.scope.vo
-                                             for trf in xfers_ids[external_host]})
-                    else:
+                TransferParams = namedtuple('TransferNamedTuple', ['external_id', 'request_id'])
+
+                # multi_vo poll transfers
+                if multi_vo:
+                    for transf in transfs:
+                        vo = transf['scope'].vo
+                        if vo not in xfers_ids:
+                            xfers_ids[vo] = {}
+                        if transf['external_host'] not in xfers_ids[vo]:
+                            xfers_ids[vo][transf['external_host']] = []
+                        xfers_ids[vo][transf['external_host']].append(TransferParams(transf['external_id'], transf['request_id']))
+
+                    for vo in xfers_ids:
+                        for external_host in xfers_ids[vo]:
+                            external_ids = list({trf.external_id for trf in xfers_ids[vo][external_host]})
+                            request_ids = [trf.request_id for trf in xfers_ids[vo][external_host]]
+
+                        for xfers in chunks(external_ids, fts_bulk):
+                            # poll transfers
+                            print(f"VO at poller = {vo}")
+                            poll_transfers(external_host=external_host, xfers=xfers, request_ids=request_ids, timeout=timeout, logger=logger, vo=vo)
+
+                # single_vo poll transfers
+                else:
+                    for transf in transfs:
+                        if transf['external_host'] not in xfers_ids:
+                            xfers_ids[transf['external_host']] = []
+                        xfers_ids[transf['external_host']].append(TransferParams(transf['external_id'], transf['request_id']))
+                    external_ids = []
+
+                    for external_host in xfers_ids:
                         external_ids = list({trf.external_id for trf in xfers_ids[external_host]})
 
-                    request_ids = [trf.request_id for trf in xfers_ids[external_host]]
+                        request_ids = [trf.request_id for trf in xfers_ids[external_host]]
 
                     for xfers in chunks(external_ids, fts_bulk):
                         # poll transfers
-                        poll_transfers(external_host=external_host, xfers=xfers, request_ids=request_ids, timeout=timeout, logger=logger)
+                        poll_transfers(external_host=external_host, xfers=xfers, request_ids=request_ids, timeout=timeout, logger=logger, vo=None)
 
                 if len(transfs) < fts_bulk / 2:
                     logger(logging.INFO, "Only %s transfers for activity %s, which is less than half of the bulk %s, will sleep %s seconds" % (len(transfs), activity, fts_bulk, sleep_time))
@@ -235,7 +255,7 @@ def run(once=False, sleep_time=60, activities=None,
             threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
 
 
-def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=logging.log):
+def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=logging.log, vo=None):
     """
     Poll a list of transfers from an FTS server
 
@@ -246,6 +266,7 @@ def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=
     :param timeout:          Timeout.
     :param logger:           Optional decorated logger that can be passed from the calling daemons or servers.
     """
+
     try:
         if TRANSFER_TOOL == 'mock':
             logger(logging.DEBUG, 'Setting %s transfer requests status to DONE per mock tool' % (len(xfers)))
@@ -255,8 +276,11 @@ def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=
             return
         try:
             tss = time.time()
-            logger(logging.INFO, 'Polling %i transfers against %s with timeout %s' % (len(xfers), external_host, timeout))
-            resps = transfer_core.bulk_query_transfers(external_host, xfers, TRANSFER_TOOL, timeout)
+            if vo:
+                logger(logging.INFO, 'Polling %i transfers against %s for vo %s with timeout %s' % (len(xfers), external_host, vo, timeout))
+            else:
+                logger(logging.INFO, 'Polling %i transfers against %s with timeout %s' % (len(xfers), external_host, timeout))
+            resps = transfer_core.bulk_query_transfers(external_host, xfers, TRANSFER_TOOL, timeout, vo=vo)
             record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time() - tss) * 1000 / len(xfers))
         except TransferToolTimeout as error:
             logger(logging.ERROR, str(error))

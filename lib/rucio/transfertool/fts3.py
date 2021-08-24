@@ -84,7 +84,7 @@ class FTS3Transfertool(Transfertool):
     FTS3 implementation of a Rucio transfertool
     """
 
-    def __init__(self, external_host, token=None):
+    def __init__(self, external_host, token=None, vo=None):
         """
         Initializes the transfertool
 
@@ -93,7 +93,10 @@ class FTS3Transfertool(Transfertool):
         """
 
         self.multi_vo = config_get_bool('common', 'multi_vo', False, None)
-        usercert = config_get('conveyor', 'usercert', False, None)
+        if self.multi_vo:
+            usercert = config_get('vo_certs', vo, False, config_get('conveyor', 'usercert', False, None))
+        else:
+            usercert = config_get('conveyor', 'usercert', False, None)
 
         # token for OAuth 2.0 OIDC authorization scheme (working only with dCache + davs/https protocols as of Sep 2019)
         self.token = token
@@ -352,7 +355,7 @@ class FTS3Transfertool(Transfertool):
         if not isinstance(transfer_ids, list):
             transfer_ids = [transfer_ids]
 
-        # multi-VO mode
+        """# multi-VO mode
         if self.multi_vo:
             responses = {}
             vo_sorted_dict = self.__multi_vo_cert_selection_from_transfer_ids(transfer_ids)
@@ -366,11 +369,11 @@ class FTS3Transfertool(Transfertool):
             return responses
 
         # Single VO mode
-        else:
-            xfer_ids = ','.join(transfer_ids)
-            transfer_ids_list = transfer_ids
-            responses = self.query_for_jobs(xfer_ids, timeout, transfer_ids_list)
-            return responses
+        else:"""
+        xfer_ids = ','.join(transfer_ids)
+        transfer_ids_list = transfer_ids
+        responses = self.query_for_jobs(xfer_ids, timeout, transfer_ids_list)
+        return responses
 
     def list_se_status(self):
         """
@@ -756,7 +759,7 @@ class FTS3Transfertool(Transfertool):
             raise TransferToolWrongAnswer('No transfer id returned by %s' % self.external_host)
         return transfer_id
 
-    def query_for_jobs(self, xfer_ids, timeout, transfer_ids_list, cert=None):
+    def query_for_jobs(self, xfer_ids, timeout, transfer_ids_list):
         jobs = None
         responses = {}
         fts_session = requests.Session()
