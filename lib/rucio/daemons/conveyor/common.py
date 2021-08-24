@@ -342,23 +342,6 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
             current_jobs_group = grouped_jobs[external_host]
 
         job_params = {'account': transfer['account'],
-                      'use_oidc': transfer_core.oidc_supported(transfer)}
-
-        external_host = transfer['external_host']
-        activity = t_file['activity']
-
-        if external_host not in grouped_transfers:
-            grouped_transfers[external_host] = {}
-            grouped_jobs[external_host] = []
-
-        if multi_vo:
-            current_transfers_group = grouped_transfers[vo][external_host]
-            current_jobs_group = grouped_jobs[vo][external_host]
-        else:
-            current_transfers_group = grouped_transfers[external_host]
-            current_jobs_group = grouped_jobs[external_host]
-
-        job_params = {'account': transfer['account'],
                       'use_oidc': transfer_core.oidc_supported(transfer),
                       'verify_checksum': verify_checksum,
                       'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,

@@ -133,6 +133,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
     prefix = 'conveyor-submitter[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logger = formatted_logger(logging.log, prefix + '%s')
     logger(logging.INFO, 'Transfer submitter started')
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
 
     while not graceful_stop.is_set():
         if activities is None:
@@ -189,8 +190,8 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                     logger(logging.ERROR, 'Unknown transfer tool')
                 record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
                 logger(logging.INFO, 'Starting to submit transfers for %s', activity)
-                
-                if config_get_bool('common', 'multi_vo', False, None):
+
+                if multi_vo:
                     for vo in grouped_jobs:
                         for external_host in grouped_jobs[vo]:
                             for job in grouped_jobs[vo][external_host]:
