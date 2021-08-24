@@ -47,7 +47,7 @@ services:
       - MYSQL_DATABASE=rucio
       - MYSQL_TCP_PORT=3308
   oracle:
-    image: docker.io/wnameless/oracle-xe-11g-r2
+    image: docker.io/gvenzl/oracle-xe:18.4.0
     network_mode: "service:rucio"
     environment:
       - ORACLE_ALLOW_REMOTE=true
