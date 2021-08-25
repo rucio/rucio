@@ -29,7 +29,7 @@ from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
 from rucio.common.exception import RSENotFound
 from rucio.common.utils import render_json
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
-    request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView
+    request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_list, json_parse
 
 
 class LockByRSE(ErrorHandlingMethodView):
@@ -91,6 +91,43 @@ class LockByScopeName(ErrorHandlingMethodView):
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
+class LocksForManyDatasets(ErrorHandlingMethodView):
+    """ REST APIs for multiple dataset locks. """
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def post(self):
+        """ get locks for a given scope, name.
+
+        :param scope_name: data identifier (scope)/(name).
+        :query did_type: The type used to filter, e.g., DATASET, CONTAINER.
+        :resheader Content-Type: application/x-json-stream
+        :status 200: OK.
+        :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
+        :returns: Line separated list of dictionary with lock information.
+        """
+
+        data = json_parse(types=(dict, ))
+        try:    dids = data["datasets"]
+        except KeyError:
+            return 'Can not find the dataset list in the data. Use "datasets" keyword.', 400
+        
+        did_type = request.args.get('did_type', default=None)
+        if did_type != 'dataset':
+            return 'Wrong did_type specified', 400
+
+        try:            
+            def all_locks(dids, vo):
+                for did in dids:
+                    scope = did["scope"]
+                    name = did["name"]
+                    for lock in get_dataset_locks(scope, name, vo=vo):
+                        yield render_json(dataset_scope_name=scope_name, **lock) + '\n'            
+    
+            return try_stream(all_locks(dids=dids, vo=request.environ.get('vo')))
+        except ValueError as error:
+            return generate_http_error_flask(400, error)
+
 
 def blueprint():
     bp = Blueprint('locks', __name__, url_prefix='/locks')
@@ -99,6 +136,10 @@ def blueprint():
     bp.add_url_rule('/<rse>', view_func=lock_by_rse_view, methods=['get', ])
     lock_by_scope_name_view = LockByScopeName.as_view('lock_by_scope_name')
     bp.add_url_rule('/<path:scope_name>', view_func=lock_by_scope_name_view, methods=['get', ])
+
+
+    locks_for_many_datasets_view = LocksForManyDatasets.as_view('locks_for_many_datasets')
+    bp.add_url_rule('', view_func=locks_for_many_datasets_view, methods=['post', ])
 
     bp.before_request(request_auth_env)
     bp.after_request(response_headers)
