@@ -22,7 +22,6 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
-
 from requests.status_codes import codes
 from six.moves.urllib.parse import quote_plus
 
