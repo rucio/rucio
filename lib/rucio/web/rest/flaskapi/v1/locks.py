@@ -122,7 +122,7 @@ class LocksForManyDatasets(ErrorHandlingMethodView):
                     scope = did["scope"]
                     name = did["name"]
                     for lock in get_dataset_locks(scope, name, vo=vo):
-                        yield render_json(dataset_scope_name=scope_name, **lock) + '\n'            
+                        yield render_json(dataset_scope_name=f"{scope}:{name}", **lock) + '\n'      
     
             return try_stream(all_locks(dids=dids, vo=request.environ.get('vo')))
         except ValueError as error:
