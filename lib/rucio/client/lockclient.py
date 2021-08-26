@@ -78,10 +78,10 @@ class LockClient(BaseClient):
                 try:
                     scope, name = did.split(":", 1)
                 except:
-                    raise ValueError(f"Can not interpret did {did}")
+                    raise ValueError("Can not interpret did %s" % (did,))
                 did = dict(scope=scope, name=name)
             else:
-                raise ValueError(f"Can not interpret did {did}")
+                raise ValueError("Can not interpret did %s" % (did,))
             dids.append(did)
 
         path = '/'.join([self.LOCKS_BASEURL])
