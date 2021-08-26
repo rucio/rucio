@@ -113,19 +113,19 @@ class LocksForManyDatasets(ErrorHandlingMethodView):
             dids = data["datasets"]
         except KeyError:
             return 'Can not find the dataset list in the data. Use "datasets" keyword.', 400
-        
+
         did_type = request.args.get('did_type', default=None)
         if did_type != 'dataset':
             return 'Wrong did_type specified', 400
 
-        try:            
+        try:
             def all_locks(dids, vo):
                 for did in dids:
                     scope = did["scope"]
                     name = did["name"]
                     for lock in get_dataset_locks(scope, name, vo=vo):
-                        yield render_json(dataset_scope_name=f"{scope}:{name}", **lock) + '\n'      
-    
+                        yield render_json(dataset_scope_name=f"{scope}:{name}", **lock) + '\n'
+
             return try_stream(all_locks(dids=dids, vo=request.environ.get('vo')))
         except ValueError as error:
             return generate_http_error_flask(400, error)
@@ -138,7 +138,7 @@ def blueprint():
     bp.add_url_rule('/<rse>', view_func=lock_by_rse_view, methods=['get', ])
     lock_by_scope_name_view = LockByScopeName.as_view('lock_by_scope_name')
     bp.add_url_rule('/<path:scope_name>', view_func=lock_by_scope_name_view, methods=['get', ])
-    
+
     locks_for_many_datasets_view = LocksForManyDatasets.as_view('locks_for_many_datasets')
     bp.add_url_rule('', view_func=locks_for_many_datasets_view, methods=['post', ])
 

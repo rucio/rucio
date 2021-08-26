@@ -69,7 +69,7 @@ class LockClient(BaseClient):
         """
 
         # convert did list to list of dictionaries
-        
+
         dids = []
         for did in dataset_list:
             if isinstance(did, dict):
@@ -90,7 +90,7 @@ class LockClient(BaseClient):
         result = self._send_request(url, type_='POST', data=render_json(datasets=dids))
         if result.status_code == codes.ok:   # pylint: disable-msg=E1101
             locks = self._load_json_data(result)
-            # reformat as a dictionary 
+            # reformat as a dictionary
             out = {}
             for lock in locks:
                 dataset_scope_name = lock["dataset_scope_name"]
