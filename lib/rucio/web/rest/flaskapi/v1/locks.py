@@ -91,6 +91,7 @@ class LockByScopeName(ErrorHandlingMethodView):
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
+
 class LocksForManyDatasets(ErrorHandlingMethodView):
     """ REST APIs for multiple dataset locks. """
 
