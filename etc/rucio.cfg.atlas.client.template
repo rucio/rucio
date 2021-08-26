@@ -1,25 +1,32 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
-# - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2019
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 [common]
 
 [client]
 rucio_host = https://voatlasrucio-server-prod.cern.ch:443
 auth_host = https://voatlasrucio-auth-prod.cern.ch:443
-ca_cert =
-client_cert = $X509_USER_PROXY
-client_key = $X509_USER_PROXY
 client_x509_proxy = $X509_USER_PROXY
 request_retries = 3
-auth_type = x509
+auth_type = x509_proxy
 
 [policy]
 permission = atlas
