@@ -179,15 +179,9 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                 for external_host, transfer_paths in transfers.items():
                     start_time = time.time()
                     logger(logging.INFO, 'Starting to group transfers for %s (%s)', activity, external_host)
-                    for transfer_path in transfer_paths:
-                        for i, hop in enumerate(transfer_path):
-                            hop.init_legacy_transfer_definition(bring_online=bring_online, default_lifetime=172800, logger=logger)
-                            if len(transfer_path) > 1:
-                                hop['multihop'] = True
-                                hop['initial_request_id'] = transfer_path[-1].rws.request_id
-                                hop['parent_request'] = transfer_path[i - 1].rws.request_id if i > 0 else None
                     if transfertool in ['fts3', 'mock']:
-                        grouped_jobs = bulk_group_transfers_for_fts(transfer_paths, group_policy, group_bulk, source_strategy, max_time_in_queue, archive_timeout_override=archive_timeout_override)
+                        grouped_jobs = bulk_group_transfers_for_fts(transfer_paths, group_policy, group_bulk, source_strategy, max_time_in_queue,
+                                                                    bring_online=bring_online, default_lifetime=172800, archive_timeout_override=archive_timeout_override)
                     elif transfertool == 'globus':
                         grouped_jobs = bulk_group_transfers_for_globus(transfer_paths, transfertype, group_bulk)
                     else:
@@ -197,7 +191,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                     logger(logging.INFO, 'Starting to submit transfers for %s (%s)', activity, external_host)
                     for job in grouped_jobs:
                         logger(logging.DEBUG, 'submitjob: %s' % job)
-                        submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
+                        submit_transfer(external_host=external_host, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter',
                                         timeout=timeout, logger=logger, transfertool=transfertool)
 
                 if total_transfers < group_bulk:

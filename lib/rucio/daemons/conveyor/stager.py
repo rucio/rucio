@@ -151,15 +151,13 @@ def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
                 for external_host, transfer_paths in transfers.items():
                     logger(logging.INFO, 'Starting to group transfers for %s (%s)' % (activity, external_host))
                     start_time = time.time()
-                    for transfer_path in transfer_paths:
-                        for i, hop in enumerate(transfer_path):
-                            hop.init_legacy_transfer_definition(bring_online=bring_online, default_lifetime=-1, logger=logger)
-                    grouped_jobs = bulk_group_transfers_for_fts(transfer_paths, group_policy, group_bulk, source_strategy, max_time_in_queue)
+                    grouped_jobs = bulk_group_transfers_for_fts(transfer_paths, group_policy, group_bulk, source_strategy, max_time_in_queue,
+                                                                bring_online=bring_online, default_lifetime=-1)
                     record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfer_paths) or 1))
 
                     logger(logging.INFO, 'Starting to submit transfers for %s (%s)' % (activity, external_host))
                     for job in grouped_jobs:
-                        submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter', logger=logger)
+                        submit_transfer(external_host=external_host, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter', logger=logger)
 
                 if total_transfers < group_bulk:
                     logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (total_transfers, activity, group_bulk, sleep_time))
