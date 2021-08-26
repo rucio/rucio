@@ -15,6 +15,9 @@
 #
 # Authors:
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Mayank Sharma <imptodefeat@gmail.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+
 import threading
 import time
 from datetime import datetime
@@ -523,12 +526,12 @@ def test_overwrite_on_tape(rse_factory, did_factory, root_account, core_config_m
     rule_core.add_rule(dids=[did1, did2], account=root_account, copies=1, rse_expression=rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
     # Wrap dest url generation to add size_pre=2 query parameter
-    non_mocked_dest_url = transfer_core.DirectTransferDefinition._dest_url
+    non_mocked_generate_dest_url = transfer_core.DirectTransferDefinition._generate_dest_url
 
-    def mocked_dest_url(cls, *args):
-        return set_query_parameters(non_mocked_dest_url(*args), {'size_pre': 2})
+    def mocked_generate_dest_url(cls, *args):
+        return set_query_parameters(non_mocked_generate_dest_url(*args), {'size_pre': 2})
 
-    with patch('rucio.core.transfer.DirectTransferDefinition._dest_url', new=mocked_dest_url):
+    with patch('rucio.core.transfer.DirectTransferDefinition._generate_dest_url', new=mocked_generate_dest_url):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
     request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did1)

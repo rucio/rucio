@@ -28,7 +28,8 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2020
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import absolute_import, division
 import datetime
@@ -57,7 +58,7 @@ from prometheus_client import Counter, Summary
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import FTS_STATE
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
-from rucio.common.utils import APIEncoder
+from rucio.common.utils import APIEncoder, set_checksum_value
 from rucio.core.monitor import record_counter, record_timer
 from rucio.transfertool.transfertool import Transfertool
 
@@ -111,7 +112,40 @@ class FTS3Transfertool(Transfertool):
             self.cert = None
             self.verify = True  # True is the default setting of a requests.* method
 
-    def submit(self, files, job_params, timeout=None):
+    @classmethod
+    def __file_from_transfer(cls, transfer, job_params):
+        rws = transfer.rws
+        t_file = {
+            'sources': [s[1] for s in transfer.legacy_sources],
+            'destinations': [transfer.dest_url],
+            'metadata': {
+                'request_id': rws.request_id,
+                'scope': rws.scope,
+                'name': rws.name,
+                'activity': rws.activity,
+                'request_type': rws.request_type,
+                'src_type': "TAPE" if transfer.src.rse.is_tape_or_staging_required() else 'DISK',
+                'dst_type': "TAPE" if transfer.dst.rse.is_tape() else 'DISK',
+                'src_rse': transfer.src.rse.name,
+                'dst_rse': transfer.dst.rse.name,
+                'src_rse_id': transfer.src.rse.id,
+                'dest_rse_id': transfer.dst.rse.id,
+                'filesize': rws.byte_count,
+                'md5': rws.md5,
+                'adler32': rws.adler32
+            },
+            'filesize': rws.byte_count,
+            'checksum': None,
+            'verify_checksum': job_params['verify_checksum'],
+            'selection_strategy': transfer['selection_strategy'],
+            'request_type': rws.request_type,
+            'activity': rws.activity
+        }
+        if t_file['verify_checksum'] != 'none':
+            set_checksum_value(t_file, transfer['checksums_to_use'])
+        return t_file
+
+    def submit(self, transfers, job_params, timeout=None):
         """
         Submit transfers to FTS3 via JSON.
 
@@ -120,6 +154,15 @@ class FTS3Transfertool(Transfertool):
         :param timeout:      Timeout in seconds.
         :returns:            FTS transfer identifier.
         """
+        files = []
+        for transfer in transfers:
+            if isinstance(transfer, dict):
+                # Compatibility with scripts form /tools which directly use transfertools and pass a dict to it instead of transfer definitions
+                # TODO: ensure that those scripts are still used and get rid of this compatibility otherwise
+                files.append(transfer)
+                continue
+
+            files.append(self.__file_from_transfer(transfer, job_params))
 
         # FTS3 expects 'davs' as the scheme identifier instead of https
         for transfer_file in files:

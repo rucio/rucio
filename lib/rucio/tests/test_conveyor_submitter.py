@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+
 import pytest
 
 import itertools
@@ -81,7 +82,7 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
     requests_id_in_submission_order = []
     with patch('rucio.transfertool.mock.MockTransfertool.submit') as mock_transfertool_submit:
         # Record the order of requests passed to MockTranfertool.submit()
-        mock_transfertool_submit.side_effect = lambda jobs, _: requests_id_in_submission_order.extend([j['metadata']['request_id'] for j in jobs])
+        mock_transfertool_submit.side_effect = lambda transfers, _: requests_id_in_submission_order.extend([t.rws.request_id for t in transfers])
 
         submitter(once=True, rses=[{'id': rse_id} for _, rse_id in dst_rses], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
 

@@ -288,7 +288,10 @@ class DirectTransferDefinition:
         self.operation_src = operation_src
         self.operation_dest = operation_dest
 
-        self.legacy_def = {}
+        self.dict_attributes = {}
+
+        self._dest_url = None
+        self._legacy_sources = None
 
     def __str__(self):
         return 'transfer {} from {} to {}'.format(self.rws, ' and '.join([str(s) for s in self.sources]), self.dst.rse)
@@ -302,43 +305,35 @@ class DirectTransferDefinition:
         return self.destination
 
     def __setitem__(self, key, value):
-        self.legacy_def[key] = value
+        self.dict_attributes[key] = value
 
     def __getitem__(self, key):
-        if key == 'dest_urls':
-            return [self.dest_url]
-        if key == 'sources':
-            return self.legacy_sources
-        if key == 'use_ipv4':
-            return self.use_ipv4
-        return self.legacy_def[key]
+        return self.dict_attributes[key]
 
     def get(self, key, default=None):
-        if key == 'dest_urls':
-            return [self.dest_url]
-        if key == 'sources':
-            return self.legacy_sources
-        if key == 'use_ipv4':
-            return self.use_ipv4
-        return self.legacy_def.get(key, default)
+        return self.dict_attributes.get(key, default)
 
     @property
     def dest_url(self):
-        return self._dest_url(self.dst, self.rws, self.protocol_factory, self.operation_dest)
+        if not self._dest_url:
+            self._dest_url = self._generate_dest_url(self.dst, self.rws, self.protocol_factory, self.operation_dest)
+        return self._dest_url
 
     @property
     def legacy_sources(self):
-        return [
-            (src.rse.name,
-             self._source_url(src,
-                              self.dst,
-                              rws=self.rws,
-                              protocol_factory=self.protocol_factory,
-                              operation=self.operation_src),
-             src.rse.id,
-             src.source_ranking)
-            for src in self.sources
-        ]
+        if not self._legacy_sources:
+            self._legacy_sources = [
+                (src.rse.name,
+                 self._generate_source_url(src,
+                                           self.dst,
+                                           rws=self.rws,
+                                           protocol_factory=self.protocol_factory,
+                                           operation=self.operation_src),
+                 src.rse.id,
+                 src.source_ranking)
+                for src in self.sources
+            ]
+        return self._legacy_sources
 
     @property
     def use_ipv4(self):
@@ -389,7 +384,7 @@ class DirectTransferDefinition:
         return dest_url
 
     @classmethod
-    def _source_url(cls, src, dst, rws, protocol_factory, operation):
+    def _generate_source_url(cls, src, dst, rws, protocol_factory, operation):
         """
         Generate the source url which will be used as origin to copy the file from request rws towards the given dst endpoint
         """
@@ -404,7 +399,7 @@ class DirectTransferDefinition:
         return source_url
 
     @classmethod
-    def _dest_url(cls, dst, rws, protocol_factory, operation):
+    def _generate_dest_url(cls, dst, rws, protocol_factory, operation):
         """
         Generate the destination url for copying the file of request rws
         """
@@ -430,80 +425,6 @@ class DirectTransferDefinition:
         dest_url = cls.__rewrite_dest_url(dest_url, dest_sign_url=dest_sign_url)
         return dest_url
 
-    def init_legacy_transfer_definition(self, bring_online, default_lifetime, logger):
-        """
-        initialize the legacy transfer definition:
-        a dictionary with transfer parameters which were not yet migrated to the new, class-based, model
-        """
-
-        if self.legacy_def:
-            return
-
-        src = self.src
-        dst = self.dst
-        rws = self.rws
-
-        # Extend the metadata dictionary with request attributes
-        transfer_src_type = "DISK"
-        transfer_dst_type = "DISK"
-        overwrite, bring_online_local = True, None
-        if src.rse.is_tape_or_staging_required():
-            bring_online_local = bring_online
-            transfer_src_type = "TAPE"
-        if dst.rse.is_tape():
-            overwrite = False
-            transfer_dst_type = "TAPE"
-
-        # Get dest space token
-        dest_protocol = self.protocol_factory.protocol(dst.rse, dst.scheme, self.operation_dest)
-        dest_spacetoken = None
-        if dest_protocol.attributes and 'extended_attributes' in dest_protocol.attributes and \
-                dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
-            dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
-
-        # get external_host + strict_copy + archive timeout
-        strict_copy = dst.rse.attributes.get('strict_copy', False)
-        archive_timeout = dst.rse.attributes.get('archive_timeout', None)
-
-        # Fill the transfer dictionary including file_metadata
-        file_metadata = {'request_id': rws.request_id,
-                         'scope': rws.scope,
-                         'name': rws.name,
-                         'activity': rws.activity,
-                         'request_type': self.rws.request_type,
-                         'src_type': transfer_src_type,
-                         'dst_type': transfer_dst_type,
-                         'src_rse': src.rse.name,
-                         'dst_rse': dst.rse.name,
-                         'src_rse_id': src.rse.id,
-                         'dest_rse_id': dst.rse.id,
-                         'filesize': rws.byte_count,
-                         'md5': rws.md5,
-                         'adler32': rws.adler32,
-                         'source_globus_endpoint_id': src.rse.attributes.get('globus_endpoint_id', None),
-                         'dest_globus_endpoint_id': dst.rse.attributes.get('globus_endpoint_id', None)}
-        transfer = {'request_id': rws.request_id,
-                    'account': rws.account,
-                    'src_spacetoken': None,
-                    'dest_spacetoken': dest_spacetoken,
-                    'overwrite': overwrite,
-                    'bring_online': bring_online_local,
-                    'copy_pin_lifetime': rws.attributes.get('lifetime', default_lifetime),
-                    'selection_strategy': 'auto',
-                    'rule_id': rws.rule_id,
-                    'file_metadata': file_metadata}
-        if strict_copy:
-            transfer['strict_copy'] = strict_copy
-        if archive_timeout and dst.rse.is_tape():
-            try:
-                transfer['archive_timeout'] = int(archive_timeout)
-                logger(logging.DEBUG, 'Added archive timeout to transfer.')
-            except ValueError:
-                logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', self)
-                pass
-
-        self.legacy_def = transfer
-
 
 class StageinTransferDefinition(DirectTransferDefinition):
     """
@@ -511,7 +432,6 @@ class StageinTransferDefinition(DirectTransferDefinition):
         - The source and destination url are identical
         - must be from TAPE to non-TAPE RSE
         - can only have one source
-        - bring_online must be set
     """
     def __init__(self, source, destination, rws, protocol_factory, operation_src, operation_dest):
         if not source.rse.is_tape() or destination.rse.is_tape():
@@ -520,26 +440,24 @@ class StageinTransferDefinition(DirectTransferDefinition):
 
     @property
     def dest_url(self):
-        return self.src.url if self.src.url else self._source_url(self.src,
-                                                                  self.dst,
-                                                                  rws=self.rws,
-                                                                  protocol_factory=self.protocol_factory,
-                                                                  operation=self.operation_dest)
+        if not self._dest_url:
+            self._dest_url = self.src.url if self.src.url else self._generate_source_url(self.src,
+                                                                                         self.dst,
+                                                                                         rws=self.rws,
+                                                                                         protocol_factory=self.protocol_factory,
+                                                                                         operation=self.operation_dest)
+        return self._dest_url
 
     @property
     def legacy_sources(self):
-        return [(
-            self.src.rse.name,
-            self.dest_url,  # Source and dest url is the same for stagein requests
-            self.src.rse.id,
-            self.src.source_ranking
-        )]
-
-    def init_legacy_transfer_definition(self, bring_online, default_lifetime, logger):
-        if not bring_online:
-            raise RucioException("Stageing request {} requires bring_online to be set. Got {}".format(self.rws, bring_online))
-
-        return super().init_legacy_transfer_definition(bring_online, default_lifetime, logger)
+        if not self._legacy_sources:
+            self._legacy_sources = [(
+                self.src.rse.name,
+                self.dest_url,  # Source and dest url is the same for stagein requests
+                self.src.rse.id,
+                self.src.source_ranking
+            )]
+        return self._legacy_sources
 
 
 def oidc_supported(transfer_hop):
@@ -613,11 +531,11 @@ def checksum_validation_strategy(src_attributes, dst_attributes, logger):
     return verify_checksum, checksums_to_use
 
 
-def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, logger=logging.log):
+def submit_bulk_transfers(external_host, transfers, transfertool='fts3', job_params={}, timeout=None, logger=logging.log):
     """
     Submit transfer request to a transfertool.
     :param external_host:  External host name as string
-    :param files:          List of Dictionary containing request file.
+    :param transfers:          List of Dictionary containing request file.
     :param transfertool:   Transfertool as a string.
     :param job_params:     Metadata key/value pairs for all files as a dictionary.
     :param logger:         Optional decorated logger that can be passed from the calling daemons or servers.
@@ -630,19 +548,6 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
 
     if transfertool == 'fts3':
         start_time = time.time()
-        job_files = []
-        for file in files:
-            job_file = {}
-            for key in file:
-                if key == 'sources':
-                    # convert sources from (src_rse, url, src_rse_id, rank) to url
-                    job_file[key] = []
-                    for source in file[key]:
-                        job_file[key].append(source[1])
-                else:
-                    job_file[key] = file[key]
-            job_files.append(job_file)
-
         # getting info about account and OIDC support of the RSEs
         use_oidc = job_params.get('use_oidc', False)
         transfer_token = None
@@ -660,117 +565,116 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 if 'token' in token_dict:
                     logger(logging.DEBUG, 'Access token used as transfer token.')
                     transfer_token = token_dict['token']
-        transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
-        record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(files))
+        transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(transfers=transfers, job_params=job_params, timeout=timeout)
+        record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(transfers))
     elif transfertool == 'globus':
         logger(logging.DEBUG, '... Starting globus xfer ...')
-        job_files = []
-        for file in files:
-            job_file = {}
-            for key in file:
-                if key == 'sources':
-                    # convert sources from (src_rse, url, src_rse_id, rank) to url
-                    job_file[key] = []
-                    for source in file[key]:
-                        job_file[key].append(source[1])
-                else:
-                    job_file[key] = file[key]
-            job_files.append(job_file)
-        logger(logging.DEBUG, 'job_files: %s' % job_files)
-        transfer_id = GlobusTransferTool(external_host=None).bulk_submit(submitjob=job_files, timeout=timeout)
+        logger(logging.DEBUG, 'job_files: %s' % transfers)
+        transfer_id = GlobusTransferTool(external_host=None).bulk_submit(transfers=transfers, timeout=timeout)
     elif transfertool == 'mock':
-        transfer_id = MockTransfertool(external_host=None).submit(files, None)
+        transfer_id = MockTransfertool(external_host=None).submit(transfers, None)
     return transfer_id
 
 
 @transactional_session
-def prepare_sources_for_transfers(transfers, session=None):
+def mark_submitting_and_prepare_sources_for_transfers(transfers, external_host, logger, session=None):
     """
     Prepare the sources for transfers.
     :param transfers:  Dictionary containing request transfer info.
     :param session:    Database session to use.
     """
 
+    logger(logging.DEBUG, 'Start to prepare transfer')
     try:
-        for request_id in transfers:
+        for transfer in transfers:
+            log_str = 'PREPARING REQUEST %s DID %s:%s TO SUBMITTING STATE PREVIOUS %s FROM %s TO %s USING %s ' % (transfer.rws.request_id,
+                                                                                                                  transfer.rws.scope,
+                                                                                                                  transfer.rws.name,
+                                                                                                                  transfer.rws.previous_attempt_id,
+                                                                                                                  transfer.legacy_sources,
+                                                                                                                  transfer.dest_url,
+                                                                                                                  external_host)
+            logger(logging.INFO, "%s", log_str)
+
             rowcount = session.query(models.Request)\
-                              .filter_by(id=request_id)\
+                              .filter_by(id=transfer.rws.request_id)\
                               .filter(models.Request.state == RequestState.QUEUED)\
-                              .update({'state': transfers[request_id]['state'],
-                                       'external_id': transfers[request_id]['external_id'],
-                                       'external_host': transfers[request_id]['external_host'],
-                                       'dest_url': transfers[request_id]['dest_url'],
+                              .update({'state': RequestState.SUBMITTING,
+                                       'external_id': None,
+                                       'external_host': external_host,
+                                       'dest_url': transfer.dest_url,
                                        'submitted_at': datetime.datetime.utcnow()},
                                       synchronize_session=False)
             if rowcount == 0:
-                raise RequestNotFound("Failed to prepare transfer: request %s does not exist or is not in queued state" % request_id)
+                raise RequestNotFound("Failed to prepare transfer: request %s does not exist or is not in queued state" % transfer.rws)
 
-            if 'file' in transfers[request_id]:
-                file = transfers[request_id]['file']
-                for src_rse, src_url, src_rse_id, rank in file['sources']:
-                    src_rowcount = session.query(models.Source)\
-                                          .filter_by(request_id=request_id)\
-                                          .filter(models.Source.rse_id == src_rse_id)\
-                                          .update({'is_using': True}, synchronize_session=False)
-                    if src_rowcount == 0:
-                        models.Source(request_id=file['metadata']['request_id'],
-                                      scope=file['metadata']['scope'],
-                                      name=file['metadata']['name'],
-                                      rse_id=src_rse_id,
-                                      dest_rse_id=file['metadata']['dest_rse_id'],
-                                      ranking=rank if rank else 0,
-                                      bytes=file['metadata']['filesize'],
-                                      url=src_url,
-                                      is_using=True).\
-                            save(session=session, flush=False)
+            for src_rse, src_url, src_rse_id, rank in transfer.legacy_sources:
+                src_rowcount = session.query(models.Source)\
+                                      .filter_by(request_id=transfer.rws.request_id)\
+                                      .filter(models.Source.rse_id == src_rse_id)\
+                                      .update({'is_using': True}, synchronize_session=False)
+                if src_rowcount == 0:
+                    models.Source(request_id=transfer.rws.request_id,
+                                  scope=transfer.rws.scope,
+                                  name=transfer.rws.name,
+                                  rse_id=src_rse_id,
+                                  dest_rse_id=transfer.dst.rse.id,
+                                  ranking=rank if rank else 0,
+                                  bytes=transfer.rws.byte_count,
+                                  url=src_url,
+                                  is_using=True).\
+                        save(session=session, flush=False)
 
     except IntegrityError as error:
         raise RucioException(error.args)
+    logger(logging.DEBUG, 'Finished to prepare transfer')
 
 
 @transactional_session
-def set_transfers_state(transfers, submitted_at, session=None):
+def set_transfers_state(transfers, state, submitted_at, external_host, external_id, logger, session=None):
     """
     Update the transfer info of a request.
     :param transfers:  Dictionary containing request transfer info.
     :param session:    Database session to use.
     """
 
+    logger(logging.DEBUG, 'Start register transfer state to %s for eid %s' % (state, external_id))
     try:
-        for request_id in transfers:
+        for transfer in transfers:
+            rws = transfer.rws
+            logger(logging.INFO, 'COPYING REQUEST %s DID %s:%s USING %s with state(%s) with eid(%s)' % (rws.request_id, rws.scope, rws.name, external_host, state, external_id))
             rowcount = session.query(models.Request)\
-                              .filter_by(id=request_id)\
+                              .filter_by(id=transfer.rws.request_id)\
                               .filter(models.Request.state == RequestState.SUBMITTING)\
-                              .update({'state': transfers[request_id]['state'],
-                                       'external_id': transfers[request_id]['external_id'],
-                                       'external_host': transfers[request_id]['external_host'],
-                                       'source_rse_id': transfers[request_id]['src_rse_id'],
+                              .update({'state': state,
+                                       'external_id': external_id,
+                                       'external_host': external_host,
+                                       'source_rse_id': transfer.src.rse.id,
                                        'submitted_at': submitted_at},
                                       synchronize_session=False)
+
             if rowcount == 0:
-                raise RucioException("Failed to set requests %s tansfer %s: request doesn't exist or is not in SUBMITTING state" % (request_id, transfers[request_id]))
+                raise RucioException("Failed to set requests %s tansfer %s: request doesn't exist or is not in SUBMITTING state" % rws)
 
-            request_type = transfers[request_id].get('request_type', None)
-
-            msg = {'request-id': request_id,
-                   'request-type': request_type,
-                   'scope': transfers[request_id]['scope'].external,
-                   'name': transfers[request_id]['name'],
-                   'src-rse-id': transfers[request_id]['metadata'].get('src_rse_id', None),
-                   'src-rse': transfers[request_id]['metadata'].get('src_rse', None),
-                   'dst-rse-id': transfers[request_id]['metadata'].get('dst_rse_id', None),
-                   'dst-rse': transfers[request_id]['metadata'].get('dst_rse', None),
-                   'state': transfers[request_id]['state'],
-                   'activity': transfers[request_id]['metadata'].get('activity', None),
-                   'file-size': transfers[request_id]['metadata'].get('filesize', None),
-                   'bytes': transfers[request_id]['metadata'].get('filesize', None),
-                   'checksum-md5': transfers[request_id]['metadata'].get('md5', None),
-                   'checksum-adler': transfers[request_id]['metadata'].get('adler32', None),
-                   'external-id': transfers[request_id]['external_id'],
-                   'external-host': transfers[request_id]['external_host'],
+            msg = {'request-id': rws.request_id,
+                   'request-type': rws.request_type,
+                   'scope': rws.scope.external,
+                   'name': rws.name,
+                   'src-rse-id': transfer.src.rse.id,
+                   'src-rse': transfer.src.rse.name,
+                   'dst-rse-id': transfer.dst.rse.id,
+                   'dst-rse': transfer.dst.rse.name,
+                   'state': state,
+                   'activity': rws.activity,
+                   'file-size': rws.byte_count,
+                   'bytes': rws.byte_count,
+                   'checksum-md5': rws.md5,
+                   'checksum-adler': rws.adler32,
+                   'external-id': external_id,
+                   'external-host': external_host,
                    'queued_at': str(submitted_at)}
-            if transfers[request_id]['scope'].vo != 'def':
-                msg['vo'] = transfers[request_id]['scope'].vo
+            if rws.scope.vo != 'def':
+                msg['vo'] = rws.scope.vo
 
             if msg['request-type']:
                 transfer_status = '%s-%s' % (msg['request-type'].name, msg['state'].name)
@@ -782,6 +686,8 @@ def set_transfers_state(transfers, submitted_at, session=None):
 
     except IntegrityError as error:
         raise RucioException(error.args)
+
+    logger(logging.DEBUG, 'Finished to register transfer state for %s' % external_id)
 
 
 def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeout=None, logger=logging.log):
