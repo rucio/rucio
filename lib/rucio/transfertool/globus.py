@@ -1,4 +1,5 @@
-# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +14,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019-2021
+# - Matt Snyder <msnyder@bnl.gov>, 2019-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import logging
 
@@ -65,7 +67,7 @@ class GlobusTransferTool(Transfertool):
 
         return task_id
 
-    def bulk_submit(self, submitjob, timeout=None):
+    def bulk_submit(self, transfers, timeout=None):
         """
         Submit a bulk transfer to globus API
 
@@ -76,6 +78,23 @@ class GlobusTransferTool(Transfertool):
         """
 
         # TODO: support passing a recursive parameter to Globus
+        submitjob = [
+            {
+                # Some dict elements are not needed by globus transfertool, but are accessed by further common fts/globus code
+                'sources': [s[1] for s in transfer.legacy_sources],
+                'destinations': [transfer.dest_url],
+                'metadata': {
+                    'src_rse': transfer.src.rse.name,
+                    'dst_rse': transfer.dst.rse.name,
+                    'scope': str(transfer.rws.scope),
+                    'name': transfer.rws.name,
+                    'source_globus_endpoint_id': transfer.src.rse.attributes['globus_endpoint_id'],
+                    'dest_globus_endpoint_id': transfer.dst.rse.attributes['globus_endpoint_id'],
+                    'filesize': transfer.rws.byte_count,
+                },
+            }
+            for transfer in transfers
+        ]
         task_id = bulk_submit_xfer(submitjob, recursive=False)
 
         return task_id
