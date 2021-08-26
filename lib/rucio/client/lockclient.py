@@ -61,7 +61,7 @@ class LockClient(BaseClient):
                                                    status_code=result.status_code)
             raise exc_cls(exc_msg)
 
-    def get_many_dataset_locks(self, dataset_list):
+    def get_locks_for_datasets(self, dataset_list):
         """
         Get a dataset locks of the specified list of datasets.
 
