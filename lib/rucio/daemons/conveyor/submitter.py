@@ -203,7 +203,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                         for job in grouped_jobs[external_host]:
                             logger(logging.DEBUG, 'submitjob: %s' % job)
                             submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                            timeout=timeout, logger=logger, transfertool=transfertool, vo=None)
+                                            timeout=timeout, logger=logger, transfertool=transfertool)
 
                 if len(transfers) < group_bulk:
                     logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', len(transfers), activity, group_bulk, sleep_time)
