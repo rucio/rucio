@@ -278,6 +278,8 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
                 job_params['archive_timeout'] = archive_timeout
             elif archive_timeout_override != 0:
                 job_params['archive_timeout'] = archive_timeout_override
+            # FTS only supports dst_file metadata if archive_timeout is set
+            job_params['dst_file_report'] = True
             logger(logging.DEBUG, 'Added archive timeout to transfer.')
         except ValueError:
             logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', transfer)

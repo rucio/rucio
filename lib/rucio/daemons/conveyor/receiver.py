@@ -51,7 +51,7 @@ from rucio.common.logging import setup_logging
 from rucio.common.policy import get_policy
 from rucio.core import request
 from rucio.core.monitor import record_counter
-from rucio.core.transfer import set_transfer_update_time
+from rucio.core.transfer import set_transfer_update_time, is_recoverable_fts_overwrite_error
 from rucio.daemons.conveyor.common import HeartbeatHandler
 from rucio.db.sqla.constants import RequestState
 
@@ -106,6 +106,7 @@ class Receiver(object):
                             'dst_type': msg['file_metadata'].get('dst_type', None),
                             'src_rse': msg['file_metadata'].get('src_rse', None),
                             'dst_rse': msg['file_metadata'].get('dst_rse', None),
+                            'dst_file': msg['file_metadata'].get('dst_file', {}),
                             'request_id': msg['file_metadata'].get('request_id', None),
                             'activity': msg['file_metadata'].get('activity', None),
                             'src_rse_id': msg['file_metadata'].get('src_rse_id', None),
@@ -120,6 +121,8 @@ class Receiver(object):
 
                 record_counter('daemons.conveyor.receiver.message_rucio')
                 if str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.OK:  # pylint:disable=no-member
+                    response['new_state'] = RequestState.DONE
+                elif str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.ERROR and is_recoverable_fts_overwrite_error(response):  # pylint:disable=no-member
                     response['new_state'] = RequestState.DONE
                 elif str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.ERROR:  # pylint:disable=no-member
                     response['new_state'] = RequestState.FAILED
