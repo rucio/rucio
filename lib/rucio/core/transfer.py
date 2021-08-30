@@ -81,7 +81,8 @@ from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.mock import MockTransfertool
 
 if TYPE_CHECKING:
-    from typing import List
+    from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Set, Tuple, Union
+    from sqlalchemy.orm import Session
 
 EXTRA_MODULES = import_extras(['globus_sdk'])
 
@@ -279,7 +280,8 @@ class DirectTransferDefinition:
     The class wraps the legacy dict-based transfer definition to maintain compatibility with existing code
     during the migration.
     """
-    def __init__(self, source, destination, rws, protocol_factory, operation_src, operation_dest):
+    def __init__(self, source: TransferSource, destination: TransferDestination, rws: RequestWithSources,
+                 protocol_factory: ProtocolFactory, operation_src: str, operation_dest: str):
         self.sources = [source]
         self.destination = destination
 
@@ -384,7 +386,7 @@ class DirectTransferDefinition:
         return dest_url
 
     @classmethod
-    def _generate_source_url(cls, src, dst, rws, protocol_factory, operation):
+    def _generate_source_url(cls, src: TransferSource, dst: TransferDestination, rws: RequestWithSources, protocol_factory: ProtocolFactory, operation: str):
         """
         Generate the source url which will be used as origin to copy the file from request rws towards the given dst endpoint
         """
@@ -399,7 +401,7 @@ class DirectTransferDefinition:
         return source_url
 
     @classmethod
-    def _generate_dest_url(cls, dst, rws, protocol_factory, operation):
+    def _generate_dest_url(cls, dst: TransferDestination, rws: RequestWithSources, protocol_factory: ProtocolFactory, operation: str):
         """
         Generate the destination url for copying the file of request rws
         """
@@ -460,7 +462,7 @@ class StageinTransferDefinition(DirectTransferDefinition):
         return self._legacy_sources
 
 
-def oidc_supported(transfer_hop):
+def oidc_supported(transfer_hop: DirectTransferDefinition) -> bool:
     """
     checking OIDC AuthN/Z support per destination and source RSEs;
 
@@ -577,7 +579,12 @@ def submit_bulk_transfers(external_host, transfers, transfertool='fts3', job_par
 
 
 @transactional_session
-def mark_submitting_and_prepare_sources_for_transfers(transfers, external_host, logger, session=None):
+def mark_submitting_and_prepare_sources_for_transfers(
+        transfers: "Iterable[DirectTransferDefinition]",
+        external_host: str,
+        logger: "Callable",
+        session: "Optional[Session]" = None,
+):
     """
     Prepare the sources for transfers.
     :param transfers:  Dictionary containing request transfer info.
@@ -916,6 +923,9 @@ def get_hops(source_rse_id, dest_rse_id, multihop_rses=None, limit_dest_schemes=
     if not limit_dest_schemes:
         limit_dest_schemes = []
 
+    if not multihop_rses:
+        multihop_rses = []
+
     shortest_paths = __search_shortest_paths(source_rse_ids=[source_rse_id], dest_rse_id=dest_rse_id,
                                              operation_src='third_party_copy', operation_dest='third_party_copy',
                                              domain='wan', multihop_rses=multihop_rses,
@@ -936,8 +946,17 @@ def get_hops(source_rse_id, dest_rse_id, multihop_rses=None, limit_dest_schemes=
     return path
 
 
-def __search_shortest_paths(source_rse_ids, dest_rse_id, operation_src, operation_dest, domain, multihop_rses,
-                            limit_dest_schemes, inbound_links_by_node=None, session=None):
+def __search_shortest_paths(
+        source_rse_ids: "List[str]",
+        dest_rse_id: "List[str]",
+        operation_src: str,
+        operation_dest: str,
+        domain: str,
+        multihop_rses: "List[str]",
+        limit_dest_schemes: "Union[str, List[str]]",
+        inbound_links_by_node: "Optional[Dict[str, Dict[str, str]]]" = None,
+        session: "Optional[Session]" = None,
+) -> "Dict[str, List[Dict[str, Any]]]":
     """
     Find the shortest paths from multiple sources towards dest_rse_id.
     Does a Backwards Dijkstra's algorithm: start from destination and follow inbound links towards the sources.
@@ -947,12 +966,6 @@ def __search_shortest_paths(source_rse_ids, dest_rse_id, operation_src, operatio
     The inbound links retrieved from the database can be accumulated into the inbound_links_by_node, passed
     from the calling context. To be able to reuse them.
     """
-    if not limit_dest_schemes:
-        limit_dest_schemes = []
-
-    if multihop_rses is None:
-        multihop_rses = []
-
     HOP_PENALTY = core_config_get('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
 
     if multihop_rses:
@@ -1040,8 +1053,18 @@ def __search_shortest_paths(source_rse_ids, dest_rse_id, operation_src, operatio
 
 
 @read_session
-def __create_transfer_definitions(ctx, protocol_factory, rws, sources, multihop_rses, limit_dest_schemes,
-                                  operation_src, operation_dest, domain, session=None):
+def __create_transfer_definitions(
+        ctx: _RseLoaderContext,
+        protocol_factory: ProtocolFactory,
+        rws: RequestWithSources,
+        sources: "List[TransferSource]",
+        multihop_rses: "List[str]",
+        limit_dest_schemes: "List[str]",
+        operation_src: str,
+        operation_dest: str,
+        domain: str,
+        session: "Optional[Session]" = None,
+) -> "Dict[str, List[DirectTransferDefinition]]":
     """
     Find the all paths from sources towards the destination of the given transfer request.
     Create the transfer definitions for each point-to-point transfer (multi-source, when possible)
@@ -1158,7 +1181,14 @@ def __create_transfer_definitions(ctx, protocol_factory, rws, sources, multihop_
     return transfers_by_source
 
 
-def __create_stagein_definitions(rws, sources, limit_dest_schemes, operation_src, operation_dest, protocol_factory):
+def __create_stagein_definitions(
+        rws: RequestWithSources,
+        sources: "List[TransferSource]",
+        limit_dest_schemes: "List[str]",
+        operation_src: str,
+        operation_dest: str,
+        protocol_factory: ProtocolFactory,
+) -> "Dict[str, List[StageinTransferDefinition]]":
     """
     for each source, create a single-hop transfer path with a one stageing definition inside
     """
@@ -1197,7 +1227,7 @@ def get_dsn(scope, name, dsn):
     return 'other'
 
 
-def __filter_unwanted_paths(candidate_paths):
+def __filter_unwanted_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") -> "Generator[List[DirectTransferDefinition]]":
 
     # Discard multihop transfers which contain a tape source as an intermediate hop
     filtered_candidate_paths = []
@@ -1220,7 +1250,7 @@ def __filter_unwanted_paths(candidate_paths):
     yield from candidate_paths
 
 
-def __sort_paths(candidate_paths):
+def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") -> "Generator[List[DirectTransferDefinition]]":
 
     def __transfer_order_key(transfer_path):
         # higher source_ranking first,
@@ -1237,7 +1267,12 @@ def __sort_paths(candidate_paths):
     yield from sorted(candidate_paths, key=__transfer_order_key)
 
 
-def __filter_for_transfertool(candidate_paths, transfertool, retry_other_fts, logger):
+def __filter_for_transfertool(
+        candidate_paths: "Iterable[List[DirectTransferDefinition]]",
+        transfertool: str,
+        retry_other_fts: bool,
+        logger: "Callable",
+):
     """
     Filter out paths which cannot be handled by the given transfertool (missing globus enpoint ids; no common fts server attribute; etc)
     Generates tuples: (<the external host which can handle the transfer>, <the associated transfer path>)
@@ -1258,7 +1293,7 @@ def __filter_for_transfertool(candidate_paths, transfertool, retry_other_fts, lo
                     break
 
             if not all_rses_have_globus_id:
-                logger(logging.ERROR, 'Globus endpoint attribute not defined - for at least one transfer hops {} {}'.format(','.join(transfer_path), rws.request_id))
+                logger(logging.ERROR, 'Globus endpoint attribute not defined - for at least one transfer hops {} {}'.format([str(hop) for hop in transfer_path], rws.request_id))
                 continue
         else:
             common_fts_hosts = []
@@ -1278,7 +1313,7 @@ def __filter_for_transfertool(candidate_paths, transfertool, retry_other_fts, lo
                     external_host = common_fts_hosts[rws.retry_count % len(common_fts_hosts)]
             else:
                 if transfertool == 'fts3':
-                    logger(logging.ERROR, 'FTS attribute not defined - for at least one transfer hops {} {}'.format(','.join(transfer_path), rws.request_id))
+                    logger(logging.ERROR, 'FTS attribute not defined - for at least one transfer hops {} {}'.format([str(hop) for hop in transfer_path], rws.request_id))
                     continue
                 else:
                     external_host = ''
@@ -1320,6 +1355,12 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activ
             multihop_rses = [rse['id'] for rse in parse_expression('available_for_multihop=true')]
         except InvalidRSEExpression:
             pass
+
+    if schemes is None:
+        schemes = []
+
+    if failover_schemes is None:
+        failover_schemes = []
 
     # retrieve (from the database) the transfer requests with their possible source replicas
     request_with_sources = __list_transfer_requests_and_source_replicas(
@@ -1368,7 +1409,14 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activ
     return paths_by_external_host
 
 
-def __build_transfer_paths(requests_with_sources, multihop_rses=None, schemes=None, failover_schemes=None, logger=logging.log, session=None):
+def __build_transfer_paths(
+        requests_with_sources: "Iterable[RequestWithSources]",
+        multihop_rses: "List[str]",
+        schemes: "List[str]",
+        failover_schemes: "List[str]",
+        logger: "Callable" = logging.log,
+        session: "Optional[Session]" = None,
+):
     """
     For each request, find all possible transfer paths from its sources, which respect the
     constraints enforced by the request (attributes, type, etc) and the arguments of this function
@@ -1450,7 +1498,7 @@ def __build_transfer_paths(requests_with_sources, multihop_rses=None, schemes=No
                                                   rws=rws,
                                                   sources=filtered_sources,
                                                   multihop_rses=multihop_rses,
-                                                  limit_dest_schemes=None,
+                                                  limit_dest_schemes=[],
                                                   operation_src='third_party_copy',
                                                   operation_dest='third_party_copy',
                                                   domain='wan',
@@ -1500,7 +1548,12 @@ def __build_transfer_paths(requests_with_sources, multihop_rses=None, schemes=No
     return candidate_paths_by_request_id, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
 
 
-def __pick_and_build_path_for_transfertool(candidate_paths_by_request_id, retry_other_fts=False, transfertool=None, logger=logging.log):
+def __pick_and_build_path_for_transfertool(
+        candidate_paths_by_request_id: "Dict[str: List[DirectTransferDefinition]]",
+        retry_other_fts: bool = False,
+        transfertool: "Optional[str]" = None,
+        logger: "Callable" = logging.log
+) -> "Tuple[Dict[str, List[DirectTransferDefinition]], Set[str]]":
     """
     for each request, pick the first path which can be submitted to the transfertool given in parameter.
     If the chosen path is multihop, create all missing intermediate requests and replicas.
@@ -1536,8 +1589,15 @@ def __pick_and_build_path_for_transfertool(candidate_paths_by_request_id, retry_
 
 
 @transactional_session
-def create_missing_replicas_and_requests(transfer_path, default_tombstone_delay, logger, session=None):
-    # Create replicas and requests in the database for the intermediate hops
+def create_missing_replicas_and_requests(
+        transfer_path: "List[DirectTransferDefinition]",
+        default_tombstone_delay: int,
+        logger: "Callable",
+        session: "Optional[Session]" = None
+) -> bool:
+    """
+    Create replicas and requests in the database for the intermediate hops
+    """
     creation_successful = True
     created_requests = []
     for hop in transfer_path:
