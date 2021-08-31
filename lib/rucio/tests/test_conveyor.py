@@ -27,7 +27,7 @@ from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
 import pytest
 
 import rucio.daemons.reaper.reaper
-from rucio.common.exception import ReplicaNotFound
+from rucio.common.exception import ReplicaNotFound, RequestNotFound
 from rucio.core import distance as distance_core
 from rucio.core import replica as replica_core
 from rucio.core import request as request_core
@@ -228,6 +228,13 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
 
     # Each hop is a separate transfer, which will be handled by the poller and marked as failed
     assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 2
+
+    finisher(once=True, partition_wait_time=None)
+    # The intermediate request must not be re-scheduled by finisher
+    with pytest.raises(RequestNotFound):
+        request_core.get_request_by_did(rse_id=jump_rse_id, **did)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['state'] == RequestState.QUEUED
 
 
 @skip_rse_tests_with_accounts
@@ -443,6 +450,13 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         # First hop will be handled by receiver; second hop by poller
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 1
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 1
+
+        finisher(once=True, partition_wait_time=None)
+        # The intermediate request must not be re-scheduled by finisher
+        with pytest.raises(RequestNotFound):
+            request_core.get_request_by_did(rse_id=jump_rse_id, **did)
+        request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+        assert request['state'] == RequestState.QUEUED
     finally:
         receiver_graceful_stop.set()
         receiver_thread.join(timeout=5)

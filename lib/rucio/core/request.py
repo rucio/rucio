@@ -89,6 +89,10 @@ def should_retry_request(req, retry_protocol_mismatches):
     :param retry_protocol_mismatches:    Boolean to retry the transfer in case of protocol mismatch.
     :returns:                            True if should retry it; False if no more retry.
     """
+    if req['attributes'] and req['attributes'].get('next_hop_request_id'):
+        # This is an intermediate request in a multi-hop transfer. It must not be re-scheduled on its own.
+        # If needed, it will be re-scheduled via the creation of a new multi-hop transfer.
+        return False
     if req['state'] == RequestState.SUBMITTING:
         return True
     if req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES:
@@ -584,6 +588,7 @@ def get_request(request_id, session=None):
         else:
             tmp = dict(tmp)
             tmp.pop('_sa_instance_state')
+            tmp['attributes'] = json.loads(str(tmp['attributes']))
             return tmp
     except IntegrityError as error:
         raise RucioException(error.args)
@@ -675,7 +680,7 @@ def archive_request(request_id, session=None):
                                              name=req['name'],
                                              dest_rse_id=req['dest_rse_id'],
                                              source_rse_id=req['source_rse_id'],
-                                             attributes=req['attributes'],
+                                             attributes=json.dumps(req['attributes']) if isinstance(req['attributes'], dict) else req['attributes'],
                                              state=req['state'],
                                              account=req['account'],
                                              external_id=req['external_id'],
