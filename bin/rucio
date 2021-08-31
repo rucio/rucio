@@ -80,7 +80,7 @@ from rucio.common.extra import import_extras
 from rucio.common.test_rucio_server import TestRucioServer
 from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, \
     extract_scope, setup_logger
-from rucio.db.sqla.constants import ReplicaState
+from rucio.common.constants import ReplicaState
 
 EXTRA_MODULES = import_extras(['argcomplete'])
 
