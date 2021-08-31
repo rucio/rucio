@@ -54,7 +54,7 @@ graceful_stop = threading.Event()
 
 
 def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
-           source_strategy=None, activities=None, sleep_time=600, retry_other_fts=False):
+           source_strategy=None, activities=None, sleep_time=600):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -137,7 +137,6 @@ def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
                     activity=activity,
                     rses=rse_ids,
                     schemes=scheme,
-                    retry_other_fts=retry_other_fts,
                     older_than=None,
                     request_type=RequestType.STAGEIN,
                     logger=logger,
@@ -186,7 +185,7 @@ def stop(signum=None, frame=None):
 
 def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
         rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
-        activities=[], sleep_time=600, retry_other_fts=False):
+        activities=[], sleep_time=600):
     """
     Starts up the conveyer threads.
     """
@@ -216,8 +215,7 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
                group_bulk=group_bulk,
                group_policy=group_policy,
                source_strategy=source_strategy,
-               activities=activities,
-               retry_other_fts=retry_other_fts)
+               activities=activities)
 
     else:
         logging.info('starting stager threads')
@@ -227,8 +225,7 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
                                                            'group_policy': group_policy,
                                                            'activities': activities,
                                                            'sleep_time': sleep_time,
-                                                           'source_strategy': source_strategy,
-                                                           'retry_other_fts': retry_other_fts}) for _ in range(0, total_threads)]
+                                                           'source_strategy': source_strategy}) for _ in range(0, total_threads)]
 
         [thread.start() for thread in threads]
 

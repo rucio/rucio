@@ -70,7 +70,7 @@ GET_TRANSFERS_COUNTER = Counter('rucio_daemons_conveyor_submitter_get_transfers'
 
 def submitter(once=False, rses=None, partition_wait_time=10,
               bulk=100, group_bulk=1, group_policy='rule', source_strategy=None,
-              activities=None, sleep_time=600, max_sources=4, retry_other_fts=False, archive_timeout_override=None,
+              activities=None, sleep_time=600, max_sources=4, archive_timeout_override=None,
               filter_transfertool=FILTER_TRANSFERTOOL, transfertool=TRANSFER_TOOL, transfertype=TRANSFER_TYPE):
     """
     Main loop to submit a new transfer primitive to a transfertool.
@@ -161,7 +161,6 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                     activity=activity,
                     rses=rse_ids,
                     schemes=scheme,
-                    retry_other_fts=retry_other_fts,
                     transfertool=filter_transfertool,
                     older_than=None,
                     request_type=RequestType.TRANSFER,
@@ -221,7 +220,7 @@ def stop(signum=None, frame=None):
 
 def run(once=False, group_bulk=1, group_policy='rule', mock=False,
         rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
-        activities=None, exclude_activities=None, sleep_time=600, max_sources=4, retry_other_fts=False,
+        activities=None, exclude_activities=None, sleep_time=600, max_sources=4,
         archive_timeout_override=None, total_threads=1):
     """
     Starts up the conveyer threads.
@@ -270,7 +269,6 @@ def run(once=False, group_bulk=1, group_policy='rule', mock=False,
                                                           'sleep_time': sleep_time,
                                                           'max_sources': max_sources,
                                                           'source_strategy': source_strategy,
-                                                          'retry_other_fts': retry_other_fts,
                                                           'archive_timeout_override': archive_timeout_override}) for _ in range(0, total_threads)]
 
     [thread.start() for thread in threads]
