@@ -24,7 +24,6 @@
 
 from requests.status_codes import codes
 from six.moves.urllib.parse import quote_plus
-
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
 from rucio.common.utils import build_url, render_json
