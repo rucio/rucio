@@ -20,7 +20,6 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - Dhruv Sondhi <dhruvsondhi05@gmail.com>, 2021
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import re
 import sys
@@ -188,6 +187,9 @@ def select_account_name(identitystr, identity_type, vo=None):
             if account_info.account_type == AccountType.USER:
                 def_account = account
                 break
+        selected_account = request.cookies.get('rucio-selected-account')
+        if (selected_account):
+            def_account = selected_account
         ui_account = def_account
     return ui_account, vo
 
