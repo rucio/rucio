@@ -40,12 +40,12 @@ Methods common to different conveyor submitter daemons.
 """
 
 from __future__ import division
-from json import loads
 
 import datetime
+import functools
 import logging
 import time
-from itertools import chain
+from json import loads
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
@@ -276,24 +276,37 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
         activity_source_strategy = {}
 
     for transfer_path in transfers:
-        for i, transfer_hop in enumerate(transfer_path):
+        for i, transfer in enumerate(transfer_path):
             if len(transfer_path) > 1:
-                transfer_hop['multihop'] = True
-                transfer_hop['initial_request_id'] = transfer_path[-1].rws.request_id
-                transfer_hop['parent_request'] = transfer_path[i - 1].rws.request_id if i > 0 else None
-            transfer_hop['selection_strategy'] = source_strategy if source_strategy else activity_source_strategy.get(str(transfer_hop.rws.activity), default_source_strategy)
+                transfer['multihop'] = True
+            transfer['selection_strategy'] = source_strategy if source_strategy else activity_source_strategy.get(str(transfer.rws.activity), default_source_strategy)
 
-    for transfer in chain.from_iterable(transfers):
+    _build_job_params = functools.partial(job_params_for_fts_transfer,
+                                          bring_online=bring_online,
+                                          default_lifetime=default_lifetime,
+                                          archive_timeout_override=archive_timeout_override,
+                                          max_time_in_queue=max_time_in_queue,
+                                          logger=logger)
+    for transfer_path in transfers:
+        if len(transfer_path) > 1:
+            # for multihop transfers, all the path is submitted as a separate job
+            job_params = _build_job_params(transfer_path[-1])
+            for transfer in transfer_path[:-1]:
+                # Only allow overwrite if all transfers in multihop allow it
+                job_params['overwrite'] = _build_job_params(transfer)['overwrite'] and job_params['overwrite']
 
-        multihop = transfer.get('multihop', False)
-
-        job_params = job_params_for_fts_transfer(transfer, bring_online=bring_online, default_lifetime=default_lifetime,
-                                                 archive_timeout_override=archive_timeout_override, max_time_in_queue=max_time_in_queue, logger=logger)
-
-        # for multiple source replicas, no bulk submission
-        if len(transfer.legacy_sources) > 1:
-            grouped_jobs.append({'transfers': [transfer], 'job_params': job_params})
+            group_key = 'multihop_%s' % transfer_path[-1].rws.request_id
+            grouped_transfers[group_key] = {'transfers': transfer_path, 'job_params': job_params}
+        elif len(transfer_path[0].legacy_sources) > 1:
+            # for multi-source transfers, no bulk submission.
+            transfer = transfer_path[0]
+            grouped_jobs.append({'transfers': [transfer], 'job_params': _build_job_params(transfer)})
         else:
+            # it's a single-hop, single-source, transfer. Hence, a candidate for bulk submission.
+            transfer = transfer_path[0]
+            job_params = _build_job_params(transfer)
+
+            # we cannot group transfers together if their job_key differ
             job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params.get('spacetoken', None),
                                                    job_params['copy_pin_lifetime'],
                                                    job_params['bring_online'], job_params['job_metadata'],
@@ -302,56 +315,34 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
             if 'max_time_in_queue' in job_params:
                 job_key = job_key + ',%s' % job_params['max_time_in_queue']
 
-            if multihop:
-                job_key = 'multihop_%s' % (transfer['initial_request_id'])
+            # Additionally, we don't want to group transfers together if their policy_key differ
+            policy_key = ''
+            if policy == 'rule':
+                policy_key = '%s' % transfer.rws.rule_id
+            if policy == 'dest':
+                policy_key = '%s' % transfer.dst.rse.name
+            if policy == 'src_dest':
+                policy_key = '%s,%s' % (transfer.src.rse.name, transfer.dst.rse.name)
+            if policy == 'rule_src_dest':
+                policy_key = '%s,%s,%s' % (transfer.rws.rule_id, transfer.src.rse.name, transfer.dst.rse.name)
+            if policy == 'activity_dest':
+                policy_key = '%s %s' % (transfer.rws.activity, transfer.dst.rse.name)
+                policy_key = "_".join(policy_key.split(' '))
+            if policy == 'activity_src_dest':
+                policy_key = '%s %s %s' % (transfer.rws.activity, transfer.src.rse.name, transfer.dst.rse.name)
+                policy_key = "_".join(policy_key.split(' '))
+                # maybe here we need to hash the key if it's too long
 
-            if job_key not in grouped_transfers:
-                grouped_transfers[job_key] = {}
+            group_key = "%s_%s" % (job_key, policy_key)
+            if group_key not in grouped_transfers:
+                grouped_transfers[group_key] = {'transfers': [], 'job_params': job_params}
+            grouped_transfers[group_key]['transfers'].append(transfer)
 
-            if multihop:
-                policy_key = 'multihop_%s' % (transfer['initial_request_id'])
-            else:
-                if policy == 'rule':
-                    policy_key = '%s' % transfer.rws.rule_id
-                if policy == 'dest':
-                    policy_key = '%s' % transfer.dst.rse.name
-                if policy == 'src_dest':
-                    policy_key = '%s,%s' % (transfer.src.rse.name, transfer.dst.rse.name)
-                if policy == 'rule_src_dest':
-                    policy_key = '%s,%s,%s' % (transfer.rws.rule_id, transfer.src.rse.name, transfer.dst.rse.name)
-                if policy == 'activity_dest':
-                    policy_key = '%s %s' % (transfer.rws.activity, transfer.dst.rse.name)
-                    policy_key = "_".join(policy_key.split(' '))
-                if policy == 'activity_src_dest':
-                    policy_key = '%s %s %s' % (transfer.rws.activity, transfer.src.rse.name, transfer.dst.rse.name)
-                    policy_key = "_".join(policy_key.split(' '))
-                    # maybe here we need to hash the key if it's too long
-
-            if policy_key not in grouped_transfers[job_key]:
-                grouped_transfers[job_key][policy_key] = {'transfers': [], 'job_params': job_params}
-            current_transfers_policy = grouped_transfers[job_key][policy_key]
-
-            # Only allow overwrite if all transfers grouped together allow it
-            current_transfers_policy['job_params']['overwrite'] = current_transfers_policy['job_params']['overwrite'] and job_params['overwrite']
-
-            if multihop:
-                # The parent transfer should be the first of the list
-                # TODO : Only work for a single hop now, need to be able to handle multiple hops
-                if transfer['parent_request']:  # This is the child
-                    current_transfers_policy['transfers'].append(transfer)
-                else:
-                    current_transfers_policy['transfers'].insert(0, transfer)
-            else:
-                current_transfers_policy['transfers'].append(transfer)
-
-    # for jobs with different job_key, we cannot put in one job.
-    for job_key in grouped_transfers:
-        # for all policy groups in job_key, the job_params is the same.
-        for policy_key in grouped_transfers[job_key]:
-            job_params = grouped_transfers[job_key][policy_key]['job_params']
-            for xfers_files in chunks(grouped_transfers[job_key][policy_key]['transfers'], group_bulk):
-                # for the last small piece, just submit it.
-                grouped_jobs.append({'transfers': xfers_files, 'job_params': job_params})
+    # split transfer groups to have at most group_bulk elements in each one
+    for group in grouped_transfers.values():
+        job_params = group['job_params']
+        for transfers in chunks(group['transfers'], group_bulk):
+            grouped_jobs.append({'transfers': transfers, 'job_params': job_params})
 
     return grouped_jobs
 
