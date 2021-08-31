@@ -1270,7 +1270,6 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
 def __filter_for_transfertool(
         candidate_paths: "Iterable[List[DirectTransferDefinition]]",
         transfertool: str,
-        retry_other_fts: bool,
         logger: "Callable",
 ):
     """
@@ -1309,8 +1308,6 @@ def __filter_for_transfertool(
 
             if common_fts_hosts:
                 external_host = common_fts_hosts[0]
-                if retry_other_fts:
-                    external_host = common_fts_hosts[rws.retry_count % len(common_fts_hosts)]
             else:
                 if transfertool == 'fts3':
                     logger(logging.ERROR, 'FTS attribute not defined - for at least one transfer hops {} {}'.format([str(hop) for hop in transfer_path], rws.request_id))
@@ -1323,7 +1320,7 @@ def __filter_for_transfertool(
 
 @transactional_session
 def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                             retry_other_fts=False, failover_schemes=None, transfertool=None, request_type=RequestType.TRANSFER,
+                             failover_schemes=None, transfertool=None, request_type=RequestType.TRANSFER,
                              logger=logging.log, session=None):
     """
     Get next transfers to be submitted; grouped by the external host to which they will be submitted
@@ -1334,7 +1331,6 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activ
     :param older_than:            Get transfers older than.
     :param rses:                  Include RSES.
     :param schemes:               Include schemes.
-    :param retry_other_fts:       Retry other fts servers.
     :param failover_schemes:      Failover schemes.
     :param transfertool:          The transfer tool as specified in rucio.cfg.
     :param request_type           The type of requests to retrieve (Transfer/Stagein)
@@ -1391,7 +1387,6 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activ
     paths_by_external_host, reqs_no_host = __pick_and_build_path_for_transfertool(
         candidate_paths,
         transfertool=transfertool,
-        retry_other_fts=retry_other_fts,
         logger=logger
     )
 
@@ -1550,7 +1545,6 @@ def __build_transfer_paths(
 
 def __pick_and_build_path_for_transfertool(
         candidate_paths_by_request_id: "Dict[str: List[DirectTransferDefinition]]",
-        retry_other_fts: bool = False,
         transfertool: "Optional[str]" = None,
         logger: "Callable" = logging.log
 ) -> "Tuple[Dict[str, List[DirectTransferDefinition]], Set[str]]":
@@ -1567,7 +1561,7 @@ def __pick_and_build_path_for_transfertool(
         # intermediate hops (if it is a multihop) work correctly
         best_path = None
         external_host = None
-        for external_host, transfer_path in __filter_for_transfertool(candidate_paths, transfertool, retry_other_fts, logger):
+        for external_host, transfer_path in __filter_for_transfertool(candidate_paths, transfertool, logger):
             if create_missing_replicas_and_requests(transfer_path, default_tombstone_delay, logger=logger):
                 best_path = transfer_path
                 break
