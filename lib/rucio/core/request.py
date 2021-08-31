@@ -1248,7 +1248,7 @@ def update_request_state(response, session=None, logger=logging.log):
                 transfer_id = response['transfer_id'] if 'transfer_id' in response else None
                 logger(logging.INFO, 'UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
 
-                job_m_replica = response.get('job_m_replica', None)
+                multi_sources = response.get('multi_sources', None)
                 src_url = response.get('src_url', None)
                 src_rse = response.get('src_rse', None)
                 src_rse_id = response.get('src_rse_id', None)
@@ -1256,7 +1256,7 @@ def update_request_state(response, session=None, logger=logging.log):
                 staging_finished_at = response.get('staging_finished', None)
                 started_at = response.get('started_at', None)
                 transferred_at = response.get('transferred_at', None)
-                if job_m_replica and (str(job_m_replica).lower() == str('true')) and src_url:
+                if multi_sources and (str(multi_sources).lower() == str('true')) and src_url:
                     try:
                         src_rse_name, src_rse_id = __get_source_rse(response['request_id'], src_url, session=session)
                     except Exception:

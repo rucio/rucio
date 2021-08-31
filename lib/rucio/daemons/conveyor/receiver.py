@@ -115,7 +115,7 @@ class Receiver(object):
                             'md5': msg['file_metadata'].get('md5', None),
                             'filesize': msg['file_metadata'].get('filesize', None),
                             'external_host': msg.get('endpnt', None),
-                            'job_m_replica': msg.get('job_m_replica', None),
+                            'multi_sources': msg.get('job_metadata', {}).get('multi_sources', None),
                             'details': {'files': msg['file_metadata']}}
 
                 record_counter('daemons.conveyor.receiver.message_rucio')
