@@ -658,6 +658,7 @@ class FTS3Transfertool(Transfertool):
             resps[request_id] = {'new_state': None,
                                  'transfer_id': fts_job_response.get('job_id'),
                                  'job_state': fts_job_response.get('job_state', None),
+                                 'priority': fts_job_response.get('priority', None),
                                  'file_state': file_resp.get('file_state', None),
                                  'src_url': file_resp.get('source_surl', None),
                                  'dst_url': file_resp.get('dest_surl', None),
