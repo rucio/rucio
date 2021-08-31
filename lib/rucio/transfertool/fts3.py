@@ -682,7 +682,7 @@ class FTS3Transfertool(Transfertool):
                                  'md5': file_resp['file_metadata'].get('md5', None),
                                  'filesize': file_resp['file_metadata'].get('filesize', None),
                                  'external_host': self.external_host,
-                                 'job_m_replica': multi_sources,
+                                 'multi_sources': multi_sources,
                                  'details': {'files': file_resp['file_metadata']}}
 
             # multiple source replicas jobs and we found the successful one, it's the final state.
