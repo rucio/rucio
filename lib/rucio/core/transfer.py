@@ -69,7 +69,7 @@ from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.oidc import get_token_for_account_operation
-from rucio.core.replica import add_replicas, tombstone_from_delay
+from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
 from rucio.core.request import queue_requests, set_requests_state
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rses, get_rse_supported_checksums_from_attributes
 from rucio.core.rse_expression_parser import parse_expression
@@ -1566,7 +1566,10 @@ def create_missing_replicas_and_requests(
     """
     creation_successful = True
     created_requests = []
-    for hop in transfer_path:
+    # Iterate the path in reverse order. The last hop is the initial request, so
+    # next_hop.rws.request_id will always be initialized when handling the current hop.
+    for i in reversed(range(len(transfer_path))):
+        hop = transfer_path[i]
         rws = hop.rws
         if rws.request_id:
             continue
@@ -1589,9 +1592,14 @@ def create_missing_replicas_and_requests(
                          ignore_availability=False,
                          dataset_meta=None,
                          session=session)
+            # Set replica state to Copying in case replica already existed in another state.
+            # Can happen when a multihop transfer failed previously, and we are re-scheduling it now.
+            update_replica_state(rse_id=rws.dest_rse.id, scope=rws.scope, name=rws.name, state=ReplicaState.COPYING, session=session)
         except Exception as error:
             logger(logging.ERROR, 'Problem adding replicas %s:%s on %s : %s', rws.scope, rws.name, rws.dest_rse, str(error))
 
+        rws.attributes['next_hop_request_id'] = transfer_path[i + 1].rws.request_id
+        rws.attributes['initial_request_id'] = transfer_path[-1].rws.request_id
         new_req = queue_requests(requests=[{'dest_rse_id': rws.dest_rse.id,
                                             'scope': rws.scope,
                                             'name': rws.name,
