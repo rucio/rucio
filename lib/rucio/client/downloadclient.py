@@ -236,7 +236,7 @@ class DownloadClient:
             item['scope'] = did_scope
             item['name'] = did_name
             item['sources'] = [{'pfn': pfn, 'rse': rse}]
-            dest_file_path = did_name
+            did_path_name = did_name
             if self.extract_scope_convention == 'belleii' and did_name.startswith('/'):
                 did_path_name = did_name[1:]
             dest_file_path = os.path.join(dest_dir_path, did_path_name)
