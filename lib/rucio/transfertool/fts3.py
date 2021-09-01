@@ -355,21 +355,6 @@ class FTS3Transfertool(Transfertool):
         if not isinstance(transfer_ids, list):
             transfer_ids = [transfer_ids]
 
-        """# multi-VO mode
-        if self.multi_vo:
-            responses = {}
-            vo_sorted_dict = self.__multi_vo_cert_selection_from_transfer_ids(transfer_ids)
-            for vo in vo_sorted_dict:
-                xfer_ids = ','.join(vo_sorted_dict[vo])
-                usercert = config_get('vo_certs', vo, True, config_get('conveyor', 'usercert', False, None))
-                cert = (usercert, usercert)
-                transfer_ids_list = vo_sorted_dict[vo]
-
-                responses.update(self.query_for_jobs(xfer_ids, timeout, transfer_ids_list, cert))
-            return responses
-
-        # Single VO mode
-        else:"""
         xfer_ids = ','.join(transfer_ids)
         transfer_ids_list = transfer_ids
         responses = self.query_for_jobs(xfer_ids, timeout, transfer_ids_list)
