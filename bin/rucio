@@ -454,7 +454,7 @@ def list_file_replicas(args):
                     for rse in replica['rses']:
                         for pfn in replica['rses'][rse]:
                             if args.all_states:
-                                rse_string = '({2}) {0} {1}'.format(rse, pfn, ReplicaState[replica['states'][rse]].value)
+                                rse_string = '({2}) {0}: {1}'.format(rse, pfn, ReplicaState[replica['states'][rse]].value)
                             else:
                                 rse_string = '{0}: {1}'.format(rse, pfn)
                             if args.selected_rse:
