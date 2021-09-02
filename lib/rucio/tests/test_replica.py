@@ -623,7 +623,7 @@ def test_delete_replicas_from_datasets_new(core_config_mock, caches_mock, rse_fa
     nbfiles = 5
     files1 = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
 
-    add_did(scope=mock_scope, name=tmp_dsn1, did_type=DIDType.DATASET, account=root_account)
+    add_did(scope=mock_scope, name=tmp_dsn1, type=DIDType.DATASET, account=root_account)
 
     attach_dids(scope=mock_scope, name=tmp_dsn1, rse_id=rse_id, dids=files1, account=root_account)
 
