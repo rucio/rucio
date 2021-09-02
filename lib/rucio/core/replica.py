@@ -1777,8 +1777,7 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
                          models.CollectionReplica.name == parent_name,
                          exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
                              and_(models.DataIdentifier.scope == parent_scope,
-                                  models.DataIdentifier.name == parent_name,
-                                  models.DataIdentifier.is_open == False)),  # NOQA
+                                  models.DataIdentifier.name == parent_name)),
                          ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(
                              and_(models.DataIdentifierAssociation.scope == parent_scope,
                                   models.DataIdentifierAssociation.name == parent_name))))
@@ -1792,16 +1791,28 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
                                   models.DataIdentifierAssociation.name == parent_name))))
 
                 # 3) Schedule removal of the entry from the DIDs table
-                did_condition.append(
-                    and_(models.DataIdentifier.scope == parent_scope,
-                         models.DataIdentifier.name == parent_name,
-                         models.DataIdentifier.is_open == False,  # NOQA
-                         ~exists([1]).where(
-                             and_(models.DataIdentifierAssociation.child_scope == parent_scope,
-                                  models.DataIdentifierAssociation.child_name == parent_name)),
-                         ~exists([1]).where(
-                             and_(models.DataIdentifierAssociation.scope == parent_scope,
-                                  models.DataIdentifierAssociation.name == parent_name))))
+                remove_open_did = config_get('reaper', 'remove_open_did', default=False, session=session)
+                if remove_open_did:
+                    did_condition.append(
+                        and_(models.DataIdentifier.scope == parent_scope,
+                             models.DataIdentifier.name == parent_name,
+                             ~exists([1]).where(
+                                 and_(models.DataIdentifierAssociation.child_scope == parent_scope,
+                                      models.DataIdentifierAssociation.child_name == parent_name)),
+                             ~exists([1]).where(
+                                 and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                      models.DataIdentifierAssociation.name == parent_name))))
+                else:
+                    did_condition.append(
+                        and_(models.DataIdentifier.scope == parent_scope,
+                             models.DataIdentifier.name == parent_name,
+                             models.DataIdentifier.is_open == False,  # NOQA
+                             ~exists([1]).where(
+                                 and_(models.DataIdentifierAssociation.child_scope == parent_scope,
+                                      models.DataIdentifierAssociation.child_name == parent_name)),
+                             ~exists([1]).where(
+                                 and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                      models.DataIdentifierAssociation.name == parent_name))))
 
         if child_did_condition:
 

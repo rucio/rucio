@@ -17,6 +17,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
 import os
 import shutil
@@ -273,10 +274,10 @@ class TemporaryDidFactory:
         self.client.add_container(scope=did['scope'].external, name=did['name'])
         return did
 
-    def upload_test_file(self, rse_name, scope=None, name=None, path=None, return_full_item=False):
+    def upload_test_file(self, rse_name, scope=None, name=None, path=None, size=2, return_full_item=False):
         scope = self._sanitize_or_set_scope(scope)
         if not path:
-            path = file_generator()
+            path = file_generator(size=size)
         if not name:
             name = os.path.basename(path)
         item = {
@@ -290,6 +291,29 @@ class TemporaryDidFactory:
         did = {'scope': scope, 'name': name}
         self.created_dids.append(did)
         return item if return_full_item else did
+
+    def upload_test_dataset(self, rse_name, scope=None, size=2, nb_files=2):
+        scope = self._sanitize_or_set_scope(scope)
+        dataset = self.make_dataset(scope=scope)
+        did = {'scope': scope, 'name': dataset['name']}
+        self.created_dids.append(did)
+        items = list()
+        for _ in range(0, nb_files):
+            path = file_generator(size=size)
+            name = os.path.basename(path)
+            items.append({
+                         'path': path,
+                         'rse': rse_name,
+                         'dataset_scope': str(scope),
+                         'dataset_name': dataset['name'],
+                         'did_scope': str(scope),
+                         'did_name': name,
+                         'guid': generate_uuid(),
+                         })
+            did = {'scope': scope, 'name': name}
+            self.created_dids.append(did)
+        self.upload_client.upload(items)
+        return items
 
 
 class TemporaryFileFactory:
