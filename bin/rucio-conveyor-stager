@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +15,15 @@
 # limitations under the License.
 #
 # Authors:
-# - Wen Guan, <wguan.icedew@gmail.com>, 2015
-# - Vincent Garonne, <vgaronne@gmail.com>, 2015-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018-2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Wen Guan <wen.guan@cern.ch>, 2015
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -47,8 +50,6 @@ def get_parser():
                         help='Group control: number of requests per group')
     parser.add_argument("--group-policy", action="store", default='rule', type=str,
                         help='Group control: policy used to group. enum{rule, dest, src_dest, rule_src_dest}')
-    parser.add_argument("--mock", action="store_true", default=False,
-                        help='Fake source replicas for requests')
     parser.add_argument('--source-strategy', action="store", default=None, type=str,
                         help='Source strategy. Overload the strategy defined in config DB.')
     parser.add_argument('--exclude-rses', action="store", default=None, type=str,
@@ -78,7 +79,6 @@ if __name__ == "__main__":
             total_threads=args.total_threads,
             bulk=args.bulk,
             group_bulk=args.group_bulk,
-            mock=args.mock,
             include_rses=args.include_rses,
             exclude_rses=args.exclude_rses,
             rses=args.rses,

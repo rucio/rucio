@@ -17,6 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import unittest
 
@@ -29,7 +30,7 @@ from rucio.core.distance import add_distance
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_rse, del_rse, add_protocol, add_rse_attribute
 from rucio.core.rule import add_rule
-from rucio.core.transfer import get_transfer_requests_and_source_replicas
+from rucio.core.transfer import next_transfers_to_submit
 from rucio.tests.common import rse_name_generator
 from rucio.tests.common_server import get_vo
 
@@ -97,13 +98,10 @@ class TestS3(unittest.TestCase):
 
         rule_id = add_rule(dids=self.files3, account=self.root, copies=1, rse_expression=self.rsenons3,
                            grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
-
-        requestss = get_transfer_requests_and_source_replicas(rses=[self.rses3])
-        for requests in requestss:
-            for request in requests:
-                if requests[request]['rule_id'] == rule_id[0]:
-                    assert requests[request]['sources'][0][1] == expected_src_url
-                    assert requests[request]['dest_urls'][0] == expected_dst_url
+        [[_host, [transfer_path]]] = next_transfers_to_submit(rses=[self.rsenons3_id]).items()
+        assert transfer_path[0].rws.rule_id == rule_id[0]
+        assert transfer_path[0]['sources'][0][1] == expected_src_url
+        assert transfer_path[0]['dest_urls'][0] == expected_dst_url
 
     def test_s3s_fts_dst(self):
         """ S3: TPC a file from storage to S3 """
@@ -114,9 +112,7 @@ class TestS3(unittest.TestCase):
         rule_id = add_rule(dids=self.filenons3, account=self.root, copies=1, rse_expression=self.rses3,
                            grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        requestss = get_transfer_requests_and_source_replicas(rses=[self.rses3])
-        for requests in requestss:
-            for request in requests:
-                if requests[request]['rule_id'] == rule_id[0]:
-                    assert requests[request]['sources'][0][1] == expected_src_url
-                    assert requests[request]['dest_urls'][0] == expected_dst_url
+        [[_host, [transfer_path]]] = next_transfers_to_submit(rses=[self.rses3_id]).items()
+        assert transfer_path[0].rws.rule_id == rule_id[0]
+        assert transfer_path[0]['sources'][0][1] == expected_src_url
+        assert transfer_path[0]['dest_urls'][0] == expected_dst_url
