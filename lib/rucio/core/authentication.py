@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2012-2019
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
@@ -37,7 +37,7 @@ from base64 import b64decode
 import paramiko
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, delete
 
 from rucio.common.exception import CannotAuthenticate, RucioException
 from rucio.common.utils import generate_uuid
@@ -102,9 +102,10 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
                                                                         account=account).first()
     db_account = result['account']
 
-    # remove expired tokens
-    session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
-                                       models.Token.account == account).with_for_update(skip_locked=True).delete()
+    stmt = delete(models.Token).\
+        prefix_with('/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */', dialect='oracle').\
+        where(and_(models.Token.expired_at < datetime.datetime.utcnow(), models.Token.account == account))
+    session.execute(stmt)
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -135,9 +136,10 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
     if not account_exists(account, session=session):
         return None
 
-    # remove expired tokens
-    session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
-                                       models.Token.account == account).with_for_update(skip_locked=True).delete()
+    stmt = delete(models.Token).\
+        prefix_with('/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */', dialect='oracle').\
+        where(and_(models.Token.expired_at < datetime.datetime.utcnow(), models.Token.account == account))
+    session.execute(stmt)
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -168,9 +170,10 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
     if not account_exists(account, session=session):
         return None
 
-    # remove expired tokens
-    session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
-                                       models.Token.account == account).with_for_update(skip_locked=True).delete()
+    stmt = delete(models.Token).\
+        prefix_with('/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */', dialect='oracle').\
+        where(and_(models.Token.expired_at < datetime.datetime.utcnow(), models.Token.account == account))
+    session.execute(stmt)
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -233,9 +236,10 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
     if not match:
         return None
 
-    # remove expired tokens
-    session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
-                                       models.Token.account == account).with_for_update(skip_locked=True).delete()
+    stmt = delete(models.Token).\
+        prefix_with('/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */', dialect='oracle').\
+        where(and_(models.Token.expired_at < datetime.datetime.utcnow(), models.Token.account == account))
+    session.execute(stmt)
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -302,9 +306,10 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
     if not account_exists(account, session=session):
         return None
 
-    # remove expired tokens
-    session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
-                                       models.Token.account == account).with_for_update(skip_locked=True).delete()
+    stmt = delete(models.Token).\
+        prefix_with('/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */', dialect='oracle').\
+        where(and_(models.Token.expired_at < datetime.datetime.utcnow(), models.Token.account == account))
+    session.execute(stmt)
 
     tuid = generate_uuid()  # NOQA
     token = '%(account)s-%(saml_nameid)s-%(appid)s-%(tuid)s' % locals()
