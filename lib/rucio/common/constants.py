@@ -20,8 +20,10 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from collections import namedtuple
+from enum import Enum
 
 """
 Constants.
@@ -52,3 +54,13 @@ FTS_STATE = namedtuple('FTS_STATE', ['SUBMITTED', 'READY', 'ACTIVE', 'FAILED', '
                                                   'CANCELED')
 
 FTS_COMPLETE_STATE = namedtuple('FTS_COMPLETE_STATE', ['OK', 'ERROR'])('Ok', 'Error')
+
+
+class ReplicaState(Enum):
+    # From rucio.db.sqla.constants, update that file at the same time than this
+    AVAILABLE = 'A'
+    UNAVAILABLE = 'U'
+    COPYING = 'C'
+    BEING_DELETED = 'B'
+    BAD = 'D'
+    TEMPORARY_UNAVAILABLE = 'T'
