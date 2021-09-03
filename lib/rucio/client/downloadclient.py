@@ -237,7 +237,7 @@ class DownloadClient:
             item['name'] = did_name
             item['sources'] = [{'pfn': pfn, 'rse': rse}]
             did_path_name = did_name
-            if self.extract_scope_convention == 'belleii' and did_name.startswith('/'):
+            if self.extract_scope_convention and self.extract_scope_convention == 'belleii' and did_name.startswith('/'):
                 did_path_name = did_name[1:]
             dest_file_path = os.path.join(dest_dir_path, did_path_name)
             item['dest_file_paths'] = [dest_file_path]
