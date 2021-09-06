@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -39,7 +36,7 @@ from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gs
     get_auth_token_ssh, get_ssh_challenge_token, validate_auth_token, get_auth_oidc, redirect_auth_oidc, \
     get_token_oidc, refresh_cli_auth_token, get_auth_token_saml
 from rucio.common.config import config_get
-from rucio.common.exception import AccessDenied, IdentityError, CannotAuthenticate, CannotAuthorize
+from rucio.common.exception import AccessDenied, IdentityError, CannotAuthenticate, CannotAuthorize, AccountNotFound
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, error_headers, \
@@ -103,7 +100,7 @@ class UserPass(ErrorHandlingMethodView):
         :resheader Access-Control-Expose-Headers:
         :resheader X-Rucio-Auth-Token: The authentication token
         :status 200: Successfully authenticated
-        :status 404: Invalid credentials
+        :status 401: Invalid credentials
         """
         headers = self.get_headers()
 
@@ -119,13 +116,15 @@ class UserPass(ErrorHandlingMethodView):
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
-        if not account or not username or not password:
-            return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot authenticate without passing all required arguments', headers=headers)
+        if not username or not password:
+            return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot authenticate without passing username and password', headers=headers)
 
         try:
             result = get_auth_token_user_pass(account, username, password, appid, ip, vo=vo)
         except AccessDenied:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot authenticate to account {account} with given credentials', headers=headers)
+        except AccountNotFound:
+            return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot found default account with given identity. Please supply a Rucio account to authenticate', headers=headers)
 
         if not result:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot authenticate to account {account} with given credentials', headers=headers)
@@ -552,6 +551,13 @@ class GSS(ErrorHandlingMethodView):
                 exc_msg=f'Cannot authenticate to account {account} with given credentials',
                 headers=headers
             )
+        except AccountNotFound:
+            return generate_http_error_flask(
+                status_code=401,
+                exc=CannotAuthenticate.__name__,
+                exc_msg=f'Cannot found default account with given identity. Please supply a Rucio account to authenticate',
+                headers=headers
+            )
 
         if result is None:
             return generate_http_error_flask(
@@ -658,6 +664,13 @@ class x509(ErrorHandlingMethodView):
                 exc_msg=f'No default account set for {dn}',
                 headers=headers
             )
+        except AccountNotFound:
+            return generate_http_error_flask(
+                status_code=401,
+                exc=CannotAuthenticate.__name__,
+                exc_msg=f'Cannot found default account with given identity. Please supply a Rucio account to authenticate',
+                headers=headers
+            )
 
         if not result:
             return generate_http_error_flask(
@@ -749,6 +762,14 @@ class SSH(ErrorHandlingMethodView):
                 exc_msg=f'Cannot authenticate to account {account} with given credentials',
                 headers=headers
             )
+        except AccountNotFound:
+            return generate_http_error_flask(
+                status_code=401,
+                exc=CannotAuthenticate.__name__,
+                exc_msg=f'Cannot found default account with given identity. Please supply a Rucio account to authenticate',
+                headers=headers
+            )
+
 
         if not result:
             return generate_http_error_flask(
@@ -893,6 +914,13 @@ class SAML(ErrorHandlingMethodView):
                     status_code=401,
                     exc=CannotAuthenticate.__name__,
                     exc_msg=f'Cannot authenticate to account {account} with given credentials',
+                    headers=headers
+                )
+            except AccountNotFound:
+                return generate_http_error_flask(
+                    status_code=401,
+                    exc=CannotAuthenticate.__name__,
+                    exc_msg=f'Cannot found default account with given identity. Please supply a Rucio account to authenticate',
                     headers=headers
                 )
 

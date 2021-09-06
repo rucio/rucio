@@ -276,7 +276,7 @@ class BaseClient(object):
                 try:
                     self.account = config_get('client', 'account')
                 except (NoOptionError, NoSectionError):
-                    raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
+                    LOG.debug("No account in config file, trying to use default account.")
 
         if vo is None:
             LOG.debug('No VO passed. Trying to get it from environment variable RUCIO_VO.')
@@ -294,13 +294,13 @@ class BaseClient(object):
         if self.auth_token_file_path:
             self.token_file = self.auth_token_file_path
             self.token_path = '/'.join(self.token_file.split('/')[:-1])
-            self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
+            self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + str(self.account)
         else:
-            self.token_path = self.TOKEN_PATH_PREFIX + self.account
+            self.token_path = self.TOKEN_PATH_PREFIX + str(self.account)
             if self.vo != 'def':
                 self.token_path += '@%s' % self.vo
-            self.token_file = self.token_path + '/' + self.TOKEN_PREFIX + self.account
-            self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
+            self.token_file = self.token_path + '/' + self.TOKEN_PREFIX + str(self.account)
+            self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + str(self.account)
 
         self.__authenticate()
 
@@ -655,6 +655,7 @@ class BaseClient(object):
         client_cert = None
         client_key = None
         if self.auth_type == 'x509':
+            LOG.info("X509")
             url = build_url(self.auth_host, path='auth/x509')
             client_cert = self.creds['client_cert']
             if 'client_key' in self.creds:

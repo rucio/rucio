@@ -56,7 +56,8 @@ from rucio.common.exception import (RucioException, RSEWriteBlocked, DataIdentif
                                     DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded, FileReplicaAlreadyExists,
                                     ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable,
                                     ScopeNotFound)
-from rucio.common.utils import (adler32, detect_client_location, execute, generate_uuid, make_valid_did, md5, send_trace,
+from rucio.common.utils import (adler32, detect_client_location, execute, generate_uuid, make_valid_did, md5,
+                                send_trace,
                                 retry, GLOBALLY_SUPPORTED_CHECKSUMS)
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
@@ -83,13 +84,19 @@ class UploadClient:
         self.tracing = tracing
         if not self.tracing:
             logger(logging.DEBUG, 'Tracing is turned off.')
-        self.default_file_scope = 'user.' + self.client.account
+        self.account = self.client.account
+        if not self.account:
+            self.account = self.client.whoami()['account']
+        if not self.account:
+            logger(logging.ERROR, "Cannot found default account with given identity. Please supply a Rucio account to authenticate")
+        print(self.account)
+        self.default_file_scope = 'user.' + self.account
         self.rses = {}
         self.rse_expressions = {}
 
         self.trace = {}
         self.trace['hostname'] = socket.getfqdn()
-        self.trace['account'] = self.client.account
+        self.trace['account'] = self.account
         if self.client.vo != 'def':
             self.trace['vo'] = self.client.vo
         self.trace['eventType'] = 'upload'
@@ -365,11 +372,11 @@ class UploadClient:
         # verification whether the scope exists
         account_scopes = []
         try:
-            account_scopes = self.client.list_scopes_for_account(self.client.account)
+            account_scopes = self.client.list_scopes_for_account(self.account)
         except ScopeNotFound:
             pass
         if account_scopes and file['did_scope'] not in account_scopes:
-            logger(logging.WARNING, 'Scope {} not found for the account {}.'.format(file['did_scope'], self.client.account))
+            logger(logging.WARNING, 'Scope {} not found for the account {}.'.format(file['did_scope'], self.account))
 
         rse = file['rse']
         dataset_did_str = file.get('dataset_did_str')
@@ -380,7 +387,7 @@ class UploadClient:
                 logger(logging.DEBUG, 'Trying to create dataset: %s' % dataset_did_str)
                 self.client.add_dataset(scope=file['dataset_scope'],
                                         name=file['dataset_name'],
-                                        rules=[{'account': self.client.account,
+                                        rules=[{'account': self.account,
                                                 'copies': 1,
                                                 'rse_expression': rse,
                                                 'grouping': 'DATASET',

@@ -24,6 +24,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from rucio.api import permission
 from rucio.common import exception
@@ -137,6 +138,11 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, vo='de
 
     :returns: A dict with token and expires_at entries.
     """
+    if account is None:
+        account = identity.get_default_account(username, IdentityType.USERPASS).external
+        if account is None:
+            raise exception.AccountNotFound('Cannot find a default account for (%s, %s)' %
+                                            (username, IdentityType.USERPASS))
 
     kwargs = {'account': account, 'username': username, 'password': password}
     if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_user_pass', kwargs=kwargs):
@@ -161,6 +167,10 @@ def get_auth_token_gss(account, gsscred, appid, ip=None, vo='def'):
 
     :returns: A dict with token and expires_at entries.
     """
+    if account is None:
+        account = identity.get_default_account(gsscred, IdentityType.GSS).external
+        if account is None:
+            raise exception.AccountNotFound('Cannot find a default account for (%s, %s)' % (gsscred, IdentityType.GSS))
 
     kwargs = {'account': account, 'gsscred': gsscred}
     if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_gss', kwargs=kwargs):
@@ -188,6 +198,8 @@ def get_auth_token_x509(account, dn, appid, ip=None, vo='def'):
 
     if account is None:
         account = identity.get_default_account(dn, IdentityType.X509).external
+        if account is None:
+            raise exception.AccountNotFound('Cannot find a default account for (%s, %s)' % (dn, IdentityType.X509))
 
     kwargs = {'account': account, 'dn': dn}
     if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_x509', kwargs=kwargs):
@@ -212,6 +224,11 @@ def get_auth_token_ssh(account, signature, appid, ip=None, vo='def'):
 
     :returns: A dict with token and expires_at entries.
     """
+    if account is None:
+        account = identity.get_default_account(signature, IdentityType.SSH).external
+        if account is None:
+            raise exception.AccountNotFound('Cannot find a default account for (%s, %s)' %
+                                            (signature, IdentityType.SSH))
 
     kwargs = {'account': account, 'signature': signature}
     if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_ssh', kwargs=kwargs):
@@ -258,6 +275,11 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, vo='def'):
 
     :returns: A dict with token and expires_at entries.
     """
+    if account is None:
+        account = identity.get_default_account(saml_nameid, IdentityType.SAML).external
+        if account is None:
+            raise exception.AccountNotFound('Cannot find a default account for (%s, %s)' %
+                                            (saml_nameid, IdentityType.SAML))
 
     kwargs = {'account': account, 'saml_nameid': saml_nameid}
     if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_saml', kwargs=kwargs):
