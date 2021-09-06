@@ -2145,11 +2145,15 @@ def update_replicas_states(replicas, nowait=False, session=None):
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
         elif replica['state'] == ReplicaState.UNAVAILABLE:
-            rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'],
-                                            error_message=replica.get('error_message', None),
-                                            broken_rule_id=replica.get('broken_rule_id', None),
-                                            broken_message=replica.get('broken_message', None),
-                                            nowait=nowait, session=session)
+            # if qos rse don't set to UNAVAILABLE yet
+            staging_required = get_rse_attribute('staging_required', rse_id=replica['rse_id'], session=session)
+            maximum_pin_lifetime = get_rse_attribute('maximum_pin_lifetime', rse_id=replica['rse_id'], session=session)
+            if staging_required != [True] and not maximum_pin_lifetime:
+                rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'],
+                                                error_message=replica.get('error_message', None),
+                                                broken_rule_id=replica.get('broken_rule_id', None),
+                                                broken_message=replica.get('broken_message', None),
+                                                nowait=nowait, session=session)
         elif replica['state'] == ReplicaState.TEMPORARY_UNAVAILABLE:
             query = query.filter(or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.TEMPORARY_UNAVAILABLE))
 
