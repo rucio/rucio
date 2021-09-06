@@ -914,6 +914,24 @@ class TestReplicationRuleCore(unittest.TestCase):
 
         pytest.raises(RuleReplaceFailed, move_rule, rule_id, self.rse4)
 
+    def test_add_rule_with_qos(self):
+        """ REPLICATION RULE (CORE): Add a qos rse and replication rule"""
+        rse = rse_name_generator()
+        rse_id = add_rse(rse, **self.vo)
+        add_rse_attribute(rse_id, 'staging_required', True)
+        add_rse_attribute(rse_id, 'maximum_pin_lifetime', 86400)
+        set_local_account_limit(self.jdoe, rse_id, -1)
+
+        scope = InternalScope('mock', **self.vo)
+        files = create_files(3, scope, self.rse1_id)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression='%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+        assert(rule_id == get_rule(rule_id)['id'].replace('-', '').lower())
+        pytest.raises(RuleNotFound, get_rule, uuid())
+
     def test_add_rule_with_scratchdisk(self):
         """ REPLICATION RULE (CORE): Add a replication rule for scratchdisk"""
         if get_policy() != 'atlas':

@@ -38,7 +38,7 @@ from rucio.core.config import get as core_config_get
 import rucio.core.did
 import rucio.core.lock
 import rucio.core.replica
-from rucio.core.rse import get_rse
+from rucio.core.rse import get_rse, get_rse_attribute
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE
 from rucio.db.sqla.session import transactional_session
@@ -841,6 +841,26 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
     if staging_area:
         lifetime = rule.expires_at - datetime.utcnow()
         lifetime = lifetime.seconds + lifetime.days * 24 * 3600
+        transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
+                                                        request_type=RequestType.STAGEIN,
+                                                        scope=file['scope'],
+                                                        name=file['name'],
+                                                        rule=rule,
+                                                        bytes_=file['bytes'],
+                                                        md5=file['md5'],
+                                                        adler32=file['adler32'],
+                                                        ds_scope=dataset['scope'],
+                                                        ds_name=dataset['name'],
+                                                        lifetime=lifetime,
+                                                        session=session))
+
+    # for qos if staging_required then pin to maximum_pin_lifetime
+    staging_required = get_rse_attribute('staging_required', rse_id=rse_id, session=session)
+    maximum_pin_lifetime = get_rse_attribute('maximum_pin_lifetime', rse_id=rse_id, session=session)
+
+    if staging_required == [True] and maximum_pin_lifetime:
+        logger(logging.INFO, 'Destination RSE is type QoS')
+        lifetime = maximum_pin_lifetime
         transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
                                                         request_type=RequestType.STAGEIN,
                                                         scope=file['scope'],
