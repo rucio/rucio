@@ -26,6 +26,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import datetime
 import hashlib
@@ -37,7 +38,7 @@ from base64 import b64decode
 import paramiko
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
-from sqlalchemy import and_, or_, delete
+from sqlalchemy import and_, or_, select, delete
 
 from rucio.common.exception import CannotAuthenticate, RucioException
 from rucio.common.utils import generate_uuid
@@ -102,10 +103,8 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
                                                                         account=account).first()
     db_account = result['account']
 
-    stmt = delete(models.Token).\
-        prefix_with('/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */', dialect='oracle').\
-        where(and_(models.Token.expired_at < datetime.datetime.utcnow(), models.Token.account == account))
-    session.execute(stmt)
+    # remove expired tokens
+    __delete_expired_tokens_account(account=account)
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -136,10 +135,8 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
     if not account_exists(account, session=session):
         return None
 
-    stmt = delete(models.Token).\
-        prefix_with('/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */', dialect='oracle').\
-        where(and_(models.Token.expired_at < datetime.datetime.utcnow(), models.Token.account == account))
-    session.execute(stmt)
+    # remove expired tokens
+    __delete_expired_tokens_account(account=account)
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -170,10 +167,8 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
     if not account_exists(account, session=session):
         return None
 
-    stmt = delete(models.Token).\
-        prefix_with('/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */', dialect='oracle').\
-        where(and_(models.Token.expired_at < datetime.datetime.utcnow(), models.Token.account == account))
-    session.execute(stmt)
+    # remove expired tokens
+    __delete_expired_tokens_account(account=account)
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -236,10 +231,8 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
     if not match:
         return None
 
-    stmt = delete(models.Token).\
-        prefix_with('/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */', dialect='oracle').\
-        where(and_(models.Token.expired_at < datetime.datetime.utcnow(), models.Token.account == account))
-    session.execute(stmt)
+    # remove expired tokens
+    __delete_expired_tokens_account(account=account)
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -306,10 +299,8 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
     if not account_exists(account, session=session):
         return None
 
-    stmt = delete(models.Token).\
-        prefix_with('/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */', dialect='oracle').\
-        where(and_(models.Token.expired_at < datetime.datetime.utcnow(), models.Token.account == account))
-    session.execute(stmt)
+    # remove expired tokens
+    __delete_expired_tokens_account(account=account)
 
     tuid = generate_uuid()  # NOQA
     token = '%(account)s-%(saml_nameid)s-%(appid)s-%(tuid)s' % locals()
@@ -472,3 +463,27 @@ def validate_auth_token(token, session=None):
 
 def token_dictionary(token: models.Token):
     return {'token': token.token, 'expires_at': token.expired_at}
+
+
+@transactional_session
+def __delete_expired_tokens_account(account, session=None):
+    """"
+    Deletes expired tokens from the database.
+
+    :param account: Account to delete expired tokens.
+    :param session: The database session in use.
+    """
+    stmt_select = select(models.Token) \
+        .where(and_(models.Token.expired_at < datetime.datetime.utcnow(),
+                    models.Token.account == account)) \
+        .with_for_update(skip_locked=True)
+    result_select = session.execute(stmt_select)
+
+    tokens = []
+    for t in result_select.columns('token'):
+        tokens.append(t.token)
+
+    stmt_delete = delete(models.Token) \
+        .where(models.Token.token.in_(tokens)) \
+        .prefix_with("/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */")
+    session.execute(stmt_delete)
