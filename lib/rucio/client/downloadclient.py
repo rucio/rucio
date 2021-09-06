@@ -32,6 +32,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - David Población Criado <13998309+davidpob99@users.noreply.github.com>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
 from __future__ import division
 
@@ -50,11 +51,12 @@ except ImportError:
 from threading import Thread
 
 from rucio.client.client import Client
+from rucio.common.config import config_get
 from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException)
 from rucio.common.didtype import DIDType
 from rucio.common.pcache import Pcache
 from rucio.common.utils import adler32, detect_client_location, generate_uuid, parse_replicas_from_string, \
-    send_trace, sizefmt, execute, parse_replicas_from_file
+    send_trace, sizefmt, execute, parse_replicas_from_file, extract_scope
 from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_ALGO_DICT, PREFERRED_CHECKSUM
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
@@ -181,6 +183,7 @@ class DownloadClient:
         # tar -C <dest_dir_path> -xf <archive_file_path>  <did_name>
         extract_args = '-C %(dest_dir_path)s -xf %(archive_file_path)s %(file_to_extract)s'
         self.extraction_tools.append(BaseExtractionTool('tar', '--version', extract_args, logger=self.logger))
+        self.extract_scope_convention = config_get('common', 'extract_scope', False, None)
 
     def download_pfns(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None):
         """
@@ -233,7 +236,10 @@ class DownloadClient:
             item['scope'] = did_scope
             item['name'] = did_name
             item['sources'] = [{'pfn': pfn, 'rse': rse}]
-            dest_file_path = os.path.join(dest_dir_path, did_name)
+            did_path_name = did_name
+            if self.extract_scope_convention and self.extract_scope_convention == 'belleii' and did_name.startswith('/'):
+                did_path_name = did_name[1:]
+            dest_file_path = os.path.join(dest_dir_path, did_path_name)
             item['dest_file_paths'] = [dest_file_path]
             item['temp_file_path'] = '%s.part' % dest_file_path
             options = item.setdefault('merged_options', {})
@@ -1245,7 +1251,10 @@ class DownloadClient:
 
                     destinations = options['destinations']
                     dataset_scope, dataset_name = self._split_did_str(dataset_did_str)
-                    paths = [os.path.join(self._prepare_dest_dir(dest[0], dataset_name, dest[1]), file_did_name) for dest in destinations]
+                    file_did_path = file_did_name
+                    if self.extract_scope_convention == 'belleii' and file_did_path.startswith('/'):
+                        file_did_path = file_did_name.split('/')[-1]
+                    paths = [os.path.join(self._prepare_dest_dir(dest[0], dataset_name, dest[1]), file_did_path) for dest in destinations]
                     if any(path in all_dest_file_paths for path in paths):
                         raise RucioException("Multiple file items with same destination file path")
 
@@ -1263,7 +1272,10 @@ class DownloadClient:
                         logger(logging.ERROR, 'No input options available for %s' % file_did_str)
                         continue
                     destinations = options['destinations']
-                    paths = [os.path.join(self._prepare_dest_dir(dest[0], file_did_scope, dest[1]), file_did_name) for dest in destinations]
+                    file_did_path = file_did_name
+                    if self.extract_scope_convention == 'belleii' and file_did_path.startswith('/'):
+                        file_did_path = file_did_name[1:]
+                    paths = [os.path.join(self._prepare_dest_dir(dest[0], file_did_scope, dest[1]), file_did_path) for dest in destinations]
                     if any(path in all_dest_file_paths for path in paths):
                         raise RucioException("Multiple file items with same destination file path")
                     all_dest_file_paths.update(paths)
@@ -1444,11 +1456,15 @@ class DownloadClient:
             did_scope = did[0]
             did_name = did[1]
         elif len(did) == 1:
-            did = did_str.split('.')
-            did_scope = did[0]
-            if did_scope == 'user' or did_scope == 'group':
-                did_scope = '%s.%s' % (did[0], did[1])
-            did_name = did_str
+            if self.extract_scope_convention == 'belleii':
+                scopes = [scope for scope in self.client.list_scopes()]
+                did_scope, did_name = extract_scope(did[0], scopes)
+            else:
+                did = did_str.split('.')
+                did_scope = did[0]
+                if did_scope == 'user' or did_scope == 'group':
+                    did_scope = '%s.%s' % (did[0], did[1])
+                did_name = did_str
         else:
             raise InputValidationError('%s is not a valid DID. To many colons.' % did_str)
 
@@ -1457,8 +1473,7 @@ class DownloadClient:
 
         return did_scope, did_name
 
-    @staticmethod
-    def _prepare_dest_dir(base_dir, dest_dir_name, no_subdir):
+    def _prepare_dest_dir(self, base_dir, dest_dir_name, no_subdir):
         """
         Builds the final destination path for a file and creates the
         destination directory if it's not existent.
@@ -1471,6 +1486,8 @@ class DownloadClient:
         :returns: the absolut path of the destination directory
         """
         # append dest_dir_name, if subdir should be used
+        if self.extract_scope_convention == 'belleii' and dest_dir_name.startswith('/'):
+            dest_dir_name = dest_dir_name[1:]
         dest_dir_path = os.path.join(os.path.abspath(base_dir), '' if no_subdir else dest_dir_name)
 
         if not os.path.isdir(dest_dir_path):
