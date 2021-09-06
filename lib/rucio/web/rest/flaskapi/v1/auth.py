@@ -124,7 +124,7 @@ class UserPass(ErrorHandlingMethodView):
         except AccessDenied:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot authenticate to account {account} with given credentials', headers=headers)
         except AccountNotFound:
-            return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot found default account with given identity. Please supply a Rucio account to authenticate', headers=headers)
+            return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot found default account with given identity. Please supply a Rucio account to authenticate', headers=headers)
 
         if not result:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot authenticate to account {account} with given credentials', headers=headers)
@@ -555,7 +555,7 @@ class GSS(ErrorHandlingMethodView):
             return generate_http_error_flask(
                 status_code=401,
                 exc=CannotAuthenticate.__name__,
-                exc_msg=f'Cannot found default account with given identity. Please supply a Rucio account to authenticate',
+                exc_msg='Cannot found default account with given identity. Please supply a Rucio account to authenticate',
                 headers=headers
             )
 
@@ -668,7 +668,7 @@ class x509(ErrorHandlingMethodView):
             return generate_http_error_flask(
                 status_code=401,
                 exc=CannotAuthenticate.__name__,
-                exc_msg=f'Cannot found default account with given identity. Please supply a Rucio account to authenticate',
+                exc_msg='Cannot found default account with given identity. Please supply a Rucio account to authenticate',
                 headers=headers
             )
 
@@ -766,10 +766,9 @@ class SSH(ErrorHandlingMethodView):
             return generate_http_error_flask(
                 status_code=401,
                 exc=CannotAuthenticate.__name__,
-                exc_msg=f'Cannot found default account with given identity. Please supply a Rucio account to authenticate',
+                exc_msg='Cannot found default account with given identity. Please supply a Rucio account to authenticate',
                 headers=headers
             )
-
 
         if not result:
             return generate_http_error_flask(
@@ -920,7 +919,7 @@ class SAML(ErrorHandlingMethodView):
                 return generate_http_error_flask(
                     status_code=401,
                     exc=CannotAuthenticate.__name__,
-                    exc_msg=f'Cannot found default account with given identity. Please supply a Rucio account to authenticate',
+                    exc_msg='Cannot found default account with given identity. Please supply a Rucio account to authenticate',
                     headers=headers
                 )
 
