@@ -89,7 +89,6 @@ class UploadClient:
             self.account = self.client.whoami()['account']
         if not self.account:
             logger(logging.ERROR, "Cannot found default account with given identity. Please supply a Rucio account to authenticate")
-        print(self.account)
         self.default_file_scope = 'user.' + self.account
         self.rses = {}
         self.rse_expressions = {}

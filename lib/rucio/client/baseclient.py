@@ -655,7 +655,6 @@ class BaseClient(object):
         client_cert = None
         client_key = None
         if self.auth_type == 'x509':
-            LOG.info("X509")
             url = build_url(self.auth_host, path='auth/x509')
             client_cert = self.creds['client_cert']
             if 'client_key' in self.creds:
