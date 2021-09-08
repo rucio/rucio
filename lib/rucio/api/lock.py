@@ -47,13 +47,14 @@ def get_dataset_locks(scope, name, vo='def'):
     for lock_object in locks:
         yield api_update_return_dict(lock_object)
 
+
 def get_dataset_locks_bulk(dataset_list, vo='def'):
     """
     Get the dataset locks for multiple datasets.
 
     :param dataset_list:    List of dataset DIDs as dictionaries {"scope":..., "name":...}
     :param vo:              The VO to act on.
-    :return:                Generator of dicts describing found locks {'rse_id': ..., 'state': ...}. 
+    :return:                Generator of dicts describing found locks {'rse_id': ..., 'state': ...}.
                             Each dictionary also includes elements "dataset_scope" and "dataset_name"
     """
     if vo is None:
@@ -65,6 +66,7 @@ def get_dataset_locks_bulk(dataset_list, vo='def'):
             data = api_update_return_dict(lock_object)
             data["dataset_scope_name"] = f"{scope}:{name}"
             yield data
+
 
 def get_dataset_locks_by_rse(rse, vo='def'):
     """

@@ -25,7 +25,7 @@
 
 from flask import Flask, Blueprint, request
 
-from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks_bulk
+from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks_bulk, get_dataset_locks
 from rucio.common.exception import RSENotFound
 from rucio.common.utils import render_json, dids_as_dicts
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
@@ -132,9 +132,12 @@ def blueprint():
 
     lock_by_rse_view = LockByRSE.as_view('lock_by_rse')
     bp.add_url_rule('/<rse>', view_func=lock_by_rse_view, methods=['get', ])
-    #lock_by_scope_name_view = LockByScopeName.as_view('lock_by_scope_name')
-    #bp.add_url_rule('/<path:scope_name>', view_func=lock_by_scope_name_view, methods=['get', ])
 
+    #
+    # lock_by_scope_name_view = LockByScopeName.as_view('lock_by_scope_name')
+    # bp.add_url_rule('/<path:scope_name>', view_func=lock_by_scope_name_view, methods=['get', ])
+    #
+    
     locks_for_many_datasets_view = LocksForManyDatasets.as_view('locks_for_many_datasets')
     bp.add_url_rule('', view_func=locks_for_many_datasets_view, methods=['post', ])
 
