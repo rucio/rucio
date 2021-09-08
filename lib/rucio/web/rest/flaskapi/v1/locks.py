@@ -25,7 +25,7 @@
 
 from flask import Flask, Blueprint, request
 
-from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
+from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks_bulk
 from rucio.common.exception import RSENotFound
 from rucio.common.utils import render_json, dids_as_dicts
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
@@ -106,7 +106,7 @@ class LocksForManyDatasets(ErrorHandlingMethodView):
         :returns: Line separated list of dictionary with lock information.
         """
 
-        data = json_parse(types=(dict, ))
+        data = json_parse(types=(dict,))
         try:
             dids = data["datasets"]
         except KeyError:
