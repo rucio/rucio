@@ -69,8 +69,8 @@ class LockClient(BaseClient):
         :returns: list of dictionaties with lock data
         """
 
-        did = dict(scope=scope, name=name)
-        return self.get_locks_for_datasets([did]).get(scope_name, [])
+        did = "%s:%s" % (scope, name)
+        return self.get_locks_for_datasets([did]).get(did, [])
 
     def get_locks_for_datasets(self, dataset_list):
         """
