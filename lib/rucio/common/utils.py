@@ -1398,7 +1398,7 @@ def dids_as_dicts(did_list):
             did = dict(scope=scope, name=name)
         if isinstance(did, dict):
             if not ("name" in did and "scope" in did):
-                raise ValueError(f"Scope or name missing in: {did}")
+                raise ValueError("Scope or name missing in: %s" % (did,))
         else:
             raise ValueError("Can not convert item %s (%s) to a DID" % (did, type(did)))
         out.append(did)

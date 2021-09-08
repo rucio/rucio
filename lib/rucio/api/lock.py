@@ -63,8 +63,7 @@ def get_dataset_locks_bulk(dataset_list, vo='def'):
         locks = lock.get_dataset_locks(scope=scope, name=name)
         for lock_object in locks:
             data = api_update_return_dict(lock_object)
-            data["dataset_scope"] = scope
-            data["dataset_name"] = name
+            data["dataset_scope_name"] = f"{scope}:{name}"
             yield data
 
 def get_dataset_locks_by_rse(rse, vo='def'):

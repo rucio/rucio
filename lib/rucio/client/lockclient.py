@@ -40,7 +40,7 @@ class LockClient(BaseClient):
         super(LockClient, self).__init__(rucio_host, auth_host, account, ca_cert,
                                          auth_type, creds, timeout, user_agent, vo=vo)
 
-    def get_dataset_locks(self, scope, name):
+    def get_dataset_locks__(self, scope, name):
         """
         Get a dataset locks of the specified dataset.
 
@@ -60,9 +60,21 @@ class LockClient(BaseClient):
                                                    status_code=result.status_code)
             raise exc_cls(exc_msg)
 
+    def get_dataset_locks(self, scope, name):
+        """
+        Get a dataset locks of the specified dataset.
+
+        :param scope: the scope of the did of the locks to list.
+        :param name: the name of the did of the locks to list.
+        :returns: list of dictionaties with lock data
+        """
+
+        did = dict(scope=scope, name=name)
+        return self.get_locks_for_datasets([did]).get(scope_name, [])
+
     def get_locks_for_datasets(self, dataset_list):
         """
-        Get a dataset locks of the specified list of datasets.
+        Get list of dataset locks for multiple datasets.
 
         :param dataset_list: list dataset DIDs as dictionaries {"scope":..., "name":,...} or strings ["scope:name",...] to get locks for.
         :returns:   dictionary with lists of locks per dataset: {"dataset_scope:dataset_name": [{#lock info ...}, ...]}
@@ -81,12 +93,9 @@ class LockClient(BaseClient):
             # reformat as a dictionary of lists indexed by dataset "scope:name"
             out = {}
             for lock in locks:
-                dataset_scope = lock["dataset_scope"]
-                dataset_name = lock["dataset_name"]
-                del lock["dataset_scope"]
-                del lock["dataset_name"]
-                dataset_scope_name = f"{dataset_scope}:{dataset_name}"
-                out.setdefault(dataset_scope_name, []).append(lock)
+                scope_name = lock["dataset_scope_name"]
+                del lock["dataset_scope_name"]
+                out.setdefault(scope_name, []).append(lock)
             return out
         else:
             exc_cls, exc_msg = self._get_exception(headers=result.headers,
