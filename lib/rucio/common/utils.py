@@ -1385,6 +1385,26 @@ def daemon_sleep(start_time, sleep_time, graceful_stop, logger=logging.log):
         graceful_stop.wait(sleep_time - time_diff)
 
 
+def dids_as_dicts(did_list):
+    """
+    Converts list of DIDs to list of dictionaries
+    :param did_list: list of DIDs as either "scope:name" or {"scope":"scope", "name","name"}
+    :returns: list of dictionaries {"scope":"scope", "name","name"}
+    """
+    out = []
+    for did in did_list:
+        if isinstance(did, str):
+            scope, name = did.split(":", 1)
+            did = dict(scope=scope, name=name)
+        if isinstance(did, dict):
+            if not ("name" in did and "scope" in did):
+                raise ValueError(f"Scope or name missing in: {did}")
+        else:
+            raise ValueError("Can not convert item %s (%s) to a DID" % (did, type(did)))
+        out.append(did)
+    return out
+
+
 class retry:
     """Retry callable object with configuragle number of attempts"""
 

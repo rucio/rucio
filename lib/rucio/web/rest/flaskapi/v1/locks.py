@@ -27,7 +27,7 @@ from flask import Flask, Blueprint, request
 
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
 from rucio.common.exception import RSENotFound
-from rucio.common.utils import render_json
+from rucio.common.utils import render_json, dids_as_dicts
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
     request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parse
 
@@ -99,12 +99,10 @@ class LocksForManyDatasets(ErrorHandlingMethodView):
     def post(self):
         """ get locks for a given scope, name.
 
-        :param scope_name: data identifier (scope)/(name).
-        :query did_type: The type used to filter, e.g., DATASET, CONTAINER.
+        :query did_type: The type used to filter, e.g., DATASET, CONTAINER. Only DATASET is accepted for now
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 406: Not Acceptable.
+        :status 400: Wrong DID type.
         :returns: Line separated list of dictionary with lock information.
         """
 
@@ -116,16 +114,14 @@ class LocksForManyDatasets(ErrorHandlingMethodView):
 
         did_type = request.args.get('did_type', default=None)
         if did_type != 'dataset':
-            return 'Wrong did_type specified', 400
+            return f'Wrong did_type specified: {did_type}', 400
+
+        dids = dids_as_dicts(dids)
 
         try:
             def all_locks(dids, vo):
-                for did in dids:
-                    scope = did["scope"]
-                    name = did["name"]
-                    for lock in get_dataset_locks(scope, name, vo=vo):
-                        yield render_json(dataset_scope_name=f"{scope}:{name}", **lock) + '\n'
-
+                for lock_dict in get_dataset_locks_bulk(dids, vo):
+                    yield render_json(**lock_dict) + '\n'
             return try_stream(all_locks(dids=dids, vo=request.environ.get('vo')))
         except ValueError as error:
             return generate_http_error_flask(400, error)

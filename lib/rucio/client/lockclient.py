@@ -26,7 +26,7 @@ from requests.status_codes import codes
 from six.moves.urllib.parse import quote_plus
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
-from rucio.common.utils import build_url, render_json
+from rucio.common.utils import build_url, render_json, dids_as_dicts
 
 
 class LockClient(BaseClient):
@@ -65,23 +65,12 @@ class LockClient(BaseClient):
         Get a dataset locks of the specified list of datasets.
 
         :param dataset_list: list dataset DIDs as dictionaries {"scope":..., "name":,...} or strings ["scope:name",...] to get locks for.
+        :returns:   dictionary with lists of locks per dataset: {"dataset_scope:dataset_name": [{#lock info ...}, ...]}
         """
 
         # convert did list to list of dictionaries
 
-        dids = []
-        for did in dataset_list:
-            if isinstance(did, dict):
-                assert "name" in did and "scope" in did
-            elif isinstance(did, str):
-                try:
-                    scope, name = did.split(":", 1)
-                except:
-                    raise ValueError("Can not interpret did %s" % (did,))
-                did = dict(scope=scope, name=name)
-            else:
-                raise ValueError("Can not interpret did %s" % (did,))
-            dids.append(did)
+        dids = dids_as_dicts(dataset_list)
 
         path = '/'.join([self.LOCKS_BASEURL])
         url = build_url(choice(self.list_hosts), path=path, params={'did_type': 'dataset'})
@@ -89,13 +78,15 @@ class LockClient(BaseClient):
         result = self._send_request(url, type_='POST', data=render_json(datasets=dids))
         if result.status_code == codes.ok:   # pylint: disable-msg=E1101
             locks = self._load_json_data(result)
-            # reformat as a dictionary
+            # reformat as a dictionary of lists indexed by dataset "scope:name"
             out = {}
             for lock in locks:
-                dataset_scope_name = lock["dataset_scope_name"]
-                del lock["dataset_scope_name"]
-                locks_for_dataset = out.setdefault(dataset_scope_name, [])
-                locks_for_dataset.append(lock)
+                dataset_scope = lock["dataset_scope"]
+                dataset_name = lock["dataset_name"]
+                del lock["dataset_scope"]
+                del lock["dataset_name"]
+                dataset_scope_name = f"{dataset_scope}:{dataset_name}"
+                out.setdefault(dataset_scope_name, []).append(lock)
             return out
         else:
             exc_cls, exc_msg = self._get_exception(headers=result.headers,
