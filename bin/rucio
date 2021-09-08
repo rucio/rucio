@@ -22,7 +22,7 @@
 # - Yun-Pin Sun <winter0128@gmail.com>, 2012-2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - David Cameron <david.cameron@cern.ch>, 2014-2020
+# - David Cameron <david.cameron@cern.ch>, 2014-2021
 # - Tomáš Kouba <tomas.kouba@cern.ch>, 2014
 # - Wen Guan <wen.guan@cern.ch>, 2014
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
@@ -1152,7 +1152,7 @@ def get_metadata(args):
     if args.plugin:
         plugin = args.plugin
     else:
-        plugin = 'DID_COLUMN'
+        plugin = config_get('client', 'metadata_default_plugin', default='DID_COLUMN')
 
     for i, did in enumerate(args.dids):
         if i > 0:
