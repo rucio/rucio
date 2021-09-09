@@ -273,7 +273,14 @@ class RSEDeterministicTranslation(object):
             package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo['vo']))
             module = importlib.import_module(package)
             if hasattr(module, 'get_lfn2pfn_algorithms'):
-                RSEDeterministicTranslation._LFN2PFN_ALGORITHMS.update(module.get_lfn2pfn_algorithms())
+                lfn2pfn_algorithms = module.get_lfn2pfn_algorithms()
+                if not vo:
+                    RSEDeterministicTranslation._LFN2PFN_ALGORITHMS.update(lfn2pfn_algorithms)
+                else:
+                    # check that the names are correctly prefixed
+                    for k in lfn2pfn_algorithms.keys():
+                        if k.startswith(vo):
+                            RSEDeterministicTranslation._LFN2PFN_ALGORITHMS[k] = lfn2pfn_algorithms[k]                    
         except (NoOptionError, NoSectionError, ImportError):
             pass
 

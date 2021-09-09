@@ -579,7 +579,14 @@ def _register_policy_package_surl_algorithms():
             package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo['vo']))
             module = importlib.import_module(package)
             if hasattr(module, 'get_surl_algorithms'):
-                _SURL_ALGORITHMS.update(module.get_surl_algorithms())
+                surl_algorithms = module.get_surl_algorithms()
+                if not vo:
+                    _SURL_ALGORITHMS.update(surl_algorithms)
+                else:
+                    # check that the names are correctly prefixed
+                    for k in surl_algorithms.keys():
+                        if k.startswith(vo):
+                            _SURL_ALGORITHMS[k] = surl_algorithms[k]
         except (NoOptionError, NoSectionError, ImportError):
             pass
 
