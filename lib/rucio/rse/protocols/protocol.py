@@ -280,7 +280,7 @@ class RSEDeterministicTranslation(object):
                     # check that the names are correctly prefixed
                     for k in lfn2pfn_algorithms.keys():
                         if k.startswith(vo):
-                            RSEDeterministicTranslation._LFN2PFN_ALGORITHMS[k] = lfn2pfn_algorithms[k]                    
+                            RSEDeterministicTranslation._LFN2PFN_ALGORITHMS[k] = lfn2pfn_algorithms[k]
         except (NoOptionError, NoSectionError, ImportError):
             pass
 
