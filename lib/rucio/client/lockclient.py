@@ -24,10 +24,9 @@
 
 from requests.status_codes import codes
 from six.moves.urllib.parse import quote_plus
-
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
-from rucio.common.utils import build_url
+from rucio.common.utils import build_url, render_json, dids_as_dicts
 
 
 class LockClient(BaseClient):
@@ -47,15 +46,68 @@ class LockClient(BaseClient):
 
         :param scope: the scope of the did of the locks to list.
         :param name: the name of the did of the locks to list.
+        :returns: list of dictionaties with lock data
+        """
+
+        did = "%s:%s" % (scope, name)
+        return self.get_locks_for_datasets([did]).get(did, [])
+
+    def _sort_locks_by_dataset(self, locks):
+        """
+        Reorganize a list of lock info disctionaries into a disctionary indexed by the dataset the lock is found for.
+
+        :param locks: list of lock info dictionaries. Each dictionary is expected to also include item "dataset_scope_name":"dataset_scope:dataset_name"
+        :returns: dictionary with lists of locks per dataset: {"dataset_scope:dataset_name": [{#lock info ...}, ...]}. The "dataset_scope_name" items will be removed from lock info
+        """
+
+        out = {}
+        for lock in locks:
+            scope_name = lock["dataset_scope_name"]
+            del lock["dataset_scope_name"]
+            out.setdefault(scope_name, []).append(lock)
+        return out
+
+    def get_container_locks(self, scope, name):
+        """
+        Get list of locks for all dataset inside the container.
+
+        :param scope: container scope
+        :param name: container name
+        :returns:   dictionary with lists of locks per dataset: {"dataset_scope:dataset_name": [{#lock info ...}, ...]}
         """
 
         path = '/'.join([self.LOCKS_BASEURL, quote_plus(scope), quote_plus(name)])
-        url = build_url(choice(self.list_hosts), path=path, params={'did_type': 'dataset'})
+        url = build_url(choice(self.list_hosts), path=path, params={'did_type': 'container'})
 
         result = self._send_request(url)
         if result.status_code == codes.ok:   # pylint: disable-msg=E1101
             locks = self._load_json_data(result)
-            return locks
+            # reformat as a dictionary of lists indexed by dataset "scope:name"
+            return self._sort_locks_by_dataset(locks)
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=result.headers,
+                                                   status_code=result.status_code)
+            raise exc_cls(exc_msg)
+
+    def get_locks_for_datasets(self, dataset_list):
+        """
+        Get list of dataset locks for multiple datasets.
+
+        :param dataset_list: list dataset DIDs as dictionaries {"scope":..., "name":,...} or strings ["scope:name",...] to get locks for.
+        :returns:   dictionary with lists of locks per dataset: {"dataset_scope:dataset_name": [{#lock info ...}, ...]}
+        """
+
+        # convert did list to list of dictionaries
+
+        dids = dids_as_dicts(dataset_list)
+
+        path = '/'.join([self.LOCKS_BASEURL, "bulk_locks_for_datasets"])
+        url = build_url(choice(self.list_hosts), path=path, params={'did_type': 'dataset'})
+
+        result = self._send_request(url, type_='POST', data=render_json(datasets=dids))
+        if result.status_code == codes.ok:   # pylint: disable-msg=E1101
+            locks = self._load_json_data(result)
+            return self._sort_locks_by_dataset(locks)
         else:
             exc_cls, exc_msg = self._get_exception(headers=result.headers,
                                                    status_code=result.status_code)
