@@ -25,11 +25,13 @@
 
 from flask import Flask, Blueprint, request
 
-from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
+from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks_bulk, get_dataset_locks
 from rucio.common.exception import RSENotFound
-from rucio.common.utils import render_json
+from rucio.common.utils import render_json, dids_as_dicts
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
-    request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView
+    request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parse
+from rucio.core.did import list_child_datasets
+from rucio.common.types import InternalScope
 
 
 class LockByRSE(ErrorHandlingMethodView):
@@ -61,7 +63,7 @@ class LockByRSE(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
 
-class LockByScopeName(ErrorHandlingMethodView):
+class LocksByScopeName(ErrorHandlingMethodView):
     """ REST APIs for dataset locks. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -76,18 +78,65 @@ class LockByScopeName(ErrorHandlingMethodView):
         :status 406: Not Acceptable.
         :returns: Line separated list of dictionary with lock information.
         """
+
         did_type = request.args.get('did_type', default=None)
-        if did_type != 'dataset':
+        if did_type not in ('dataset', 'container'):
             return 'Wrong did_type specified', 500
 
+        vo = request.environ.get('vo')
+
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, vo)
+            internal_scope = InternalScope(scope, vo=vo)
 
-            def generate(vo):
-                for lock in get_dataset_locks(scope, name, vo=vo):
-                    yield render_json(**lock) + '\n'
+            def generate(vo, did_type):
+                if did_type == "dataset":
+                    for lock in get_dataset_locks(scope, name, vo=vo):
+                        yield render_json(**lock) + '\n'
+                else:
+                    for dataset_info in list_child_datasets(internal_scope, name):
+                        dataset_scope, dataset_name = str(dataset_info["scope"]), dataset_info["name"]
+                        dataset_scope_name = "%s:%s" % (dataset_scope, dataset_name)
+                        for lock_dict in get_dataset_locks(dataset_scope, dataset_name, vo=vo):
+                            lock_dict["dataset_scope_name"] = dataset_scope_name        # add this for the client to be able to make a dictionary indexed by dataset
+                            yield render_json(**lock_dict) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(request.environ.get('vo'), did_type))
+        except ValueError as error:
+            return generate_http_error_flask(400, error)
+
+
+class LocksForManyDatasets(ErrorHandlingMethodView):
+    """ REST APIs for multiple dataset locks. """
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def post(self):
+        """ get locks for a given scope, name.
+
+        :query did_type: The type used to filter, e.g., DATASET, CONTAINER. Only DATASET is accepted for now
+        :resheader Content-Type: application/x-json-stream
+        :status 200: OK.
+        :status 400: Wrong DID type.
+        :returns: Line separated list of dictionary with lock information.
+        """
+
+        data = json_parse(types=(dict,))
+        try:
+            dids = data["datasets"]
+        except KeyError:
+            return 'Can not find the dataset list in the data. Use "datasets" keyword.', 400
+
+        did_type = request.args.get('did_type', default=None)
+        if did_type != 'dataset':
+            return f'Wrong did_type specified: {did_type}', 400
+
+        dids = dids_as_dicts(dids)
+
+        try:
+            def all_locks(dids, vo):
+                for lock_dict in get_dataset_locks_bulk(dids, vo):
+                    yield render_json(**lock_dict) + '\n'
+            return try_stream(all_locks(dids=dids, vo=request.environ.get('vo')))
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -97,8 +146,12 @@ def blueprint():
 
     lock_by_rse_view = LockByRSE.as_view('lock_by_rse')
     bp.add_url_rule('/<rse>', view_func=lock_by_rse_view, methods=['get', ])
-    lock_by_scope_name_view = LockByScopeName.as_view('lock_by_scope_name')
+
+    lock_by_scope_name_view = LocksByScopeName.as_view('locks_by_scope_name')
     bp.add_url_rule('/<path:scope_name>', view_func=lock_by_scope_name_view, methods=['get', ])
+
+    locks_for_many_datasets_view = LocksForManyDatasets.as_view('locks_for_many_datasets')
+    bp.add_url_rule('', view_func=locks_for_many_datasets_view, methods=['post', ])
 
     bp.before_request(request_auth_env)
     bp.after_request(response_headers)
