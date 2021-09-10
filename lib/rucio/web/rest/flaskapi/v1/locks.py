@@ -151,11 +151,7 @@ def blueprint():
     bp.add_url_rule('/<path:scope_name>', view_func=lock_by_scope_name_view, methods=['get', ])
 
     locks_for_many_datasets_view = LocksForManyDatasets.as_view('locks_for_many_datasets')
-<<<<<<< HEAD
     bp.add_url_rule('/bulk_locks_for_datasets', view_func=locks_for_many_datasets_view, methods=['post', ])
-=======
-    bp.add_url_rule('', view_func=locks_for_many_datasets_view, methods=['post', ])
->>>>>>> eef18cc5488a91a9f1bad9c9d628ec69de3b7e7d
 
     bp.before_request(request_auth_env)
     bp.after_request(response_headers)
