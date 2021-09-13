@@ -25,6 +25,8 @@ from rucio.common.types import InternalScope
 from rucio.common.utils import api_update_return_dict
 from rucio.core import lock
 from rucio.core.rse import get_rse_id
+from rucio.db.sqla.constants import DIDType
+
 
 LOGGER = logging.getLogger('lock')
 LOGGER.setLevel(logging.DEBUG)
@@ -46,6 +48,46 @@ def get_dataset_locks(scope, name, vo='def'):
 
     for lock_object in locks:
         yield api_update_return_dict(lock_object)
+
+
+def get_dataset_locks_bulk(dids, vo='def'):
+    """
+    Get the dataset locks for multiple datasets or containers.
+
+    :param dids:            List of dataset or container DIDs as dictionaries {"scope":..., "name":..., "type":...}
+                            "type" is optional. If present, will be either DIDType.DATASET or DIDType.CONTAINER,
+                            or string "dataset" or "container"
+    :param vo:              The VO to act on.
+    :return:                Generator of dicts describing found locks {'rse_id': ..., 'state': ...}. Duplicates are removed
+    """
+
+    if vo is None:
+        vo = "def"
+
+    dids_converted = []
+    for did_in in dids:
+        did = did_in.copy()
+        if isinstance(did.get("type"), str):
+            # convert DID type
+            try:
+                did["type"] = {
+                    "dataset": DIDType.DATASET,
+                    "container": DIDType.CONTAINER
+                }[did["type"]]
+            except KeyError:
+                raise ValueError("Unknown DID type %(type)s" % did)
+        if isinstance(did["scope"], str):
+            did["scope"] = InternalScope(did["scope"], vo=vo)
+        dids_converted.append(did)
+
+    seen = set()
+    for lock_info in lock.get_dataset_locks_bulk(dids_converted):
+        # filter duplicates - same scope, name, rse_id, rule_id
+        scope_str = str(lock_info["scope"])
+        key = (scope_str, lock_info["name"], lock_info["rse_id"], lock_info["rule_id"])
+        if key not in seen:
+            seen.add(key)
+            yield lock_info
 
 
 def get_dataset_locks_by_rse(rse, vo='def'):

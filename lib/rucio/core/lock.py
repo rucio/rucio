@@ -24,12 +24,15 @@ from sqlalchemy.sql.expression import and_, or_
 
 import rucio.core.rule
 import rucio.core.did
-
+from rucio.common.exception import DataIdentifierNotFound
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.rse import get_rse_name
+
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType, RuleNotification
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
+
+from rucio.common.types import InternalScope
 
 
 @stream_session
@@ -64,6 +67,41 @@ def get_dataset_locks(scope, name, session=None):
                'length': length,
                'bytes': bytes_,
                'accessed_at': accessed_at}
+
+
+@stream_session
+def get_dataset_locks_bulk(dids, session=None):
+    """
+    Get the dataset locks of a list of datasets or containers, recursively
+
+    :param dids:           List of dictionaries {"scope":scope(type:InternalScope), "name":name,
+                           "type":did type(DIDType.DATASET or DIDType.CONTAINER)}, "type" is optional
+    :param session:        The db session to use.
+    :return:               Generator of lock_info dicts, may contain duplicates
+    """
+
+    from rucio.core.did import list_child_datasets
+
+    for did in dids:
+        scope = did["scope"]
+        assert isinstance(scope, InternalScope)
+        name = did["name"]
+        did_type = did.get("type")
+        if not did_type:
+            try:
+                did_info = rucio.core.did.get_did(scope, name)
+            except DataIdentifierNotFound:
+                continue
+            did_type = did_info["type"]
+        assert did_type in (DIDType.DATASET, DIDType.CONTAINER)
+        if did_type == DIDType.DATASET:
+            for lock_dict in get_dataset_locks(scope, name, session=session):
+                yield lock_dict
+        else:
+            for dataset_info in list_child_datasets(scope, name, session=session):
+                dataset_scope, dataset_name = dataset_info["scope"], dataset_info["name"]
+                for lock_dict in get_dataset_locks(dataset_scope, dataset_name, session=session):
+                    yield lock_dict
 
 
 @stream_session

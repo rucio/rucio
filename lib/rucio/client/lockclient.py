@@ -24,10 +24,9 @@
 
 from requests.status_codes import codes
 from six.moves.urllib.parse import quote_plus
-
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
-from rucio.common.utils import build_url
+from rucio.common.utils import build_url, render_json
 
 
 class LockClient(BaseClient):
@@ -56,6 +55,36 @@ class LockClient(BaseClient):
         if result.status_code == codes.ok:   # pylint: disable-msg=E1101
             locks = self._load_json_data(result)
             return locks
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=result.headers,
+                                                   status_code=result.status_code)
+            raise exc_cls(exc_msg)
+
+    def get_locks_for_dids(self, dids, **filter_args):
+        """
+        Get list of locks for for all the files found, recursively, in the listed datasets or containers.
+
+        :param dids: list of dictionaries {"scope":..., "name":..., "type":...}
+                        type can be either "dataset" or "container"
+                        type is optional, but if specified, improves the query performance
+        :returns:    list of dictionaries with lock info
+        """
+
+        # convert did list to list of dictionaries
+
+        assert all(did.get("type", "dataset") in ("dataset", "container") for did in dids), "did type can be either 'container' or 'dataset'"
+
+        path = '/'.join([self.LOCKS_BASEURL, "bulk_locks_for_dids"])
+        url = build_url(choice(self.list_hosts), path=path)
+
+        result = self._send_request(url, type_='POST', data=render_json(dids=dids))
+        if result.status_code == codes.ok:   # pylint: disable-msg=E1101
+            out = []
+            for lock in self._load_json_data(result):
+                filter_ok = (not filter_args) or all(lock.get(name) == value for name, value in filter_args.items())
+                if filter_ok:
+                    out.append(lock)
+            return out
         else:
             exc_cls, exc_msg = self._get_exception(headers=result.headers,
                                                    status_code=result.status_code)
