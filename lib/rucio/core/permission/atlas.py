@@ -26,15 +26,19 @@
 #
 # PY3K COMPATIBLE
 
+from typing import TYPE_CHECKING
+
 import rucio.core.did
 import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
 from rucio.core.identity import exist_identity_account
-from rucio.core.permission.generic import perm_get_global_account_usage
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rule
 from rucio.db.sqla.constants import IdentityType, BadPFNStatus
+
+if TYPE_CHECKING:
+    from typing import Dict
 
 
 def has_permission(issuer, action, kwargs):
@@ -1048,6 +1052,17 @@ def perm_config(issuer, kwargs):
 
 
 def perm_get_local_account_usage(issuer, kwargs):
+    """
+    Checks if an account can get the account usage of an account.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return True
+
+
+def perm_get_global_account_usage(issuer: str, kwargs: 'Dict[str, str]') -> bool:
     """
     Checks if an account can get the account usage of an account.
 
