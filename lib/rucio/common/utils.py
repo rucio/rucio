@@ -585,7 +585,7 @@ def _register_policy_package_surl_algorithms():
                 else:
                     # check that the names are correctly prefixed
                     for k in surl_algorithms.keys():
-                        if k.startswith(vo['vo']):
+                        if k.lower().startswith(vo['vo'].lower()):
                             _SURL_ALGORITHMS[k] = surl_algorithms[k]
                         else:
                             raise InvalidAlgorithmName('SURL algorithm name %s is not valid for VO %s' % (k, vo['vo']))
