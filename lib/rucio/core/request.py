@@ -31,6 +31,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
+# - Nick Smith <nick.smith@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import datetime
@@ -45,7 +46,7 @@ from typing import TYPE_CHECKING
 from six import string_types
 from sqlalchemy import and_, or_, func, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql.expression import asc, false, true
+from sqlalchemy.sql.expression import asc, true
 
 from rucio.common.config import config_get_bool
 from rucio.common.constants import FTS_STATE
@@ -57,7 +58,7 @@ from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute
 from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, LockState, RequestErrMsg
+from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.transfertool.fts3 import FTS3Transfertool
 
@@ -762,94 +763,6 @@ def cancel_request_external_id(transfer_id, transfer_host):
         FTS3Transfertool(external_host=transfer_host).cancel(transfer_ids=[transfer_id])
     except Exception:
         raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfer_host, traceback.format_exc()))
-
-
-@read_session
-def list_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, session=None):
-    """
-    List stagein requests with source replicas
-
-    :param total_workers:         Number of total workers.
-    :param worker_number:         Id of the executing worker.
-    :param limit:            Integer of requests to retrieve.
-    :param activity:         Activity to be selected.
-    :param older_than:       Only select requests older than this DateTime.
-    :param rses:             List of rse_id to select requests.
-    :param session:          Database session to use.
-    :returns:                List.
-    """
-    sub_requests = session.query(models.Request.id,
-                                 models.Request.rule_id,
-                                 models.Request.scope,
-                                 models.Request.name,
-                                 models.Request.md5,
-                                 models.Request.adler32,
-                                 models.Request.bytes,
-                                 models.Request.activity,
-                                 models.Request.attributes,
-                                 models.Request.previous_attempt_id,
-                                 models.Request.dest_rse_id,
-                                 models.Request.retry_count)\
-        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-        .filter(models.Request.state == RequestState.QUEUED)\
-        .filter(models.Request.request_type == RequestType.STAGEIN)
-
-    if isinstance(older_than, datetime.datetime):
-        sub_requests = sub_requests.filter(models.Request.requested_at < older_than)
-
-    if activity:
-        sub_requests = sub_requests.filter(models.Request.activity == activity)
-
-    sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number)
-
-    if limit:
-        sub_requests = sub_requests.limit(limit)
-
-    sub_requests = sub_requests.subquery()
-
-    query = session.query(sub_requests.c.id,
-                          sub_requests.c.rule_id,
-                          sub_requests.c.scope,
-                          sub_requests.c.name,
-                          sub_requests.c.md5,
-                          sub_requests.c.adler32,
-                          sub_requests.c.bytes,
-                          sub_requests.c.activity,
-                          sub_requests.c.attributes,
-                          sub_requests.c.dest_rse_id,
-                          models.RSEFileAssociation.rse_id,
-                          models.RSE.rse,
-                          models.RSE.deterministic,
-                          models.RSE.rse_type,
-                          models.RSEFileAssociation.path,
-                          models.RSEAttrAssociation.value,
-                          sub_requests.c.retry_count,
-                          sub_requests.c.previous_attempt_id,
-                          models.Source.url,
-                          models.Source.ranking)\
-        .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
-                                                   sub_requests.c.name == models.RSEFileAssociation.name,
-                                                   models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                                   sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id))\
-        .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle')\
-        .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
-                                    models.RSE.staging_area == false(),
-                                    models.RSE.deleted == false()))\
-        .outerjoin(models.RSEAttrAssociation, and_(models.RSEAttrAssociation.rse_id == models.RSE.id,
-                                                   models.RSEAttrAssociation.key == 'staging_buffer'))\
-        .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
-                                       models.RSE.id == models.Source.rse_id))\
-        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle')
-
-    if rses:
-        result = []
-        for item in query.all():
-            dest_rse_id = item[9]
-            if dest_rse_id in rses:
-                result.append(item)
-        return result
-    else:
-        return query.all()
 
 
 @read_session
