@@ -157,7 +157,6 @@ def poller(once=False, activities=None, sleep_time=60,
 
                         for xfers in chunks(external_ids, fts_bulk):
                             # poll transfers
-                            print(f"VO at poller = {vo}")
                             poll_transfers(external_host=external_host, xfers=xfers, request_ids=request_ids, timeout=timeout, logger=logger, vo=vo)
 
                 # single_vo poll transfers
@@ -175,7 +174,7 @@ def poller(once=False, activities=None, sleep_time=60,
 
                     for xfers in chunks(external_ids, fts_bulk):
                         # poll transfers
-                        poll_transfers(external_host=external_host, xfers=xfers, request_ids=request_ids, timeout=timeout, logger=logger, vo=None)
+                        poll_transfers(external_host=external_host, xfers=xfers, request_ids=request_ids, timeout=timeout, logger=logger)
 
                 if len(transfs) < fts_bulk / 2:
                     logger(logging.INFO, "Only %s transfers for activity %s, which is less than half of the bulk %s, will sleep %s seconds" % (len(transfs), activity, fts_bulk, sleep_time))
