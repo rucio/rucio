@@ -41,6 +41,56 @@ from rucio.tests.common import skiplimitedsql
 from rucio.tests.common_server import get_vo
 
 
+def _add_test_replicas_and_request(request_configs, vo=None, scope=None, account=None, session=None):
+    """
+    Generate replicas and associated requests; one for each config in request_configs.
+    """
+    if vo is None:
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            vo = {'vo': get_vo()}
+        else:
+            vo = {}
+    if scope is None:
+        scope = InternalScope('mock', **vo)
+    if account is None:
+        account = InternalAccount('root', **vo)
+    names = []
+    requests = []
+    for config in request_configs:
+        name = generate_uuid()
+        request = {
+            'source_rse_id': '',
+            'dest_rse_id': '',
+            'request_type': RequestType.TRANSFER,
+            'request_id': generate_uuid(),
+            'name': name,
+            'bytes': 1,
+            'scope': scope,
+            'retry_count': 1,
+            'rule_id': generate_uuid(),
+            'requested_at': datetime.now(),
+            'account': account,
+            'attributes': {
+                'activity': 'User Subscription',
+                'bytes': 1,
+                'md5': '',
+                'adler32': '',
+            },
+        }
+        request.update({k: w for k, w in config.items() if k != 'attributes'})
+        if config.get('attributes'):
+            request['attributes'].update({k: w for k, w in config['attributes'].items()})
+
+        names.append(name)
+        requests.append(request)
+
+        add_replica(request['source_rse_id'], request['scope'], request['name'], request['bytes'], account, session=session)
+
+    queue_requests(requests, session=session)
+    session.commit()
+    return names
+
+
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
 @pytest.mark.usefixtures("core_config_mock")
@@ -85,96 +135,42 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
     def tearDownClass(cls):
         config_remove_option('conveyor', 'use_preparer')
 
+    def _add_replicas_and_request(self):
+        return _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2000),
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2020),
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2021),  # requested after the request below but small enough for max_volume check
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2020),
+                    'attributes': {'bytes': 3000},
+                },
+            ]
+        )
+
     def test_preparer_throttler_grouped_fifo_all(self):
         """ THROTTLER (CLIENTS): throttler release all waiting requests (DEST - ALL ACT - GFIFO). """
 
         # no threshold when releasing -> release all waiting requests
         set_rse_transfer_limits(self.dest_rse_id, max_transfers=1, activity=self.all_activities, strategy='grouped_fifo', session=self.db_session)
 
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        name3 = generate_uuid()
-        name4 = generate_uuid()
+        name1, name2, name3, name4 = self._add_replicas_and_request()
         dataset_1_name = generate_uuid()
         add_did(self.scope, dataset_1_name, DIDType.DATASET, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name4, 1, self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name1, 'scope': self.scope}], self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name2, 'scope': self.scope}], self.account, session=self.db_session)
-        requests = [{
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'bytes': 1,
-            'scope': self.scope,
-            'retry_count': 1,
-            'rule_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2000),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name2,
-            'bytes': 2,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 2,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name3,
-            'bytes': 3,
-            'requested_at': datetime.now().replace(year=2021),  # requested after the request below but small enough for max_volume check
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 3,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name4,
-            'bytes': 3000,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 3000,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-
-        queue_requests(requests, session=self.db_session)
-        self.db_session.commit()
 
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
@@ -211,90 +207,12 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
         set_rse_transfer_limits(self.dest_rse_id, max_transfers=1, activity=self.all_activities, strategy='grouped_fifo', session=self.db_session)
         request = models.Request(dest_rse_id=self.dest_rse_id, bytes=2, activity=self.user_activity, state=RequestState.SUBMITTED)
         request.save(session=self.db_session)
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        name3 = generate_uuid()
-        name4 = generate_uuid()
+        name1, name2, name3, name4 = self._add_replicas_and_request()
         dataset_1_name = generate_uuid()
         add_did(self.scope, dataset_1_name, DIDType.DATASET, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name4, 1, self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name1, 'scope': self.scope}], self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name2, 'scope': self.scope}], self.account, session=self.db_session)
-        requests = [{
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'bytes': 1,
-            'scope': self.scope,
-            'retry_count': 1,
-            'rule_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2000),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name2,
-            'bytes': 2,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 2,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name3,
-            'bytes': 3,
-            'requested_at': datetime.now().replace(year=2021),  # requested after the request below but small enough for max_volume check
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 3,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name4,
-            'bytes': 3000,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 3000,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
 
-        queue_requests(requests, session=self.db_session)
-        self.db_session.commit()
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         throttler.run_once(logger=print, session=self.db_session)
@@ -312,90 +230,12 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
     def test_throttler_grouped_fifo_subset(self):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (DEST - ALL ACT - GFIFO). """
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=10, max_transfers=1, deadline=1, strategy='grouped_fifo', session=self.db_session)
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        name3 = generate_uuid()
-        name4 = generate_uuid()
+        name1, name2, name3, name4 = self._add_replicas_and_request()
         dataset_1_name = generate_uuid()
         add_did(self.scope, dataset_1_name, DIDType.DATASET, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name4, 1, self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name1, 'scope': self.scope}], self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name2, 'scope': self.scope}], self.account, session=self.db_session)
-        requests = [{
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'bytes': 1,
-            'scope': self.scope,
-            'retry_count': 1,
-            'rule_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2000),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name2,
-            'bytes': 2,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 2,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name3,
-            'bytes': 3,
-            'requested_at': datetime.now().replace(year=2021),  # requested after the request below but small enough for max_volume check
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 3,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name4,
-            'bytes': 3000,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 3000,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
 
-        queue_requests(requests, session=self.db_session)
-        self.db_session.commit()
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         throttler.run_once(logger=print, session=self.db_session)
@@ -464,46 +304,13 @@ class TestThrottlerFIFO(unittest.TestCase):
             return True
         # no threshold -> release all waiting requests
         set_rse_transfer_limits(self.dest_rse_id, max_transfers=1, activity=self.all_activities, strategy='fifo', session=self.db_session)
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2018),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2020),
-            'name': name2,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
+        name1, name2 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+            ]
+        )
         self.db_session.query(models.RSETransferLimit).delete()
         self.db_session.commit()
         preparer.run_once(session=self.db_session, logger=print)
@@ -518,31 +325,15 @@ class TestThrottlerFIFO(unittest.TestCase):
         # active transfers + waiting requests are less than the threshold -> release all waiting requests
         self.db_session.query(models.Request).delete()
         self.db_session.commit()
-        name1 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
         set_rse_transfer_limits(self.dest_rse_id, activity=self.user_activity, max_transfers=3, strategy='fifo', session=self.db_session)
         request = models.Request(dest_rse_id=self.dest_rse_id, activity=self.user_activity, state=RequestState.SUBMITTED)
         request.save(session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2018),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
-        self.db_session.commit()
+        name1, = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
+            ]
+        )
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         throttler.run_once(logger=print, session=self.db_session)
@@ -560,47 +351,13 @@ class TestThrottlerFIFO(unittest.TestCase):
         set_rse_transfer_limits(self.dest_rse_id, max_transfers=1, activity=self.user_activity, strategy='fifo', session=self.db_session)
         request = models.Request(dest_rse_id=self.dest_rse_id, bytes=2, activity=self.user_activity, state=RequestState.SUBMITTED)
         request.save(session=self.db_session)
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2018),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2020),
-            'name': name2,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
-        self.db_session.commit()
+        name1, name2 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+            ]
+        )
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         throttler.run_once(logger=print, session=self.db_session)
@@ -617,46 +374,13 @@ class TestThrottlerFIFO(unittest.TestCase):
 
         # two waiting requests and no active requests but threshold is 1 -> release only 1 request
         set_rse_transfer_limits(self.dest_rse_id, activity=self.user_activity, max_transfers=1, strategy='fifo', session=self.db_session)
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2018),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2020),
-            'name': name2,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
+        name1, name2 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+            ]
+        )
         self.db_session.commit()
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
@@ -725,66 +449,28 @@ class TestThrottlerFIFOSRCACT(unittest.TestCase):
         # one waiting request and no active requests but threshold is 0 for other activity -> release only 1 request for one activity
         set_rse_transfer_limits(self.source_rse_id, activity=self.user_activity, max_transfers=1, strategy='fifo', session=self.db_session)
         set_rse_transfer_limits(self.source_rse_id, activity=self.user_activity2, max_transfers=0, strategy='fifo', session=self.db_session)
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        name3 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2018),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id2,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2020),
-            'name': name2,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id3,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2020),
-            'name': name3,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity2,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
-        self.db_session.commit()
+        name1, name2, name3 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2018),
+                    'attributes': {'activity': self.user_activity},
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id2,
+                    'requested_at': datetime.now().replace(year=2020),
+                    'attributes': {'activity': self.user_activity},
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id3,
+                    'requested_at': datetime.now().replace(year=2020),
+                    'attributes': {'activity': self.user_activity2},
+                },
+            ]
+        )
+
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         throttler.run_once(logger=print, session=self.db_session)
@@ -847,47 +533,13 @@ class TestThrottlerFIFOSRCALLACT(unittest.TestCase):
 
         # two waiting requests and no active requests but threshold is 1 -> release only 1 request
         set_rse_transfer_limits(self.source_rse_id, activity=self.all_activities, max_transfers=1, strategy='fifo', session=self.db_session)
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2018),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2020),
-            'name': name2,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
-        self.db_session.commit()
+        name1, name2 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+            ]
+        )
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         throttler.run_once(logger=print, session=self.db_session)
@@ -955,66 +607,27 @@ class TestThrottlerFIFODESTALLACT(unittest.TestCase):
         # one waiting request and no active requests but threshold 0 for another dest RSE -> release only 1 request on one dest RSE
         set_rse_transfer_limits(self.dest_rse_id, activity=self.all_activities, max_transfers=1, strategy='fifo', session=self.db_session)
         set_rse_transfer_limits(self.dest_rse_id2, activity=self.all_activities, max_transfers=0, strategy='fifo', session=self.db_session)
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        name3 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id2, self.scope, name2, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2018),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id2,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2020),
-            'name': name2,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity2,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id2,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2020),
-            'name': name3,
-            'account': self.account,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity2,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
-        self.db_session.commit()
+        name1, name2, name3 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2018),
+                    'attributes': {'activity': self.user_activity},
+                }, {
+                    'source_rse_id': self.source_rse_id2,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2020),
+                    'attributes': {'activity': self.user_activity2},
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id2,
+                    'requested_at': datetime.now().replace(year=2020),
+                    'attributes': {'activity': self.user_activity2},
+                },
+            ]
+        )
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         throttler.run_once(logger=print, session=self.db_session)
@@ -1081,90 +694,36 @@ class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
             return True
 
         set_rse_transfer_limits(self.source_rse_id, self.all_activities, volume=10, max_transfers=1, deadline=0, strategy='grouped_fifo', session=self.db_session)
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        name3 = generate_uuid()
-        name4 = generate_uuid()
+        name1, name2, name3, name4 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2000),
+                    'attributes': {'activity': self.user_activity},
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id_2,
+                    'requested_at': datetime.now().replace(year=2020),
+                    'attributes': {'activity': self.all_activities},
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2021),
+                    'attributes': {'activity': self.all_activities},
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id_2,
+                    'requested_at': datetime.now().replace(year=2020),
+                    'attributes': {'activity': self.all_activities},
+                },
+            ]
+        )
         dataset_1_name = generate_uuid()
         add_did(self.scope, dataset_1_name, DIDType.DATASET, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name4, 1, self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name1, 'scope': self.scope}], self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name2, 'scope': self.scope}], self.account, session=self.db_session)
-        requests = [{
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'bytes': 1,
-            'scope': self.scope,
-            'retry_count': 1,
-            'rule_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2000),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id_2,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name2,
-            'bytes': 2,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.all_activities,
-                'bytes': 2,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name3,
-            'bytes': 3,
-            'requested_at': datetime.now().replace(year=2021),  # requested after the request below but small enough for max_volume check
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.all_activities,
-                'bytes': 3,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id_2,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name4,
-            'bytes': 3000,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 3000,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-
-        queue_requests(requests, session=self.db_session)
-        self.db_session.commit()
 
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
@@ -1245,66 +804,31 @@ class TestRequestCoreRelease(unittest.TestCase):
     def test_release_waiting_requests_per_free_volume(self):
         """ REQUEST (CORE): release waiting requests that fit grouped in available volume."""
         # release unattached requests that fit in available volume with respect to already submitted transfers
-        name1 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        name2 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        name3 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
         request = models.Request(dest_rse_id=self.dest_rse_id, bytes=2, activity=self.all_activities, state=RequestState.SUBMITTED)
         request.save(session=self.db_session)
         volume = 10
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=volume, max_transfers=1, session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2015),
-            'attributes': {
-                'activity': 'User Subscription',
-                'bytes': 8,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name2,
-            'requested_at': datetime.now().replace(year=2020),
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': 'User Subscription',
-                'bytes': 2,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name3,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2000),
-            'attributes': {
-                'activity': 'User Subscription',
-                'bytes': 10,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
+        name1, name2, name3 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2015),
+                    'attributes': {'bytes': 8},
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2020),
+                    'attributes': {'bytes': 2},
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2000),
+                    'attributes': {'bytes': 10},
+                },
+            ]
+        )
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_per_free_volume(self.dest_rse_id, volume=volume, session=self.db_session)
@@ -1321,90 +845,42 @@ class TestRequestCoreRelease(unittest.TestCase):
         # release attached requests that fit together with the dataset in available volume with respect to already submitted transfers
         self.db_session.query(models.Request).delete()
         self.db_session.commit()
-        name1 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        name2 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        name3 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
-        name4 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name4, 1, self.account, session=self.db_session)
+        request = models.Request(dest_rse_id=self.dest_rse_id, bytes=2, activity=self.all_activities, state=RequestState.SUBMITTED)
+        request.save(session=self.db_session)
+        volume = 10
+        set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=volume, max_transfers=1, session=self.db_session)
+        name1, name2, name3, name4 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2015),
+                    'attributes': {'bytes': 6},
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2020),
+                    'attributes': {'bytes': 2},
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2000),
+                    'attributes': {'bytes': 10},
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2030),
+                    'attributes': {'bytes': 2},
+                },
+            ]
+        )
         dataset1_name = generate_uuid()
         add_did(self.scope, dataset1_name, DIDType.DATASET, self.account, session=self.db_session)
         attach_dids(self.scope, dataset1_name, [{'name': name1, 'scope': self.scope}, {'name': name4, 'scope': self.scope}], self.account, session=self.db_session)
         dataset2_name = generate_uuid()
         add_did(self.scope, dataset2_name, DIDType.DATASET, self.account, session=self.db_session)
         attach_dids(self.scope, dataset2_name, [{'name': name2, 'scope': self.scope}, {'name': name3, 'scope': self.scope}], self.account, session=self.db_session)
-        request = models.Request(dest_rse_id=self.dest_rse_id, bytes=2, activity=self.all_activities, state=RequestState.SUBMITTED)
-        request.save(session=self.db_session)
-        volume = 10
-        set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=volume, max_transfers=1, session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2015),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 6,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name2,
-            'requested_at': datetime.now().replace(year=2020),
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 2,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name3,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2000),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 10,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name4,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2030),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 2,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_per_free_volume(self.dest_rse_id, volume=volume, session=self.db_session)
@@ -1422,28 +898,14 @@ class TestRequestCoreRelease(unittest.TestCase):
         # release requests with no available volume -> release nothing
         self.db_session.query(models.Request).delete()
         self.db_session.commit()
-        name1 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
         volume = 0
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=volume, max_transfers=1, session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2015),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 8,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
+        name1, = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2015)},
+            ]
+        )
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_per_free_volume(self.dest_rse_id, volume=volume, session=self.db_session)
@@ -1460,25 +922,13 @@ class TestRequestCoreRelease(unittest.TestCase):
         # one request with an unattached DID -> one request should be released
         self.db_session.query(models.Request).delete()
         self.db_session.commit()
-        name = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name, 1, self.account, session=self.db_session)
-        requests = [{
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
+        name, = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2015)},
+            ]
+        )
+
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, volume=0, deadline=0, session=self.db_session)
@@ -1488,28 +938,15 @@ class TestRequestCoreRelease(unittest.TestCase):
         # one request with an attached DID -> one request should be released
         self.db_session.query(models.Request).delete()
         self.db_session.commit()
-        name = generate_uuid()
+        name, = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2015)},
+            ]
+        )
         dataset_name = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name, 1, self.account, session=self.db_session)
         add_did(self.scope, dataset_name, DIDType.DATASET, self.account, session=self.db_session)
         attach_dids(self.scope, dataset_name, [{'name': name, 'scope': self.scope}], self.account, session=self.db_session)
-        requests = [{
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'scope': self.scope,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, volume=0, deadline=0, session=self.db_session)
@@ -1519,105 +956,23 @@ class TestRequestCoreRelease(unittest.TestCase):
         # five requests with different requested_at and multiple attachments per collection -> release only one request -> two requests of one collection should be released
         self.db_session.query(models.Request).delete()
         self.db_session.commit()
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        name3 = generate_uuid()
-        name4 = generate_uuid()
-        name5 = generate_uuid()
+        name1, name2, name3, name4, name5 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2000)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2015)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2010)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
+            ]
+        )
         dataset_1_name = generate_uuid()
         add_did(self.scope, dataset_1_name, DIDType.DATASET, self.account, session=self.db_session)
         dataset_2_name = generate_uuid()
         add_did(self.scope, dataset_2_name, DIDType.DATASET, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name4, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name5, 1, self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name1, 'scope': self.scope}, {'name': name2, 'scope': self.scope}], self.account, session=self.db_session)
         attach_dids(self.scope, dataset_2_name, [{'name': name3, 'scope': self.scope}, {'name': name4, 'scope': self.scope}], self.account, session=self.db_session)
 
-        requests = [{
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'scope': self.scope,
-            'retry_count': 1,
-            'rule_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2000),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name2,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name3,
-            'requested_at': datetime.now().replace(year=2015),
-            'retry_count': 1,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name4,
-            'requested_at': datetime.now().replace(year=2010),
-            'retry_count': 1,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name5,
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2018),
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, deadline=0, volume=0, session=self.db_session)
@@ -1635,89 +990,22 @@ class TestRequestCoreRelease(unittest.TestCase):
         # with maximal volume check -> release one request -> three requests should be released because of attachments and free volume space
         self.db_session.query(models.Request).delete()
         self.db_session.commit()
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        name3 = generate_uuid()
+        name1, name2, name3, name4 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2000)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+                # 2021: requested after the request below but small enough for max_volume check
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2021)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020), 'attributes': {'bytes': 3000}},
+            ]
+        )
         dataset_1_name = generate_uuid()
         add_did(self.scope, dataset_1_name, DIDType.DATASET, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name4, 1, self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name1, 'scope': self.scope}], self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name2, 'scope': self.scope}], self.account, session=self.db_session)
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=10, max_transfers=1, session=self.db_session)
-        requests = [{
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'bytes': 1,
-            'scope': self.scope,
-            'retry_count': 1,
-            'rule_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2000),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name2,
-            'bytes': 2,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 2,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name3,
-            'bytes': 3,
-            'requested_at': datetime.now().replace(year=2021),  # requested after the request below but small enough for max_volume check
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 3,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name4,
-            'bytes': 3000,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 3000,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
 
-        queue_requests(requests, session=self.db_session)
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         amount_updated_requests = release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, deadline=0, volume=10, session=self.db_session)
@@ -1738,92 +1026,22 @@ class TestRequestCoreRelease(unittest.TestCase):
         # with maximal volume check -> release one request -> two requests should be released because of attachments
         self.db_session.query(models.Request).delete()
         self.db_session.commit()
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        name3 = generate_uuid()
-        name4 = generate_uuid()
+        request = models.Request(dest_rse_id=self.dest_rse_id, bytes=2, activity=self.all_activities, state=RequestState.SUBMITTED)
+        request.save(session=self.db_session)
+        name1, name2, name3, name4 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2000)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020), 'attributes': {'bytes': 2}},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+            ]
+        )
         dataset_1_name = generate_uuid()
         add_did(self.scope, dataset_1_name, DIDType.DATASET, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name4, 1, self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name1, 'scope': self.scope}], self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name2, 'scope': self.scope}], self.account, session=self.db_session)
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=5, max_transfers=1, session=self.db_session)
-        request = models.Request(dest_rse_id=self.dest_rse_id, bytes=2, activity=self.all_activities, state=RequestState.SUBMITTED)
-        request.save(session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'bytes': 1,
-            'scope': self.scope,
-            'retry_count': 1,
-            'rule_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2000),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name2,
-            'bytes': 2,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 2,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name3,
-            'bytes': 1,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name4,
-            'bytes': 1,
-            'requested_at': datetime.now().replace(year=2020),
-            'rule_id': generate_uuid(),
-            'scope': self.scope,
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-
-        queue_requests(requests, session=self.db_session)
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, deadline=0, volume=5, session=self.db_session)
@@ -1842,44 +1060,14 @@ class TestRequestCoreRelease(unittest.TestCase):
         # with deadline check -> release 0 requests -> 1 request should be released nonetheless
         self.db_session.query(models.Request).delete()
         self.db_session.commit()
-        name1 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account)
-        name2 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account)
-        requests = [{
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'requested_at': datetime.now() - timedelta(hours=2),
-            'request_id': generate_uuid(),
-            'name': name1,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'requested_at': datetime.now(),
-            'request_id': generate_uuid(),
-            'name': name2,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
+        name1, name2 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now() - timedelta(hours=2)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now()},
+            ]
+        )
+
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_grouped_fifo(self.source_rse_id, count=0, deadline=1, volume=0, session=self.db_session)
@@ -1894,44 +1082,13 @@ class TestRequestCoreRelease(unittest.TestCase):
         """ REQUEST (CORE): release waiting requests based on FIFO. """
         # without account and activity check
         # two requests -> release one request -> request with oldest requested_at date should be released
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2018),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2020),
-            'name': name2,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
+        name1, name2 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+            ]
+        )
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_fifo(self.dest_rse_id, count=1, session=self.db_session)
@@ -1944,84 +1101,30 @@ class TestRequestCoreRelease(unittest.TestCase):
         # two requests -> release two request -> requests with correct account and activity should be released
         self.db_session.query(models.Request).delete()
         self.db_session.commit()
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        name3 = generate_uuid()
-        name4 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name4, 1, self.account, session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'account': self.account,
-            'requested_at': datetime.now().replace(year=2018),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2020),
-            'name': name2,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'account': self.account,
-            'attributes': {
-                'activity': 'ignore',
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2020),
-            'name': name3,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'account': InternalAccount('jdoe', **self.vo),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2020),  # requested latest but account and activity are correct
-            'name': name4,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'account': self.account,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
+        name1, name2, name3, name4 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2018),
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2020),
+                    'attributes': {'activity': 'ignore'},
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2020),
+                    'account': InternalAccount('jdoe', **self.vo),
+                }, {
+                    'source_rse_id': self.source_rse_id,
+                    'dest_rse_id': self.dest_rse_id,
+                    'requested_at': datetime.now().replace(year=2020),  # requested latest but account and activity are correct
+                },
+            ]
+        )
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_fifo(self.dest_rse_id, count=2, account=self.account, activity=self.user_activity, session=self.db_session)
@@ -2036,44 +1139,13 @@ class TestRequestCoreRelease(unittest.TestCase):
 
     def test_release_waiting_requests_all(self):
         """ REQUEST (CORE): release all waiting requests. """
-        name1 = generate_uuid()
-        name2 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2018),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'dest_rse_id': self.dest_rse_id,
-            'source_rse_id': self.source_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'requested_at': datetime.now().replace(year=2020),
-            'name': name2,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
+        name1, name2 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+            ]
+        )
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_all_waiting_requests(self.dest_rse_id, session=self.db_session)
@@ -2087,45 +1159,14 @@ class TestRequestCoreRelease(unittest.TestCase):
         """ REQUEST (CORE): release grouped waiting requests that exceeded waiting time."""
         # a request that exceeded the maximal waiting time to be released (1 hour) -> release one request -> only the exceeded request should be released
         set_rse_transfer_limits(self.source_rse_id, activity=self.all_activities, strategy='grouped_fifo', session=self.db_session)
-        name1 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        name2 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
         two_hours = timedelta(hours=2)
-        requests = [{
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'requested_at': datetime.now() - two_hours,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'requested_at': datetime.now(),
-            'request_id': generate_uuid(),
-            'name': name2,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
+        name1, name2 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now() - two_hours},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now()},
+            ]
+        )
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_per_deadline(self.source_rse_id, deadline=1, session=self.db_session)
@@ -2135,65 +1176,17 @@ class TestRequestCoreRelease(unittest.TestCase):
         assert request['state'] == RequestState.WAITING
 
         # a request that exceeded the maximal waiting time to be released (1 hour) -> release one request -> release all requests of the same dataset
-        name1 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
-        name2 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        name3 = generate_uuid()
-        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
+        name1, name2, name3 = _add_test_replicas_and_request(
+            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            request_configs=[
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now() - two_hours},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now()},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now()},
+            ]
+        )
         dataset_name = generate_uuid()
         add_did(self.scope, dataset_name, DIDType.DATASET, self.account, session=self.db_session)
         attach_dids(self.scope, dataset_name, [{'name': name1, 'scope': self.scope}, {'name': name2, 'scope': self.scope}], self.account, session=self.db_session)
-        requests = [{
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'requested_at': datetime.now() - two_hours,
-            'request_id': generate_uuid(),
-            'name': name1,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'requested_at': datetime.now(),
-            'request_id': generate_uuid(),
-            'name': name2,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }, {
-            'source_rse_id': self.source_rse_id,
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': RequestType.TRANSFER,
-            'requested_at': datetime.now(),
-            'request_id': generate_uuid(),
-            'name': name3,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': 1,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_per_deadline(self.source_rse_id, deadline=1, session=self.db_session)
