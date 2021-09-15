@@ -28,6 +28,7 @@ import pytest
 
 import rucio.daemons.reaper.reaper
 from rucio.common.exception import ReplicaNotFound, RequestNotFound
+from rucio.core import config as core_config
 from rucio.core import distance as distance_core
 from rucio.core import replica as replica_core
 from rucio.core import request as request_core
@@ -79,6 +80,17 @@ def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MA
             break
         time.sleep(1)
     return request
+
+
+def __wait_for_fts_state(request, expected_state, max_wait_seconds=MAX_POLL_WAIT_SECONDS):
+    job_state = ''
+    for _ in range(max_wait_seconds):
+        fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query(request['external_id'])
+        job_state = fts_response[request['external_id']][request['id']]['job_state']
+        if job_state == expected_state:
+            break
+        time.sleep(1)
+    return job_state
 
 
 def set_query_parameters(url, params):
@@ -807,9 +819,9 @@ def test_overwrite_on_tape(overwrite_on_tape_topology, core_config_mock, caches_
 def test_file_exists_handled(overwrite_on_tape_topology, core_config_mock, caches_mock):
     """
     If a transfer fails because the destination job_params exists, and the size+checksums of that existing job_params
-    are correct, the transfer must be marked successful. If size or checksum is incorrect, the transfer is marked as failed.
+    are correct, the transfer must be marked successful.
     """
-    rse1_id, rse2_id, rse3_id, did1, did2 = overwrite_on_tape_topology(did1_corrupted=False, did2_corrupted=True)
+    rse1_id, rse2_id, rse3_id, did1, did2 = overwrite_on_tape_topology(did1_corrupted=False, did2_corrupted=False)
     all_rses = [rse1_id, rse2_id, rse3_id]
 
     class _FTSWrapper(FTSWrapper):
@@ -827,9 +839,78 @@ def test_file_exists_handled(overwrite_on_tape_topology, core_config_mock, cache
     with patch('rucio.core.transfer.FTS3Transfertool', _FTSWrapper):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
-        # One transfer is marked as done
         request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.DONE, **did1)
         assert request['state'] == RequestState.DONE
-        # The second as failed, because the file on dst is != from source
+        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.DONE, **did2)
+        assert request['state'] == RequestState.DONE
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.dirty(reason="leaves files in XRD containers; leaves pending fts transfers in archiving state")
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', True),
+    ('transfers', 'overwrite_corrupted_files', False)
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.common.rse_attributes.REGION',
+    'rucio.core.rse.REGION',
+    'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
+    'rucio.core.config.REGION',
+    'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
+]}], indirect=True)
+def test_overwrite_corrupted_files(overwrite_on_tape_topology, core_config_mock, caches_mock):
+    """
+    If a transfer fails because the destination exists, and the size+checksums of the destination file are wrong,
+    the next submission must be performed according to the overwrite_corrupted_files config paramenter.
+    """
+    rse1_id, rse2_id, rse3_id, did1, did2 = overwrite_on_tape_topology(did1_corrupted=True, did2_corrupted=True)
+    all_rses = [rse1_id, rse2_id, rse3_id]
+
+    class _FTSWrapper(FTSWrapper):
+        @staticmethod
+        def on_receive(job_params):
+            for job in (job_params if isinstance(job_params, list) else [job_params]):
+                for file in job.get('files', []):
+                    if (file.get('file_metadata', {}).get('dst_type') == 'TAPE'
+                            and file.get('file_metadata', {}).get('dst_file', {}).get('file_on_tape') is not None):
+                        # Fake that dst_file metadata contains file_on_tape == True
+                        # As we don't really have tape RSEs in our tests, file_on_tape is always false
+                        file['file_metadata']['dst_file']['file_on_tape'] = True
+            return job_params
+
+    with patch('rucio.core.transfer.FTS3Transfertool', _FTSWrapper):
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+        # Both transfers must be marked as failed because the file size is incorrect
+        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did1)
+        assert request['state'] == RequestState.FAILED
         request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did2)
         assert request['state'] == RequestState.FAILED
+
+        # Re-submit the failed requests. They must fail again, because overwrite_corrupted_files is False
+        finisher(once=True, partition_wait_time=None)
+        request = request_core.get_request_by_did(rse_id=rse3_id, **did1)
+        assert request['state'] == RequestState.QUEUED
+        request = request_core.get_request_by_did(rse_id=rse3_id, **did2)
+        assert request['state'] == RequestState.QUEUED
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+        # Set overwrite to True before running the poller or finisher
+        core_config.set('transfers', 'overwrite_corrupted_files', True)
+        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did1)
+        assert request['state'] == RequestState.FAILED
+        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did2)
+        assert request['state'] == RequestState.FAILED
+
+        # Re-submit one more time. Now the destination file must be overwritten
+        finisher(once=True, partition_wait_time=None)
+        request = request_core.get_request_by_did(rse_id=rse3_id, **did1)
+        assert request['state'] == RequestState.QUEUED
+        request = request_core.get_request_by_did(rse_id=rse3_id, **did2)
+        assert request['state'] == RequestState.QUEUED
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+        request = request_core.get_request_by_did(rse_id=rse3_id, **did1)
+        assert request['state'] == RequestState.SUBMITTED
+        assert __wait_for_fts_state(request, expected_state='ARCHIVING') == 'ARCHIVING'
+        request = request_core.get_request_by_did(rse_id=rse3_id, **did2)
+        assert request['state'] == RequestState.SUBMITTED
+        assert __wait_for_fts_state(request, expected_state='ARCHIVING') == 'ARCHIVING'
