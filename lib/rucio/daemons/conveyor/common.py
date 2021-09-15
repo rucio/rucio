@@ -256,7 +256,7 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
                       'issuer': 'rucio',
                       'multi_sources': True if len(transfer.legacy_sources) > 1 else False,
                   },
-                  'overwrite': overwrite,
+                  'overwrite': transfer.rws.attributes.get('overwrite', overwrite),
                   'priority': transfer.rws.priority}
 
     if transfer.get('multihop', False):
