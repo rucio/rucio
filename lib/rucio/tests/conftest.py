@@ -168,6 +168,16 @@ def file_factory(tmp_path_factory):
         yield factory
 
 
+@pytest.fixture
+def db_session():
+    from rucio.db.sqla import session
+
+    db_session = session.get_session()
+    yield db_session
+    db_session.commit()
+    db_session.close()
+
+
 def __get_fixture_param(request):
     fixture_param = getattr(request, "param", None)
     if not fixture_param:
@@ -230,6 +240,31 @@ def core_config_mock(request):
     session.commit()
 
     with mock.patch('rucio.core.config.models.Config', new=InMemoryConfig):
+        yield
+
+
+@pytest.fixture
+def file_config_mock(request):
+    """
+    Fixture which allows to have an isolated in-memory configuration file instance which
+    is not persisted after exiting the fixture.
+
+    This override works only in tests which use config calls directly, not in the ones working
+    via the API, as the server config is not changed.
+    """
+    from unittest import mock
+    from rucio.common.config import Config, config_set
+
+    # Get the fixture parameters
+    overrides = []
+    params = __get_fixture_param(request)
+    if params:
+        overrides = params.get("overrides", overrides)
+
+    parser = Config().parser
+    with mock.patch('rucio.common.config.get_config', side_effect=lambda: parser):
+        for section, option, value in (overrides or []):
+            config_set(section, option, value)
         yield
 
 
