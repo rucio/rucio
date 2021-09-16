@@ -33,8 +33,10 @@ from rucio.core import rule as rule_core
 from rucio.core import transfer as transfer_core
 from rucio.daemons.conveyor.finisher import finisher
 from rucio.daemons.conveyor.poller import poller
+from rucio.daemons.conveyor.preparer import preparer
 from rucio.daemons.conveyor.submitter import submitter
 from rucio.daemons.conveyor.stager import stager
+from rucio.daemons.conveyor.throttler import throttler
 from rucio.daemons.conveyor.receiver import receiver, graceful_stop as receiver_graceful_stop
 from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla import models
@@ -43,6 +45,7 @@ from rucio.db.sqla.session import read_session, transactional_session
 from rucio.tests.common import skip_rse_tests_with_accounts
 
 MAX_POLL_WAIT_SECONDS = 60
+TEST_FTS_HOST = 'https://fts:8446'
 
 
 def __wait_for_replica_transfer(dst_rse_id, scope, name, state=ReplicaState.AVAILABLE, max_wait_seconds=MAX_POLL_WAIT_SECONDS):
@@ -437,6 +440,86 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config
         receiver_graceful_stop.set()
         receiver_thread.join(timeout=5)
         receiver_graceful_stop.clear()
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs multiple conveyor daemons")
+@pytest.mark.parametrize("file_config_mock", [{
+    "overrides": [('conveyor', 'use_preparer', 'true')]
+}], indirect=True)
+@pytest.mark.parametrize("core_config_mock", [{
+    "table_content": [('throttler', 'mode', 'DEST_PER_ALL_ACT')]
+}], indirect=True)
+def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, file_config_mock, core_config_mock):
+    """
+    Integration test of the preparer/throttler workflow.
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse1, dst_rse_id1 = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse2, dst_rse_id2 = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    all_rses = [src_rse_id, dst_rse_id1, dst_rse_id2]
+
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+    distance_core.add_distance(src_rse_id, dst_rse_id1, ranking=10)
+    distance_core.add_distance(src_rse_id, dst_rse_id2, ranking=10)
+    # Set limits only for one of the RSEs
+    rse_core.set_rse_transfer_limits(dst_rse_id1, max_transfers=1, activity='all_activities', strategy='fifo')
+
+    did1 = did_factory.upload_test_file(src_rse)
+    did2 = did_factory.upload_test_file(src_rse)
+    rule_core.add_rule(dids=[did1], account=root_account, copies=1, rse_expression=dst_rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    rule_core.add_rule(dids=[did2], account=root_account, copies=1, rse_expression=dst_rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    rule_core.add_rule(dids=[did1], account=root_account, copies=1, rse_expression=dst_rse2, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    request = request_core.get_request_by_did(rse_id=dst_rse_id1, **did1)
+    assert request['state'] == RequestState.PREPARING
+    request = request_core.get_request_by_did(rse_id=dst_rse_id1, **did2)
+    assert request['state'] == RequestState.PREPARING
+    request = request_core.get_request_by_did(rse_id=dst_rse_id2, **did1)
+    assert request['state'] == RequestState.PREPARING
+
+    # submitter must not work on PREPARING replicas
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+    # One RSE has limits set: the requests will be moved to WAITING status; the other RSE has no limits: go directly to queued
+    preparer(once=True, sleep_time=1, bulk=100, partition_wait_time=None)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id1, **did1)
+    assert request['state'] == RequestState.WAITING
+    request = request_core.get_request_by_did(rse_id=dst_rse_id1, **did2)
+    assert request['state'] == RequestState.WAITING
+    request = request_core.get_request_by_did(rse_id=dst_rse_id2, **did1)
+    assert request['state'] == RequestState.QUEUED
+
+    # submitter must not work on WAITING replicas
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+    # One of the waiting requests will be queued, the second will remain in waiting state
+    throttler(once=True, partition_wait_time=None)
+    request1 = request_core.get_request_by_did(rse_id=dst_rse_id1, **did1)
+    request2 = request_core.get_request_by_did(rse_id=dst_rse_id1, **did2)
+    # one request WAITING and other QUEUED
+    assert (request1['state'] == RequestState.WAITING and request2['state'] == RequestState.QUEUED
+            or request1['state'] == RequestState.QUEUED and request2['state'] == RequestState.WAITING)
+    waiting_did = did1 if request1['state'] == RequestState.WAITING else did2
+    queued_did = did1 if request1['state'] == RequestState.QUEUED else did2
+
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+    # Calling the throttler again will not schedule the waiting request, because there is a submitted one
+    throttler(once=True, partition_wait_time=None)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id1, **waiting_did)
+    assert request['state'] == RequestState.WAITING
+
+    request = __wait_for_request_state(dst_rse_id=dst_rse_id1, state=RequestState.DONE, **queued_did)
+    assert request['state'] == RequestState.DONE
+    request = __wait_for_request_state(dst_rse_id=dst_rse_id2, state=RequestState.DONE, **did1)
+    assert request['state'] == RequestState.DONE
+
+    # Now that the submitted transfers are finished, the WAITING one can be queued
+    throttler(once=True, partition_wait_time=None)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id1, **waiting_did)
+    assert request['state'] == RequestState.QUEUED
 
 
 @skip_rse_tests_with_accounts
