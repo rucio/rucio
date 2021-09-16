@@ -393,93 +393,69 @@ class TestThrottlerFIFO(unittest.TestCase):
 
 
 @pytest.mark.dirty
-@pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
-@pytest.mark.usefixtures("core_config_mock")
+@pytest.mark.noparallel(reason='deletes database content on setUp')
+@pytest.mark.usefixtures("core_config_mock", 'file_config_mock')
 @pytest.mark.parametrize("core_config_mock", [{
     "table_content": [('throttler', 'mode', 'SRC_PER_ACT')]
 }], indirect=True)
-class TestThrottlerFIFOSRCACT(unittest.TestCase):
+@pytest.mark.parametrize("file_config_mock", [{
+    "overrides": [('conveyor', 'use_preparer', 'true')]
+}], indirect=True)
+class TestThrottlerFIFOSRCACT:
     """Throttler per source RSE and on each activites per FIFO."""
 
-    db_session = None
+    user_activity = 'User Subscription'
+    user_activity2 = 'User Subscription2'
+    all_activities = 'all_activities'
 
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        cls.dest_rse = 'MOCK'
-        cls.dest_rse2 = 'MOCK5'
-        cls.dest_rse3 = 'MOCK3'
-        cls.source_rse = 'MOCK4'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
-        cls.dest_rse_id2 = get_rse_id(cls.dest_rse2, **cls.vo)
-        cls.dest_rse_id3 = get_rse_id(cls.dest_rse3, **cls.vo)
-        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
-        cls.scope = InternalScope('mock', **cls.vo)
-        cls.account = InternalAccount('root', **cls.vo)
-        cls.user_activity = 'User Subscription'
-        cls.user_activity2 = 'User Subscription2'
-        cls.all_activities = 'all_activities'
-        config_set('conveyor', 'use_preparer', 'true')
-
-    def setUp(self):
-        self.db_session = session.get_session()
-        self.dialect = self.db_session.bind.dialect.name
-        self.db_session.query(models.Request).delete()
-        self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.commit()
-
-    def tearDown(self):
-        self.db_session.commit()
-        self.db_session.close()
-
-    @classmethod
-    def tearDownClass(cls):
-        config_remove_option('conveyor', 'use_preparer')
-
-    def test_throttler_fifo_release_subset(self):
+    def test_throttler_fifo_release_subset(self, rse_factory, mock_scope, vo, root_account, db_session):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (SRC - ACT - FIFO). """
-        if self.dialect == 'mysql':
+
+        if db_session.bind.dialect.name == 'mysql':
             return True
 
+        db_session.query(models.Request).delete()
+        db_session.commit()
+
+        _, source_rse_id = rse_factory.make_mock_rse()
+        _, dest_rse_id = rse_factory.make_mock_rse()
+        _, dest_rse_id2 = rse_factory.make_mock_rse()
+        _, dest_rse_id3 = rse_factory.make_mock_rse()
         # two waiting requests and no active requests but threshold is 1 for one activity
         # one waiting request and no active requests but threshold is 0 for other activity -> release only 1 request for one activity
-        set_rse_transfer_limits(self.source_rse_id, activity=self.user_activity, max_transfers=1, strategy='fifo', session=self.db_session)
-        set_rse_transfer_limits(self.source_rse_id, activity=self.user_activity2, max_transfers=0, strategy='fifo', session=self.db_session)
+        set_rse_transfer_limits(source_rse_id, activity=self.user_activity, max_transfers=1, strategy='fifo')
+        set_rse_transfer_limits(source_rse_id, activity=self.user_activity2, max_transfers=0, strategy='fifo')
         name1, name2, name3 = _add_test_replicas_and_request(
-            vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
+            vo={'vo': vo}, scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
                 {
-                    'source_rse_id': self.source_rse_id,
-                    'dest_rse_id': self.dest_rse_id,
+                    'source_rse_id': source_rse_id,
+                    'dest_rse_id': dest_rse_id,
                     'requested_at': datetime.now().replace(year=2018),
                     'attributes': {'activity': self.user_activity},
                 }, {
-                    'source_rse_id': self.source_rse_id,
-                    'dest_rse_id': self.dest_rse_id2,
+                    'source_rse_id': source_rse_id,
+                    'dest_rse_id': dest_rse_id2,
                     'requested_at': datetime.now().replace(year=2020),
                     'attributes': {'activity': self.user_activity},
                 }, {
-                    'source_rse_id': self.source_rse_id,
-                    'dest_rse_id': self.dest_rse_id3,
+                    'source_rse_id': source_rse_id,
+                    'dest_rse_id': dest_rse_id3,
                     'requested_at': datetime.now().replace(year=2020),
                     'attributes': {'activity': self.user_activity2},
                 },
             ]
         )
 
-        preparer.run_once(session=self.db_session, logger=print)
-        self.db_session.commit()
-        throttler.run_once(logger=print, session=self.db_session)
-        self.db_session.commit()
-        request = get_request_by_did(self.scope, name1, self.dest_rse_id)
+        preparer.run_once(session=db_session, logger=print)
+        db_session.commit()
+        throttler.run_once(logger=print, session=db_session)
+        db_session.commit()
+        request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
-        request2 = get_request_by_did(self.scope, name2, self.dest_rse_id2)
+        request2 = get_request_by_did(mock_scope, name2, dest_rse_id2)
         assert request2['state'] == RequestState.WAITING
-        request3 = get_request_by_did(self.scope, name3, self.dest_rse_id3)
+        request3 = get_request_by_did(mock_scope, name3, dest_rse_id3)
         assert request3['state'] == RequestState.WAITING
 
 
