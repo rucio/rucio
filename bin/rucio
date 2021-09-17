@@ -358,7 +358,7 @@ def list_dataset_replicas(args):
     if args.csv:
         for dsn in result:
             for rse in list(result[dsn].values()):
-                print("{0}, {1}, {2}".format(rse[0], rse[1], rse[2]))
+                print(rse[0], rse[1], rse[2], sep=',')
     else:
         for dsn in result:
             print('\nDATASET: %s' % (dsn))
@@ -689,7 +689,7 @@ def list_files(args):
                     guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
                 else:
                     guid = '(None)'
-                print("{0}:{1},{2},{3},{4},{5}".format(f['scope'], f['name'], guid, f['adler32'], sizefmt(f['bytes'], args.human), f['events']))
+                print('{}:{}'.format(f['scope'], f['name']), guid, f['adler32'], sizefmt(f['bytes'], args.human), f['events'], sep=',')
         return SUCCESS
     elif args.LOCALPATH:
 
@@ -1472,14 +1472,15 @@ def list_rules(args):
         return FAILURE
     if args.csv:
         for rule in rules:
-            print("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}".format(rule['id'],
-                                                                  rule['account'],
-                                                                  '%s:%s' % (rule['scope'], rule['name']),
-                                                                  '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
-                                                                  rule['rse_expression'],
-                                                                  rule['copies'],
-                                                                  rule['expires_at'],
-                                                                  rule['created_at']))
+            print(rule['id'], 
+                  rule['account'], 
+                  '%s:%s' % (rule['scope'], rule['name']), 
+                  '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']), 
+                  rule['rse_expression'], 
+                  rule['copies'], 
+                  rule['expires_at'], 
+                  rule['created_at'], 
+                  sep=',')
     else:
         table = []
         for rule in rules:
