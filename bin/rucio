@@ -1481,14 +1481,14 @@ def list_rules(args):
         return FAILURE
     if args.csv:
         for rule in rules:
-            print(rule['id'], 
-                  rule['account'], 
-                  '%s:%s' % (rule['scope'], rule['name']), 
-                  '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']), 
-                  rule['rse_expression'], 
-                  rule['copies'], 
-                  rule['expires_at'], 
-                  rule['created_at'], 
+            print(rule['id'],
+                  rule['account'],
+                  '%s:%s' % (rule['scope'], rule['name']),
+                  '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
+                  rule['rse_expression'],
+                  rule['copies'],
+                  rule['expires_at'],
+                  rule['created_at'],
                   sep=',')
     else:
         table = []
