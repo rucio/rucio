@@ -591,6 +591,40 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
 
 
 @skip_rse_tests_with_accounts
+@pytest.mark.dirty(reason="leaves files in XRD containers")
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.common.rse_attributes.REGION',
+    'rucio.core.rse.REGION',
+    'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
+]}], indirect=True)
+def test_non_deterministic_dst(did_factory, did_client, root_account, vo, caches_mock):
+    """
+    Test a transfer towards a non-deterministic RSE
+    """
+    src_rse = 'XRD3'
+    src_rse_id = rse_core.get_rse_id(rse=src_rse, vo=vo)
+    dst_rse = 'XRD4'
+    dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
+    all_rses = [src_rse_id, dst_rse_id]
+
+    did = did_factory.upload_test_file(src_rse)
+    # Dataset name is part of the non-deterministic path
+    dataset = did_factory.make_dataset()
+    did_client.add_files_to_dataset(files=[{'scope': did['scope'].external, 'name': did['name']}], scope=dataset['scope'].external, name=dataset['name'])
+
+    rse_core.update_rse(rse_id=dst_rse_id, parameters={'deterministic': False})
+    try:
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+        replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, **did)
+        assert replica['state'] == ReplicaState.AVAILABLE
+    finally:
+        rse_core.update_rse(rse_id=dst_rse_id, parameters={'deterministic': True})
+
+
+@skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs stager; poller and finisher")
 def test_stager(rse_factory, did_factory, root_account, replica_client):
     """
