@@ -207,8 +207,32 @@ class Default(protocol.RSEProtocol):
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
         self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
+        auth_configured = False
         if self.auth_token:
             self.__ctx.set_opt_string("BEARER", "TOKEN", self.auth_token)
+            auth_configured = True
+        # Configure gfal authentication to use the rucio client proxy if and only if gfal didn't initialize its credentials already
+        # (https://gitlab.cern.ch/dmc/gfal2/-/blob/48cfe3476392c884b53d00799198b1238603a406/src/core/common/gfal_common.c#L79)
+        if not auth_configured:
+            try:
+                self.__ctx.get_opt_string("X509", "CERT")
+                self.__ctx.get_opt_string("X509", "KEY")
+                auth_configured = True
+            except gfal2.GError:  # pylint: disable=no-member
+                pass
+        if not auth_configured:
+            try:
+                self.__ctx.get_opt_string("BEARER", "TOKEN")
+                auth_configured = True
+            except gfal2.GError:  # pylint: disable=no-member
+                pass
+        if not auth_configured:
+            proxy = config.config_get('client', 'client_x509_proxy', default=None, raise_exception=False)
+            if proxy:
+                self.logger(logging.INFO, 'Configuring authentication to use {}'.format(proxy))
+                self.__ctx.set_opt_string("X509", "CERT", proxy)
+                self.__ctx.set_opt_string("X509", "KEY", proxy)
+
         if TIMEOUT:
             try:
                 timeout = int(TIMEOUT)
