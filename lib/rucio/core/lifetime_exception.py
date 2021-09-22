@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2021
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -27,16 +27,18 @@ from __future__ import division
 from re import match
 from datetime import datetime, timedelta
 from six import string_types
+from six.moves.configparser import NoSectionError
 
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common.config import config_get
-from rucio.common.exception import RucioException, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, UnsupportedOperation
+from rucio.common.exception import RucioException, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, UnsupportedOperation, ConfigNotFound
 from rucio.common.utils import generate_uuid, str_to_date
 import rucio.common.policy
 from rucio.core.message import add_message
+
 from rucio.core.rse import list_rse_attributes
 
 from rucio.db.sqla import models
@@ -84,7 +86,74 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
     :param expires_at:  The expiration date of the exception.
     :param session:     The database session in use.
 
-    returns:            The id of the exception.
+    returns:            A dictionary with id of the exceptions split by scope, datatype.
+    """
+    from rucio.core.did import get_metadata_bulk
+    result = dict()
+    result['exceptions'] = dict()
+    try:
+        max_extension = config_get('lifetime_model', 'max_extension', default=None, session=session)
+        if max_extension:
+            if not expires_at:
+                expires_at = datetime.utcnow() + timedelta(days=max_extension)
+            else:
+                if isinstance(expires_at, string_types):
+                    expires_at = str_to_date(expires_at)
+                if expires_at > datetime.utcnow() + timedelta(days=max_extension):
+                    expires_at = datetime.utcnow() + timedelta(days=max_extension)
+    except (ConfigNotFound, ValueError, NoSectionError):
+        max_extension = None
+
+    try:
+        cutoff_date = config_get('lifetime_model', 'cutoff_date', default=None, session=session)
+    except (ConfigNotFound, NoSectionError):
+        raise UnsupportedOperation('Cannot submit exception at that date.')
+    try:
+        cutoff_date = datetime.strptime(cutoff_date, '%Y-%m-%d')
+    except ValueError:
+        raise UnsupportedOperation('Cannot submit exception at that date.')
+    if cutoff_date < datetime.utcnow():
+        raise UnsupportedOperation('Cannot submit exception at that date.')
+
+    did_group = dict()
+    not_affected = list()
+    list_dids = [(did['scope'], did['name']) for did in dids]
+    metadata = [meta for meta in get_metadata_bulk(dids=dids, session=session)]
+    for did in metadata:
+        scope, name, did_type = did['scope'], did['name'], did['did_type']
+        if (scope, name) in list_dids:
+            list_dids.remove((scope, name))
+        datatype = did.get('datatype', '')
+        eol_at = did.get('eol_at', None)
+        if eol_at and eol_at < cutoff_date:
+            if (scope, datatype) not in did_group:
+                did_group[(scope, datatype)] = [list(), 0]
+            did_group[(scope, datatype)][0].append({'scope': scope, 'name': name, 'did_type': did_type})
+            did_group[(scope, datatype)][1] += did['bytes'] or 0
+        else:
+            not_affected.append((scope, name, did_type))
+    for entry in did_group:
+        exception_id = __add_exception(did_group[entry][0], account=account, pattern=pattern, comments=comments, expires_at=expires_at, estimated_volume=did_group[entry][1], session=session)
+        result['exceptions'][exception_id] = did_group[entry][0]
+    result['unknown'] = [{'scope': did[0], 'name': did[1], 'did_type': DIDType.DATASET} for did in list_dids]
+    result['not_affected'] = [{'scope': did[0], 'name': did[1], 'did_type': did[2]} for did in not_affected]
+    return result
+
+
+@transactional_session
+def __add_exception(dids, account, pattern, comments, expires_at, estimated_volume=None, session=None):
+    """
+    Add exceptions to Lifetime Model.
+
+    :param dids:                   The list of dids
+    :param account:                The account of the requester.
+    :param pattern:                The pattern of the exception (not used).
+    :param comments:               The comments associated to the exception.
+    :param expires_at:             The expiration date of the exception.
+    :params estimated_volume:      The estimated logical volume of the exception.
+    :param session:                The database session in use.
+
+    returns:                       The id of the exception.
     """
     exception_id = generate_uuid()
     text = 'Account %s requested a lifetime extension for a list of DIDs that can be found below\n' % account
@@ -95,6 +164,8 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
         reason, volume = comments.split('||||')
     text += 'The reason for the extension is "%s"\n' % reason
     text += 'It represents %s datasets\n' % len(dids)
+    if estimated_volume:
+        text += 'The estimated logical volume is %s\n' % estimated_volume
     if volume:
         text += 'The estimated physical volume is %s\n' % volume
     if expires_at and isinstance(expires_at, string_types):
