@@ -86,7 +86,7 @@ def config_get_int(section, option, raise_exception=True, default=None):
     """Return the integer value for a given option in a section"""
     try:
         return get_config().getint(section, option)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
         if raise_exception and default is None:
             raise err
         return default
@@ -96,7 +96,7 @@ def config_get_float(section, option, raise_exception=True, default=None):
     """Return the floating point value for a given option in a section"""
     try:
         return get_config().getfloat(section, option)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
         if raise_exception and default is None:
             raise err
         return default
@@ -115,7 +115,7 @@ def config_get_bool(section, option, raise_exception=True, default=None):
     """
     try:
         return get_config().getboolean(section, option)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
         if raise_exception:
             raise err
         if default is None:
@@ -184,7 +184,7 @@ def get_lfn2pfn_algorithm_default():
     default_lfn2pfn = "hash"
     try:
         default_lfn2pfn = config_get('policy', 'lfn2pfn_algorithm_default')
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError):
         pass
     return default_lfn2pfn
 

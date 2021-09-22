@@ -306,7 +306,7 @@ class BaseClient(object):
 
         try:
             self.request_retries = int(config_get('client', 'request_retries'))
-        except NoOptionError:
+        except (NoOptionError, RuntimeError):
             LOG.debug('request_retries not specified in config file. Taking default.')
         except ValueError:
             LOG.debug('request_retries must be an integer. Taking default.')
