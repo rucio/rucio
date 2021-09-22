@@ -47,6 +47,8 @@ skip_rse_tests_with_accounts = pytest.mark.skipif(not any(os.path.exists(os.path
                                                   reason='fails if no rse-accounts.cfg found')
 skiplimitedsql = pytest.mark.skipif('RDBMS' in os.environ and os.environ['RDBMS'] == 'sqlite',
                                     reason="does not work in SQLite because of missing features")
+skip_multivo = pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'multi_vo',
+                                  reason="does not work for multiVO")
 
 
 def get_long_vo():
