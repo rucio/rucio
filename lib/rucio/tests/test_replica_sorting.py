@@ -122,10 +122,7 @@ def protocols_setup(vo):
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel, lists replicas and checks for length of returned list')
-@pytest.mark.parametrize("content_type", [
-    Mime.METALINK,
-    pytest.param(Mime.JSON_STREAM, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
-])
+@pytest.mark.parametrize("content_type", [Mime.METALINK, Mime.JSON_STREAM])
 def test_sort_geoip_wan(vo, rest_client, auth_token, protocols_setup, content_type):
     """Replicas: test sorting a few WANs via geoip."""
     n = 10
@@ -187,8 +184,8 @@ def prepare_sort_geoip_lan_before_wan_params():
     argvalues = [
         (Mime.METALINK, 0),
         (Mime.METALINK, 1),
-        pytest.param(Mime.JSON_STREAM, 0, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
-        pytest.param(Mime.JSON_STREAM, 1, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
+        (Mime.JSON_STREAM, 0),
+        (Mime.JSON_STREAM, 1),
     ]
     rargvalues = map(lambda p: p.values if hasattr(p, 'values') else p, argvalues)
     ids = [f'mime={repr(mime)}, lan-site={repr(base_rse_info[iid]["site"])}' for mime, iid in rargvalues]
@@ -323,10 +320,7 @@ def test_not_sorting_lan_replicas(vo, rest_client, auth_token, protocols_setup, 
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel')
-@pytest.mark.parametrize("content_type", [
-    Mime.METALINK,
-    pytest.param(Mime.JSON_STREAM, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
-])
+@pytest.mark.parametrize("content_type", [Mime.METALINK, Mime.JSON_STREAM])
 def test_sort_geoip_address_not_found_error(vo, rest_client, auth_token, protocols_setup, content_type):
     """Replicas: test sorting via geoip with ignoring geoip errors."""
 
