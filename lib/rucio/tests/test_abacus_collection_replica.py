@@ -162,6 +162,7 @@ class TestAbacusCollectionReplica(unittest.TestCase):
         assert dataset_replica[0]['available_length'] == 0
 
 
+@pytest.mark.noparallel(reason='runs multiple daemons which may impact other tests run in parallel')
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
     ('reaper', 'remove_open_did', True)
 ]}], indirect=True)
