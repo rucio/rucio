@@ -168,3 +168,80 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
 
     replica = replica_core.get_replica(jump_rse3_id, **did)
     assert replica['tombstone'] is None
+
+
+@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
+def test_globus(rse_factory, did_factory, root_account):
+    """
+    Test bulk submissions with globus transfertool.
+    Rely on mocks, because we don't contact a real globus server in tests
+    """
+    # +------+    +------+
+    # |      |    |      |
+    # | RSE1 +--->| RSE2 |
+    # |      |    |      |
+    # +------+    +------+
+    #
+    # +------+    +------+
+    # |      |    |      |
+    # | RSE3 +--->| RSE4 |
+    # |      |    |      |
+    # +------+    +------+
+    rse1, rse1_id = rse_factory.make_posix_rse()
+    rse2, rse2_id = rse_factory.make_posix_rse()
+    rse3, rse3_id = rse_factory.make_posix_rse()
+    rse4, rse4_id = rse_factory.make_posix_rse()
+    all_rses = [rse1_id, rse2_id, rse3_id, rse4_id]
+
+    distance_core.add_distance(rse1_id, rse2_id, ranking=10)
+    distance_core.add_distance(rse3_id, rse4_id, ranking=10)
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, 'globus_endpoint_id', rse_id)
+
+    # Single submission
+    did1 = did_factory.upload_test_file(rse1)
+    rule_core.add_rule(dids=[did1], account=root_account, copies=1, rse_expression=rse2, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    did2 = did_factory.upload_test_file(rse3)
+    rule_core.add_rule(dids=[did2], account=root_account, copies=1, rse_expression=rse4, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    with patch('rucio.transfertool.globus.bulk_submit_xfer') as mock_bulk_submit:
+        mock_bulk_submit.return_value = 0
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertool='globus', transfertype='single', filter_transfertool=None)
+        # Called separately for each job
+        assert len(mock_bulk_submit.call_args_list) == 2
+        (submitjob,), _kwargs = mock_bulk_submit.call_args_list[0]
+        assert len(submitjob) == 1
+
+    # Bulk submission
+    did1 = did_factory.upload_test_file(rse1)
+    rule_core.add_rule(dids=[did1], account=root_account, copies=1, rse_expression=rse2, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    did2 = did_factory.upload_test_file(rse3)
+    rule_core.add_rule(dids=[did2], account=root_account, copies=1, rse_expression=rse4, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    with patch('rucio.transfertool.globus.bulk_submit_xfer') as mock_bulk_submit:
+        mock_bulk_submit.return_value = 0
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertool='globus', transfertype='bulk', filter_transfertool=None)
+
+        mock_bulk_submit.assert_called_once()
+        (submitjob,), _kwargs = mock_bulk_submit.call_args_list[0]
+
+        # both jobs were grouped together and submitted in one call
+        assert len(submitjob) == 2
+
+        job_did1 = next(iter(filter(lambda job: did1['name'] in job['sources'][0], submitjob)))
+        assert len(job_did1['sources']) == 1
+        assert len(job_did1['destinations']) == 1
+        assert job_did1['metadata']['src_rse'] == rse1
+        assert job_did1['metadata']['dst_rse'] == rse2
+        assert job_did1['metadata']['name'] == did1['name']
+        assert job_did1['metadata']['source_globus_endpoint_id'] == rse1_id
+        assert job_did1['metadata']['dest_globus_endpoint_id'] == rse2_id
+
+        job_did2 = next(iter(filter(lambda job: did2['name'] in job['sources'][0], submitjob)))
+        assert len(job_did2['sources']) == 1
+        assert len(job_did2['destinations']) == 1
+        assert job_did2['metadata']['src_rse'] == rse3
+        assert job_did2['metadata']['dst_rse'] == rse4
+        assert job_did2['metadata']['name'] == did2['name']
+    request = request_core.get_request_by_did(rse_id=rse2_id, **did1)
+    assert request['state'] == RequestState.SUBMITTED
+    request = request_core.get_request_by_did(rse_id=rse4_id, **did2)
+    assert request['state'] == RequestState.SUBMITTED

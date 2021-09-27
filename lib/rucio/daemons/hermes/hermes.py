@@ -62,7 +62,7 @@ GRACEFUL_STOP = threading.Event()
 RECONNECT_COUNTER = Counter('rucio_daemons_hermes_reconnect', 'Counts Hermes reconnects to different ActiveMQ brokers', labelnames=('host',))
 
 
-def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10, sleep_time=10):
+def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=60, sleep_time=60):
     '''
     Main loop to deliver emails via SMTP.
     '''
@@ -139,7 +139,10 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10, s
         if once:
             break
 
-        daemon_sleep(start_time=t_start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
+        if len(messages) < bulk:
+            logging.info("Only %d messages, which is less than the bulk %d, will sleep"
+                         % (len(messages), bulk))
+            daemon_sleep(start_time=t_start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
     logging.debug('[email] %i:%i - graceful stop requested', heartbeat['assign_thread'],
                   heartbeat['nr_threads'])
@@ -167,8 +170,8 @@ class HermesListener(stomp.ConnectionListener):
         logging.error('[broker] [%s]: %s', self.__broker, frame.body)
 
 
-def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=10,
-                     broker_timeout=3, broker_retry=3, sleep_time=10):
+def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=60,
+                     broker_timeout=3, broker_retry=3, sleep_time=60):
     '''
     Main loop to deliver messages to a broker.
     '''
@@ -355,13 +358,16 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                 if once:
                     break
 
+            if len(messages) < bulk:
+                logging.info("Only %d messages, which is less than the bulk %d, will sleep"
+                             % (len(messages), bulk))
+                daemon_sleep(start_time=t_start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
+
         except NoResultFound:
             # silence this error: https://its.cern.ch/jira/browse/RUCIO-1699
             pass
         except:
             logging.critical(traceback.format_exc())
-
-        daemon_sleep(start_time=t_start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
     for conn in conns:
         try:
@@ -386,8 +392,8 @@ def stop(signum=None, frame=None):
     GRACEFUL_STOP.set()
 
 
-def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_timeout=3,
-        broker_retry=3, sleep_time=10):
+def run(once=False, send_email=True, threads=1, bulk=1000, delay=60, broker_timeout=3,
+        broker_retry=3, sleep_time=60):
     '''
     Starts up the hermes threads.
     '''

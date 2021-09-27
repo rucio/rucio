@@ -27,12 +27,11 @@
 # - Matt Snyder <msnyder@bnl.gov>, 2019-2021
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
-# - Nick Smith <nick.smith@cern.ch>, 2020
+# - Nick Smith <nick.smith@cern.ch>, 2020-2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
-# - Nick Smith <nick.smith@cern.ch>, 2021
 
 """
 Conveyor transfer submitter is a daemon to manage non-tape file transfers.
@@ -48,7 +47,6 @@ import time
 from collections import defaultdict
 
 from prometheus_client import Counter
-from six import iteritems
 from six.moves.configparser import NoOptionError
 
 import rucio.db.sqla.util
@@ -56,14 +54,13 @@ from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.schema import get_schema_value
-from rucio.core import heartbeat, request as request_core, transfer as transfer_core
+from rucio.core import heartbeat, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
-from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses, USER_ACTIVITY
-from rucio.db.sqla.constants import RequestState
+from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfers_for_fts, bulk_group_transfers_for_globus, get_conveyor_rses
+from rucio.db.sqla.constants import RequestType
 
 graceful_stop = threading.Event()
 
-USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)  # NOTE: This should eventually be completely removed, as it can be fetched from the request
 FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)  # NOTE: TRANSFERTOOL to filter requests on
 TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
@@ -153,81 +150,58 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                 prefix = 'conveyor-submitter[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
                 logger = formatted_logger(logging.log, prefix + '%s')
 
-                user_transfer = False
-
-                if activity in USER_ACTIVITY and USER_TRANSFERS in ['cms']:
-                    logger(logging.INFO, 'CMS user transfer activity')
-                    user_transfer = True
-
                 logger(logging.INFO, 'Starting to get transfer transfers for %s', activity)
                 start_time = time.time()
-                transfers = __get_transfers(total_workers=heart_beat['nr_threads'],
-                                            worker_number=heart_beat['assign_thread'],
-                                            failover_schemes=failover_scheme,
-                                            limit=bulk,
-                                            activity=activity,
-                                            rses=rse_ids,
-                                            schemes=scheme,
-                                            max_sources=max_sources,
-                                            bring_online=bring_online,
-                                            retry_other_fts=retry_other_fts,
-                                            transfertool=filter_transfertool,
-                                            logger=logger)
 
-                record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
-                record_counter('daemons.conveyor.transfer_submitter.get_transfers', len(transfers))
-                GET_TRANSFERS_COUNTER.inc(len(transfers))
-                record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', len(transfers))
-                logger(logging.INFO, 'Got %s transfers for %s in %s seconds', len(transfers), activity, time.time() - start_time)
+                transfers = transfer_core.next_transfers_to_submit(
+                    total_workers=heart_beat['nr_threads'],
+                    worker_number=heart_beat['assign_thread'],
+                    failover_schemes=failover_scheme,
+                    limit=bulk,
+                    activity=activity,
+                    rses=rse_ids,
+                    schemes=scheme,
+                    retry_other_fts=retry_other_fts,
+                    transfertool=filter_transfertool,
+                    older_than=None,
+                    request_type=RequestType.TRANSFER,
+                    logger=logger,
+                )
+                total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
 
-                # group transfers
-                logger(logging.INFO, 'Starting to group transfers for %s', activity)
-                start_time = time.time()
+                record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (total_transfers or 1))
+                record_counter('daemons.conveyor.transfer_submitter.get_transfers', total_transfers)
+                GET_TRANSFERS_COUNTER.inc(total_transfers)
+                record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', total_transfers)
+                logger(logging.INFO, 'Got %s transfers for %s in %s seconds', total_transfers, activity, time.time() - start_time)
 
-                grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue, group_by_scope=user_transfer, archive_timeout_override=archive_timeout_override)
-                record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
-
-                logger(logging.INFO, 'Starting to submit transfers for %s', activity)
-
-                if transfertool in ['fts3', 'mock']:
-                    for external_host in grouped_jobs:
-                        if not user_transfer:
-                            for job in grouped_jobs[external_host]:
-                                # submit transfers
-                                submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                                timeout=timeout, logger=logger, transfertool=transfertool)
-                        else:
-                            for _, jobs in iteritems(grouped_jobs[external_host]):
-                                # submit transfers
-                                for job in jobs:
-                                    submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                                    timeout=timeout, user_transfer_job=user_transfer, logger=logger, transfertool=transfertool)
-                elif transfertool == 'globus':
-                    if transfertype == 'bulk':
-                        # build bulk job file list per external host to send to submit_transfer
-                        for external_host in grouped_jobs:
-                            # pad the job with job_params; irrelevant for globus but needed for further rucio parsing
-                            submitjob = {'files': [], 'job_params': grouped_jobs[''][0].get('job_params')}
-                            for job in grouped_jobs[external_host]:
-                                submitjob.get('files').append(job.get('files')[0])
-                            logger(logging.DEBUG, 'submitjob: %s' % submitjob)
-                            submit_transfer(external_host=external_host, job=submitjob, submitter='transfer_submitter',
-                                            timeout=timeout, logger=logger, transfertool=transfertool)
+                grouped_jobs = {}
+                for external_host, transfer_paths in transfers.items():
+                    start_time = time.time()
+                    logger(logging.INFO, 'Starting to group transfers for %s (%s)', activity, external_host)
+                    for transfer_path in transfer_paths:
+                        for i, hop in enumerate(transfer_path):
+                            hop.init_legacy_transfer_definition(bring_online=bring_online, default_lifetime=172800, logger=logger)
+                            if len(transfer_path) > 1:
+                                hop['multihop'] = True
+                                hop['initial_request_id'] = transfer_path[-1].rws.request_id
+                                hop['parent_request'] = transfer_path[i - 1].rws.request_id if i > 0 else None
+                    if transfertool in ['fts3', 'mock']:
+                        grouped_jobs = bulk_group_transfers_for_fts(transfer_paths, group_policy, group_bulk, source_strategy, max_time_in_queue, archive_timeout_override=archive_timeout_override)
+                    elif transfertool == 'globus':
+                        grouped_jobs = bulk_group_transfers_for_globus(transfer_paths, transfertype, group_bulk)
                     else:
-                        # build single job files and individually send to submit_transfer
-                        job_params = grouped_jobs[''][0].get('job_params') if grouped_jobs else None
-                        for external_host in grouped_jobs:
-                            for job in grouped_jobs[external_host]:
-                                for file in job['files']:
-                                    singlejob = {'files': [file], 'job_params': job_params}
-                                    logger(logging.DEBUG, 'singlejob: %s' % singlejob)
-                                    submit_transfer(external_host=external_host, job=singlejob, submitter='transfer_submitter',
-                                                    timeout=timeout, logger=logger, transfertool=transfertool)
-                else:
-                    logger(logging.ERROR, 'Unknown transfer tool')
+                        logger(logging.ERROR, 'Unknown transfer tool')
+                    record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfer_paths) or 1))
 
-                if len(transfers) < group_bulk:
-                    logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', len(transfers), activity, group_bulk, sleep_time)
+                    logger(logging.INFO, 'Starting to submit transfers for %s (%s)', activity, external_host)
+                    for job in grouped_jobs:
+                        logger(logging.DEBUG, 'submitjob: %s' % job)
+                        submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
+                                        timeout=timeout, logger=logger, transfertool=transfertool)
+
+                if total_transfers < group_bulk:
+                    logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', total_transfers, activity, group_bulk, sleep_time)
                     if activity_next_exe_time[activity] < time.time():
                         activity_next_exe_time[activity] = time.time() + sleep_time
             except Exception:
@@ -312,51 +286,3 @@ def run(once=False, group_bulk=1, group_policy='rule', mock=False,
     # Interruptible joins require a timeout.
     while threads:
         threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
-
-
-def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, limit=None, activity=None, older_than=None,
-                    rses=None, schemes=None, max_sources=4, bring_online=43200,
-                    retry_other_fts=False, transfertool=None, logger=logging.log):
-    """
-    Get transfers to process
-
-    :param total_workers:    Number of total workers.
-    :param worker_number:    Id of the executing worker.
-    :param failover_schemes: Failover schemes.
-    :param limit:            Integer of requests to retrieve.
-    :param activity:         Activity to be selected.
-    :param older_than:       Only select requests older than this DateTime.
-    :param rses:             List of rse_id to select requests.
-    :param schemes:          Schemes to process.
-    :param max_sources:      Max sources.
-    :param bring_online:     Bring online timeout.
-    :param logger:           Optional decorated logger that can be passed from the calling daemons or servers.
-    :param retry_other_fts:  Retry other fts servers if needed
-    :param transfertool:     The transfer tool as specified in rucio.cfg
-    :returns:                List of transfers
-    """
-
-    transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source = transfer_core.get_transfer_requests_and_source_replicas(total_workers=total_workers,
-                                                                                                                                     worker_number=worker_number,
-                                                                                                                                     limit=limit,
-                                                                                                                                     activity=activity,
-                                                                                                                                     older_than=older_than,
-                                                                                                                                     rses=rses,
-                                                                                                                                     schemes=schemes,
-                                                                                                                                     bring_online=bring_online,
-                                                                                                                                     retry_other_fts=retry_other_fts,
-                                                                                                                                     failover_schemes=failover_schemes,
-                                                                                                                                     transfertool=transfertool)
-    if reqs_no_source:
-        logger(logging.INFO, "Marking requests as no-sources: %s", reqs_no_source)
-        request_core.set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
-    if reqs_only_tape_source:
-        logger(logging.INFO, "Marking requests as only-tape-sources: %s", reqs_only_tape_source)
-        request_core.set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
-    if reqs_scheme_mismatch:
-        logger(logging.INFO, "Marking requests as scheme-mismatch: %s", reqs_scheme_mismatch)
-        request_core.set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
-
-    for request_id in transfers:
-        logger(logging.DEBUG, "Transfer for request(%s): %s", request_id, transfers[request_id])
-    return transfers

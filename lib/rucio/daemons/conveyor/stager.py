@@ -23,6 +23,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
 Conveyor stager is a daemon to manage stagein file transfers.
@@ -45,15 +46,14 @@ from rucio.common.config import config_get, config_get_bool
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.request import set_requests_state
-from rucio.core.staging import get_stagein_requests_and_source_replicas
-from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses
-from rucio.db.sqla.constants import RequestState
+from rucio.core import transfer as transfer_core
+from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfers_for_fts, get_conveyor_rses
+from rucio.db.sqla.constants import RequestType
 
 graceful_stop = threading.Event()
 
 
-def stager(once=False, rses=None, mock=False, bulk=100, group_bulk=1, group_policy='rule',
+def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
            source_strategy=None, activities=None, sleep_time=600, retry_other_fts=False):
     """
     Main loop to submit a new transfer primitive to a transfertool.
@@ -128,41 +128,45 @@ def stager(once=False, rses=None, mock=False, bulk=100, group_bulk=1, group_poli
 
                 logger(logging.INFO, 'Starting to get stagein transfers for %s' % (activity))
                 start_time = time.time()
-                transfers = __get_stagein_transfers(total_workers=heart_beat['nr_threads'],
-                                                    worker_number=heart_beat['assign_thread'],
-                                                    failover_schemes=failover_scheme,
-                                                    limit=bulk,
-                                                    activity=activity,
-                                                    rses=rse_ids,
-                                                    mock=mock,
-                                                    schemes=scheme,
-                                                    bring_online=bring_online,
-                                                    retry_other_fts=retry_other_fts,
-                                                    logger=logger)
-                record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
-                record_counter('daemons.conveyor.stager.get_stagein_transfers', len(transfers))
-                record_timer('daemons.conveyor.stager.get_stagein_transfers.transfers', len(transfers))
-                logger(logging.INFO, 'Got %s stagein transfers for %s' % (len(transfers), activity))
 
-                # group transfers
-                logger(logging.INFO, 'Starting to group transfers for %s' % (activity))
-                start_time = time.time()
-                grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue)
-                record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
+                transfers = transfer_core.next_transfers_to_submit(
+                    total_workers=heart_beat['nr_threads'],
+                    worker_number=heart_beat['assign_thread'],
+                    failover_schemes=failover_scheme,
+                    limit=bulk,
+                    activity=activity,
+                    rses=rse_ids,
+                    schemes=scheme,
+                    retry_other_fts=retry_other_fts,
+                    older_than=None,
+                    request_type=RequestType.STAGEIN,
+                    logger=logger,
+                )
+                total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
+                record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - start_time) * 1000 / (total_transfers if transfers else 1))
+                record_counter('daemons.conveyor.stager.get_stagein_transfers', total_transfers)
+                record_timer('daemons.conveyor.stager.get_stagein_transfers.transfers', total_transfers)
+                logger(logging.INFO, 'Got %s stagein transfers for %s' % (total_transfers, activity))
 
-                logger(logging.INFO, 'Starting to submit transfers for %s' % (activity))
-                # submit transfers
-                for external_host in grouped_jobs:
-                    for job in grouped_jobs[external_host]:
-                        # submit transfers
+                for external_host, transfer_paths in transfers.items():
+                    logger(logging.INFO, 'Starting to group transfers for %s (%s)' % (activity, external_host))
+                    start_time = time.time()
+                    for transfer_path in transfer_paths:
+                        for i, hop in enumerate(transfer_path):
+                            hop.init_legacy_transfer_definition(bring_online=bring_online, default_lifetime=-1, logger=logger)
+                    grouped_jobs = bulk_group_transfers_for_fts(transfer_paths, group_policy, group_bulk, source_strategy, max_time_in_queue)
+                    record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfer_paths) or 1))
+
+                    logger(logging.INFO, 'Starting to submit transfers for %s (%s)' % (activity, external_host))
+                    for job in grouped_jobs:
                         submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter', logger=logger)
 
-                if len(transfers) < group_bulk:
-                    logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (len(transfers), activity, group_bulk, sleep_time))
+                if total_transfers < group_bulk:
+                    logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (total_transfers, activity, group_bulk, sleep_time))
                     if activity_next_exe_time[activity] < time.time():
                         activity_next_exe_time[activity] = time.time() + sleep_time
         except Exception:
-            logger(logging.CRITICAL, "Exception", exc_info=True)
+            raise
 
         if once:
             break
@@ -182,7 +186,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, total_threads=1, group_bulk=1, group_policy='rule', mock=False,
+def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
         rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
         activities=[], sleep_time=600, retry_other_fts=False):
     """
@@ -192,9 +196,6 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule', mock=Fal
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
-
-    if mock:
-        logging.info('mock source replicas: enabled')
 
     multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
     working_rses = None
@@ -213,7 +214,6 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule', mock=Fal
         logging.info('executing one stager iteration only')
         stager(once,
                rses=working_rses,
-               mock=mock,
                bulk=bulk,
                group_bulk=group_bulk,
                group_policy=group_policy,
@@ -228,7 +228,6 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule', mock=Fal
                                                            'group_bulk': group_bulk,
                                                            'group_policy': group_policy,
                                                            'activities': activities,
-                                                           'mock': mock,
                                                            'sleep_time': sleep_time,
                                                            'source_strategy': source_strategy,
                                                            'retry_other_fts': retry_other_fts}) for _ in range(0, total_threads)]
@@ -240,24 +239,3 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule', mock=Fal
         # Interruptible joins require a timeout.
         while threads:
             threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
-
-
-def __get_stagein_transfers(total_workers=0, worker_number=0, failover_schemes=None, limit=None, activity=None, older_than=None,
-                            rses=None, mock=False, schemes=None, bring_online=43200, retry_other_fts=False, session=None, logger=logging.log):
-
-    transfers, reqs_no_source = get_stagein_requests_and_source_replicas(total_workers=total_workers,
-                                                                         worker_number=worker_number,
-                                                                         limit=limit,
-                                                                         activity=activity,
-                                                                         older_than=older_than,
-                                                                         rses=rses,
-                                                                         mock=mock,
-                                                                         schemes=schemes,
-                                                                         bring_online=bring_online,
-                                                                         retry_other_fts=retry_other_fts,
-                                                                         failover_schemes=failover_schemes,
-                                                                         session=session,
-                                                                         logger=logger)
-
-    set_requests_state(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
-    return transfers

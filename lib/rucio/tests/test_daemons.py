@@ -29,7 +29,7 @@ from rucio.daemons.automatix import automatix
 from rucio.daemons.badreplicas import minos, minos_temporary_expiration, necromancer
 from rucio.daemons.c3po import c3po
 from rucio.daemons.cache import consumer
-from rucio.daemons.conveyor import finisher, fts_throttler, poller, poller_latest, receiver, stager, submitter, throttler, preparer
+from rucio.daemons.conveyor import finisher, fts_throttler, poller, receiver, stager, submitter, throttler, preparer
 from rucio.daemons.follower import follower
 from rucio.daemons.hermes import hermes, hermes2
 from rucio.daemons.judge import cleaner, evaluator, injector, repairer
@@ -61,7 +61,6 @@ DAEMONS = [
     finisher,
     fts_throttler,
     poller,
-    poller_latest,
     receiver,
     stager,
     submitter,

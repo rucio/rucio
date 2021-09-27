@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from datetime import datetime
 from enum import Enum
@@ -116,6 +118,7 @@ class LockState(Enum):
 
 
 class ReplicaState(Enum):
+    # Update rucio.common.constants at the same time than this
     AVAILABLE = 'A'
     UNAVAILABLE = 'U'
     COPYING = 'C'

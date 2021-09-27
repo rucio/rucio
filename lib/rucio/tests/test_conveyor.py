@@ -34,10 +34,11 @@ from rucio.core import transfer as transfer_core
 from rucio.daemons.conveyor.finisher import finisher
 from rucio.daemons.conveyor.poller import poller
 from rucio.daemons.conveyor.submitter import submitter
+from rucio.daemons.conveyor.stager import stager
 from rucio.daemons.conveyor.receiver import receiver, graceful_stop as receiver_graceful_stop
 from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RequestState, ReplicaState, RSEType
+from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, RSEType
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.tests.common import skip_rse_tests_with_accounts
 
@@ -436,6 +437,48 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config
         receiver_graceful_stop.set()
         receiver_thread.join(timeout=5)
         receiver_graceful_stop.clear()
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs stager; poller and finisher")
+def test_stager(rse_factory, did_factory, root_account, replica_client):
+    """
+    Submit a real transfer to FTS and rely on the gfal "mock" plugin to report a simulated "success"
+    https://gitlab.cern.ch/dmc/gfal2/-/blob/master/src/plugins/mock/README_PLUGIN_MOCK
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    all_rses = [src_rse_id, dst_rse_id]
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    rse_core.add_rse_attribute(src_rse_id, 'staging_buffer', dst_rse)
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, 'fts', 'https://fts:8446')
+
+    did = did_factory.upload_test_file(src_rse)
+    replica = replica_core.get_replica(rse_id=src_rse_id, **did)
+
+    replica_client.add_replicas(rse=dst_rse, files=[{'scope': did['scope'].external, 'name': did['name'], 'state': 'C',
+                                                     'bytes': replica['bytes'], 'adler32': replica['adler32'], 'md5': replica['md5']}])
+    request_core.queue_requests(requests=[{'dest_rse_id': dst_rse_id,
+                                           'scope': did['scope'],
+                                           'name': did['name'],
+                                           'rule_id': '00000000000000000000000000000000',
+                                           'attributes': {
+                                               'source_replica_expression': src_rse,
+                                               'activity': 'Some Activity',
+                                               'bytes': replica['bytes'],
+                                               'adler32': replica['adler32'],
+                                               'md5': replica['md5'],
+                                           },
+                                           'request_type': RequestType.STAGEIN,
+                                           'retry_count': 0,
+                                           'account': root_account,
+                                           'requested_at': datetime.now()}])
+    stager(once=True, rses=[{'id': rse_id} for rse_id in all_rses])
+
+    replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=2 * MAX_POLL_WAIT_SECONDS, **did)
+    assert replica['state'] == ReplicaState.AVAILABLE
 
 
 @skip_rse_tests_with_accounts

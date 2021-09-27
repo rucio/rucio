@@ -14,7 +14,8 @@
 # limitations under the License.
 #
 # Authors:
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Mayank Sharma <imptodefeat@gmail.com>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import time
 import datetime
@@ -23,7 +24,7 @@ import hashlib
 import re
 
 from rucio.core.rule import add_rule
-from rucio.core.transfer import get_transfer_requests_and_source_replicas
+from rucio.core.transfer import next_transfers_to_submit
 from rucio.common.utils import generate_uuid
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.conveyor import submitter, poller, finisher
@@ -115,14 +116,12 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
     assert rule['locks_ok_cnt'] == 0
     assert rule['locks_replicating_cnt'] == 1
 
-    transfer_requestss = get_transfer_requests_and_source_replicas(rses=[rse1_id, rse2_id])
-    for transfer_requests in transfer_requestss:
-        for transfer_request in transfer_requests:
-            if transfer_requests[transfer_request]['rule_id'] == rule_id[0]:
-                src_url = transfer_requests[transfer_request]['sources'][0][1]
-                dest_url = transfer_requests[transfer_request]['dest_urls'][0]
-                check_url(src_url, rse1_hostname, test_file_expected_pfn)
-                check_url(dest_url, rse2_hostname, test_file_expected_pfn)
+    [[_host, [transfer_path]]] = next_transfers_to_submit(rses=[rse1_id, rse2_id]).items()
+    assert transfer_path[0].rws.rule_id == rule_id[0]
+    src_url = transfer_path[0]['sources'][0][1]
+    dest_url = transfer_path[0]['dest_urls'][0]
+    check_url(src_url, rse1_hostname, test_file_expected_pfn)
+    check_url(dest_url, rse2_hostname, test_file_expected_pfn)
 
     # Run Submitter
     submitter.run(once=True)

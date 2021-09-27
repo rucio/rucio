@@ -25,6 +25,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
 import unittest
 from datetime import datetime, timedelta
@@ -38,9 +39,10 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_dids, attach_dids, list_expired_dids, get_did, set_metadata
-from rucio.core.replica import get_replica
+from rucio.core.replica import add_replicas, get_replica
 from rucio.core.rse import get_rse_id, add_rse
 from rucio.core.rule import add_rules, list_rules
+from rucio.daemons.judge.cleaner import rule_cleaner
 from rucio.daemons.undertaker.undertaker import undertaker
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import rse_name_generator
@@ -50,7 +52,7 @@ LOG = getLogger(__name__)
 
 
 @pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined rses, fails when run in parallel')
+@pytest.mark.noparallel(reason='uses pre-defined rses; runs undertaker, which impacts other tests')
 class TestUndertaker(unittest.TestCase):
 
     def setUp(self):
@@ -75,7 +77,7 @@ class TestUndertaker(unittest.TestCase):
         dsns1 = [{'name': 'dsn_%s' % generate_uuid(),
                   'scope': tmp_scope,
                   'type': 'DATASET',
-                  'lifetime': -1} for i in range(nbdatasets)]
+                  'lifetime': -1} for _ in range(nbdatasets)]
 
         dsns2 = [{'name': 'dsn_%s' % generate_uuid(),
                   'scope': tmp_scope,
@@ -83,7 +85,7 @@ class TestUndertaker(unittest.TestCase):
                   'lifetime': -1,
                   'rules': [{'account': jdoe, 'copies': 1,
                              'rse_expression': rse,
-                             'grouping': 'DATASET'}]} for i in range(nbdatasets)]
+                             'grouping': 'DATASET'}]} for _ in range(nbdatasets)]
 
         add_dids(dids=dsns1 + dsns2, account=root)
 
@@ -96,7 +98,7 @@ class TestUndertaker(unittest.TestCase):
         for dsn in dsns1 + dsns2:
             files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(),
                       'bytes': 1, 'adler32': '0cc737eb',
-                      'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for i in range(nbfiles)]
+                      'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for _ in range(nbfiles)]
             attach_dids(scope=tmp_scope, name=dsn['name'], rse_id=rse_id, dids=files, account=root)
             replicas += files
 
@@ -154,14 +156,14 @@ class TestUndertaker(unittest.TestCase):
                   'lifetime': -1,
                   'rules': [{'account': jdoe, 'copies': 1,
                              'rse_expression': rse,
-                             'grouping': 'DATASET'}]} for i in range(nbdatasets)]
+                             'grouping': 'DATASET'}]} for _ in range(nbdatasets)]
 
         add_dids(dids=dsns2, account=root)
 
         replicas = list()
         for dsn in dsns2:
             files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1,
-                      'adler32': '0cc737eb', 'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for i in range(nbfiles)]
+                      'adler32': '0cc737eb', 'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for _ in range(nbfiles)]
             attach_dids(scope=tmp_scope, name=dsn['name'], rse_id=rse_id, dids=files, account=root)
             replicas += files
 
@@ -173,3 +175,54 @@ class TestUndertaker(unittest.TestCase):
         for dsn in dsns2:
             assert(get_did(scope=InternalScope('archive', **self.vo), name=dsn['name'])['name'] == dsn['name'])
             assert(len([x for x in list_rules(filters={'scope': InternalScope('archive', **self.vo), 'name': dsn['name']})]) == 1)
+
+
+@pytest.mark.noparallel(reason='runs undertaker, which impacts other tests')
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('undertaker', 'purge_all_replicas', True)
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.config',
+]}], indirect=True)
+def test_removal_all_replicas2(rse_factory, root_account, mock_scope, core_config_mock, caches_mock):
+    """ UNDERTAKER (CORE): Test the undertaker is setting Epoch tombstone on all the replicas. """
+    rse1, rse1_id = rse_factory.make_posix_rse()
+    rse2, rse2_id = rse_factory.make_posix_rse()
+    dst_rse_name, dst_rse_id = rse_factory.make_posix_rse()
+
+    set_local_account_limit(root_account, rse1_id, -1)
+    set_local_account_limit(root_account, rse2_id, -1)
+
+    nbdatasets = 1
+    nbfiles = 5
+    dsns1 = [{'name': 'dsn_%s' % generate_uuid(),
+              'scope': mock_scope,
+              'type': 'DATASET',
+              'lifetime': -1} for _ in range(nbdatasets)]
+
+    add_dids(dids=dsns1, account=root_account)
+
+    replicas = list()
+    for dsn in dsns1:
+        files = [{'scope': mock_scope,
+                  'name': 'file_%s' % generate_uuid(),
+                  'bytes': 1,
+                  'adler32': '0cc737eb'} for _ in range(nbfiles)]
+        attach_dids(scope=mock_scope, name=dsn['name'], rse_id=rse1_id, dids=files, account=root_account)
+        add_replicas(rse_id=rse2_id, files=files, account=root_account, ignore_availability=True)
+        replicas += files
+
+    add_rules(dids=dsns1, rules=[{'account': root_account, 'copies': 1, 'rse_expression': rse1, 'grouping': 'DATASET'}])
+    add_rules(dids=dsns1, rules=[{'account': root_account, 'copies': 1, 'rse_expression': rse2, 'grouping': 'DATASET', 'lifetime': -86400}])
+
+    # Clean the rules on MOCK2. Replicas are tombstoned with non Epoch
+    rule_cleaner(once=True)
+    for replica in replicas:
+        assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse2_id)['tombstone'] is not None
+    undertaker(worker_number=1, total_workers=1, once=True)
+    undertaker(worker_number=1, total_workers=1, once=True)
+
+    for replica in replicas:
+        assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse1_id)['tombstone'] == datetime(year=1970, month=1, day=1)
+    for replica in replicas:
+        assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse2_id)['tombstone'] == datetime(year=1970, month=1, day=1)

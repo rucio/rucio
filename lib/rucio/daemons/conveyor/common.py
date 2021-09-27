@@ -20,7 +20,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
 # - Wen Guan <wen.guan@cern.ch>, 2014-2016
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2016
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2016
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Eric Vaandering <ewv@fnal.gov>, 2018-2020
 # - dciangot <diego.ciangottini@cern.ch>, 2018
@@ -33,6 +33,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Nick Smith <nick.smith@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Methods common to different conveyor submitter daemons.
@@ -44,6 +45,7 @@ from json import loads
 import datetime
 import logging
 import time
+from itertools import chain
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
@@ -59,12 +61,10 @@ from rucio.db.sqla.session import read_session
 from rucio.db.sqla.constants import RequestState
 from rucio.rse import rsemanager as rsemgr
 
-USER_ACTIVITY = config_get('conveyor', 'user_activities', False, ['user', 'user_test'])
-USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
 
 
-def submit_transfer(external_host, job, submitter='submitter', timeout=None, user_transfer_job=False, logger=logging.log, transfertool=TRANSFER_TOOL):
+def submit_transfer(external_host, job, submitter='submitter', timeout=None, logger=logging.log, transfertool=TRANSFER_TOOL):
     """
     Submit a transfer or staging request
 
@@ -72,7 +72,6 @@ def submit_transfer(external_host, job, submitter='submitter', timeout=None, use
     :param job:                   Job dictionary.
     :param submitter:             Name of the submitting entity.
     :param timeout:               Timeout
-    :param user_transfer_job:     Parameter for transfer with user credentials
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
@@ -127,8 +126,7 @@ def submit_transfer(external_host, job, submitter='submitter', timeout=None, use
                                                   files=job['files'],
                                                   transfertool=transfertool,
                                                   job_params=job['job_params'],
-                                                  timeout=timeout,
-                                                  user_transfer_job=user_transfer_job)
+                                                  timeout=timeout)
         duration = time.time() - start_time
         logger(logging.INFO, 'Submit job %s to %s in %s seconds' % (eid, external_host, duration))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - start_time) * 1000 / len(job['files']))
@@ -174,8 +172,7 @@ def submit_transfer(external_host, job, submitter='submitter', timeout=None, use
                                                           files=[t_file],
                                                           transfertool=transfertool,
                                                           job_params=job['job_params'],
-                                                          timeout=timeout,
-                                                          user_transfer_job=user_transfer_job)
+                                                          timeout=timeout)
                 duration = time.time() - start_time
                 logger(logging.INFO, 'Submit job %s to %s in %s seconds' % (eid, external_host, duration))
                 record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - start_time) * 1000)
@@ -227,8 +224,45 @@ def submit_transfer(external_host, job, submitter='submitter', timeout=None, use
         logger(logging.ERROR, 'Failed to submit a job with error %s', str(error), exc_info=True)
 
 
+def bulk_group_transfers_for_globus(transfer_paths, policy, group_bulk=200):
+    """
+    Group transfers in bulk based on certain criterias
+
+    :param transfer_paths:  List of transfers to group.
+    :param policy:     Policy to use to group.
+    :param group_bulk: Bulk sizes.
+    :return:           List of grouped transfers
+    """
+    if policy == 'single':
+        group_bulk = 1
+
+    grouped_jobs = []
+    for chunk in chunks(transfer_paths, group_bulk):
+        # Globus doesn't support multihop. Get the first hop only.
+        transfers = [transfer_path[0] for transfer_path in chunk]
+
+        grouped_jobs.append({
+            'files': [
+                {
+                    # Some dict elements are not needed by globus transfertool, but are accessed by further common fts/globus code
+                    'sources': transfer['sources'],
+                    'destinations': transfer['dest_urls'],
+                    'metadata': transfer['file_metadata'],
+                    'filesize': int(transfer['file_metadata']['filesize']),
+                    'request_type': transfer['file_metadata'].get('request_type', None),
+                    'activity': str(transfer['file_metadata']['activity']),
+                }
+                for transfer in transfers
+            ],
+            # Job params are not used by globus trasnfertool, but are needed for further common fts/globus code
+            'job_params': {}
+        })
+
+    return grouped_jobs
+
+
 @read_session
-def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None, logger=logging.log, group_by_scope=False, archive_timeout_override=None):
+def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None, logger=logging.log, archive_timeout_override=None):
     """
     Group transfers in bulk based on certain criterias
 
@@ -243,10 +277,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
     """
 
     grouped_transfers = {}
-    grouped_jobs = {}
-
-    # Use empty string, but any string is OK, it is internal to this function only
-    _catch_all_scopes_str = ''
+    grouped_jobs = []
 
     try:
         default_source_strategy = get(section='conveyor', option='default-source-strategy')
@@ -262,9 +293,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
         logger(logging.WARNING, 'activity_source_strategy not properly defined')
         activity_source_strategy = {}
 
-    for request_id in transfers:
-        transfer = transfers[request_id]
-
+    for transfer in chain.from_iterable(transfers):
         verify_checksum, checksums_to_use = transfer_core.checksum_validation_strategy(transfer.src.rse.attributes, transfer.dst.rse.attributes, logger=logger)
         t_file = {'sources': transfer['sources'],
                   'destinations': transfer['dest_urls'],
@@ -283,24 +312,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
         strict_copy = transfer.get('strict_copy', False)
         use_ipv4 = transfer.get('use_ipv4', False)
 
-        external_host = transfer['external_host']
-        scope = t_file['metadata']['scope']
         activity = t_file['activity']
-        if group_by_scope:
-            scope_str = scope.internal
-        else:
-            # Use a catch-all scope which will be removed at the end
-            scope_str = _catch_all_scopes_str
-
-        if external_host not in grouped_transfers:
-            grouped_transfers[external_host] = {}
-            grouped_jobs[external_host] = {}
-            if scope_str not in grouped_transfers[external_host]:
-                grouped_transfers[external_host][scope_str] = {}
-                grouped_jobs[external_host][scope_str] = []
-
-        current_transfers_group = grouped_transfers[external_host][scope_str]
-        current_jobs_group = grouped_jobs[external_host][scope_str]
 
         job_params = {'account': transfer['account'],
                       'use_oidc': transfer_core.oidc_supported(transfer),
@@ -339,7 +351,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
         # for multiple source replicas, no bulk submission
         if len(transfer['sources']) > 1:
             job_params['job_metadata']['multi_sources'] = True
-            current_jobs_group.append({'files': [t_file], 'job_params': job_params})
+            grouped_jobs.append({'files': [t_file], 'job_params': job_params})
         else:
             job_params['job_metadata']['multi_sources'] = False
             job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params.get('spacetoken', None),
@@ -353,8 +365,8 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
             if multihop:
                 job_key = 'multihop_%s' % (transfer['initial_request_id'])
 
-            if job_key not in current_transfers_group:
-                current_transfers_group[job_key] = {}
+            if job_key not in grouped_transfers:
+                grouped_transfers[job_key] = {}
 
             if multihop:
                 policy_key = 'multihop_%s' % (transfer['initial_request_id'])
@@ -375,9 +387,9 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                     policy_key = "_".join(policy_key.split(' '))
                     # maybe here we need to hash the key if it's too long
 
-            if policy_key not in current_transfers_group[job_key]:
-                current_transfers_group[job_key][policy_key] = {'files': [], 'job_params': job_params}
-            current_transfers_policy = current_transfers_group[job_key][policy_key]
+            if policy_key not in grouped_transfers[job_key]:
+                grouped_transfers[job_key][policy_key] = {'files': [], 'job_params': job_params}
+            current_transfers_policy = grouped_transfers[job_key][policy_key]
 
             # Only allow overwrite if all transfers grouped together allow it
             current_transfers_policy['job_params']['overwrite'] = current_transfers_policy['job_params']['overwrite'] and job_params['overwrite']
@@ -393,19 +405,13 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                 current_transfers_policy['files'].append(t_file)
 
     # for jobs with different job_key, we cannot put in one job.
-    for external_host in grouped_transfers:
-        for scope_key in grouped_transfers[external_host]:
-            for job_key in grouped_transfers[external_host][scope_key]:
-                # for all policy groups in job_key, the job_params is the same.
-                for policy_key in grouped_transfers[external_host][scope_key][job_key]:
-                    job_params = grouped_transfers[external_host][scope_key][job_key][policy_key]['job_params']
-                    for xfers_files in chunks(grouped_transfers[external_host][scope_key][job_key][policy_key]['files'], group_bulk):
-                        # for the last small piece, just submit it.
-                        grouped_jobs[external_host][scope_key].append({'files': xfers_files, 'job_params': job_params})
-
-    if not group_by_scope:
-        for external_host in grouped_jobs:
-            grouped_jobs[external_host] = grouped_jobs[external_host][_catch_all_scopes_str]
+    for job_key in grouped_transfers:
+        # for all policy groups in job_key, the job_params is the same.
+        for policy_key in grouped_transfers[job_key]:
+            job_params = grouped_transfers[job_key][policy_key]['job_params']
+            for xfers_files in chunks(grouped_transfers[job_key][policy_key]['files'], group_bulk):
+                # for the last small piece, just submit it.
+                grouped_jobs.append({'files': xfers_files, 'job_params': job_params})
 
     return grouped_jobs
 

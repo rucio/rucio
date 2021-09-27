@@ -81,8 +81,9 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, D
                                     DIDFilterSyntaxError)
 from rucio.common.extra import import_extras
 from rucio.common.test_rucio_server import TestRucioServer
-from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, \
-    parse_did_filter_from_string_fe, extract_scope, setup_logger
+from rucio.common.utils import (sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string,
+                                parse_did_filter_from_string_fe, extract_scope, setup_logger)
+from rucio.common.constants import ReplicaState
 
 EXTRA_MODULES = import_extras(['argcomplete'])
 
@@ -447,16 +448,24 @@ def list_file_replicas(args):
                             for pfn in replica['rses'][rse]:
                                 print(pfn)
         else:
+            if args.all_states:
+                header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', '(STATE) RSE: REPLICA']
+            else:
+                header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA']
             for replica in replicas:
                 if 'bytes' in replica:
                     for rse in replica['rses']:
                         for pfn in replica['rses'][rse]:
+                            if args.all_states:
+                                rse_string = '({2}) {0}: {1}'.format(rse, pfn, ReplicaState[replica['states'][rse]].value)
+                            else:
+                                rse_string = '{0}: {1}'.format(rse, pfn)
                             if args.selected_rse:
                                 if rse == args.selected_rse:
-                                    table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
+                                    table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
                             else:
-                                table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
-            print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA'], disable_numparse=True))
+                                table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
+            print(tabulate(table, tablefmt=tablefmt, headers=header, disable_numparse=True))
 
     return SUCCESS
 
@@ -1860,7 +1869,9 @@ To list the missing replica of a dataset of a given RSE::
     ''')
     list_file_replicas_parser.set_defaults(function=list_file_replicas)
     list_file_replicas_parser.add_argument('--protocols', dest='protocols', action='store', help='List of comma separated protocols. (i.e. https, root, srm).', required=False)
-    list_file_replicas_parser.add_argument('--all-states', dest='all_states', action='store_true', default=False, help='To select all replicas (including unavailable ones).', required=False)
+    list_file_replicas_parser.add_argument('--all-states', dest='all_states', action='store_true', default=False, help='To select all replicas (including unavailable ones).\
+            Also gets information about the current state of a DID in each RSE.\
+            Legend: ' + ', '.join(["{0} = {1}".format(state.value, state.name) for state in ReplicaState]), required=False)
     list_file_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
     list_file_replicas_parser.add_argument('--pfns', default=False, action='store_true', help='Show only the PFNs.', required=False)
     list_file_replicas_parser.add_argument('--domain', default=None, action='store', help='Force the networking domain. Available options: wan, lan, all.', required=False)
