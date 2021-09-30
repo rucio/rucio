@@ -1405,6 +1405,9 @@ def __build_transfer_paths(
     unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
     unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
+    # Disallow multihop via blocklisted RSEs
+    multihop_rses = list(set(multihop_rses).difference(unavailable_write_rse_ids).difference(unavailable_read_rse_ids))
+
     candidate_paths_by_request_id, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, set(), set(), set()
     for rws in requests_with_sources:
 
