@@ -40,17 +40,17 @@ Methods common to different conveyor submitter daemons.
 """
 
 from __future__ import division
-from json import loads
 
 import datetime
+import functools
 import logging
 import time
-from itertools import chain
+from json import loads
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
                                     ConfigNotFound, DuplicateFileTransferSubmission, VONotFound)
-from rucio.common.utils import chunks, set_checksum_value
+from rucio.common.utils import chunks
 from rucio.core import request, transfer as transfer_core
 from rucio.core.config import get
 from rucio.core.monitor import record_counter, record_timer
@@ -64,7 +64,7 @@ from rucio.rse import rsemanager as rsemgr
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
 
 
-def submit_transfer(external_host, job, submitter='submitter', timeout=None, logger=logging.log, transfertool=TRANSFER_TOOL):
+def submit_transfer(external_host, transfers, job_params, submitter='submitter', timeout=None, logger=logging.log, transfertool=TRANSFER_TOOL):
     """
     Submit a transfer or staging request
 
@@ -75,153 +75,77 @@ def submit_transfer(external_host, job, submitter='submitter', timeout=None, log
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
-    # Prepare submitting
-    xfers_ret = {}
-
     try:
-        for t_file in job['files']:
-            file_metadata = t_file['metadata']
-            request_id = file_metadata['request_id']
-            log_str = 'PREPARING REQUEST %s DID %s:%s TO SUBMITTING STATE PREVIOUS %s FROM %s TO %s USING %s ' % (file_metadata['request_id'],
-                                                                                                                  file_metadata['scope'],
-                                                                                                                  file_metadata['name'],
-                                                                                                                  file_metadata['previous_attempt_id'] if 'previous_attempt_id' in file_metadata else None,
-                                                                                                                  t_file['sources'],
-                                                                                                                  t_file['destinations'],
-                                                                                                                  external_host)
-            xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': t_file['destinations'][0]}
-            logger(logging.INFO, "%s", log_str)
-            xfers_ret[request_id]['file'] = t_file
-        logger(logging.DEBUG, 'Start to prepare transfer')
-        transfer_core.prepare_sources_for_transfers(xfers_ret)
-        logger(logging.DEBUG, 'Finished to prepare transfer')
+        transfer_core.mark_submitting_and_prepare_sources_for_transfers(transfers, external_host=external_host, logger=logger)
     except RequestNotFound as error:
         logger(logging.ERROR, str(error))
         return
     except Exception:
-        logger(logging.ERROR, 'Failed to prepare requests %s state to SUBMITTING (Will not submit jobs but return directly) with error: %s' % (list(xfers_ret.keys())), exc_info=True)
+        logger(logging.ERROR, 'Failed to prepare requests %s state to SUBMITTING (Will not submit jobs but return directly) with error' % [str(t.rws) for t in transfers], exc_info=True)
         return
 
-    # Prepare the dictionary for xfers results
-    xfers_ret = {}
-    for t_file in job['files']:
-        file_metadata = t_file['metadata']
-        request_id = file_metadata['request_id']
-        xfers_ret[request_id] = {'scope': file_metadata['scope'],
-                                 'name': file_metadata['name'],
-                                 'external_host': external_host,
-                                 'external_id': None,
-                                 'request_type': t_file.get('request_type', None),
-                                 'dst_rse': file_metadata.get('dst_rse', None),
-                                 'src_rse': file_metadata.get('src_rse', None),
-                                 'src_rse_id': file_metadata['src_rse_id'],
-                                 'metadata': file_metadata}
-
-    # Submit the job
     try:
-        start_time = time.time()
-        logger(logging.INFO, 'About to submit job to %s with timeout %s' % (external_host, timeout))
-        # A eid is returned if the job is properly submitted otherwise an exception is raised
-        eid = transfer_core.submit_bulk_transfers(external_host,
-                                                  files=job['files'],
-                                                  transfertool=transfertool,
-                                                  job_params=job['job_params'],
-                                                  timeout=timeout)
-        duration = time.time() - start_time
-        logger(logging.INFO, 'Submit job %s to %s in %s seconds' % (eid, external_host, duration))
-        record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - start_time) * 1000 / len(job['files']))
-        record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, len(job['files']))
-        record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, len(job['files']))
-
-        # Update all the requests to SUBMITTED and cancel the transfer job in case the update failed
-        try:
-            for t_file in job['files']:
-                file_metadata = t_file['metadata']
-                request_id = file_metadata['request_id']
-                xfers_ret[request_id]['state'] = RequestState.SUBMITTED
-                xfers_ret[request_id]['external_id'] = eid
-                logger(logging.INFO, 'COPYING REQUEST %s DID %s:%s USING %s with state(%s) with eid(%s)' % (file_metadata['request_id'], file_metadata['scope'], file_metadata['name'], external_host, RequestState.SUBMITTED, eid))
-            logger(logging.DEBUG, 'Start to bulk register transfer state for eid %s' % eid)
-            transfer_core.set_transfers_state(xfers_ret, datetime.datetime.utcnow())
-            logger(logging.DEBUG, 'Finished to register transfer state',)
-        except Exception:
-            logger(logging.ERROR, 'Failed to register transfer state with error', exc_info=True)
-            try:
-                logger(logging.INFO, 'Cancel transfer %s on %s', eid, external_host)
-                request.cancel_request_external_id(eid, external_host)
-            except Exception:
-                # The job is still submitted in the file transfer service but the request is not updated. Possibility to have a double submission during the next cycle
-                logger(logging.ERROR, 'Failed to cancel transfers %s on %s with error' % (eid, external_host), exc_info=True)
-
-    # This exception is raised if one job is already submitted for one file
+        _submit_transfers(external_host, transfers, job_params, submitter, timeout, logger, transfertool)
     except DuplicateFileTransferSubmission as error:
-        logger(logging.WARNING, 'Failed to submit a job because of duplicate file : %s', str(error))
+        logger(logging.WARNING, 'Failed to bulk submit a job because of duplicate file : %s', str(error))
         logger(logging.INFO, 'Submitting files one by one')
+        for transfer in transfers:
+            _submit_transfers(external_host, [transfer], job_params, submitter, timeout, logger, transfertool)
 
-        try:
-            # In this loop we submit the jobs and update the requests state one by one
-            single_xfers_ret = {}
-            for t_file in job['files']:
-                single_xfers_ret = {}
-                single_xfers_ret[request_id] = xfers_ret[request_id]
-                file_metadata = t_file['metadata']
-                request_id = file_metadata['request_id']
-                start_time = time.time()
-                logger(logging.INFO, 'About to submit job to %s with timeout %s', external_host, timeout)
-                eid = transfer_core.submit_bulk_transfers(external_host,
-                                                          files=[t_file],
-                                                          transfertool=transfertool,
-                                                          job_params=job['job_params'],
-                                                          timeout=timeout)
-                duration = time.time() - start_time
-                logger(logging.INFO, 'Submit job %s to %s in %s seconds' % (eid, external_host, duration))
-                record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - start_time) * 1000)
-                record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, 1)
-                record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, 1)
-                single_xfers_ret[request_id]['state'] = RequestState.SUBMITTED
-                single_xfers_ret[request_id]['external_id'] = eid
-                logger(logging.INFO, 'COPYING REQUEST %s DID %s:%s USING %s with state(%s) with eid(%s)' % (file_metadata['request_id'], file_metadata['scope'], file_metadata['name'], external_host, RequestState.SUBMITTED, eid))
-                try:
-                    logger(logging.DEBUG, 'Start to register transfer state')
-                    transfer_core.set_transfers_state(single_xfers_ret, datetime.datetime.utcnow())
-                    logger(logging.DEBUG, 'Finished to register transfer state')
-                except Exception:
-                    logger(logging.ERROR, 'Failed to register transfer state with error', exc_info=True)
-                    try:
-                        logger(logging.INFO, 'Cancel transfer %s on %s', eid, external_host)
-                        request.cancel_request_external_id(eid, external_host)
-                    except Exception:
-                        logger(logging.ERROR, 'Failed to cancel transfers %s on %s with error' % (eid, external_host), exc_info=True)
 
-        except (DuplicateFileTransferSubmission, TransferToolTimeout, TransferToolWrongAnswer, Exception) as error:
-            request_id = single_xfers_ret.keys()[0]
-            single_xfers_ret[request_id]['state'] = RequestState.SUBMISSION_FAILED
-            logger(logging.ERROR, 'Cannot submit the job for request %s : %s', request_id, str(error))
-            try:
-                logger(logging.DEBUG, 'Update the transfer state to fail')
-                transfer_core.set_transfers_state(single_xfers_ret, datetime.datetime.utcnow())
-                logger(logging.DEBUG, 'Finished to register transfer state')
-            except Exception:
-                logger(logging.ERROR, 'Failed to register transfer state with error', exc_info=True)
-                # No need to cancel the job here
+def _submit_transfers(external_host, transfers, job_params, submitter='submitter', timeout=None, logger=logging.log, transfertool=TRANSFER_TOOL):
+    """
+    helper function for submit_transfers. Performs the actual submission of one or more transfers.
 
-    # The following exceptions are raised if the job failed to be submitted
+    If the bulk submission of multiple transfers fails due to duplicate submissions, the exception
+    is propagated to the caller context, which is then responsible for calling this function again for each
+    of the transfers separately.
+    """
+    logger(logging.INFO, 'About to submit job to %s with timeout %s' % (external_host, timeout))
+    # A eid is returned if the job is properly submitted otherwise an exception is raised
+    is_bulk = len(transfers) > 1
+    eid = None
+    start_time = time.time()
+    state_to_set = RequestState.SUBMISSION_FAILED
+    try:
+        eid = transfer_core.submit_bulk_transfers(external_host, transfers=transfers, transfertool=transfertool, job_params=job_params, timeout=timeout)
+        state_to_set = RequestState.SUBMITTED
+    except DuplicateFileTransferSubmission:
+        if is_bulk:
+            raise
     except (TransferToolTimeout, TransferToolWrongAnswer) as error:
-        logger(logging.ERROR, str(error))
-        try:
-            for t_file in job['files']:
-                file_metadata = t_file['metadata']
-                request_id = file_metadata['request_id']
-                xfers_ret[request_id]['state'] = RequestState.SUBMISSION_FAILED
-            logger(logging.DEBUG, 'Start to register transfer state')
-            transfer_core.set_transfers_state(xfers_ret, datetime.datetime.utcnow())
-            logger(logging.DEBUG, 'Finished to register transfer state')
-        except Exception:
-            logger(logging.ERROR, 'Failed to register transfer state with error', exc_info=True)
-            # No need to cancel the job here
-
+        logger(logging.ERROR, 'Failed to submit a job with error %s', str(error), exc_info=True)
     except Exception as error:
         logger(logging.ERROR, 'Failed to submit a job with error %s', str(error), exc_info=True)
+        # Keep the behavior from before the refactoring: in case of unexpected exception, only
+        # update request state on individual transfers, and do nothing for bulks.
+        # Don't know why it's like that.
+        #
+        # FIXME: shouldn't we always set the state to SUBMISSION_FAILED?
+        if is_bulk:
+            state_to_set = None
+
+    if eid is not None:
+        duration = time.time() - start_time
+        logger(logging.INFO, 'Submit job %s to %s in %s seconds' % (eid, external_host, duration))
+        record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - start_time) * 1000 / len(transfers) or 1)
+        record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, len(transfers))
+        record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, len(transfers))
+
+    if state_to_set:
+        try:
+            transfer_core.set_transfers_state(transfers, state=state_to_set, external_host=external_host,
+                                              external_id=eid, submitted_at=datetime.datetime.utcnow(), logger=logger)
+        except Exception:
+            logger(logging.ERROR, 'Failed to register transfer state with error', exc_info=True)
+            if eid is not None:
+                # The job is still submitted in the file transfer service but the request is not updated.
+                # Possibility to have a double submission during the next cycle. Try to cancel the external request.
+                try:
+                    logger(logging.INFO, 'Cancel transfer %s on %s', eid, external_host)
+                    request.cancel_request_external_id(eid, external_host)
+                except Exception:
+                    logger(logging.ERROR, 'Failed to cancel transfers %s on %s with error' % (eid, external_host), exc_info=True)
 
 
 def bulk_group_transfers_for_globus(transfer_paths, policy, group_bulk=200):
@@ -242,18 +166,7 @@ def bulk_group_transfers_for_globus(transfer_paths, policy, group_bulk=200):
         transfers = [transfer_path[0] for transfer_path in chunk]
 
         grouped_jobs.append({
-            'files': [
-                {
-                    # Some dict elements are not needed by globus transfertool, but are accessed by further common fts/globus code
-                    'sources': transfer['sources'],
-                    'destinations': transfer['dest_urls'],
-                    'metadata': transfer['file_metadata'],
-                    'filesize': int(transfer['file_metadata']['filesize']),
-                    'request_type': transfer['file_metadata'].get('request_type', None),
-                    'activity': str(transfer['file_metadata']['activity']),
-                }
-                for transfer in transfers
-            ],
+            'transfers': transfers,
             # Job params are not used by globus trasnfertool, but are needed for further common fts/globus code
             'job_params': {}
         })
@@ -261,8 +174,77 @@ def bulk_group_transfers_for_globus(transfer_paths, policy, group_bulk=200):
     return grouped_jobs
 
 
+def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archive_timeout_override, max_time_in_queue, logger):
+    """
+    Prepare the job parameters which will be passed to FTS transfertool
+    """
+
+    overwrite, bring_online_local = True, None
+    if transfer.src.rse.is_tape_or_staging_required():
+        bring_online_local = bring_online
+    if transfer.dst.rse.is_tape():
+        overwrite = False
+
+    # Get dest space token
+    dest_protocol = transfer.protocol_factory.protocol(transfer.dst.rse, transfer.dst.scheme, transfer.operation_dest)
+    dest_spacetoken = None
+    if dest_protocol.attributes and 'extended_attributes' in dest_protocol.attributes and \
+            dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
+        dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
+    src_spacetoken = None
+
+    strict_copy = transfer.dst.rse.attributes.get('strict_copy', False)
+    archive_timeout = transfer.dst.rse.attributes.get('archive_timeout', None)
+
+    verify_checksum, checksums_to_use = transfer_core.checksum_validation_strategy(transfer.src.rse.attributes, transfer.dst.rse.attributes, logger=logger)
+    transfer['checksums_to_use'] = checksums_to_use
+
+    job_params = {'account': transfer.rws.account,
+                  'use_oidc': transfer_core.oidc_supported(transfer),
+                  'verify_checksum': verify_checksum,
+                  'copy_pin_lifetime': transfer.rws.attributes.get('lifetime', default_lifetime),
+                  'bring_online': bring_online_local,
+                  'job_metadata': {
+                      'issuer': 'rucio',
+                      'multi_sources': True if len(transfer.legacy_sources) > 1 else False,
+                  },
+                  'overwrite': overwrite,
+                  'priority': 3}
+
+    if transfer.get('multihop', False):
+        job_params['multihop'] = True
+    if strict_copy:
+        job_params['strict_copy'] = strict_copy
+    if dest_spacetoken:
+        job_params['spacetoken'] = dest_spacetoken
+    if src_spacetoken:
+        job_params['source_spacetoken'] = src_spacetoken
+    if transfer.use_ipv4:
+        job_params['ipv4'] = True
+        job_params['ipv6'] = False
+
+    if archive_timeout and transfer.dst.rse.is_tape():
+        try:
+            archive_timeout = int(archive_timeout)
+            if archive_timeout_override is None:
+                job_params['archive_timeout'] = archive_timeout
+            elif archive_timeout_override != 0:
+                job_params['archive_timeout'] = archive_timeout_override
+            logger(logging.DEBUG, 'Added archive timeout to transfer.')
+        except ValueError:
+            logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', transfer)
+            pass
+    if max_time_in_queue:
+        if transfer.rws.activity in max_time_in_queue:
+            job_params['max_time_in_queue'] = max_time_in_queue[transfer.rws.activity]
+        elif 'default' in max_time_in_queue:
+            job_params['max_time_in_queue'] = max_time_in_queue['default']
+    return job_params
+
+
 @read_session
-def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None, logger=logging.log, archive_timeout_override=None):
+def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None,
+                                 logger=logging.log, archive_timeout_override=None, bring_online=None, default_lifetime=None):
     """
     Group transfers in bulk based on certain criterias
 
@@ -293,67 +275,38 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
         logger(logging.WARNING, 'activity_source_strategy not properly defined')
         activity_source_strategy = {}
 
-    for transfer in chain.from_iterable(transfers):
-        verify_checksum, checksums_to_use = transfer_core.checksum_validation_strategy(transfer.src.rse.attributes, transfer.dst.rse.attributes, logger=logger)
-        t_file = {'sources': transfer['sources'],
-                  'destinations': transfer['dest_urls'],
-                  'metadata': transfer['file_metadata'],
-                  'filesize': int(transfer['file_metadata']['filesize']),
-                  'checksum': None,
-                  'verify_checksum': verify_checksum,
-                  'selection_strategy': source_strategy if source_strategy else activity_source_strategy.get(str(transfer['file_metadata']['activity']), default_source_strategy),
-                  'request_type': transfer['file_metadata'].get('request_type', None),
-                  'activity': str(transfer['file_metadata']['activity'])}
+    for transfer_path in transfers:
+        for i, transfer in enumerate(transfer_path):
+            if len(transfer_path) > 1:
+                transfer['multihop'] = True
+            transfer['selection_strategy'] = source_strategy if source_strategy else activity_source_strategy.get(str(transfer.rws.activity), default_source_strategy)
 
-        if verify_checksum != 'none':
-            set_checksum_value(t_file, checksums_to_use)
+    _build_job_params = functools.partial(job_params_for_fts_transfer,
+                                          bring_online=bring_online,
+                                          default_lifetime=default_lifetime,
+                                          archive_timeout_override=archive_timeout_override,
+                                          max_time_in_queue=max_time_in_queue,
+                                          logger=logger)
+    for transfer_path in transfers:
+        if len(transfer_path) > 1:
+            # for multihop transfers, all the path is submitted as a separate job
+            job_params = _build_job_params(transfer_path[-1])
+            for transfer in transfer_path[:-1]:
+                # Only allow overwrite if all transfers in multihop allow it
+                job_params['overwrite'] = _build_job_params(transfer)['overwrite'] and job_params['overwrite']
 
-        multihop = transfer.get('multihop', False)
-        strict_copy = transfer.get('strict_copy', False)
-        use_ipv4 = transfer.get('use_ipv4', False)
-
-        activity = t_file['activity']
-
-        job_params = {'account': transfer['account'],
-                      'use_oidc': transfer_core.oidc_supported(transfer),
-                      'verify_checksum': verify_checksum,
-                      'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
-                      'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
-                      'job_metadata': {'issuer': 'rucio'},  # finaly job_meta will like this. currently job_meta will equal file_meta to include request_id and etc.
-                      'overwrite': transfer['overwrite'],
-                      'priority': 3}
-        if transfer.get('archive_timeout', None):
-            if archive_timeout_override is None:
-                job_params['archive_timeout'] = transfer['archive_timeout']
-            elif archive_timeout_override != 0:
-                job_params['archive_timeout'] = archive_timeout_override
-            # else don't set the value
-        if multihop:
-            job_params['multihop'] = True
-        if strict_copy:
-            job_params['strict_copy'] = True
-        if use_ipv4:
-            job_params['ipv4'] = True
-            job_params['ipv6'] = False
-
-        # Don't put optional & missing keys in the parameters
-        if transfer['dest_spacetoken']:
-            job_params.update({'spacetoken': transfer['dest_spacetoken']})
-        if transfer['src_spacetoken']:
-            job_params.update({'source_spacetoken': transfer['src_spacetoken']})
-
-        if max_time_in_queue:
-            if transfer['file_metadata']['activity'] in max_time_in_queue:
-                job_params['max_time_in_queue'] = max_time_in_queue[transfer['file_metadata']['activity']]
-            elif 'default' in max_time_in_queue:
-                job_params['max_time_in_queue'] = max_time_in_queue['default']
-
-        # for multiple source replicas, no bulk submission
-        if len(transfer['sources']) > 1:
-            job_params['job_metadata']['multi_sources'] = True
-            grouped_jobs.append({'files': [t_file], 'job_params': job_params})
+            group_key = 'multihop_%s' % transfer_path[-1].rws.request_id
+            grouped_transfers[group_key] = {'transfers': transfer_path, 'job_params': job_params}
+        elif len(transfer_path[0].legacy_sources) > 1:
+            # for multi-source transfers, no bulk submission.
+            transfer = transfer_path[0]
+            grouped_jobs.append({'transfers': [transfer], 'job_params': _build_job_params(transfer)})
         else:
-            job_params['job_metadata']['multi_sources'] = False
+            # it's a single-hop, single-source, transfer. Hence, a candidate for bulk submission.
+            transfer = transfer_path[0]
+            job_params = _build_job_params(transfer)
+
+            # we cannot group transfers together if their job_key differ
             job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params.get('spacetoken', None),
                                                    job_params['copy_pin_lifetime'],
                                                    job_params['bring_online'], job_params['job_metadata'],
@@ -362,56 +315,34 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
             if 'max_time_in_queue' in job_params:
                 job_key = job_key + ',%s' % job_params['max_time_in_queue']
 
-            if multihop:
-                job_key = 'multihop_%s' % (transfer['initial_request_id'])
+            # Additionally, we don't want to group transfers together if their policy_key differ
+            policy_key = ''
+            if policy == 'rule':
+                policy_key = '%s' % transfer.rws.rule_id
+            if policy == 'dest':
+                policy_key = '%s' % transfer.dst.rse.name
+            if policy == 'src_dest':
+                policy_key = '%s,%s' % (transfer.src.rse.name, transfer.dst.rse.name)
+            if policy == 'rule_src_dest':
+                policy_key = '%s,%s,%s' % (transfer.rws.rule_id, transfer.src.rse.name, transfer.dst.rse.name)
+            if policy == 'activity_dest':
+                policy_key = '%s %s' % (transfer.rws.activity, transfer.dst.rse.name)
+                policy_key = "_".join(policy_key.split(' '))
+            if policy == 'activity_src_dest':
+                policy_key = '%s %s %s' % (transfer.rws.activity, transfer.src.rse.name, transfer.dst.rse.name)
+                policy_key = "_".join(policy_key.split(' '))
+                # maybe here we need to hash the key if it's too long
 
-            if job_key not in grouped_transfers:
-                grouped_transfers[job_key] = {}
+            group_key = "%s_%s" % (job_key, policy_key)
+            if group_key not in grouped_transfers:
+                grouped_transfers[group_key] = {'transfers': [], 'job_params': job_params}
+            grouped_transfers[group_key]['transfers'].append(transfer)
 
-            if multihop:
-                policy_key = 'multihop_%s' % (transfer['initial_request_id'])
-            else:
-                if policy == 'rule':
-                    policy_key = '%s' % (transfer['rule_id'])
-                if policy == 'dest':
-                    policy_key = '%s' % (t_file['metadata']['dst_rse'])
-                if policy == 'src_dest':
-                    policy_key = '%s,%s' % (t_file['metadata']['src_rse'], t_file['metadata']['dst_rse'])
-                if policy == 'rule_src_dest':
-                    policy_key = '%s,%s,%s' % (transfer['rule_id'], t_file['metadata']['src_rse'], t_file['metadata']['dst_rse'])
-                if policy == 'activity_dest':
-                    policy_key = '%s %s' % (activity, t_file['metadata']['dst_rse'])
-                    policy_key = "_".join(policy_key.split(' '))
-                if policy == 'activity_src_dest':
-                    policy_key = '%s %s %s' % (activity, t_file['metadata']['src_rse'], t_file['metadata']['dst_rse'])
-                    policy_key = "_".join(policy_key.split(' '))
-                    # maybe here we need to hash the key if it's too long
-
-            if policy_key not in grouped_transfers[job_key]:
-                grouped_transfers[job_key][policy_key] = {'files': [], 'job_params': job_params}
-            current_transfers_policy = grouped_transfers[job_key][policy_key]
-
-            # Only allow overwrite if all transfers grouped together allow it
-            current_transfers_policy['job_params']['overwrite'] = current_transfers_policy['job_params']['overwrite'] and job_params['overwrite']
-
-            if multihop:
-                # The parent transfer should be the first of the list
-                # TODO : Only work for a single hop now, need to be able to handle multiple hops
-                if transfer['parent_request']:  # This is the child
-                    current_transfers_policy['files'].append(t_file)
-                else:
-                    current_transfers_policy['files'].insert(0, t_file)
-            else:
-                current_transfers_policy['files'].append(t_file)
-
-    # for jobs with different job_key, we cannot put in one job.
-    for job_key in grouped_transfers:
-        # for all policy groups in job_key, the job_params is the same.
-        for policy_key in grouped_transfers[job_key]:
-            job_params = grouped_transfers[job_key][policy_key]['job_params']
-            for xfers_files in chunks(grouped_transfers[job_key][policy_key]['files'], group_bulk):
-                # for the last small piece, just submit it.
-                grouped_jobs.append({'files': xfers_files, 'job_params': job_params})
+    # split transfer groups to have at most group_bulk elements in each one
+    for group in grouped_transfers.values():
+        job_params = group['job_params']
+        for transfers in chunks(group['transfers'], group_bulk):
+            grouped_jobs.append({'transfers': transfers, 'job_params': job_params})
 
     return grouped_jobs
 
