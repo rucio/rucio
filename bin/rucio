@@ -194,7 +194,7 @@ def exception_handler(function):
             else:
                 logger.debug(traceback.format_exc())
                 contact = config_get('policy', 'support', raise_exception=False)
-                support = ('Please followup with all relevant information at: ' + contact) if contact else ''
+                support = ('Please follow up with all relevant information at: ' + contact) if contact else ''
                 logger.error('\nThe object is missing this property: %s\n'
                              'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n'
                              '%s' % (str(error), support))
@@ -215,9 +215,9 @@ def exception_handler(function):
             logger.debug(traceback.format_exc())
             logger.error(error)
             contact = config_get('policy', 'support', raise_exception=False)
-            support = ("If it's a problem concerning your experiment or if you're unsure what to do, please followup at: %s\n" % contact) if contact else ''
+            support = ("If it's a problem concerning your experiment or if you're unsure what to do, please follow up at: %s\n" % contact) if contact else ''
             contact = config_get('policy', 'support_rucio', default='https://github.com/rucio/rucio/issues')
-            support += "If you're sure there is a problem with Rucio itself, please followup at: " + contact
+            support += "If you're sure there is a problem with Rucio itself, please follow up at: " + contact
             logger.error('\nRucio exited with an unexpected/unknown error.\n'
                          'Please rerun the last command with the "-v" option to gather more information.\n'
                          '%s' % support)
@@ -389,7 +389,7 @@ def list_file_replicas(args):
         print('Cannot use --missing without specifying a RSE')
         return FAILURE
     if args.link and ':' not in args.link:
-        print('The substition parameter must equal --link="/pfn/dir:/dst/dir"')
+        print('The substitution parameter must equal --link="/pfn/dir:/dst/dir"')
         return FAILURE
 
     for did in args.dids:
@@ -1794,7 +1794,7 @@ def get_parser():
     oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed by asynchronous Rucio daemon. '
                          + 'If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.')  # NOQA: W503
     oparser.add_argument('--oidc-issuer', dest='oidc_issuer', default=None,
-                         help='Defines which Identity Provider is goign to be used. The issuer string must correspond '
+                         help='Defines which Identity Provider is going to be used. The issuer string must correspond '
                          + 'to the keys configured in the /etc/idpsecrets.json auth server configuration file.')  # NOQA: W503
 
     # Options for the x509  auth_strategy
@@ -2238,7 +2238,7 @@ You can filter by key/value, e.g.::
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
     get_metadata_parser.set_defaults(function=get_metadata)
     get_metadata_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
-    get_metadata_parser.add_argument('--plugin', dest='plugin', action='store', help='Filter down to metdata from specific metadata plugin', required=False)
+    get_metadata_parser.add_argument('--plugin', dest='plugin', action='store', help='Filter down to metadata from specific metadata plugin', required=False)
 
     # The set-metadata subparser
     set_metadata_parser = subparsers.add_parser('set-metadata', help='set-metadata method')
