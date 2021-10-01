@@ -51,7 +51,7 @@ from rucio.db.sqla.constants import RequestState
 graceful_stop = threading.Event()
 
 
-def throttler(once=False, sleep_time=600):
+def throttler(once=False, sleep_time=600, partition_wait_time=10):
     """
     Main loop to check rse transfer limits.
     """
@@ -69,7 +69,8 @@ def throttler(once=False, sleep_time=600):
     logging.info(prepend_str + 'Throttler started - timeout (%s)' % (sleep_time))
 
     current_time = time.time()
-    graceful_stop.wait(10)
+    if partition_wait_time is not None:
+        graceful_stop.wait(partition_wait_time)
 
     while not graceful_stop.is_set():
 
