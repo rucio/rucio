@@ -47,6 +47,7 @@ import datetime
 import errno
 import getpass
 import hashlib
+import io
 import json
 import logging
 import mmap
