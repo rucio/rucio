@@ -21,6 +21,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 from datetime import datetime
+from itertools import chain
 from json import dumps, loads
 from urllib.parse import parse_qs, unquote
 from xml.sax.saxutils import escape
@@ -337,7 +338,7 @@ class ListReplicas(ErrorHandlingMethodView):
             def generate(request_id, issuer, vo):
                 # we need to call list_replicas before starting to reply
                 # otherwise the exceptions won't be propagated correctly
-                first = metalink
+                first = True
 
                 for rfile in list_replicas(dids=dids, schemes=schemes,
                                            unavailable=unavailable,
@@ -354,23 +355,34 @@ class ListReplicas(ErrorHandlingMethodView):
                                            issuer=issuer,
                                            vo=vo):
 
-                    # in first round, set the appropriate content type, and stream the header
-                    if first and metalink:
-                        yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
-                    first = False
+                    # Sort rfile['pfns'] and limit its size according to "limit" parameter
+                    lanreplicas = {}
+                    wanreplicas = {}
+                    for pfn, replica in rfile['pfns'].items():
+                        replica_tuple = (replica['domain'], replica['priority'], replica['rse'], replica['client_extract'])
+                        if replica_tuple[0] == 'lan':
+                            lanreplicas[pfn] = replica_tuple
+                        else:
+                            wanreplicas[pfn] = replica_tuple
+                    unsorted_replicas = rfile['pfns']
+                    sorted_replicas = rfile['pfns'] = {}
+                    # Lan replicas sorted by priority; followed by wan replicas sorted by selection criteria
+                    for idx, pfn in enumerate(chain(sorted(lanreplicas.keys(), key=lambda pfn: lanreplicas[pfn][1]),
+                                                    sort_replicas(wanreplicas, client_location, selection=select)),
+                                              start=1):
+                        replica = unsorted_replicas[pfn]
+                        sorted_replicas[pfn] = replica
+                        replica['priority'] = idx
+                        if limit and limit == idx:
+                            break
 
                     if not metalink:
                         yield dumps(rfile, cls=APIEncoder) + '\n'
                     else:
-                        replicas = []
-                        dictreplica = {}
-                        for replica in rfile['pfns'].keys():
-                            replicas.append(replica)
-                            dictreplica[replica] = (rfile['pfns'][replica]['domain'],
-                                                    rfile['pfns'][replica]['priority'],
-                                                    rfile['pfns'][replica]['rse'],
-                                                    rfile['pfns'][replica]['client_extract'])
-
+                        # in first round, set the appropriate content type, and stream the header
+                        if first:
+                            yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
+                        first = False
                         yield ' <file name="' + rfile['name'] + '">\n'
 
                         if 'parents' in rfile and rfile['parents']:
@@ -389,19 +401,12 @@ class ListReplicas(ErrorHandlingMethodView):
                         policy_schema = config_get('policy', 'schema', raise_exception=False, default='generic')
                         yield f'  <glfn name="/{policy_schema}/rucio/{rfile["scope"]}:{rfile["name"]}"></glfn>\n'
 
-                        lanreplicas = [replica for replica, v in dictreplica.items() if v[0] == 'lan']
-                        # sort lan by priority
-                        lanreplicas.sort(key=lambda rep: dictreplica[rep][1])
-                        replicas = lanreplicas + sort_replicas({k: v for k, v in dictreplica.items() if v[0] != 'lan'}, client_location, selection=select)
-
-                        for idx, replica in enumerate(replicas, start=1):
-                            yield '  <url location="' + str(dictreplica[replica][2]) \
-                                + '" domain="' + str(dictreplica[replica][0]) \
-                                + '" priority="' + str(idx) \
-                                + '" client_extract="' + str(dictreplica[replica][3]).lower() \
-                                + '">' + escape(replica) + '</url>\n'
-                            if limit and limit == idx:
-                                break
+                        for pfn, replica in rfile['pfns'].items():
+                            yield '  <url location="' + str(replica['rse']) \
+                                + '" domain="' + str(replica['domain']) \
+                                + '" priority="' + str(replica['priority']) \
+                                + '" client_extract="' + str(replica['client_extract']).lower() \
+                                + '">' + escape(pfn) + '</url>\n'
                         yield ' </file>\n'
 
                 if metalink:
