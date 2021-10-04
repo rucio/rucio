@@ -30,6 +30,7 @@
 # - Luca Scotto Lavina, <scotto@lpnhe.in2p3.fr>, 2021
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2021
+# - Lionel Schwarz <lionel.schwarz@in2p3.fr>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -221,6 +222,39 @@ class RSEDeterministicTranslation(object):
 
         return '%s/%s/%s/%s' % (scope[0:7], scope[4:len(scope)], name.split('-')[0] + "-" + name.split('-')[1], name)
 
+    @staticmethod
+    def __lsst(scope, name, rse_id, rse_attrs, protocol_attrs):
+        """
+        LFN2PFN algorithm for LSST
+        
+        Get any of the file replica and extract its relative path
+    
+        :param scope: Scope of the LFN.
+        :param name: File name of the LFN.
+        :param rse_id: RSE for PFN (ignored)
+        :param rse_attrs: RSE attributes for PFN (ignored)
+        :param protocol_attrs: RSE protocol attributes for PFN (ignored)
+        :returns: Path for use in the PFN generation.
+        """
+        del rse_id
+        del rse_attrs
+        del protocol_attrs
+        try:
+            from rucio.api import replica
+            from rucio.api import rse
+            repl = list(replica.list_replicas(dids=[{'scope':scope,'name':name}]))[0]
+            # get first key: a RSE
+            RSE = list(repl['rses'].keys())[0]
+            # The PFN on this RSE
+            orig_pfn = repl['rses'][RSE][0]
+            # The protocol of this RSE
+            rse_protocol = rse.get_rse(RSE)['protocols'][0]
+            # Extract the relative path
+            rse_relative_path = orig_pfn.split(rse_protocol['prefix'])[1]
+            return rse_relative_path
+        except IndexError:
+            return name
+
     @classmethod
     def _module_init_(cls):
         """
@@ -231,6 +265,7 @@ class RSEDeterministicTranslation(object):
         cls.register(cls.__ligo, "ligo")
         cls.register(cls.__belleii, "belleii")
         cls.register(cls.__xenon, "xenon")
+        cls.register(cls.__lsst, "lsst")
         policy_module = None
         try:
             policy_module = config.config_get('policy', 'lfn2pfn_module')
