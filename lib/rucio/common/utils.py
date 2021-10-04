@@ -26,7 +26,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2021
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
@@ -39,6 +39,7 @@
 # - Anil Panta <47672624+panta-123@users.noreply.github.com>, 2021
 # - Ilija Vukotic <ivukotic@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import absolute_import, print_function
 
@@ -57,7 +58,6 @@ import socket
 import subprocess
 import tempfile
 import threading
-import typing
 import time
 import zlib
 from enum import Enum
@@ -1425,9 +1425,9 @@ class StoreAndDeprecateWarningAction(argparse.Action):
 
     def __init__(
         self,
-        option_strings: typing.List[str],
-        new_option_string: str,
-        dest: str,
+        option_strings,
+        new_option_string,
+        dest,
         **kwargs
     ):
         """
@@ -1446,6 +1446,6 @@ class StoreAndDeprecateWarningAction(argparse.Action):
         if option_string and option_string != self.new_option_string:
             # The logger gets typically initialized after the argument parser
             # to set the verbosity of the logger. Thus using simple print to console.
-            print(f"Warning: The commandline argument {option_string} is deprecated! Please use {self.new_option_string} in the future.")
+            print("Warning: The commandline argument {} is deprecated! Please use {} in the future.".format(option_string, self.new_option_string))
 
         setattr(namespace, self.dest, values)
