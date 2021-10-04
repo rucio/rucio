@@ -34,6 +34,7 @@
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -1722,3 +1723,10 @@ class TestBinRucio(unittest.TestCase):
         assert re.search("DATASET", out) is not None
         cmd = 'rm -rf %s' % folder
         execute(cmd)
+
+    def test_deprecated_command_line_args(self):
+        """CLIENT(USER): Warn about deprecated command line args"""
+        cmd = 'rucio get --trace_appid 0'
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        assert 'Warning: The commandline argument --trace_appid is deprecated! Please use --trace-appid in the future.' in out

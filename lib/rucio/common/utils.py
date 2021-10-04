@@ -26,7 +26,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2021
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
@@ -39,9 +39,11 @@
 # - Anil Panta <47672624+panta-123@users.noreply.github.com>, 2021
 # - Ilija Vukotic <ivukotic@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import absolute_import, print_function
 
+import argparse
 import base64
 import datetime
 import errno
@@ -1413,3 +1415,73 @@ class retry:
                     logger(logging.DEBUG, str(e))
                 attempt -= 1
         return self.func(*self.args, **self.kwargs)
+
+
+class StoreAndDeprecateWarningAction(argparse.Action):
+    '''
+    StoreAndDeprecateWarningAction is a descendant of :class:`argparse.Action`
+    and represents a store action with a deprecated argument name.
+    '''
+
+    def __init__(self,
+                 option_strings,
+                 new_option_string,
+                 dest,
+                 **kwargs):
+        """
+        :param option_strings: all possible argument name strings
+        :param new_option_string: the new option string which replaces the old
+        :param dest: name of variable to store the value in
+        :param kwargs: everything else
+        """
+        super(StoreAndDeprecateWarningAction, self).__init__(
+            option_strings=option_strings,
+            dest=dest,
+            **kwargs)
+        assert new_option_string in option_strings
+        self.new_option_string = new_option_string
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if option_string and option_string != self.new_option_string:
+            # The logger gets typically initialized after the argument parser
+            # to set the verbosity of the logger. Thus using simple print to console.
+            print("Warning: The commandline argument {} is deprecated! Please use {} in the future.".format(option_string, self.new_option_string))
+
+        setattr(namespace, self.dest, values)
+
+
+class StoreTrueAndDeprecateWarningAction(argparse._StoreConstAction):
+    '''
+    StoreAndDeprecateWarningAction is a descendant of :class:`argparse.Action`
+    and represents a store action with a deprecated argument name.
+    '''
+
+    def __init__(self,
+                 option_strings,
+                 new_option_string,
+                 dest,
+                 default=False,
+                 required=False,
+                 help=None):
+        """
+        :param option_strings: all possible argument name strings
+        :param new_option_string: the new option string which replaces the old
+        :param dest: name of variable to store the value in
+        :param kwargs: everything else
+        """
+        super(StoreTrueAndDeprecateWarningAction, self).__init__(
+            option_strings=option_strings,
+            dest=dest,
+            const=True,
+            default=default,
+            required=required,
+            help=help)
+        assert new_option_string in option_strings
+        self.new_option_string = new_option_string
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        super(StoreTrueAndDeprecateWarningAction, self).__call__(parser, namespace, values, option_string=option_string)
+        if option_string and option_string != self.new_option_string:
+            # The logger gets typically initialized after the argument parser
+            # to set the verbosity of the logger. Thus using simple print to console.
+            print("Warning: The commandline argument {} is deprecated! Please use {} in the future.".format(option_string, self.new_option_string))
