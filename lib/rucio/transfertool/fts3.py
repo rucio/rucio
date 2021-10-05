@@ -18,7 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Wen Guan <wen.guan@cern.ch>, 2014-2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Eric Vaandering <ewv@fnal.gov>, 2018
 # - dciangot <diego.ciangottini@cern.ch>, 2018
@@ -29,6 +29,7 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2020
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
+# - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import absolute_import, division
@@ -80,7 +81,7 @@ WHOAMI_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_whoami', statsd='tra
                               documentation='Number of whoami requests', labelnames=('state', 'host'))
 VERSION_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_version', statsd='transfertool.fts3.{host}.version.{state}',
                                documentation='Number of version requests', labelnames=('state', 'host'))
-QUERY_LATEST_COUNTER = MultiCounter('rucio_transfertool_fts3_query_latest', statsd='transfertool.fts3.{host}.query_latest.{state}', 
+QUERY_LATEST_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query_latest', statsd='transfertool.fts3.{host}.query_latest.{state}', 
                                     documentation='Number of latest status queries', labelnames=('state', 'host'))
 BULK_QUERY_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_bulk_query', statsd='transfertool.fts3.{host}.bulk_query.{state}',
                                   documentation='Number of bulk queries', labelnames=('state', 'host'))
