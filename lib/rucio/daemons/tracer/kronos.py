@@ -26,6 +26,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
 This daemon consumes tracer messages from ActiveMQ and updates the atime for replicas.
@@ -407,7 +408,7 @@ def kronos_file(thread=0, dataset_queue=None, sleep_time=60):
         for conn in conns:
             if not conn.is_connected():
                 logger(logging.INFO, 'connecting to %s' % str(conn.transport._Transport__host_and_ports[0]))
-                record_counter('daemons.tracer.kronos.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0])
+                record_counter('daemons.tracer.kronos.reconnect.{host}', labels={'host': conn.transport._Transport__host_and_ports[0][0]})
                 conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0],
                                                                      conn=conn,
                                                                      queue=config_get('tracer-kronos', 'queue'),

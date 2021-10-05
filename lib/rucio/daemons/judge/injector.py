@@ -22,6 +22,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
 Judge-Injector is a daemon to asynchronously create replication rules
@@ -106,25 +107,25 @@ def rule_injector(once=False, sleep_time=60):
                     except (DatabaseException, DatabaseError) as e:
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
-                            record_counter('rule.judge.exceptions.LocksDetected')
+                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': 'LocksDetected'})
                             logger(logging.WARNING, 'Locks detected for %s' % rule_id)
                         elif match('.*QueuePool.*', str(e.args[0])):
                             logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                         elif match('.*ORA-03135.*', str(e.args[0])):
                             logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                         else:
                             logger(logging.ERROR, 'DatabaseException', exc_info=True)
-                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                     except (RSEWriteBlocked) as e:
                         paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                         logger(logging.WARNING, 'RSEWriteBlocked for rule %s' % rule_id)
-                        record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                        record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                     except ReplicationRuleCreationTemporaryFailed as e:
                         paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                         logger(logging.WARNING, 'ReplicationRuleCreationTemporaryFailed for rule %s' % rule_id)
-                        record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                        record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                     except RuleNotFound:
                         pass
                     except InsufficientAccountLimit:
@@ -136,16 +137,16 @@ def rule_injector(once=False, sleep_time=60):
         except (DatabaseException, DatabaseError) as e:
             if match('.*QueuePool.*', str(e.args[0])):
                 logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
             elif match('.*ORA-03135.*', str(e.args[0])):
                 logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
             else:
                 logger(logging.CRITICAL, 'DatabaseException', exc_info=True)
-                record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
         except Exception as e:
             logger(logging.CRITICAL, 'Exception', exc_info=True)
-            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
         if once:
             break
 

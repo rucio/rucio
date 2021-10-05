@@ -24,6 +24,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import division
 
@@ -261,8 +262,8 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
                     remove(physical_fname)
                 rmdir(tmpdir)
                 if status:
-                    monitor.record_counter(counters='automatix.addnewdataset.done', delta=1)
-                    monitor.record_counter(counters='automatix.addnewfile.done', delta=nbfiles)
+                    monitor.record_counter(name='automatix.addnewdataset.done', delta=1)
+                    monitor.record_counter(name='automatix.addnewfile.done', delta=nbfiles)
                     monitor.record_timer('automatix.datasetinjection', (time() - start_time) * 1000)
                     break
                 else:

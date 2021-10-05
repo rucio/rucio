@@ -53,13 +53,13 @@ from requests.packages.urllib3 import disable_warnings  # pylint: disable=import
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
-from prometheus_client import Counter, Summary
+from prometheus_client import Summary
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import FTS_STATE
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
 from rucio.common.utils import APIEncoder, set_checksum_value
-from rucio.core.monitor import record_counter, record_timer
+from rucio.core.monitor import record_counter, record_timer, MultiCounter
 from rucio.transfertool.transfertool import Transfertool
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -68,15 +68,22 @@ disable_warnings()
 REGION_SHORT = make_region().configure('dogpile.cache.memory',
                                        expiration_time=1800)
 
-SUBMISSION_COUNTER = Counter('rucio_transfertool_fts3_submission', 'Number of transfers submitted', labelnames=('state', 'host'))
-CANCEL_COUNTER = Counter('rucio_transfertool_fts3_cancel', 'Number of cancelled transfers', labelnames=('state', 'host'))
-UPDATE_COUNTER = Counter('rucio_transfertool_fts3_update', 'Number of updated transfers', labelnames=('state', 'host'))
-UPDATE_PRIORITY_COUNTER = Counter('rucio_transfertool_fts3_update_priority', 'Number of priority updates', labelnames=('state', 'host'))
-QUERY_COUNTER = Counter('rucio_transfertool_fts3_query', 'Number of queried transfers', labelnames=('state', 'host'))
-WHOAMI_COUNTER = Counter('rucio_transfertool_fts3_whoami', 'Number of whoami requests', labelnames=('state', 'host'))
-VERSION_COUNTER = Counter('rucio_transfertool_fts3_version', 'Number of version requests', labelnames=('state', 'host'))
-BULK_QUERY_COUNTER = Counter('rucio_transfertool_fts3_bulk_query', 'Number of bulk queries', labelnames=('state', 'host'))
-QUERY_DETAILS_COUNTER = Counter('rucio_transfertool_fts3_query_details', 'Number of detailed status queries', labelnames=('state', 'host'))
+SUBMISSION_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_submission', statsd='transfertool.fts3.{host}.submission.{state}',
+                                  documentation='Number of transfers submitted', labelnames=('state', 'host'))
+CANCEL_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_cancel', statsd='transfertool.fts3.{host}.cancel.{state}',
+                              documentation='Number of cancelled transfers', labelnames=('state', 'host'))
+UPDATE_PRIORITY_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_update_priority', statsd='transfertool.fts3.{host}.update_priority.{state}',
+                                       documentation='Number of priority updates', labelnames=('state', 'host'))
+QUERY_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query', statsd='transfertool.fts3.{host}.query.{state}',
+                             documentation='Number of queried transfers', labelnames=('state', 'host'))
+WHOAMI_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_whoami', statsd='transfertool.fts3.{host}.whoami.{state}',
+                              documentation='Number of whoami requests', labelnames=('state', 'host'))
+VERSION_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_version', statsd='transfertool.fts3.{host}.version.{state}',
+                               documentation='Number of version requests', labelnames=('state', 'host'))
+BULK_QUERY_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_bulk_query', statsd='transfertool.fts3.{host}.bulk_query.{state}',
+                                  documentation='Number of bulk queries', labelnames=('state', 'host'))
+QUERY_DETAILS_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query_details', statsd='transfertool.fts3.{host}.query_details.{state}',
+                                     documentation='Number of detailed status queries', labelnames=('state', 'host'))
 SUBMISSION_TIMER = Summary('rucio_transfertool_fts3_submit_transfer', 'Timer for transfer submission', labelnames=('host',))
 
 
@@ -217,14 +224,10 @@ class FTS3Transfertool(Transfertool):
             logging.warning('Could not submit transfer to %s - %s' % (self.external_host, str(error)))
 
         if post_result and post_result.status_code == 200:
-            record_counter('transfertool.fts3.%s.submission.success' % self.__extract_host(self.external_host), len(files))
-            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
-            SUBMISSION_COUNTER.labels(**labels).inc(len(files))
+            SUBMISSION_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc(len(files))
             transfer_id = str(post_result.json()['job_id'])
         elif post_result and post_result.status_code == 409:
-            record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
-            labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-            SUBMISSION_COUNTER.labels(**labels).inc(len(files))
+            SUBMISSION_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc(len(files))
             raise DuplicateFileTransferSubmission()
         else:
             if expected_transfer_id:
@@ -232,9 +235,7 @@ class FTS3Transfertool(Transfertool):
                 logging.warning("Failed to submit transfer to %s, will use expected transfer id %s, error: %s", self.external_host, transfer_id, post_result.text if post_result is not None else post_result)
             else:
                 logging.warning("Failed to submit transfer to %s, error: %s", self.external_host, post_result.text if post_result is not None else post_result)
-            record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
-            labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-            SUBMISSION_COUNTER.labels(**labels).inc(len(files))
+            SUBMISSION_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc(len(files))
 
         if not transfer_id:
             raise TransferToolWrongAnswer('No transfer id returned by %s' % self.external_host)
@@ -262,14 +263,10 @@ class FTS3Transfertool(Transfertool):
                               timeout=timeout)
 
         if job and job.status_code == 200:
-            record_counter('transfertool.fts3.%s.cancel.success' % self.__extract_host(self.external_host))
-            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
-            CANCEL_COUNTER.labels(**labels).inc()
+            CANCEL_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
             return job.json()
 
-        record_counter('transfertool.fts3.%s.cancel.failure' % self.__extract_host(self.external_host))
-        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-        CANCEL_COUNTER.labels(**labels).inc()
+        CANCEL_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc()
         raise Exception('Could not cancel transfer: %s', job.content)
 
     def update_priority(self, transfer_id, priority, timeout=None):
@@ -294,14 +291,10 @@ class FTS3Transfertool(Transfertool):
                             timeout=timeout)  # TODO set to 3 in conveyor
 
         if job and job.status_code == 200:
-            record_counter('transfertool.fts3.%s.update_priority.success' % self.__extract_host(self.external_host))
-            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
-            UPDATE_PRIORITY_COUNTER.labels(**labels).inc()
+            UPDATE_PRIORITY_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
             return job.json()
 
-        record_counter('transfertool.fts3.%s.update_priority.failure' % self.__extract_host(self.external_host))
-        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-        UPDATE_PRIORITY_COUNTER.labels(**labels).inc()
+        UPDATE_PRIORITY_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc()
         raise Exception('Could not update priority of transfer: %s', job.content)
 
     def query(self, transfer_ids, details=False, timeout=None):
@@ -329,14 +322,10 @@ class FTS3Transfertool(Transfertool):
                            headers=self.headers,
                            timeout=timeout)  # TODO Set to 5 in conveyor
         if job and job.status_code == 200:
-            record_counter('transfertool.fts3.%s.query.success' % self.__extract_host(self.external_host))
-            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
-            QUERY_COUNTER.labels(**labels).inc()
+            QUERY_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
             return [job.json()]
 
-        record_counter('transfertool.fts3.%s.query.failure' % self.__extract_host(self.external_host))
-        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-        QUERY_COUNTER.labels(**labels).inc()
+        QUERY_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc()
         raise Exception('Could not retrieve transfer information: %s', job.content)
 
     # Public methods, not part of the common interface specification (FTS3 specific)
@@ -356,14 +345,10 @@ class FTS3Transfertool(Transfertool):
                                   headers=self.headers)
 
         if get_result and get_result.status_code == 200:
-            record_counter('transfertool.fts3.%s.whoami.success' % self.__extract_host(self.external_host))
-            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
-            WHOAMI_COUNTER.labels(**labels).inc()
+            WHOAMI_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
             return get_result.json()
 
-        record_counter('transfertool.fts3.%s.whoami.failure' % self.__extract_host(self.external_host))
-        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-        WHOAMI_COUNTER.labels(**labels).inc()
+        WHOAMI_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc()
         raise Exception('Could not retrieve credentials: %s', get_result.content)
 
     def version(self):
@@ -381,14 +366,10 @@ class FTS3Transfertool(Transfertool):
                                   headers=self.headers)
 
         if get_result and get_result.status_code == 200:
-            record_counter('transfertool.fts3.%s.version.success' % self.__extract_host(self.external_host))
-            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
-            VERSION_COUNTER.labels(**labels).inc()
+            VERSION_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
             return get_result.json()
 
-        record_counter('transfertool.fts3.%s.version.failure' % self.__extract_host(self.external_host))
-        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-        VERSION_COUNTER.labels(**labels).inc()
+        VERSION_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc()
         raise Exception('Could not retrieve version: %s', get_result.content)
 
     def bulk_query(self, transfer_ids, timeout=None):
@@ -414,14 +395,12 @@ class FTS3Transfertool(Transfertool):
                                timeout=timeout)
 
         if jobs is None:
-            record_counter('transfertool.fts3.%s.bulk_query.failure' % self.__extract_host(self.external_host))
+            record_counter('transfertool.fts3.{host}.bulk_query.failure', labels={'host': self.__extract_host(self.external_host)})
             for transfer_id in transfer_ids:
                 responses[transfer_id] = Exception('Transfer information returns None: %s' % jobs)
         elif jobs.status_code == 200 or jobs.status_code == 207:
             try:
-                record_counter('transfertool.fts3.%s.bulk_query.success' % self.__extract_host(self.external_host))
-                labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
-                BULK_QUERY_COUNTER.labels(**labels).inc()
+                BULK_QUERY_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
                 jobs_response = jobs.json()
                 responses = self.__bulk_query_responses(jobs_response)
             except ReadTimeout as error:
@@ -431,9 +410,7 @@ class FTS3Transfertool(Transfertool):
             except Exception as error:
                 raise Exception("Failed to parse the job response: %s, error: %s" % (str(jobs), str(error)))
         else:
-            record_counter('transfertool.fts3.%s.bulk_query.failure' % self.__extract_host(self.external_host))
-            labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-            BULK_QUERY_COUNTER.labels(**labels).inc()
+            BULK_QUERY_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc()
             for transfer_id in transfer_ids:
                 responses[transfer_id] = Exception('Could not retrieve transfer information: %s', jobs.content)
 
@@ -757,12 +734,8 @@ class FTS3Transfertool(Transfertool):
                              headers=self.headers,
                              timeout=5)
         if files and (files.status_code == 200 or files.status_code == 207):
-            record_counter('transfertool.fts3.%s.query_details.success' % self.__extract_host(self.external_host))
-            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
-            QUERY_DETAILS_COUNTER.labels(**labels).inc()
+            QUERY_DETAILS_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
             return files.json()
 
-        record_counter('transfertool.fts3.%s.query_details.failure' % self.__extract_host(self.external_host))
-        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
-        QUERY_DETAILS_COUNTER.labels(**labels).inc()
+        QUERY_DETAILS_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc()
         return

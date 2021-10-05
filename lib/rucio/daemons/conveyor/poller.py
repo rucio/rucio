@@ -243,7 +243,7 @@ def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=
             logger(logging.DEBUG, 'Setting %s transfer requests status to DONE per mock tool' % (len(xfers)))
             for task_id in xfers:
                 ret = transfer_core.update_transfer_state(external_host=None, transfer_id=task_id, state=RequestState.DONE)
-                record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
+                record_counter('daemons.conveyor.poller.update_request_state.{updated}', labels={'updated': ret})
             return
         try:
             tss = time.time()
@@ -281,7 +281,7 @@ def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=
         if TRANSFER_TOOL == 'globus':
             for task_id in resps:
                 ret = transfer_core.update_transfer_state(external_host=None, transfer_id=task_id, state=resps[task_id])
-                record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
+                record_counter('daemons.conveyor.poller.update_request_state.{updated}', labels={'updated': ret})
         else:
             for transfer_id in resps:
                 try:
@@ -303,7 +303,7 @@ def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=
                                 # if True, really update request content; if False, only touch request
                                 if ret:
                                     cnt += 1
-                                record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
+                                record_counter('daemons.conveyor.poller.update_request_state.{updated}', labels={'updated': ret})
 
                     # should touch transfers.
                     # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
