@@ -1422,7 +1422,7 @@ def set_status(scope, name, session=None, **kwargs):
 
 @stream_session
 def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=None,
-              offset=None, long=False, recursive=False, session=None, ignore_dids=None):
+              offset=None, long=False, recursive=False, ignore_dids=None, session=None):
     """
     Search data identifiers
 
@@ -1497,8 +1497,8 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
         for did in collections_content:
             for or_group in filters:
                 or_group['name'] = did['name']
-            for result in list_dids(scope=did['scope'], filters=filters, recursive=True, did_type=did_type, limit=limit, offset=offset, long=long, session=session,
-                                    ignore_dids=ignore_dids):
+            for result in list_dids(scope=did['scope'], filters=filters, recursive=True, did_type=did_type, limit=limit, offset=offset, long=long, ignore_dids=ignore_dids,
+                                    session=session):
                 yield result
 
     if long:

@@ -2052,7 +2052,7 @@ You can filter by key/value, e.g.::
 
     list_parser.set_defaults(function=list_dids)
     list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
-    list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form supported by the inequality-engine.')
+    list_parser.add_argument('--filter', dest='filter', action='store', help='Single or logically combined filtering expression(s) either in the form <key><operator><value> or <value1><operator1><key><operator2><value2> (compound inequality). Keys are equivalent to columns in the DID table. Operators must belong to the set of (<=, >=, ==, !=, >, <). The following conventions for combining expressions are used: ";" represents the logical OR operator; "," represents the logical AND operator.')  # noqa: E501
     list_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
     list_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern')
 

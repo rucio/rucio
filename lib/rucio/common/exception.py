@@ -1033,7 +1033,7 @@ class DuplicateCriteriaInDIDFilter(RucioException):
     """
     def __init__(self, *args, **kwargs):
         super(DuplicateCriteriaInDIDFilter, self).__init__(*args, **kwargs)
-        self._message = 'Duplicate criteria for key/operator in filter expression'
+        self._message = 'Duplicate criteria for key/operator in filter expression: {}'.format(args[0])
         self.error_code = 98
 
 

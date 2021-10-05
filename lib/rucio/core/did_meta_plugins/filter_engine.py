@@ -19,17 +19,17 @@
 #
 # PY3K COMPATIBLE
 
-from datetime import datetime
-from importlib import import_module
 import ast
 import operator
+from datetime import datetime
+from importlib import import_module
 
-from sqlalchemy import or_, and_
 import sqlalchemy
+from rucio.common import exception
 from rucio.common.utils import parse_did_filter_from_string_fe
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session
-from rucio.common import exception
+from sqlalchemy import or_, and_
 
 # lookup table converting keyword suffixes to pythonic operators.
 operators_conversion_LUT = {
