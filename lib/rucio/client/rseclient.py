@@ -29,6 +29,8 @@
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from json import dumps, loads
 
@@ -487,7 +489,7 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def set_rse_usage(self, rse, source, used, free):
+    def set_rse_usage(self, rse, source, used, free, files=None):
         """
         Set RSE usage information.
 
@@ -495,13 +497,14 @@ class RSEClient(BaseClient):
         :param source: the information source, e.g. srm.
         :param used: the used space in bytes.
         :param free: the free in bytes.
+        :param files: the number of files
 
         :returns: True if successful, otherwise false.
         """
         path = [self.RSE_BASEURL, rse, 'usage']
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        data = {'source': source, 'used': used, 'free': free}
+        data = {'source': source, 'used': used, 'free': free, 'files': files}
         r = self._send_request(url, type='PUT', data=dumps(data))
         if r.status_code == codes.ok:
             return True

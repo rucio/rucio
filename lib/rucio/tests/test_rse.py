@@ -30,6 +30,8 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -1351,10 +1353,12 @@ class TestRSEClient(unittest.TestCase):
         usages = self.client.get_rse_usage(rse='MOCK')
         for usage in usages:
             if usage['source'] == 'srm':
+                assert usage['files'] is None
                 assert usage['total'] == 1000000
-        assert self.client.set_rse_usage(rse='MOCK', source='srm', used=999920, free=80)
+        assert self.client.set_rse_usage(rse='MOCK', source='srm', used=999920, free=80, files=50)
         for usage in self.client.list_rse_usage_history(rse='MOCK'):
             assert usage['free'] == 80
+            assert usage['files'] == 50
             break
 
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
