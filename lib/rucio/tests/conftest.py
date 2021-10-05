@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
@@ -295,3 +295,17 @@ def caches_mock(request):
             stack.enter_context(mock.patch('{}.{}'.format(module, 'REGION'), new=region))
 
         yield
+
+
+@pytest.fixture
+def metrics_mock():
+    """
+    Overrides the prometheus metric registry and allows to verify if the desired
+    prometheus metrics were correctly recorded.
+    """
+
+    from unittest import mock
+    from prometheus_client import CollectorRegistry
+
+    with mock.patch('rucio.core.monitor.REGISTRY', new=CollectorRegistry()) as registry, mock.patch('rucio.core.monitor.COUNTERS', new={}):
+        yield registry

@@ -33,6 +33,7 @@
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 # - Nick Smith <nick.smith@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Nick Smith <nick.smith@cern.ch>, 2021
 
 import datetime
 import json
@@ -303,7 +304,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     :returns:                 Request as a dictionary.
     """
 
-    record_counter('core.request.get_next.%s-%s' % (request_type, state))
+    record_counter('core.request.get_next.{request_type}.{state}', labels={'request_type': request_type, 'state': state})
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
     if type(request_type) is not list:

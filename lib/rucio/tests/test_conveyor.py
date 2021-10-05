@@ -106,7 +106,7 @@ def set_query_parameters(url, params):
     'rucio.core.config',
     'rucio.daemons.reaper.reaper',
 ]}], indirect=True)
-def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, core_config_mock, caches_mock):
+def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, core_config_mock, caches_mock, metrics_mock):
     """
     Ensure that intermediate replicas created by the submitter are protected from deletion even if their tombstone is
     set to epoch.
@@ -174,6 +174,13 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
 
         with pytest.raises(ReplicaNotFound):
             replica_core.get_replica(rse_id=jump_rse_id, **did)
+
+        # 4 request: copy to second source + 1 multihop with two hops (but second hop fails) + re-scheduled second hop
+        # Use inequalities, because there can be left-overs from other tests
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 4
+        assert metrics_mock.get_sample_value('rucio_core_request_submit_transfer_total') >= 4
+        # at least the failed hop
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_finisher_handle_requests_total') > 0
     finally:
 
         @transactional_session
@@ -193,7 +200,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
     'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
     'rucio.core.config',
 ]}], indirect=True)
-def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_account, replica_client, core_config_mock, caches_mock):
+def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_account, replica_client, core_config_mock, caches_mock, metrics_mock):
     """
     Verify that the poller correctly handles non-recoverable FTS job failures
     """
@@ -218,6 +225,9 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
     request = request_core.get_request_by_did(rse_id=jump_rse_id, **did)
     assert request['state'] == RequestState.FAILED
 
+    # Each hop is a separate transfer, which will be handled by the poller and marked as failed
+    assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 2
+
 
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
@@ -229,7 +239,7 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
     'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
     'rucio.core.config',
 ]}], indirect=True)
-def test_fts_recoverable_failures_handled_on_multihop(vo, did_factory, root_account, replica_client, file_factory, core_config_mock, caches_mock):
+def test_fts_recoverable_failures_handled_on_multihop(vo, did_factory, root_account, replica_client, file_factory, core_config_mock, caches_mock, metrics_mock):
     """
     Verify that the poller correctly handles recoverable FTS job failures
     """
@@ -267,6 +277,9 @@ def test_fts_recoverable_failures_handled_on_multihop(vo, did_factory, root_acco
     request = request_core.get_request_by_did(rse_id=jump_rse_id, **did)
     assert request['state'] == RequestState.FAILED
 
+    # Each hop is a separate transfer, which will be handled by the poller and marked as failed
+    assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 2
+
 
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
@@ -278,7 +291,7 @@ def test_fts_recoverable_failures_handled_on_multihop(vo, did_factory, root_acco
     'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
     'rucio.core.config',
 ]}], indirect=True)
-def test_multisource(vo, did_factory, root_account, replica_client, core_config_mock, caches_mock):
+def test_multisource(vo, did_factory, root_account, replica_client, core_config_mock, caches_mock, metrics_mock):
     src_rse1 = 'XRD4'
     src_rse1_id = rse_core.get_rse_id(rse=src_rse1, vo=vo)
     src_rse2 = 'XRD1'
@@ -313,11 +326,15 @@ def test_multisource(vo, did_factory, root_account, replica_client, core_config_
     assert not __source_exists(src_rse_id=src_rse1_id, **did)
     assert not __source_exists(src_rse_id=src_rse2_id, **did)
 
+    # Only one request was handled; doesn't matter that it's multisource
+    assert metrics_mock.get_sample_value('rucio_daemons_conveyor_finisher_handle_requests_total') >= 1
+    assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 1
+
 
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter and receiver")
-def test_multisource_receiver(vo, did_factory, replica_client, root_account):
+def test_multisource_receiver(vo, did_factory, replica_client, root_account, metrics_mock):
     """
     Run receiver as a background thread to automatically handle fts notifications.
     Ensure that a multi-source job in which the first source fails is correctly handled by receiver.
@@ -353,6 +370,8 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account):
                 break
             time.sleep(1)
         assert request['state'] == RequestState.DONE
+
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 1
     finally:
         receiver_graceful_stop.set()
         receiver_thread.join(timeout=5)
@@ -368,7 +387,7 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account):
     'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
     'rucio.core.config',
 ]}], indirect=True)
-def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_account, core_config_mock, caches_mock):
+def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_account, core_config_mock, caches_mock, metrics_mock):
     """
     Verify that the receiver correctly handles multihop jobs which fail
     """
@@ -399,6 +418,10 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         # TODO: set the run_poller argument to False if we ever manage to make the receiver correctly handle multi-hop failures.
         request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, run_poller=True, **did)
         assert request['state'] == RequestState.FAILED
+
+        # First hop will be handled by receiver; second hop by poller
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 1
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 1
     finally:
         receiver_graceful_stop.set()
         receiver_thread.join(timeout=5)
@@ -414,7 +437,7 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
     'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
     'rucio.core.config',
 ]}], indirect=True)
-def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config_mock, caches_mock):
+def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config_mock, caches_mock, metrics_mock):
     """
     Verify that the receiver correctly handles successful multihop jobs
     """
@@ -439,6 +462,9 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config
         assert request['state'] == RequestState.DONE
         request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.DONE, run_poller=False, **did)
         assert request['state'] == RequestState.DONE
+
+        # Two hops; both handled by receiver
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 2
     finally:
         receiver_graceful_stop.set()
         receiver_thread.join(timeout=5)
