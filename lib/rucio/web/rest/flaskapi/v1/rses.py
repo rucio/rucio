@@ -17,6 +17,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from json import dumps
 
@@ -535,7 +536,7 @@ class Usage(ErrorHandlingMethodView):
         .. :quickref: Usage; Update RSE usage.
 
         :param rse: The RSE name.
-        :<json dict parameter: Dictionary with 'source', 'used', 'free' values to update.
+        :<json dict parameter: Dictionary with 'source', 'used', 'free', 'files' values to update.
         :status 200: OK.
         :status 400: Cannot decode json parameter dictionary.
         :status 401: Invalid Auth Token.
@@ -543,7 +544,7 @@ class Usage(ErrorHandlingMethodView):
 
         """
         parameters = json_parameters()
-        kwargs = {'source': None, 'used': None, 'free': None}
+        kwargs = {'source': None, 'used': None, 'free': None, 'files': None}
         for keyword in kwargs.keys():
             kwargs[keyword] = param_get(parameters, keyword, default=kwargs[keyword])
 
