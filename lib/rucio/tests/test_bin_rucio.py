@@ -71,7 +71,8 @@ class TestBinRucio(unittest.TestCase):
                 # Client-only test, only use config with no DB config
                 self.vo = {'vo': get_long_vo()}
             try:
-                remove(get_tmp_dir() + '/.rucio_root@%s/auth_token_root' % self.vo['vo'])
+                remove(get_tmp_dir()
+                       + '/.rucio_root@%s/auth_token_for_account_root' % self.vo['vo'])
             except OSError as error:
                 if error.args[0] != 2:
                     raise error
@@ -79,7 +80,7 @@ class TestBinRucio(unittest.TestCase):
     def setUp(self):
         self.conf_vo()
         try:
-            remove(get_tmp_dir() + '/.rucio_root/auth_token_root')
+            remove(get_tmp_dir() + '/.rucio_root/auth_token_for_account_root')
         except OSError as e:
             if e.args[0] != 2:
                 raise e
