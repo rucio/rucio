@@ -48,6 +48,7 @@
 # - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -1348,6 +1349,9 @@ def update_rule(args):
     if args.source_replica_expression:
         options['source_replica_expression'] = None if args.source_replica_expression.lower() == 'none' else args.source_replica_expression
     if args.cancel_requests:
+        if 'state' not in options:
+            logger.error('--stuck or --suspend must be specified when running --cancel-requests')
+            return FAILURE
         options['cancel_requests'] = True
     if args.priority:
         options['priority'] = int(args.priority)
