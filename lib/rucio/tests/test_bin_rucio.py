@@ -34,6 +34,7 @@
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -1722,3 +1723,10 @@ class TestBinRucio(unittest.TestCase):
         assert re.search("DATASET", out) is not None
         cmd = 'rm -rf %s' % folder
         execute(cmd)
+
+    def test_update_rule_cancel_requests_args(self):
+        """CLIENT(USER): update rule cancel requests must have a state defined"""
+        cmd = 'rucio update-rule --cancel-requests RULE'
+        exitcode, out, err = execute(cmd)
+        assert '--stuck or --suspend must be specified when running --cancel-requests' in err
+        assert exitcode != 0
