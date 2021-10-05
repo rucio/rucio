@@ -226,9 +226,9 @@ class RSEDeterministicTranslation(object):
     def __lsst(scope, name, rse_id, rse_attrs, protocol_attrs):
         """
         LFN2PFN algorithm for LSST
-        
+
         Get any of the file replica and extract its relative path
-    
+
         :param scope: Scope of the LFN.
         :param name: File name of the LFN.
         :param rse_id: RSE for PFN (ignored)
@@ -242,7 +242,7 @@ class RSEDeterministicTranslation(object):
         try:
             from rucio.api import replica
             from rucio.api import rse
-            repl = list(replica.list_replicas(dids=[{'scope':scope,'name':name}]))[0]
+            repl = list(replica.list_replicas(dids=[{'scope': scope, 'name': name}]))[0]
             # get first key: a RSE
             RSE = list(repl['rses'].keys())[0]
             # The PFN on this RSE
