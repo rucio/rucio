@@ -243,13 +243,15 @@ def adler32(file):
 
     try:
         with open(file, 'r+b') as f:
+            # memory map the file
             m = mmap.mmap(f.fileno(), 0)
-            for block in iter(partial(m.read, io.DEFAULT_BUFFER_SIZE), b''):
+            # partial block reads at slightly increased buffer sizes
+            for block in iter(partial(m.read, 10 * io.DEFAULT_BUFFER_SIZE), b''):
                 adler = zlib.adler32(block, adler)
     except Exception as e:
         raise Exception('FATAL - could not get Adler32 checksum of file %s - %s' % (file, e))
 
-    # backflip on 32bit
+    # backflip on 32bit -- can be removed once everything is fully migrated to 64bit
     if adler < 0:
         adler = adler + 2 ** 32
 
