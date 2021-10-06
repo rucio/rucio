@@ -1563,11 +1563,13 @@ class TestBinRucio(unittest.TestCase):
         cmd = 'rucio list-account-usage {0}'.format(account)
         exitcode, out, err = execute(cmd)
         assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
-        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out) is not None
+        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(r'MOCK\|MOCK4', usage, global_limit, global_left), out) is not None
+
         cmd = 'rucio list-account-usage --rse {0} {1}'.format(rse, account)
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0
         assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
-        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out) is not None
+        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(r'MOCK\|MOCK4', usage, global_limit, global_left), out) is not None
         self.account_client.set_local_account_limit(account, rse, -1)
         self.account_client.set_global_account_limit(account, rse_exp, -1)
 
