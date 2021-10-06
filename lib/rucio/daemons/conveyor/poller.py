@@ -219,12 +219,6 @@ def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=
     :param logger:           Optional decorated logger that can be passed from the calling daemons or servers.
     """
     try:
-        if TRANSFER_TOOL == 'mock':
-            logger(logging.DEBUG, 'Setting %s transfer requests status to DONE per mock tool' % (len(xfers)))
-            for task_id in xfers:
-                ret = transfer_core.update_transfer_state(external_host=None, transfer_id=task_id, state=RequestState.DONE)
-                record_counter('daemons.conveyor.poller.update_request_state.{updated}', labels={'updated': ret})
-            return
         try:
             tss = time.time()
             logger(logging.INFO, 'Polling %i transfers against %s with timeout %s' % (len(xfers), external_host, timeout))
