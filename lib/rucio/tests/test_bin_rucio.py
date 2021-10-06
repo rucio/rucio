@@ -34,6 +34,7 @@
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -1562,11 +1563,13 @@ class TestBinRucio(unittest.TestCase):
         cmd = 'rucio list-account-usage {0}'.format(account)
         exitcode, out, err = execute(cmd)
         assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
-        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out) is not None
+        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(r'MOCK\|MOCK4', usage, global_limit, global_left), out) is not None
+
         cmd = 'rucio list-account-usage --rse {0} {1}'.format(rse, account)
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0
         assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
-        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out) is not None
+        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(r'MOCK\|MOCK4', usage, global_limit, global_left), out) is not None
         self.account_client.set_local_account_limit(account, rse, -1)
         self.account_client.set_global_account_limit(account, rse_exp, -1)
 
