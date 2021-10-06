@@ -81,7 +81,7 @@ WHOAMI_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_whoami', statsd='tra
                               documentation='Number of whoami requests', labelnames=('state', 'host'))
 VERSION_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_version', statsd='transfertool.fts3.{host}.version.{state}',
                                documentation='Number of version requests', labelnames=('state', 'host'))
-QUERY_LATEST_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query_latest', statsd='transfertool.fts3.{host}.query_latest.{state}', 
+QUERY_LATEST_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query_latest', statsd='transfertool.fts3.{host}.query_latest.{state}',
                                     documentation='Number of latest status queries', labelnames=('state', 'host'))
 BULK_QUERY_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_bulk_query', statsd='transfertool.fts3.{host}.bulk_query.{state}',
                                   documentation='Number of bulk queries', labelnames=('state', 'host'))
