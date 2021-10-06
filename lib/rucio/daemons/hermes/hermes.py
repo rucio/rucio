@@ -218,7 +218,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                      ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
                                      vhost=vhost,
                                      keepalive=True,
-                                     timeout=broker_timeout)
+                                     )
 
         con.set_listener('rucio-hermes',
                          HermesListener(con.transport._Transport__host_and_ports[0]))
