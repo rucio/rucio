@@ -282,7 +282,7 @@ class RSEDeterministicTranslation(object):
                         if k.lower().startswith(vo['vo'].lower()):
                             RSEDeterministicTranslation._LFN2PFN_ALGORITHMS[k] = lfn2pfn_algorithms[k]
                         else:
-                            raise exception.InvalidAlgorithmName('LFN2PFN algorithm name %s is not valid for VO %s' % (k, vo['vo']))
+                            raise exception.InvalidAlgorithmName(k, vo['vo'])
         except (NoOptionError, NoSectionError, ImportError):
             pass
 

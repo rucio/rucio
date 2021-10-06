@@ -588,7 +588,7 @@ def _register_policy_package_surl_algorithms():
                         if k.lower().startswith(vo['vo'].lower()):
                             _SURL_ALGORITHMS[k] = surl_algorithms[k]
                         else:
-                            raise InvalidAlgorithmName('SURL algorithm name %s is not valid for VO %s' % (k, vo['vo']))
+                            raise InvalidAlgorithmName(k, vo['vo'])
         except (NoOptionError, NoSectionError, ImportError):
             pass
 
