@@ -197,16 +197,22 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
 
                 deletion_dict['duration'] = duration
                 add_message('deletion-done', deletion_dict)
-                logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %s seconds', replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
+                logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %.2f seconds', replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
 
             except SourceNotFound:
-                err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse_name)
+                duration = time.time() - start
+                err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s in %.2f seconds' % (replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
                 logger(logging.WARNING, '%s', err_msg)
+                deletion_dict['reason'] = 'File Not Found'
+                deletion_dict['duration'] = duration
+                add_message('deletion-not-found', deletion_dict)
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
             except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
-                logger(logging.WARNING, 'Deletion NOACCESS of %s:%s as %s on %s: %s', replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
+                duration = time.time() - start
+                logger(logging.WARNING, 'Deletion NOACCESS of %s:%s as %s on %s: %s in %.2f', replica['scope'], replica['name'], replica['pfn'], rse_name, str(error), duration)
                 deletion_dict['reason'] = str(error)
+                deletion_dict['duration'] = duration
                 add_message('deletion-failed', deletion_dict)
                 noaccess_attempts += 1
                 if noaccess_attempts >= auto_exclude_threshold:
@@ -217,8 +223,10 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
                     break
 
             except Exception as error:
-                logger(logging.CRITICAL, 'Deletion CRITICAL of %s:%s as %s on %s: %s', replica['scope'], replica['name'], replica['pfn'], rse_name, str(traceback.format_exc()))
+                duration = time.time() - start
+                logger(logging.CRITICAL, 'Deletion CRITICAL of %s:%s as %s on %s in %.2f seconds : %s', replica['scope'], replica['name'], replica['pfn'], rse_name, duration, str(traceback.format_exc()))
                 deletion_dict['reason'] = str(error)
+                deletion_dict['duration'] = duration
                 add_message('deletion-failed', deletion_dict)
 
         if pfns_to_bulk_delete and prot.attributes['scheme'] == 'globus':
