@@ -14,6 +14,7 @@
   - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
   - Ian Johnson, <ian.johnson@stfc.ac.uk>, 2021
   - Radu Carpa <radu.carpa@cern.ch>, 2021
+  - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
   PY3K COMPATIBLE
 '''
@@ -283,20 +284,30 @@ def examine_replication_rule(rule_id, issuer, vo='def'):
     return result
 
 
-def move_replication_rule(rule_id, rse_expression, issuer, vo='def'):
+def move_replication_rule(rule_id, rse_expression, activity, source_replica_expression, issuer, vo='def'):
     """
     Move a replication rule to another RSE and, once done, delete the original one.
 
-    :param rule_id:             Rule to be moved.
-    :param rse_expression:      RSE expression of the new rule.
-    :param session:             The DB Session.
-    :param vo:                  The VO to act on.
-    :raises:                    RuleNotFound, RuleReplaceFailed
+    :param rule_id:                    Rule to be moved.
+    :param rse_expression:             RSE expression of the new rule.
+    :param activity:                   Activity of the new rule.
+    :param source_replica_expression:  Source-Replica-Expression of the new rule.
+    :param session:                    The DB Session.
+    :param vo:                         The VO to act on.
+    :raises:                           RuleNotFound, RuleReplaceFailed, InvalidRSEExpression, AccessDenied
     """
-    kwargs = {'rule_id': rule_id, 'rse_expression': rse_expression}
+    kwargs = {
+        'rule_id': rule_id,
+        'rse_expression': rse_expression,
+        'activity': activity,
+        'source_replica_expression': source_replica_expression
+    }
     if is_multi_vo() and not has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs):
         raise AccessDenied('Account %s can not access rules at other VOs.' % (issuer))
     if not has_permission(issuer=issuer, vo=vo, action='move_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not move this replication rule.' % (issuer))
 
-    return rule.move_rule(rule_id=rule_id, rse_expression=rse_expression)
+    return rule.move_rule(rule_id=rule_id,
+                          rse_expression=rse_expression,
+                          activity=activity,
+                          source_replica_expression=source_replica_expression)
