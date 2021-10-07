@@ -60,7 +60,7 @@ import requests
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from six import string_types
-from sqlalchemy import func, and_, or_, exists, not_, update, delete
+from sqlalchemy import func, and_, or_, tuple_, exists, not_, update, delete
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
@@ -1980,24 +1980,53 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
     """
 
     none_value = None  # Hack to get pep8 happy...
-    query = session.query(models.RSEFileAssociation.scope,
+    if session.bind.dialect.name == 'oracle':
+        # Need to use a subquery, otherwise raise ORA-02014
+        sub_query = session.query(models.RSEFileAssociation.scope,
+                                  models.RSEFileAssociation.name,
+                                  models.RSEFileAssociation.rse_id).\
+            with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
+            filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
+            filter(models.RSEFileAssociation.lock_cnt == 0).\
+            filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
+            filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
+                       and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
+            filter(~exists(select([1]).prefix_with("/*+ INDEX(SOURCES SOURCES_SC_NM_DST_IDX) */", dialect='oracle')
+                           .where(and_(models.RSEFileAssociation.scope == models.Source.scope,
+                                       models.RSEFileAssociation.name == models.Source.name,
+                                       models.RSEFileAssociation.rse_id == models.Source.rse_id)))).\
+            order_by(models.RSEFileAssociation.tombstone).limit(limit).subquery()
+
+        query = session.query(models.RSEFileAssociation.scope,
+                              models.RSEFileAssociation.name,
+                              models.RSEFileAssociation.path,
+                              models.RSEFileAssociation.bytes,
+                              models.RSEFileAssociation.tombstone,
+                              models.RSEFileAssociation.state).\
+            filter(tuple_(models.RSEFileAssociation.scope,
                           models.RSEFileAssociation.name,
-                          models.RSEFileAssociation.path,
-                          models.RSEFileAssociation.bytes,
-                          models.RSEFileAssociation.tombstone,
-                          models.RSEFileAssociation.state).\
-        with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
-        filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
-        filter(models.RSEFileAssociation.lock_cnt == 0).\
-        filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
-        filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
-                   and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
-        filter(~exists(select([1]).prefix_with("/*+ INDEX(SOURCES SOURCES_SC_NM_DST_IDX) */", dialect='oracle')
-                       .where(and_(models.RSEFileAssociation.scope == models.Source.scope,
-                                   models.RSEFileAssociation.name == models.Source.name,
-                                   models.RSEFileAssociation.rse_id == models.Source.rse_id)))).\
-        with_for_update(skip_locked=True).\
-        order_by(models.RSEFileAssociation.tombstone)
+                          models.RSEFileAssociation.rse_id).in_(sub_query)).\
+            with_for_update(skip_locked=True)
+    else:
+        query = session.query(models.RSEFileAssociation.scope,
+                              models.RSEFileAssociation.name,
+                              models.RSEFileAssociation.path,
+                              models.RSEFileAssociation.bytes,
+                              models.RSEFileAssociation.tombstone,
+                              models.RSEFileAssociation.state).\
+            with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
+            filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
+            filter(models.RSEFileAssociation.lock_cnt == 0).\
+            filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
+            filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
+                       and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
+            filter(~exists(select([1]).prefix_with("/*+ INDEX(SOURCES SOURCES_SC_NM_DST_IDX) */", dialect='oracle')
+                           .where(and_(models.RSEFileAssociation.scope == models.Source.scope,
+                                       models.RSEFileAssociation.name == models.Source.name,
+                                       models.RSEFileAssociation.rse_id == models.Source.rse_id)))).\
+            with_for_update(skip_locked=True).\
+            order_by(models.RSEFileAssociation.tombstone).\
+            limit(limit)
 
     needed_space = bytes_
     total_bytes, total_files = 0, 0
@@ -2017,10 +2046,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
                     if needed_space is not None and total_bytes > needed_space:
                         break
                 total_bytes += bytes_
-
                 total_files += 1
-                if total_files > limit:
-                    break
 
             rows.append({'scope': scope, 'name': name, 'path': path,
                          'bytes': bytes_, 'tombstone': tombstone,
@@ -2042,10 +2068,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
                     if needed_space is not None and total_bytes > needed_space:
                         break
                 total_bytes += bytes_
-
                 total_files += 1
-                if total_files > limit:
-                    break
 
                 rows.append({'scope': scope, 'name': name, 'path': path,
                              'bytes': bytes_, 'tombstone': tombstone,

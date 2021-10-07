@@ -575,8 +575,12 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                                                                    only_delete_obsolete=only_delete_obsolete,
                                                                    session=None)
                     logger(logging.DEBUG, 'list_and_mark_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', rse_name, needed_free_space, time.time() - del_start_time, len(replicas))
-                    if len(replicas) < chunk_size:
+                    sum_deleted = sum(rep['bytes'] for rep in replicas)
+                    if len(replicas) <= min(10, chunk_size):
                         logger(logging.DEBUG, 'Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', rse_name, chunk_size, len(replicas))
+                        REGION.set('pause_deletion_%s' % rse_id, True)
+                    elif sum_deleted >= needed_free_space:
+                        logger(logging.DEBUG, ' on %s (%s bytes needed vs %s to be deleted). Will skip any new attempts on this RSE until next cycle', rse_name, needed_free_space, sum_deleted)
                         REGION.set('pause_deletion_%s' % rse_id, True)
 
                 except (DatabaseException, IntegrityError, DatabaseError) as error:

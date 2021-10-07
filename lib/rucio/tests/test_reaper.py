@@ -31,6 +31,7 @@ from rucio.api import replica as replica_api
 from rucio.api import rse as rse_api
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
+from rucio.db.sqla.constants import ReplicaState
 from rucio.common.config import config_get_bool
 from rucio.common.exception import ReplicaNotFound, DataIdentifierNotFound
 from rucio.common.types import InternalAccount, InternalScope
@@ -448,3 +449,30 @@ def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock
         print(did)
         deleted_dids.append(did)
     assert len(deleted_dids) == len(dids)
+
+
+def test_list_and_mark_unlocked_replicas(vo, mock_scope):
+    nb_files = 5
+    file_size = 200
+    rse_name, rse_id, dids = __add_test_rse_and_replicas(vo=vo, scope=mock_scope, rse_name=rse_name_generator(),
+                                                         names=['lfn' + generate_uuid() for _ in range(nb_files)], file_size=file_size)
+
+    replica_core.list_and_mark_unlocked_replicas(limit=100, bytes_=1000, rse_id=rse_id, delay_seconds=600, only_delete_obsolete=False)
+    for did in dids:
+        reps = replica_core.get_replicas_state(scope=did['scope'], name=did['name'])
+        assert ReplicaState.BEING_DELETED in reps
+        assert rse_id in reps[ReplicaState.BEING_DELETED]
+
+    dids2 = []
+    for file_name in ['lfn' + generate_uuid() for _ in range(nb_files)]:
+        dids2.append({'scope': mock_scope, 'name': file_name})
+        replica_core.add_replica(rse_id=rse_id, scope=mock_scope,
+                                 name=file_name, bytes_=file_size,
+                                 tombstone=datetime.utcnow() - timedelta(seconds=3600),
+                                 account=InternalAccount('root', vo=vo), adler32=None, md5=None)
+
+    replica_core.list_and_mark_unlocked_replicas(limit=5, bytes_=800, rse_id=rse_id, delay_seconds=0, only_delete_obsolete=False)
+    for did in dids2:
+        reps = replica_core.get_replicas_state(scope=did['scope'], name=did['name'])
+        assert ReplicaState.AVAILABLE in reps
+        assert rse_id in reps[ReplicaState.AVAILABLE]
