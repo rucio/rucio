@@ -307,9 +307,13 @@ class MoveRule(ErrorHandlingMethodView):
         parameters = json_parameters()
         rse_expression = param_get(parameters, 'rse_expression')
         rule_id = param_get(parameters, 'rule_id', default=rule_id)
+        activity = param_get(parameters, 'activity', default=None)
+        source_replica_expression = param_get(parameters, 'source_replica_expression', default=None)
         try:
             rule_ids = move_replication_rule(rule_id=rule_id,
                                              rse_expression=rse_expression,
+                                             activity=activity,
+                                             source_replica_expression=source_replica_expression,
                                              issuer=request.environ.get('issuer'),
                                              vo=request.environ.get('vo'))
         except RuleReplaceFailed as error:

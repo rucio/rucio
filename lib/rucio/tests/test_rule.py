@@ -30,6 +30,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import json
 import random
@@ -911,6 +912,31 @@ class TestReplicationRuleCore(unittest.TestCase):
 
         assert(get_rule(rule_id2)['state'] == RuleState.REPLICATING)
         assert(get_rule(rule_id)['child_rule_id'] == rule_id2)
+        assert(get_rule(rule_id2)['activity'] == get_rule(rule_id)['activity'])
+        assert(get_rule(rule_id2)['source_replica_expression'] == get_rule(rule_id)['source_replica_expression'])
+
+        pytest.raises(RuleReplaceFailed, move_rule, rule_id, self.rse4)
+
+    def test_move_rule_with_arguments(self):
+        """ REPLICATION RULE (CORE): Move a rule with activity and source-replica-expression specified"""
+        scope = InternalScope('mock', **self.vo)
+        files = create_files(3, scope, [self.rse1_id])
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        assert(get_rule(rule_id)['state'] == RuleState.OK)
+
+        activity = "No User Subscriptions"
+        source_replica_expression = self.rse3 + "|" + self.rse1
+        rule_id2 = move_rule(rule_id, self.rse3, activity=activity, source_replica_expression=source_replica_expression)
+
+        assert(get_rule(rule_id2)['state'] == RuleState.REPLICATING)
+        assert(get_rule(rule_id)['child_rule_id'] == rule_id2)
+        assert(get_rule(rule_id2)['activity'] == activity)
+        assert(get_rule(rule_id2)['source_replica_expression'] == source_replica_expression)
 
         pytest.raises(RuleReplaceFailed, move_rule, rule_id, self.rse4)
 
