@@ -1,23 +1,32 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-  - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
-  - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
-  - Ian Johnson, <ian.johnson@stfc.ac.uk>, 2021
-  - Radu Carpa <radu.carpa@cern.ch>, 2021
-  - Joel Dierkes <joel.dierkes@cern.ch>, 2021
-
-  PY3K COMPATIBLE
-'''
+# -*- coding: utf-8 -*-
+# Copyright 2012-2021 CERN
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2013
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
+# - Ian Johnson <ijjorama@gmail.com>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from rucio.api.permission import has_permission
 from rucio.common.config import config_get_bool
