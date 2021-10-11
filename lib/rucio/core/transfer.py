@@ -621,12 +621,9 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
     record_counter('core.request.bulk_query_transfers')
 
     if transfertool == 'fts3':
-        try:
-            start_time = time.time()
-            fts_resps = FTS3Transfertool(external_host=request_host).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
-            record_timer('core.request.bulk_query_transfers_fts3', (time.time() - start_time) * 1000 / len(transfer_ids))
-        except Exception:
-            raise
+        start_time = time.time()
+        fts_resps = FTS3Transfertool(external_host=request_host).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
+        record_timer('core.request.bulk_query_transfers_fts3', (time.time() - start_time) * 1000 / len(transfer_ids))
 
         for transfer_id in transfer_ids:
             if transfer_id not in fts_resps:
@@ -657,13 +654,10 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
                             status_dict['new_state'] = RequestState.FAILED
         return fts_resps
     elif transfertool == 'globus':
-        try:
-            start_time = time.time()
-            logger(logging.DEBUG, 'transfer_ids: %s' % transfer_ids)
-            responses = GlobusTransferTool(external_host=None).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
-            record_timer('core.request.bulk_query_transfers', (time.time() - start_time) * 1000 / len(transfer_ids))
-        except Exception:
-            raise
+        start_time = time.time()
+        logger(logging.DEBUG, 'transfer_ids: %s' % transfer_ids)
+        responses = GlobusTransferTool(external_host=None).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
+        record_timer('core.request.bulk_query_transfers', (time.time() - start_time) * 1000 / len(transfer_ids))
 
         for k, v in responses.items():
             if v == 'FAILED':
@@ -675,8 +669,6 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
         return responses
     else:
         raise NotImplementedError
-
-    return None
 
 
 @transactional_session
