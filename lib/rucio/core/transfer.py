@@ -183,7 +183,7 @@ class TransferDestination:
 
 class RequestWithSources:
     def __init__(self, id_, request_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes,
-                 previous_attempt_id, dest_rse_data, account, retry_count):
+                 previous_attempt_id, dest_rse_data, account, retry_count, priority):
 
         self.request_id = id_
         self.request_type = request_type
@@ -200,6 +200,7 @@ class RequestWithSources:
         self.dest_rse = dest_rse_data
         self.account = account
         self.retry_count = retry_count or 0
+        self.priority = priority if priority is not None else 3
 
         self.sources = []
 
@@ -574,7 +575,7 @@ def submit_bulk_transfers(external_host, transfers, transfertool='fts3', job_par
         logger(logging.DEBUG, 'job_files: %s' % transfers)
         transfer_id = GlobusTransferTool(external_host=None).bulk_submit(transfers=transfers, timeout=timeout)
     elif transfertool == 'mock':
-        transfer_id = MockTransfertool(external_host=None).submit(transfers, None)
+        transfer_id = MockTransfertool(external_host=None).submit(transfers, job_params)
     return transfer_id
 
 
@@ -1098,6 +1099,7 @@ def __create_transfer_definitions(
                     dest_rse_data=hop_dst_rse,
                     account=rws.account,
                     retry_count=0,
+                    priority=rws.priority,
                 ),
                 protocol_factory=protocol_factory,
             )
@@ -1665,7 +1667,8 @@ def __list_transfer_requests_and_source_replicas(
                                  models.Request.dest_rse_id,
                                  models.Request.retry_count,
                                  models.Request.account,
-                                 models.Request.created_at) \
+                                 models.Request.created_at,
+                                 models.Request.priority) \
         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle') \
         .filter(models.Request.state == request_state) \
         .filter(models.Request.request_type == request_type) \
@@ -1707,6 +1710,7 @@ def __list_transfer_requests_and_source_replicas(
                           sub_requests.c.dest_rse_id,
                           sub_requests.c.account,
                           sub_requests.c.retry_count,
+                          sub_requests.c.priority,
                           models.RSE.id.label("source_rse_id"),
                           models.RSE.rse,
                           models.RSEFileAssociation.path,
@@ -1738,7 +1742,7 @@ def __list_transfer_requests_and_source_replicas(
 
     requests_by_id = {}
     for (request_id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, dest_rse_id, account, retry_count,
-         source_rse_id, source_rse_name, file_path, source_ranking, source_url, distance_ranking) in query:
+         priority, source_rse_id, source_rse_name, file_path, source_ranking, source_url, distance_ranking) in query:
 
         # rses (of unknown length) should be a temporary table to check against instead of this special case
         if rses and dest_rse_id not in rses:
@@ -1749,7 +1753,7 @@ def __list_transfer_requests_and_source_replicas(
             request = RequestWithSources(id_=request_id, request_type=request_type, rule_id=rule_id, scope=scope, name=name,
                                          md5=md5, adler32=adler32, byte_count=byte_count, activity=activity, attributes=attributes,
                                          previous_attempt_id=previous_attempt_id, dest_rse_data=RseData(id_=dest_rse_id),
-                                         account=account, retry_count=retry_count)
+                                         account=account, retry_count=retry_count, priority=priority)
             requests_by_id[request_id] = request
 
         if source_rse_id is not None:

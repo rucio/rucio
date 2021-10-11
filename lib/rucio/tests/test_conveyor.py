@@ -46,6 +46,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, RSEType
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.tests.common import skip_rse_tests_with_accounts
+from rucio.transfertool.fts3 import FTS3Transfertool
 
 MAX_POLL_WAIT_SECONDS = 60
 TEST_FTS_HOST = 'https://fts:8446'
@@ -455,13 +456,17 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config
         all_rses = [src_rse_id, jump_rse_id, dst_rse_id]
 
         did = did_factory.upload_test_file(src_rse)
-        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        rule_priority = 5
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, priority=rule_priority)
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
         request = __wait_for_request_state(dst_rse_id=jump_rse_id, state=RequestState.DONE, run_poller=False, **did)
         assert request['state'] == RequestState.DONE
         request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.DONE, run_poller=False, **did)
         assert request['state'] == RequestState.DONE
+
+        fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query(request['external_id'])
+        assert fts_response[request['external_id']][request['id']]['priority'] == rule_priority
 
         # Two hops; both handled by receiver
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 2
@@ -565,7 +570,7 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
     distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
     rse_core.add_rse_attribute(src_rse_id, 'staging_buffer', dst_rse)
     for rse_id in all_rses:
-        rse_core.add_rse_attribute(rse_id, 'fts', 'https://fts:8446')
+        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
 
     did = did_factory.upload_test_file(src_rse)
     replica = replica_core.get_replica(rse_id=src_rse_id, **did)
@@ -625,7 +630,7 @@ def test_overwrite_on_tape(rse_factory, did_factory, root_account, core_config_m
     distance_core.add_distance(rse2_id, rse3_id, ranking=10)
     rse_core.add_rse_attribute(rse2_id, 'available_for_multihop', True)
     for rse_id in all_rses:
-        rse_core.add_rse_attribute(rse_id, 'fts', 'https://fts:8446')
+        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
 
     # multihop transfer:
     did1 = did_factory.upload_test_file(rse1)
