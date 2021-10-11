@@ -223,37 +223,25 @@ class RSEDeterministicTranslation(object):
         return '%s/%s/%s/%s' % (scope[0:7], scope[4:len(scope)], name.split('-')[0] + "-" + name.split('-')[1], name)
 
     @staticmethod
-    def __lsst(scope, name, rse_id, rse_attrs, protocol_attrs):
+    def __lsst(scope, name, rse, rse_attrs, protocol_attrs):
         """
-        LFN2PFN algorithm for LSST
+        LFN2PFN algorithm for Rubin-LSST in the ESCAPE project
 
-        Get any of the file replica and extract its relative path
+        Replace convention delimiter '__' by '/'
+        The Escape instance does use the 'generic' Rucio schema.
 
-        :param scope: Scope of the LFN.
+        :param scope: Scope of the LFN (ignored)
         :param name: File name of the LFN.
         :param rse_id: RSE for PFN (ignored)
         :param rse_attrs: RSE attributes for PFN (ignored)
         :param protocol_attrs: RSE protocol attributes for PFN (ignored)
         :returns: Path for use in the PFN generation.
         """
-        del rse_id
+        del scope
+        del rse
         del rse_attrs
         del protocol_attrs
-        try:
-            from rucio.api import replica
-            from rucio.api import rse
-            repl = list(replica.list_replicas(dids=[{'scope': scope, 'name': name}]))[0]
-            # get first key: a RSE
-            RSE = list(repl['rses'].keys())[0]
-            # The PFN on this RSE
-            orig_pfn = repl['rses'][RSE][0]
-            # The protocol of this RSE
-            rse_protocol = rse.get_rse(RSE)['protocols'][0]
-            # Extract the relative path
-            rse_relative_path = orig_pfn.split(rse_protocol['prefix'])[1]
-            return rse_relative_path
-        except IndexError:
-            return name
+        return name.replace('__','/')
 
     @classmethod
     def _module_init_(cls):
