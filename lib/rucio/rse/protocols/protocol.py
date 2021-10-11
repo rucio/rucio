@@ -241,7 +241,7 @@ class RSEDeterministicTranslation(object):
         del rse
         del rse_attrs
         del protocol_attrs
-        return name.replace('__','/')
+        return name.replace('__', '/')
 
     @classmethod
     def _module_init_(cls):
