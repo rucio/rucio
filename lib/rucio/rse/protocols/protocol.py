@@ -232,7 +232,7 @@ class RSEDeterministicTranslation(object):
 
         :param scope: Scope of the LFN (ignored)
         :param name: File name of the LFN.
-        :param rse_id: RSE for PFN (ignored)
+        :param rse: RSE for PFN (ignored)
         :param rse_attrs: RSE attributes for PFN (ignored)
         :param protocol_attrs: RSE protocol attributes for PFN (ignored)
         :returns: Path for use in the PFN generation.
