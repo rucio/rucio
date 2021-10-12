@@ -91,6 +91,8 @@ def throttler(once=False, sleep_time=600, partition_wait_time=10):
                 current_time = time.time()
             except Exception:
                 logger(logging.CRITICAL, 'Throtter crashed %s' % (traceback.format_exc()))
+                if once:
+                    raise
 
             if once:
                 break
