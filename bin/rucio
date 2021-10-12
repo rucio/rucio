@@ -1701,7 +1701,7 @@ def list_account_usage(args):
     table = []
     usage = client.get_global_account_usage(account=args.usage_account)
     for item in usage:
-        if (args.rse and args.rse in item['resolved_rses']) or not args.rse:
+        if (args.rse and args.rse in item['rse_expression']) or not args.rse:
             remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
             table.append([item['rse_expression'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
     table.sort()
