@@ -608,29 +608,30 @@ def is_recoverable_fts_overwrite_error(fts_status_dict):
     return False
 
 
-def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeout=None, logger=logging.log):
+def bulk_query_transfers(request_host, transfers_by_eid, transfertool='fts3', timeout=None, logger=logging.log):
     """
     Query the status of a transfer.
-    :param request_host:  Name of the external host.
-    :param transfer_ids:  List of (External-ID as a 32 character hex string)
-    :param transfertool:  Transfertool name as a string.
-    :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
-    :returns:             Request status information as a dictionary.
+    :param request_host:     Name of the external host.
+    :param transfers_by_eid: Dict of the form {external_id: list_of_transfers}
+    :param transfertool:     Transfertool name as a string.
+    :param timeout:          Transfertool timeout.
+    :param logger:           Optional decorated logger that can be passed from the calling daemons or servers.
+    :returns:                Request status information as a dictionary.
     """
 
     record_counter('core.request.bulk_query_transfers')
 
     if transfertool == 'fts3':
         start_time = time.time()
-        fts_resps = FTS3Transfertool(external_host=request_host).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
-        record_timer('core.request.bulk_query_transfers_fts3', (time.time() - start_time) * 1000 / len(transfer_ids))
+        fts_resps = FTS3Transfertool(external_host=request_host).bulk_query(transfer_ids=list(transfers_by_eid), timeout=timeout)
+        record_timer('core.request.bulk_query_transfers_fts3', (time.time() - start_time) * 1000 / len(transfers_by_eid))
 
-        for transfer_id in transfer_ids:
-            if transfer_id not in fts_resps:
-                fts_resps[transfer_id] = Exception("Transfer id %s is not returned" % transfer_id)
-            if fts_resps[transfer_id] and not isinstance(fts_resps[transfer_id], Exception):
-                for request_id in fts_resps[transfer_id]:
-                    status_dict = fts_resps[transfer_id][request_id]
+        for external_id, transfers in transfers_by_eid.items():
+            if external_id not in fts_resps:
+                fts_resps[external_id] = Exception("Transfer id %s is not returned" % external_id)
+            if fts_resps[external_id] and not isinstance(fts_resps[external_id], Exception):
+                for request_id in fts_resps[external_id]:
+                    status_dict = fts_resps[external_id][request_id]
                     job_state = status_dict['job_state']
                     file_state = status_dict['file_state']
                     # https://fts3-docs.web.cern.ch/fts3-docs/docs/state_machine.html
@@ -655,9 +656,9 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
         return fts_resps
     elif transfertool == 'globus':
         start_time = time.time()
-        logger(logging.DEBUG, 'transfer_ids: %s' % transfer_ids)
-        responses = GlobusTransferTool(external_host=None).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
-        record_timer('core.request.bulk_query_transfers', (time.time() - start_time) * 1000 / len(transfer_ids))
+        logger(logging.DEBUG, 'transfer_ids: %s' % list(transfers_by_eid))
+        responses = GlobusTransferTool(external_host=None).bulk_query(transfer_ids=list(transfers_by_eid), timeout=timeout)
+        record_timer('core.request.bulk_query_transfers', (time.time() - start_time) * 1000 / len(transfers_by_eid))
 
         for k, v in responses.items():
             if v == 'FAILED':
