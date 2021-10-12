@@ -66,6 +66,7 @@ from rucio.common.extra import import_extras
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
+from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.oidc import get_token_for_account_operation
 from rucio.core.replica import add_replicas, tombstone_from_delay

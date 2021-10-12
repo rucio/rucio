@@ -42,17 +42,16 @@ Methods common to different conveyor submitter daemons.
 from __future__ import division
 
 from configparser import NoOptionError, NoSectionError
-from json import loads
 import datetime
 import functools
 import logging
 import time
 from json import loads
 
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
                                     DuplicateFileTransferSubmission, VONotFound)
-from rucio.common.utils import chunks, set_checksum_value
+from rucio.common.utils import chunks
 from rucio.core import request, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import list_rses
@@ -360,7 +359,7 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None,
     :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     :return:              List of working rses
     """
-    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    multi_vo = config_get('common', 'multi_vo', raise_exception=False, default=False)
     if not multi_vo:
         if vos:
             logger(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')
