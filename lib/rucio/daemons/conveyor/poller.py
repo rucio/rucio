@@ -112,7 +112,7 @@ def poller(once=False, activities=None, sleep_time=60,
                                                     limit=db_bulk,
                                                     older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than),
                                                     total_workers=heart_beat['nr_threads'], worker_number=heart_beat['assign_thread'],
-                                                    mode_all=False, hash_variable='id',
+                                                    mode_all=True, hash_variable='id',
                                                     activity=activity,
                                                     activity_shares=activity_shares,
                                                     transfertool=FILTER_TRANSFERTOOL)
@@ -264,7 +264,9 @@ def poll_transfers(external_host, transfers_by_eid, timeout=None, logger=logging
                     #             is {}: No terminated jobs.
                     #             is {request_id: {file_status}}: terminated jobs.
                     if transf_resp is None:
-                        transfer_core.update_transfer_state(external_host, transfer_id, RequestState.LOST, logger=logger)
+                        for transfer in transfers_by_eid[transfer_id]:
+                            resp = transfer_core.fake_transfertool_response(transfer, new_state=RequestState.LOST, reason="The FTS job lost")
+                            request_core.update_request_state(resp, logger=logger)
                         record_counter('daemons.conveyor.poller.transfer_lost')
                     elif isinstance(transf_resp, Exception):
                         logger(logging.WARNING, "Failed to poll FTS(%s) job (%s): %s" % (external_host, transfer_id, transf_resp))

@@ -673,6 +673,51 @@ def bulk_query_transfers(request_host, transfers_by_eid, transfertool='fts3', ti
 
 
 @transactional_session
+def fake_transfertool_response(req, new_state=None, reason=None, session=None):
+    """
+    Use the request database object to return a dict in the same format as
+    returned by the FTS transfertool. Fill ass many fields as possible with
+    relevant data.
+
+    TODO: get rid of this function
+    """
+    src_rse_id = req.get('source_rse_id', None)
+    dst_rse_id = req.get('dest_rse_id', None)
+    src_rse = None
+    dst_rse = None
+    if src_rse_id:
+        src_rse = get_rse_name(src_rse_id, session=session)
+    if dst_rse_id:
+        dst_rse = get_rse_name(dst_rse_id, session=session)
+    response = {'new_state': new_state or req.get('state', None),
+                'transfer_id': req['external_id'],
+                'job_state': new_state or req.get('state', None),
+                'src_url': None,
+                'dst_url': req['dest_url'],
+                'duration': 0,
+                'reason': reason,
+                'scope': req.get('scope', None),
+                'name': req.get('name', None),
+                'src_rse': src_rse,
+                'dst_rse': dst_rse,
+                'request_id': req.get('request_id', None),
+                'activity': req.get('activity', None),
+                'src_rse_id': req.get('source_rse_id', None),
+                'dst_rse_id': req.get('dest_rse_id', None),
+                'previous_attempt_id': req.get('previous_attempt_id', None),
+                'adler32': req.get('adler32', None),
+                'md5': req.get('md5', None),
+                'filesize': req.get('filesize', None),
+                'external_host': req.get('external_host', None),
+                'job_m_replica': None,
+                'created_at': req.get('created_at', None),
+                'submitted_at': req.get('submitted_at', None),
+                'details': None,
+                'account': req.get('account', None)}
+    return response
+
+
+@transactional_session
 def set_transfer_update_time(external_host, transfer_id, update_time=datetime.datetime.utcnow(), session=None):
     """
     Update the state of a request. Fails silently if the transfer_id does not exist.
@@ -722,7 +767,7 @@ def update_transfer_state(external_host, transfer_id, state, session=None, logge
     """
     Used by poller to update the internal state of transfer,
     after the response by the external transfertool.
-    :param request_host:          Name of the external host.
+    :param external_host:         Name of the external host.
     :param transfer_id:           External transfer job id as a string.
     :param state:                 Request state as a string.
     :param session:               The database session to use.
@@ -730,59 +775,15 @@ def update_transfer_state(external_host, transfer_id, state, session=None, logge
     :returns commit_or_rollback:  Boolean.
     """
 
+    record_counter('core.request.set_transfer_state')
+
     try:
-        if state == RequestState.LOST:
-            reqs = request_core.get_requests_by_transfer(external_host, transfer_id, session=session)
-            for req in reqs:
-                logger(logging.INFO, 'REQUEST %s OF TRANSFER %s ON %s STATE %s' % (str(req['request_id']), external_host, transfer_id, str(state)))
-                src_rse_id = req.get('source_rse_id', None)
-                dst_rse_id = req.get('dest_rse_id', None)
-                src_rse = None
-                dst_rse = None
-                if src_rse_id:
-                    src_rse = get_rse_name(src_rse_id, session=session)
-                if dst_rse_id:
-                    dst_rse = get_rse_name(dst_rse_id, session=session)
-                response = {'new_state': state,
-                            'transfer_id': transfer_id,
-                            'job_state': state,
-                            'src_url': None,
-                            'dst_url': req['dest_url'],
-                            'duration': 0,
-                            'reason': "The FTS job lost",
-                            'scope': req.get('scope', None),
-                            'name': req.get('name', None),
-                            'src_rse': src_rse,
-                            'dst_rse': dst_rse,
-                            'request_id': req.get('request_id', None),
-                            'activity': req.get('activity', None),
-                            'src_rse_id': req.get('source_rse_id', None),
-                            'dst_rse_id': req.get('dest_rse_id', None),
-                            'previous_attempt_id': req.get('previous_attempt_id', None),
-                            'adler32': req.get('adler32', None),
-                            'md5': req.get('md5', None),
-                            'filesize': req.get('filesize', None),
-                            'external_host': external_host,
-                            'job_m_replica': None,
-                            'created_at': req.get('created_at', None),
-                            'submitted_at': req.get('submitted_at', None),
-                            'details': None,
-                            'account': req.get('account', None)}
+        rowcount = session.query(models.Request).filter_by(external_id=transfer_id).update({'state': state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+    except IntegrityError as error:
+        raise RucioException(error.args)
 
-                err_msg = request_core.get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
-                request_core.set_request_state(req['request_id'],
-                                               response['new_state'],
-                                               transfer_id=transfer_id,
-                                               src_rse_id=src_rse_id,
-                                               err_msg=err_msg,
-                                               session=session)
-
-                request_core.add_monitor_message(req, response, session=session)
-        else:
-            __set_transfer_state(external_host, transfer_id, state, session=session)
-        return True
-    except UnsupportedOperation as error:
-        logger(logging.WARNING, "Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(error).replace('\n', '')))
+    if not rowcount:
+        logger(logging.WARNING, "Transfer %s on %s doesn't exist." % (transfer_id, external_host))
         return False
 
 
@@ -1682,27 +1683,6 @@ def __list_transfer_requests_and_source_replicas(
             request.sources.append(TransferSource(rse_data=RseData(id_=source_rse_id, name=source_rse_name), file_path=file_path,
                                                   source_ranking=source_ranking, distance_ranking=distance_ranking, url=source_url))
     return list(requests_by_id.values())
-
-
-@transactional_session
-def __set_transfer_state(external_host, transfer_id, new_state, session=None):
-    """
-    Update the state of a transfer. Fails silently if the transfer_id does not exist.
-    :param external_host:  Selected external host as string in format protocol://fqdn:port
-    :param transfer_id:    External transfer job id as a string.
-    :param new_state:      New state as string.
-    :param session:        Database session to use.
-    """
-
-    record_counter('core.request.set_transfer_state')
-
-    try:
-        rowcount = session.query(models.Request).filter_by(external_id=transfer_id).update({'state': new_state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
-    except IntegrityError as error:
-        raise RucioException(error.args)
-
-    if not rowcount:
-        raise UnsupportedOperation("Transfer %s on %s state %s cannot be updated." % (transfer_id, external_host, new_state))
 
 
 @read_session
