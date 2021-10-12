@@ -147,6 +147,8 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
                     logger(logging.ERROR, 'Exception', exc_info=True)
             except Exception:
                 logger(logging.CRITICAL, 'Exception', exc_info=True)
+                if once:
+                    raise
 
             if once:
                 break

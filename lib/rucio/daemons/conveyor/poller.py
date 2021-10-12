@@ -139,6 +139,8 @@ def poller(once=False, activities=None, sleep_time=60,
                             activity_next_exe_time[activity] = time.time() + sleep_time
             except Exception:
                 logger(logging.CRITICAL, "Exception", exc_info=True)
+                if once:
+                    raise
 
             if once:
                 break

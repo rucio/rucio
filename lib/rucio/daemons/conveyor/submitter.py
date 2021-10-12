@@ -185,6 +185,8 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                             activity_next_exe_time[activity] = time.time() + sleep_time
                 except Exception:
                     logger(logging.CRITICAL, 'Exception', exc_info=True)
+                    if once:
+                        raise
 
             if once:
                 break
