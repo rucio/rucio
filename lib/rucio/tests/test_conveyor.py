@@ -322,8 +322,20 @@ def test_multisource(vo, did_factory, root_account, replica_client, core_config_
     assert __source_exists(src_rse_id=src_rse1_id, **did)
     assert __source_exists(src_rse_id=src_rse2_id, **did)
 
+    # After submission, the source rse is the one which will fail
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['source_rse'] == src_rse2
+    assert request['source_rse_id'] == src_rse2_id
+
+    # The source_rse must be updated to the correct one
+    request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.DONE, **did)
+    assert request['source_rse'] == src_rse1
+    assert request['source_rse_id'] == src_rse1_id
+
     replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, **did)
     assert replica['state'] == ReplicaState.AVAILABLE
+
+    # Both entries in source table must be removed after completion
     assert not __source_exists(src_rse_id=src_rse1_id, **did)
     assert not __source_exists(src_rse_id=src_rse2_id, **did)
 
@@ -361,6 +373,11 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account, met
         rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
+        # After submission, the source rse is the one which will fail
+        request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+        assert request['source_rse'] == src_rse2
+        assert request['source_rse_id'] == src_rse2_id
+
         request = None
         for _ in range(MAX_POLL_WAIT_SECONDS):
             request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
@@ -373,6 +390,9 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account, met
         assert request['state'] == RequestState.DONE
 
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 1
+        # The source was updated to the good one
+        assert request['source_rse'] == src_rse1
+        assert request['source_rse_id'] == src_rse1_id
     finally:
         receiver_graceful_stop.set()
         receiver_thread.join(timeout=5)
