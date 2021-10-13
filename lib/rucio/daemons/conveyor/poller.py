@@ -219,27 +219,44 @@ def poll_transfers(external_host, transfers_by_eid, timeout=None, logger=logging
     :param timeout:          Timeout.
     :param logger:           Optional decorated logger that can be passed from the calling daemons or servers.
     """
+
+    poll_individual_transfers = False
+    try:
+        _poll_transfers(external_host, transfers_by_eid, timeout, logger)
+    except TransferToolWrongAnswer:
+        poll_individual_transfers = True
+
+    if poll_individual_transfers:
+        logger(logging.ERROR, 'Problem querying %s on %s. All jobs are being checked individually' % (list(transfers_by_eid), external_host))
+        for external_id, transfers in transfers_by_eid.items():
+            logger(logging.DEBUG, 'Checking %s on %s' % (external_id, external_host))
+            try:
+                _poll_transfers(external_host, {external_id: transfers}, timeout, logger)
+            except Exception as err:
+                logger(logging.ERROR, 'Problem querying %s on %s . Error returned : %s' % (external_id, external_host, str(err)))
+
+
+def _poll_transfers(external_host, transfers_by_eid, timeout, logger):
+    """
+    Helper function for poll_transfers which performs the actual polling and database update.
+    """
+    is_bulk = len(transfers_by_eid) > 1
     try:
         tss = time.time()
         logger(logging.INFO, 'Polling %i transfers against %s with timeout %s' % (len(transfers_by_eid), external_host, timeout))
         resps = transfer_core.bulk_query_transfers(external_host, transfers_by_eid, TRANSFER_TOOL, timeout)
-        record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time() - tss) * 1000 / len(transfers_by_eid))
+        duration = time.time() - tss
+        record_timer('daemons.conveyor.poller.bulk_query_transfers', duration * 1000 / len(transfers_by_eid))
+        logger(logging.DEBUG, 'Polled %s transfer requests status in %s seconds' % (len(transfers_by_eid), duration))
     except TransferToolTimeout as error:
         logger(logging.ERROR, str(error))
         return
     except TransferToolWrongAnswer as error:
         logger(logging.ERROR, str(error))
-        logger(logging.ERROR, 'Problem querying %s on %s. All jobs are being checked individually' % (list(transfers_by_eid), external_host))
-        for external_id, transfers in transfers_by_eid:
-            try:
-                logger(logging.DEBUG, 'Checking %s on %s' % (external_id, external_host))
-                status = transfer_core.bulk_query_transfers(external_host, {external_id: transfers}, TRANSFER_TOOL, timeout)
-                if external_id in status and isinstance(status[external_id], Exception):
-                    logger(logging.ERROR, 'Problem querying %s on %s . Error returned : %s' % (external_id, external_host, str(status[external_id])))
-            except Exception as err:
-                logger(logging.ERROR, 'Problem querying %s on %s . Error returned : %s' % (external_id, external_host, str(err)))
-                break
-        return
+        if is_bulk:
+            raise  # The calling context will retry transfers one-by-one
+        else:
+            return
     except RequestException as error:
         logger(logging.ERROR, "Failed to contact FTS server: %s" % (str(error)))
         return
@@ -247,7 +264,6 @@ def poll_transfers(external_host, transfers_by_eid, timeout=None, logger=logging
         logger(logging.ERROR, "Failed to query FTS info", exc_info=True)
         return
 
-    logger(logging.DEBUG, 'Polled %s transfer requests status in %s seconds' % (len(transfers_by_eid), (time.time() - tss)))
     tss = time.time()
     logger(logging.DEBUG, 'Updating %s transfer requests status' % (len(transfers_by_eid)))
     cnt = 0
