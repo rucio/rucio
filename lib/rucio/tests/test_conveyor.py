@@ -20,7 +20,7 @@
 
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import patch
 from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
 
@@ -615,6 +615,46 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
     stager(once=True, rses=[{'id': rse_id} for rse_id in all_rses])
 
     replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=2 * MAX_POLL_WAIT_SECONDS, **did)
+    assert replica['state'] == ReplicaState.AVAILABLE
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+def test_lost_transfers(rse_factory, did_factory, root_account):
+    """
+    Correctly handle FTS "404 not found" errors.
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    all_rses = [src_rse_id, dst_rse_id]
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+
+    did = did_factory.upload_test_file(src_rse)
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    @transactional_session
+    def __update_request(request_id, session=None, **kwargs):
+        session.query(models.Request).filter_by(id=request_id).update(kwargs, synchronize_session=False)
+
+    # Fake that the transfer is submitted and lost
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    __update_request(request['id'], external_id='some-fake-random-id')
+
+    # The request must be marked lost
+    request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.LOST, **did)
+    assert request['state'] == RequestState.LOST
+
+    # Set update time far in the past to bypass protections (not resubmitting too fast).
+    # Run finisher and submitter, the request must be resubmitted and transferred correctly
+    __update_request(request['id'], updated_at=datetime.utcnow() - timedelta(days=1))
+    finisher(once=True, partition_wait_time=None)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+    replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, **did)
     assert replica['state'] == ReplicaState.AVAILABLE
 
 
