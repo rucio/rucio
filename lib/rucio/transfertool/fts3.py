@@ -453,7 +453,7 @@ class FTS3Transfertool(Transfertool):
             record_counter('transfertool.fts3.{host}.bulk_query.failure', labels={'host': self.__extract_host(self.external_host)})
             for transfer_id in transfer_ids:
                 responses[transfer_id] = Exception('Transfer information returns None: %s' % jobs)
-        elif jobs.status_code == 200 or jobs.status_code == 207:
+        elif jobs.status_code in (200, 207, 404):
             try:
                 BULK_QUERY_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
                 jobs_response = jobs.json()
