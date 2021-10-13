@@ -250,43 +250,38 @@ def poll_transfers(external_host, transfers_by_eid, timeout=None, logger=logging
         logger(logging.DEBUG, 'Updating %s transfer requests status' % (len(transfers_by_eid)))
         cnt = 0
 
-        if TRANSFER_TOOL == 'globus':
-            for task_id in resps:
-                ret = transfer_core.update_transfer_state(external_host=None, transfer_id=task_id, state=resps[task_id])
-                record_counter('daemons.conveyor.poller.update_request_state.{updated}', labels={'updated': ret})
-        else:
-            request_ids = {t['request_id'] for t in itertools.chain.from_iterable(transfers_by_eid.values())}
-            for transfer_id in resps:
-                try:
-                    transf_resp = resps[transfer_id]
-                    # transf_resp is None: Lost.
-                    #             is Exception: Failed to get fts job status.
-                    #             is {}: No terminated jobs.
-                    #             is {request_id: {file_status}}: terminated jobs.
-                    if transf_resp is None:
-                        for transfer in transfers_by_eid[transfer_id]:
-                            resp = transfer_core.fake_transfertool_response(transfer, new_state=RequestState.LOST, reason="The FTS job lost")
-                            request_core.update_request_state(resp, logger=logger)
-                        record_counter('daemons.conveyor.poller.transfer_lost')
-                    elif isinstance(transf_resp, Exception):
-                        logger(logging.WARNING, "Failed to poll FTS(%s) job (%s): %s" % (external_host, transfer_id, transf_resp))
-                        record_counter('daemons.conveyor.poller.query_transfer_exception')
-                    else:
-                        for request_id in request_ids.intersection(transf_resp):
-                            ret = request_core.update_request_state(transf_resp[request_id], logger=logger)
-                            # if True, really update request content; if False, only touch request
-                            if ret:
-                                cnt += 1
-                            record_counter('daemons.conveyor.poller.update_request_state.{updated}', labels={'updated': ret})
+        request_ids = {t['request_id'] for t in itertools.chain.from_iterable(transfers_by_eid.values())}
+        for transfer_id in resps:
+            try:
+                transf_resp = resps[transfer_id]
+                # transf_resp is None: Lost.
+                #             is Exception: Failed to get fts job status.
+                #             is {}: No terminated jobs.
+                #             is {request_id: {file_status}}: terminated jobs.
+                if transf_resp is None:
+                    for transfer in transfers_by_eid[transfer_id]:
+                        resp = transfer_core.fake_transfertool_response(transfer, new_state=RequestState.LOST, reason="The FTS job lost")
+                        request_core.update_request_state(resp, logger=logger)
+                    record_counter('daemons.conveyor.poller.transfer_lost')
+                elif isinstance(transf_resp, Exception):
+                    logger(logging.WARNING, "Failed to poll FTS(%s) job (%s): %s" % (external_host, transfer_id, transf_resp))
+                    record_counter('daemons.conveyor.poller.query_transfer_exception')
+                else:
+                    for request_id in request_ids.intersection(transf_resp):
+                        ret = request_core.update_request_state(transf_resp[request_id], logger=logger)
+                        # if True, really update request content; if False, only touch request
+                        if ret:
+                            cnt += 1
+                        record_counter('daemons.conveyor.poller.update_request_state.{updated}', labels={'updated': ret})
 
-                    # should touch transfers.
-                    # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
-                    transfer_core.touch_transfer(external_host, transfer_id)
-                except (DatabaseException, DatabaseError) as error:
-                    if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
-                        logger(logging.WARNING, "Lock detected when handling request %s - skipping" % transfer_id)
-                    else:
-                        logger(logging.ERROR, 'Exception', exc_info=True)
-            logger(logging.DEBUG, 'Finished updating %s transfer requests status (%i requests state changed) in %s seconds' % (len(transfers_by_eid), cnt, (time.time() - tss)))
+                # should touch transfers.
+                # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
+                transfer_core.touch_transfer(external_host, transfer_id)
+            except (DatabaseException, DatabaseError) as error:
+                if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+                    logger(logging.WARNING, "Lock detected when handling request %s - skipping" % transfer_id)
+                else:
+                    logger(logging.ERROR, 'Exception', exc_info=True)
+        logger(logging.DEBUG, 'Finished updating %s transfer requests status (%i requests state changed) in %s seconds' % (len(transfers_by_eid), cnt, (time.time() - tss)))
     except Exception:
         logger(logging.ERROR, 'Exception', exc_info=True)

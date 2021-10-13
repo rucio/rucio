@@ -662,11 +662,13 @@ def bulk_query_transfers(request_host, transfers_by_eid, transfertool='fts3', ti
 
         for k, v in responses.items():
             if v == 'FAILED':
-                responses[k] = RequestState.FAILED
+                new_state = RequestState.FAILED
             elif v == 'SUCCEEDED':
-                responses[k] = RequestState.DONE
+                new_state = RequestState.DONE
             else:
-                responses[k] = RequestState.SUBMITTED
+                new_state = RequestState.SUBMITTED
+            responses[k] = {t['request_id']: fake_transfertool_response(t, new_state=new_state)
+                            for t in transfers_by_eid[k]}
         return responses
     else:
         raise NotImplementedError
@@ -760,31 +762,6 @@ def touch_transfer(external_host, transfer_id, session=None):
         session.execute(stmt)
     except IntegrityError as error:
         raise RucioException(error.args)
-
-
-@transactional_session
-def update_transfer_state(external_host, transfer_id, state, session=None, logger=logging.log):
-    """
-    Used by poller to update the internal state of transfer,
-    after the response by the external transfertool.
-    :param external_host:         Name of the external host.
-    :param transfer_id:           External transfer job id as a string.
-    :param state:                 Request state as a string.
-    :param session:               The database session to use.
-    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
-    :returns commit_or_rollback:  Boolean.
-    """
-
-    record_counter('core.request.set_transfer_state')
-
-    try:
-        rowcount = session.query(models.Request).filter_by(external_id=transfer_id).update({'state': state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
-    except IntegrityError as error:
-        raise RucioException(error.args)
-
-    if not rowcount:
-        logger(logging.WARNING, "Transfer %s on %s doesn't exist." % (transfer_id, external_host))
-        return False
 
 
 @transactional_session
