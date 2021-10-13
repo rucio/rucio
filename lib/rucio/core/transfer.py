@@ -1270,12 +1270,15 @@ def __compress_multihops(
 def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") -> "Generator[List[DirectTransferDefinition]]":
 
     def __transfer_order_key(transfer_path):
+        # Reduce the priority of the tape sources. If there are any disk sources,
+        # they must fail twice (1 penalty + 1 disk preferred over tape) before a tape will even be tried
+        source_ranking_penalty = 1 if transfer_path[0].src.rse.is_tape_or_staging_required() else 0
         # higher source_ranking first,
         # on equal source_ranking, prefer DISK over TAPE
         # on equal type, prefer lower distance_ranking
         # on equal distance, prefer single hop
         return (
-            - transfer_path[0].src.source_ranking,
+            - transfer_path[0].src.source_ranking + source_ranking_penalty,
             transfer_path[0].src.rse.is_tape_or_staging_required(),  # rely on the fact that False < True
             transfer_path[0].src.distance_ranking,
             len(transfer_path) > 1,  # rely on the fact that False < True
