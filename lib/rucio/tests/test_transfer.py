@@ -184,10 +184,17 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
     assert len(transfer[0].legacy_sources) == 2
     assert transfer[0].legacy_sources[0][0] in (disk1_rse_name, disk2_rse_name)
 
-    # Change the rating of the disk RSEs. Tape RSEs must now be preferred.
-    # Multiple tape sources are not allowed. Only one tape RSE source must be returned.
+    # Change the rating of the disk RSEs. Disk still preferred, because it must fail twice before tape is tried
     __fake_source_ranking(disk1_rse_id, -1)
     __fake_source_ranking(disk2_rse_id, -1)
+    [[_host, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
+    assert len(transfer[0].legacy_sources) == 2
+    assert transfer[0].legacy_sources[0][0] in (disk1_rse_name, disk2_rse_name)
+
+    # Change the rating of the disk RSEs again. Tape RSEs must now be preferred.
+    # Multiple tape sources are not allowed. Only one tape RSE source must be returned.
+    __fake_source_ranking(disk1_rse_id, -2)
+    __fake_source_ranking(disk2_rse_id, -2)
     [[_host, transfers]] = next_transfers_to_submit(rses=all_rses).items()
     assert len(transfers) == 1
     transfer = transfers[0]
