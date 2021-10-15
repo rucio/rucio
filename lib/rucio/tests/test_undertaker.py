@@ -182,7 +182,7 @@ class TestUndertaker(unittest.TestCase):
     ('undertaker', 'purge_all_replicas', True)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.core.config',
+    'rucio.core.config.REGION',
 ]}], indirect=True)
 def test_removal_all_replicas2(rse_factory, root_account, mock_scope, core_config_mock, caches_mock):
     """ UNDERTAKER (CORE): Test the undertaker is setting Epoch tombstone on all the replicas. """

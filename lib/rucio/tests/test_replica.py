@@ -613,7 +613,7 @@ class TestReplicaCore:
     ('reaper', 'remove_open_did', True)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.core.config', 'rucio.core.replica'
+    'rucio.core.config.REGION', 'rucio.core.replica.REGION'
 ]}], indirect=True)
 def test_delete_replicas_from_datasets_new(core_config_mock, caches_mock, rse_factory, mock_scope, root_account):
     """ REPLICA (CORE): Delete replicas from dataset """
