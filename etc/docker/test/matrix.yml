@@ -13,7 +13,14 @@ dists:
       python:
         - "3.9"
 python:
-  - "3.6"
+  - id: "3.6"
+    allow:
+      suites:
+        - syntax
+        - docs
+        - client_syntax
+        - remote_dbs
+        - multi_vo
   - id: "3.7"
     allow:
       suites:
@@ -22,6 +29,8 @@ python:
     allow:
       suites:
         - py37py38
+        - client
+        - sqlite
   - "3.9"
 suites:
   - id: syntax
@@ -33,11 +42,13 @@ suites:
     RUN_HTTPD: false
   - id: client
     RDBMS: sqlite
-  - id: all
+  - id: remote_dbs
     RDBMS:
       - oracle
       - mysql8
       - postgres14
+  - id: sqlite
+    RDBMS:
       - sqlite
   - id: multi_vo
     RDBMS: postgres14
