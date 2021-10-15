@@ -36,7 +36,20 @@ from rucio.db.sqla.session import read_session, transactional_session
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
-def test_request_submitted_in_order(rse_factory, did_factory, root_account):
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {
+        "overrides": [
+            ('core', 'use_temp_tables', 'True'),
+        ]
+    },
+    {
+        "overrides": [
+            ('core', 'use_temp_tables', 'False'),
+        ]
+    }
+], indirect=True)
+def test_request_submitted_in_order(rse_factory, did_factory, root_account, file_config_mock):
 
     src_rses = [rse_factory.make_posix_rse() for _ in range(2)]
     dst_rses = [rse_factory.make_posix_rse() for _ in range(3)]
@@ -94,9 +107,21 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True)
-]}], indirect=True)
+@pytest.mark.parametrize("core_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {
+        "table_content": [
+            ('transfers', 'use_multihop', True),
+            ('core', 'use_temp_tables', False),
+        ]
+    },
+    {
+        "table_content": [
+            ('transfers', 'use_multihop', True),
+            ('core', 'use_temp_tables', True),
+        ]
+    }
+], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
     'rucio.core.config.REGION',
