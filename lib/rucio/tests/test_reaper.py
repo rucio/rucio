@@ -37,7 +37,7 @@ from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
 from rucio.core import scope as scope_core
 from rucio.core import vo as vo_core
-from rucio.daemons.reaper.reaper import reaper, REGION
+from rucio.daemons.reaper.reaper import reaper
 from rucio.daemons.reaper.reaper import run as run_reaper
 from rucio.db.sqla.models import ConstituentAssociationHistory
 from rucio.db.sqla.session import read_session
@@ -94,9 +94,12 @@ def __setup_scopes_for_vos(*vos):
     return scope_name, created_scopes
 
 
-@pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
-def test_reaper(vo):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_reaper(vo, caches_mock):
     """ REAPER (DAEMON): Test the reaper daemon."""
+    [cache_region] = caches_mock
     scope = InternalScope('data13_hip', vo=vo)
 
     nb_files = 250
@@ -108,22 +111,25 @@ def test_reaper(vo):
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
 
     # Check first if the reaper does not delete anything if no space is needed
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
 
     # Now put it over threshold and delete
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=1)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 200
 
 
-@pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
-def test_reaper_bulk_delete(vo):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_reaper_bulk_delete(vo, caches_mock):
     """ REAPER (DAEMON): Mock test the reaper daemon on async bulk delete request."""
+    [cache_region] = caches_mock
     scope = InternalScope('data13_hip', vo=vo)
 
     nb_files = 250
@@ -135,22 +141,25 @@ def test_reaper_bulk_delete(vo):
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
 
     # Check first if the reaper does not delete anything if no space is needed
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
 
     # Now put it over threshold and delete
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=1)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 200
 
 
-@pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
-def test_reaper_multi_vo_via_run(vo):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_reaper_multi_vo_via_run(vo, caches_mock):
     """ MULTI VO (DAEMON): Test that reaper runs on the specified VO(s) """
+    [cache_region] = caches_mock
     new_vo = __setup_new_vo()
     scope_name, [scope_tst, scope_new] = __setup_scopes_for_vos(vo, new_vo)
     rse_name = rse_name_generator()
@@ -174,15 +183,18 @@ def test_reaper_multi_vo_via_run(vo):
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == nb_files
 
     # Check we reap all VOs by default
-    REGION.invalidate()
+    cache_region.invalidate()
     run_reaper(once=True, rses=[rse_name])
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == 25
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
 
 
-@pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
-def test_reaper_affect_other_vo_via_run(vo):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_reaper_affect_other_vo_via_run(vo, caches_mock):
     """ MULTI VO (DAEMON): Test that reaper runs on the specified VO(s) and does not reap others"""
+    [cache_region] = caches_mock
     new_vo = __setup_new_vo()
     scope_name, [scope_tst, scope_new] = __setup_scopes_for_vos(vo, new_vo)
     rse_name = rse_name_generator()
@@ -206,15 +218,18 @@ def test_reaper_affect_other_vo_via_run(vo):
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == nb_files
 
     # Check we don't affect a second VO that isn't specified
-    REGION.invalidate()
+    cache_region.invalidate()
     run_reaper(once=True, rses=[rse_name], vos=['new'])
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
 
 
-@pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
-def test_reaper_multi_vo(vo):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_reaper_multi_vo(vo, caches_mock):
     """ REAPER (DAEMON): Test the reaper daemon with multiple vo."""
+    [cache_region] = caches_mock
     new_vo = __setup_new_vo()
     _, [scope_tst, scope_new] = __setup_scopes_for_vos(vo, new_vo)
 
@@ -229,7 +244,7 @@ def test_reaper_multi_vo(vo):
     rse_core.set_rse_limits(rse_id=rse2_id, name='MinFreeSpace', value=50 * file_size)
 
     # Check we reap all VOs by default
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse1_id, source='storage', used=nb_files * file_size, free=1)
     rse_core.set_rse_usage(rse_id=rse2_id, source='storage', used=nb_files * file_size, free=1)
     both_rses = '%s|%s' % (rse1_name, rse2_name)
@@ -239,7 +254,11 @@ def test_reaper_multi_vo(vo):
     assert len(list(replica_core.list_replicas(dids=dids2, rse_expression=both_rses))) == 200
 
 
-def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_scope, root_account):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_scope, root_account, caches_mock):
+    [cache_region] = caches_mock
     rse_name, rse_id = rse_factory.make_mock_rse()
     scope = mock_scope
     account = root_account
@@ -292,7 +311,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     # but the did must not be remove and it must still remain in the dataset because
     # it still has the replica from inside the archive
     assert replica_core.get_replica(rse_id=rse_id, **c_with_expired_replica)
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=2 * archive_size + nb_c_outside_archive * constituent_size)
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=2 * archive_size + nb_c_outside_archive * constituent_size, free=1)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
@@ -319,7 +338,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     # the archive will be removed; and c_first_archive_only must be removed from datasets
     # and from the did table.
     replica_core.set_tombstone(rse_id=rse_id, tombstone=datetime.utcnow() - timedelta(days=1), **archive1)
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=2 * archive_size + nb_c_outside_archive * constituent_size)
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=2 * archive_size + nb_c_outside_archive * constituent_size, free=1)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
@@ -340,7 +359,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     # If not open, Dataset2 will be removed because it will be empty.
     did_core.set_status(open=False, **dataset2)
     replica_core.set_tombstone(rse_id=rse_id, tombstone=datetime.utcnow() - timedelta(days=1), **archive2)
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=archive_size + nb_c_outside_archive * constituent_size)
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=archive_size + nb_c_outside_archive * constituent_size, free=1)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
