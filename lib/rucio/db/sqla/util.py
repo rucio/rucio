@@ -38,7 +38,8 @@ from alembic.config import Config
 from sqlalchemy import func, inspect
 from sqlalchemy.dialects.postgresql.base import PGInspector
 from sqlalchemy.exc import IntegrityError, DatabaseError
-from sqlalchemy.schema import CreateSchema, MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.schema import CreateSchema, MetaData, Table, CreateTable, DropTable, ForeignKeyConstraint, DropConstraint
 from sqlalchemy.sql.ddl import DropSchema
 from sqlalchemy.sql.expression import select, text
 
@@ -308,3 +309,59 @@ def try_drop_constraint(constraint_name, table_name):
         op.drop_constraint(constraint_name, table_name)
     except DatabaseError as e:
         assert 'nonexistent constraint' in str(e)
+
+
+def create_temp_table(name, *columns, primary_key=None, session=None):
+    """
+    Create a temporary table with the given columns, register it into a declarative base, and return it.
+
+    Declarative definition _requires_ a primary key. It should be a subset of '*columns' argument
+    (either a single column, or a list). If not explicitly give, will use the first column as primary key.
+    This primary key is "fake", because it only exists in sqlalchemy and not in the database.
+
+    Mysql and sqlite don't support automatic cleanup of temporary tables on commit. This means that a
+    temporary table definition is preserved for the lifetime of a session. A session is regularly
+    re-used by sqlalchemy, that's why we have to assume the required temporary table already exist and
+    could contain data from a previous transaction. Drop all data from that table.
+    """
+    if session.bind.dialect.name == 'oracle':
+        additional_kwargs = {
+            'oracle_on_commit': 'DROP DEFINITION',
+            'prefixes': ['PRIVATE TEMPORARY'],
+        }
+        # PRIVATE_TEMP_TABLE_PREFIX, which defaults to "ORA$PTT_", _must_ prefix the name
+        name = f"ORA$PTT_{name}"
+    elif session.bind.dialect.name == 'postgresql':
+        additional_kwargs = {
+            'postgresql_on_commit': 'DROP',
+            'prefixes': ['TEMPORARY'],
+        }
+    else:
+        additional_kwargs = {
+            'prefixes': ['TEMPORARY'],
+        }
+
+    base = declarative_base()
+    table = Table(
+        name,
+        base.metadata,
+        *columns,
+        schema=None,  # Temporary tables exist in a special schema, so a schema name cannot be given when creating a temporary table
+        **additional_kwargs,
+    )
+
+    class DeclarativeObj(base):
+        __table__ = table
+        # The declarative base requires a primary key, even if it doesn't exit in the database
+        __mapper_args__ = {
+            "primary_key": primary_key if primary_key else columns[0],
+        }
+
+    # Ensure the table exists and is empty. On some database types, it can contain leftover data from a previous transaction
+    # executed by sqlalchemy within the same session (which is being re-used now)
+    if session.bind.dialect.name in ('oracle', 'postgresql'):
+        session.execute(CreateTable(table))
+    else:
+        session.execute(CreateTable(table, if_not_exists=True))
+        session.query(DeclarativeObj).delete()
+    return DeclarativeObj
