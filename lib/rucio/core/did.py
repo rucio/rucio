@@ -2117,8 +2117,57 @@ def list_all_parent_dids(scope, name, session=None):
             yield {'scope': pdid['scope'], 'name': pdid['name'], 'type': pdid['type']}
 
 
+def list_child_datasets_stmt(
+        scope: "InternalScope",
+        name: str,
+):
+    """
+    Returns the sqlalchemy query for fetching the child datasets of the given container.
+
+    Uses a recursive SQL CTE (Common Table Expressions)
+    """
+    initial_set = select(
+        models.DataIdentifierAssociation.child_scope,
+        models.DataIdentifierAssociation.child_name,
+        models.DataIdentifierAssociation.child_type,
+    ).where(
+        models.DataIdentifierAssociation.scope == scope,
+        models.DataIdentifierAssociation.name == name,
+    ).cte(
+        recursive=True,
+    )
+
+    # Oracle doesn't support union() in recursive CTEs, so use UNION ALL
+    # and a "distinct" filter later
+    child_datasets_cte = initial_set.union_all(
+        select(
+            models.DataIdentifierAssociation.child_scope,
+            models.DataIdentifierAssociation.child_name,
+            models.DataIdentifierAssociation.child_type,
+        ).where(
+            models.DataIdentifierAssociation.scope == initial_set.c.child_scope,
+            models.DataIdentifierAssociation.name == initial_set.c.child_name,
+            models.DataIdentifierAssociation.did_type == DIDType.CONTAINER,
+        )
+    )
+
+    stmt = select(
+        child_datasets_cte.c.child_scope.label('scope'),
+        child_datasets_cte.c.child_name.label('name'),
+    ).distinct(
+    ).where(
+        child_datasets_cte.c.child_type == DIDType.DATASET,
+    )
+
+    return stmt
+
+
 @transactional_session
-def list_child_datasets(scope, name, session=None):
+def list_child_datasets(
+        scope: "InternalScope",
+        name: str,
+        session: "Optional[Session]" = None
+):
     """
     List all child datasets of a container.
 
@@ -2128,27 +2177,10 @@ def list_child_datasets(scope, name, session=None):
     :returns:         List of dids
     :rtype:           Generator
     """
-
+    stmt = list_child_datasets_stmt(scope, name)
     result = []
-    stmt = select(
-        models.DataIdentifierAssociation.child_scope,
-        models.DataIdentifierAssociation.child_name,
-        models.DataIdentifierAssociation.child_type
-    ).where(
-        models.DataIdentifierAssociation.scope == scope,
-        models.DataIdentifierAssociation.name == name,
-        models.DataIdentifierAssociation.child_type != DIDType.FILE
-    ).with_hint(
-        models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle'
-    )
-    for child_scope, child_name, child_type in session.execute(stmt).yield_per(5):
-        if child_type == DIDType.CONTAINER:
-            result.extend(list_child_datasets(scope=child_scope, name=child_name, session=session))
-        else:
-            result.append({'scope': child_scope, 'name': child_name, 'type': child_type})
-
-    # remove duplicate entries
-    result = {(elem['scope'], elem['name']): elem for elem in result}.values()
+    for row in session.execute(stmt):
+        result.append({'scope': row.scope, 'name': row.name})
 
     return result
 
@@ -2986,15 +3018,24 @@ def __resolve_bytes_length_events_did(
     if did.did_type == DIDType.DATASET and dynamic_depth == DIDType.FILE or \
             did.did_type == DIDType.CONTAINER and dynamic_depth in (DIDType.FILE, DIDType.DATASET):
 
-        if did.did_type == DIDType.DATASET:
-            datasets = [{'scope': did.scope, 'name': did.name}]
-        else:
-            datasets = list_child_datasets(scope=did.scope, name=did.name, session=session)
-
         use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
-        if use_temp_tables and len(datasets) > 1:
+        if use_temp_tables:
             temp_table = temp_table_mngr(session).create_scope_name_table()
-            session.bulk_insert_mappings(temp_table, datasets)
+            if did.did_type == DIDType.DATASET:
+                stmt = insert(
+                    temp_table
+                ).values(
+                    scope=did.scope,
+                    name=did.name
+                )
+            else:
+                stmt = insert(
+                    temp_table
+                ).from_select(
+                    ['scope', 'name'],
+                    list_child_datasets_stmt(did.scope, did.name),
+                )
+            session.execute(stmt)
 
             if dynamic_depth == DIDType.FILE:
                 stmt = select(
@@ -3026,6 +3067,10 @@ def __resolve_bytes_length_events_did(
             except NoResultFound:
                 bytes_, length, events = 0, 0, 0
         else:
+            if did.did_type == DIDType.DATASET:
+                datasets = [{'scope': did.scope, 'name': did.name}]
+            else:
+                datasets = list_child_datasets(scope=did.scope, name=did.name, session=session)
             for dataset in datasets:
                 if dynamic_depth == DIDType.FILE:
                     stmt = select(
