@@ -1461,7 +1461,7 @@ def __build_transfer_paths(
         if rws.previous_attempt_id and failover_schemes:
             transfer_schemes = failover_schemes
 
-        logger(logging.DEBUG, 'Found following sources for %s: %s', rws, [str(src.rse) for src in rws.sources])
+        logger(logging.INFO, 'Found following sources for %s: %s', rws, [str(src.rse) for src in rws.sources])
         # Assume request doesn't have any sources. Will be removed later if sources are found.
         reqs_no_source.add(rws.request_id)
 
@@ -1545,6 +1545,9 @@ def __build_transfer_paths(
         candidate_paths = __compress_multihops(candidate_paths, rws.sources)
         candidate_paths = list(__sort_paths(candidate_paths))
 
+        logger(logging.INFO, 'Final ordered candidate sources for %s: %s', rws, [('multihop: ' if len(path) > 1 else '') + str(path[0].src.rse)
+                                                                                 for path in candidate_paths])
+
         if not candidate_paths:
             # It can happen that some sources are skipped because they are TAPE, and others because
             # of scheme mismatch. However, we can only have one state in the database. I picked to
@@ -1592,15 +1595,15 @@ def __pick_and_build_path_for_transfertool(
 
         if not best_path:
             reqs_no_host.add(request_id)
-            logger(logging.DEBUG, 'Cannot assign transfer host, or create intermediate requests for %s' % request_id)
+            logger(logging.INFO, 'Cannot assign transfer host, or create intermediate requests for %s' % request_id)
             continue
 
         # For multihop, the initial request is the last hop
         rws = best_path[-1].rws
         if len(best_path) > 1:
-            logger(logging.DEBUG, 'Best path is multihop for %s: %s' % (rws, [str(hop) for hop in best_path]))
+            logger(logging.INFO, 'Best path is multihop for %s: %s' % (rws, [str(hop) for hop in best_path]))
         else:
-            logger(logging.DEBUG, 'Best path is direct for %s: %s' % (rws, best_path[0]))
+            logger(logging.INFO, 'Best path is direct for %s: %s' % (rws, best_path[0]))
 
         transfers_by_host.setdefault(external_host, []).append(best_path)
     return transfers_by_host, reqs_no_host
