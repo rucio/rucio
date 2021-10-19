@@ -292,7 +292,7 @@ def caches_mock(request):
     with ExitStack() as stack:
         for module in caches_to_mock:
             region = make_region().configure('dogpile.cache.memory', expiration_time=600)
-            stack.enter_context(mock.patch('{}.{}'.format(module, 'REGION'), new=region))
+            stack.enter_context(mock.patch(module, new=region))
 
         yield
 
