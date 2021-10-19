@@ -137,14 +137,14 @@ class SubscriptionClient(BaseClient):
         :type priority: Integer
         :raises: exception.NotFound if subscription is not found
         """
-        from rucio.client import Client
-        client = Client()
+        from rucio.client.accountclient import AccountClient
+        client = AccountClient()
         if not account:
             account = self.account
         if not account:
             account = client.whoami()['account']
         if not account:
-            logging.error("Cannot found default account with given identity. Please supply a Rucio account to authenticate")
+            logging.error("Cannot find default account with given identity. Please supply a Rucio account to authenticate")
 
         if retroactive:
             raise NotImplementedError('Retroactive mode is not implemented')
