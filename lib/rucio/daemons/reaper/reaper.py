@@ -43,6 +43,7 @@ import threading
 import time
 import traceback
 from collections import OrderedDict
+from configparser import NoOptionError, NoSectionError
 from datetime import datetime, timedelta
 from math import ceil
 from typing import TYPE_CHECKING
@@ -54,14 +55,13 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound,
+from rucio.common.exception import (DatabaseException, RSENotFound,
                                     ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
                                     VONotFound)
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.utils import chunks, daemon_sleep
 from rucio.core import monitor
-from rucio.core.config import get
 from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts
 from rucio.core.message import add_message
@@ -297,11 +297,11 @@ def get_max_deletion_threads_by_hostname(hostname):
     result = REGION.get('max_deletion_threads_%s' % hostname)
     if result is NO_VALUE:
         try:
-            max_deletion_thread = get('reaper', 'max_deletion_threads_%s' % hostname)
-        except ConfigNotFound:
+            max_deletion_thread = config_get('reaper', 'max_deletion_threads_%s' % hostname)
+        except (NoOptionError, NoSectionError, RuntimeError):
             try:
-                max_deletion_thread = get('reaper', 'nb_workers_by_hostname')
-            except ConfigNotFound:
+                max_deletion_thread = config_get('reaper', 'nb_workers_by_hostname')
+            except (NoOptionError, NoSectionError, RuntimeError):
                 max_deletion_thread = 5
         REGION.set('max_deletion_threads_%s' % hostname, max_deletion_thread)
         result = max_deletion_thread
@@ -432,19 +432,19 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     while not GRACEFUL_STOP.is_set():
         # try to get auto exclude parameters from the config table. Otherwise use CLI parameters.
         try:
-            auto_exclude_threshold = get('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold)
-            auto_exclude_timeout = get('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout)
-        except ConfigNotFound:
+            auto_exclude_threshold = config_get('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold)
+            auto_exclude_timeout = config_get('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout)
+        except (NoOptionError, NoSectionError, RuntimeError):
             pass
 
         # Check if there is a Judge Evaluator backlog
         try:
-            max_evaluator_backlog_count = get('reaper', 'max_evaluator_backlog_count')
-        except ConfigNotFound:
+            max_evaluator_backlog_count = config_get('reaper', 'max_evaluator_backlog_count')
+        except (NoOptionError, NoSectionError, RuntimeError):
             max_evaluator_backlog_count = None
         try:
-            max_evaluator_backlog_duration = get('reaper', 'max_evaluator_backlog_duration')
-        except ConfigNotFound:
+            max_evaluator_backlog_duration = config_get('reaper', 'max_evaluator_backlog_duration')
+        except (NoOptionError, NoSectionError, RuntimeError):
             max_evaluator_backlog_duration = None
         if max_evaluator_backlog_count or max_evaluator_backlog_duration:
             backlog = get_evaluation_backlog()

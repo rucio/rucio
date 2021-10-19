@@ -41,6 +41,7 @@ import logging
 import time
 import traceback
 from collections import namedtuple
+from configparser import NoOptionError, NoSectionError
 from itertools import filterfalse
 from typing import TYPE_CHECKING
 
@@ -49,12 +50,11 @@ from sqlalchemy import and_, or_, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, true
 
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get_bool, config_get
 from rucio.common.constants import FTS_STATE
-from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation, ConfigNotFound
+from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
-from rucio.core.config import get
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute
@@ -1513,8 +1513,8 @@ def __throttler_request_state(activity, source_rse_id, dest_rse_id, session: "Op
     if the throttler mode is not set.
     """
     try:
-        throttler_mode = get('throttler', 'mode', default=None, use_cache=False, session=session)
-    except ConfigNotFound:
+        throttler_mode = config_get('throttler', 'mode', default=None, use_cache=False, session=session)
+    except (NoOptionError, NoSectionError, RuntimeError):
         throttler_mode = None
 
     limit_found = False

@@ -27,6 +27,7 @@
 import datetime
 import logging
 import re
+from configparser import NoOptionError, NoSectionError
 
 from json import dumps
 
@@ -35,8 +36,8 @@ from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import NoResultFound
 
-from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException, ConfigNotFound
-from rucio.core.config import get
+from rucio.common.config import config_get
+from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import SubscriptionState
 from rucio.db.sqla.session import transactional_session, stream_session, read_session
@@ -71,8 +72,8 @@ def add_subscription(name, account, filter_, replication_rules, comments, lifeti
     :returns:                  The subscriptionid
     """
     try:
-        keep_history = get('subscriptions', 'keep_history')
-    except ConfigNotFound:
+        keep_history = config_get('subscriptions', 'keep_history')
+    except (NoOptionError, NoSectionError, RuntimeError):
         keep_history = False
 
     SubscriptionHistory = models.SubscriptionHistory
@@ -135,8 +136,8 @@ def update_subscription(name, account, metadata=None, session=None):
     :raises: SubscriptionNotFound if subscription is not found
     """
     try:
-        keep_history = get('subscriptions', 'keep_history')
-    except ConfigNotFound:
+        keep_history = config_get('subscriptions', 'keep_history')
+    except (NoOptionError, NoSectionError, RuntimeError):
         keep_history = False
     values = {'state': SubscriptionState.UPDATED}
     if 'filter' in metadata and metadata['filter']:

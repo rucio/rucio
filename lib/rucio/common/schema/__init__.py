@@ -36,7 +36,7 @@ schema_modules = {}
 scope_name_regexps = []
 
 try:
-    multivo = config.config_get_bool('common', 'multi_vo')
+    multivo = config.config_get_bool('common', 'multi_vo', check_config_table=False)
 except (NoOptionError, NoSectionError):
     multivo = False
 
@@ -48,11 +48,11 @@ if not multivo:
 
     if config.config_has_section('policy'):
         try:
-            POLICY = config.config_get('policy', 'package') + ".schema"
+            POLICY = config.config_get('policy', 'package', check_config_table=False) + ".schema"
         except (NoOptionError, NoSectionError):
             # fall back to old system for now
             try:
-                POLICY = config.config_get('policy', 'schema')
+                POLICY = config.config_get('policy', 'schema', check_config_table=False)
             except (NoOptionError, NoSectionError):
                 POLICY = GENERIC_FALLBACK
             POLICY = 'rucio.common.schema.' + POLICY.lower()
@@ -72,11 +72,11 @@ def load_schema_for_vo(vo):
     GENERIC_FALLBACK = 'generic_multi_vo'
     if config.config_has_section('policy'):
         try:
-            POLICY = config.config_get('policy', 'package-' + vo) + ".schema"
+            POLICY = config.config_get('policy', 'package-' + vo, check_config_table=False) + ".schema"
         except (NoOptionError, NoSectionError):
             # fall back to old system for now
             try:
-                POLICY = config.config_get('policy', 'schema')
+                POLICY = config.config_get('policy', 'schema', check_config_table=False)
             except (NoOptionError, NoSectionError):
                 POLICY = GENERIC_FALLBACK
             POLICY = 'rucio.common.schema.' + POLICY.lower()
