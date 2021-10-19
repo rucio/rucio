@@ -1157,6 +1157,158 @@ class TestBinRucio(unittest.TestCase):
         print(out, err)
         assert 5 == len(out.splitlines())
 
+    def test_move_rule(self):
+        """CLIENT(USER): Rucio move rule"""
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        # add quota
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add quota
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add quota
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rules
+        cmd = "rucio add-rule {0}:{1} 3 'spacetoken=ATLASSCRATCHDISK'".format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        assert not err
+        rule = out[:-1]  # triming new line character
+        assert re.match(r'^\w+$', rule)
+
+        # move rule
+        new_rule_expr = "'spacetoken=ATLASSCRATCHDISK|spacetoken=ATLASSD'"
+        cmd = "rucio move-rule {} {}".format(rule, new_rule_expr)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        assert not err
+        new_rule = out[:-1]  # triming new line character
+
+        # check if rule exist for the file
+        cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert re.search(new_rule, out) is not None
+
+    def test_move_rule_with_arguments(self):
+        """CLIENT(USER): Rucio move rule"""
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        # add quota
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add quota
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add quota
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rules
+        cmd = "rucio add-rule {0}:{1} 3 'spacetoken=ATLASSCRATCHDISK'".format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        assert not err
+        rule = out[:-1]  # triming new line character
+        assert re.match(r'^\w+$', rule)
+        # move rule
+        new_rule_expr = "spacetoken=ATLASSCRATCHDISK|spacetoken=ATLASSD"
+        new_rule_activity = "No User Subscription"
+        new_rule_source_replica_expression = "spacetoken=ATLASSCRATCHDISK|spacetoken=ATLASSD"
+        cmd = "rucio move-rule --activity '{}' --source-replica-expression '{}' {} '{}'".format(new_rule_activity, new_rule_source_replica_expression, rule, new_rule_expr)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert not err
+        new_rule_id = out[:-1]  # triming new line character
+
+        # check if rule exist for the file
+        cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert re.search(new_rule_id, out) is not None
+        # check updated rule information
+        cmd = "rucio rule-info {0}".format(new_rule_id)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert new_rule_activity in out
+        assert new_rule_source_replica_expression in out
+
     def test_add_file_twice(self):
         """CLIENT(USER): Add file twice"""
         tmp_file1 = file_generator()
