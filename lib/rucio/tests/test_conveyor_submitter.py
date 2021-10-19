@@ -98,8 +98,8 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
     ('transfers', 'use_multihop', True)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
-    'rucio.core.config',
+    'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
+    'rucio.core.config.REGION',
 ]}], indirect=True)
 def test_multihop_sources_created(rse_factory, did_factory, root_account, core_config_mock, caches_mock, metrics_mock):
     """
