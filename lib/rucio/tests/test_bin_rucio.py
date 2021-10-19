@@ -34,6 +34,7 @@
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -71,7 +72,8 @@ class TestBinRucio(unittest.TestCase):
                 # Client-only test, only use config with no DB config
                 self.vo = {'vo': get_long_vo()}
             try:
-                remove(get_tmp_dir() + '/.rucio_root@%s/auth_token_root' % self.vo['vo'])
+                remove(get_tmp_dir()
+                       + '/.rucio_root@%s/auth_token_for_account_root' % self.vo['vo'])
             except OSError as error:
                 if error.args[0] != 2:
                     raise error
@@ -79,7 +81,7 @@ class TestBinRucio(unittest.TestCase):
     def setUp(self):
         self.conf_vo()
         try:
-            remove(get_tmp_dir() + '/.rucio_root/auth_token_root')
+            remove(get_tmp_dir() + '/.rucio_root/auth_token_for_account_root')
         except OSError as e:
             if e.args[0] != 2:
                 raise e
@@ -832,6 +834,8 @@ class TestBinRucio(unittest.TestCase):
         cmd = 'rucio download --dir /tmp --metalink {0}'.format(metalink_file_path)
         exitcode, out, err = execute(cmd)
         print(out, err)
+        assert '{} successfully downloaded'.format(tmp_file_name) in err
+        assert re.search('Total files.*1', out) is not None
         remove(metalink_file_path)
         cmd = 'ls /tmp/{0}'.format(scope)
         exitcode, out, err = execute(cmd)
@@ -1561,11 +1565,13 @@ class TestBinRucio(unittest.TestCase):
         cmd = 'rucio list-account-usage {0}'.format(account)
         exitcode, out, err = execute(cmd)
         assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
-        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out) is not None
+        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(r'MOCK\|MOCK4', usage, global_limit, global_left), out) is not None
+
         cmd = 'rucio list-account-usage --rse {0} {1}'.format(rse, account)
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0
         assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
-        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out) is not None
+        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(r'MOCK\|MOCK4', usage, global_limit, global_left), out) is not None
         self.account_client.set_local_account_limit(account, rse, -1)
         self.account_client.set_global_account_limit(account, rse_exp, -1)
 
@@ -1722,3 +1728,10 @@ class TestBinRucio(unittest.TestCase):
         assert re.search("DATASET", out) is not None
         cmd = 'rm -rf %s' % folder
         execute(cmd)
+
+    def test_update_rule_cancel_requests_args(self):
+        """CLIENT(USER): update rule cancel requests must have a state defined"""
+        cmd = 'rucio update-rule --cancel-requests RULE'
+        exitcode, out, err = execute(cmd)
+        assert '--stuck or --suspend must be specified when running --cancel-requests' in err
+        assert exitcode != 0

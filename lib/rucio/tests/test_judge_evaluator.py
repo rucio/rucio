@@ -40,6 +40,8 @@ from rucio.core.rule import add_rule, get_rule
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.models import UpdatedDID
+from rucio.db.sqla.session import transactional_session
 from rucio.tests.common_server import get_vo
 from rucio.tests.test_rule import create_files, tag_generator
 
@@ -53,6 +55,12 @@ class TestJudgeEvaluator(unittest.TestCase):
             cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
+
+        @transactional_session
+        def __cleanup_updated_dids(session=None):
+            session.query(UpdatedDID).delete()
+
+        __cleanup_updated_dids()
 
         # Add test RSE
         cls.rse1 = 'MOCK'

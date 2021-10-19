@@ -45,6 +45,7 @@
 from __future__ import print_function
 
 import errno
+import getpass
 import os
 import random
 import sys
@@ -269,7 +270,7 @@ class BaseClient(object):
         self.list_hosts = [self.host]
 
         if account is None:
-            LOG.debug('No account passed. Trying to get it from the config file.')
+            LOG.debug('No account passed. Trying to get it from the RUCIO_ACCOUNT environment variable or the config file.')
             try:
                 self.account = environ['RUCIO_ACCOUNT']
             except KeyError:
@@ -289,6 +290,8 @@ class BaseClient(object):
                 except (NoOptionError, NoSectionError):
                     LOG.debug('No VO found. Using default VO.')
                     self.vo = 'def'
+
+        token_filename_suffix = "for_default_account" if self.account is None else "for_account_" + self.account
 
         # if token file path is defined in the rucio.cfg file, use that file. Currently this prevents authenticating as another user or VO.
         if self.auth_token_file_path:
@@ -375,9 +378,12 @@ class BaseClient(object):
                        certificate, or a string, in which case it must be a path to a CA bundle to use.
         :return: the HTTP return body.
         """
-        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'X-Rucio-VO': self.vo,
+        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-VO': self.vo,
                'Connection': 'Keep-Alive', 'User-Agent': self.user_agent,
                'X-Rucio-Script': self.script_id}
+
+        if self.account is not None:
+            hds['X-Rucio-Account'] = self.account
 
         if headers is not None:
             hds.update(headers)

@@ -33,6 +33,7 @@
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 # - Nick Smith <nick.smith@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Nick Smith <nick.smith@cern.ch>, 2021
 
 import datetime
 import json
@@ -88,6 +89,10 @@ def should_retry_request(req, retry_protocol_mismatches):
     :param retry_protocol_mismatches:    Boolean to retry the transfer in case of protocol mismatch.
     :returns:                            True if should retry it; False if no more retry.
     """
+    if req['attributes'] and req['attributes'].get('next_hop_request_id'):
+        # This is an intermediate request in a multi-hop transfer. It must not be re-scheduled on its own.
+        # If needed, it will be re-scheduled via the creation of a new multi-hop transfer.
+        return False
     if req['state'] == RequestState.SUBMITTING:
         return True
     if req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES:
@@ -303,7 +308,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     :returns:                 Request as a dictionary.
     """
 
-    record_counter('core.request.get_next.%s-%s' % (request_type, state))
+    record_counter('core.request.get_next.{request_type}.{state}', labels={'request_type': request_type, 'state': state})
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
     if type(request_type) is not list:
@@ -583,6 +588,7 @@ def get_request(request_id, session=None):
         else:
             tmp = dict(tmp)
             tmp.pop('_sa_instance_state')
+            tmp['attributes'] = json.loads(str(tmp['attributes']))
             return tmp
     except IntegrityError as error:
         raise RucioException(error.args)
@@ -674,7 +680,7 @@ def archive_request(request_id, session=None):
                                              name=req['name'],
                                              dest_rse_id=req['dest_rse_id'],
                                              source_rse_id=req['source_rse_id'],
-                                             attributes=req['attributes'],
+                                             attributes=json.dumps(req['attributes']) if isinstance(req['attributes'], dict) else req['attributes'],
                                              state=req['state'],
                                              account=req['account'],
                                              external_id=req['external_id'],
@@ -1247,7 +1253,7 @@ def update_request_state(response, session=None, logger=logging.log):
                 transfer_id = response['transfer_id'] if 'transfer_id' in response else None
                 logger(logging.INFO, 'UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
 
-                job_m_replica = response.get('job_m_replica', None)
+                multi_sources = response.get('multi_sources', None)
                 src_url = response.get('src_url', None)
                 src_rse = response.get('src_rse', None)
                 src_rse_id = response.get('src_rse_id', None)
@@ -1255,7 +1261,7 @@ def update_request_state(response, session=None, logger=logging.log):
                 staging_finished_at = response.get('staging_finished', None)
                 started_at = response.get('started_at', None)
                 transferred_at = response.get('transferred_at', None)
-                if job_m_replica and (str(job_m_replica).lower() == str('true')) and src_url:
+                if multi_sources and (str(multi_sources).lower() == str('true')) and src_url:
                     try:
                         src_rse_name, src_rse_id = __get_source_rse(response['request_id'], src_url, session=session)
                     except Exception:

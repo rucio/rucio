@@ -697,7 +697,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
         with record_timer_block('undertaker.parent_content'):
             for parent_did in session.query(models.DataIdentifierAssociation).filter(or_(*parent_content_clause)):
                 existing_parent_dids = True
-                detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_type}], session=session)
+                detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_name}], session=session)
 
     # Set Epoch tombstone for the files replicas inside the did
     if config_core.get('undertaker', 'purge_all_replicas', default=False, session=session) and file_content_clause:
@@ -716,7 +716,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
         with record_timer_block('undertaker.content'):
             rowcount = session.query(models.DataIdentifierAssociation).filter(or_(*content_clause)).\
                 delete(synchronize_session=False)
-        record_counter(counters='undertaker.content.rowcount', delta=rowcount)
+        record_counter(name='undertaker.content.rowcount', delta=rowcount)
 
     # Remove CollectionReplica
     if collection_replica_clause:

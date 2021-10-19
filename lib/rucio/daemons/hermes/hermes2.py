@@ -22,6 +22,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 '''
    Hermes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).
@@ -44,7 +45,6 @@ from email.mime.text import MIMEText
 
 import requests
 import stomp
-from prometheus_client import Counter
 from six import PY2
 
 import rucio.db.sqla.util
@@ -55,13 +55,14 @@ from rucio.common.utils import daemon_sleep
 from rucio.core import heartbeat
 from rucio.core.config import get
 from rucio.core.message import retrieve_messages, delete_messages, update_messages_services
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import MultiCounter
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 
 GRACEFUL_STOP = threading.Event()
 
-RECONNECT_COUNTER = Counter('rucio_daemons_hermes2_reconnect', 'Counts Hermes2 reconnects to different ActiveMQ brokers', labelnames=('host',))
+RECONNECT_COUNTER = MultiCounter(prom='rucio_daemons_hermes2_reconnect', statsd='daemons.hermes.reconnect.{host}',
+                                 documentation='Counts Hermes2 reconnects to different ActiveMQ brokers', labelnames=('host',))
 
 
 def default(datetype):
@@ -152,7 +153,7 @@ def setup_activemq(logger):
                                      ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
                                      vhost=vhost,
                                      keepalive=True,
-                                     timeout=broker_timeout)
+                                     )
 
         con.set_listener('rucio-hermes',
                          HermesListener(con.transport._Transport__host_and_ports[0]))
@@ -180,9 +181,7 @@ def deliver_to_activemq(messages, conns, destination, username, password, use_ss
             conn = random.sample(conns, 1)[0]
             if not conn.is_connected():
                 host_and_ports = conn.transport._Transport__host_and_ports[0][0]
-                record_counter('daemons.hermes.reconnect.%s' % host_and_ports.split('.')[0])
-                labels = {'host': host_and_ports.split('.')[0]}
-                RECONNECT_COUNTER.labels(**labels).inc()
+                RECONNECT_COUNTER.labels(host=host_and_ports.split('.')[0]).inc()
                 if not use_ssl:
                     logger(logging.INFO,
                            '[broker] - connecting with USERPASS to %s',

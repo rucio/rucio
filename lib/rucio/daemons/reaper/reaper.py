@@ -19,7 +19,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
 # - Wen Guan <wen.guan@cern.ch>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019-2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
@@ -27,6 +27,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -48,7 +49,7 @@ from typing import TYPE_CHECKING
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
-from prometheus_client import Counter, Gauge
+from prometheus_client import Gauge
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
@@ -81,7 +82,8 @@ REGION = make_region().configure('dogpile.cache.memcached',
                                  arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
                                             'distributed_lock': True})
 
-DELETION_COUNTER = Counter('rucio_daemons_reaper_deletion_done', 'Number of deleted replicas')
+DELETION_COUNTER = monitor.MultiCounter(prom='rucio_daemons_reaper_deletion_done', statsd='reaper.deletion.done',
+                                        documentation='Number of deleted replicas')
 EXCLUDED_RSE_GAUGE = Gauge('rucio_daemons_reaper_excluded_rses', 'Temporarly excluded RSEs', labelnames=('rse',))
 
 
@@ -195,16 +197,22 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
 
                 deletion_dict['duration'] = duration
                 add_message('deletion-done', deletion_dict)
-                logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %s seconds', replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
+                logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %.2f seconds', replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
 
             except SourceNotFound:
-                err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse_name)
+                duration = time.time() - start
+                err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s in %.2f seconds' % (replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
                 logger(logging.WARNING, '%s', err_msg)
+                deletion_dict['reason'] = 'File Not Found'
+                deletion_dict['duration'] = duration
+                add_message('deletion-not-found', deletion_dict)
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
             except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
-                logger(logging.WARNING, 'Deletion NOACCESS of %s:%s as %s on %s: %s', replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
+                duration = time.time() - start
+                logger(logging.WARNING, 'Deletion NOACCESS of %s:%s as %s on %s: %s in %.2f', replica['scope'], replica['name'], replica['pfn'], rse_name, str(error), duration)
                 deletion_dict['reason'] = str(error)
+                deletion_dict['duration'] = duration
                 add_message('deletion-failed', deletion_dict)
                 noaccess_attempts += 1
                 if noaccess_attempts >= auto_exclude_threshold:
@@ -215,8 +223,10 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
                     break
 
             except Exception as error:
-                logger(logging.CRITICAL, 'Deletion CRITICAL of %s:%s as %s on %s: %s', replica['scope'], replica['name'], replica['pfn'], rse_name, str(traceback.format_exc()))
+                duration = time.time() - start
+                logger(logging.CRITICAL, 'Deletion CRITICAL of %s:%s as %s on %s in %.2f seconds : %s', replica['scope'], replica['name'], replica['pfn'], rse_name, duration, str(traceback.format_exc()))
                 deletion_dict['reason'] = str(error)
+                deletion_dict['duration'] = duration
                 add_message('deletion-failed', deletion_dict)
 
         if pfns_to_bulk_delete and prot.attributes['scheme'] == 'globus':
@@ -601,7 +611,6 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                         with monitor.record_timer_block('reaper.delete_replicas'):
                             delete_replicas(rse_id=rse_id, files=deleted_files)
                         logger(logging.DEBUG, 'delete_replicas successed on %s : %s replicas in %s seconds', rse_name, len(deleted_files), time.time() - del_start)
-                        monitor.record_counter(counters='reaper.deletion.done', delta=len(deleted_files))
                         DELETION_COUNTER.inc(len(deleted_files))
                 except Exception:
                     logger(logging.CRITICAL, 'Exception', exc_info=True)

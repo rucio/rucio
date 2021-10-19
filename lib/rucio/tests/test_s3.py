@@ -100,8 +100,8 @@ class TestS3(unittest.TestCase):
                            grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
         [[_host, [transfer_path]]] = next_transfers_to_submit(rses=[self.rsenons3_id]).items()
         assert transfer_path[0].rws.rule_id == rule_id[0]
-        assert transfer_path[0]['sources'][0][1] == expected_src_url
-        assert transfer_path[0]['dest_urls'][0] == expected_dst_url
+        assert transfer_path[0].legacy_sources[0][1] == expected_src_url
+        assert transfer_path[0].dest_url == expected_dst_url
 
     def test_s3s_fts_dst(self):
         """ S3: TPC a file from storage to S3 """
@@ -114,5 +114,5 @@ class TestS3(unittest.TestCase):
 
         [[_host, [transfer_path]]] = next_transfers_to_submit(rses=[self.rses3_id]).items()
         assert transfer_path[0].rws.rule_id == rule_id[0]
-        assert transfer_path[0]['sources'][0][1] == expected_src_url
-        assert transfer_path[0]['dest_urls'][0] == expected_dst_url
+        assert transfer_path[0].legacy_sources[0][1] == expected_src_url
+        assert transfer_path[0].dest_url == expected_dst_url

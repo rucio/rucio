@@ -22,6 +22,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from jsonschema import validate, ValidationError
 
@@ -173,6 +174,25 @@ PRIORITY = {"description": "Priority of the transfers",
 
 SPLIT_CONTAINER = {"description": "Rule split container mode",
                    "type": ["boolean", "null"]}
+
+TIME_ENTRY = {
+    "description": "Datetime, ISO 8601",
+    "type": "string",
+    "pattern": r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d*$'
+}
+
+IP = {
+    "description": "Internet Protocol address v4, RFC 791",
+    "type": "string",
+    "pattern": r'^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}$'
+}
+
+CLIENT_STATE = {
+    "description": "Client state",
+    "type": "string",
+    "enum": ['DONE', 'FAILED', 'PROCESSING', 'ALREADY_DONE', 'FILE_NOT_FOUND', 'FOUND_IN_PCACHE', 'DOWNLOAD_ATTEMPT',
+             'FAIL_VALIDATE', 'FOUND_ROOT']
+}
 
 RULE = {"description": "Replication rule",
         "type": "object",

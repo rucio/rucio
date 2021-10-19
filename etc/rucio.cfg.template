@@ -132,7 +132,7 @@ use_ssl = True
 ssl_key_file = /etc/grid-security/hostkey.pem
 ssl_cert_file = /etc/grid-security/hostcert.pem
 destination = /topic/rucio.events
-brokers = atlas-test-mb.cern.ch
+brokers = localhost
 voname = atlas
 email_from = Rucio <spamspamspam@cern.ch>
 email_test = spamspamspam@cern.ch
@@ -146,7 +146,7 @@ special_accounts = panda, tier0
 
 [trace]
 tracedir = /var/log/rucio/trace
-brokers=atlas-test-mb.cern.ch
+brokers=localhost
 port=61013
 username = _________
 password = _________
@@ -154,7 +154,7 @@ topic = /topic/rucio.tracer
 trace_host = https://rucio-server-prod.cern.ch:443
 
 [tracer-kronos]
-brokers=atlas-test-mb.cern.ch
+brokers=localhost
 port=61013
 ssl_key_file = /etc/grid-security/hostkey.pem
 ssl_cert_file = /etc/grid-security/hostcert.pem
@@ -187,7 +187,7 @@ port = 61023
 ssl_key_file = /etc/grid-security/hostkey.pem
 ssl_cert_file = /etc/grid-security/hostcert.pem
 destination = /topic/rucio.fax
-brokers = atlas-test-mb.cern.ch
+brokers = localhost
 voname = atlas
 account = cache_mb
 
