@@ -86,17 +86,6 @@ STATUS_CODES_TO_RETRY = [502, 503, 504]
 MAX_RETRY_BACK_OFF_SECONDS = 10
 
 
-def back_off(retry_number, reason):
-    """
-    Sleep a certain amount of time which increases with the retry count
-    :param retry_number: the retry iteration
-    :param reason: the reason to backoff which will be shown to the user
-    """
-    sleep_time = min(MAX_RETRY_BACK_OFF_SECONDS, 0.25 * 2 ** retry_number)
-    LOG.warning("Waiting {}s due to reason: {} ".format(sleep_time, reason))
-    time.sleep(sleep_time)
-
-
 @REGION.cache_on_arguments(namespace='host_to_choose')
 def choice(hosts):
     """
@@ -117,7 +106,7 @@ class BaseClient(object):
     TOKEN_PREFIX = 'auth_token_'
     TOKEN_EXP_PREFIX = 'auth_token_exp_'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None, logger=None):
         """
         Constructor of the BaseClient.
         :param rucio_host: The address of the rucio server, if None it is read from the config file.
@@ -131,11 +120,13 @@ class BaseClient(object):
         :param creds: Dictionary with credentials needed for authentication.
         :param user_agent: Indicates the client.
         :param vo: The VO to authenticate into.
+        :param logger: Logger object to use. If None, use the default LOG created by the module
         """
 
         self.host = rucio_host
         self.list_hosts = []
         self.auth_host = auth_host
+        self.logger = logger or LOG
         self.session = Session()
         self.user_agent = "%s/%s" % (user_agent, version.version_string())  # e.g. "rucio-clients/0.2.13"
         sys.argv[0] = sys.argv[0].split('/')[-1]
@@ -154,7 +145,7 @@ class BaseClient(object):
             self.trace_host = config_get('trace', 'trace_host')
         except (NoOptionError, NoSectionError):
             self.trace_host = self.host
-            LOG.debug('No trace_host passed. Using rucio_host instead')
+            self.logger.debug('No trace_host passed. Using rucio_host instead')
 
         self.account = account
         self.vo = vo
@@ -173,7 +164,7 @@ class BaseClient(object):
         self.auth_oidc_refresh_before_exp = config_get_int('client', 'auth_oidc_refresh_before_exp', False, 20)
 
         if auth_type is None:
-            LOG.debug('No auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
+            self.logger.debug('No auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
             if 'RUCIO_AUTH_TYPE' in environ:
                 if environ['RUCIO_AUTH_TYPE'] not in ['userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'saml', 'oidc']:
                     raise MissingClientParameter('Possible RUCIO_AUTH_TYPE values: userpass, x509, x509_proxy, gss, ssh, saml, oidc, vs. ' + environ['RUCIO_AUTH_TYPE'])
@@ -207,7 +198,7 @@ class BaseClient(object):
                 self.creds['oidc_polling'] = config_get_bool('client', 'oidc_polling', False, False)
 
         if not self.creds:
-            LOG.debug('No creds passed. Trying to get it from the config file.')
+            self.logger.debug('No creds passed. Trying to get it from the config file.')
             self.creds = {}
             try:
                 if self.auth_type in ['userpass', 'saml']:
@@ -257,20 +248,20 @@ class BaseClient(object):
             raise ClientProtocolNotSupported('\'%s\' not supported' % auth_scheme)
 
         if (rucio_scheme == 'https' or auth_scheme == 'https') and ca_cert is None:
-            LOG.debug('HTTPS is required, but no ca_cert was passed. Trying to get it from X509_CERT_DIR.')
+            self.logger.debug('HTTPS is required, but no ca_cert was passed. Trying to get it from X509_CERT_DIR.')
             self.ca_cert = os.environ.get('X509_CERT_DIR', None)
             if self.ca_cert is None:
-                LOG.debug('HTTPS is required, but no ca_cert was passed and X509_CERT_DIR is not defined. Trying to get it from the config file.')
+                self.logger.debug('HTTPS is required, but no ca_cert was passed and X509_CERT_DIR is not defined. Trying to get it from the config file.')
                 try:
                     self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
                 except (NoOptionError, NoSectionError):
-                    LOG.debug('No ca_cert found in configuration. Falling back to Mozilla default CA bundle (certifi).')
+                    self.logger.debug('No ca_cert found in configuration. Falling back to Mozilla default CA bundle (certifi).')
                     self.ca_cert = True
 
         self.list_hosts = [self.host]
 
         if account is None:
-            LOG.debug('No account passed. Trying to get it from the RUCIO_ACCOUNT environment variable or the config file.')
+            self.logger.debug('No account passed. Trying to get it from the RUCIO_ACCOUNT environment variable or the config file.')
             try:
                 self.account = environ['RUCIO_ACCOUNT']
             except KeyError:
@@ -280,15 +271,15 @@ class BaseClient(object):
                     pass
 
         if vo is None:
-            LOG.debug('No VO passed. Trying to get it from environment variable RUCIO_VO.')
+            self.logger.debug('No VO passed. Trying to get it from environment variable RUCIO_VO.')
             try:
                 self.vo = environ['RUCIO_VO']
             except KeyError:
-                LOG.debug('No VO found. Trying to get it from the config file.')
+                self.logger.debug('No VO found. Trying to get it from the config file.')
                 try:
                     self.vo = config_get('client', 'vo')
                 except (NoOptionError, NoSectionError):
-                    LOG.debug('No VO found. Using default VO.')
+                    self.logger.debug('No VO found. Using default VO.')
                     self.vo = 'def'
 
         token_filename_suffix = "for_default_account" if self.account is None else "for_account_" + self.account
@@ -309,10 +300,10 @@ class BaseClient(object):
 
         try:
             self.request_retries = int(config_get('client', 'request_retries'))
-        except NoOptionError:
+        except (NoOptionError, RuntimeError):
             LOG.debug('request_retries not specified in config file. Taking default.')
         except ValueError:
-            LOG.debug('request_retries must be an integer. Taking default.')
+            self.logger.debug('request_retries must be an integer. Taking default.')
 
     def _get_exception(self, headers, status_code=None, data=None):
         """
@@ -361,6 +352,22 @@ class BaseClient(object):
             if response.text:
                 yield response.text
 
+    def _reduce_data(self, data, maxlen=132):
+        text = data if isinstance(data, str) else data.decode("utf-8")
+        if len(text) > maxlen:
+            text = "%s ... %s" % (text[:maxlen - 15], text[-10:])
+        return text
+
+    def _back_off(self, retry_number, reason):
+        """
+        Sleep a certain amount of time which increases with the retry count
+        :param retry_number: the retry iteration
+        :param reason: the reason to backoff which will be shown to the user
+        """
+        sleep_time = min(MAX_RETRY_BACK_OFF_SECONDS, 0.25 * 2 ** retry_number)
+        self.logger.warning("Waiting {}s due to reason: {} ".format(sleep_time, reason))
+        time.sleep(sleep_time)
+
     def _send_request(self, url, headers=None, type_='GET', data=None, params=None, stream=False, get_token=False,
                       cert=None, auth=None, verify=None):
         """
@@ -391,6 +398,15 @@ class BaseClient(object):
         if verify is None:
             verify = self.ca_cert
 
+        self.logger.debug("HTTP request: %s %s" % (type_, url))
+        for h, v in hds.items():
+            if h == 'X-Rucio-Auth-Token':
+                v = "[hidden]"
+            self.logger.debug("HTTP header:  %s: %s" % (h, v))
+        if type_ != "GET" and data:
+            text = self._reduce_data(data)
+            self.logger.debug("Request data (length=%d): [%s]" % (len(data), text))
+
         result = None
         for retry in range(self.AUTH_RETRIES + 1):
             try:
@@ -403,12 +419,17 @@ class BaseClient(object):
                 elif type_ == 'DEL':
                     result = self.session.delete(url, headers=hds, data=data, verify=verify, timeout=self.timeout)
                 else:
-                    return
+                    self.logger.debug("Unknown request type %s. Request was not sent" % (type_,))
+                    return None
+                self.logger.debug("HTTP Response: %s %s" % (result.status_code, result.reason))
                 if result.status_code in STATUS_CODES_TO_RETRY:
-                    back_off(retry, reason='server returned {}'.format(result.status_code))
+                    self._back_off(retry, 'server returned {}'.format(result.status_code))
                     continue
+                if result.status_code // 100 != 2 and result.text:
+                    # do not do this for successful requests because the caller may be expecting streamed response
+                    self.logger.debug("Response text (length=%d): [%s]" % (len(result.text), result.text))
             except ConnectionError as error:
-                LOG.error('ConnectionError: ' + str(error))
+                self.logger.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
                 continue
@@ -417,7 +438,7 @@ class BaseClient(object):
                 # While in python3 we can directly catch 'BrokenPipeError', in python2 it doesn't exist.
                 if getattr(error, 'errno') != errno.EPIPE:
                     raise
-                LOG.error('BrokenPipe: ' + str(error))
+                self.logger.error('BrokenPipe: ' + str(error))
                 if retry > self.request_retries:
                     raise
                 continue
@@ -457,7 +478,7 @@ class BaseClient(object):
                         raise CannotAuthenticate(result.headers["ExceptionClass"])
                 elif result.text:
                     raise CannotAuthenticate(result.text)
-            LOG.error('Cannot retrieve authentication token!')
+            self.logger.error('Cannot retrieve authentication token!')
             return False
 
         if result.status_code != codes.ok:  # pylint: disable-msg=E1101
@@ -508,14 +529,14 @@ class BaseClient(object):
                 new_token = refresh_result.headers['X-Rucio-Auth-Token']
                 new_exp_epoch = refresh_result.headers['X-Rucio-Auth-Token-Expires']
                 if new_token and new_exp_epoch:
-                    LOG.debug("Saving token %s and expiration epoch %s to files" % (str(new_token), str(new_exp_epoch)))
+                    self.logger.debug("Saving token %s and expiration epoch %s to files" % (str(new_token), str(new_exp_epoch)))
                     # save to the file
                     self.auth_token = new_token
                     self.token_exp_epoch = new_exp_epoch
                     self.__write_token()
                     self.headers['X-Rucio-Auth-Token'] = self.auth_token
                     return True
-                LOG.debug("No new token was received, possibly invalid/expired \
+                self.logger.debug("No new token was received, possibly invalid/expired \
                            \ntoken or a token with no refresh token in Rucio DB")
                 return False
         else:
@@ -551,9 +572,9 @@ class BaseClient(object):
         result = None
         request_auth_url = build_url(self.auth_host, path='auth/oidc')
         # requesting authorization URL specific to the user & Rucio OIDC Client
-        LOG.debug("Initial auth URL request headers %s to files" % str(headers))
+        self.logger.debug("Initial auth URL request headers %s to files" % str(headers))
         OIDC_auth_res = self._send_request(request_auth_url, headers=headers, get_token=True)
-        LOG.debug("Response headers %s and text %s" % (str(OIDC_auth_res.headers), str(OIDC_auth_res.text)))
+        self.logger.debug("Response headers %s and text %s" % (str(OIDC_auth_res.headers), str(OIDC_auth_res.text)))
         # with the obtained authorization URL we will contact the Identity Provider to get to the login page
         if 'X-Rucio-OIDC-Auth-URL' not in OIDC_auth_res.headers:
             print("Rucio Client did not succeed to get AuthN/Z URL from the Rucio Auth Server. \
@@ -610,7 +631,7 @@ class BaseClient(object):
             # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
             # the user will get an OAuth error
             if 'OAuth Error' in result.text:
-                LOG.error('Identity Provider does not allow to proceed. Could be due \
+                self.logger.error('Identity Provider does not allow to proceed. Could be due \
                            \nto misconfigured redirection server name of the Rucio OIDC Client.')
                 return False
             # In case Rucio Client is not authorized to request information about this user yet,
@@ -624,13 +645,13 @@ class BaseClient(object):
                                 "authorize": "Authorize"}
                 form_data.update(default_data)
                 print('Automatically authorising request of the following info on behalf of user: %s', str(form_data))
-                LOG.warning('Automatically authorising request of the following info on behalf of user: %s',
-                            str(form_data))
+                self.logger.warning('Automatically authorising request of the following info on behalf of user: %s',
+                                    str(form_data))
                 # authorizing info request on behalf of the user until he/she revokes this authorization !
                 result = self._send_request(result.url, type_='POST', data=form_data)
 
         if not result or 'result' not in locals():
-            LOG.error('Cannot retrieve authentication token!')
+            self.logger.error('Cannot retrieve authentication token!')
             return False
 
         if result.status_code != codes.ok:  # pylint: disable-msg=E1101
@@ -641,7 +662,7 @@ class BaseClient(object):
 
         self.auth_token = result.headers['x-rucio-auth-token']
         if self.auth_oidc_refresh_active:
-            LOG.debug("Reseting the token expiration epoch file content.")
+            self.logger.debug("Reseting the token expiration epoch file content.")
             # reset the token expiration epoch file content
             # at new CLI OIDC authentication
             self.token_exp_epoch = None
@@ -670,10 +691,10 @@ class BaseClient(object):
             client_cert = self.creds['client_proxy']
 
         if not path.exists(client_cert):
-            LOG.error('given client cert (%s) doesn\'t exist' % client_cert)
+            self.logger.error('given client cert (%s) doesn\'t exist' % client_cert)
             return False
         if client_key is not None and not path.exists(client_key):
-            LOG.error('given client key (%s) doesn\'t exist' % client_key)
+            self.logger.error('given client key (%s) doesn\'t exist' % client_key)
 
         if client_key is None:
             cert = client_cert
@@ -685,7 +706,7 @@ class BaseClient(object):
         # Note a response object for a failed request evaluates to false, so we cannot
         # use "not result" here
         if result is None:
-            LOG.error('Internal error: Request for authentication token returned no result!')
+            self.logger.error('Internal error: Request for authentication token returned no result!')
             return False
 
         if result.status_code != codes.ok:   # pylint: disable-msg=E1101
@@ -707,10 +728,10 @@ class BaseClient(object):
 
         private_key_path = self.creds['ssh_private_key']
         if not path.exists(private_key_path):
-            LOG.error('given private key (%s) doesn\'t exist' % private_key_path)
+            self.logger.error('given private key (%s) doesn\'t exist' % private_key_path)
             return False
         if private_key_path is not None and not path.exists(private_key_path):
-            LOG.error('given private key (%s) doesn\'t exist' % private_key_path)
+            self.logger.error('given private key (%s) doesn\'t exist' % private_key_path)
             return False
 
         url = build_url(self.auth_host, path='auth/ssh_challenge_token')
@@ -718,7 +739,7 @@ class BaseClient(object):
         result = self._send_request(url, get_token=True)
 
         if not result:
-            LOG.error('cannot get ssh_challenge_token')
+            self.logger.error('cannot get ssh_challenge_token')
             return False
 
         if result.status_code != codes.ok:   # pylint: disable-msg=E1101
@@ -728,7 +749,7 @@ class BaseClient(object):
             raise exc_cls(exc_msg)
 
         self.ssh_challenge_token = result.headers['x-rucio-ssh-challenge-token']
-        LOG.debug('got new ssh challenge token \'%s\'' % self.ssh_challenge_token)
+        self.logger.debug('got new ssh challenge token \'%s\'' % self.ssh_challenge_token)
 
         # sign the challenge token with the private key
         with open(private_key_path, 'r') as fd_private_key_path:
@@ -741,7 +762,7 @@ class BaseClient(object):
         result = self._send_request(url, headers=headers, get_token=True)
 
         if not result:
-            LOG.error('Cannot retrieve authentication token!')
+            self.logger.error('Cannot retrieve authentication token!')
             return False
 
         if result.status_code != codes.ok:   # pylint: disable-msg=E1101
@@ -767,7 +788,7 @@ class BaseClient(object):
         result = self._send_request(url, get_token=True, auth=HTTPKerberosAuth())
 
         if not result:
-            LOG.error('Cannot retrieve authentication token!')
+            self.logger.error('Cannot retrieve authentication token!')
             return False
 
         if result.status_code != codes.ok:   # pylint: disable-msg=E1101
@@ -797,7 +818,7 @@ class BaseClient(object):
         result = self._send_request(url, get_token=True)
 
         if not result or 'result' not in locals():
-            LOG.error('Cannot retrieve authentication token!')
+            self.logger.error('Cannot retrieve authentication token!')
             return False
 
         if result.status_code != codes.ok:  # pylint: disable-msg=E1101
@@ -814,7 +835,7 @@ class BaseClient(object):
         Calls the corresponding method to receive an auth token depending on the auth type. To be used if a 401 - Unauthorized error is received.
         """
 
-        LOG.debug('get a new token')
+        self.logger.debug('get a new token')
         for retry in range(self.AUTH_RETRIES + 1):
             if self.auth_type == 'userpass':
                 if not self.__get_token_userpass():
@@ -870,7 +891,7 @@ class BaseClient(object):
             raise
         if self.auth_oidc_refresh_active and self.auth_type == 'oidc':
             self.__refresh_token_OIDC()
-        LOG.debug('got token from file')
+        self.logger.debug('got token from file')
         return True
 
     def __write_token(self):
@@ -880,7 +901,7 @@ class BaseClient(object):
         # check if rucio temp directory is there. If not create it with permissions only for the current user
         if not path.isdir(self.token_path):
             try:
-                LOG.debug('rucio token folder \'%s\' not found. Create it.' % self.token_path)
+                self.logger.debug('rucio token folder \'%s\' not found. Create it.' % self.token_path)
                 makedirs(self.token_path, 0o700)
             except Exception:
                 raise

@@ -36,9 +36,6 @@ class SubscriptionClient(BaseClient):
 
     SUB_BASEURL = 'subscriptions'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
-        super(SubscriptionClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent, vo=vo)
-
     def add_subscription(self, name, account, filter_, replication_rules, comments, lifetime, retroactive, dry_run, priority=3):
         """
         Adds a new subscription which will be verified against every new added file and dataset
