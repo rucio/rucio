@@ -23,30 +23,21 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from dogpile.cache import make_region
 
+from rucio.common.utils import is_client
 from rucio.rse import rsemanager
 from rucio.common import config
-from os import environ
 
-if 'RUCIO_CLIENT_MODE' not in environ:
-    if config.config_has_section('database'):
-        setattr(rsemanager, 'CLIENT_MODE', False)
-        setattr(rsemanager, 'SERVER_MODE', True)
-    elif config.config_has_section('client'):
-        setattr(rsemanager, 'CLIENT_MODE', True)
-        setattr(rsemanager, 'SERVER_MODE', False)
-    else:
-        setattr(rsemanager, 'CLIENT_MODE', False)
-        setattr(rsemanager, 'SERVER_MODE', True)
+if is_client():
+    setattr(rsemanager, 'CLIENT_MODE', True)
+    setattr(rsemanager, 'SERVER_MODE', False)
 else:
-    if environ['RUCIO_CLIENT_MODE']:
-        setattr(rsemanager, 'CLIENT_MODE', True)
-        setattr(rsemanager, 'SERVER_MODE', False)
-    else:
-        setattr(rsemanager, 'CLIENT_MODE', False)
-        setattr(rsemanager, 'SERVER_MODE', True)
+    setattr(rsemanager, 'CLIENT_MODE', False)
+    setattr(rsemanager, 'SERVER_MODE', True)
 
 
 def get_rse_client(rse, vo='def', **kwarg):

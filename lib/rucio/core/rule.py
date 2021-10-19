@@ -62,7 +62,6 @@ from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import and_, or_, text, true, null, tuple_, false
 
 from rucio.core.account import has_account_attribute
-from rucio.core.config import get as core_config_get
 import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
@@ -149,7 +148,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     if USE_NEW_RULE_ALGORITHM:
         use_new_rule_algorithm = True
     else:
-        use_new_rule_algorithm = core_config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
+        use_new_rule_algorithm = config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
 
     with record_timer_block('rule.add_rule'):
         # 1. Resolve the rse_expression into a list of RSE-ids
@@ -662,7 +661,7 @@ def inject_rule(rule_id, session=None, logger=logging.log):
     if USE_NEW_RULE_ALGORITHM:
         use_new_rule_algorithm = True
     else:
-        use_new_rule_algorithm = core_config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
+        use_new_rule_algorithm = config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
 
     try:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
@@ -2484,7 +2483,7 @@ def __evaluate_did_detach(eval_did, session=None, logger=logging.log):
     """
 
     logger(logging.INFO, "Re-Evaluating did %s:%s for DETACH", eval_did.scope, eval_did.name)
-    force_epoch = core_config_get('rules', 'force_epoch_when_detach', default=False, session=session)
+    force_epoch = config_get('rules', 'force_epoch_when_detach', default=False, session=session)
 
     with record_timer_block('rule.evaluate_did_detach'):
         # Get all parent DID's
