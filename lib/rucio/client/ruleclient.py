@@ -27,6 +27,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from json import dumps, loads
 
@@ -159,18 +160,25 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def move_replication_rule(self, rule_id, rse_expression):
+    def move_replication_rule(self, rule_id, rse_expression, activity, source_replica_expression):
         """
         Move a replication rule to another RSE and, once done, delete the original one.
 
-        :param rule_id:             Rule to be moved.
-        :param rse_expression:      RSE expression of the new rule.
-        :raises:                    RuleNotFound, RuleReplaceFailed
+        :param rule_id:                    Rule to be moved.
+        :param rse_expression:             RSE expression of the new rule.
+        :param activity:                   Activity of the new rule.
+        :param source_replica_expression:  Source-Replica-Expression of the new rule.
+        :raises:                           RuleNotFound, RuleReplaceFailed
         """
 
         path = self.RULE_BASEURL + '/' + rule_id + '/move'
         url = build_url(choice(self.list_hosts), path=path)
-        data = dumps({'rule_id': rule_id, 'rse_expression': rse_expression})
+        data = dumps({
+            'rule_id': rule_id,
+            'rse_expression': rse_expression,
+            'activity': activity,
+            'source_replica_expression': source_replica_expression
+        })
         r = self._send_request(url, type_='POST', data=data)
         if r.status_code == codes.created:
             return loads(r.text)
