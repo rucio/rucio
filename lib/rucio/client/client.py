@@ -68,7 +68,7 @@ class Client(AccountClient,
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
+    def __init__(self, **args):
         """
         Constructor for the Rucio main client class.
 
@@ -80,5 +80,6 @@ class Client(AccountClient,
         :param creds: credentials needed for authentication.
         :param timeout: Float describes the timeout of the request (in seconds).
         :param vo: The vo that the client will interact with.
+        :param logger: Logger instance to use (optional)
         """
-        super(Client, self).__init__(rucio_host=rucio_host, auth_host=auth_host, account=account, ca_cert=ca_cert, auth_type=auth_type, creds=creds, timeout=timeout, user_agent=user_agent, vo=vo)
+        super(Client, self).__init__(**args)

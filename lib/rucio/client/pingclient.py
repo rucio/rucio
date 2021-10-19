@@ -32,9 +32,6 @@ class PingClient(BaseClient):
 
     """Ping client class"""
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
-        super(PingClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent, vo=vo)
-
     def ping(self):
         """
         Sends a ping request to the rucio server.
