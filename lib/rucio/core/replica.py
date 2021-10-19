@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2021
@@ -39,6 +39,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -1468,16 +1469,18 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     if not (replica_rse.availability & 2) and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for writing' % replica_rse.rse)
 
-    replicas = __bulk_add_file_dids(files=files, account=account,
-                                    dataset_meta=dataset_meta,
-                                    session=session)
-
-    pfns, scheme = {}, None  # {scheme: [pfns], scheme: [pfns]}
     for file in files:
         if 'pfn' not in file:
             if not replica_rse.deterministic:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %s ' % (replica_rse.rse))
-        else:
+
+    replicas = __bulk_add_file_dids(files=files, account=account,
+                                    dataset_meta=dataset_meta,
+                                    session=session)
+
+    pfns = {}  # Dict[str, List[str]], {scheme: [pfns], scheme: [pfns]}
+    for file in files:
+        if 'pfn' in file:
             scheme = file['pfn'].split(':')[0]
             pfns.setdefault(scheme, []).append(file['pfn'])
 
@@ -1496,33 +1499,16 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
                 lfns = [{'scope': i['scope'].external, 'name': i['name']} for i in files if i['pfn'].startswith(scheme)]
                 pfns[scheme] = clean_surls(pfns[scheme])
 
-                # Check wan first
-                found_on_wan = False
-                available_wan_protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=scheme, domain='wan')
-                expected_pfns_wan = None
-                for protocol_attr in available_wan_protocols:
-                    pfns_wan_buffer = _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan', protocol_attr=protocol_attr)
-                    if not expected_pfns_wan and pfns_wan_buffer:
-                        expected_pfns_wan = pfns_wan_buffer
-                    found_on_wan = found_on_wan or (pfns_wan_buffer == pfns[scheme])
-                    if found_on_wan:
-                        break
+                for protocol_attr in rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=scheme, domain='wan'):
+                    pfns[scheme] = list(set(pfns[scheme]) - set(_expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan', protocol_attr=protocol_attr)))
 
-                if not found_on_wan:
-                    # Check lan
-                    found_on_lan = False
-                    available_lan_protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=scheme, domain='lan')
-                    for protocol_attr in available_lan_protocols:
-                        pfns_lan_buffer = _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='lan', protocol_attr=protocol_attr)
-                        found_on_lan = found_on_lan or (pfns_lan_buffer == pfns[scheme])
-                        if found_on_lan:
-                            break
+                if len(pfns[scheme]) > 0:
+                    for protocol_attr in rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=scheme, domain='lan'):
+                        pfns[scheme] = list(set(pfns[scheme]) - set(_expected_pfns(lfns, rse_settings, scheme, operation='write', domain='lan', protocol_attr=protocol_attr)))
 
-                    if found_on_lan == pfns[scheme]:
-                        # Registration always with wan
-                        pfns[scheme] = expected_pfns_wan
-                    else:
-                        raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns_wan), str(lfns)))
+                if len(pfns[scheme]) > 0:
+                    # pfns not found in wan or lan
+                    raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : %s (%s)' % (str(pfns[scheme]), str(lfns)))
 
     nbfiles, bytes_ = __bulk_add_replicas(rse_id=rse_id, files=files, account=account, session=session)
     increase(rse_id=rse_id, files=nbfiles, bytes_=bytes_, session=session)
@@ -2804,7 +2790,7 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
         schema = ''
         if BASE.metadata.schema:
             schema = BASE.metadata.schema + '.'
-        session.execute('DELETE FROM {schema}updated_col_rep A WHERE A.rowid > ANY (SELECT B.rowid FROM {schema}updated_col_rep B WHERE A.scope = B.scope AND A.name=B.name AND A.did_type=B.did_type AND (A.rse_id=B.rse_id OR (A.rse_id IS NULL and B.rse_id IS NULL)))'.format(schema=schema))
+        session.execute('DELETE FROM {schema}updated_col_rep A WHERE A.rowid > ANY (SELECT B.rowid FROM {schema}updated_col_rep B WHERE A.scope = B.scope AND A.name=B.name AND A.did_type=B.did_type AND (A.rse_id=B.rse_id OR (A.rse_id IS NULL and B.rse_id IS NULL)))'.format(schema=schema))  # NOQA: E501
     elif session.bind.dialect.name == 'mysql':
         subquery1 = session.query(func.max(models.UpdatedCollectionReplica.id).label('max_id')).\
             group_by(models.UpdatedCollectionReplica.scope,
