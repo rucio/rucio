@@ -1111,15 +1111,12 @@ def download(args):
 
     summary = {}
     for item in result:
-        scope = item.get('dataset_scope', item['scope'])
-        name = item.get('dataset_name', item['name'])
-        summary_key = '%s:%s' % (scope, name)
-
-        summary.setdefault(summary_key, {'DONE': 0, 'ALREADY_DONE': 0, '_total': 0})
-        summary[summary_key]['_total'] += 1
-        state = item['clientState'].upper()
-        if state in summary[summary_key]:
-            summary[summary_key][state] += 1
+        for did, did_stats in item.get('input_dids').items():
+            did_summary = summary.setdefault(did, {'length': did_stats.get('length'), 'DONE': 0, 'ALREADY_DONE': 0, '_total': 0})
+            did_summary['_total'] += 1
+            state = item['clientState'].upper()
+            if state in did_summary:
+                did_summary[state] += 1
 
     print('----------------------------------')
     print('Download summary')
@@ -1127,14 +1124,20 @@ def download(args):
         print('-' * 40)
         print('No DID matching the pattern')
 
-    for summary_key in summary:
+    for summary_key, did_summary in summary.items():
         print('-' * 40)
-        print('DID %s' % (summary_key))
-        ds_total = summary[summary_key]['_total']
-        downloaded_files = summary[summary_key]['DONE']
-        local_files = summary[summary_key]['ALREADY_DONE']
+        print('DID %s' % summary_key)
+        length = did_summary['length']
+        ds_total = did_summary['_total']
+        downloaded_files = did_summary['DONE']
+        local_files = did_summary['ALREADY_DONE']
         not_downloaded_files = ds_total - downloaded_files - local_files
-        print('{0:40} {1:6d}'.format('Total files: ', ds_total))
+
+        if length:
+            print('{0:40} {1:6d}'.format('Total files (DID): ', length))
+            print('{0:40} {1:6d}'.format('Total files (filtered):   ', ds_total))
+        else:
+            print('{0:40} {1:6d}'.format('Total files:   ', ds_total))
         print('{0:40} {1:6d}'.format('Downloaded files: ', downloaded_files))
         print('{0:40} {1:6d}'.format('Files already found locally: ', local_files))
         print('{0:40} {1:6d}'.format('Files that cannot be downloaded: ', not_downloaded_files))
@@ -1349,6 +1352,9 @@ def update_rule(args):
     if args.source_replica_expression:
         options['source_replica_expression'] = None if args.source_replica_expression.lower() == 'none' else args.source_replica_expression
     if args.cancel_requests:
+        if 'state' not in options:
+            logger.error('--stuck or --suspend must be specified when running --cancel-requests')
+            return FAILURE
         options['cancel_requests'] = True
     if args.priority:
         options['priority'] = int(args.priority)
@@ -1367,7 +1373,10 @@ def move_rule(args):
     Update a rule.
     """
     client = get_client(args)
-    print(client.move_replication_rule(rule_id=args.rule_id, rse_expression=args.rse_expression))
+    print(client.move_replication_rule(rule_id=args.rule_id,
+                                       rse_expression=args.rse_expression,
+                                       activity=args.activity,
+                                       source_replica_expression=args.source_replica_expression))
     return SUCCESS
 
 
@@ -1695,7 +1704,7 @@ def list_account_usage(args):
     table = []
     usage = client.get_global_account_usage(account=args.usage_account)
     for item in usage:
-        if (args.rse and args.rse in item['resolved_rses']) or not args.rse:
+        if (args.rse and args.rse in item['rse_expression']) or not args.rse:
             remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
             table.append([item['rse_expression'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
     table.sort()
@@ -2369,6 +2378,8 @@ You can filter by account::
     move_rule_parser.set_defaults(function=move_rule)
     move_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
     move_rule_parser.add_argument(dest='rse_expression', action='store', help='RSE expression of new rule')
+    move_rule_parser.add_argument('--activity', dest='activity', action='store', help='Update activity for moved rule')
+    move_rule_parser.add_argument('--source-replica-expression', dest='source_replica_expression', action='store', help='Update source-replica-expression for moved rule')
 
     # The list-rses command
     list_rses_parser = subparsers.add_parser('list-rses', help='Show the list of all the registered Rucio Storage Elements (RSEs).')

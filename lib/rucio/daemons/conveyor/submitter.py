@@ -46,7 +46,6 @@ import threading
 import time
 from collections import defaultdict
 
-from prometheus_client import Counter
 from six.moves.configparser import NoOptionError
 
 import rucio.db.sqla.util
@@ -55,7 +54,7 @@ from rucio.common.config import config_get, config_get_bool
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.schema import get_schema_value
 from rucio.core import heartbeat, transfer as transfer_core
-from rucio.core.monitor import record_counter, record_timer
+from rucio.core.monitor import MultiCounter, record_timer
 from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfers_for_fts, bulk_group_transfers_for_globus, get_conveyor_rses
 from rucio.db.sqla.constants import RequestType
 
@@ -65,12 +64,13 @@ TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)  # NOTE: Thi
 FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)  # NOTE: TRANSFERTOOL to filter requests on
 TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
 
-GET_TRANSFERS_COUNTER = Counter('rucio_daemons_conveyor_submitter_get_transfers', 'Number of transfers retrieved')
+GET_TRANSFERS_COUNTER = MultiCounter(prom='rucio_daemons_conveyor_submitter_get_transfers', statsd='daemons.conveyor.transfer_submitter.get_transfers',
+                                     documentation='Number of transfers retrieved')
 
 
 def submitter(once=False, rses=None, partition_wait_time=10,
               bulk=100, group_bulk=1, group_policy='rule', source_strategy=None,
-              activities=None, sleep_time=600, max_sources=4, retry_other_fts=False, archive_timeout_override=None,
+              activities=None, sleep_time=600, max_sources=4, archive_timeout_override=None,
               filter_transfertool=FILTER_TRANSFERTOOL, transfertool=TRANSFER_TOOL, transfertype=TRANSFER_TYPE):
     """
     Main loop to submit a new transfer primitive to a transfertool.
@@ -161,7 +161,6 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                     activity=activity,
                     rses=rse_ids,
                     schemes=scheme,
-                    retry_other_fts=retry_other_fts,
                     transfertool=filter_transfertool,
                     older_than=None,
                     request_type=RequestType.TRANSFER,
@@ -170,7 +169,6 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                 total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
 
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (total_transfers or 1))
-                record_counter('daemons.conveyor.transfer_submitter.get_transfers', total_transfers)
                 GET_TRANSFERS_COUNTER.inc(total_transfers)
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', total_transfers)
                 logger(logging.INFO, 'Got %s transfers for %s in %s seconds', total_transfers, activity, time.time() - start_time)
@@ -221,7 +219,7 @@ def stop(signum=None, frame=None):
 
 def run(once=False, group_bulk=1, group_policy='rule', mock=False,
         rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
-        activities=None, exclude_activities=None, sleep_time=600, max_sources=4, retry_other_fts=False,
+        activities=None, exclude_activities=None, sleep_time=600, max_sources=4,
         archive_timeout_override=None, total_threads=1):
     """
     Starts up the conveyer threads.
@@ -270,7 +268,6 @@ def run(once=False, group_bulk=1, group_policy='rule', mock=False,
                                                           'sleep_time': sleep_time,
                                                           'max_sources': max_sources,
                                                           'source_strategy': source_strategy,
-                                                          'retry_other_fts': retry_other_fts,
                                                           'archive_timeout_override': archive_timeout_override}) for _ in range(0, total_threads)]
 
     [thread.start() for thread in threads]

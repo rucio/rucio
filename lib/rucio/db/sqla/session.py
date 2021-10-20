@@ -53,7 +53,7 @@ except:
 DATABASE_SECTION = 'database'
 try:
     if CURRENT_COMPONENT:
-        sql_connection = config_get('%s-database' % CURRENT_COMPONENT, 'default').strip()
+        sql_connection = config_get('%s-database' % CURRENT_COMPONENT, 'default', check_config_table=False).strip()
         if sql_connection and len(sql_connection):
             DATABASE_SECTION = '%s-database' % CURRENT_COMPONENT
 except:
@@ -61,7 +61,7 @@ except:
 
 BASE = declarative_base()
 DEFAULT_SCHEMA_NAME = config_get(DATABASE_SECTION, 'schema',
-                                 raise_exception=False, default=None)
+                                 raise_exception=False, default=None, check_config_table=False)
 if DEFAULT_SCHEMA_NAME:
     BASE.metadata.schema = DEFAULT_SCHEMA_NAME
 
@@ -173,7 +173,7 @@ def get_engine():
     """
     global _ENGINE
     if not _ENGINE:
-        sql_connection = config_get(DATABASE_SECTION, 'default')
+        sql_connection = config_get(DATABASE_SECTION, 'default', check_config_table=False)
         config_params = [('pool_size', int), ('max_overflow', int), ('pool_timeout', int),
                          ('pool_recycle', int), ('echo', int), ('echo_pool', str),
                          ('pool_reset_on_return', str), ('use_threadlocal', int)]
@@ -183,7 +183,7 @@ def get_engine():
             params['connect_args'] = {'conv': conv}
         for param, param_type in config_params:
             try:
-                params[param] = param_type(config_get(DATABASE_SECTION, param))
+                params[param] = param_type(config_get(DATABASE_SECTION, param, check_config_table=False))
             except:
                 pass
         _ENGINE = create_engine(sql_connection, **params)
@@ -219,7 +219,7 @@ def get_dump_engine(echo=False):
             print(statement.replace(')', ');\n'))
         else:
             print(statement)
-    sql_connection = config_get(DATABASE_SECTION, 'default')
+    sql_connection = config_get(DATABASE_SECTION, 'default', check_config_table=False)
 
     engine = create_engine(sql_connection, echo=echo, strategy='mock', executor=dump)
     return engine

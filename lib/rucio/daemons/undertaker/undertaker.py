@@ -23,6 +23,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 '''
 Undertaker is a daemon to manage expired did.
@@ -96,14 +97,14 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False, sleep
                     logging.info('Undertaker(%s): Receive %s dids to delete', worker_number, len(chunk))
                     delete_dids(dids=chunk, account=InternalAccount('root', vo='def'), expire_rules=True)
                     logging.info('Undertaker(%s): Delete %s dids', worker_number, len(chunk))
-                    record_counter(counters='undertaker.delete_dids', delta=len(chunk))
+                    record_counter(name='undertaker.delete_dids', delta=len(chunk))
                 except RuleNotFound as error:
                     logging.error(error)
                 except (DatabaseException, DatabaseError, UnsupportedOperation) as e:
                     if match('.*ORA-00054.*', str(e.args[0])) or match('.*55P03.*', str(e.args[0])) or match('.*3572.*', str(e.args[0])):
                         for did in chunk:
                             paused_dids[(did['scope'], did['name'])] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
-                        record_counter('undertaker.delete_dids.exceptions.LocksDetected')
+                        record_counter('undertaker.delete_dids.exceptions.{exception}', labels={'exception': 'LocksDetected'})
                         logging.warning('undertaker[%s/%s]: Locks detected for chunk', heartbeat['assign_thread'], heartbeat['nr_threads'])
                     else:
                         logging.error('Undertaker(%s): Got database error %s.', worker_number, str(e))

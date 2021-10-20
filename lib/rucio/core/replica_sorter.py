@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2017-2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2020
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Ilija Vukotic <ivukotic@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 # This product includes GeoLite data created by MaxMind,
 # available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>
@@ -119,7 +115,8 @@ def __get_distance(se1, client_location, ignore_error):
     :ignore_error: Ignore exception when the GeoLite DB cannot be retrieved
     """
     # does not cache ignore_error, str.lower on hostnames/ips is fine
-    canonical_parties = list(map(lambda x: str(x).lower(), [se1, client_location['ip']])).sort()
+    canonical_parties = list(map(lambda x: str(x).lower(), [se1, client_location['ip'], client_location.get('latitude', ''), client_location.get('longitude', '')]))
+    canonical_parties.sort()
     cache_key = f'replica_sorter:__get_distance|site_distance|{canonical_parties}'
     cache_val = REGION.get(cache_key)
     if cache_val is NO_VALUE:

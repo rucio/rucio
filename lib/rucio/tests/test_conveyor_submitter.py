@@ -98,10 +98,10 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
     ('transfers', 'use_multihop', True)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
-    'rucio.core.config',
+    'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
+    'rucio.core.config.REGION',
 ]}], indirect=True)
-def test_multihop_sources_created(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
+def test_multihop_sources_created(rse_factory, did_factory, root_account, core_config_mock, caches_mock, metrics_mock):
     """
     Ensure that multihop transfers are handled and intermediate request correctly created
     """
@@ -169,6 +169,9 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
 
     replica = replica_core.get_replica(jump_rse3_id, **did)
     assert replica['tombstone'] is None
+
+    # Ensure that prometheus metrics were correctly registered. One submission for each transfer hop
+    assert metrics_mock.get_sample_value('rucio_core_request_submit_transfer_total') == 4
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")

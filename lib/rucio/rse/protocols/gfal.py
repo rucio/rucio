@@ -63,6 +63,8 @@ except:
         if os.environ['RUCIO_CLIENT_MODE']:
             raise exception.MissingDependency('Missing dependency : gfal2')
 
+TIMEOUT = config.config_get('deletion', 'timeout', False, None)
+
 
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the srm protocol."""
@@ -207,6 +209,14 @@ class Default(protocol.RSEProtocol):
         self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
         if self.auth_token:
             self.__ctx.set_opt_string("BEARER", "TOKEN", self.auth_token)
+        if TIMEOUT:
+            try:
+                timeout = int(TIMEOUT)
+                self.__ctx.set_opt_integer("HTTP PLUGIN", "OPERATION_TIMEOUT", timeout)
+                self.__ctx.set_opt_integer("SRM PLUGIN", "OPERATION_TIMEOUT", timeout)
+                self.__ctx.set_opt_integer("GSIFTP PLUGIN", "OPERATION_TIMEOUT", timeout)
+            except ValueError:
+                self.logger(logging.ERROR, 'wrong timeout value %s', TIMEOUT)
 
     def get(self, path, dest, transfer_timeout=None):
         """

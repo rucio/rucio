@@ -70,7 +70,7 @@ from six.moves import StringIO, zip_longest as izip_longest
 from six.moves.urllib.parse import urlparse, urlencode, quote, parse_qsl, urlunparse
 from six.moves.configparser import NoOptionError, NoSectionError
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_has_section
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
 from rucio.common.extra import import_extras
 from rucio.common.types import InternalAccount, InternalScope
@@ -1310,7 +1310,8 @@ def setup_logger(module_name=None, logger_name=None, logger_level=None, verbose=
     '''
     # helper method for cfg check
     def _force_cfg_log_level(cfg_option):
-        cfg_forced_modules = config_get('logging', cfg_option, raise_exception=False, default=None, clean_cached=True)
+        cfg_forced_modules = config_get('logging', cfg_option, raise_exception=False, default=None, clean_cached=True,
+                                        check_config_table=False)
         if cfg_forced_modules:
             if re.match(str(cfg_forced_modules), module_name):
                 return True
@@ -1385,6 +1386,28 @@ def daemon_sleep(start_time, sleep_time, graceful_stop, logger=logging.log):
     if time_diff < sleep_time:
         logger(logging.INFO, 'Sleeping for a while :  %s seconds', (sleep_time - time_diff))
         graceful_stop.wait(sleep_time - time_diff)
+
+
+def is_client():
+    """"
+    Checks if the function is called from a client or from a server/daemon
+
+    :returns client_mode: True if is called from a client, False if it is called from a server/daemon
+    """
+    if 'RUCIO_CLIENT_MODE' not in os.environ:
+        if config_has_section('database'):
+            client_mode = False
+        elif config_has_section('client'):
+            client_mode = True
+        else:
+            client_mode = False
+    else:
+        if os.environ['RUCIO_CLIENT_MODE']:
+            client_mode = True
+        else:
+            client_mode = False
+
+    return client_mode
 
 
 class retry:

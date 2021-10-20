@@ -57,7 +57,7 @@ if not multivo:
 
     if config.config_has_section('policy'):
         try:
-            POLICY = config.config_get('policy', 'package') + ".permission"
+            POLICY = config.config_get('policy', 'package', check_config_table=False) + ".permission"
         except (NoOptionError, NoSectionError):
             # fall back to old system for now
             POLICY = 'rucio.core.permission.' + FALLBACK_POLICY.lower()

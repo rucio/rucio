@@ -133,27 +133,30 @@ def minos(bulk=1000, once=False, sleep_time=60):
                         _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme], vo=vo)
                         for rse_id in tmp_dict_rse:
                             if rse_id not in dict_rse:
-                                dict_rse[rse_id] = []
-                            dict_rse[rse_id].extend(tmp_dict_rse[rse_id])
+                                dict_rse[rse_id] = {}
+                            if scheme not in dict_rse[rse_id]:
+                                dict_rse[rse_id][scheme] = []
+                            dict_rse[rse_id][scheme].extend(tmp_dict_rse[rse_id])
                         unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
                     # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
                     if unknown_replicas:
                         logger(logging.INFO, 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
                         bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
 
-                    for rse_id in dict_rse:
-                        vo_str = '' if vo == 'def' else ' on VO ' + vo
-                        logger(logging.DEBUG, 'Running on RSE %s%s with %s replicas' % (get_rse_name(rse_id=rse_id), vo_str, len(dict_rse[rse_id])))
-                        nchunk = 0
-                        tot_chunk = int(math.ceil(len(dict_rse[rse_id]) / chunk_size))
-                        for chunk in chunks(dict_rse[rse_id], chunk_size):
-                            nchunk += 1
-                            logger(logging.DEBUG, 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
-                            unknown_replicas = declare_bad_file_replicas(pfns=chunk, reason=reason, issuer=account, status=state, session=session)
-                            if unknown_replicas:
-                                logger(logging.DEBUG, 'Unknown replicas : %s' % (str(unknown_replicas)))
-                            bulk_delete_bad_pfns(pfns=chunk, session=session)
-                            session.commit()  # pylint: disable=no-member
+                    for rse_id, pfns_by_scheme in dict_rse.items():
+                        for scheme, pfns in pfns_by_scheme.items():
+                            vo_str = '' if vo == 'def' else ' on VO ' + vo
+                            logger(logging.DEBUG, 'Running on RSE %s%s with %s replicas' % (get_rse_name(rse_id=rse_id), vo_str, len(pfns)))
+                            nchunk = 0
+                            tot_chunk = int(math.ceil(len(pfns) / chunk_size))
+                            for chunk in chunks(pfns, chunk_size):
+                                nchunk += 1
+                                logger(logging.DEBUG, 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
+                                unknown_replicas = declare_bad_file_replicas(pfns=chunk, reason=reason, issuer=account, status=state, session=session)
+                                if unknown_replicas:
+                                    logger(logging.DEBUG, 'Unknown replicas : %s' % (str(unknown_replicas)))
+                                bulk_delete_bad_pfns(pfns=chunk, session=session)
+                                session.commit()  # pylint: disable=no-member
                 except Exception:
                     session.rollback()  # pylint: disable=no-member
                     logger(logging.CRITICAL, 'Exception', exc_info=True)
