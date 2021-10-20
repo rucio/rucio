@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2021
@@ -73,6 +73,7 @@ from rucio.common.config import config_get
 from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.core.credential import get_signed_url
+from rucio.core import config as config_core
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
@@ -1922,9 +1923,10 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
             prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
             where(or_(*chunk)).\
             execution_options(synchronize_session=False)
-        session.execute(stmt)
-        if session.bind.dialect.name != 'oracle':
+        archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
+        if archive_dids:
             rucio.core.did.insert_deleted_dids(chunk, session=session)
+        session.execute(stmt)
 
     # Set is_archive = false on collections which don't have archive children anymore
     for chunk in chunks(clt_is_not_archive_condition, 100):
