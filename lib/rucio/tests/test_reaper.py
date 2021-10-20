@@ -20,13 +20,17 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
 from datetime import datetime, timedelta
 
 import pytest
+from sqlalchemy import and_, or_
 
 from rucio.api import replica as replica_api
 from rucio.api import rse as rse_api
+from rucio.db.sqla import models
+from rucio.db.sqla.session import get_session
 from rucio.common.config import config_get_bool
 from rucio.common.exception import ReplicaNotFound, DataIdentifierNotFound
 from rucio.common.types import InternalAccount, InternalScope
@@ -57,17 +61,20 @@ __mock_protocol = {'scheme': 'MOCK',
                                'delete': 1}}}
 
 
-def __add_test_rse_and_replicas(vo, scope, rse_name, names, file_size):
+def __add_test_rse_and_replicas(vo, scope, rse_name, names, file_size, epoch_tombstone=False):
     rse_id = rse_core.add_rse(rse_name, vo=vo)
 
     rse_core.add_protocol(rse_id=rse_id, parameter=__mock_protocol)
+    tombstone = datetime.utcnow() - timedelta(days=1)
+    if epoch_tombstone:
+        tombstone = datetime(year=1970, month=1, day=1)
 
     dids = []
     for file_name in names:
         dids.append({'scope': scope, 'name': file_name})
         replica_core.add_replica(rse_id=rse_id, scope=scope,
                                  name=file_name, bytes=file_size,
-                                 tombstone=datetime.utcnow() - timedelta(days=1),
+                                 tombstone=tombstone,
                                  account=InternalAccount('root', vo=vo), adler32=None, md5=None)
     return rse_name, rse_id, dids
 
@@ -383,3 +390,59 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     assert len(list(did_core.list_archive_content(**archive2))) == 0
     assert __get_archive_contents_history_count(archive1) == 4
     assert __get_archive_contents_history_count(archive2) == 3
+
+
+@pytest.mark.noparallel(reason='runs reaper which may impact other tests run in parallel. It resets some memcached values.')
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('deletion', 'archive_dids', True), ('deletion', 'archive_content', True)
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.config.REGION', 'rucio.core.replica.REGION'
+]}], indirect=True)
+def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock, caches_mock):
+    """ REAPER (DAEMON): Test that the options to keep the did and content history work."""
+    scope = InternalScope('data13_hip', vo=vo)
+    account = root_account
+
+    nb_files = 10
+    file_size = 200  # 2G
+    rse_name, rse_id, dids = __add_test_rse_and_replicas(vo=vo, scope=scope, rse_name=rse_name_generator(),
+                                                         names=['lfn' + generate_uuid() for _ in range(nb_files)], file_size=file_size, epoch_tombstone=True)
+    dataset = did_factory.make_dataset()
+    did_core.attach_dids(dids=dids, account=account, **dataset)
+
+    rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=50 * file_size)
+    assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
+
+    # Check first if the reaper does not delete anything if no space is needed
+    REGION.invalidate()
+    rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
+    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, greedy=True)
+    assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == 0
+
+    file_clause = []
+    for did in dids:
+        file_clause.append(and_(models.DeletedDataIdentifier.scope == did['scope'], models.DeletedDataIdentifier.name == did['name']))
+
+    session = get_session()
+    query = session.query(models.DeletedDataIdentifier.scope,
+                          models.DeletedDataIdentifier.name,
+                          models.DeletedDataIdentifier.did_type).\
+        filter(or_(*file_clause))
+
+    deleted_dids = list()
+    for did in query.all():
+        print(did)
+        deleted_dids.append(did)
+    assert len(deleted_dids) == len(dids)
+
+    query = session.query(models.DataIdentifierAssociationHistory.child_scope,
+                          models.DataIdentifierAssociationHistory.child_name,
+                          models.DataIdentifierAssociationHistory.child_type).\
+        filter(and_(models.DataIdentifierAssociationHistory.scope == dataset['scope'], models.DataIdentifierAssociationHistory.name == dataset['name']))
+
+    deleted_dids = list()
+    for did in query.all():
+        print(did)
+        deleted_dids.append(did)
+    assert len(deleted_dids) == len(dids)

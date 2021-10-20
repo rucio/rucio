@@ -612,7 +612,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     metadata_to_delete = []
     file_content_clause = []
 
-    archive_dids = config_core.get('undertaker', 'archive_dids', default=False, session=session)
+    archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
 
     for did in dids:
         logger(logging.INFO, 'Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
@@ -637,7 +637,8 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
             not_purge_replicas.append((did['scope'], did['name']))
 
             # Archive content
-            # Disable for postgres
+        archive_content = config_core.get('deletion', 'archive_content', default=False, session=session)
+        if archive_content:
             insert_content_history(content_clause=[and_(models.DataIdentifierAssociation.scope == did['scope'],
                                                         models.DataIdentifierAssociation.name == did['name'])],
                                    did_created_at=did.get('created_at'),
