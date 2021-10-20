@@ -104,7 +104,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     db_account = result['account']
 
     # remove expired tokens
-    __delete_expired_tokens_account(account=account)
+    __delete_expired_tokens_account(account=account, session=session)
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -136,7 +136,7 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
         return None
 
     # remove expired tokens
-    __delete_expired_tokens_account(account=account)
+    __delete_expired_tokens_account(account=account, session=session)
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -168,7 +168,7 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
         return None
 
     # remove expired tokens
-    __delete_expired_tokens_account(account=account)
+    __delete_expired_tokens_account(account=account, session=session)
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -232,7 +232,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
         return None
 
     # remove expired tokens
-    __delete_expired_tokens_account(account=account)
+    __delete_expired_tokens_account(account=account, session=session)
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -300,7 +300,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
         return None
 
     # remove expired tokens
-    __delete_expired_tokens_account(account=account)
+    __delete_expired_tokens_account(account=account, session=session)
 
     tuid = generate_uuid()  # NOQA
     token = '%(account)s-%(saml_nameid)s-%(appid)s-%(tuid)s' % locals()
