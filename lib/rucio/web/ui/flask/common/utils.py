@@ -94,8 +94,6 @@ VARIABLE_VALUE_REGEX = re.compile(r"^[\w\- /=,.+*#()\[\]]*$", re.UNICODE)
 # catch these from the webpy input() storage object
 # will allow to remove also lines around each use of select_account_name
 
-COOKIES = []
-
 
 def prepare_saml_request(environ, data):
     """
@@ -121,16 +119,14 @@ def prepare_saml_request(environ, data):
     return None
 
 
-def add_cookies(request):
-    global COOKIES
+def add_cookies(response, cookie={}):
+    for int_cookie in cookie:
+        response.set_cookie(**int_cookie)
 
-    for cookie in COOKIES:
-        request.set_cookie(**cookie)
-
-    return(request)
+    return(response)
 
 
-def redirect_to_last_known_url():
+def redirect_to_last_known_url(cookie):
     """
     Checks if there is preferred path in cookie and redirects to it.
     :returns: redirect to last known path
@@ -138,7 +134,7 @@ def redirect_to_last_known_url():
     requested_path = request.cookies.get('rucio-requested-path')
     if not requested_path:
         requested_path = request.environ.get('REQUEST_URI')
-    resp = add_cookies(make_response(redirect(requested_path, code=303)))
+    resp = add_cookies(make_response(redirect(requested_path, code=303)), cookie)
 
     return resp
 
@@ -262,7 +258,7 @@ def finalize_auth(token, identity_type, cookie_dict_extra=None):
     :param cookie_dict_extra: extra cookies to set, dictionary expected
     :returns: redirects to the final page or renders a page with an error message.
     """
-    global COOKIES
+    cookie = []
     valid_token_dict = validate_webui_token(from_cookie=False, session_token=token)
     if not valid_token_dict:
         return render_template("problem.html", msg="It was not possible to validate and finalize your login with the provided token.")
@@ -274,18 +270,18 @@ def finalize_auth(token, identity_type, cookie_dict_extra=None):
             accvalues += acc + " "
         accounts = accvalues[:-1]
 
-        COOKIES.extend([{'key': 'x-rucio-auth-token', 'value': quote(token)},
-                        {'key': 'x-rucio-auth-type', 'value': quote(identity_type)},
-                        {'key': 'rucio-auth-token-created-at', 'value': str(long(time()))},
-                        {'key': 'rucio-available-accounts', 'value': quote(accounts)},
-                        {'key': 'rucio-account-attr', 'value': quote(dumps(attribs))},
-                        {'key': 'rucio-selected-account', 'value': quote(valid_token_dict['account'])},
-                        {'key': 'rucio-selected-vo', 'value': quote(valid_token_dict['vo'])}])
+        cookie.extend([{'key': 'x-rucio-auth-token', 'value': quote(token)},
+                       {'key': 'x-rucio-auth-type', 'value': quote(identity_type)},
+                       {'key': 'rucio-auth-token-created-at', 'value': str(long(time()))},
+                       {'key': 'rucio-available-accounts', 'value': quote(accounts)},
+                       {'key': 'rucio-account-attr', 'value': quote(dumps(attribs))},
+                       {'key': 'rucio-selected-account', 'value': quote(valid_token_dict['account'])},
+                       {'key': 'rucio-selected-vo', 'value': quote(valid_token_dict['vo'])}])
 
         if cookie_dict_extra:
             for key, value in cookie_dict_extra.items():
-                COOKIES.append({'key': key, 'value': value})
-        return redirect_to_last_known_url()
+                cookie.append({'key': key, 'value': value})
+        return redirect_to_last_known_url(cookie)
     except Exception:
         return render_template("problem.html", msg="It was not possible to validate and finalize your login with the provided token.")
 
@@ -605,16 +601,17 @@ def authenticate(template, title):
     :param template: the template name that should be rendered
     :returns: rendered final page or a page with error message
     """
-    global AUTH_ISSUERS, SAML_SUPPORT, AUTH_TYPE, COOKIES
+    global AUTH_ISSUERS, SAML_SUPPORT, AUTH_TYPE
+    cookie = []
     valid_token_dict = validate_webui_token()
     if not valid_token_dict:
-        COOKIES.append({'key': 'rucio-requested-path', 'value': request.environ.get('REQUEST_URI')})
+        cookie.append({'key': 'rucio-requested-path', 'value': request.environ.get('REQUEST_URI')})
     else:
         return access_granted(valid_token_dict, template, title)
 
     # login without any known server config
     if not AUTH_TYPE:
-        return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT)))
+        return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT)), cookie)
     # for AUTH_TYPE predefined by the server continue
     else:
         if AUTH_TYPE == 'userpass':
