@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2021
@@ -509,8 +509,15 @@ def get_pfn_to_rse(pfns, vo='def', session=None):
         if storage_element not in storage_elements:
             storage_elements.append(storage_element)
             se_condition.append(models.RSEProtocols.hostname == storage_element)
-    query = session.query(models.RSEProtocols.rse_id, models.RSEProtocols.scheme, models.RSEProtocols.hostname, models.RSEProtocols.port, models.RSEProtocols.prefix).\
-        filter(and_(or_(*se_condition), models.RSEProtocols.scheme == scheme)).filter(models.RSE.staging_area == false())
+    query = session.query(models.RSEProtocols.rse_id,
+                          models.RSEProtocols.scheme,
+                          models.RSEProtocols.hostname,
+                          models.RSEProtocols.port,
+                          models.RSEProtocols.prefix).\
+        join(models.RSE, models.RSE.id == models.RSEProtocols.rse_id).\
+        filter(and_(or_(*se_condition), models.RSEProtocols.scheme == scheme)).\
+        filter(models.RSE.deleted == false()).\
+        filter(models.RSE.staging_area == false())
     protocols = {}
 
     for rse_id, protocol, hostname, port, prefix in query.yield_per(10000):

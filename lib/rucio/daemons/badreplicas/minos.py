@@ -30,10 +30,13 @@ from __future__ import division
 import logging
 import math
 import os
+import re
 import socket
 import threading
 import time
 from datetime import datetime
+
+from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound, ReplicaNotFound, DatabaseException
@@ -157,9 +160,17 @@ def minos(bulk=1000, once=False, sleep_time=60):
                                     logger(logging.DEBUG, 'Unknown replicas : %s' % (str(unknown_replicas)))
                                 bulk_delete_bad_pfns(pfns=chunk, session=session)
                                 session.commit()  # pylint: disable=no-member
+                except (DatabaseException, DatabaseError) as error:
+                    if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+                        logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
+                    else:
+                        logger(logging.ERROR, 'Exception', exc_info=True)
+                    session.rollback()  # pylint: disable=no-member
                 except Exception:
                     session.rollback()  # pylint: disable=no-member
                     logger(logging.CRITICAL, 'Exception', exc_info=True)
+
+            heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
 
             # Now get the temporary unavailable and update the replicas states
             for account, reason, expires_at in temporary_unvailables:
@@ -250,6 +261,13 @@ def minos(bulk=1000, once=False, sleep_time=60):
                                 except (DataIdentifierNotFound, ReplicaNotFound):
                                     logger(logging.ERROR, 'Will remove %s from the list of bad PFNs' % str(rep['pfn']))
                                     bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
+                            session = get_session()
+                        except (DatabaseException, DatabaseError) as error:
+                            if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+                                logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
+                            else:
+                                logger(logging.ERROR, 'Exception', exc_info=True)
+                            session.rollback()  # pylint: disable=no-member
                             session = get_session()
                         except Exception:
                             session.rollback()  # pylint: disable=no-member
