@@ -34,6 +34,7 @@
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Paul Millar <paul.millar@desy.de>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
@@ -1733,3 +1734,50 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         assert '--stuck or --suspend must be specified when running --cancel-requests' in err
         assert exitcode != 0
+
+    def test_update_rule_boost_rule_arg(self):
+        """CLIENT(USER): update a rule with the `--boost_rule` option """
+        self.account_client.set_local_account_limit('root', self.def_rse, -1)
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
+
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASDELETERULE'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rules
+        cmd = "rucio add-rule {0}:{1} 1 'spacetoken=ATLASDELETERULE'".format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(err)
+        print(out)
+        # get the rules for the file
+        cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        (rule1, rule2) = out.split()
+
+        # update the rules
+        cmd = "rucio update-rule --boost-rule {0}".format(rule1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        print(out, err)
+        cmd = "rucio update-rule --boost-rule {0}".format(rule2)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0

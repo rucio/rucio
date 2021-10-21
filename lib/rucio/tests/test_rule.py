@@ -30,6 +30,8 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import json
 import random
@@ -1187,6 +1189,34 @@ class TestReplicationRuleCore(unittest.TestCase):
         assert(len(dsl1) == 0)
         assert(len(dsl2) == 0)
         assert(len(dsl3) == 0)
+
+
+def test_rule_boost(vo, mock_scope, rse_factory, file_factory):
+    """ REPLICATION RULE (CORE): Update a replication rule to quicken the translation from stuck to replicating """
+    jdoe = InternalAccount('jdoe', vo)
+    _, tmp_rse_id = rse_factory.make_mock_rse()
+    rse, rse_id = rse_factory.make_mock_rse()
+    update_rse(rse_id, {'availability_write': False})
+    set_local_account_limit(jdoe, rse_id, -1)
+    files = create_files(3, mock_scope, tmp_rse_id)
+    dataset1 = 'dataset_' + str(uuid())
+    add_did(mock_scope, dataset1, DIDType.DATASET, jdoe)
+    attach_dids(mock_scope, dataset1, files, jdoe)
+
+    rule_id = add_rule(dids=[{'scope': mock_scope, 'name': dataset1}], account=jdoe, copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True)[0]
+    before_update_rule = {}
+    for file in files:
+        for filtered_lock in [lock for lock in get_replica_locks(scope=file['scope'], name=file['name'])]:
+            assert(filtered_lock['state'] == LockState.STUCK)
+            before_update_rule[filtered_lock['name']] = filtered_lock['updated_at']
+    before_update_rule_updated_at = get_rule(rule_id)['updated_at']
+
+    update_rule(rule_id, options={'boost_rule': True})
+
+    for file in files:
+        for filtered_lock in [lock for lock in get_replica_locks(scope=file['scope'], name=file['name'])]:
+            assert(before_update_rule[filtered_lock['name']] > filtered_lock['updated_at'])
+    assert(before_update_rule_updated_at > get_rule(rule_id)['updated_at'])
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE')

@@ -35,6 +35,8 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import division
 
@@ -1286,7 +1288,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['comment', 'locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta', 'purge_replicas']
+    valid_options = ['comment', 'locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta', 'purge_replicas', 'boost_rule']
 
     for key in options:
         if key not in valid_options:
@@ -1402,6 +1404,13 @@ def update_rule(rule_id, options, session=None):
                 setattr(rule, key, options[key])
 
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
+
+        # `boost_rule` should run after `stuck`, so lets not include it in the loop since the arguments are unordered
+        if 'boost_rule' in options:
+            for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.STUCK).all():
+                lock['updated_at'] -= timedelta(days=1)
+            rule['updated_at'] -= timedelta(days=1)
+            insert_rule_history(rule, recent=True, longterm=False, session=session)
 
     except IntegrityError as error:
         if match('.*ORA-00001.*', str(error.args[0])) \
