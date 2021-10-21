@@ -30,6 +30,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - joaquinbogado <joaquinbogado@gmail.com>, 2021
+# - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
 
 import datetime
 import sys
@@ -97,7 +98,7 @@ def _psql_rename_type(target, connection, **kw):
 
 @event.listens_for(Table, "before_create")
 def _oracle_json_constraint(target, connection, **kw):
-    if connection.dialect.name == 'oracle' and target.name == 'did_meta':
+    if connection.dialect.name == 'oracle' and target.name in ['did_meta', 'did_virtual_placements']:
         try:
             oracle_version = int(connection.connection.version.split('.')[0])
         except Exception:
@@ -459,6 +460,17 @@ class DataIdentifier(BASE, ModelBase):
                    CheckConstraint('PURGE_REPLICAS IS NOT NULL', name='DIDS_PURGE_REPLICAS_NN'),
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
+
+
+class DidVirtualPlacements(BASE, ModelBase):
+    """Represents virtual placements"""
+    __tablename__ = 'did_virtual_placements'
+    scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
+    name = Column(String(get_schema_value('NAME_LENGTH')))
+    placements = Column(JSON())
+    _table_args = (PrimaryKeyConstraint('scope', 'name', name='DID_VP_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_VP_FK'),
+                   Index('DID_VP_SCOPE_NAME_IDX', 'scope', 'name', unique=True))
 
 
 class DidMeta(BASE, ModelBase):
@@ -1698,6 +1710,7 @@ def register_models(engine):
               DIDKeyValueAssociation,
               DataIdentifier,
               DidMeta,
+              DidVirtualPlacements,
               DeletedDataIdentifier,
               DidsFollowed,
               FollowEvents,
