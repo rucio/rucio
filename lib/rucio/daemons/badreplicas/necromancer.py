@@ -75,13 +75,12 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
         logger = formatted_logger(logging.log, prefix + '%s')
 
         # Check if there is a Judge Evaluator backlog
-        # Currently use the same configuration as the reaper
         try:
-            max_evaluator_backlog_count = get('reaper', 'max_evaluator_backlog_count')
+            max_evaluator_backlog_count = get('necromancer', 'max_evaluator_backlog_count')
         except ConfigNotFound:
             max_evaluator_backlog_count = None
         try:
-            max_evaluator_backlog_duration = get('reaper', 'max_evaluator_backlog_duration')
+            max_evaluator_backlog_duration = get('necromancer', 'max_evaluator_backlog_duration')
         except ConfigNotFound:
             max_evaluator_backlog_duration = None
         if max_evaluator_backlog_count or max_evaluator_backlog_duration:
