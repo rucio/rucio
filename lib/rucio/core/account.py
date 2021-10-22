@@ -18,13 +18,15 @@
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from datetime import datetime
 from enum import Enum
@@ -309,7 +311,7 @@ def get_usage(rse_id, account, session=None):
     :param rse_id:           The id of the RSE.
     :param account:          The account name.
     :param session:          The database session in use.
-    :returns:                A dictionary with total and bytes.
+    :returns:                A dictionary {'bytes', 'files', 'updated_at'}
     """
 
     try:
@@ -327,7 +329,7 @@ def get_all_rse_usages_per_account(account, session=None):
     :param rse_id:           The id of the RSE.
     :param account:          The account name.
     :param session:          The database session in use.
-    :returns:                A dictionary with total and bytes.
+    :returns:                List of dicts with :py:class:`models.AccountUsage` items
     """
 
     try:
@@ -344,7 +346,7 @@ def get_usage_history(rse_id, account, session=None):
     :param rse_id:           The id of the RSE.
     :param account:          The account name.
     :param session:          The database session in use.
-    :returns:                A dictionary with total and bytes.
+    :returns:                A dictionary {'bytes', 'files', 'updated_at'}
     """
 
     result = []

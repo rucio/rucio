@@ -21,6 +21,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 """
 Utility script to generate header file
@@ -73,6 +74,7 @@ author_map = {
     ("rcarpa", "<2905943+rcarpa@users.noreply.github.com>"): ("Radu Carpa", "<radu.carpa@cern.ch>"),
     ("Dhruv Sondhi", "<66117751+DhruvSondhi@users.noreply.github.com>"): ("Dhruv Sondhi", "<dhruvsondhi05@gmail.com>"),
     ("David Población Criado", "<13998309+davidpob99@users.noreply.github.com>"): ("David Población Criado", "<david.poblacion.criado@cern.ch>"),
+    ("Joel Dierkes", "<dierkesjoel@gmail.com>"): ("Joel Dierkes", "<joel.dierkes@cern.ch>"),
 }
 
 
@@ -91,6 +93,7 @@ def main(arguments):
     status, email = commands.getstatusoutput(cmd)
     email = email.strip()
     email = '<%s>' % email
+    exit_code = 0
 
     for MyFile in arguments.MyFiles:
         # Query log history
@@ -206,20 +209,21 @@ def main(arguments):
             else:
                 header += '# - %(name)s %(mail)s, %(min)s-%(max)s\n' % authors[author]
 
+        try:
+            with open(MyFile, 'r') as original:
+                lines = original.readlines()
+        except UnicodeDecodeError as e:
+            raise RuntimeError('Cannot read file ' + str(MyFile)) from e
+
+        if arguments.check and header not in "".join(lines):
+            print("Header was modified in file", MyFile, file=sys.stderr)
+            exit_code = 1
+
         if not arguments.dry_run:
             if not arguments.in_place:
-                with open(MyFile, 'r') as original:
-                    data = original.read()
-
                 with open(MyFile, 'w') as modified:
-                    modified.write(header + '\n' + data)
+                    modified.write(header + '\n' + "".join(lines))
             else:
-                try:
-                    with open(MyFile, 'r') as original:
-                        lines = original.readlines()
-                except UnicodeDecodeError as e:
-                    raise RuntimeError('Cannot read file ' + str(MyFile)) from e
-
                 with open(MyFile, 'w') as modified:
                     if not lines:
                         print('Empty lines at file', MyFile, file=sys.stderr)
@@ -242,6 +246,7 @@ def main(arguments):
 
         else:
             print(header)
+    exit(exit_code)
 
 
 if __name__ == '__main__':
@@ -251,6 +256,8 @@ if __name__ == '__main__':
     parser.add_argument('--in-place', '-i', action='store_true', default=False,
                         help='Edit files in-place (otherwise prepend).')
     parser.add_argument('--dry-run', '-d', action='store_true', help='Dry run mode')
+    parser.add_argument('--check', '-c', action='store_true',
+                        help='Checks if the script would change anything (non-zero exit code equals change).')
     parser.add_argument(dest='MyFiles', action='store', nargs='+', default=None, help='The files')
 
     main(parser.parse_args())

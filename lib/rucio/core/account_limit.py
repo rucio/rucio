@@ -1,4 +1,5 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +14,15 @@
 # limitations under the License.
 #
 # Authors:
-#  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
-#  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
-#  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
-#  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
-#  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-#  - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
-#  - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
@@ -240,7 +241,7 @@ def get_local_account_usage(account, rse_id=None, session=None):
     :param rse_id:   The rse_id to read (If none, get all).
     :param session:  Database session in use.
 
-    :returns:        List of dicts {'rse_id', 'bytes_used', 'files_used', 'bytes_limit'}
+    :returns:        List of dicts {'rse_id', 'rse', 'bytes', 'files', 'bytes_limit', 'bytes_remaining'}
     """
 
     if not rse_id:
@@ -271,7 +272,7 @@ def get_global_account_usage(account, rse_expression=None, session=None):
     :param rse_expression:   The RSE expression (If none, get all).
     :param session:          Database session in use.
 
-    :returns:                List of dicts {'rse_id', 'bytes_used', 'files_used', 'bytes_limit'}
+    :returns:                List of dicts {'rse_expression', 'bytes', 'files' 'bytes_limit', 'bytes_remaining'}
     """
     result_list = []
     if not rse_expression:
