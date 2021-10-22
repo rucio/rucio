@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
@@ -469,17 +469,18 @@ def get_metadata(scope, name, plugin='DID_COLUMN', vo='def'):
     return api_update_return_dict(d)
 
 
-def get_metadata_bulk(dids, vo='def', session=None):
+def get_metadata_bulk(dids, inherit=False, vo='def'):
     """
     Get metadata for a list of dids
-    :param dids: A list of dids.
-    :param session: The database session in use.
+    :param dids:               A list of dids.
+    :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
+    :param vo:                 The VO to act on.
     """
 
     validate_schema(name='dids', obj=dids, vo=vo)
     for entry in dids:
         entry['scope'] = InternalScope(entry['scope'], vo=vo)
-    meta = did.get_metadata_bulk(dids)
+    meta = did.get_metadata_bulk(dids, inherit=inherit)
     for met in meta:
         yield api_update_return_dict(met)
 
