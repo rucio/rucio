@@ -20,7 +20,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2021
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Eric Vaandering <ewv@fnal.gov>, 2018-2020
@@ -443,12 +443,13 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def get_metadata_bulk(self, dids):
+    def get_metadata_bulk(self, dids, inherit=False):
         """
         Bulk get data identifier metadata
-        :param dids: A list of dids.
+        :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
+        :param dids:               A list of dids.
         """
-        data = {'dids': dids}
+        data = {'dids': dids, 'inherit': inherit}
         path = '/'.join([self.DIDS_BASEURL, 'bulkmeta'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='POST', data=dumps(data))
