@@ -49,8 +49,10 @@ import datetime
 import errno
 import getpass
 import hashlib
+import io
 import json
 import logging
+import mmap
 import os
 import os.path
 import re
@@ -61,6 +63,7 @@ import threading
 import time
 import zlib
 from enum import Enum
+from functools import partial
 from uuid import uuid4 as uuid
 from xml.etree import ElementTree
 
@@ -241,13 +244,16 @@ def adler32(file):
     adler = 1
 
     try:
-        with open(file, 'rb') as openFile:
-            for line in openFile:
-                adler = zlib.adler32(line, adler)
+        with open(file, 'r+b') as f:
+            # memory map the file
+            m = mmap.mmap(f.fileno(), 0)
+            # partial block reads at slightly increased buffer sizes
+            for block in iter(partial(m.read, io.DEFAULT_BUFFER_SIZE), b''):
+                adler = zlib.adler32(block, adler)
     except Exception as e:
         raise Exception('FATAL - could not get Adler32 checksum of file %s - %s' % (file, e))
 
-    # backflip on 32bit
+    # backflip on 32bit -- can be removed once everything is fully migrated to 64bit
     if adler < 0:
         adler = adler + 2 ** 32
 
