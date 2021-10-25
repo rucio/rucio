@@ -34,7 +34,9 @@
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Paul Millar <paul.millar@desy.de>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - jdierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -1887,6 +1889,23 @@ class TestBinRucio(unittest.TestCase):
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         assert 'Warning: The commandline argument --trace_appid is deprecated! Please use --trace-appid in the future.' in out
+
+    def test_rucio_admin_expiration_date_is_deprecated(self):
+        """CLIENT(USER): Warn about deprecated command line args"""
+        cmd = 'rucio-admin replicas declare-temporary-unavailable srm://se.bfg.uni-freiburg.de/pnfs/bfg.uni-freiburg.de/data/atlasdatadisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt --expiration-date 168 --reason \'test only\''
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert 'Warning: The commandline argument --expiration-date is deprecated! Please use --duration in the future.' in out
+
+    def test_rucio_admin_expiration_date_not_defined(self):
+        """CLIENT(USER): Warn about deprecated command line arg"""
+        cmd = 'rucio-admin replicas declare-temporary-unavailable srm://se.bfg.uni-freiburg.de/pnfs/bfg.uni-freiburg.de/data/atlasdatadisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt --reason \'test only\''
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert err != 0
+        assert 'the following arguments are required' in err
 
     def test_update_rule_cancel_requests_args(self):
         """CLIENT(USER): update rule cancel requests must have a state defined"""
