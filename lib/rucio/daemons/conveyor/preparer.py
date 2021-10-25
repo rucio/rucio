@@ -19,8 +19,6 @@
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import logging
-import os
-import socket
 import threading
 from time import time
 from typing import TYPE_CHECKING
@@ -30,10 +28,10 @@ from rucio.common import exception
 from rucio.common.exception import RucioException
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.utils import daemon_sleep
-from rucio.core import heartbeat
 from rucio.core.request import preparer_update_requests, reduce_requests, sort_requests_minimum_distance, \
     get_transfertool_filter, get_supported_transfertools, rse_lookup_filter
 from rucio.core.transfer import __list_transfer_requests_and_source_replicas
+from rucio.daemons.conveyor.common import HeartbeatHandler
 from rucio.db.sqla.constants import RequestState
 
 if TYPE_CHECKING:
@@ -90,31 +88,24 @@ def run(once=False, threads=1, sleep_time=10, bulk=100):
 
 def preparer(once, sleep_time, bulk, partition_wait_time=10):
     # Make an initial heartbeat so that all instanced daemons have the correct worker number on the next try
-    executable = 'conveyor-preparer'
-    hostname = socket.gethostname()
-    pid = os.getpid()
-    current_thread = threading.current_thread()
-    worker_number = current_thread
-    total_workers = '?'
-    prefix = 'conveyor-preparer[%s/%s] ' % (worker_number, total_workers)
-    daemon_logger = formatted_logger(logging.log, prefix + '%s')
-    heartbeat.sanity_check(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
+    logger_prefix = executable = 'conveyor-preparer'
+    with HeartbeatHandler(executable=executable, logger_prefix=logger_prefix) as heartbeat_handler:
 
-    try:
         if partition_wait_time is not None:
             graceful_stop.wait(partition_wait_time)  # gathering of daemons/threads on first start
         while not graceful_stop.is_set():
             start_time = time()
 
-            pulse = heartbeat.live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
-            worker_number = pulse['assign_thread']
-            total_workers = pulse['nr_threads']
+            heart_beat, logger = heartbeat_handler.live()
+
+            worker_number = heart_beat['assign_thread']
+            total_workers = heart_beat['nr_threads']
 
             prefix = 'conveyor-preparer[%s/%s] ' % (worker_number, total_workers)
             daemon_logger = formatted_logger(logging.log, prefix + '%s')
 
             try:
-                updated_msg = run_once(total_workers=total_workers, worker_number=worker_number, limit=bulk, logger=daemon_logger)
+                updated_msg = run_once(total_workers=total_workers, worker_number=worker_number, limit=bulk, logger=logger)
             except RucioException:
                 daemon_logger(logging.ERROR, 'errored with a RucioException, retrying later', exc_info=True)
                 updated_msg = 'errored'
@@ -124,13 +115,8 @@ def preparer(once, sleep_time, bulk, partition_wait_time=10):
 
             end_time = time()
             time_diff = end_time - start_time
-            daemon_logger(logging.INFO, '%s, taking %.3f seconds' % (updated_msg, time_diff))
-            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=daemon_logger)
-
-        daemon_logger(logging.INFO, 'gracefully stopping')
-
-    finally:
-        heartbeat.die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
+            logger(logging.INFO, '%s, taking %.3f seconds' % (updated_msg, time_diff))
+            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=logger)
 
 
 def run_once(total_workers: int = 0, worker_number: int = 0, limit: "Optional[int]" = None, logger=logging.log, session: "Optional[Session]" = None) -> str:

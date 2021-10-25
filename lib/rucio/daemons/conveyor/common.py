@@ -45,14 +45,18 @@ from configparser import NoOptionError, NoSectionError
 import datetime
 import functools
 import logging
+import os
+import socket
+import threading
 import time
 from json import loads
 
 from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
                                     DuplicateFileTransferSubmission, VONotFound)
+from rucio.common.logging import formatted_logger
 from rucio.common.utils import chunks
-from rucio.core import request, transfer as transfer_core
+from rucio.core import heartbeat, request, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
@@ -62,6 +66,50 @@ from rucio.db.sqla.constants import RequestState
 from rucio.rse import rsemanager as rsemgr
 
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
+
+
+class HeartbeatHandler:
+    """
+    Simple contextmanager which sets a heartbeat and associated logger on entry and cleans up the heartbeat on exit.
+    """
+
+    def __init__(self, executable, logger_prefix=None):
+        self.executable = executable
+        self.logger_prefix = logger_prefix or executable
+
+        self.hostname = socket.getfqdn()
+        self.pid = os.getpid()
+        self.hb_thread = threading.current_thread()
+
+        self.logger = None
+        self.last_heart_beat = None
+
+    def __enter__(self):
+        heartbeat.sanity_check(executable=self.executable, hostname=self.hostname)
+        self.live()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.last_heart_beat:
+            heartbeat.die(self.executable, self.hostname, self.pid, self.hb_thread)
+            if self.logger:
+                self.logger(logging.INFO, 'Heartbeat cleaned up')
+
+    def live(self, older_than=None):
+        if older_than:
+            self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread, older_than=older_than)
+        else:
+            self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread)
+
+        prefix = '%s[%i/%i]: ' % (self.logger_prefix, self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'])
+        self.logger = formatted_logger(logging.log, prefix + '%s')
+
+        if not self.last_heart_beat:
+            self.logger(logging.DEBUG, 'First heartbeat set')
+        else:
+            self.logger(logging.DEBUG, 'Heartbeat renewed')
+
+        return self.last_heart_beat, self.logger
 
 
 def submit_transfer(external_host, transfers, job_params, submitter='submitter', timeout=None, logger=logging.log, transfertool=TRANSFER_TOOL):
