@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +16,7 @@
 #
 # Authors:
 # - Dilaksun Bavarajan, <dilaksun@hotmail.com>, 2019
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 """
 Conveyor FTS Throttler is a daemon that will configure a fts storage's transfer settings
@@ -26,6 +28,7 @@ alleviated by limiting the transfer settings of FTS transfers on the particular 
 import argparse
 import signal
 
+from rucio.common.utils import StoreAndDeprecateWarningAction
 from rucio.daemons.conveyor.fts_throttler import run, stop
 
 
@@ -38,7 +41,7 @@ def get_parser():
                                      It does this by retrieving transfer failure information from elastic search, depending on their failure ratio.\
                                      it will use http requests to set the storage configurations accordingly")
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    parser.add_argument("--cycle_interval", action="store", default=3600, type=int, help='interval for each cycle')
+    parser.add_argument("--cycle_interval", "--cycle-interval", new_option_string="--cycle-interval", action=StoreAndDeprecateWarningAction, default=3600, type=int, help='interval for each cycle')
 
     return parser
 
