@@ -30,6 +30,7 @@
 # - Luca Scotto Lavina, <scotto@lpnhe.in2p3.fr>, 2021
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2021
+# - Lionel Schwarz <lionel.schwarz@in2p3.fr>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -221,6 +222,27 @@ class RSEDeterministicTranslation(object):
 
         return '%s/%s/%s/%s' % (scope[0:7], scope[4:len(scope)], name.split('-')[0] + "-" + name.split('-')[1], name)
 
+    @staticmethod
+    def __lsst(scope, name, rse, rse_attrs, protocol_attrs):
+        """
+        LFN2PFN algorithm for Rubin-LSST in the ESCAPE project
+
+        Replace convention delimiter '__' by '/'
+        The Escape instance does use the 'generic' Rucio schema.
+
+        :param scope: Scope of the LFN (ignored)
+        :param name: File name of the LFN.
+        :param rse: RSE for PFN (ignored)
+        :param rse_attrs: RSE attributes for PFN (ignored)
+        :param protocol_attrs: RSE protocol attributes for PFN (ignored)
+        :returns: Path for use in the PFN generation.
+        """
+        del scope
+        del rse
+        del rse_attrs
+        del protocol_attrs
+        return name.replace('__', '/')
+
     @classmethod
     def _module_init_(cls):
         """
@@ -231,6 +253,7 @@ class RSEDeterministicTranslation(object):
         cls.register(cls.__ligo, "ligo")
         cls.register(cls.__belleii, "belleii")
         cls.register(cls.__xenon, "xenon")
+        cls.register(cls.__lsst, "lsst")
         policy_module = None
         try:
             policy_module = config.config_get('policy', 'lfn2pfn_module')

@@ -54,7 +54,7 @@ graceful_stop = threading.Event()
 
 
 def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
-           source_strategy=None, activities=None, sleep_time=600, retry_other_fts=False):
+           source_strategy=None, activities=None, sleep_time=600):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -137,7 +137,6 @@ def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
                     activity=activity,
                     rses=rse_ids,
                     schemes=scheme,
-                    retry_other_fts=retry_other_fts,
                     older_than=None,
                     request_type=RequestType.STAGEIN,
                     logger=logger,
@@ -151,15 +150,13 @@ def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
                 for external_host, transfer_paths in transfers.items():
                     logger(logging.INFO, 'Starting to group transfers for %s (%s)' % (activity, external_host))
                     start_time = time.time()
-                    for transfer_path in transfer_paths:
-                        for i, hop in enumerate(transfer_path):
-                            hop.init_legacy_transfer_definition(bring_online=bring_online, default_lifetime=-1, logger=logger)
-                    grouped_jobs = bulk_group_transfers_for_fts(transfer_paths, group_policy, group_bulk, source_strategy, max_time_in_queue)
+                    grouped_jobs = bulk_group_transfers_for_fts(transfer_paths, group_policy, group_bulk, source_strategy, max_time_in_queue,
+                                                                bring_online=bring_online, default_lifetime=-1)
                     record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfer_paths) or 1))
 
                     logger(logging.INFO, 'Starting to submit transfers for %s (%s)' % (activity, external_host))
                     for job in grouped_jobs:
-                        submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter', logger=logger)
+                        submit_transfer(external_host=external_host, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter', logger=logger)
 
                 if total_transfers < group_bulk:
                     logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (total_transfers, activity, group_bulk, sleep_time))
@@ -188,7 +185,7 @@ def stop(signum=None, frame=None):
 
 def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
         rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
-        activities=[], sleep_time=600, retry_other_fts=False):
+        activities=[], sleep_time=600):
     """
     Starts up the conveyer threads.
     """
@@ -218,8 +215,7 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
                group_bulk=group_bulk,
                group_policy=group_policy,
                source_strategy=source_strategy,
-               activities=activities,
-               retry_other_fts=retry_other_fts)
+               activities=activities)
 
     else:
         logging.info('starting stager threads')
@@ -229,8 +225,7 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
                                                            'group_policy': group_policy,
                                                            'activities': activities,
                                                            'sleep_time': sleep_time,
-                                                           'source_strategy': source_strategy,
-                                                           'retry_other_fts': retry_other_fts}) for _ in range(0, total_threads)]
+                                                           'source_strategy': source_strategy}) for _ in range(0, total_threads)]
 
         [thread.start() for thread in threads]
 

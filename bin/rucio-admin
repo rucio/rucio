@@ -1284,8 +1284,11 @@ def set_tombstone(args):
     dids = args.dids
     rse = args.rse
     dids = [dids] if ',' not in dids else dids.split(',')
-    dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1], 'rse': rse} for did in dids]
-    client.set_tombstone(dids)
+    replicas = []
+    for did in dids:
+        scope, name = get_scope(did, client)
+        replicas.append({'scope': scope, 'name': name, 'rse': rse})
+    client.set_tombstone(replicas)
     logger.info('Set tombstone successfully on: %s' % args.dids)
     return SUCCESS
 

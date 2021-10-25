@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+
 import pytest
 
 import itertools
@@ -81,7 +82,7 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
     requests_id_in_submission_order = []
     with patch('rucio.transfertool.mock.MockTransfertool.submit') as mock_transfertool_submit:
         # Record the order of requests passed to MockTranfertool.submit()
-        mock_transfertool_submit.side_effect = lambda jobs, _: requests_id_in_submission_order.extend([j['metadata']['request_id'] for j in jobs])
+        mock_transfertool_submit.side_effect = lambda transfers, _: requests_id_in_submission_order.extend([t.rws.request_id for t in transfers])
 
         submitter(once=True, rses=[{'id': rse_id} for _, rse_id in dst_rses], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
 
@@ -97,10 +98,10 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
     ('transfers', 'use_multihop', True)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by rse expression
-    'rucio.core.config',
+    'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
+    'rucio.core.config.REGION',
 ]}], indirect=True)
-def test_multihop_sources_created(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
+def test_multihop_sources_created(rse_factory, did_factory, root_account, core_config_mock, caches_mock, metrics_mock):
     """
     Ensure that multihop transfers are handled and intermediate request correctly created
     """
@@ -168,6 +169,9 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
 
     replica = replica_core.get_replica(jump_rse3_id, **did)
     assert replica['tombstone'] is None
+
+    # Ensure that prometheus metrics were correctly registered. One submission for each transfer hop
+    assert metrics_mock.get_sample_value('rucio_core_request_submit_transfer_total') == 4
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")

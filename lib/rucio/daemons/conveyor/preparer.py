@@ -88,7 +88,7 @@ def run(once=False, threads=1, sleep_time=10, bulk=100):
     logging.info('conveyor-preparer: stopped')
 
 
-def preparer(once, sleep_time, bulk):
+def preparer(once, sleep_time, bulk, partition_wait_time=10):
     # Make an initial heartbeat so that all instanced daemons have the correct worker number on the next try
     executable = 'conveyor-preparer'
     hostname = socket.gethostname()
@@ -101,7 +101,8 @@ def preparer(once, sleep_time, bulk):
     heartbeat.sanity_check(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
     try:
-        graceful_stop.wait(10)  # gathering of daemons/threads on first start
+        if partition_wait_time is not None:
+            graceful_stop.wait(partition_wait_time)  # gathering of daemons/threads on first start
         while not graceful_stop.is_set():
             start_time = time()
 

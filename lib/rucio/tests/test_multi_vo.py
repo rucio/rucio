@@ -986,12 +986,14 @@ class TestMultiVOBinRucio(unittest.TestCase):
             add_rse(cls.rse_new, 'root', **cls.new_vo)
 
             try:
-                remove(get_tmp_dir() + '/.rucio_root@%s/auth_token_root' % cls.vo['vo'])
+                remove(get_tmp_dir()
+                       + '/.rucio_root@%s/auth_token_for_account_root' % cls.vo['vo'])
             except OSError as e:
                 if e.args[0] != 2:
                     raise e
             try:
-                remove(get_tmp_dir() + '/.rucio_root@%s/auth_token_root' % cls.new_vo['vo'])
+                remove(get_tmp_dir()
+                       + '/.rucio_root@%s/auth_token_for_account_root' % cls.new_vo['vo'])
             except OSError as e:
                 if e.args[0] != 2:
                     raise e

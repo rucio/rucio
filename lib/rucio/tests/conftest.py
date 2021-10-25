@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
@@ -168,6 +168,16 @@ def file_factory(tmp_path_factory):
         yield factory
 
 
+@pytest.fixture
+def db_session():
+    from rucio.db.sqla import session
+
+    db_session = session.get_session()
+    yield db_session
+    db_session.commit()
+    db_session.close()
+
+
 def __get_fixture_param(request):
     fixture_param = getattr(request, "param", None)
     if not fixture_param:
@@ -234,6 +244,31 @@ def core_config_mock(request):
 
 
 @pytest.fixture
+def file_config_mock(request):
+    """
+    Fixture which allows to have an isolated in-memory configuration file instance which
+    is not persisted after exiting the fixture.
+
+    This override works only in tests which use config calls directly, not in the ones working
+    via the API, as the server config is not changed.
+    """
+    from unittest import mock
+    from rucio.common.config import Config, config_set
+
+    # Get the fixture parameters
+    overrides = []
+    params = __get_fixture_param(request)
+    if params:
+        overrides = params.get("overrides", overrides)
+
+    parser = Config().parser
+    with mock.patch('rucio.common.config.get_config', side_effect=lambda: parser):
+        for section, option, value in (overrides or []):
+            config_set(section, option, value)
+        yield
+
+
+@pytest.fixture
 def caches_mock(request):
     """
     Fixture which overrides the different internal caches with in-memory ones for the duration
@@ -257,6 +292,20 @@ def caches_mock(request):
     with ExitStack() as stack:
         for module in caches_to_mock:
             region = make_region().configure('dogpile.cache.memory', expiration_time=600)
-            stack.enter_context(mock.patch('{}.{}'.format(module, 'REGION'), new=region))
+            stack.enter_context(mock.patch(module, new=region))
 
         yield
+
+
+@pytest.fixture
+def metrics_mock():
+    """
+    Overrides the prometheus metric registry and allows to verify if the desired
+    prometheus metrics were correctly recorded.
+    """
+
+    from unittest import mock
+    from prometheus_client import CollectorRegistry
+
+    with mock.patch('rucio.core.monitor.REGISTRY', new=CollectorRegistry()) as registry, mock.patch('rucio.core.monitor.COUNTERS', new={}):
+        yield registry

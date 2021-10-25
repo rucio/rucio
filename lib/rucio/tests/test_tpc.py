@@ -118,8 +118,8 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
 
     [[_host, [transfer_path]]] = next_transfers_to_submit(rses=[rse1_id, rse2_id]).items()
     assert transfer_path[0].rws.rule_id == rule_id[0]
-    src_url = transfer_path[0]['sources'][0][1]
-    dest_url = transfer_path[0]['dest_urls'][0]
+    src_url = transfer_path[0].legacy_sources[0][1]
+    dest_url = transfer_path[0].dest_url
     check_url(src_url, rse1_hostname, test_file_expected_pfn)
     check_url(dest_url, rse2_hostname, test_file_expected_pfn)
 

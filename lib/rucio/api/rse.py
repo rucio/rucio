@@ -29,6 +29,7 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from rucio.api import permission
 from rucio.common import exception
@@ -272,7 +273,7 @@ def update_protocols(rse, scheme, data, issuer, vo='def', hostname=None, port=No
     rse_module.update_protocols(rse_id=rse_id, scheme=scheme, hostname=hostname, port=port, data=data)
 
 
-def set_rse_usage(rse, source, used, free, issuer, vo='def'):
+def set_rse_usage(rse, source, used, free, issuer, files=None, vo='def'):
     """
     Set RSE usage information.
 
@@ -281,9 +282,10 @@ def set_rse_usage(rse, source, used, free, issuer, vo='def'):
     :param used: the used space in bytes.
     :param free: the free space in bytes.
     :param issuer: The issuer account.
+    :param files: the number of files
     :param vo: The VO to act on.
 
-    :returns: List of RSE usage data.
+    :returns: True if successful, otherwise false.
     """
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo)
 
@@ -291,7 +293,7 @@ def set_rse_usage(rse, source, used, free, issuer, vo='def'):
     if not permission.has_permission(issuer=issuer, vo=vo, action='set_rse_usage', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not update RSE usage information for RSE %s' % (issuer, rse))
 
-    return rse_module.set_rse_usage(rse_id=rse_id, source=source, used=used, free=free)
+    return rse_module.set_rse_usage(rse_id=rse_id, source=source, used=used, free=free, files=files)
 
 
 def get_rse_usage(rse, issuer, source=None, per_account=False, vo='def'):
@@ -303,7 +305,7 @@ def get_rse_usage(rse, issuer, source=None, per_account=False, vo='def'):
     :param source: dictionary of attributes by which the results should be filtered
     :param vo: The VO to act on.
 
-    :returns: True if successful, otherwise false.
+    :returns: List of RSE usage data.
     """
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo)
     usages = rse_module.get_rse_usage(rse_id=rse_id, source=source, per_account=per_account)

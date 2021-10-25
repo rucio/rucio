@@ -45,6 +45,7 @@
 from __future__ import print_function
 
 import errno
+import getpass
 import os
 import random
 import sys
@@ -269,14 +270,14 @@ class BaseClient(object):
         self.list_hosts = [self.host]
 
         if account is None:
-            LOG.debug('No account passed. Trying to get it from the config file.')
+            LOG.debug('No account passed. Trying to get it from the RUCIO_ACCOUNT environment variable or the config file.')
             try:
                 self.account = environ['RUCIO_ACCOUNT']
             except KeyError:
                 try:
                     self.account = config_get('client', 'account')
                 except (NoOptionError, NoSectionError):
-                    raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
+                    pass
 
         if vo is None:
             LOG.debug('No VO passed. Trying to get it from environment variable RUCIO_VO.')
@@ -290,17 +291,19 @@ class BaseClient(object):
                     LOG.debug('No VO found. Using default VO.')
                     self.vo = 'def'
 
+        token_filename_suffix = "for_default_account" if self.account is None else "for_account_" + self.account
+
         # if token file path is defined in the rucio.cfg file, use that file. Currently this prevents authenticating as another user or VO.
         if self.auth_token_file_path:
             self.token_file = self.auth_token_file_path
             self.token_path = '/'.join(self.token_file.split('/')[:-1])
-            self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
         else:
-            self.token_path = self.TOKEN_PATH_PREFIX + self.account
+            self.token_path = self.TOKEN_PATH_PREFIX + getpass.getuser()
             if self.vo != 'def':
                 self.token_path += '@%s' % self.vo
-            self.token_file = self.token_path + '/' + self.TOKEN_PREFIX + self.account
-            self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
+            self.token_file = self.token_path + '/' + self.TOKEN_PREFIX + token_filename_suffix
+
+        self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + token_filename_suffix
 
         self.__authenticate()
 
@@ -375,9 +378,12 @@ class BaseClient(object):
                        certificate, or a string, in which case it must be a path to a CA bundle to use.
         :return: the HTTP return body.
         """
-        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'X-Rucio-VO': self.vo,
+        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-VO': self.vo,
                'Connection': 'Keep-Alive', 'User-Agent': self.user_agent,
                'X-Rucio-Script': self.script_id}
+
+        if self.account is not None:
+            hds['X-Rucio-Account'] = self.account
 
         if headers is not None:
             hds.update(headers)

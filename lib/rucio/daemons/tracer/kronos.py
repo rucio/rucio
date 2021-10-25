@@ -26,6 +26,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
 This daemon consumes tracer messages from ActiveMQ and updates the atime for replicas.
@@ -34,6 +35,7 @@ This daemon consumes tracer messages from ActiveMQ and updates the atime for rep
 import logging
 import re
 import socket
+from configparser import NoOptionError, NoSectionError
 from datetime import datetime
 from json import loads as jloads, dumps as jdumps
 from os import getpid
@@ -44,11 +46,10 @@ from stomp import Connection
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool, config_get_int
-from rucio.common.exception import ConfigNotFound, RSENotFound, DatabaseException
+from rucio.common.exception import RSENotFound, DatabaseException
 from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import daemon_sleep
-from rucio.core.config import get
 from rucio.core.did import touch_dids, list_parent_dids
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.lock import touch_dataset_locks
@@ -359,12 +360,12 @@ def kronos_file(thread=0, dataset_queue=None, sleep_time=60):
     subscription_id = config_get('tracer-kronos', 'subscription_id')
     try:
         bad_files_patterns = []
-        pattern = get(section='kronos', option='bad_files_patterns', session=None)
+        pattern = config_get(section='kronos', option='bad_files_patterns', session=None)
         pattern = str(pattern)
         patterns = pattern.split(",")
         for pat in patterns:
             bad_files_patterns.append(re.compile(pat.strip()))
-    except ConfigNotFound:
+    except (NoOptionError, NoSectionError, RuntimeError):
         bad_files_patterns = []
     except Exception as error:
         logging.log(logging.ERROR, 'kronos_file[%i/?] Failed to get bad_file_patterns %s', thread, str(error))
@@ -407,7 +408,7 @@ def kronos_file(thread=0, dataset_queue=None, sleep_time=60):
         for conn in conns:
             if not conn.is_connected():
                 logger(logging.INFO, 'connecting to %s' % str(conn.transport._Transport__host_and_ports[0]))
-                record_counter('daemons.tracer.kronos.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0])
+                record_counter('daemons.tracer.kronos.reconnect.{host}', labels={'host': conn.transport._Transport__host_and_ports[0][0]})
                 conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0],
                                                                      conn=conn,
                                                                      queue=config_get('tracer-kronos', 'queue'),

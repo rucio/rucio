@@ -52,7 +52,7 @@ LOG = getLogger(__name__)
 
 
 @pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined rses, fails when run in parallel')
+@pytest.mark.noparallel(reason='uses pre-defined rses; runs undertaker, which impacts other tests')
 class TestUndertaker(unittest.TestCase):
 
     def setUp(self):
@@ -177,11 +177,12 @@ class TestUndertaker(unittest.TestCase):
             assert(len([x for x in list_rules(filters={'scope': InternalScope('archive', **self.vo), 'name': dsn['name']})]) == 1)
 
 
+@pytest.mark.noparallel(reason='runs undertaker, which impacts other tests')
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
     ('undertaker', 'purge_all_replicas', True)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.core.config',
+    'rucio.core.config.REGION',
 ]}], indirect=True)
 def test_removal_all_replicas2(rse_factory, root_account, mock_scope, core_config_mock, caches_mock):
     """ UNDERTAKER (CORE): Test the undertaker is setting Epoch tombstone on all the replicas. """

@@ -23,6 +23,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Lionel Schwarz <lionel.schwarz@in2p3.fr>, 2021
 
 from jsonschema import validate, ValidationError
 
@@ -64,11 +65,11 @@ R_SCOPE = {"description": "Scope name",
            "type": "string",
            "pattern": "\\w"}
 
-NAME_LENGTH = 250
+NAME_LENGTH = 500
 
 NAME = {"description": "Data Identifier name",
         "type": "string",
-        "pattern": "^[A-Za-z0-9][A-Za-z0-9\\.\\-\\_]{1,%s}$" % NAME_LENGTH}
+        "pattern": r"^/[A-Za-z0-9\.\-\_\+\/]{1,%s}$" % NAME_LENGTH}
 
 R_NAME = {"description": "Data Identifier name",
           "type": "string",

@@ -35,6 +35,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import division
 
@@ -61,7 +62,6 @@ from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import and_, or_, text, true, null, tuple_, false
 
 from rucio.core.account import has_account_attribute
-from rucio.core.config import get as core_config_get
 import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
@@ -148,7 +148,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     if USE_NEW_RULE_ALGORITHM:
         use_new_rule_algorithm = True
     else:
-        use_new_rule_algorithm = core_config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
+        use_new_rule_algorithm = config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
 
     with record_timer_block('rule.add_rule'):
         # 1. Resolve the rse_expression into a list of RSE-ids
@@ -661,7 +661,7 @@ def inject_rule(rule_id, session=None, logger=logging.log):
     if USE_NEW_RULE_ALGORITHM:
         use_new_rule_algorithm = True
     else:
-        use_new_rule_algorithm = core_config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
+        use_new_rule_algorithm = config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
 
     try:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
@@ -1484,14 +1484,16 @@ def reduce_rule(rule_id, copies, exclude_expression=None, session=None):
 
 
 @transactional_session
-def move_rule(rule_id, rse_expression, session=None):
+def move_rule(rule_id, rse_expression, activity=None, source_replica_expression=None, session=None):
     """
     Move a replication rule to another RSE and, once done, delete the original one.
 
-    :param rule_id:             Rule to be moved.
-    :param rse_expression:      RSE expression of the new rule.
-    :param session:             The DB Session.
-    :raises:                    RuleNotFound, RuleReplaceFailed
+    :param rule_id:                    Rule to be moved.
+    :param rse_expression:             RSE expression of the new rule.
+    :param activity:                   Activity of the new rule.
+    :param source_replica_expression:  Source-Replica-Expression of the new rule.
+    :param session:                    The DB Session.
+    :raises:                           RuleNotFound, RuleReplaceFailed, InvalidRSEExpression
     """
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
@@ -1517,8 +1519,8 @@ def move_rule(rule_id, rse_expression, session=None):
                                lifetime=lifetime,
                                locked=rule.locked,
                                subscription_id=rule.subscription_id,
-                               source_replica_expression=rule.source_replica_expression,
-                               activity=rule.activity,
+                               source_replica_expression=source_replica_expression if source_replica_expression else rule.source_replica_expression,
+                               activity=activity if activity else rule.activity,
                                notify=notify,
                                purge_replicas=rule.purge_replicas,
                                ignore_availability=rule.ignore_availability,
@@ -2481,7 +2483,7 @@ def __evaluate_did_detach(eval_did, session=None, logger=logging.log):
     """
 
     logger(logging.INFO, "Re-Evaluating did %s:%s for DETACH", eval_did.scope, eval_did.name)
-    force_epoch = core_config_get('rules', 'force_epoch_when_detach', default=False, session=session)
+    force_epoch = config_get('rules', 'force_epoch_when_detach', default=False, session=session)
 
     with record_timer_block('rule.evaluate_did_detach'):
         # Get all parent DID's

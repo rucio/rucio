@@ -23,6 +23,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
 Conveyor throttler is a daemon to manage rucio internal queue.
@@ -51,7 +52,7 @@ from rucio.db.sqla.constants import RequestState
 graceful_stop = threading.Event()
 
 
-def throttler(once=False, sleep_time=600):
+def throttler(once=False, sleep_time=600, partition_wait_time=10):
     """
     Main loop to check rse transfer limits.
     """
@@ -69,7 +70,8 @@ def throttler(once=False, sleep_time=600):
     logging.info(prepend_str + 'Throttler started - timeout (%s)' % (sleep_time))
 
     current_time = time.time()
-    graceful_stop.wait(10)
+    if partition_wait_time is not None:
+        graceful_stop.wait(partition_wait_time)
 
     while not graceful_stop.is_set():
 
@@ -261,7 +263,7 @@ def __release_all_activities(stats, direction, rse_name, rse_id, logger, session
         logger(logging.DEBUG, "Throttler remove limits(threshold: %s) and release all waiting requests, rse %s" % (threshold, rse_name))
         delete_rse_transfer_limits(rse_id, activity='all_activities', session=session)
         release_all_waiting_requests(rse_id, direction=direction, session=session)
-        record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s' % (rse_name))
+        record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.{activity}.{rse}', labels={'activity': 'all_activities', 'rse': rse_name})
 
 
 def __release_per_activity(stats, direction, rse_name, rse_id, logger, session):
@@ -284,7 +286,7 @@ def __release_per_activity(stats, direction, rse_name, rse_id, logger, session):
                 logger(logging.DEBUG, "Throttler remove limits(threshold: %s) and release all waiting requests for activity %s, rse_id %s" % (threshold, activity, rse_id))
                 delete_rse_transfer_limits(rse_id, activity=activity, session=session)
                 release_all_waiting_requests(rse_id, activity=activity, direction=direction, session=session)
-                record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s.%s' % (activity, rse_name))
+                record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.{activity}.{rse}', labels={'activity': activity, 'rse': rse_name})
             elif transfer + waiting > threshold:
                 logger(logging.DEBUG, "Throttler set limits for activity %s, rse %s" % (activity, rse_name))
                 set_rse_transfer_limits(rse_id, activity=activity, max_transfers=threshold, transfers=transfer, waitings=waiting, session=session)
@@ -329,4 +331,4 @@ def __release_per_activity(stats, direction, rse_name, rse_id, logger, session):
                 logger(logging.DEBUG, "Throttler remove limits(threshold: %s) and release all waiting requests for activity %s, rse %s" % (threshold, activity, rse_name))
                 delete_rse_transfer_limits(rse_id, activity=activity, session=session)
                 release_all_waiting_requests(rse_id, activity=activity, direction=direction, session=session)
-                record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s.%s' % (activity, rse_name))
+                record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.{activity}.{rse}', labels={'activity': activity, 'rse': rse_name})
