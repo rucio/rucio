@@ -18,6 +18,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Gabriele Fronze' <gfronze@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import sys
 import os.path
@@ -38,6 +39,7 @@ from sqlalchemy.types import CHAR  # noqa: E402
 
 from rucio.common.config import config_get_bool  # noqa: E402
 from rucio.common.types import InternalAccount  # noqa: E402
+from rucio.common.utils import StoreTrueAndDeprecateWarningAction  # noqa: E402
 from rucio.core.account import del_account  # noqa: E402
 from rucio.core.vo import list_vos  # noqa: E402
 from rucio.db.sqla import session  # noqa: E402
@@ -340,20 +342,19 @@ def main():
     Parses the arguments and determines which operation to call.
     """
     parser = argparse.ArgumentParser(description='Utility script for associating database entries with a different VO in order to convert an instance to/from multi-VO mode.')
-    parser.add_argument('--commit_changes', '-cc', action='store_true',
-                        help='Attempts to commit changes to the database. If not provided then the SQL commands printed need to be run manually along with account creation/deletion.')
-    parser.add_argument('--skip_history', '-sh', action='store_true', help='Skips the potentially large historical tables to speed up the operation.')
+    parser.add_argument('--commit_changes', '--commit-changes', '-cc', new_option_string='--commit-changes', action=StoreTrueAndDeprecateWarningAction, help='Attempts to commit changes to the database. If not provided then the SQL commands printed need to be run manually along with account creation/deletion.')  # NOQA: E501
+    parser.add_argument('--skip_history', '--skip-history', '-sh', new_option_string='--skip-history', action=StoreTrueAndDeprecateWarningAction, help='Skips the potentially large historical tables to speed up the operation.')
     subparsers = parser.add_subparsers(title='operation', description='The operation to perform on the database.')
 
     parser_mvo = subparsers.add_parser('convert_to_mvo', help='Associates all entries in an existing s-VO database with the VO provided, making the database m-VO compatible.')
     parser_mvo.add_argument('new_vo', help='Three character string to identify the new VO. Will be added to the database if it doesn\'t already exist.')
     parser_mvo.add_argument('description', help='Full description of the VO to be used.')
     parser_mvo.add_argument('email', help='Admin email for the new VO.')
-    parser_mvo.add_argument('--create_super_root', '-csr', action='store_true', help='If specified a super_root account is added to VO def.')
+    parser_mvo.add_argument('--create_super_root', '--create-super-root', '-csr', new_option_string='--create-super-root', action=StoreTrueAndDeprecateWarningAction, help='If specified a super_root account is added to VO def.')
 
     parser_svo = subparsers.add_parser('convert_to_svo', help='Entries associated with the VO provided have this association removed, making the database s-VO compatible.')
     parser_svo.add_argument('old_vo', help='Three character string to identify the old VO. Data associated with this VO will be converted.')
-    parser_svo.add_argument('--delete_vos', '-dv', action='store_true', help='If specified any data not associated with `old_vo` will be deleted from the database.')
+    parser_svo.add_argument('--delete_vos', '--delete-vos', '-dv', new_option_string='--delete-vos', action=StoreTrueAndDeprecateWarningAction, help='If specified any data not associated with `old_vo` will be deleted from the database.')
 
     args = parser.parse_args()
     if 'new_vo' in args:

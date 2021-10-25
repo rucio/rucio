@@ -1881,6 +1881,13 @@ class TestBinRucio(unittest.TestCase):
         cmd = 'rm -rf %s' % folder
         execute(cmd)
 
+    def test_deprecated_command_line_args(self):
+        """CLIENT(USER): Warn about deprecated command line args"""
+        cmd = 'rucio get --trace_appid 0'
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        assert 'Warning: The commandline argument --trace_appid is deprecated! Please use --trace-appid in the future.' in out
+
     def test_update_rule_cancel_requests_args(self):
         """CLIENT(USER): update rule cancel requests must have a state defined"""
         cmd = 'rucio update-rule --cancel-requests RULE'
