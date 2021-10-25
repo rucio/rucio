@@ -24,6 +24,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import logging
 import os
@@ -513,6 +514,14 @@ def test_trace_copy_out_and_checksum_validation(vo, rse_factory, did_factory, do
         traces = []
         download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'ignore_checksum': True}], traces_copy_out=traces)
         assert len(traces) == 1 and traces[0]['clientState'] == 'DONE'
+
+
+def test_disable_no_files_download_error(vo, rse_factory, did_factory, download_client):
+    rse, _ = rse_factory.make_posix_rse()
+    with TemporaryDirectory() as tmp_dir:
+        res = download_client.download_dids([{'did': 'some:randomNonExistingDid', 'base_dir': tmp_dir}], deactivate_file_download_exceptions=True)
+        print('Downloaded object', res)
+        assert res[0]['clientState'] == 'FILE_NOT_FOUND'
 
 
 def test_nrandom_respected(rse_factory, did_factory, download_client, root_account):
