@@ -149,7 +149,7 @@ If so, one can directly present the token to the Rucio REST endpoint in the 'X-R
   $ s=requests.session()
   $ your_token=<your JWT access token string>
   $ headers={'X-Rucio-Auth-Token': your_token}
-  $ address='https://<Rucio Auth Server Name>/accounts/guenther'
+  $ address='https://<Rucio Server Name>/accounts/guenther'
   $ result=s.get(address, headers=headers, verify=False)
   $ result.text
   >>> u'{"status": "ACTIVE", "account": "guenther", "account_type": "USER", "created_at": "2019-11-13T13:01:58", "suspended_at": null, "updated_at": "2019-11-13T13:01:58", "deleted_at": null, "email": "jaroslav.guenther@gmail.com"}'
