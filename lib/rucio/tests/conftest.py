@@ -296,11 +296,13 @@ def caches_mock(request):
         caches_to_mock = params.get("caches_to_mock", caches_to_mock)
 
     with ExitStack() as stack:
+        mocked_caches = []
         for module in caches_to_mock:
             region = make_region().configure('dogpile.cache.memory', expiration_time=600)
             stack.enter_context(mock.patch(module, new=region))
+            mocked_caches.append(region)
 
-        yield
+        yield mocked_caches
 
 
 @pytest.fixture

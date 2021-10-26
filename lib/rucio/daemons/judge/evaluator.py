@@ -25,6 +25,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 """
 Judge-Evaluator is a daemon to re-evaluate and execute replication rules.
@@ -126,7 +127,7 @@ def re_evaluator(once=False, sleep_time=30, did_limit=100):
                     except DataIdentifierNotFound:
                         delete_updated_did(id_=did.id)
                     except (DatabaseException, DatabaseError) as e:
-                        if match('.*ORA-00054.*', str(e.args[0])):
+                        if match('.*ORA-000(01|54).*', str(e.args[0])):
                             paused_dids[(did.scope.internal, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                             logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'], did.scope, did.name))
                             record_counter('rule.judge.exceptions.{exception}', labels={'exception': 'LocksDetected'})
