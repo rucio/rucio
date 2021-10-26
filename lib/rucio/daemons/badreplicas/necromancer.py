@@ -84,7 +84,7 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
         except ConfigNotFound:
             max_evaluator_backlog_duration = None
         if max_evaluator_backlog_count or max_evaluator_backlog_duration:
-            backlog = get_evaluation_backlog()
+            backlog = get_evaluation_backlog(expiration_time=sleep_time)
             if max_evaluator_backlog_count and \
                backlog[0] and \
                max_evaluator_backlog_duration and \
