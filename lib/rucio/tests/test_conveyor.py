@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,13 @@
 # limitations under the License.
 #
 # Authors:
+# - Wen Guan <wen.guan@cern.ch>, 2015-2016
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Mayank Sharma <imptodefeat@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import threading
 import time
@@ -178,7 +182,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
         # Wait for the destination replica to become ready
-        replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, **did)
+        replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, **did, max_wait_seconds=120)
         assert replica['state'] == ReplicaState.AVAILABLE
 
         rucio.daemons.reaper.reaper.REGION.invalidate()
