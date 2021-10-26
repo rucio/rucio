@@ -31,6 +31,8 @@
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -52,9 +54,9 @@ class DIDClient(BaseClient):
     ARCHIVES_BASEURL = 'archives'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None,
-                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
+                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None, logger=None):
         super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert,
-                                        auth_type, creds, timeout, user_agent, vo=vo)
+                                        auth_type, creds, timeout, user_agent, vo=vo, logger=logger)
 
     def list_dids(self, scope, filters, did_type='collection', long=False, recursive=False):
         """

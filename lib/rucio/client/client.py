@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +14,18 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - dciangot <diego.ciangottini@cern.ch>, 2018
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 """
 Client class for callers of the Rucio system
@@ -68,7 +72,7 @@ class Client(AccountClient,
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None, logger=None):
         """
         Constructor for the Rucio main client class.
 
@@ -81,4 +85,4 @@ class Client(AccountClient,
         :param timeout: Float describes the timeout of the request (in seconds).
         :param vo: The vo that the client will interact with.
         """
-        super(Client, self).__init__(rucio_host=rucio_host, auth_host=auth_host, account=account, ca_cert=ca_cert, auth_type=auth_type, creds=creds, timeout=timeout, user_agent=user_agent, vo=vo)
+        super(Client, self).__init__(rucio_host=rucio_host, auth_host=auth_host, account=account, ca_cert=ca_cert, auth_type=auth_type, creds=creds, timeout=timeout, user_agent=user_agent, vo=vo, logger=logger)

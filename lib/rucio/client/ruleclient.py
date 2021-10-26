@@ -27,6 +27,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from json import dumps, loads
@@ -45,8 +46,8 @@ class RuleClient(BaseClient):
 
     RULE_BASEURL = 'rules'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, dq2_wrapper=False, vo=None):
-        super(RuleClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, dq2_wrapper, vo=vo)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, dq2_wrapper=False, vo=None, logger=None):
+        super(RuleClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, dq2_wrapper, vo=vo, logger=logger)
 
     def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None,
                              locked=False, source_replica_expression=None, activity=None, notify='N', purge_replicas=False,

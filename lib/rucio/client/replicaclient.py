@@ -22,12 +22,14 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
-# - Ilija Vukotic <ivukotic@cern.ch>, 2020
+# - Ilija Vukotic <ivukotic@cern.ch>, 2020-2021
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from datetime import datetime
 from json import dumps, loads
@@ -45,8 +47,8 @@ class ReplicaClient(BaseClient):
 
     REPLICAS_BASEURL = 'replicas'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
-        super(ReplicaClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent, vo=vo)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None, logger=None):
+        super(ReplicaClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent, vo=vo, logger=logger)
 
     def declare_bad_file_replicas(self, pfns, reason):
         """
