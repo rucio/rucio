@@ -55,6 +55,7 @@ from rucio.common.constants import FTS_STATE
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
+from rucio.core.config import get as core_config_get
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute
@@ -457,7 +458,8 @@ def query_request_details(request_id, transfertool='fts3', session=None, logger=
 
 
 @transactional_session
-def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, staging_started_at=None, staging_finished_at=None, src_rse_id=None, err_msg=None, session=None, logger=logging.log):
+def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, staging_started_at=None,
+                      staging_finished_at=None, src_rse_id=None, err_msg=None, attributes=None, session=None, logger=logging.log):
     """
     Update the state of a request.
 
@@ -491,6 +493,8 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
             update_items['source_rse_id'] = src_rse_id
         if err_msg:
             update_items['err_msg'] = err_msg
+        if attributes is not None:
+            update_items['attributes'] = json.dumps(attributes)
 
         request = get_request(request_id, session=session)
         if new_state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST] and (request["external_id"] != transfer_id):
@@ -1273,6 +1277,19 @@ def update_request_state(response, session=None, logger=logging.log):
                         logger(logging.DEBUG, 'Correct RSE: %s for source surl: %s' % (src_rse_name, src_url))
                 err_msg = get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
 
+                attributes = None
+                if response['new_state'] == RequestState.FAILED and 'Destination file exists and overwrite is not enabled' in (response.get('reason') or ''):
+                    dst_file = response['dst_file']
+                    # if the file size is wrong or the checksum is wrong
+                    if (dst_file and (
+                            dst_file.get('file_size') is not None and dst_file['file_size'] != request.get('bytes')
+                            or dst_file.get('checksum_type', '').lower() == 'adler32' and dst_file.get('checksum_value') != request.get('adler32')
+                            or dst_file.get('checksum_type', '').lower() == 'md5' and dst_file.get('checksum_value') != request.get('md5'))):
+                        overwrite = core_config_get('transfers', 'overwrite_corrupted_files', default=False, session=session)
+                        if overwrite:
+                            attributes = request['attributes']
+                            attributes['overwrite'] = True
+
                 set_request_state(response['request_id'],
                                   response['new_state'],
                                   transfer_id=transfer_id,
@@ -1282,6 +1299,7 @@ def update_request_state(response, session=None, logger=logging.log):
                                   transferred_at=transferred_at,
                                   src_rse_id=src_rse_id,
                                   err_msg=err_msg,
+                                  attributes=attributes,
                                   session=session,
                                   logger=logger)
 
