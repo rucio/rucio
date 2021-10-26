@@ -450,12 +450,15 @@ class RSEProtocol(object):
             while '//' in parsed.path:
                 parsed = parsed._replace(path=parsed.path.replace('//', '/'))
             path = parsed.path
+            prefix = self.attributes['prefix']
+            while '//' in prefix:
+                prefix = prefix.replace('//', '/')
 
             # Protect against 'lazy' defined prefixes for RSEs in the repository
-            if not self.attributes['prefix'].startswith('/'):
-                self.attributes['prefix'] = '/' + self.attributes['prefix']
-            if not self.attributes['prefix'].endswith('/'):
-                self.attributes['prefix'] += '/'
+            if not prefix.startswith('/'):
+                prefix = '/' + prefix
+            if not prefix.endswith('/'):
+                prefix += '/'
 
             if self.attributes['hostname'] != hostname:
                 if self.attributes['hostname'] != 'localhost':  # In the database empty hostnames are replaced with localhost but for some URIs (e.g. file) a hostname is not included
@@ -464,13 +467,12 @@ class RSEProtocol(object):
             if self.attributes['port'] != port:
                 raise exception.RSEFileNameNotSupported('Invalid port: provided \'%s\', expected \'%s\'' % (port, self.attributes['port']))
 
-            if not path.startswith(self.attributes['prefix']):
-                raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(path.split('/')[0:len(self.attributes['prefix'].split('/')) - 1]),
-                                                                                                              self.attributes['prefix']))  # len(...)-1 due to the leading '/
+            if not path.startswith(prefix):
+                raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(path.split('/')[0:len(prefix.split('/')) - 1]),
+                                                                                                              prefix))  # len(...)-1 due to the leading '/
 
             # Spliting parsed.path into prefix, path, filename
-            prefix = self.attributes['prefix']
-            path = path.partition(self.attributes['prefix'])[2]
+            path = path.partition(prefix)[2]
             name = path.split('/')[-1]
             path = '/'.join(path.split('/')[:-1])
             if not path.startswith('/'):
