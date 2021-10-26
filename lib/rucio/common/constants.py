@@ -21,10 +21,14 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from collections import namedtuple
 from enum import Enum
+
+from rucio.common.config import config_get
 
 """
 Constants.
@@ -50,6 +54,9 @@ SCHEME_MAP = {'srm': ['srm', 'gsiftp'],
               'scp': ['scp'],
               'rsync': ['rsync'],
               'rclone': ['rclone']}
+if config_get('transfers', 'srm_https_compatibility', raise_exception=False, default=False):
+    SCHEME_MAP['srm'].append('https')
+    SCHEME_MAP['https'].append('srm')
 
 SUPPORTED_PROTOCOLS = ['gsiftp', 'srm', 'root', 'davs', 'http', 'https', 'file', 's3', 's3+rucio', 's3+https', 'storm', 'srm+https', 'scp', 'rsync', 'rclone']
 
