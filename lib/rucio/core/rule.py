@@ -2280,7 +2280,7 @@ def examine_rule(rule_id, session=None):
 
 
 @transactional_session
-def get_evaluation_backlog(session=None):
+def get_evaluation_backlog(expiration_time=600, session=None):
     """
     Counts the number of entries in the rule evaluation backlog.
     (Number of files to be evaluated)
@@ -2288,7 +2288,7 @@ def get_evaluation_backlog(session=None):
     :returns:     Tuple (Count, Datetime of oldest entry)
     """
 
-    result = REGION.get('rule_evaluation_backlog', expiration_time=600)
+    result = REGION.get('rule_evaluation_backlog', expiration_time=expiration_time)
     if result is NO_VALUE:
         result = session.query(func.count(models.UpdatedDID.created_at), func.min(models.UpdatedDID.created_at)).one()
         REGION.set('rule_evaluation_backlog', result)
