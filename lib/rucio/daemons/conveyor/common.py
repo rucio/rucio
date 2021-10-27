@@ -292,8 +292,13 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
             # for multihop transfers, all the path is submitted as a separate job
             job_params = _build_job_params(transfer_path[-1])
             for transfer in transfer_path[:-1]:
+                hop_params = _build_job_params(transfer)
                 # Only allow overwrite if all transfers in multihop allow it
-                job_params['overwrite'] = _build_job_params(transfer)['overwrite'] and job_params['overwrite']
+                job_params['overwrite'] = hop_params['overwrite'] and job_params['overwrite']
+                # Activate bring_online if it was requested by first hop (it is a multihop starting at a tape)
+                # We don't allow multihop via a tape, so bring_online should not be set on any other hop
+                if transfer is transfer_path[0] and hop_params['bring_online']:
+                    job_params['bring_online'] = hop_params['bring_online']
 
             group_key = 'multihop_%s' % transfer_path[-1].rws.request_id
             grouped_transfers[group_key] = {'transfers': transfer_path, 'job_params': job_params}
