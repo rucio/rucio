@@ -46,7 +46,6 @@ def upgrade():
         create_primary_key('DID_VP_PK', 'did_virtual_placements', ['scope', 'name'])
         create_foreign_key('DID_VP_FK', 'did_virtual_placements', 'dids',
                            ['scope', 'name'], ['scope', 'name'])
-        create_index('DID_VP_SCOPE_NAME_IDX', 'did_virtual_placements', ['scope', 'name'])
 
 
 def downgrade():
