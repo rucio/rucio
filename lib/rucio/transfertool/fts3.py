@@ -674,6 +674,7 @@ class FTS3Transfertool(Transfertool):
                                  'dst_type': file_resp['file_metadata'].get('dst_type', None),
                                  'src_rse': file_resp['file_metadata'].get('src_rse', None),
                                  'dst_rse': file_resp['file_metadata'].get('dst_rse', None),
+                                 'dst_file': file_resp['file_metadata'].get('dst_file', {}),
                                  'request_id': file_resp['file_metadata'].get('request_id', None),
                                  'activity': file_resp['file_metadata'].get('activity', None),
                                  'src_rse_id': file_resp['file_metadata'].get('src_rse_id', None),

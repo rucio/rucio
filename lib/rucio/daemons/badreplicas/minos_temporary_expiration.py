@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2019-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2019-2021
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
@@ -27,15 +27,18 @@ from __future__ import division
 import logging
 import math
 import os
+import re
 import socket
 import threading
 import time
 import traceback
 
+from sqlalchemy.exc import DatabaseError
+
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound
-from rucio.common.logging import setup_logging
+from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound, DatabaseException
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.utils import chunks, daemon_sleep
 from rucio.core import heartbeat
 from rucio.core.did import get_metadata
@@ -66,35 +69,34 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logging.info('%s Minos Temporary Expiration starting', prepend_str)
+    prefix = 'minos_temporary_expiration[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    logger = formatted_logger(logging.log, prefix + '%s')
+    logger(logging.INFO, 'Minos Temporary Expiration starting')
 
     time.sleep(10)  # To prevent running on the same partition if all the daemons restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-
-    logging.info('%s Minos Temporary Expiration started', prepend_str)
+    logger(logging.INFO, 'Minos Temporary Expiration started')
 
     chunk_size = 10  # The chunk size used for the commits
 
     while not graceful_stop.is_set():
         start_time = time.time()
         heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
         try:
             # Get list of expired TU replicas
-            logging.info('%s Getting list of expired replicas', prepend_str)
+            logger(logging.INFO, 'Getting list of expired replicas')
             expired_replicas = list_expired_temporary_unavailable_replicas(total_workers=heart_beat['nr_threads'],
                                                                            worker_number=heart_beat['assign_thread'],
                                                                            limit=1000)
-            logging.info('%s %s expired replicas returned', prepend_str, len(expired_replicas))
-            logging.debug('%s List of expired replicas returned %s', prepend_str, str(expired_replicas))
+            logger(logging.INFO, '%s expired replicas returned', len(expired_replicas))
+            logger(logging.DEBUG, 'List of expired replicas returned %s', str(expired_replicas))
             replicas = []
             bad_replicas = []
             nchunk = 0
             tot_chunk = int(math.ceil(len(expired_replicas) / float(chunk_size)))
             session = get_session()
             for chunk in chunks(expired_replicas, chunk_size):
+                heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
                 skip_replica_update = []
                 # Process and update the replicas in chunks
                 for replica in chunk:
@@ -110,16 +112,16 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
                     bad_replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': BadFilesStatus.TEMPORARY_UNAVAILABLE})
                 try:
                     nchunk += 1
-                    logging.debug('%s Running on %s chunk out of %s', prepend_str, nchunk, tot_chunk)
+                    logger(logging.DEBUG, 'Running on %s chunk out of %s', nchunk, tot_chunk)
                     update_replicas_states(replicas, nowait=True, session=session)
                     bulk_delete_bad_replicas(bad_replicas, session=session)
                     session.commit()  # pylint: disable=no-member
                 except (ReplicaNotFound, DataIdentifierNotFound) as error:
                     session.rollback()  # pylint: disable=no-member
-                    logging.warning('%s One of the replicas does not exist anymore. Updating and deleting one by one. Error : %s', prepend_str, str(error))
+                    logger(logging.WARNING, 'One of the replicas does not exist anymore. Updating and deleting one by one. Error : %s', str(error))
                     for replica in chunk:
                         scope, name, rse_id = replica[0], replica[1], replica[2]
-                        logging.debug('%s Working on %s:%s on %s', prepend_str, scope, name, rse_id)
+                        logger(logging.DEBUG, 'Working on %s:%s on %s', scope, name, rse_id)
                         try:
                             # First check if the DID exists
                             get_metadata(scope, name)
@@ -129,30 +131,37 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
                             session.commit()  # pylint: disable=no-member
                         except DataIdentifierNotFound:
                             session.rollback()  # pylint: disable=no-member
-                            logging.warning('%s DID %s:%s does not exist anymore.', prepend_str, scope, name)
+                            logger(logging.WARNING, 'DID %s:%s does not exist anymore.', scope, name)
                             bulk_delete_bad_replicas([{'scope': scope, 'name': name, 'rse_id': rse_id, 'state': BadFilesStatus.TEMPORARY_UNAVAILABLE}, ], session=session)
                             session.commit()  # pylint: disable=no-member
                         except ReplicaNotFound:
                             session.rollback()  # pylint: disable=no-member
-                            logging.warning('%s Replica %s:%s on RSEID %s does not exist anymore.', prepend_str, scope, name, rse_id)
+                            logger(logging.WARNING, 'Replica %s:%s on RSEID %s does not exist anymore.', scope, name, rse_id)
                             bulk_delete_bad_replicas([{'scope': scope, 'name': name, 'rse_id': rse_id, 'state': BadFilesStatus.TEMPORARY_UNAVAILABLE}, ], session=session)
                             session.commit()  # pylint: disable=no-member
                     session = get_session()
+                except (DatabaseException, DatabaseError) as error:
+                    if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+                        logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
+                    else:
+                        logger(logging.ERROR, 'Exception', exc_info=True)
+                    session.rollback()
+                    session = get_session()
                 except Exception:
                     session.rollback()  # pylint: disable=no-member
-                    logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
+                    logger(logging.CRITICAL, str(traceback.format_exc()))
                     session = get_session()
 
         except Exception:
-            logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
+            logger(logging.CRITICAL, str(traceback.format_exc()))
 
         if once:
             break
         daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop)
 
     heartbeat.die(executable, hostname, pid, hb_thread)
-    logging.info('%s Graceful stop requested', prepend_str)
-    logging.info('%s Graceful stop done', prepend_str)
+    logger(logging.INFO, 'Graceful stop requested')
+    logger(logging.INFO, 'Graceful stop done')
 
 
 def run(threads=1, bulk=100, once=False, sleep_time=60):
@@ -165,15 +174,15 @@ def run(threads=1, bulk=100, once=False, sleep_time=60):
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     if once:
-        logging.info('Will run only one iteration in a single threaded mode')
+        logging.log(logging.INFO, 'Will run only one iteration in a single threaded mode')
         minos_tu_expiration(bulk=bulk, once=once)
     else:
-        logging.info('Starting Minos Temporary Expiration threads')
+        logging.log(logging.INFO, 'Starting Minos Temporary Expiration threads')
         thread_list = [threading.Thread(target=minos_tu_expiration, kwargs={'once': once,
                                                                             'sleep_time': sleep_time,
                                                                             'bulk': bulk}) for _ in range(0, threads)]
         [thread.start() for thread in thread_list]
-        logging.info('Waiting for interrupts')
+        logging.log(logging.INFO, 'Waiting for interrupts')
         # Interruptible joins require a timeout.
         while thread_list:
             thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.is_alive()]
