@@ -36,7 +36,6 @@ from __future__ import division
 import datetime
 import json
 import logging
-import os
 import socket
 import threading
 import time
@@ -50,9 +49,10 @@ from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.constants import FTS_COMPLETE_STATE
 from rucio.common.logging import setup_logging
 from rucio.common.policy import get_policy
-from rucio.core import heartbeat, request
+from rucio.core import request
 from rucio.core.monitor import record_counter
-from rucio.core.transfer import set_transfer_update_time
+from rucio.core.transfer import set_transfer_update_time, is_recoverable_fts_overwrite_error
+from rucio.daemons.conveyor.common import HeartbeatHandler
 from rucio.db.sqla.constants import RequestState
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
@@ -106,6 +106,7 @@ class Receiver(object):
                             'dst_type': msg['file_metadata'].get('dst_type', None),
                             'src_rse': msg['file_metadata'].get('src_rse', None),
                             'dst_rse': msg['file_metadata'].get('dst_rse', None),
+                            'dst_file': msg['file_metadata'].get('dst_file', {}),
                             'request_id': msg['file_metadata'].get('request_id', None),
                             'activity': msg['file_metadata'].get('activity', None),
                             'src_rse_id': msg['file_metadata'].get('src_rse_id', None),
@@ -120,6 +121,8 @@ class Receiver(object):
 
                 record_counter('daemons.conveyor.receiver.message_rucio')
                 if str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.OK:  # pylint:disable=no-member
+                    response['new_state'] = RequestState.DONE
+                elif str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.ERROR and is_recoverable_fts_overwrite_error(response):  # pylint:disable=no-member
                     response['new_state'] = RequestState.DONE
                 elif str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.ERROR:  # pylint:disable=no-member
                     response['new_state'] = RequestState.FAILED
@@ -155,14 +158,7 @@ def receiver(id_, total_threads=1, full_mode=False, all_vos=False):
 
     logging.info('receiver starting in full mode: %s' % full_mode)
 
-    executable = 'conveyor-receiver'
-    hostname = socket.getfqdn()
-    pid = os.getpid()
-    hb_thread = threading.current_thread()
-
-    heartbeat.sanity_check(executable=executable, hostname=hostname)
-    # Make an initial heartbeat so that all finishers have the correct worker number on the next try
-    heartbeat.live(executable, hostname, pid, hb_thread)
+    logger_prefix = executable = 'conveyor-receiver'
 
     brokers_alias = []
     brokers_resolved = []
@@ -214,40 +210,35 @@ def receiver(id_, total_threads=1, full_mode=False, all_vos=False):
 
     logging.info('receiver started')
 
-    while not graceful_stop.is_set():
+    with HeartbeatHandler(executable=executable, logger_prefix=logger_prefix) as heartbeat_handler:
 
-        heartbeat.live(executable, hostname, pid, hb_thread)
+        while not graceful_stop.is_set():
+
+            _, logger = heartbeat_handler.live()
+
+            for conn in conns:
+
+                if not conn.is_connected():
+                    logger(logging.INFO, 'connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
+                    record_counter('daemons.messaging.fts3.reconnect.{host}', labels={'host': conn.transport._Transport__host_and_ports[0][0].split('.')[0]})
+
+                    conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0],
+                                                                       id_=id_, total_threads=total_threads,
+                                                                       full_mode=full_mode, all_vos=all_vos))
+                    if not use_ssl:
+                        conn.connect(username, password, wait=True)
+                    else:
+                        conn.connect(wait=True)
+                    conn.subscribe(destination=config_get('messaging-fts3', 'destination'),
+                                   id='rucio-messaging-fts3',
+                                   ack='auto')
+            time.sleep(1)
 
         for conn in conns:
-
-            if not conn.is_connected():
-                logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
-                record_counter('daemons.messaging.fts3.reconnect.{host}', labels={'host': conn.transport._Transport__host_and_ports[0][0].split('.')[0]})
-
-                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0],
-                                                                   id_=id_, total_threads=total_threads,
-                                                                   full_mode=full_mode, all_vos=all_vos))
-                if not use_ssl:
-                    conn.connect(username, password, wait=True)
-                else:
-                    conn.connect(wait=True)
-                conn.subscribe(destination=config_get('messaging-fts3', 'destination'),
-                               id='rucio-messaging-fts3',
-                               ack='auto')
-
-        time.sleep(1)
-
-    logging.info('receiver graceful stop requested')
-
-    for conn in conns:
-        try:
-            conn.disconnect()
-        except Exception:
-            pass
-
-    heartbeat.die(executable, hostname, pid, hb_thread)
-
-    logging.info('receiver graceful stop done')
+            try:
+                conn.disconnect()
+            except Exception:
+                pass
 
 
 def stop(signum=None, frame=None):

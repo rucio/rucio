@@ -138,7 +138,7 @@ def config_get_int(section, option, raise_exception=True, default=None, check_co
     client_mode = is_client()
     try:
         return get_config().getint(section, option)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
         if not client_mode and check_config_table:
             try:
                 return int(__config_get_table(section=section, option=option, raise_exception=raise_exception,
@@ -185,7 +185,7 @@ def config_get_float(section, option, raise_exception=True, default=None, check_
     client_mode = is_client()
     try:
         return get_config().getfloat(section, option)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
         if not client_mode and check_config_table:
             try:
                 return float(__config_get_table(section=section, option=option, raise_exception=raise_exception,
@@ -232,7 +232,7 @@ def config_get_bool(section, option, raise_exception=True, default=None, check_c
     client_mode = is_client()
     try:
         return get_config().getboolean(section, option)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
         if not client_mode and check_config_table:
             try:
                 return bool(__config_get_table(section=section, option=option, raise_exception=raise_exception,
@@ -343,7 +343,7 @@ def get_lfn2pfn_algorithm_default():
     default_lfn2pfn = "hash"
     try:
         default_lfn2pfn = config_get('policy', 'lfn2pfn_algorithm_default')
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError):
         pass
     return default_lfn2pfn
 

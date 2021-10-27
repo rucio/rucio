@@ -30,6 +30,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import json
@@ -1396,3 +1397,106 @@ class TestReplicationRuleClient(unittest.TestCase):
         self.rule_client.approve_replication_rule(rule_id)
         rule = self.rule_client.get_replication_rule(rule_id)
         assert rule['state'] == RuleState.INJECT.name
+
+
+@pytest.mark.noparallel(reason='Asynchronos behavior when loading locks')
+def test_detach_dataset_lock_removal(did_client, did_factory, root_account, rse_factory, vo):
+    rse, rse_id = rse_factory.make_posix_rse()
+    file = did_factory.upload_test_file(rse)
+    dataset_internal = did_factory.make_dataset()
+    container_internal = did_factory.make_container()
+
+    # make all scopes external
+    file, dataset, container = ({'scope': did['scope'].external, 'name': did['name']} for did in (file, dataset_internal, container_internal))
+
+    # Attach dataset to container
+    did_client.add_files_to_dataset(files=[file], **dataset)
+    did_client.add_datasets_to_container(dsns=[dataset], **container)
+
+    add_rse_attribute(rse_id=rse_id, key='fakeweight', value=5)
+    add_rse_attribute(get_rse_id(rse='MOCK', vo=vo), "fakeweight", 5)
+
+    rule_id = add_rule(dids=[container_internal], account=root_account, copies=2, rse_expression='fakeweight>0', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+    print("Rule id: {0}".format(rule_id))
+    dataset_locks = list(get_dataset_locks(scope=dataset_internal['scope'], name=dataset['name']))
+    print("Dataset locks before detach: {0}".format(dataset_locks))
+    assert(len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 2)
+
+    # Detach dataset from container, this should delete all locks on the dataset
+    did_client.detach_dids(**container, dids=[dataset_internal])
+
+    re_evaluator(once=True, did_limit=None)
+
+    dataset_locks = list(get_dataset_locks(**dataset_internal))
+    print("Dataset locks after detach: {0}".format(dataset_locks))
+    assert(len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 0)
+
+
+@pytest.mark.noparallel(reason='Asynchronos behavior when loading locks')
+def test_detach_dataset_lock_removal_shared_dataset(did_client, did_factory, root_account, rse_factory, vo):
+    rse, rse_id = rse_factory.make_posix_rse()
+    file = did_factory.upload_test_file(rse)
+    dataset_internal = did_factory.make_dataset()
+    container_internal = did_factory.make_container()
+    container_internal_2 = did_factory.make_container()
+
+    # make all scopes external
+    file, dataset, container, container_2 = ({'scope': did['scope'].external, 'name': did['name']} for did in (file, dataset_internal, container_internal, container_internal_2))
+
+    # Attach dataset to container
+    did_client.add_files_to_dataset(files=[file], **dataset)
+    did_client.add_datasets_to_container(dsns=[dataset], **container)
+    did_client.add_datasets_to_container(dsns=[dataset], **container_2)
+
+    add_rse_attribute(rse_id=rse_id, key='fakeweight', value=5)
+    add_rse_attribute(get_rse_id(rse='MOCK', vo=vo), "fakeweight", 5)
+
+    rule_id = add_rule(dids=[container_internal], account=root_account, copies=2, rse_expression='fakeweight>0', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+    print("Rule id: {0}".format(rule_id))
+    dataset_locks = list(get_dataset_locks(scope=dataset_internal['scope'], name=dataset['name']))
+    print("Dataset locks before detach: {0}".format(dataset_locks))
+    assert(len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 2)
+
+    # Detach dataset from container, this should delete all locks on the dataset
+    did_client.detach_dids(**container, dids=[dataset_internal])
+
+    re_evaluator(once=True, did_limit=None)
+
+    dataset_locks = list(get_dataset_locks(**dataset_internal))
+    print("Dataset locks after detach: {0}".format(dataset_locks))
+    assert(len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 0)
+
+
+@pytest.mark.noparallel(reason='Asynchronos behavior when loading locks')
+def test_detach_dataset_lock_removal_shared_file(did_client, did_factory, root_account, rse_factory, vo):
+    rse, rse_id = rse_factory.make_posix_rse()
+    file = did_factory.upload_test_file(rse)
+    dataset_internal = did_factory.make_dataset()
+    dataset_internal_2 = did_factory.make_dataset()
+    container_internal = did_factory.make_container()
+
+    # make all scopes external
+    file, dataset, dataset_2, container = ({'scope': did['scope'].external, 'name': did['name']} for did in (file, dataset_internal, dataset_internal_2, container_internal))
+
+    # Attach dataset to container
+    did_client.add_files_to_dataset(files=[file], **dataset)
+    did_client.add_files_to_dataset(files=[file], **dataset_2)
+    did_client.add_datasets_to_container(dsns=[dataset], **container)
+
+    add_rse_attribute(rse_id=rse_id, key='fakeweight', value=5)
+    add_rse_attribute(get_rse_id(rse='MOCK', vo=vo), "fakeweight", 5)
+
+    rule_id = add_rule(dids=[container_internal], account=root_account, copies=2, rse_expression='fakeweight>0', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+    print("Rule id: {0}".format(rule_id))
+    dataset_locks = list(get_dataset_locks(scope=dataset_internal['scope'], name=dataset['name']))
+    print("Dataset locks before detach: {0}".format(dataset_locks))
+    assert(len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 2)
+
+    # Detach dataset from container, this should delete all locks on the dataset
+    did_client.detach_dids(**container, dids=[dataset_internal])
+
+    re_evaluator(once=True, did_limit=None)
+
+    dataset_locks = list(get_dataset_locks(**dataset_internal))
+    print("Dataset locks after detach: {0}".format(dataset_locks))
+    assert(len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 0)

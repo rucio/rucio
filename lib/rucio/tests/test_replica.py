@@ -31,6 +31,8 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -153,6 +155,50 @@ class TestReplicaCore:
                 domain='wan',
                 client_location={'site': rse}):
             assert list(rep['pfns'].keys())[0].count('root://') == 1
+
+    def test_replicas_pfn_resolution(self, rse_factory, mock_scope, root_account):
+        """ REPLICA (CORE): Test pfn resolution with different protocols, this shouldn't throw an error """
+
+        rse, rse_id = rse_factory.make_rse()
+
+        add_protocol(rse_id, {'scheme': 'root',
+                              'hostname': 'root.aperture.com',
+                              'port': 1400,
+                              'prefix': '//test/chamber/',
+                              'impl': 'rucio.rse.protocols.xrootd.Default',
+                              'domains': {
+                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        add_protocol(rse_id, {'scheme': 'root',
+                              'hostname': 'root.aperture.com',
+                              'port': 1401,
+                              'prefix': '//test/chamber/',
+                              'impl': 'rucio.rse.protocols.xrootd.Default',
+                              'domains': {
+                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        add_protocol(rse_id, {'scheme': 'root',
+                              'hostname': 'root2.aperture.com',
+                              'port': 1401,
+                              'prefix': '//test/chamber/',
+                              'impl': 'rucio.rse.protocols.xrootd.Default',
+                              'domains': {
+                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+
+        files = []
+
+        name = 'file_%s' % generate_uuid()
+        hstr = hashlib.md5(('%s:%s' % (mock_scope, name)).encode('utf-8')).hexdigest()
+        pfn = 'root://root.aperture.com:1401//test/chamber/mock/%s/%s/%s' % (hstr[0:2], hstr[2:4], name)
+        files.append({'scope': mock_scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef', 'pfn': pfn})
+
+        name = 'element_%s' % generate_uuid()
+        hstr = hashlib.md5(('%s:%s' % (mock_scope, name)).encode('utf-8')).hexdigest()
+        pfn = 'root://root2.aperture.com:1401//test/chamber/mock/%s/%s/%s' % (hstr[0:2], hstr[2:4], name)
+        files.append({'scope': mock_scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef', 'pfn': pfn})
+
+        add_replicas(rse_id=rse_id, files=files, account=root_account)
 
     @pytest.mark.noparallel(reason='calls list_bad_replicas() which acts on all bad replicas without any filtering')
     def test_add_list_bad_replicas(self, rse_factory, mock_scope, root_account):

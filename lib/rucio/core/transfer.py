@@ -698,6 +698,34 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
     logger(logging.DEBUG, 'Finished to register transfer state for %s' % external_id)
 
 
+def is_recoverable_fts_overwrite_error(fts_status_dict):
+    """
+    Verify the special case when FTS cannot copy a file because destination exists and overwrite is disabled,
+    but the destination file is actually correct.
+
+    This can happen when some transitory error happened during a previous submission attempt.
+    Hence, the transfer is correctly executed by FTS, but rucio doesn't know about it.
+
+    Returns true when the request must be marked as successful even if it was reported failed by FTS.
+    """
+    if 'Destination file exists and overwrite is not enabled' in (fts_status_dict.get('reason') or ''):
+        dst_file = fts_status_dict['dst_file']
+        request_id = fts_status_dict['request_id']
+        request = None
+        if request_id:
+            request = request_core.get_request(request_id)
+        if (request and dst_file
+                and dst_file.get('file_size')
+                and dst_file.get('file_size') == request.get('bytes')
+                and (dst_file.get('checksum_type', '').lower() == 'adler32' and dst_file.get('checksum_value') == request.get('adler32')
+                     or dst_file.get('checksum_type', '').lower() == 'md5' and dst_file.get('checksum_value') == request.get('md5'))):
+            if dst_file.get('file_on_tape'):
+                return True
+            elif fts_status_dict.get('dst_type') == 'DISK':
+                return True
+    return False
+
+
 def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeout=None, logger=logging.log):
     """
     Query the status of a transfer.
@@ -733,6 +761,8 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
                         continue
 
                     if file_state == FTS_STATE.FINISHED:
+                        status_dict['new_state'] = RequestState.DONE
+                    elif job_state_is_final and file_state == FTS_STATE.FAILED and is_recoverable_fts_overwrite_error(status_dict):
                         status_dict['new_state'] = RequestState.DONE
                     elif job_state_is_final and file_state in (FTS_STATE.FAILED, FTS_STATE.CANCELED):
                         status_dict['new_state'] = RequestState.FAILED
