@@ -472,8 +472,8 @@ class DidVirtualPlacements(BASE, ModelBase):
     name = Column(String(get_schema_value('NAME_LENGTH')))
     placements = Column(JSON())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DID_VP_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_VP_FK'),
-                   Index('DID_VP_SCOPE_NAME_IDX', 'scope', 'name', unique=True))
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_VP_FK')
+                   )
 
 
 class DidMeta(BASE, ModelBase):
