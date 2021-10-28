@@ -69,7 +69,8 @@ from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists
                                     DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
                                     RSENotFound, RSEOperationNotSupported, InvalidRSEExpression,
                                     DuplicateContent, RuleNotFound, CannotAuthenticate,
-                                    Duplicate, ReplicaIsLocked, ConfigNotFound, ScopeNotFound)
+                                    Duplicate, ReplicaIsLocked, ConfigNotFound, ScopeNotFound,
+                                    InputValidationError)
 from rucio.common.extra import import_extras
 from rucio.common.utils import (chunks, construct_surl, sizefmt, get_bytes_value_from_string,
                                 render_json, parse_response, extract_scope, clean_surls,
@@ -187,6 +188,10 @@ def exception_handler(function):
         except ScopeNotFound as error:
             logger.error(error)
             logger.error('This means that no scopes were found for the specified account ID.')
+            return FAILURE
+        except InputValidationError as error:
+            logger.error(error)
+            logger.error('This means that the input you provided did not meet all the requirements.')
             return FAILURE
         except Exception as error:
             if isinstance(error, IOError) and getattr(error, 'errno', None) == errno.EPIPE:
