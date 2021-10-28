@@ -1907,6 +1907,15 @@ class TestBinRucio(unittest.TestCase):
         assert err != 0
         assert 'the following arguments are required' in err
 
+    def test_rucio_admin_duration_out_of_bounds(self):
+        """CLIENT(USER): Warn about deprecated command line arg"""
+        cmd = 'rucio-admin replicas declare-temporary-unavailable srm://se.bfg.uni-freiburg.de/pnfs/bfg.uni-freiburg.de/data/atlasdatadisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt --duration 622080000 --reason \'test only\''
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert err != 0
+        assert re.search(r'The given duration of 7199 days exceeds the maximum duration of 30 days.', err)
+
     def test_update_rule_cancel_requests_args(self):
         """CLIENT(USER): update rule cancel requests must have a state defined"""
         cmd = 'rucio update-rule --cancel-requests RULE'
