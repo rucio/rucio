@@ -9,17 +9,15 @@ Contributor Guide
 * You should make sure to add your name (and organisation) to `AUTHORS <AUTHORS.rst>`_.
 * If you have questions, you can reach the core development team on our `Slack <https://rucio.slack.com/>`_ channel, or send an email to our development mailing list `rucio-dev@cern.ch <mailto:rucio-dev@cern.ch>`_.
 
-A contribution can be either be a **patch**, **feature**, or **hotfix**:
+A contribution can be either be a **patch** or a **feature**:
  * **Patches** include bugfixes and minor changes to the code and are included in patch releases usually made on a bi-weekly schedule.
  * **Features** include major developments or potentially disruptive changes and are included in feature releases made multiple times a year.
- * **Hotfix** are specific patch releases happening due to the necessity of important fixes.
 
 The `repository <https://github.com/rucio/rucio/>`_  consists of different branches:
  * the **master** branch includes the development for the next major version.
  * the **release-…** branches include the patch/minor development of the releases.
- * the **hotfix-…** branches include the patches for hotfix releases.
 
-On release day both master and the related release branch are essentially the same. Release branches only exist for the currently maintained release versions. Hotfix branches are created on demand. Please communicate to the Rucio maintainers, if you wish to hotfix a previous release.
+On release day both master and the related release branch are essentially the same. Release branches only exist for the currently maintained release versions.
 
 Generally all `pull requests <https://github.com/rucio/rucio/pulls>`_ are to be created against the Rucio **master** branch. Features will end up in the upstream **master** only and patches are cherry-picked to the maintained releases if applicable. Release-specific changes are excluded from that rule and might be needed if e.g. cherry-picking to the last release was not successful.
 
@@ -57,13 +55,11 @@ Contributing
 
 * Patch branches must be named **patch-[issue number]-[short description]**
 * Feature branches must be named **feature-[issue number]-[short description]**
-* Hotfix branches must be named **hotfix-[issue number]-[short description]**
 
 If you create these branches by hand please check the spelling because otherwise the test automation might misidentify your branch. There are utility scripts to fetch master and create these branches for you::
 
     $ ./tools/create-patch-branch <unique issue number> '<short_change_message>'
     $ ./tools/create-feature-branch <unique issue number> '<short_change_message>'
-    $ ./tools/create-hotfix-branch <release tag/release branch> <unique issue number> '<short_change_message>'
 
 **Step 3**: Commit your change. The commit command must include a specific message format::
 
