@@ -572,5 +572,73 @@
       }
     },
     "storage_usage_tool": "rucio.rse.protocols.xrootd.Default.getSpace"
+  },
+  "SSH_DISK":{
+    "backend_type": "SSH",
+    "deterministic": true,
+    "protocols": {
+      "default": "ssh",
+      "supported": {
+        "ssh": {
+          "prefix": "/tmp/rucio_rse/",
+          "impl": "rucio.rse.protocols.ssh.Default",
+          "hostname": "ssh1",
+          "scheme": "scp",
+          "extended_attributes": {"user": "root"},
+          "port": 22,
+          "domains": {
+            "lan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "wan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
+        },
+      "rsync": {
+        "prefix": "/tmp/rucio_rse/",
+        "impl": "rucio.rse.protocols.ssh.Rsync",
+        "hostname": "ssh1",
+        "scheme": "rsync",
+        "extended_attributes": {"user": "root"},
+        "port": 22,
+        "domains": {
+            "lan": {
+            "read": 2,
+              "write": 2,
+              "delete": 2
+            },
+            "wan": {
+              "read": 2,
+              "write": 2,
+              "delete": 2
+            }
+          }
+        },
+      "rclone": {
+        "prefix": "/tmp/rucio_rse/",
+        "impl": "rucio.rse.protocols.rclone.Default",
+        "scheme": "rclone",
+        "port": 22,
+        "domains": {
+            "lan": {
+              "read": 3,
+              "write": 3,
+              "delete": 3
+            },
+            "wan": {
+              "read": 3,
+              "write": 3,
+              "delete": 3
+            }
+          }
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.ssh.Default.getSpace"
   }
 }

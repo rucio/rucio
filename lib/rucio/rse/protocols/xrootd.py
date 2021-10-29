@@ -80,7 +80,7 @@ class Default(protocol.RSEProtocol):
         try:
             path = self.pfn2path(pfn)
             cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s stat %s' % (self.hostname, self.port, path)
-            self.logger(logging.INFO, 'xrootd.exists: cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'xrootd.exists: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
                 return False
@@ -108,14 +108,14 @@ class Default(protocol.RSEProtocol):
         try:
             # xrdfs stat for getting filesize
             cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s stat %s' % (self.hostname, self.port, path)
-            self.logger(logging.INFO, 'xrootd.stat: filesize cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'xrootd.stat: filesize cmd: {}'.format(cmd))
             status_stat, out, err = execute(cmd)
             if status_stat == 0:
                 ret['filesize'] = out.split('\n')[2].split()[-1]
 
             # xrdfs query checksum for getting checksum
             cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s query checksum %s' % (self.hostname, self.port, path)
-            self.logger(logging.INFO, 'xrootd.stat: checksum cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'xrootd.stat: checksum cmd: {}'.format(cmd))
             status_query, out, err = execute(cmd)
             if status_query == 0:
                 chsum, value = out.strip('\n').split()
@@ -192,7 +192,7 @@ class Default(protocol.RSEProtocol):
             # The query stats call is not implemented on some xroot doors.
             # Workaround: fail, if server does not reply within 10 seconds for static config query
             cmd = 'XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs %s:%s query config %s:%s' % (self.hostname, self.port, self.hostname, self.port)
-            self.logger(logging.INFO, 'xrootd.connect: cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'xrootd.connect: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
                 raise exception.RSEAccessDenied(err)
@@ -215,7 +215,7 @@ class Default(protocol.RSEProtocol):
         self.logger(logging.DEBUG, 'xrootd.get: pfn: {}'.format(pfn))
         try:
             cmd = 'XrdSecPROTOCOL=gsi xrdcp -f %s %s' % (pfn, dest)
-            self.logger(logging.INFO, 'xrootd.get: cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'xrootd.get: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status == 54:
                 raise exception.SourceNotFound()
@@ -246,7 +246,7 @@ class Default(protocol.RSEProtocol):
             raise exception.SourceNotFound()
         try:
             cmd = 'XrdSecPROTOCOL=gsi xrdcp -f %s %s' % (source_url, path)
-            self.logger(logging.INFO, 'xrootd.put: cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'xrootd.put: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
                 raise exception.RucioException(err)
@@ -268,7 +268,7 @@ class Default(protocol.RSEProtocol):
         try:
             path = self.pfn2path(pfn)
             cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s rm %s' % (self.hostname, self.port, path)
-            self.logger(logging.INFO, 'xrootd.delete: cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'xrootd.delete: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
                 raise exception.RucioException(err)
@@ -292,10 +292,10 @@ class Default(protocol.RSEProtocol):
             new_path = self.pfn2path(new_pfn)
             new_dir = new_path[:new_path.rindex('/') + 1]
             cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s mkdir -p %s' % (self.hostname, self.port, new_dir)
-            self.logger(logging.INFO, 'xrootd.stat: mkdir cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'xrootd.stat: mkdir cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s mv %s %s' % (self.hostname, self.port, path, new_path)
-            self.logger(logging.INFO, 'xrootd.stat: rename cmd: {}'.format(cmd))
+            self.logger(logging.DEBUG, 'xrootd.stat: rename cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
                 raise exception.RucioException(err)
