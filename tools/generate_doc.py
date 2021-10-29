@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Copyright 2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +16,7 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import itertools
 import os
@@ -192,7 +194,7 @@ def render_bin_help_pages(rucio_src: str):
     bin_help_output_path = os.environ.get("RUCIO_BIN_HELP_OUTPUT", default="docs/bin")
     bin_help_output_path = pathlib.Path(bin_help_output_path)
     bin_help_output_path.mkdir(parents=True, exist_ok=True)
-    excludes = {"rucio-sonar", "rucio-sonar-distribution"}
+    excludes = {}
     os.environ["PYTHONPATH"] = os.path.join(rucio_src, "lib")
 
     def generate_procs():
