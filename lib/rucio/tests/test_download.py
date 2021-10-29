@@ -23,26 +23,29 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 import logging
 import os
 import shutil
 import tarfile
-from unittest.mock import patch, MagicMock, ANY
 from tempfile import TemporaryDirectory
+from unittest.mock import ANY, MagicMock, patch
 from zipfile import ZipFile
 
 import pytest
 
 from rucio.client.downloadclient import DownloadClient
+from rucio.common.config import config_add_section, config_set
 from rucio.common.exception import InputValidationError, NoFilesDownloaded, RucioException
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core import did as did_core
 from rucio.core import scope as scope_core
+from rucio.core.rse import add_protocol
 from rucio.rse import rsemanager as rsemgr
 from rucio.rse.protocols.posix import Default as PosixProtocol
-from rucio.tests.common import skip_rse_tests_with_accounts, scope_name_generator
+from rucio.tests.common import skip_rse_tests_with_accounts, scope_name_generator, file_generator
 
 
 @pytest.fixture
@@ -618,3 +621,96 @@ def test_transfer_timeout(rse_factory, did_factory, download_client):
             mocks_get.clear()
             download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'transfer_speed_timeout': 0}])
             mocks_get[0].assert_called_with(ANY, ANY, transfer_timeout=60)
+
+
+def test_download_file_with_impl(rse_factory, did_factory, download_client, mock_scope):
+    """ Download (CLIENT): Ensure the module associated to the impl value is called """
+
+    impl = 'xrootd'
+    rse, rse_id = rse_factory.make_rse()
+    add_protocol(rse_id, {'scheme': 'file',
+                          'hostname': '%s.cern.ch' % rse_id,
+                          'port': 0,
+                          'prefix': '/test/',
+                          'impl': 'rucio.rse.protocols.posix.Default',
+                          'domains': {
+                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+    add_protocol(rse_id, {'scheme': 'root',
+                          'hostname': '%s.cern.ch' % rse_id,
+                          'port': 0,
+                          'prefix': '/test/',
+                          'impl': 'rucio.rse.protocols.xrootd.Default',
+                          'domains': {
+                              'lan': {'read': 2, 'write': 2, 'delete': 2},
+                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+    path = file_generator()
+    name = os.path.basename(path)
+    item = {
+        'path': path,
+        'rse': rse,
+        'did_scope': str(mock_scope),
+        'did_name': name,
+        'guid': generate_uuid(),
+    }
+    did_factory.upload_client.upload([item])
+    did_str = '%s:%s' % (mock_scope, name)
+    with patch('rucio.rse.protocols.%s.Default.get' % impl, side_effect=lambda pfn, dest, **kw: shutil.copy(path, dest)) as mock_get, \
+            patch('rucio.rse.protocols.%s.Default.connect' % impl),\
+            patch('rucio.rse.protocols.%s.Default.close' % impl):
+        download_client.download_dids([{'did': did_str, 'impl': impl}])
+        mock_get.assert_called()
+
+
+def test_download_file_with_supported_protocol_from_config(rse_factory, did_factory, download_client, mock_scope):
+    """ Download (CLIENT): Ensure the module associated to the first protocol supported by both the remote and local config read from rucio.cfg is called """
+
+    rse, rse_id = rse_factory.make_rse()
+
+    add_protocol(rse_id, {'scheme': 'scp',
+                          'hostname': '%s.cern.ch' % rse_id,
+                          'port': 0,
+                          'prefix': '/test/',
+                          'impl': 'rucio.rse.protocols.ssh.Default',
+                          'domains': {
+                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+    add_protocol(rse_id, {'scheme': 'file',
+                          'hostname': '%s.cern.ch' % rse_id,
+                          'port': 0,
+                          'prefix': '/test/',
+                          'impl': 'rucio.rse.protocols.posix.Default',
+                          'domains': {
+                              'lan': {'read': 2, 'write': 2, 'delete': 2},
+                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+    add_protocol(rse_id, {'scheme': 'root',
+                          'hostname': '%s.cern.ch' % rse_id,
+                          'port': 0,
+                          'prefix': '/test/',
+                          'impl': 'rucio.rse.protocols.xrootd.Default',
+                          'domains': {
+                              'lan': {'read': 3, 'write': 3, 'delete': 3},
+                              'wan': {'read': 3, 'write': 3, 'delete': 3}}})
+
+    config_add_section('download')
+    config_set('download', 'preferred_impl', 'rclone, xrootd')
+
+    supported_impl = 'xrootd'
+
+    path = file_generator()
+    name = os.path.basename(path)
+    item = {
+        'path': path,
+        'rse': rse,
+        'did_scope': str(mock_scope),
+        'did_name': name,
+        'guid': generate_uuid(),
+    }
+    did_factory.upload_client.upload([item])
+    did_str = '%s:%s' % (mock_scope, name)
+
+    with patch('rucio.rse.protocols.%s.Default.get' % supported_impl, side_effect=lambda pfn, dest, **kw: shutil.copy(path, dest)) as mock_get, \
+            patch('rucio.rse.protocols.%s.Default.connect' % supported_impl),\
+            patch('rucio.rse.protocols.%s.Default.close' % supported_impl):
+        download_client.download_dids([{'did': did_str, 'impl': supported_impl}])
+        mock_get.assert_called()

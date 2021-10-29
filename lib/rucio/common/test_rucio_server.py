@@ -43,7 +43,7 @@ def get_scope_and_rses():
     Check if xrd containers rses for xrootd are available in the testing environment.
     :return: A tuple (scope, rses) for the rucio client where scope is mock/test and rses is a list.
     """
-    cmd = "rucio list-rses --expression 'test_container_xrd=True'"
+    cmd = "rucio list-rses --rses 'test_container_xrd=True'"
     print(cmd)
     exitcode, out, err = execute(cmd)
     print(out, err)

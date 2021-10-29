@@ -16,6 +16,7 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 # Create the following topology:
 # +------+   1   +------+
@@ -37,18 +38,23 @@ rucio-admin rse add XRD1
 rucio-admin rse add XRD2
 rucio-admin rse add XRD3
 rucio-admin rse add XRD4
+rucio-admin rse add SSH1
 
 # Add the protocol definitions for the storage servers
 rucio-admin rse add-protocol --hostname xrd1 --scheme root --prefix //rucio --port 1094 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD1
 rucio-admin rse add-protocol --hostname xrd2 --scheme root --prefix //rucio --port 1095 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD2
 rucio-admin rse add-protocol --hostname xrd3 --scheme root --prefix //rucio --port 1096 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD3
 rucio-admin rse add-protocol --hostname xrd4 --scheme root --prefix //rucio --port 1097 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD4
+rucio-admin rse add-protocol --hostname ssh1 --scheme scp --prefix /rucio --port 22 --impl rucio.rse.protocols.ssh.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' SSH1
+rucio-admin rse add-protocol --hostname ssh1 --scheme rsync --prefix /rucio --port 22 --impl rucio.rse.protocols.ssh.Rsync --domain-json '{"wan": {"read": 2, "write": 2, "delete": 2, "third_party_copy": 2}, "lan": {"read": 2, "write": 2, "delete": 2}}' SSH1
+rucio-admin rse add-protocol --hostname ssh1 --scheme rclone --prefix /rucio --port 22 --impl rucio.rse.protocols.rclone.Default --domain-json '{"wan": {"read": 3, "write": 3, "delete": 3, "third_party_copy": 3}, "lan": {"read": 3, "write": 3, "delete": 3}}' SSH1
 
 # Set test_container_xrd attribute for xrd containers
 rucio-admin rse set-attribute --rse XRD1 --key test_container_xrd --value True
 rucio-admin rse set-attribute --rse XRD2 --key test_container_xrd --value True
 rucio-admin rse set-attribute --rse XRD3 --key test_container_xrd --value True
 rucio-admin rse set-attribute --rse XRD4 --key test_container_xrd --value True
+rucio-admin rse set-attribute --rse SSH1 --key test_container_ssh --value True
 
 # Workaround, xrootd.py#connect returns with Auth Failed due to execution of the command in subprocess
 XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd1:1094 query config xrd1:1094
@@ -61,6 +67,7 @@ rucio-admin rse set-attribute --rse XRD1 --key fts --value https://fts:8446
 rucio-admin rse set-attribute --rse XRD2 --key fts --value https://fts:8446
 rucio-admin rse set-attribute --rse XRD3 --key fts --value https://fts:8446
 rucio-admin rse set-attribute --rse XRD4 --key fts --value https://fts:8446
+rucio-admin rse set-attribute --rse SSH1 --key fts --value https://fts:8446
 
 # Enable multihop transfers via XRD3
 rucio-admin rse set-attribute --rse XRD3 --key available_for_multihop --value True
@@ -80,6 +87,7 @@ rucio-admin account set-limits root XRD1 -1
 rucio-admin account set-limits root XRD2 -1
 rucio-admin account set-limits root XRD3 -1
 rucio-admin account set-limits root XRD4 -1
+rucio-admin account set-limits root SSH1 -1
 
 # Create a default scope for testing
 rucio-admin scope add --account root --scope test

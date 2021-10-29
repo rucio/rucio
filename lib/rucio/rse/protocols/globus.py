@@ -39,7 +39,7 @@ if EXTRA_MODULES['globus_sdk']:
 
 
 class GlobusRSEProtocol(RSEProtocol):
-    """ This class is to support Globus as a Rucio RSE protocol.  Inherits from abstract base class RSEProtocol."""
+    """ Implementing access to RSEs using the Globus service as a Rucio RSE protocol. """
 
     def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.

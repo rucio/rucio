@@ -58,6 +58,7 @@ Individual contributors to the source code
 - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 - Nick Smith <nick.smith@cern.ch>, 2021
 - Rizart Dona <rizart.dona@cern.ch>, 2021
+- Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 
 Organisations employing contributors

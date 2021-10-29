@@ -36,7 +36,7 @@
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Paul Millar <paul.millar@desy.de>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
-# - jdierkes <joel.dierkes@cern.ch>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 from __future__ import print_function
 
@@ -414,6 +414,19 @@ class TestBinRucio(unittest.TestCase):
         upload_string_1 = (self.upload_success_str % path.basename(tmp_file1))
         assert upload_string_1 in out or upload_string_1 in err
 
+    def test_upload_file_with_impl(self):
+        """CLIENT(USER): Rucio upload file with impl parameter assigned 'posix' value"""
+        tmp_file1 = file_generator()
+        impl = 'posix'
+        cmd = 'rucio -v upload --rse {0} --scope {1} --impl {2} {3}'.format(self.def_rse, self.user, impl, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        remove(tmp_file1)
+        upload_string_1 = (self.upload_success_str % path.basename(tmp_file1))
+        assert re.search(upload_string_1, err) is not None
+
     def test_upload_repeated_file(self):
         """CLIENT(USER): Rucio upload repeated files"""
         # One of the files to upload is already catalogued but was removed
@@ -618,6 +631,52 @@ class TestBinRucio(unittest.TestCase):
         print(out, err)
         # download files
         cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:-2] + '*')  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # search for the files with ls
+        cmd = 'ls /tmp/'    # search in /tmp/
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert re.search(tmp_file1[5:], out) is not None
+
+        try:
+            for i in listdir('data13_hip'):
+                unlink('data13_hip/%s' % i)
+            rmdir('data13_hip')
+        except Exception:
+            pass
+
+    def test_download_file_with_impl(self):
+        """CLIENT(USER): Rucio download files with impl parameter assigned 'posix' value"""
+        tmp_file1 = file_generator()
+        impl = 'posix'
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} {3}'.format(self.def_rse, self.user, impl, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # download files
+        cmd = 'rucio -v download --dir /tmp {0}:{1} --impl {2}'.format(self.user, tmp_file1[5:], impl)  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # search for the files with ls
+        cmd = 'ls /tmp/'    # search in /tmp/
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert re.search(tmp_file1[5:], out) is not None
+
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} {3}'.format(self.def_rse, self.user, impl, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # download files
+        cmd = 'rucio -v download --dir /tmp {0}:{1} --impl {2}'.format(self.user, tmp_file1[5:-2] + '*', impl)  # triming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)

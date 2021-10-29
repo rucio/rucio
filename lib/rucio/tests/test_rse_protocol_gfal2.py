@@ -38,6 +38,7 @@ from rucio.tests.rsemgr_api_test import MgrTestCases
 class TestRseGFAL2(unittest.TestCase):
     tmpdir = None
     user = None
+    impl = 'gfal'
 
     @classmethod
     def setUpClass(cls):
@@ -132,9 +133,9 @@ class TestRseGFAL2(unittest.TestCase):
         """GFAL2 (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseGFAL2.tmpdir
         self.rse_id = 'FZK-LCG2_SCRATCHDISK'
-        self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', TestRseGFAL2.user, TestRseGFAL2.static_file)
+        self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', TestRseGFAL2.user, TestRseGFAL2.static_file, impl=TestRseGFAL2.impl)
         # self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', TestRseGFAL2.user, "srm://atlassrm-fzk.gridka.de/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/user/wguan/rucio.test.2")
-        self.mtc.setup_scheme('srm', 'gfal')
+        self.mtc.setup_scheme('srm')
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):
