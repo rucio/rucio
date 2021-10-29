@@ -22,6 +22,7 @@ import sqlalchemy as sa
 from alembic import context
 from alembic.op import create_primary_key, create_table, create_foreign_key, drop_table
 
+from rucio.common.schema import get_schema_value
 from rucio.db.sqla.types import JSON
 
 # Alembic revision identifiers
@@ -35,16 +36,16 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        create_table('did_virtual_placements',
-                     sa.Column('scope', sa.String(25)),
-                     sa.Column('name', sa.String(255)),
+        create_table('virtual_placements',
+                     sa.Column('scope', sa.String(get_schema_value('SCOPE_LENGTH'))),
+                     sa.Column('name', sa.String(get_schema_value('NAME_LENGTH'))),
                      sa.Column('placements', JSON()),
                      sa.Column('created_at', sa.DateTime),
                      sa.Column('updated_at', sa.DateTime)
                      )
 
-        create_primary_key('DID_VP_PK', 'did_virtual_placements', ['scope', 'name'])
-        create_foreign_key('DID_VP_FK', 'did_virtual_placements', 'dids',
+        create_primary_key('VP_PK', 'virtual_placements', ['scope', 'name'])
+        create_foreign_key('VP_FK', 'virtual_placements', 'dids',
                            ['scope', 'name'], ['scope', 'name'])
 
 
@@ -54,4 +55,4 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_table('did_virtual_placements')
+        drop_table('virtual_placements')

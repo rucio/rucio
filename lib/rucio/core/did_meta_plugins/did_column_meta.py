@@ -127,7 +127,7 @@ class DidColumnMeta(DidMetaPlugin):
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
-    def set_metadata(self, scope, name, key, value, recursive=False, session=None):  # ILIJA
+    def set_metadata(self, scope, name, key, value, recursive=False, session=None):
         self.set_metadata_bulk(scope=scope, name=name, meta={key: value}, recursive=recursive, session=session)
 
     @transactional_session

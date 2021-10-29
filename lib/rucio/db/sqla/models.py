@@ -106,7 +106,7 @@ def _oracle_json_constraint(target, connection, **kw):
         if oracle_version >= 12:
             if target.name == 'did_meta':
                 target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_META_JSON_CHK'))
-            if target.name == 'did_virtual_placements':
+            if target.name == 'virtual_placements':
                 target.append_constraint(CheckConstraint('PLACEMENTS IS JSON', 'ORACLE_PLACEMENTS_JSON_CHK'))
 
 
@@ -465,14 +465,14 @@ class DataIdentifier(BASE, ModelBase):
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
 
 
-class DidVirtualPlacements(BASE, ModelBase):
+class VirtualPlacements(BASE, ModelBase):
     """Represents virtual placements"""
-    __tablename__ = 'did_virtual_placements'
+    __tablename__ = 'virtual_placements'
     scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name = Column(String(get_schema_value('NAME_LENGTH')))
     placements = Column(JSON())
-    _table_args = (PrimaryKeyConstraint('scope', 'name', name='DID_VP_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_VP_FK')
+    _table_args = (PrimaryKeyConstraint('scope', 'name', name='VP_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='VP_FK')
                    )
 
 
@@ -1713,7 +1713,7 @@ def register_models(engine):
               DIDKeyValueAssociation,
               DataIdentifier,
               DidMeta,
-              DidVirtualPlacements,
+              VirtualPlacements,
               DeletedDataIdentifier,
               DidsFollowed,
               FollowEvents,

@@ -46,7 +46,7 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 from rucio.db.sqla.util import json_implemented
 
 
-class JSONDidMeta(DidMetaPlugin):  # ILIJA
+class JSONDidMeta(DidMetaPlugin):
     """
     A plugin to store DID metadata on a table on the relational database, using JSON blobs
     """
