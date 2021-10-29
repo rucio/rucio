@@ -57,6 +57,7 @@ import errno
 import logging
 import math
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -82,6 +83,7 @@ from rucio.common.test_rucio_server import TestRucioServer
 from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, \
     extract_scope, setup_logger, StoreAndDeprecateWarningAction
 from rucio.common.constants import ReplicaState
+from rucio.rse.protocols.protocol import RSEProtocol
 
 EXTRA_MODULES = import_extras(['argcomplete'])
 
@@ -928,6 +930,44 @@ def erase(args):
 
 
 @exception_handler
+def list_impls(args):
+    """
+    %(prog)s list-impls
+
+    List protocol implementations.
+    """
+
+    PROTOCOL_DIRECTORY = '/opt/rucio/lib/rucio/rse/protocols'
+
+    for filename in os.listdir(PROTOCOL_DIRECTORY):
+        if os.path.isdir(os.path.join(PROTOCOL_DIRECTORY, filename)) or filename in ["__init__.py", "cache.py", "http_cache.py", "dummy.py", "protocol.py"]:
+            continue
+        else:
+            filename = re.sub(r".py", r"", filename)
+            __import__("rucio.rse.protocols", fromlist=[filename])
+
+    impls = []
+
+    def get_subclasses(cls):
+        for subclass in cls.__subclasses__():
+            if (str(subclass)[28:-2]).endswith('Default'):
+                class_name = str(subclass)[28:-10]
+            else:
+                class_name = str(subclass)[28:-2]
+            impls.append([class_name, subclass.__doc__])
+            get_subclasses(subclass)
+
+    get_subclasses(RSEProtocol)
+    impls = sorted(impls)
+    table = []
+    for impl in impls:
+        table.append([impl[0], impl[1]])
+
+    print(tabulate(table, tablefmt=tablefmt, headers=['impl', 'DESCRIPTION']))
+    return SUCCESS
+
+
+@exception_handler
 def upload(args):
     """
     rucio upload [scope:datasetname] [folder/] [files1 file2 file3]
@@ -950,10 +990,15 @@ def upload(args):
     for arg in args.args:
         if arg.count(':') > 0:
             continue
+        if args.pfn:
+            if args.impl:
+                logger.warning('Ignoring --impl option because --pfn option given')
+                args.impl = None
         items.append({'path': arg,
                       'rse': args.rse,
                       'did_scope': args.scope,
                       'did_name': args.name,
+                      'impl': args.impl,
                       'dataset_scope': dsscope,
                       'dataset_name': dsname,
                       'force_scheme': args.protocol,
@@ -1072,6 +1117,7 @@ def download(args):
         item_defaults['filters'] = filters
 
     if not args.pfn:
+        item_defaults['impl'] = args.impl
         item_defaults['force_scheme'] = args.protocol
         item_defaults['nrandom'] = args.nrandom
 
@@ -1093,6 +1139,8 @@ def download(args):
     else:
         if args.aria:
             logger.warning('Ignoring --aria option because --pfn option given')
+        if args.impl:
+            logger.warning('Ignoring --impl option because --pfn option given')
         if args.protocol:
             logger.warning('Ignoring --protocol option because --pfn option given')
         if args.transfer_speed_timeout:
@@ -2195,12 +2243,17 @@ You can filter by key/value, e.g.::
     list_content_history_parser.set_defaults(function=list_content_history)
     list_content_history_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
-    # The upload subparser
+    # The list-impls command
+    list_impls_parser = subparsers.add_parser('list-impls', help='List all supported protocol implementations.')
+    list_impls_parser.set_defaults(function=list_impls)
+
+# The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method.')
     upload_parser.set_defaults(function=upload)
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True).completer = rse_completer
     upload_parser.add_argument('--lifetime', type=int, action='store', help='Lifetime of the rule in seconds.')
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
+    upload_parser.add_argument('--impl', dest='impl', action='store', help='Transfer protocol implementation to use (e.g: xrootd, gfal.NoRename, webdav, ssh.Rsync, rclone).')
     # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
     upload_parser.add_argument('--no-register', dest='no_register', action='store_true', default=False, help=argparse.SUPPRESS)
     upload_parser.add_argument('--register-after-upload', dest='register_after_upload', action='store_true', default=False, help='Register the file only after successful upload.')
@@ -2223,6 +2276,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--allow-tape', action='store_true', default=False, help="Also consider tape endpoints as source of the download.")
         selected_parser.add_argument('--rse', action='store', help='RSE Expression to specify allowed sources')  # TODO:remove-deprecated
         selected_parser.add_argument('--rses', action='store', help='RSE Expression to specify allowed sources')
+        selected_parser.add_argument('--impl', dest='impl', action='store', help='Transfer protocol implementation to use (e.g: xrootd, gfal.NoRename, webdav, ssh.Rsync, rclone).')
         selected_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
         selected_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
         selected_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
