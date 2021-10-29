@@ -33,7 +33,7 @@ function usage {
   echo ''
   echo '  -h    Show usage'
   echo '  -i    Do only the initialization'
-  echo '  -r    Activate default RSEs (XRD1, XRD2, XRD3)'
+  echo '  -r    Activate default RSEs (XRD1, XRD2, XRD3, SSH1)'
   echo '  -s    Run special tests for Dirac. Includes using BelleII schema'
   echo '  -t    Verbose output from pytest'
   echo '  -a    Skip alembic downgrade/upgrade test'
@@ -139,7 +139,7 @@ if [ $? != 0 ]; then
 fi
 
 if test ${activate_rse}; then
-    echo 'Activating default RSEs (XRD1, XRD2, XRD3)'
+    echo 'Activating default RSEs (XRD1, XRD2, XRD3, SSH1)'
     tools/docker_activate_rses.sh
 fi
 
