@@ -65,8 +65,8 @@ class LockClient(BaseClient):
         Get list of locks for for all the files found, recursively, in the listed datasets or containers.
 
         :param dids: list of dictionaries {"scope":..., "name":..., "type":...}
-                        type can be either "dataset" or "container"
-                        type is optional, but if specified, improves the query performance
+                     type can be either "dataset" or "container"
+                     type is optional, but if specified, improves the query performance
         :returns:    list of dictionaries with lock info
         """
 
