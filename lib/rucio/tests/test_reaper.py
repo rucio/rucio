@@ -392,15 +392,17 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     assert __get_archive_contents_history_count(archive2) == 3
 
 
-@pytest.mark.noparallel(reason='runs reaper which may impact other tests run in parallel. It resets some memcached values.')
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
     ('deletion', 'archive_dids', True), ('deletion', 'archive_content', True)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.core.config.REGION', 'rucio.core.replica.REGION'
+    'rucio.daemons.reaper.reaper.REGION',
+    'rucio.core.config.REGION',
+    'rucio.core.replica.REGION',
 ]}], indirect=True)
 def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock, caches_mock):
     """ REAPER (DAEMON): Test that the options to keep the did and content history work."""
+    [reaper_cache_region, _config_cache_region, _replica_cache_region] = caches_mock
     scope = InternalScope('data13_hip', vo=vo)
     account = root_account
 
@@ -415,7 +417,7 @@ def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
 
     # Check first if the reaper does not delete anything if no space is needed
-    REGION.invalidate()
+    reaper_cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, greedy=True)
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == 0
