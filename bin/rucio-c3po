@@ -20,6 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 """
 C-3PO is a dynamic data placement daemon.
@@ -28,6 +29,7 @@ C-3PO is a dynamic data placement daemon.
 import argparse
 import signal
 
+from rucio.common.utils import StoreAndDeprecateWarningAction
 from rucio.daemons.c3po.c3po import run, stop
 
 
@@ -39,18 +41,18 @@ def get_parser():
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
     parser.add_argument("--only-workload", action="store_true", default=False, help='Only run the workload collector')
-    parser.add_argument("--dry_run", action="store_true", default=False, help='Do not create any rules')
+    parser.add_argument("--dry_run", "--dry-run", new_option_string="--dry-run", action=StoreAndDeprecateWarningAction, default=False, help='Do not create any rules')
     parser.add_argument("--sampling", action="store_true", default=False, help='In the end flip a to decide to create a rule or not')
     parser.add_argument("--algorithms", action="store", default="t2_free_space_only_pop_with_network", type=str, help='The placement algorithm or, if in dry_run, a comma separated list of algorithms')
     parser.add_argument("--datatypes", action="store", default="NTUP,DAOD", type=str, help='Comma separated list of datatype that should trigger the placement')
-    parser.add_argument("--dest_rse_expr", action="store", default="type=DATADISK", type=str, help='RSE expression defining the allowed destination RSEs')
-    parser.add_argument("--max_bytes_hour", action="store", default=100000000000000, type=int, help='Max number of bytes that c3po is allow to replicate per hour')
-    parser.add_argument("--max_files_hour", action="store", default=100000, type=int, help='Max number of files that c3po is allow to replicate per hour')
-    parser.add_argument("--max_bytes_hour_rse", action="store", default=50000000000000, type=int, help='Max number of bytes that c3po is allow to replicate per hour per rse')
-    parser.add_argument("--max_files_hour_rse", action="store", default=10000, type=int, help='Max number of files that c3po is allow to replicate per hour prse_rse')
-    parser.add_argument("--min_popularity", action="store", default=8, type=int, help='Min number of popularity accesses for a DID in the last 7 days to trigger')
-    parser.add_argument("--min_recent_requests", action="store", default=5, type=int, help='Min number of times a DID has to be requested in the last hour to trigger')
-    parser.add_argument("--max_replicas", action="store", default=5, type=int, help='Max number of replicas above which not to trigger anymore')
+    parser.add_argument("--dest_rse_expr", "--dest-rse-expr", new_option_string="--dest-rse-expr", action=StoreAndDeprecateWarningAction, default="type=DATADISK", type=str, help='RSE expression defining the allowed destination RSEs')
+    parser.add_argument("--max_bytes_hour", "--max-bytes-hour", new_option_string="--max-bytes-hour", action=StoreAndDeprecateWarningAction, default=100000000000000, type=int, help='Max number of bytes that c3po is allow to replicate per hour')
+    parser.add_argument("--max_files_hour", "--max-files-hour", new_option_string="--max-files-hour", action=StoreAndDeprecateWarningAction, default=100000, type=int, help='Max number of files that c3po is allow to replicate per hour')
+    parser.add_argument("--max_bytes_hour_rse", "--max-bytes-hour-rse", new_option_string="--max-bytes-hour-rse", action=StoreAndDeprecateWarningAction, default=50000000000000, type=int, help='Max number of bytes that c3po is allow to replicate per hour per rse')  # NOQA: E501
+    parser.add_argument("--max_files_hour_rse", "--max-files-hour-rse", new_option_string="--max-files-hour-rse", action=StoreAndDeprecateWarningAction, default=10000, type=int, help='Max number of files that c3po is allow to replicate per hour prse_rse')
+    parser.add_argument("--min_popularity", "--min-popularity", new_option_string="--min-popularity", action=StoreAndDeprecateWarningAction, default=8, type=int, help='Min number of popularity accesses for a DID in the last 7 days to trigger')
+    parser.add_argument("--min_recent_requests", "--min-recent-requests", new_option_string="--min-recent-requests", action=StoreAndDeprecateWarningAction, default=5, type=int, help='Min number of times a DID has to be requested in the last hour to trigger')  # NOQA: E501
+    parser.add_argument("--max_replicas", "--max-replicas", new_option_string="--max-replicas", action=StoreAndDeprecateWarningAction, default=5, type=int, help='Max number of replicas above which not to trigger anymore')
     parser.add_argument('--waiting-time-read-free-space', action="store", default=1800, type=int, help='Waiting time for reading free space')
     parser.add_argument('--waiting-time-read-workload', action="store", default=1800, type=int, help='Waiting time for reading workload')
     parser.add_argument('--waiting-time-print-workload', action="store", default=600, type=int, help='Waiting time for printing workload')

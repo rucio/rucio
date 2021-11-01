@@ -63,6 +63,8 @@ except:
         if os.environ['RUCIO_CLIENT_MODE']:
             raise exception.MissingDependency('Missing dependency : gfal2')
 
+TIMEOUT = config.config_get('deletion', 'timeout', False, None)
+
 
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the srm protocol."""
@@ -205,8 +207,40 @@ class Default(protocol.RSEProtocol):
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
         self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
+        auth_configured = False
         if self.auth_token:
             self.__ctx.set_opt_string("BEARER", "TOKEN", self.auth_token)
+            auth_configured = True
+        # Configure gfal authentication to use the rucio client proxy if and only if gfal didn't initialize its credentials already
+        # (https://gitlab.cern.ch/dmc/gfal2/-/blob/48cfe3476392c884b53d00799198b1238603a406/src/core/common/gfal_common.c#L79)
+        if not auth_configured:
+            try:
+                self.__ctx.get_opt_string("X509", "CERT")
+                self.__ctx.get_opt_string("X509", "KEY")
+                auth_configured = True
+            except gfal2.GError:  # pylint: disable=no-member
+                pass
+        if not auth_configured:
+            try:
+                self.__ctx.get_opt_string("BEARER", "TOKEN")
+                auth_configured = True
+            except gfal2.GError:  # pylint: disable=no-member
+                pass
+        if not auth_configured:
+            proxy = config.config_get('client', 'client_x509_proxy', default=None, raise_exception=False)
+            if proxy:
+                self.logger(logging.INFO, 'Configuring authentication to use {}'.format(proxy))
+                self.__ctx.set_opt_string("X509", "CERT", proxy)
+                self.__ctx.set_opt_string("X509", "KEY", proxy)
+
+        if TIMEOUT:
+            try:
+                timeout = int(TIMEOUT)
+                self.__ctx.set_opt_integer("HTTP PLUGIN", "OPERATION_TIMEOUT", timeout)
+                self.__ctx.set_opt_integer("SRM PLUGIN", "OPERATION_TIMEOUT", timeout)
+                self.__ctx.set_opt_integer("GSIFTP PLUGIN", "OPERATION_TIMEOUT", timeout)
+            except ValueError:
+                self.logger(logging.ERROR, 'wrong timeout value %s', TIMEOUT)
 
     def get(self, path, dest, transfer_timeout=None):
         """
@@ -579,7 +613,7 @@ class Default(protocol.RSEProtocol):
 
 class NoRename(Default):
 
-    """ Do not rename files on upload/download. Necessary for some storage endpoints. """
+    """ Implementing access to RSEs using the srm protocol without renaming files on upload/download. Necessary for some storage endpoints. """
 
     def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.
@@ -605,6 +639,8 @@ class NoRename(Default):
 
 
 class CLI(Default):
+
+    """ Implementing access to RSEs using the srm protocol through CLI with 'gfal' commands. """
 
     def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.

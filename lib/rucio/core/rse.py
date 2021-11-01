@@ -68,7 +68,8 @@ if TYPE_CHECKING:
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
-                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211',
+                                                              check_config_table=False),
                                             'distributed_lock': True})
 
 

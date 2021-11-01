@@ -1,17 +1,26 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
-# - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
-#
-# PY3K COMPATIBLE
+# - Wen Guan <wen.guan@cern.ch>, 2014-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2021
 
 import os
 try:
@@ -244,7 +253,7 @@ class Default(protocol.RSEProtocol):
                 raise exception.DestinationNotAccessible('Cannot get the destionation key from S3')
             key.set_contents_from_filename(full_name)
         except boto.exception.S3ResponseError as e:
-            if e.status == 404 and 'NoSuchBucket' in str(e):
+            if e.status == 404 and 'NoSuchBucket' in e.error_code:
                 try:
                     bucket, key = self.get_bucket_key(target, create=True)
                     key.set_contents_from_filename(full_name)

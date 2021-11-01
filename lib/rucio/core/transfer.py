@@ -69,7 +69,7 @@ from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.oidc import get_token_for_account_operation
-from rucio.core.replica import add_replicas, tombstone_from_delay
+from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
 from rucio.core.request import queue_requests, set_requests_state
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rses, get_rse_supported_checksums_from_attributes
 from rucio.core.rse_expression_parser import parse_expression
@@ -698,6 +698,34 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
     logger(logging.DEBUG, 'Finished to register transfer state for %s' % external_id)
 
 
+def is_recoverable_fts_overwrite_error(fts_status_dict):
+    """
+    Verify the special case when FTS cannot copy a file because destination exists and overwrite is disabled,
+    but the destination file is actually correct.
+
+    This can happen when some transitory error happened during a previous submission attempt.
+    Hence, the transfer is correctly executed by FTS, but rucio doesn't know about it.
+
+    Returns true when the request must be marked as successful even if it was reported failed by FTS.
+    """
+    if 'Destination file exists and overwrite is not enabled' in (fts_status_dict.get('reason') or ''):
+        dst_file = fts_status_dict['dst_file']
+        request_id = fts_status_dict['request_id']
+        request = None
+        if request_id:
+            request = request_core.get_request(request_id)
+        if (request and dst_file
+                and dst_file.get('file_size')
+                and dst_file.get('file_size') == request.get('bytes')
+                and (dst_file.get('checksum_type', '').lower() == 'adler32' and dst_file.get('checksum_value') == request.get('adler32')
+                     or dst_file.get('checksum_type', '').lower() == 'md5' and dst_file.get('checksum_value') == request.get('md5'))):
+            if dst_file.get('file_on_tape'):
+                return True
+            elif fts_status_dict.get('dst_type') == 'DISK':
+                return True
+    return False
+
+
 def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeout=None, logger=logging.log):
     """
     Query the status of a transfer.
@@ -733,6 +761,8 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
                         continue
 
                     if file_state == FTS_STATE.FINISHED:
+                        status_dict['new_state'] = RequestState.DONE
+                    elif job_state_is_final and file_state == FTS_STATE.FAILED and is_recoverable_fts_overwrite_error(status_dict):
                         status_dict['new_state'] = RequestState.DONE
                     elif job_state_is_final and file_state in (FTS_STATE.FAILED, FTS_STATE.CANCELED):
                         status_dict['new_state'] = RequestState.FAILED
@@ -939,7 +969,7 @@ def __search_shortest_paths(
     The inbound links retrieved from the database can be accumulated into the inbound_links_by_node, passed
     from the calling context. To be able to reuse them.
     """
-    HOP_PENALTY = core_config_get('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
+    HOP_PENALTY = config_get('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
 
     if multihop_rses:
         # Filter out island source RSEs
@@ -1201,38 +1231,49 @@ def get_dsn(scope, name, dsn):
     return 'other'
 
 
-def __filter_unwanted_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") -> "Generator[List[DirectTransferDefinition]]":
-
+def __filter_multihops_with_intermediate_tape(candidate_paths: "Iterable[List[DirectTransferDefinition]]") -> "Generator[List[DirectTransferDefinition]]":
     # Discard multihop transfers which contain a tape source as an intermediate hop
-    filtered_candidate_paths = []
     for path in candidate_paths:
         if any(transfer.src.rse.is_tape_or_staging_required() for transfer in path[1:]):
-            continue
-        filtered_candidate_paths.append(path)
-    candidate_paths = filtered_candidate_paths
+            pass
+        else:
+            yield path
 
-    # Discard multihop transfers which contain other candidate as part of itself For example:
-    # if A->B->C and B->C are both candidates, discard A->B->C because it includes B->C. Doing B->C is enough.
-    source_rses = {path[0].src.rse.id for path in candidate_paths}
-    filtered_candidate_paths = []
+
+def __compress_multihops(
+        candidate_paths: "Iterable[List[DirectTransferDefinition]]",
+        sources: "Iterable[TransferSource]",
+) -> "Generator[List[DirectTransferDefinition]]":
+    # Compress multihop transfers which contain other sources as part of itself.
+    # For example: multihop A->B->C and B is a source, compress A->B->C into B->C
+    source_rses = {s.rse.id for s in sources}
+    seen_source_rses = set()
     for path in candidate_paths:
-        if any(hop.src.rse.id in source_rses for hop in path[1:]):
-            continue
-        filtered_candidate_paths.append(path)
-    candidate_paths = filtered_candidate_paths
+        if len(path) > 1:
+            # find the index of the first hop starting from the end which is also a source. Path[0] will always be a source.
+            last_source_idx = next((idx for idx, hop in reversed(list(enumerate(path))) if hop.src.rse.id in source_rses), (0, None))
+            if last_source_idx > 0:
+                path = path[last_source_idx:]
 
-    yield from candidate_paths
+        # Deduplicate paths from same source
+        src_rse_id = path[0].src.rse.id
+        if src_rse_id not in seen_source_rses:
+            seen_source_rses.add(src_rse_id)
+            yield path
 
 
 def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") -> "Generator[List[DirectTransferDefinition]]":
 
     def __transfer_order_key(transfer_path):
+        # Reduce the priority of the tape sources. If there are any disk sources,
+        # they must fail twice (1 penalty + 1 disk preferred over tape) before a tape will even be tried
+        source_ranking_penalty = 1 if transfer_path[0].src.rse.is_tape_or_staging_required() else 0
         # higher source_ranking first,
         # on equal source_ranking, prefer DISK over TAPE
         # on equal type, prefer lower distance_ranking
         # on equal distance, prefer single hop
         return (
-            - transfer_path[0].src.source_ranking,
+            - transfer_path[0].src.source_ranking + source_ranking_penalty,
             transfer_path[0].src.rse.is_tape_or_staging_required(),  # rely on the fact that False < True
             transfer_path[0].src.distance_ranking,
             len(transfer_path) > 1,  # rely on the fact that False < True
@@ -1401,6 +1442,9 @@ def __build_transfer_paths(
     unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
     unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
+    # Disallow multihop via blocklisted RSEs
+    multihop_rses = list(set(multihop_rses).difference(unavailable_write_rse_ids).difference(unavailable_read_rse_ids))
+
     candidate_paths_by_request_id, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, set(), set(), set()
     for rws in requests_with_sources:
 
@@ -1492,7 +1536,8 @@ def __build_transfer_paths(
         if len(filtered_sources) != len(candidate_paths):
             logger(logging.DEBUG, 'Sources after path computation for %s: %s', rws, [str(path[0].src.rse) for path in candidate_paths])
 
-        candidate_paths = __filter_unwanted_paths(candidate_paths)
+        candidate_paths = __filter_multihops_with_intermediate_tape(candidate_paths)
+        candidate_paths = __compress_multihops(candidate_paths, rws.sources)
         candidate_paths = list(__sort_paths(candidate_paths))
 
         if not candidate_paths:
@@ -1568,7 +1613,10 @@ def create_missing_replicas_and_requests(
     """
     creation_successful = True
     created_requests = []
-    for hop in transfer_path:
+    # Iterate the path in reverse order. The last hop is the initial request, so
+    # next_hop.rws.request_id will always be initialized when handling the current hop.
+    for i in reversed(range(len(transfer_path))):
+        hop = transfer_path[i]
         rws = hop.rws
         if rws.request_id:
             continue
@@ -1591,9 +1639,14 @@ def create_missing_replicas_and_requests(
                          ignore_availability=False,
                          dataset_meta=None,
                          session=session)
+            # Set replica state to Copying in case replica already existed in another state.
+            # Can happen when a multihop transfer failed previously, and we are re-scheduling it now.
+            update_replica_state(rse_id=rws.dest_rse.id, scope=rws.scope, name=rws.name, state=ReplicaState.COPYING, session=session)
         except Exception as error:
             logger(logging.ERROR, 'Problem adding replicas %s:%s on %s : %s', rws.scope, rws.name, rws.dest_rse, str(error))
 
+        rws.attributes['next_hop_request_id'] = transfer_path[i + 1].rws.request_id
+        rws.attributes['initial_request_id'] = transfer_path[-1].rws.request_id
         new_req = queue_requests(requests=[{'dest_rse_id': rws.dest_rse.id,
                                             'scope': rws.scope,
                                             'name': rws.name,

@@ -58,9 +58,11 @@ protocol_stat_retries = 6
 
 [upload]
 #transfer_timeout = 3600
+#preferred_impl = xrootd, rclone
 
 [download]
 #transfer_timeout = 3600
+#preferred_impl = xrootd, rclone
 
 [core]
 geoip_licence_key = LICENCEKEYGOESHERE  # Get a free licence key at https://www.maxmind.com/en/geolite2/signup
@@ -222,12 +224,6 @@ ddm_url = http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json
 [c3po-workload]
 panda_url = http://bigpanda.cern.ch/jobs/?category=analysis&jobstatus=running
 window = 604800
-
-[sonar]
-dataset_prefix = sonar.test.medium.
-dataset_size = 5000000000
-dataset_dir = ~/public/sonar_medium_dataset/
-scope = user.vzavrtan
 
 [policy]
 package = ATLASRucioPolicy

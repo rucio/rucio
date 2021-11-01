@@ -32,10 +32,10 @@ from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
+from rucio.common.config import config_get
 from rucio.common.exception import RucioException, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, UnsupportedOperation
 from rucio.common.utils import generate_uuid, str_to_date
 import rucio.common.policy
-from rucio.core.config import get
 from rucio.core.message import add_message
 from rucio.core.rse import list_rse_attributes
 
@@ -136,7 +136,7 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
     text += '\n'
     text += 'Approve:   https://rucio-ui.cern.ch/lifetime_exception?id=%s&action=approve\n' % str(exception_id)
     text += 'Deny:      https://rucio-ui.cern.ch/lifetime_exception?id=%s&action=deny\n' % str(exception_id)
-    approvers_email = get('lifetime_model', 'approvers_email', default=[], session=session)
+    approvers_email = config_get('lifetime_model', 'approvers_email', default=[], session=session)
     if approvers_email:
         approvers_email = approvers_email.split(',')  # pylint: disable=no-member
 

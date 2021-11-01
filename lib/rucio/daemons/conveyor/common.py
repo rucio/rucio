@@ -41,18 +41,22 @@ Methods common to different conveyor submitter daemons.
 
 from __future__ import division
 
+from configparser import NoOptionError, NoSectionError
 import datetime
 import functools
 import logging
+import os
+import socket
+import threading
 import time
 from json import loads
 
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
-                                    ConfigNotFound, DuplicateFileTransferSubmission, VONotFound)
+                                    DuplicateFileTransferSubmission, VONotFound)
+from rucio.common.logging import formatted_logger
 from rucio.common.utils import chunks
-from rucio.core import request, transfer as transfer_core
-from rucio.core.config import get
+from rucio.core import heartbeat, request, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
@@ -62,6 +66,50 @@ from rucio.db.sqla.constants import RequestState
 from rucio.rse import rsemanager as rsemgr
 
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
+
+
+class HeartbeatHandler:
+    """
+    Simple contextmanager which sets a heartbeat and associated logger on entry and cleans up the heartbeat on exit.
+    """
+
+    def __init__(self, executable, logger_prefix=None):
+        self.executable = executable
+        self.logger_prefix = logger_prefix or executable
+
+        self.hostname = socket.getfqdn()
+        self.pid = os.getpid()
+        self.hb_thread = threading.current_thread()
+
+        self.logger = None
+        self.last_heart_beat = None
+
+    def __enter__(self):
+        heartbeat.sanity_check(executable=self.executable, hostname=self.hostname)
+        self.live()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.last_heart_beat:
+            heartbeat.die(self.executable, self.hostname, self.pid, self.hb_thread)
+            if self.logger:
+                self.logger(logging.INFO, 'Heartbeat cleaned up')
+
+    def live(self, older_than=None):
+        if older_than:
+            self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread, older_than=older_than)
+        else:
+            self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread)
+
+        prefix = '%s[%i/%i]: ' % (self.logger_prefix, self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'])
+        self.logger = formatted_logger(logging.log, prefix + '%s')
+
+        if not self.last_heart_beat:
+            self.logger(logging.DEBUG, 'First heartbeat set')
+        else:
+            self.logger(logging.DEBUG, 'Heartbeat renewed')
+
+        return self.last_heart_beat, self.logger
 
 
 def submit_transfer(external_host, transfers, job_params, submitter='submitter', timeout=None, logger=logging.log, transfertool=TRANSFER_TOOL):
@@ -208,7 +256,7 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
                       'issuer': 'rucio',
                       'multi_sources': True if len(transfer.legacy_sources) > 1 else False,
                   },
-                  'overwrite': overwrite,
+                  'overwrite': transfer.rws.attributes.get('overwrite', overwrite),
                   'priority': transfer.rws.priority}
 
     if transfer.get('multihop', False):
@@ -230,6 +278,8 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
                 job_params['archive_timeout'] = archive_timeout
             elif archive_timeout_override != 0:
                 job_params['archive_timeout'] = archive_timeout_override
+            # FTS only supports dst_file metadata if archive_timeout is set
+            job_params['dst_file_report'] = True
             logger(logging.DEBUG, 'Added archive timeout to transfer.')
         except ValueError:
             logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', transfer)
@@ -262,14 +312,14 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
     grouped_jobs = []
 
     try:
-        default_source_strategy = get(section='conveyor', option='default-source-strategy')
-    except ConfigNotFound:
+        default_source_strategy = config_get(section='conveyor', option='default-source-strategy')
+    except (NoOptionError, NoSectionError, RuntimeError):
         default_source_strategy = 'orderly'
 
     try:
-        activity_source_strategy = get(section='conveyor', option='activity-source-strategy')
+        activity_source_strategy = config_get(section='conveyor', option='activity-source-strategy')
         activity_source_strategy = loads(activity_source_strategy)
-    except ConfigNotFound:
+    except (NoOptionError, NoSectionError, RuntimeError):
         activity_source_strategy = {}
     except ValueError:
         logger(logging.WARNING, 'activity_source_strategy not properly defined')
@@ -292,8 +342,13 @@ def bulk_group_transfers_for_fts(transfers, policy='rule', group_bulk=200, sourc
             # for multihop transfers, all the path is submitted as a separate job
             job_params = _build_job_params(transfer_path[-1])
             for transfer in transfer_path[:-1]:
+                hop_params = _build_job_params(transfer)
                 # Only allow overwrite if all transfers in multihop allow it
-                job_params['overwrite'] = _build_job_params(transfer)['overwrite'] and job_params['overwrite']
+                job_params['overwrite'] = hop_params['overwrite'] and job_params['overwrite']
+                # Activate bring_online if it was requested by first hop (it is a multihop starting at a tape)
+                # We don't allow multihop via a tape, so bring_online should not be set on any other hop
+                if transfer is transfer_path[0] and hop_params['bring_online']:
+                    job_params['bring_online'] = hop_params['bring_online']
 
             group_key = 'multihop_%s' % transfer_path[-1].rws.request_id
             grouped_transfers[group_key] = {'transfers': transfer_path, 'job_params': job_params}
@@ -359,7 +414,7 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None,
     :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     :return:              List of working rses
     """
-    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    multi_vo = config_get('common', 'multi_vo', raise_exception=False, default=False)
     if not multi_vo:
         if vos:
             logger(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')

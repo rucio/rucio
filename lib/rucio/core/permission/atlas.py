@@ -1,4 +1,5 @@
-# Copyright 2016-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,18 +14,20 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2016
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Eric Vaandering, <ewv@fnal.gov>, 2020
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Eric Vaandering <ewv@fnal.gov>, 2020
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from typing import TYPE_CHECKING
 
@@ -524,12 +527,8 @@ def perm_update_rule(issuer, kwargs):
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
         return True
 
-    # Only admin accounts can change account, state, priority of a rule
-    if 'account' in kwargs['options'] or\
-       'state' in kwargs['options'] or\
-       'priority' in kwargs['options'] or\
-       'child_rule_id' in kwargs['options'] or\
-       'meta' in kwargs['options']:
+    admin_reserved = {'account', 'state', 'priority', 'child_rule_id', 'meta', 'boost_rule'}
+    if admin_reserved.intersection(kwargs['options'].keys()):
         return False  # Only priv accounts are allowed to change that
 
     # Country admins are allowed to change the rest.

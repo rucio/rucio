@@ -26,7 +26,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2021
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
@@ -39,16 +39,20 @@
 # - Anil Panta <47672624+panta-123@users.noreply.github.com>, 2021
 # - Ilija Vukotic <ivukotic@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import absolute_import, print_function
 
+import argparse
 import base64
 import datetime
 import errno
 import getpass
 import hashlib
+import io
 import json
 import logging
+import mmap
 import os
 import os.path
 import re
@@ -59,6 +63,7 @@ import threading
 import time
 import zlib
 from enum import Enum
+from functools import partial
 from uuid import uuid4 as uuid
 from xml.etree import ElementTree
 
@@ -68,7 +73,7 @@ from six.moves import StringIO, zip_longest as izip_longest
 from six.moves.urllib.parse import urlparse, urlencode, quote, parse_qsl, urlunparse
 from six.moves.configparser import NoOptionError, NoSectionError
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_has_section
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
 from rucio.common.extra import import_extras
 from rucio.common.types import InternalAccount, InternalScope
@@ -239,6 +244,19 @@ def is_checksum_valid(checksum_name):
     return checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS
 
 
+def set_preferred_checksum(checksum_name):
+    """
+    A simple function to check wether a checksum algorithm is supported.
+    Relies on GLOBALLY_SUPPORTED_CHECKSUMS to allow for expandability.
+
+    :param checksum_name: The name of the checksum to be verified.
+    :returns: True if checksum_name is in GLOBALLY_SUPPORTED_CHECKSUMS list, False otherwise.
+    """
+    if is_checksum_valid(checksum_name):
+        global PREFERRED_CHECKSUM
+        PREFERRED_CHECKSUM = checksum_name
+
+
 def set_checksum_value(file, checksum_names_list):
     for checksum_name in checksum_names_list:
         if checksum_name in file['metadata'].keys() and file['metadata'][checksum_name]:
@@ -259,13 +277,16 @@ def adler32(file):
     adler = 1
 
     try:
-        with open(file, 'rb') as openFile:
-            for line in openFile:
-                adler = zlib.adler32(line, adler)
+        with open(file, 'r+b') as f:
+            # memory map the file
+            m = mmap.mmap(f.fileno(), 0)
+            # partial block reads at slightly increased buffer sizes
+            for block in iter(partial(m.read, io.DEFAULT_BUFFER_SIZE), b''):
+                adler = zlib.adler32(block, adler)
     except Exception as e:
         raise Exception('FATAL - could not get Adler32 checksum of file %s - %s' % (file, e))
 
-    # backflip on 32bit
+    # backflip on 32bit -- can be removed once everything is fully migrated to 64bit
     if adler < 0:
         adler = adler + 2 ** 32
 
@@ -765,10 +786,10 @@ register_extract_scope_algorithm(extract_scope_atlas, 'atlas')
 register_extract_scope_algorithm(extract_scope_belleii, 'belleii')
 
 
-def extract_scope(did, scopes=None):
+def extract_scope(did, scopes=None, default_extract=_DEFAULT_EXTRACT):
     extract_scope_convention = config_get('common', 'extract_scope', False, None)
     if extract_scope_convention is None or extract_scope_convention not in _EXTRACT_SCOPE_ALGORITHMS:
-        extract_scope_convention = _DEFAULT_EXTRACT
+        extract_scope_convention = default_extract
     return _EXTRACT_SCOPE_ALGORITHMS[extract_scope_convention](did=did, scopes=scopes)
 
 
@@ -1328,7 +1349,8 @@ def setup_logger(module_name=None, logger_name=None, logger_level=None, verbose=
     '''
     # helper method for cfg check
     def _force_cfg_log_level(cfg_option):
-        cfg_forced_modules = config_get('logging', cfg_option, raise_exception=False, default=None, clean_cached=True)
+        cfg_forced_modules = config_get('logging', cfg_option, raise_exception=False, default=None, clean_cached=True,
+                                        check_config_table=False)
         if cfg_forced_modules:
             if re.match(str(cfg_forced_modules), module_name):
                 return True
@@ -1405,6 +1427,28 @@ def daemon_sleep(start_time, sleep_time, graceful_stop, logger=logging.log):
         graceful_stop.wait(sleep_time - time_diff)
 
 
+def is_client():
+    """"
+    Checks if the function is called from a client or from a server/daemon
+
+    :returns client_mode: True if is called from a client, False if it is called from a server/daemon
+    """
+    if 'RUCIO_CLIENT_MODE' not in os.environ:
+        if config_has_section('database'):
+            client_mode = False
+        elif config_has_section('client'):
+            client_mode = True
+        else:
+            client_mode = False
+    else:
+        if os.environ['RUCIO_CLIENT_MODE']:
+            client_mode = True
+        else:
+            client_mode = False
+
+    return client_mode
+
+
 class retry:
     """Retry callable object with configuragle number of attempts"""
 
@@ -1433,3 +1477,73 @@ class retry:
                     logger(logging.DEBUG, str(e))
                 attempt -= 1
         return self.func(*self.args, **self.kwargs)
+
+
+class StoreAndDeprecateWarningAction(argparse.Action):
+    '''
+    StoreAndDeprecateWarningAction is a descendant of :class:`argparse.Action`
+    and represents a store action with a deprecated argument name.
+    '''
+
+    def __init__(self,
+                 option_strings,
+                 new_option_string,
+                 dest,
+                 **kwargs):
+        """
+        :param option_strings: all possible argument name strings
+        :param new_option_string: the new option string which replaces the old
+        :param dest: name of variable to store the value in
+        :param kwargs: everything else
+        """
+        super(StoreAndDeprecateWarningAction, self).__init__(
+            option_strings=option_strings,
+            dest=dest,
+            **kwargs)
+        assert new_option_string in option_strings
+        self.new_option_string = new_option_string
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if option_string and option_string != self.new_option_string:
+            # The logger gets typically initialized after the argument parser
+            # to set the verbosity of the logger. Thus using simple print to console.
+            print("Warning: The commandline argument {} is deprecated! Please use {} in the future.".format(option_string, self.new_option_string))
+
+        setattr(namespace, self.dest, values)
+
+
+class StoreTrueAndDeprecateWarningAction(argparse._StoreConstAction):
+    '''
+    StoreAndDeprecateWarningAction is a descendant of :class:`argparse.Action`
+    and represents a store action with a deprecated argument name.
+    '''
+
+    def __init__(self,
+                 option_strings,
+                 new_option_string,
+                 dest,
+                 default=False,
+                 required=False,
+                 help=None):
+        """
+        :param option_strings: all possible argument name strings
+        :param new_option_string: the new option string which replaces the old
+        :param dest: name of variable to store the value in
+        :param kwargs: everything else
+        """
+        super(StoreTrueAndDeprecateWarningAction, self).__init__(
+            option_strings=option_strings,
+            dest=dest,
+            const=True,
+            default=default,
+            required=required,
+            help=help)
+        assert new_option_string in option_strings
+        self.new_option_string = new_option_string
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        super(StoreTrueAndDeprecateWarningAction, self).__call__(parser, namespace, values, option_string=option_string)
+        if option_string and option_string != self.new_option_string:
+            # The logger gets typically initialized after the argument parser
+            # to set the verbosity of the logger. Thus using simple print to console.
+            print("Warning: The commandline argument {} is deprecated! Please use {} in the future.".format(option_string, self.new_option_string))
