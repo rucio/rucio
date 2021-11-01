@@ -35,11 +35,6 @@ class LockClient(BaseClient):
 
     LOCKS_BASEURL = 'locks'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None,
-                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
-        super(LockClient, self).__init__(rucio_host, auth_host, account, ca_cert,
-                                         auth_type, creds, timeout, user_agent, vo=vo)
-
     def get_dataset_locks(self, scope, name):
         """
         Get a dataset locks of the specified dataset.
@@ -65,8 +60,8 @@ class LockClient(BaseClient):
         Get list of locks for for all the files found, recursively, in the listed datasets or containers.
 
         :param dids: list of dictionaries {"scope":..., "name":..., "type":...}
-                        type can be either "dataset" or "container"
-                        type is optional, but if specified, improves the query performance
+                     type can be either "dataset" or "container"
+                     type is optional, but if specified, improves the query performance
         :returns:    list of dictionaries with lock info
         """
 

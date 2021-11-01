@@ -80,8 +80,6 @@ def get_dataset_locks_bulk(dids, session=None):
     :return:               Generator of lock_info dicts, may contain duplicates
     """
 
-    from rucio.core.did import list_child_datasets
-
     for did in dids:
         scope = did["scope"]
         assert isinstance(scope, InternalScope)
@@ -89,7 +87,7 @@ def get_dataset_locks_bulk(dids, session=None):
         did_type = did.get("type")
         if not did_type:
             try:
-                did_info = rucio.core.did.get_did(scope, name)
+                did_info = rucio.core.did.get_did(scope, name, session=session)
             except DataIdentifierNotFound:
                 continue
             did_type = did_info["type"]
@@ -98,7 +96,7 @@ def get_dataset_locks_bulk(dids, session=None):
             for lock_dict in get_dataset_locks(scope, name, session=session):
                 yield lock_dict
         else:
-            for dataset_info in list_child_datasets(scope, name, session=session):
+            for dataset_info in rucio.core.did.list_child_datasets(scope, name, session=session):
                 dataset_scope, dataset_name = dataset_info["scope"], dataset_info["name"]
                 for lock_dict in get_dataset_locks(dataset_scope, dataset_name, session=session):
                     yield lock_dict
