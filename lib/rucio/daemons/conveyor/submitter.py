@@ -53,8 +53,11 @@ from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
 from rucio.core import transfer as transfer_core
 from rucio.core.monitor import MultiCounter, record_timer
-from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfers_for_fts, bulk_group_transfers_for_globus, get_conveyor_rses, HeartbeatHandler
+from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, HeartbeatHandler
 from rucio.db.sqla.constants import RequestType
+from rucio.transfertool.fts3 import FTS3Transfertool
+from rucio.transfertool.globus import GlobusTransferTool
+from rucio.transfertool.mock import MockTransfertool
 
 graceful_stop = threading.Event()
 
@@ -64,6 +67,12 @@ TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
 
 GET_TRANSFERS_COUNTER = MultiCounter(prom='rucio_daemons_conveyor_submitter_get_transfers', statsd='daemons.conveyor.transfer_submitter.get_transfers',
                                      documentation='Number of transfers retrieved')
+
+TRANSFERTOOL_CLASSES_BY_NAME = {
+    'fts3': FTS3Transfertool,
+    'globus': GlobusTransferTool,
+    'mock': MockTransfertool,
+}
 
 
 def submitter(once=False, rses=None, partition_wait_time=10,
@@ -140,6 +149,21 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                     logger(logging.INFO, 'Starting to get transfer transfers for %s', activity)
                     start_time = time.time()
 
+                    transfertool_kwargs = {
+                        FTS3Transfertool: {
+                            'group_policy': group_policy,
+                            'group_bulk': group_bulk,
+                            'source_strategy': source_strategy,
+                            'max_time_in_queue': max_time_in_queue,
+                            'bring_online': bring_online,
+                            'default_lifetime': 172800,
+                            'archive_timeout_override': archive_timeout_override,
+                        },
+                        GlobusTransferTool: {
+                            'group_policy': transfertype,
+                            'group_bulk': group_bulk,
+                        },
+                    }
                     transfers = transfer_core.next_transfers_to_submit(
                         total_workers=heart_beat['nr_threads'],
                         worker_number=heart_beat['assign_thread'],
@@ -148,7 +172,8 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                         activity=activity,
                         rses=rse_ids,
                         schemes=scheme,
-                        transfertool=filter_transfertool,
+                        filter_transfertool=filter_transfertool,
+                        transfertools_by_name={transfertool: TRANSFERTOOL_CLASSES_BY_NAME[transfertool]},
                         older_than=None,
                         request_type=RequestType.TRANSFER,
                         logger=logger,
@@ -160,24 +185,18 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                     record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', total_transfers)
                     logger(logging.INFO, 'Got %s transfers for %s in %s seconds', total_transfers, activity, time.time() - start_time)
 
-                    grouped_jobs = {}
-                    for external_host, transfer_paths in transfers.items():
+                    for builder, transfer_paths in transfers.items():
+                        transfertool_obj = builder.make_transfertool(logger=logger, **transfertool_kwargs.get(builder.transfertool_class, {}))
                         start_time = time.time()
-                        logger(logging.INFO, 'Starting to group transfers for %s (%s)', activity, external_host)
-                        if transfertool in ['fts3', 'mock']:
-                            grouped_jobs = bulk_group_transfers_for_fts(transfer_paths, group_policy, group_bulk, source_strategy, max_time_in_queue,
-                                                                        bring_online=bring_online, default_lifetime=172800, archive_timeout_override=archive_timeout_override)
-                        elif transfertool == 'globus':
-                            grouped_jobs = bulk_group_transfers_for_globus(transfer_paths, transfertype, group_bulk)
-                        else:
-                            logger(logging.ERROR, 'Unknown transfer tool')
+                        logger(logging.INFO, 'Starting to group transfers for %s (%s)', activity, transfertool_obj)
+                        grouped_jobs = transfertool_obj.group_into_submit_jobs(transfer_paths)
                         record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfer_paths) or 1))
 
-                        logger(logging.INFO, 'Starting to submit transfers for %s (%s)', activity, external_host)
+                        logger(logging.INFO, 'Starting to submit transfers for %s (%s)', activity, transfertool_obj)
                         for job in grouped_jobs:
                             logger(logging.DEBUG, 'submitjob: %s' % job)
-                            submit_transfer(external_host=external_host, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter',
-                                            timeout=timeout, logger=logger, transfertool=transfertool)
+                            submit_transfer(transfertool_obj=transfertool_obj, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter',
+                                            timeout=timeout, logger=logger)
 
                     if total_transfers < group_bulk:
                         logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', total_transfers, activity, group_bulk, sleep_time)
