@@ -175,7 +175,7 @@ def main(arguments):
 
                 with open(MyFile, 'w') as modified:
                     modified.write(header + data)
-            else:
+            elif arguments.verbose:
                 print(header)
 
             sys.exit(0)
@@ -245,7 +245,7 @@ def main(arguments):
                         if count == 0 or not_comment_line:
                             modified.write(line)
 
-        elif not arguments.check:
+        elif not arguments.check or arguments.verbose:
             print(header)
     exit(exit_code)
 
@@ -261,6 +261,7 @@ if __name__ == '__main__':
                         help='Checks if the script would change anything (non-zero exit code equals change).')
     parser.add_argument('--disable-add-me', action='store_true',
                         help="Do not add the person who runs this command, except if there already is a contributing commit.")
+    parser.add_argument('--verbose', '-v', action='store_true', help='Verbose mode')
     parser.add_argument(dest='MyFiles', action='store', nargs='+', default=None, help='The files')
 
     main(parser.parse_args())
