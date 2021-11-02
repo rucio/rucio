@@ -39,6 +39,7 @@ try:
     from json.decoder import JSONDecodeError
 except ImportError:
     JSONDecodeError = ValueError
+import functools
 import logging
 import time
 import traceback
@@ -49,6 +50,8 @@ except ImportError:
 import uuid
 
 import requests
+from configparser import NoOptionError, NoSectionError
+from json import loads
 from requests.adapters import ReadTimeout
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 
@@ -59,9 +62,11 @@ from prometheus_client import Summary
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import FTS_STATE
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
-from rucio.common.utils import APIEncoder, set_checksum_value
+from rucio.common.utils import APIEncoder, chunks, set_checksum_value
+from rucio.core.rse import get_rse_supported_checksums_from_attributes
+from rucio.core.oidc import get_token_for_account_operation
 from rucio.core.monitor import record_counter, record_timer, MultiCounter
-from rucio.transfertool.transfertool import Transfertool
+from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 disable_warnings()
@@ -90,24 +95,303 @@ QUERY_DETAILS_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query_details
 SUBMISSION_TIMER = Summary('rucio_transfertool_fts3_submit_transfer', 'Timer for transfer submission', labelnames=('host',))
 
 
+ALLOW_USER_OIDC_TOKENS = config_get('conveyor', 'allow_user_oidc_tokens', False, False)
+REQUEST_OIDC_SCOPE = config_get('conveyor', 'request_oidc_scope', False, 'fts:submit-transfer')
+REQUEST_OIDC_AUDIENCE = config_get('conveyor', 'request_oidc_audience', False, 'fts:example')
+
+
+def oidc_supported(transfer_hop) -> bool:
+    """
+    checking OIDC AuthN/Z support per destination and source RSEs;
+
+    for oidc_support to be activated, all sources and the destination must explicitly support it
+    """
+    # assumes use of boolean 'oidc_support' RSE attribute
+    if not transfer_hop.dst.rse.attributes.get('oidc_support', False):
+        return False
+
+    for source in transfer_hop.sources:
+        if not source.rse.attributes.get('oidc_support', False):
+            return False
+    return True
+
+
+def checksum_validation_strategy(src_attributes, dst_attributes, logger):
+    """
+    Compute the checksum validation strategy (none, source, destination or both) and the
+    supported checksums from the attributes of the source and destination RSE.
+    """
+    source_supported_checksums = get_rse_supported_checksums_from_attributes(src_attributes)
+    dest_supported_checksums = get_rse_supported_checksums_from_attributes(dst_attributes)
+    common_checksum_names = set(source_supported_checksums).intersection(dest_supported_checksums)
+
+    verify_checksum = 'both'
+    if not dst_attributes.get('verify_checksum', True):
+        if not src_attributes.get('verify_checksum', True):
+            verify_checksum = 'none'
+        else:
+            verify_checksum = 'source'
+    else:
+        if not src_attributes.get('verify_checksum', True):
+            verify_checksum = 'destination'
+        else:
+            verify_checksum = 'both'
+
+    if len(common_checksum_names) == 0:
+        logger(logging.INFO, 'No common checksum method. Verifying destination only.')
+        verify_checksum = 'destination'
+
+    if source_supported_checksums == ['none']:
+        if dest_supported_checksums == ['none']:
+            # both endpoints support none
+            verify_checksum = 'none'
+        else:
+            # src supports none but dst does
+            verify_checksum = 'destination'
+    else:
+        if dest_supported_checksums == ['none']:
+            # source supports some but destination does not
+            verify_checksum = 'source'
+        else:
+            if len(common_checksum_names) == 0:
+                # source and dst support some bot none in common (dst priority)
+                verify_checksum = 'destination'
+            else:
+                # Don't override the value in the file_metadata
+                pass
+
+    checksums_to_use = ['none']
+    if verify_checksum == 'both':
+        checksums_to_use = common_checksum_names
+    elif verify_checksum == 'source':
+        checksums_to_use = source_supported_checksums
+    elif verify_checksum == 'destination':
+        checksums_to_use = dest_supported_checksums
+
+    return verify_checksum, checksums_to_use
+
+
+def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archive_timeout_override, max_time_in_queue, logger):
+    """
+    Prepare the job parameters which will be passed to FTS transfertool
+    """
+
+    overwrite, bring_online_local = True, None
+    if transfer.src.rse.is_tape_or_staging_required():
+        bring_online_local = bring_online
+    if transfer.dst.rse.is_tape():
+        overwrite = False
+
+    # Get dest space token
+    dest_protocol = transfer.protocol_factory.protocol(transfer.dst.rse, transfer.dst.scheme, transfer.operation_dest)
+    dest_spacetoken = None
+    if dest_protocol.attributes and 'extended_attributes' in dest_protocol.attributes and \
+            dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
+        dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
+    src_spacetoken = None
+
+    strict_copy = transfer.dst.rse.attributes.get('strict_copy', False)
+    archive_timeout = transfer.dst.rse.attributes.get('archive_timeout', None)
+
+    verify_checksum, checksums_to_use = checksum_validation_strategy(transfer.src.rse.attributes, transfer.dst.rse.attributes, logger=logger)
+    transfer['checksums_to_use'] = checksums_to_use
+
+    job_params = {'account': transfer.rws.account,
+                  'verify_checksum': verify_checksum,
+                  'copy_pin_lifetime': transfer.rws.attributes.get('lifetime', default_lifetime),
+                  'bring_online': bring_online_local,
+                  'job_metadata': {
+                      'issuer': 'rucio',
+                      'multi_sources': True if len(transfer.legacy_sources) > 1 else False,
+                  },
+                  'overwrite': transfer.rws.attributes.get('overwrite', overwrite),
+                  'priority': transfer.rws.priority}
+
+    if transfer.get('multihop', False):
+        job_params['multihop'] = True
+    if strict_copy:
+        job_params['strict_copy'] = strict_copy
+    if dest_spacetoken:
+        job_params['spacetoken'] = dest_spacetoken
+    if src_spacetoken:
+        job_params['source_spacetoken'] = src_spacetoken
+    if transfer.use_ipv4:
+        job_params['ipv4'] = True
+        job_params['ipv6'] = False
+
+    if archive_timeout and transfer.dst.rse.is_tape():
+        try:
+            archive_timeout = int(archive_timeout)
+            if archive_timeout_override is None:
+                job_params['archive_timeout'] = archive_timeout
+            elif archive_timeout_override != 0:
+                job_params['archive_timeout'] = archive_timeout_override
+            # FTS only supports dst_file metadata if archive_timeout is set
+            job_params['dst_file_report'] = True
+            logger(logging.DEBUG, 'Added archive timeout to transfer.')
+        except ValueError:
+            logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', transfer)
+            pass
+    if max_time_in_queue:
+        if transfer.rws.activity in max_time_in_queue:
+            job_params['max_time_in_queue'] = max_time_in_queue[transfer.rws.activity]
+        elif 'default' in max_time_in_queue:
+            job_params['max_time_in_queue'] = max_time_in_queue['default']
+    return job_params
+
+
+def bulk_group_transfers(transfer_paths, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None,
+                         logger=logging.log, archive_timeout_override=None, bring_online=None, default_lifetime=None):
+    """
+    Group transfers in bulk based on certain criterias
+
+    :param transfer_paths:           List of transfer paths to group. Each path is a list of single-hop transfers.
+    :param policy:                   Policy to use to group.
+    :param group_bulk:               Bulk sizes.
+    :param source_strategy:          Strategy to group sources
+    :param max_time_in_queue:        Maximum time in queue
+    :param archive_timeout_override: Override the archive_timeout parameter for any transfers with it set (0 to unset)
+    :param logger:                   Optional decorated logger that can be passed from the calling daemons or servers.
+    :return:                         List of grouped transfers.
+    """
+
+    grouped_transfers = {}
+    grouped_jobs = []
+
+    try:
+        default_source_strategy = config_get(section='conveyor', option='default-source-strategy')
+    except (NoOptionError, NoSectionError, RuntimeError):
+        default_source_strategy = 'orderly'
+
+    try:
+        activity_source_strategy = config_get(section='conveyor', option='activity-source-strategy')
+        activity_source_strategy = loads(activity_source_strategy)
+    except (NoOptionError, NoSectionError, RuntimeError):
+        activity_source_strategy = {}
+    except ValueError:
+        logger(logging.WARNING, 'activity_source_strategy not properly defined')
+        activity_source_strategy = {}
+
+    for transfer_path in transfer_paths:
+        for i, transfer in enumerate(transfer_path):
+            if len(transfer_path) > 1:
+                transfer['multihop'] = True
+            transfer['selection_strategy'] = source_strategy if source_strategy else activity_source_strategy.get(str(transfer.rws.activity), default_source_strategy)
+
+    _build_job_params = functools.partial(job_params_for_fts_transfer,
+                                          bring_online=bring_online,
+                                          default_lifetime=default_lifetime,
+                                          archive_timeout_override=archive_timeout_override,
+                                          max_time_in_queue=max_time_in_queue,
+                                          logger=logger)
+    for transfer_path in transfer_paths:
+        if len(transfer_path) > 1:
+            # for multihop transfers, all the path is submitted as a separate job
+            job_params = _build_job_params(transfer_path[-1])
+
+            for transfer in transfer_path[:-1]:
+                hop_params = _build_job_params(transfer)
+                # Only allow overwrite if all transfers in multihop allow it
+                job_params['overwrite'] = hop_params['overwrite'] and job_params['overwrite']
+                # Activate bring_online if it was requested by first hop (it is a multihop starting at a tape)
+                # We don't allow multihop via a tape, so bring_online should not be set on any other hop
+                if transfer is transfer_path[0] and hop_params['bring_online']:
+                    job_params['bring_online'] = hop_params['bring_online']
+
+            group_key = 'multihop_%s' % transfer_path[-1].rws.request_id
+            grouped_transfers[group_key] = {'transfers': transfer_path, 'job_params': job_params}
+        elif len(transfer_path[0].legacy_sources) > 1:
+            # for multi-source transfers, no bulk submission.
+            transfer = transfer_path[0]
+            grouped_jobs.append({'transfers': [transfer], 'job_params': _build_job_params(transfer)})
+        else:
+            # it's a single-hop, single-source, transfer. Hence, a candidate for bulk submission.
+            transfer = transfer_path[0]
+            job_params = _build_job_params(transfer)
+
+            # we cannot group transfers together if their job_key differ
+            job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params.get('spacetoken', None),
+                                                   job_params['copy_pin_lifetime'],
+                                                   job_params['bring_online'], job_params['job_metadata'],
+                                                   job_params.get('source_spacetoken', None),
+                                                   job_params['overwrite'], job_params['priority'])
+            if 'max_time_in_queue' in job_params:
+                job_key = job_key + ',%s' % job_params['max_time_in_queue']
+
+            # Additionally, we don't want to group transfers together if their policy_key differ
+            policy_key = ''
+            if policy == 'rule':
+                policy_key = '%s' % transfer.rws.rule_id
+            if policy == 'dest':
+                policy_key = '%s' % transfer.dst.rse.name
+            if policy == 'src_dest':
+                policy_key = '%s,%s' % (transfer.src.rse.name, transfer.dst.rse.name)
+            if policy == 'rule_src_dest':
+                policy_key = '%s,%s,%s' % (transfer.rws.rule_id, transfer.src.rse.name, transfer.dst.rse.name)
+            if policy == 'activity_dest':
+                policy_key = '%s %s' % (transfer.rws.activity, transfer.dst.rse.name)
+                policy_key = "_".join(policy_key.split(' '))
+            if policy == 'activity_src_dest':
+                policy_key = '%s %s %s' % (transfer.rws.activity, transfer.src.rse.name, transfer.dst.rse.name)
+                policy_key = "_".join(policy_key.split(' '))
+                # maybe here we need to hash the key if it's too long
+
+            group_key = "%s_%s" % (job_key, policy_key)
+            if group_key not in grouped_transfers:
+                grouped_transfers[group_key] = {'transfers': [], 'job_params': job_params}
+            grouped_transfers[group_key]['transfers'].append(transfer)
+
+    # split transfer groups to have at most group_bulk elements in each one
+    for group in grouped_transfers.values():
+        job_params = group['job_params']
+        for transfer_paths in chunks(group['transfers'], group_bulk):
+            grouped_jobs.append({'transfers': transfer_paths, 'job_params': job_params})
+
+    return grouped_jobs
+
+
 class FTS3Transfertool(Transfertool):
     """
     FTS3 implementation of a Rucio transfertool
     """
 
-    def __init__(self, external_host, token=None):
+    def __init__(self, external_host, oidc_account=None, group_bulk=1, group_policy='rule', source_strategy=None,
+                 max_time_in_queue=None, bring_online=43200, default_lifetime=172800, archive_timeout_override=None,
+                 logger=logging.log):
         """
         Initializes the transfertool
 
         :param external_host:   The external host where the transfertool API is running
-        :param token: optional parameter to pass user's JWT
+        :param oidc_account:    optional oidc account to use for submission
         """
+        super().__init__(external_host, logger)
+
+        self.group_policy = group_policy
+        self.group_bulk = group_bulk
+        self.source_strategy = source_strategy
+        self.max_time_in_queue = max_time_in_queue or {}
+        self.bring_online = bring_online
+        self.default_lifetime = default_lifetime
+        self.archive_timeout_override = archive_timeout_override
+
         usercert = config_get('conveyor', 'usercert', False, None)
 
         # token for OAuth 2.0 OIDC authorization scheme (working only with dCache + davs/https protocols as of Sep 2019)
-        self.token = token
+        self.token = None
+        if oidc_account:
+            getadmintoken = False
+            if ALLOW_USER_OIDC_TOKENS is False:
+                getadmintoken = True
+            self.logger(logging.DEBUG, 'Attempting to get a token for account %s. Admin token option set to %s' % (oidc_account, getadmintoken))
+            # find the appropriate OIDC token and exchange it (for user accounts) if necessary
+            token_dict = get_token_for_account_operation(oidc_account, req_audience=REQUEST_OIDC_AUDIENCE, req_scope=REQUEST_OIDC_SCOPE, admin=getadmintoken)
+            if token_dict is not None:
+                self.logger(logging.DEBUG, 'Access token has been granted.')
+                if 'token' in token_dict:
+                    self.logger(logging.DEBUG, 'Access token used as transfer token.')
+                    self.token = token_dict['token']
+
         self.deterministic_id = config_get_bool('conveyor', 'use_deterministic_id', False, False)
-        super(FTS3Transfertool, self).__init__(external_host)
         self.headers = {'Content-Type': 'application/json'}
         if self.external_host.startswith('https://'):
             if self.token:
@@ -120,6 +404,43 @@ class FTS3Transfertool(Transfertool):
         else:
             self.cert = None
             self.verify = True  # True is the default setting of a requests.* method
+
+    @staticmethod
+    def submission_builder_for_path(transfer_path, logger=logging.log):
+        common_fts_hosts = []
+        for hop in transfer_path:
+            fts_hosts = hop.dst.rse.attributes.get('fts', None)
+            if hop.src.rse.attributes.get('sign_url', None) == 'gcs':
+                fts_hosts = hop.src.rse.attributes.get('fts', None)
+            fts_hosts = fts_hosts.split(",") if fts_hosts else []
+
+            common_fts_hosts = fts_hosts if not common_fts_hosts else list(set(common_fts_hosts).intersection(fts_hosts))
+            if not common_fts_hosts:
+                break
+
+        if not common_fts_hosts:
+            logger(logging.WARN, 'FTS3Transfertool cannot be used to submit transfer {}: no common fts host found'.format([str(hop) for hop in transfer_path]))
+            return None
+
+        oidc_account = None
+        if all(oidc_supported(t) for t in transfer_path):
+            logger(logging.DEBUG, 'OAuth2/OIDC available for transfer {}'.format([str(hop) for hop in transfer_path]))
+            oidc_account = transfer_path[-1].rws.account
+
+        return TransferToolBuilder(FTS3Transfertool, external_host=common_fts_hosts[0], oidc_account=oidc_account)
+
+    def group_into_submit_jobs(self, transfer_paths):
+        jobs = bulk_group_transfers(
+            transfer_paths,
+            policy=self.group_policy,
+            group_bulk=self.group_bulk,
+            source_strategy=self.source_strategy,
+            max_time_in_queue=self.max_time_in_queue,
+            bring_online=self.bring_online,
+            default_lifetime=self.default_lifetime,
+            archive_timeout_override=self.archive_timeout_override,
+        )
+        return jobs
 
     @classmethod
     def __file_from_transfer(cls, transfer, job_params):
@@ -163,6 +484,7 @@ class FTS3Transfertool(Transfertool):
         :param timeout:      Timeout in seconds.
         :returns:            FTS transfer identifier.
         """
+        start_time = time.time()
         files = []
         for transfer in transfers:
             if isinstance(transfer, dict):
@@ -242,6 +564,7 @@ class FTS3Transfertool(Transfertool):
 
         if not transfer_id:
             raise TransferToolWrongAnswer('No transfer id returned by %s' % self.external_host)
+        record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(transfers))
         return transfer_id
 
     def cancel(self, transfer_ids, timeout=None):

@@ -16,8 +16,10 @@
 # Authors:
 # - Nick Smith <nick.smith@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+import itertools
+import logging
 
-from rucio.transfertool.transfertool import Transfertool
+from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
 import uuid
 
 
@@ -28,8 +30,15 @@ class MockTransfertool(Transfertool):
     This is not actually used anywhere at the moment
     """
 
-    def __init__(self, external_host, token=None):
-        super(MockTransfertool, self).__init__(external_host)
+    def __init__(self, external_host, logger=logging.log):
+        super(MockTransfertool, self).__init__(external_host, logger)
+
+    @staticmethod
+    def submission_builder_for_path(transfer_path, logger=logging.log):
+        return TransferToolBuilder(MockTransfertool, external_host='Mock Transfertool')
+
+    def group_into_submit_jobs(self, transfers):
+        return [{'transfers': list(itertools.chain.from_iterable(transfers)), 'job_params': {}}]
 
     def submit(self, files, job_params, timeout=None):
         return str(uuid.uuid1())

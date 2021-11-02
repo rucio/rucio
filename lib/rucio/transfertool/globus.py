@@ -21,23 +21,73 @@
 
 import logging
 
-from rucio.transfertool.transfertool import Transfertool
+from rucio.common.utils import chunks
+from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
 from .globus_library import bulk_submit_xfer, submit_xfer, bulk_check_xfers
+
+
+def bulk_group_transfers(transfer_paths, policy='single', group_bulk=200):
+    """
+    Group transfers in bulk based on certain criterias
+
+    :param transfer_paths:  List of (potentially multihop) transfer paths to group. Each path is a list of single-hop transfers.
+    :param policy:          Policy to use to group.
+    :param group_bulk:      Bulk sizes.
+    :return:                List of transfer groups
+    """
+    if policy == 'single':
+        group_bulk = 1
+
+    grouped_jobs = []
+    for chunk in chunks(transfer_paths, group_bulk):
+        # Globus doesn't support multihop. Get the first hop only.
+        transfers = [transfer_path[0] for transfer_path in chunk]
+
+        grouped_jobs.append({
+            'transfers': transfers,
+            # Job params are not used by globus transfertool, but are needed for further common fts/globus code
+            'job_params': {}
+        })
+
+    return grouped_jobs
 
 
 class GlobusTransferTool(Transfertool):
     """
     Globus implementation of Transfertool abstract base class
     """
-    def __init__(self, external_host):
+    def __init__(self, external_host, logger=logging.log, group_bulk=200, group_policy='single'):
         """
         Initializes the transfertool
 
         :param external_host:   The external host where the transfertool API is running
         """
+        super().__init__(external_host, logger)
+        self.group_bulk = group_bulk
+        self.group_policy = group_policy
         # TODO: initialize vars from config file here
 
-    def submit(self, files, job_params, timeout=None):
+    @staticmethod
+    def submission_builder_for_path(transfer_path, logger=logging.log):
+        if len(transfer_path) != 1:
+            # Only accept single hop
+            logger(logging.WARNING, "Globus cannot submit multi-hop transfers. Skipping {}".format([str(hop) for hop in transfer_path]))
+            return None
+
+        [hop] = transfer_path
+        source_globus_endpoint_id = hop.src.rse.attributes.get('globus_endpoint_id', None)
+        dest_globus_endpoint_id = hop.dst.rse.attributes.get('globus_endpoint_id', None)
+        if not source_globus_endpoint_id or not dest_globus_endpoint_id:
+            logger(logging.WARNING, "Source or destination globus_endpoint_id not set. Skipping {}".format(hop))
+            return None
+
+        return TransferToolBuilder(GlobusTransferTool, external_host='Globus Online Transfertool')
+
+    def group_into_submit_jobs(self, transfer_paths):
+        jobs = bulk_group_transfers(transfer_paths, policy=self.group_policy, group_bulk=self.group_bulk)
+        return jobs
+
+    def submit_one(self, files, timeout=None):
         """
         Submit transfers to globus API
 
@@ -67,12 +117,12 @@ class GlobusTransferTool(Transfertool):
 
         return task_id
 
-    def bulk_submit(self, transfers, timeout=None):
+    def submit(self, transfers, job_params, timeout=None):
         """
         Submit a bulk transfer to globus API
 
-        :param files:        List of dictionaries describing the file transfers.
-        :param job_params:   Dictionary containing key/value pairs, for all transfers.
+        :param transfers:    List of dictionaries describing the file transfers.
+        :param job_params:   Not used by Globus Transfsertool
         :param timeout:      Timeout in seconds.
         :returns:            Globus transfer identifier.
         """
@@ -95,6 +145,8 @@ class GlobusTransferTool(Transfertool):
             }
             for transfer in transfers
         ]
+        self.logger(logging.DEBUG, '... Starting globus xfer ...')
+        self.logger(logging.DEBUG, 'job_files: %s' % submitjob)
         task_id = bulk_submit_xfer(submitjob, recursive=False)
 
         return task_id
