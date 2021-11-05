@@ -1340,7 +1340,7 @@ def __filter_for_transfertool(
 
 @transactional_session
 def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                             failover_schemes=None, transfertool=None, request_type=RequestType.TRANSFER,
+                             failover_schemes=None, transfertool=None, filter_transfertool=None, request_type=RequestType.TRANSFER,
                              logger=logging.log, session=None):
     """
     Get next transfers to be submitted; grouped by the external host to which they will be submitted
@@ -1362,7 +1362,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activ
     """
 
     include_multihop = False
-    if transfertool in ['fts3', None]:
+    if transfertool in ['fts3', 'mock', None]:
         include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
 
     multihop_rses = []
@@ -1388,7 +1388,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activ
         rses=rses,
         request_type=request_type,
         request_state=RequestState.QUEUED,
-        transfertool=transfertool,
+        transfertool=filter_transfertool,
         session=session,
     )
 
