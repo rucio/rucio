@@ -29,7 +29,7 @@ from rucio.core.account import has_account_attribute, get_usage, get_all_rse_usa
 from rucio.core.account_limit import get_local_account_limit, get_global_account_limits
 from rucio.core.rse import list_rse_attributes, has_rse_attribute, get_rse_limits
 from rucio.core.rse_counter import get_counter as get_rse_counter
-from rucio.core.rse_expression import parse_expression
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.session import read_session
 
 
@@ -257,7 +257,7 @@ def resolve_rse_expression(rse_expression, account, weight=None, copies=1, ignor
     to decompose the expression, then `RSESelector.select_rse()` to pick the target RSEs.
     """
     
-    rses = parse_expression(rse_expression, filter_={'vo': account.vo})
+    rses = parse_expression(rse_expression, filter_={'vo': account.vo}, session=session)
 
     rse_to_id = dict((rse_dict['rse'], rse_dict['id']) for rse_dict in rses)
     id_to_rse = dict((rse_dict['id'], rse_dict['rse']) for rse_dict in rses)
@@ -266,7 +266,8 @@ def resolve_rse_expression(rse_expression, account, weight=None, copies=1, ignor
                            rses=rses,
                            weight=weight,
                            copies=copies,
-                           ignore_account_limit=ignore_account_limit)
+                           ignore_account_limit=ignore_account_limit,
+                           session=session)
     
     preferred_rse_ids = [rse_to_id[rse] for rse in preferred_rses if rse in rse_to_id]
 
