@@ -16,7 +16,7 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
@@ -916,10 +916,11 @@ class BulkMeta(ErrorHandlingMethodView):
         """
         parameters = json_parameters()
         dids = param_get(parameters, 'dids')
+        inherit = param_get(parameters, 'inherit', default=False)
 
         try:
             def generate(vo):
-                for meta in get_metadata_bulk(dids, vo=vo):
+                for meta in get_metadata_bulk(dids, inherit=inherit, vo=vo):
                     yield render_json(**meta) + '\n'
 
             return try_stream(generate(vo=request.environ.get('vo')))

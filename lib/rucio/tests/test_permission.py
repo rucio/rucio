@@ -21,6 +21,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import unittest
 
@@ -84,3 +85,8 @@ class TestPermissionCoreApi(unittest.TestCase):
         gsscred = 'rucio-dev@CERN.CH'
         assert has_permission(issuer='root', action='get_auth_token_gss', kwargs={'account': 'root', 'gsscred': gsscred}, **self.vo)
         assert not has_permission(issuer='root', action='get_auth_token_gss', kwargs={'account': self.usr, 'gsscred': gsscred}, **self.vo)
+
+    def test_permission_update_rule_boost(self):
+        kwargs = {'options': {'boost_rule': True}}
+        assert has_permission(issuer='root', action='update_rule', kwargs=kwargs, **self.vo)
+        assert not has_permission(issuer='jdoe', action='update_rule', kwargs=kwargs, **self.vo)

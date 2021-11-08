@@ -120,8 +120,6 @@ Note that attempting the use the ``--vos`` argument when in single-VO mode will 
                         help='Seconds to sleep if few requests')
     parser.add_argument('--max-sources', action="store", default=4, type=int,
                         help='Maximum source replicas per FTS job')
-    parser.add_argument("--retry-other-fts", action="store_true", default=False,
-                        help='retry on a different FTS')
     parser.add_argument('--archive-timeout-override', action="store", default=None, type=int, metavar="INTEGER_SECONDS",
                         help='Override the archive_timeout parameter for any transfers with it set (0 to unset)')
     return parser
@@ -147,7 +145,6 @@ if __name__ == "__main__":
             exclude_activities=args.exclude_activities,
             sleep_time=args.sleep_time,
             max_sources=args.max_sources,
-            retry_other_fts=args.retry_other_fts,
             archive_timeout_override=args.archive_timeout_override,
             total_threads=args.total_threads)
     except KeyboardInterrupt:

@@ -181,37 +181,44 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
 
     # On equal priority and distance, disk should be preferred over tape. Both disk sources will be returned
     [[_host, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
-    assert len(transfer[0]['sources']) == 2
-    assert transfer[0]['sources'][0][0] in (disk1_rse_name, disk2_rse_name)
+    assert len(transfer[0].legacy_sources) == 2
+    assert transfer[0].legacy_sources[0][0] in (disk1_rse_name, disk2_rse_name)
 
-    # Change the rating of the disk RSEs. Tape RSEs must now be preferred.
-    # Multiple tape sources are not allowed. Only one tape RSE source must be returned.
+    # Change the rating of the disk RSEs. Disk still preferred, because it must fail twice before tape is tried
     __fake_source_ranking(disk1_rse_id, -1)
     __fake_source_ranking(disk2_rse_id, -1)
+    [[_host, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
+    assert len(transfer[0].legacy_sources) == 2
+    assert transfer[0].legacy_sources[0][0] in (disk1_rse_name, disk2_rse_name)
+
+    # Change the rating of the disk RSEs again. Tape RSEs must now be preferred.
+    # Multiple tape sources are not allowed. Only one tape RSE source must be returned.
+    __fake_source_ranking(disk1_rse_id, -2)
+    __fake_source_ranking(disk2_rse_id, -2)
     [[_host, transfers]] = next_transfers_to_submit(rses=all_rses).items()
     assert len(transfers) == 1
     transfer = transfers[0]
-    assert len(transfer[0]['sources']) == 1
-    assert transfer[0]['sources'][0][0] in (tape1_rse_name, tape2_rse_name)
+    assert len(transfer[0].legacy_sources) == 1
+    assert transfer[0].legacy_sources[0][0] in (tape1_rse_name, tape2_rse_name)
 
     # On equal source ranking, but different distance; the smaller distance is preferred
     [[_host, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
-    assert len(transfer[0]['sources']) == 1
-    assert transfer[0]['sources'][0][0] == tape2_rse_name
+    assert len(transfer[0].legacy_sources) == 1
+    assert transfer[0].legacy_sources[0][0] == tape2_rse_name
 
     # On different source ranking, the bigger ranking is preferred
     __fake_source_ranking(tape2_rse_id, -1)
     [[_host, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
-    assert len(transfer[0]['sources']) == 1
-    assert transfer[0]['sources'][0][0] == tape1_rse_name
+    assert len(transfer[0].legacy_sources) == 1
+    assert transfer[0].legacy_sources[0][0] == tape1_rse_name
 
 
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
     ('transfers', 'use_multihop', True)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by an expression
-    'rucio.core.config',
+    'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
+    'rucio.core.config.REGION',
 ]}], indirect=True)
 def test_multihop_requests_created(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
     """
@@ -237,8 +244,8 @@ def test_multihop_requests_created(rse_factory, did_factory, root_account, core_
     ('transfers', 'use_multihop', True)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.core.rse_expression_parser',  # The list of multihop RSEs is retrieved by an expression
-    'rucio.core.config',
+    'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
+    'rucio.core.config.REGION',
 ]}], indirect=True)
 def test_singlehop_vs_multihop_priority(rse_factory, root_account, mock_scope, core_config_mock, caches_mock):
     """

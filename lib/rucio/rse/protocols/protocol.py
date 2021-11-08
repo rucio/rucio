@@ -30,6 +30,7 @@
 # - Luca Scotto Lavina, <scotto@lpnhe.in2p3.fr>, 2021
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2021
+# - Lionel Schwarz <lionel.schwarz@in2p3.fr>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -221,6 +222,27 @@ class RSEDeterministicTranslation(object):
 
         return '%s/%s/%s/%s' % (scope[0:7], scope[4:len(scope)], name.split('-')[0] + "-" + name.split('-')[1], name)
 
+    @staticmethod
+    def __lsst(scope, name, rse, rse_attrs, protocol_attrs):
+        """
+        LFN2PFN algorithm for Rubin-LSST in the ESCAPE project
+
+        Replace convention delimiter '__' by '/'
+        The Escape instance does use the 'generic' Rucio schema.
+
+        :param scope: Scope of the LFN (ignored)
+        :param name: File name of the LFN.
+        :param rse: RSE for PFN (ignored)
+        :param rse_attrs: RSE attributes for PFN (ignored)
+        :param protocol_attrs: RSE protocol attributes for PFN (ignored)
+        :returns: Path for use in the PFN generation.
+        """
+        del scope
+        del rse
+        del rse_attrs
+        del protocol_attrs
+        return name.replace('__', '/')
+
     @classmethod
     def _module_init_(cls):
         """
@@ -231,6 +253,7 @@ class RSEDeterministicTranslation(object):
         cls.register(cls.__ligo, "ligo")
         cls.register(cls.__belleii, "belleii")
         cls.register(cls.__xenon, "xenon")
+        cls.register(cls.__lsst, "lsst")
         policy_module = None
         try:
             policy_module = config.config_get('policy', 'lfn2pfn_module')
@@ -427,12 +450,15 @@ class RSEProtocol(object):
             while '//' in parsed.path:
                 parsed = parsed._replace(path=parsed.path.replace('//', '/'))
             path = parsed.path
+            prefix = self.attributes['prefix']
+            while '//' in prefix:
+                prefix = prefix.replace('//', '/')
 
             # Protect against 'lazy' defined prefixes for RSEs in the repository
-            if not self.attributes['prefix'].startswith('/'):
-                self.attributes['prefix'] = '/' + self.attributes['prefix']
-            if not self.attributes['prefix'].endswith('/'):
-                self.attributes['prefix'] += '/'
+            if not prefix.startswith('/'):
+                prefix = '/' + prefix
+            if not prefix.endswith('/'):
+                prefix += '/'
 
             if self.attributes['hostname'] != hostname:
                 if self.attributes['hostname'] != 'localhost':  # In the database empty hostnames are replaced with localhost but for some URIs (e.g. file) a hostname is not included
@@ -441,13 +467,12 @@ class RSEProtocol(object):
             if self.attributes['port'] != port:
                 raise exception.RSEFileNameNotSupported('Invalid port: provided \'%s\', expected \'%s\'' % (port, self.attributes['port']))
 
-            if not path.startswith(self.attributes['prefix']):
-                raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(path.split('/')[0:len(self.attributes['prefix'].split('/')) - 1]),
-                                                                                                              self.attributes['prefix']))  # len(...)-1 due to the leading '/
+            if not path.startswith(prefix):
+                raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(path.split('/')[0:len(prefix.split('/')) - 1]),
+                                                                                                              prefix))  # len(...)-1 due to the leading '/
 
             # Spliting parsed.path into prefix, path, filename
-            prefix = self.attributes['prefix']
-            path = path.partition(self.attributes['prefix'])[2]
+            path = path.partition(prefix)[2]
             name = path.split('/')[-1]
             path = '/'.join(path.split('/')[:-1])
             if not path.startswith('/'):

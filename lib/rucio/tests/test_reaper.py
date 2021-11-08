@@ -20,13 +20,17 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
 from datetime import datetime, timedelta
 
 import pytest
+from sqlalchemy import and_, or_
 
 from rucio.api import replica as replica_api
 from rucio.api import rse as rse_api
+from rucio.db.sqla import models
+from rucio.db.sqla.session import get_session
 from rucio.common.config import config_get_bool
 from rucio.common.exception import ReplicaNotFound, DataIdentifierNotFound
 from rucio.common.types import InternalAccount, InternalScope
@@ -37,7 +41,7 @@ from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
 from rucio.core import scope as scope_core
 from rucio.core import vo as vo_core
-from rucio.daemons.reaper.reaper import reaper, REGION
+from rucio.daemons.reaper.reaper import reaper
 from rucio.daemons.reaper.reaper import run as run_reaper
 from rucio.db.sqla.models import ConstituentAssociationHistory
 from rucio.db.sqla.session import read_session
@@ -57,17 +61,20 @@ __mock_protocol = {'scheme': 'MOCK',
                                'delete': 1}}}
 
 
-def __add_test_rse_and_replicas(vo, scope, rse_name, names, file_size):
+def __add_test_rse_and_replicas(vo, scope, rse_name, names, file_size, epoch_tombstone=False):
     rse_id = rse_core.add_rse(rse_name, vo=vo)
 
     rse_core.add_protocol(rse_id=rse_id, parameter=__mock_protocol)
+    tombstone = datetime.utcnow() - timedelta(days=1)
+    if epoch_tombstone:
+        tombstone = datetime(year=1970, month=1, day=1)
 
     dids = []
     for file_name in names:
         dids.append({'scope': scope, 'name': file_name})
         replica_core.add_replica(rse_id=rse_id, scope=scope,
                                  name=file_name, bytes_=file_size,
-                                 tombstone=datetime.utcnow() - timedelta(days=1),
+                                 tombstone=tombstone,
                                  account=InternalAccount('root', vo=vo), adler32=None, md5=None)
     return rse_name, rse_id, dids
 
@@ -94,9 +101,12 @@ def __setup_scopes_for_vos(*vos):
     return scope_name, created_scopes
 
 
-@pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
-def test_reaper(vo):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_reaper(vo, caches_mock):
     """ REAPER (DAEMON): Test the reaper daemon."""
+    [cache_region] = caches_mock
     scope = InternalScope('data13_hip', vo=vo)
 
     nb_files = 250
@@ -108,22 +118,25 @@ def test_reaper(vo):
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
 
     # Check first if the reaper does not delete anything if no space is needed
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
 
     # Now put it over threshold and delete
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=1)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 200
 
 
-@pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
-def test_reaper_bulk_delete(vo):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_reaper_bulk_delete(vo, caches_mock):
     """ REAPER (DAEMON): Mock test the reaper daemon on async bulk delete request."""
+    [cache_region] = caches_mock
     scope = InternalScope('data13_hip', vo=vo)
 
     nb_files = 250
@@ -135,22 +148,25 @@ def test_reaper_bulk_delete(vo):
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
 
     # Check first if the reaper does not delete anything if no space is needed
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
 
     # Now put it over threshold and delete
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=1)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 200
 
 
-@pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
-def test_reaper_multi_vo_via_run(vo):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_reaper_multi_vo_via_run(vo, caches_mock):
     """ MULTI VO (DAEMON): Test that reaper runs on the specified VO(s) """
+    [cache_region] = caches_mock
     new_vo = __setup_new_vo()
     scope_name, [scope_tst, scope_new] = __setup_scopes_for_vos(vo, new_vo)
     rse_name = rse_name_generator()
@@ -174,15 +190,18 @@ def test_reaper_multi_vo_via_run(vo):
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == nb_files
 
     # Check we reap all VOs by default
-    REGION.invalidate()
+    cache_region.invalidate()
     run_reaper(once=True, rses=[rse_name])
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == 25
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
 
 
-@pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
-def test_reaper_affect_other_vo_via_run(vo):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_reaper_affect_other_vo_via_run(vo, caches_mock):
     """ MULTI VO (DAEMON): Test that reaper runs on the specified VO(s) and does not reap others"""
+    [cache_region] = caches_mock
     new_vo = __setup_new_vo()
     scope_name, [scope_tst, scope_new] = __setup_scopes_for_vos(vo, new_vo)
     rse_name = rse_name_generator()
@@ -206,15 +225,18 @@ def test_reaper_affect_other_vo_via_run(vo):
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == nb_files
 
     # Check we don't affect a second VO that isn't specified
-    REGION.invalidate()
+    cache_region.invalidate()
     run_reaper(once=True, rses=[rse_name], vos=['new'])
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
 
 
-@pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
-def test_reaper_multi_vo(vo):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_reaper_multi_vo(vo, caches_mock):
     """ REAPER (DAEMON): Test the reaper daemon with multiple vo."""
+    [cache_region] = caches_mock
     new_vo = __setup_new_vo()
     _, [scope_tst, scope_new] = __setup_scopes_for_vos(vo, new_vo)
 
@@ -229,7 +251,7 @@ def test_reaper_multi_vo(vo):
     rse_core.set_rse_limits(rse_id=rse2_id, name='MinFreeSpace', value=50 * file_size)
 
     # Check we reap all VOs by default
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse1_id, source='storage', used=nb_files * file_size, free=1)
     rse_core.set_rse_usage(rse_id=rse2_id, source='storage', used=nb_files * file_size, free=1)
     both_rses = '%s|%s' % (rse1_name, rse2_name)
@@ -239,7 +261,11 @@ def test_reaper_multi_vo(vo):
     assert len(list(replica_core.list_replicas(dids=dids2, rse_expression=both_rses))) == 200
 
 
-def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_scope, root_account):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_scope, root_account, caches_mock):
+    [cache_region] = caches_mock
     rse_name, rse_id = rse_factory.make_mock_rse()
     scope = mock_scope
     account = root_account
@@ -292,7 +318,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     # but the did must not be remove and it must still remain in the dataset because
     # it still has the replica from inside the archive
     assert replica_core.get_replica(rse_id=rse_id, **c_with_expired_replica)
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=2 * archive_size + nb_c_outside_archive * constituent_size)
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=2 * archive_size + nb_c_outside_archive * constituent_size, free=1)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
@@ -319,7 +345,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     # the archive will be removed; and c_first_archive_only must be removed from datasets
     # and from the did table.
     replica_core.set_tombstone(rse_id=rse_id, tombstone=datetime.utcnow() - timedelta(days=1), **archive1)
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=2 * archive_size + nb_c_outside_archive * constituent_size)
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=2 * archive_size + nb_c_outside_archive * constituent_size, free=1)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
@@ -340,7 +366,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     # If not open, Dataset2 will be removed because it will be empty.
     did_core.set_status(open=False, **dataset2)
     replica_core.set_tombstone(rse_id=rse_id, tombstone=datetime.utcnow() - timedelta(days=1), **archive2)
-    REGION.invalidate()
+    cache_region.invalidate()
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=archive_size + nb_c_outside_archive * constituent_size)
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=archive_size + nb_c_outside_archive * constituent_size, free=1)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
@@ -364,3 +390,61 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     assert len(list(did_core.list_archive_content(**archive2))) == 0
     assert __get_archive_contents_history_count(archive1) == 4
     assert __get_archive_contents_history_count(archive2) == 3
+
+
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('deletion', 'archive_dids', True), ('deletion', 'archive_content', True)
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION',
+    'rucio.core.config.REGION',
+    'rucio.core.replica.REGION',
+]}], indirect=True)
+def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock, caches_mock):
+    """ REAPER (DAEMON): Test that the options to keep the did and content history work."""
+    [reaper_cache_region, _config_cache_region, _replica_cache_region] = caches_mock
+    scope = InternalScope('data13_hip', vo=vo)
+    account = root_account
+
+    nb_files = 10
+    file_size = 200  # 2G
+    rse_name, rse_id, dids = __add_test_rse_and_replicas(vo=vo, scope=scope, rse_name=rse_name_generator(),
+                                                         names=['lfn' + generate_uuid() for _ in range(nb_files)], file_size=file_size, epoch_tombstone=True)
+    dataset = did_factory.make_dataset()
+    did_core.attach_dids(dids=dids, account=account, **dataset)
+
+    rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=50 * file_size)
+    assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
+
+    # Check first if the reaper does not delete anything if no space is needed
+    reaper_cache_region.invalidate()
+    rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
+    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, greedy=True)
+    assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == 0
+
+    file_clause = []
+    for did in dids:
+        file_clause.append(and_(models.DeletedDataIdentifier.scope == did['scope'], models.DeletedDataIdentifier.name == did['name']))
+
+    session = get_session()
+    query = session.query(models.DeletedDataIdentifier.scope,
+                          models.DeletedDataIdentifier.name,
+                          models.DeletedDataIdentifier.did_type).\
+        filter(or_(*file_clause))
+
+    deleted_dids = list()
+    for did in query.all():
+        print(did)
+        deleted_dids.append(did)
+    assert len(deleted_dids) == len(dids)
+
+    query = session.query(models.DataIdentifierAssociationHistory.child_scope,
+                          models.DataIdentifierAssociationHistory.child_name,
+                          models.DataIdentifierAssociationHistory.child_type).\
+        filter(and_(models.DataIdentifierAssociationHistory.scope == dataset['scope'], models.DataIdentifierAssociationHistory.name == dataset['name']))
+
+    deleted_dids = list()
+    for did in query.all():
+        print(did)
+        deleted_dids.append(did)
+    assert len(deleted_dids) == len(dids)

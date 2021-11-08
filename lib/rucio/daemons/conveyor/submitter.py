@@ -40,23 +40,20 @@ Conveyor transfer submitter is a daemon to manage non-tape file transfers.
 from __future__ import division
 
 import logging
-import os
-import socket
 import threading
 import time
 from collections import defaultdict
 
-from prometheus_client import Counter
 from six.moves.configparser import NoOptionError
 
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.logging import formatted_logger, setup_logging
+from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
-from rucio.core import heartbeat, transfer as transfer_core
-from rucio.core.monitor import record_counter, record_timer
-from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfers_for_fts, bulk_group_transfers_for_globus, get_conveyor_rses
+from rucio.core import transfer as transfer_core
+from rucio.core.monitor import MultiCounter, record_timer
+from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfers_for_fts, bulk_group_transfers_for_globus, get_conveyor_rses, HeartbeatHandler
 from rucio.db.sqla.constants import RequestType
 
 graceful_stop = threading.Event()
@@ -65,12 +62,13 @@ TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)  # NOTE: Thi
 FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)  # NOTE: TRANSFERTOOL to filter requests on
 TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
 
-GET_TRANSFERS_COUNTER = Counter('rucio_daemons_conveyor_submitter_get_transfers', 'Number of transfers retrieved')
+GET_TRANSFERS_COUNTER = MultiCounter(prom='rucio_daemons_conveyor_submitter_get_transfers', statsd='daemons.conveyor.transfer_submitter.get_transfers',
+                                     documentation='Number of transfers retrieved')
 
 
 def submitter(once=False, rses=None, partition_wait_time=10,
               bulk=100, group_bulk=1, group_policy='rule', source_strategy=None,
-              activities=None, sleep_time=600, max_sources=4, retry_other_fts=False, archive_timeout_override=None,
+              activities=None, sleep_time=600, max_sources=4, archive_timeout_override=None,
               filter_transfertool=FILTER_TRANSFERTOOL, transfertool=TRANSFER_TOOL, transfertype=TRANSFER_TYPE):
     """
     Main loop to submit a new transfer primitive to a transfertool.
@@ -110,112 +108,88 @@ def submitter(once=False, rses=None, partition_wait_time=10,
     logging.debug("Maximum time in queue for different activities: %s", max_time_in_queue)
 
     activity_next_exe_time = defaultdict(time.time)
-    executable = "conveyor-submitter"
+    logger_prefix = executable = "conveyor-submitter"
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)
     if filter_transfertool:
         executable += ' --filter-transfertool ' + filter_transfertool
 
-    hostname = socket.getfqdn()
-    pid = os.getpid()
-    hb_thread = threading.current_thread()
-    heartbeat.sanity_check(executable=executable, hostname=hostname)
-    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prefix = 'conveyor-submitter[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logger = formatted_logger(logging.log, prefix + '%s')
-    logger(logging.INFO, 'Submitter starting with timeout %s', timeout)
+    with HeartbeatHandler(executable=executable, logger_prefix=logger_prefix) as heartbeat_handler:
+        logger = heartbeat_handler.logger
+        logger(logging.INFO, 'Submitter starting with timeout %s', timeout)
 
-    if partition_wait_time:
-        time.sleep(partition_wait_time)  # To prevent running on the same partition if all the poller restart at the same time
-    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prefix = 'conveyor-submitter[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logger = formatted_logger(logging.log, prefix + '%s')
-    logger(logging.INFO, 'Transfer submitter started')
+        if partition_wait_time:
+            graceful_stop.wait(partition_wait_time)
 
-    while not graceful_stop.is_set():
-        if activities is None:
-            activities = [None]
-        if rses:
-            rse_ids = [rse['id'] for rse in rses]
-        else:
-            rse_ids = None
-        for activity in activities:
-            try:
-                if activity_next_exe_time[activity] > time.time():
-                    graceful_stop.wait(1)
-                    continue
+        while not graceful_stop.is_set():
+            if activities is None:
+                activities = [None]
+            if rses:
+                rse_ids = [rse['id'] for rse in rses]
+            else:
+                rse_ids = None
+            for activity in activities:
+                try:
+                    if activity_next_exe_time[activity] > time.time():
+                        graceful_stop.wait(1)
+                        continue
 
-                heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-                prefix = 'conveyor-submitter[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-                logger = formatted_logger(logging.log, prefix + '%s')
+                    heart_beat, logger = heartbeat_handler.live(older_than=3600)
 
-                logger(logging.INFO, 'Starting to get transfer transfers for %s', activity)
-                start_time = time.time()
-
-                transfers = transfer_core.next_transfers_to_submit(
-                    total_workers=heart_beat['nr_threads'],
-                    worker_number=heart_beat['assign_thread'],
-                    failover_schemes=failover_scheme,
-                    limit=bulk,
-                    activity=activity,
-                    rses=rse_ids,
-                    schemes=scheme,
-                    retry_other_fts=retry_other_fts,
-                    transfertool=filter_transfertool,
-                    older_than=None,
-                    request_type=RequestType.TRANSFER,
-                    logger=logger,
-                )
-                total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
-
-                record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (total_transfers or 1))
-                record_counter('daemons.conveyor.transfer_submitter.get_transfers', total_transfers)
-                GET_TRANSFERS_COUNTER.inc(total_transfers)
-                record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', total_transfers)
-                logger(logging.INFO, 'Got %s transfers for %s in %s seconds', total_transfers, activity, time.time() - start_time)
-
-                grouped_jobs = {}
-                for external_host, transfer_paths in transfers.items():
+                    logger(logging.INFO, 'Starting to get transfer transfers for %s', activity)
                     start_time = time.time()
-                    logger(logging.INFO, 'Starting to group transfers for %s (%s)', activity, external_host)
-                    for transfer_path in transfer_paths:
-                        for i, hop in enumerate(transfer_path):
-                            hop.init_legacy_transfer_definition(bring_online=bring_online, default_lifetime=172800, logger=logger)
-                            if len(transfer_path) > 1:
-                                hop['multihop'] = True
-                                hop['initial_request_id'] = transfer_path[-1].rws.request_id
-                                hop['parent_request'] = transfer_path[i - 1].rws.request_id if i > 0 else None
-                    if transfertool in ['fts3', 'mock']:
-                        grouped_jobs = bulk_group_transfers_for_fts(transfer_paths, group_policy, group_bulk, source_strategy, max_time_in_queue, archive_timeout_override=archive_timeout_override)
-                    elif transfertool == 'globus':
-                        grouped_jobs = bulk_group_transfers_for_globus(transfer_paths, transfertype, group_bulk)
-                    else:
-                        logger(logging.ERROR, 'Unknown transfer tool')
-                    record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfer_paths) or 1))
 
-                    logger(logging.INFO, 'Starting to submit transfers for %s (%s)', activity, external_host)
-                    for job in grouped_jobs:
-                        logger(logging.DEBUG, 'submitjob: %s' % job)
-                        submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                        timeout=timeout, logger=logger, transfertool=transfertool)
+                    transfers = transfer_core.next_transfers_to_submit(
+                        total_workers=heart_beat['nr_threads'],
+                        worker_number=heart_beat['assign_thread'],
+                        failover_schemes=failover_scheme,
+                        limit=bulk,
+                        activity=activity,
+                        rses=rse_ids,
+                        schemes=scheme,
+                        transfertool=filter_transfertool,
+                        older_than=None,
+                        request_type=RequestType.TRANSFER,
+                        logger=logger,
+                    )
+                    total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
 
-                if total_transfers < group_bulk:
-                    logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', total_transfers, activity, group_bulk, sleep_time)
-                    if activity_next_exe_time[activity] < time.time():
-                        activity_next_exe_time[activity] = time.time() + sleep_time
-            except Exception:
-                logger(logging.CRITICAL, 'Exception', exc_info=True)
+                    record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (total_transfers or 1))
+                    GET_TRANSFERS_COUNTER.inc(total_transfers)
+                    record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', total_transfers)
+                    logger(logging.INFO, 'Got %s transfers for %s in %s seconds', total_transfers, activity, time.time() - start_time)
 
-        if once:
-            break
+                    grouped_jobs = {}
+                    for external_host, transfer_paths in transfers.items():
+                        start_time = time.time()
+                        logger(logging.INFO, 'Starting to group transfers for %s (%s)', activity, external_host)
+                        if transfertool in ['fts3', 'mock']:
+                            grouped_jobs = bulk_group_transfers_for_fts(transfer_paths, group_policy, group_bulk, source_strategy, max_time_in_queue,
+                                                                        bring_online=bring_online, default_lifetime=172800, archive_timeout_override=archive_timeout_override)
+                        elif transfertool == 'globus':
+                            grouped_jobs = bulk_group_transfers_for_globus(transfer_paths, transfertype, group_bulk)
+                        else:
+                            logger(logging.ERROR, 'Unknown transfer tool')
+                        record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfer_paths) or 1))
 
-    logger(logging.INFO, 'Graceful stop requested')
+                        logger(logging.INFO, 'Starting to submit transfers for %s (%s)', activity, external_host)
+                        for job in grouped_jobs:
+                            logger(logging.DEBUG, 'submitjob: %s' % job)
+                            submit_transfer(external_host=external_host, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter',
+                                            timeout=timeout, logger=logger, transfertool=transfertool)
 
-    heartbeat.die(executable, hostname, pid, hb_thread)
+                    if total_transfers < group_bulk:
+                        logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', total_transfers, activity, group_bulk, sleep_time)
+                        if activity_next_exe_time[activity] < time.time():
+                            activity_next_exe_time[activity] = time.time() + sleep_time
+                except Exception:
+                    logger(logging.CRITICAL, 'Exception', exc_info=True)
+                    if once:
+                        raise
 
-    logger(logging.INFO, 'Graceful stop done')
-    return
+            if once:
+                break
 
 
 def stop(signum=None, frame=None):
@@ -227,7 +201,7 @@ def stop(signum=None, frame=None):
 
 def run(once=False, group_bulk=1, group_policy='rule', mock=False,
         rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
-        activities=None, exclude_activities=None, sleep_time=600, max_sources=4, retry_other_fts=False,
+        activities=None, exclude_activities=None, sleep_time=600, max_sources=4,
         archive_timeout_override=None, total_threads=1):
     """
     Starts up the conveyer threads.
@@ -276,7 +250,6 @@ def run(once=False, group_bulk=1, group_policy='rule', mock=False,
                                                           'sleep_time': sleep_time,
                                                           'max_sources': max_sources,
                                                           'source_strategy': source_strategy,
-                                                          'retry_other_fts': retry_other_fts,
                                                           'archive_timeout_override': archive_timeout_override}) for _ in range(0, total_threads)]
 
     [thread.start() for thread in threads]

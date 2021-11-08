@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
@@ -40,6 +40,7 @@ import pytest
 
 from rucio.api import did
 from rucio.api import scope
+from rucio.db.sqla.util import json_implemented
 from rucio.client.accountclient import AccountClient
 from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
@@ -62,6 +63,11 @@ from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType
 from rucio.tests.common import rse_name_generator, scope_name_generator
 from rucio.tests.common_server import get_vo
+
+
+def skip_without_json():
+    if not json_implemented():
+        pytest.skip("JSON support is not implemented in this database")
 
 
 class TestDIDCore(unittest.TestCase):
@@ -1087,19 +1093,26 @@ class TestDIDClients(unittest.TestCase):
         cnt = ['cnt_%s' % generate_uuid() for _ in range(4)]
         meta_mapping = {}
         list_dids = []
+
+        # Set file metadata
         for idx in range(4):
             self.replica_client.add_replica(rse, scope, files[idx], 1, '0cc737eb')
             self.did_client.set_metadata(scope, files[idx], key, 'file_%s' % idx)
             list_dids.append({'scope': scope, 'name': files[idx]})
             meta_mapping['%s:%s' % (scope, files[idx])] = (key, 'file_%s' % idx)
+
+        # Set dataset metadata
         for idx in range(4):
             self.did_client.add_did(scope, dst[idx], 'DATASET', statuses=None, meta={key: 'dsn_%s' % idx}, rules=None)
             list_dids.append({'scope': scope, 'name': dst[idx]})
             meta_mapping['%s:%s' % (scope, dst[idx])] = (key, 'dsn_%s' % idx)
+
+        # Set container metadata
         for idx in range(4):
             self.did_client.add_did(scope, cnt[idx], 'CONTAINER', statuses=None, meta={key: 'cnt_%s' % idx}, rules=None)
             list_dids.append({'scope': scope, 'name': cnt[idx]})
             meta_mapping['%s:%s' % (scope, cnt[idx])] = (key, 'cnt_%s' % idx)
+        # List metadata using the bulk method
         list_meta = [_ for _ in self.did_client.get_metadata_bulk(list_dids)]
         res_list_dids = [{'scope': entry['scope'], 'name': entry['name']} for entry in list_meta]
         res_list_dids.sort(key=lambda item: item['name'])
@@ -1109,6 +1122,8 @@ class TestDIDClients(unittest.TestCase):
             did = '%s:%s' % (meta['scope'], meta['name'])
             met = meta_mapping[did]
             assert (key, meta[key]) == met
+
+        # Create new containers without metadata
         cnt = ['cnt_%s' % generate_uuid() for _ in range(4)]
         for idx in range(4):
             list_dids.append({'scope': scope, 'name': cnt[idx]})
@@ -1119,3 +1134,48 @@ class TestDIDClients(unittest.TestCase):
             list_dids.append({'scope': scope, 'name': cnt[idx]})
         list_meta = [_ for _ in self.did_client.get_metadata_bulk(list_dids)]
         assert len(list_meta) == 0
+
+
+@pytest.mark.noparallel(reason='uses mock scope')
+def test_bulk_get_meta_inheritance(vo, rse_factory, mock_scope, did_factory, rucio_client):
+    """ DATA IDENTIFIERS (CLIENT): Add metadata for a hierarchical list of DIDs and check that the metadata are inherited"""
+    skip_without_json()
+    key = 'generic_metadata'
+    nb_dids = 4
+    scope = mock_scope.external
+    rse, _ = rse_factory.make_posix_rse()
+    meta_mapping = {}
+    list_dids = []
+
+    files = [did_factory.upload_test_file(rse) for _ in range(nb_dids)]
+    datasets = [did_factory.make_dataset() for _ in range(nb_dids)]
+    containers = [did_factory.make_container() for _ in range(nb_dids)]
+
+    # Set the files metadata
+    for idx, file_ in enumerate(files):
+        fkey = 'file_%s' % key
+        rucio_client.set_metadata(scope, file_['name'], fkey, 'file_%s' % idx)
+        list_dids.append({'scope': scope, 'name': file_['name']})
+        meta_mapping['%s:%s' % (scope, file_['name'])] = {fkey: 'file_%s' % idx}
+
+    # Set the datasets metadata
+    for idx, dataset in enumerate(datasets):
+        dkey = 'dst_%s' % key
+        rucio_client.set_metadata(scope, dataset['name'], dkey, 'dsn_%s' % idx)
+        rucio_client.attach_dids_to_dids([{'scope': scope, 'name': dataset['name'], 'dids': [{'scope': scope, 'name': files[idx]['name']}]}])
+        meta_mapping['%s:%s' % (scope, files[idx]['name'])][dkey] = 'dsn_%s' % idx
+
+    # Set the containers metadata
+    for idx, container in enumerate(containers):
+        ckey = 'cnt_%s' % key
+        rucio_client.set_metadata(scope, container['name'], ckey, 'cnt_%s' % idx)
+        rucio_client.attach_dids_to_dids([{'scope': scope, 'name': container['name'], 'dids': [{'scope': scope, 'name': datasets[idx]['name']}]}])
+        meta_mapping['%s:%s' % (scope, files[idx]['name'])][ckey] = 'cnt_%s' % idx
+
+    list_meta = [meta for meta in rucio_client.get_metadata_bulk(list_dids, inherit=True)]
+
+    for meta in list_meta:
+        did = '%s:%s' % (meta['scope'], meta['name'])
+        met = meta_mapping[did]
+        for key in met:
+            assert met[key] == meta[key]

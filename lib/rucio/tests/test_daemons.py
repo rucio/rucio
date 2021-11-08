@@ -16,6 +16,8 @@
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import sys
 
@@ -36,7 +38,6 @@ from rucio.daemons.judge import cleaner, evaluator, injector, repairer
 from rucio.daemons.oauthmanager import oauthmanager
 from rucio.daemons.reaper import dark_reaper, light_reaper, reaper
 from rucio.daemons.replicarecoverer import suspicious_replica_recoverer
-from rucio.daemons.sonar.distribution import distribution_daemon
 from rucio.daemons.tracer import kronos
 from rucio.daemons.transmogrifier import transmogrifier
 from rucio.daemons.undertaker import undertaker
@@ -78,8 +79,6 @@ DAEMONS = [
     light_reaper,
     reaper,
     suspicious_replica_recoverer,
-    distribution_daemon,
-    # sonar_v3_dev_daemon,  -- lib/rucio/common/config.py:55: NoSectionError: No section: 'sonar'
     kronos,
     transmogrifier,
     undertaker,

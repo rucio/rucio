@@ -58,9 +58,11 @@ protocol_stat_retries = 6
 
 [upload]
 #transfer_timeout = 3600
+#preferred_impl = xrootd, rclone
 
 [download]
 #transfer_timeout = 3600
+#preferred_impl = xrootd, rclone
 
 [core]
 geoip_licence_key = LICENCEKEYGOESHERE  # Get a free licence key at https://www.maxmind.com/en/geolite2/signup
@@ -132,7 +134,7 @@ use_ssl = True
 ssl_key_file = /etc/grid-security/hostkey.pem
 ssl_cert_file = /etc/grid-security/hostcert.pem
 destination = /topic/rucio.events
-brokers = atlas-test-mb.cern.ch
+brokers = localhost
 voname = atlas
 email_from = Rucio <spamspamspam@cern.ch>
 email_test = spamspamspam@cern.ch
@@ -146,7 +148,7 @@ special_accounts = panda, tier0
 
 [trace]
 tracedir = /var/log/rucio/trace
-brokers=atlas-test-mb.cern.ch
+brokers=localhost
 port=61013
 username = _________
 password = _________
@@ -154,7 +156,7 @@ topic = /topic/rucio.tracer
 trace_host = https://rucio-server-prod.cern.ch:443
 
 [tracer-kronos]
-brokers=atlas-test-mb.cern.ch
+brokers=localhost
 port=61013
 ssl_key_file = /etc/grid-security/hostkey.pem
 ssl_cert_file = /etc/grid-security/hostcert.pem
@@ -187,7 +189,7 @@ port = 61023
 ssl_key_file = /etc/grid-security/hostkey.pem
 ssl_cert_file = /etc/grid-security/hostcert.pem
 destination = /topic/rucio.fax
-brokers = atlas-test-mb.cern.ch
+brokers = localhost
 voname = atlas
 account = cache_mb
 
@@ -222,12 +224,6 @@ ddm_url = http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json
 [c3po-workload]
 panda_url = http://bigpanda.cern.ch/jobs/?category=analysis&jobstatus=running
 window = 604800
-
-[sonar]
-dataset_prefix = sonar.test.medium.
-dataset_size = 5000000000
-dataset_dir = ~/public/sonar_medium_dataset/
-scope = user.vzavrtan
 
 [policy]
 package = ATLASRucioPolicy

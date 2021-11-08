@@ -23,6 +23,7 @@ import pytest
 import hashlib
 import re
 
+from rucio.core.request import get_request_by_did
 from rucio.core.rule import add_rule
 from rucio.core.transfer import next_transfers_to_submit
 from rucio.common.utils import generate_uuid
@@ -56,26 +57,6 @@ def rule_client():
 def check_url(pfn, hostname, path):
     assert hostname in pfn
     assert path in pfn
-
-
-def list_fts_transfer(timeout=60, min_attempts=20):
-    running_time = 0
-    request_id = None
-    request_status = None
-    attempt = 1
-
-    time_start = time.time()
-    while running_time < timeout and attempt <= min_attempts:
-        rcode, out = run_cmd_process("/usr/bin/python2 /usr/bin/fts-rest-transfer-list -v -s https://fts:8446")
-        if "Request ID" in out:
-            request_id = re.search("Request ID: (.*)", out).group(1)
-            request_status = re.search("Status: (.*)", out).group(1)
-            break
-        attempt = attempt + 1
-        time_now = time.time()
-        running_time = int(time_now - time_start)
-
-    return request_id, request_status
 
 
 def poll_fts_transfer_status(request_id, timeout=30):
@@ -118,16 +99,17 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
 
     [[_host, [transfer_path]]] = next_transfers_to_submit(rses=[rse1_id, rse2_id]).items()
     assert transfer_path[0].rws.rule_id == rule_id[0]
-    src_url = transfer_path[0]['sources'][0][1]
-    dest_url = transfer_path[0]['dest_urls'][0]
+    src_url = transfer_path[0].legacy_sources[0][1]
+    dest_url = transfer_path[0].dest_url
     check_url(src_url, rse1_hostname, test_file_expected_pfn)
     check_url(dest_url, rse2_hostname, test_file_expected_pfn)
 
     # Run Submitter
-    submitter.run(once=True)
+    submitter.submitter(once=True)
 
-    # Get FTS transfer job info
-    fts_transfer_id, fts_transfer_status = list_fts_transfer()
+    # Get FTS transfer job id
+    request = get_request_by_did(rse_id=rse2_id, **test_file_did)
+    fts_transfer_id = request['external_id']
 
     # Check FTS transfer job
     assert fts_transfer_id is not None

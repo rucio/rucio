@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,9 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Core tracer module
@@ -31,8 +33,11 @@ import random
 import socket
 
 import stomp
+from jsonschema import validate, ValidationError
 
 from rucio.common.config import config_get, config_get_int
+from rucio.common.exception import InvalidObject
+from rucio.common.schema.generic import SCOPE, RSE, UUID, TIME_ENTRY, IP, CLIENT_STATE
 from rucio.core.monitor import record_counter
 
 CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
@@ -75,6 +80,131 @@ USERNAME = config_get('trace', 'username')
 PASSWORD = config_get('trace', 'password')
 VHOST = config_get('trace', 'broker_virtual_host', raise_exception=False)
 
+TOUCH_SCHEMA = {
+    "description": "touch one or more DIDs",
+    "type": "object",
+    "properties": {
+        "eventType": {"enum": ["touch"]},
+        "clientState": CLIENT_STATE,
+        "account": {"type": "string"},
+        "scope": SCOPE,
+        "filename": {"type": "string"},
+        "datasetScope": {"type": ["string", "null"]},
+        "dataset": {"type": ["string", "null"]},
+        "traceTimeentry": TIME_ENTRY,
+        "traceTimeentryUnix": {"type": "number"},
+        "traceIp": IP,
+        "traceId": UUID,
+        "localSite": RSE,
+        "remoteSite": RSE,
+        "usrdn": {"type": "string"},
+    },
+    "required": ['eventType', 'clientState', 'account', 'traceTimeentry', 'traceTimeentryUnix', 'traceIp', 'traceId']
+}
+
+UPLOAD_SCHEMA = {
+    "description": "upload method",
+    "type": "object",
+    "properties": {
+        "eventType": {"enum": ["upload"]},
+        "hostname": {"type": "string"},
+        "eventVersion": {"type": "string"},
+        "clientState": CLIENT_STATE,
+        "account": {"type": "string"},
+        "uuid": UUID,
+        "scope": SCOPE,
+        "datasetScope": {"type": ["string", "null"]},
+        "dataset": {"type": ["string", "null"]},
+        "remoteSite": RSE,
+        "filesize": {"type": "number"},
+        "protocol": {"type": "string"},
+        "transferStart": {"type": "number"},
+        "transferEnd": {"type": "number"},
+        "traceTimeentry": TIME_ENTRY,
+        "traceTimeentryUnix": {"type": "number"},
+        "traceIp": IP,
+        "traceId": UUID,
+        "vo": {"type": "string"},
+        "stateReason": {"type": "string"},
+        "filename": {"type": "string"},
+        "name": {"type": "string"},
+        "usrdn": {"type": "string"},
+    },
+    "required": ['hostname', 'account', 'eventType', 'eventVersion', 'uuid', 'scope', 'dataset',
+                 'remoteSite', 'filesize', 'protocol', 'transferStart', 'traceTimeentry', 'traceTimeentryUnix',
+                 'traceIp', 'traceId']
+}
+
+DOWNLOAD_SCHEMA = {
+    "description": "upload method",
+    "type": "object",
+    "properties": {
+        "eventType": {"enum": ["download"]},
+        "hostname": {"type": "string"},
+        "eventVersion": {"type": "string"},
+        "localSite": RSE,
+        "remoteSite": RSE,
+        "account": {"type": "string"},
+        "uuid": UUID,
+        "scope": SCOPE,
+        "filename": {"type": "string"},
+        "datasetScope": {"type": ["string", "null"]},
+        "dataset": {"type": ["string", "null"]},
+        "filesize": {"type": ["number", "null"]},
+        "clientState": CLIENT_STATE,
+        "stateReason": {"type": "string"},
+        "protocol": {"type": "string"},
+        "transferStart": {"type": "number"},
+        "transferEnd": {"type": "number"},
+        "traceTimeentry": TIME_ENTRY,
+        "traceTimeentryUnix": {"type": "number"},
+        "traceIp": IP,
+        "traceId": UUID,
+        "vo": {"type": "string"},
+        "usrdn": {"type": "string"},
+        "name": {"type": "string"},
+    },
+    "required": ['hostname', 'eventType', 'localSite', 'account', 'eventVersion', 'uuid', 'scope',
+                 'filename', 'datasetScope', 'dataset', 'filesize', 'clientState', 'stateReason']
+}
+
+GET_SCHEMA = {
+    "description": "get method, mainly sent by pilots",
+    "type": "object",
+    "properties": {
+        "eventType": {"enum": ["get", "get_sm", "sm_get", "get_sm_a", "sm_get_a"]},
+        "clientState": CLIENT_STATE,
+        "stateReason": {"type": "string"},
+        "url": {"type": "string"},
+        "vo": {"type": "string"},
+        "scope": SCOPE,
+        "eventVersion": {"type": "string"},
+        "remoteSite": RSE,
+        "datasetScope": {"type": "string"},
+        "dataset": {"type": "string"},
+        "filename": {"type": "string"},
+        "name": {"type": "string"},
+        "traceTimeentry": TIME_ENTRY,
+        "traceTimeentryUnix": {"type": "number"},
+        "traceIp": IP,
+        "traceId": UUID,
+        "usrdn": {"type": "string"},
+    },
+    "required": ['hostname', 'eventType', 'localSite', 'account', 'eventType', 'eventVersion', 'uuid', 'scope',
+                 'filename', 'datasetScope', 'dataset', 'filesize', 'clientState', 'stateReason']
+}
+
+SCHEMAS = {
+    'touch': TOUCH_SCHEMA,
+    'upload': UPLOAD_SCHEMA,
+    'download': DOWNLOAD_SCHEMA,
+    'get': GET_SCHEMA,
+    'get_sm': GET_SCHEMA,
+    'sm_get': GET_SCHEMA,
+    'get_sm_a': GET_SCHEMA,
+    'sm_get_a': GET_SCHEMA
+}
+
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 for broker in BROKERS_ALIAS:
@@ -108,6 +238,12 @@ def trace(payload):
     t_conns = CONNS[:]
 
     try:
+        validate_schema(report)
+    except InvalidObject as error:
+        ROTATING_LOGGER.warning("Problem validating schema: %s" % error)
+        LOGGER.warning("Problem validating schema: %s" % error)
+
+    try:
         for i in range(len(t_conns)):
             try:
                 conn = random.sample(t_conns, 1)[0]
@@ -131,3 +267,20 @@ def trace(payload):
             LOGGER.error("Unable to connect to broker. Could not send trace: %s" % report)
     except Exception as error:
         LOGGER.error(error)
+
+
+def validate_schema(obj):
+    """
+    Validate object against json schema
+
+    :param obj: The object to validate.
+
+    :raises: ValidationError
+    """
+    obj = json.loads(obj)
+
+    try:
+        if obj and 'eventType' in obj:
+            validate(obj, SCHEMAS.get(obj['eventType'].lower()))
+    except ValidationError as error:
+        raise InvalidObject(error)

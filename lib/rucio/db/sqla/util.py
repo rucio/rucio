@@ -60,7 +60,7 @@ def build_database():
     """ Applies the schema to the database. Run this command once to build the database. """
     engine = get_engine()
 
-    schema = config_get('database', 'schema', raise_exception=False)
+    schema = config_get('database', 'schema', raise_exception=False, check_config_table=False)
     if schema:
         print('Schema set in config, trying to create schema:', schema)
         try:

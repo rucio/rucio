@@ -30,6 +30,8 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import json
 import random
@@ -911,6 +913,31 @@ class TestReplicationRuleCore(unittest.TestCase):
 
         assert(get_rule(rule_id2)['state'] == RuleState.REPLICATING)
         assert(get_rule(rule_id)['child_rule_id'] == rule_id2)
+        assert(get_rule(rule_id2)['activity'] == get_rule(rule_id)['activity'])
+        assert(get_rule(rule_id2)['source_replica_expression'] == get_rule(rule_id)['source_replica_expression'])
+
+        pytest.raises(RuleReplaceFailed, move_rule, rule_id, self.rse4)
+
+    def test_move_rule_with_arguments(self):
+        """ REPLICATION RULE (CORE): Move a rule with activity and source-replica-expression specified"""
+        scope = InternalScope('mock', **self.vo)
+        files = create_files(3, scope, [self.rse1_id])
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        assert(get_rule(rule_id)['state'] == RuleState.OK)
+
+        activity = "No User Subscriptions"
+        source_replica_expression = self.rse3 + "|" + self.rse1
+        rule_id2 = move_rule(rule_id, self.rse3, activity=activity, source_replica_expression=source_replica_expression)
+
+        assert(get_rule(rule_id2)['state'] == RuleState.REPLICATING)
+        assert(get_rule(rule_id)['child_rule_id'] == rule_id2)
+        assert(get_rule(rule_id2)['activity'] == activity)
+        assert(get_rule(rule_id2)['source_replica_expression'] == source_replica_expression)
 
         pytest.raises(RuleReplaceFailed, move_rule, rule_id, self.rse4)
 
@@ -1189,6 +1216,34 @@ class TestReplicationRuleCore(unittest.TestCase):
         assert(len(dsl3) == 0)
 
 
+def test_rule_boost(vo, mock_scope, rse_factory, file_factory):
+    """ REPLICATION RULE (CORE): Update a replication rule to quicken the translation from stuck to replicating """
+    jdoe = InternalAccount('jdoe', vo)
+    _, tmp_rse_id = rse_factory.make_mock_rse()
+    rse, rse_id = rse_factory.make_mock_rse()
+    update_rse(rse_id, {'availability_write': False})
+    set_local_account_limit(jdoe, rse_id, -1)
+    files = create_files(3, mock_scope, tmp_rse_id)
+    dataset1 = 'dataset_' + str(uuid())
+    add_did(mock_scope, dataset1, DIDType.DATASET, jdoe)
+    attach_dids(mock_scope, dataset1, files, jdoe)
+
+    rule_id = add_rule(dids=[{'scope': mock_scope, 'name': dataset1}], account=jdoe, copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True)[0]
+    before_update_rule = {}
+    for file in files:
+        for filtered_lock in [lock for lock in get_replica_locks(scope=file['scope'], name=file['name'])]:
+            assert(filtered_lock['state'] == LockState.STUCK)
+            before_update_rule[filtered_lock['name']] = filtered_lock['updated_at']
+    before_update_rule_updated_at = get_rule(rule_id)['updated_at']
+
+    update_rule(rule_id, options={'boost_rule': True})
+
+    for file in files:
+        for filtered_lock in [lock for lock in get_replica_locks(scope=file['scope'], name=file['name'])]:
+            assert(before_update_rule[filtered_lock['name']] > filtered_lock['updated_at'])
+    assert(before_update_rule_updated_at > get_rule(rule_id)['updated_at'])
+
+
 @pytest.mark.noparallel(reason='uses pre-defined RSE')
 class TestReplicationRuleClient(unittest.TestCase):
 
@@ -1370,3 +1425,106 @@ class TestReplicationRuleClient(unittest.TestCase):
         self.rule_client.approve_replication_rule(rule_id)
         rule = self.rule_client.get_replication_rule(rule_id)
         assert rule['state'] == RuleState.INJECT.name
+
+
+@pytest.mark.noparallel(reason='Asynchronos behavior when loading locks')
+def test_detach_dataset_lock_removal(did_client, did_factory, root_account, rse_factory, vo):
+    rse, rse_id = rse_factory.make_posix_rse()
+    file = did_factory.upload_test_file(rse)
+    dataset_internal = did_factory.make_dataset()
+    container_internal = did_factory.make_container()
+
+    # make all scopes external
+    file, dataset, container = ({'scope': did['scope'].external, 'name': did['name']} for did in (file, dataset_internal, container_internal))
+
+    # Attach dataset to container
+    did_client.add_files_to_dataset(files=[file], **dataset)
+    did_client.add_datasets_to_container(dsns=[dataset], **container)
+
+    add_rse_attribute(rse_id=rse_id, key='fakeweight', value=5)
+    add_rse_attribute(get_rse_id(rse='MOCK', vo=vo), "fakeweight", 5)
+
+    rule_id = add_rule(dids=[container_internal], account=root_account, copies=2, rse_expression='fakeweight>0', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+    print("Rule id: {0}".format(rule_id))
+    dataset_locks = list(get_dataset_locks(scope=dataset_internal['scope'], name=dataset['name']))
+    print("Dataset locks before detach: {0}".format(dataset_locks))
+    assert(len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 2)
+
+    # Detach dataset from container, this should delete all locks on the dataset
+    did_client.detach_dids(**container, dids=[dataset_internal])
+
+    re_evaluator(once=True, did_limit=None)
+
+    dataset_locks = list(get_dataset_locks(**dataset_internal))
+    print("Dataset locks after detach: {0}".format(dataset_locks))
+    assert(len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 0)
+
+
+@pytest.mark.noparallel(reason='Asynchronos behavior when loading locks')
+def test_detach_dataset_lock_removal_shared_dataset(did_client, did_factory, root_account, rse_factory, vo):
+    rse, rse_id = rse_factory.make_posix_rse()
+    file = did_factory.upload_test_file(rse)
+    dataset_internal = did_factory.make_dataset()
+    container_internal = did_factory.make_container()
+    container_internal_2 = did_factory.make_container()
+
+    # make all scopes external
+    file, dataset, container, container_2 = ({'scope': did['scope'].external, 'name': did['name']} for did in (file, dataset_internal, container_internal, container_internal_2))
+
+    # Attach dataset to container
+    did_client.add_files_to_dataset(files=[file], **dataset)
+    did_client.add_datasets_to_container(dsns=[dataset], **container)
+    did_client.add_datasets_to_container(dsns=[dataset], **container_2)
+
+    add_rse_attribute(rse_id=rse_id, key='fakeweight', value=5)
+    add_rse_attribute(get_rse_id(rse='MOCK', vo=vo), "fakeweight", 5)
+
+    rule_id = add_rule(dids=[container_internal], account=root_account, copies=2, rse_expression='fakeweight>0', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+    print("Rule id: {0}".format(rule_id))
+    dataset_locks = list(get_dataset_locks(scope=dataset_internal['scope'], name=dataset['name']))
+    print("Dataset locks before detach: {0}".format(dataset_locks))
+    assert(len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 2)
+
+    # Detach dataset from container, this should delete all locks on the dataset
+    did_client.detach_dids(**container, dids=[dataset_internal])
+
+    re_evaluator(once=True, did_limit=None)
+
+    dataset_locks = list(get_dataset_locks(**dataset_internal))
+    print("Dataset locks after detach: {0}".format(dataset_locks))
+    assert(len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 0)
+
+
+@pytest.mark.noparallel(reason='Asynchronos behavior when loading locks')
+def test_detach_dataset_lock_removal_shared_file(did_client, did_factory, root_account, rse_factory, vo):
+    rse, rse_id = rse_factory.make_posix_rse()
+    file = did_factory.upload_test_file(rse)
+    dataset_internal = did_factory.make_dataset()
+    dataset_internal_2 = did_factory.make_dataset()
+    container_internal = did_factory.make_container()
+
+    # make all scopes external
+    file, dataset, dataset_2, container = ({'scope': did['scope'].external, 'name': did['name']} for did in (file, dataset_internal, dataset_internal_2, container_internal))
+
+    # Attach dataset to container
+    did_client.add_files_to_dataset(files=[file], **dataset)
+    did_client.add_files_to_dataset(files=[file], **dataset_2)
+    did_client.add_datasets_to_container(dsns=[dataset], **container)
+
+    add_rse_attribute(rse_id=rse_id, key='fakeweight', value=5)
+    add_rse_attribute(get_rse_id(rse='MOCK', vo=vo), "fakeweight", 5)
+
+    rule_id = add_rule(dids=[container_internal], account=root_account, copies=2, rse_expression='fakeweight>0', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+    print("Rule id: {0}".format(rule_id))
+    dataset_locks = list(get_dataset_locks(scope=dataset_internal['scope'], name=dataset['name']))
+    print("Dataset locks before detach: {0}".format(dataset_locks))
+    assert(len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 2)
+
+    # Detach dataset from container, this should delete all locks on the dataset
+    did_client.detach_dids(**container, dids=[dataset_internal])
+
+    re_evaluator(once=True, did_limit=None)
+
+    dataset_locks = list(get_dataset_locks(**dataset_internal))
+    print("Dataset locks after detach: {0}".format(dataset_locks))
+    assert(len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 0)

@@ -35,6 +35,8 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import division
 
@@ -61,7 +63,6 @@ from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import and_, or_, text, true, null, tuple_, false
 
 from rucio.core.account import has_account_attribute
-from rucio.core.config import get as core_config_get
 import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
@@ -148,7 +149,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     if USE_NEW_RULE_ALGORITHM:
         use_new_rule_algorithm = True
     else:
-        use_new_rule_algorithm = core_config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
+        use_new_rule_algorithm = config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
 
     with record_timer_block('rule.add_rule'):
         # 1. Resolve the rse_expression into a list of RSE-ids
@@ -661,7 +662,7 @@ def inject_rule(rule_id, session=None, logger=logging.log):
     if USE_NEW_RULE_ALGORITHM:
         use_new_rule_algorithm = True
     else:
-        use_new_rule_algorithm = core_config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
+        use_new_rule_algorithm = config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
 
     try:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
@@ -1286,7 +1287,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['comment', 'locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta', 'purge_replicas']
+    valid_options = ['comment', 'locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta', 'purge_replicas', 'boost_rule']
 
     for key in options:
         if key not in valid_options:
@@ -1403,6 +1404,13 @@ def update_rule(rule_id, options, session=None):
 
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
+        # `boost_rule` should run after `stuck`, so lets not include it in the loop since the arguments are unordered
+        if 'boost_rule' in options:
+            for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.STUCK).all():
+                lock['updated_at'] -= timedelta(days=1)
+            rule['updated_at'] -= timedelta(days=1)
+            insert_rule_history(rule, recent=True, longterm=False, session=session)
+
     except IntegrityError as error:
         if match('.*ORA-00001.*', str(error.args[0])) \
                 or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0])) \
@@ -1484,14 +1492,16 @@ def reduce_rule(rule_id, copies, exclude_expression=None, session=None):
 
 
 @transactional_session
-def move_rule(rule_id, rse_expression, session=None):
+def move_rule(rule_id, rse_expression, activity=None, source_replica_expression=None, session=None):
     """
     Move a replication rule to another RSE and, once done, delete the original one.
 
-    :param rule_id:             Rule to be moved.
-    :param rse_expression:      RSE expression of the new rule.
-    :param session:             The DB Session.
-    :raises:                    RuleNotFound, RuleReplaceFailed
+    :param rule_id:                    Rule to be moved.
+    :param rse_expression:             RSE expression of the new rule.
+    :param activity:                   Activity of the new rule.
+    :param source_replica_expression:  Source-Replica-Expression of the new rule.
+    :param session:                    The DB Session.
+    :raises:                           RuleNotFound, RuleReplaceFailed, InvalidRSEExpression
     """
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
@@ -1517,8 +1527,8 @@ def move_rule(rule_id, rse_expression, session=None):
                                lifetime=lifetime,
                                locked=rule.locked,
                                subscription_id=rule.subscription_id,
-                               source_replica_expression=rule.source_replica_expression,
-                               activity=rule.activity,
+                               source_replica_expression=source_replica_expression if source_replica_expression else rule.source_replica_expression,
+                               activity=activity if activity else rule.activity,
                                notify=notify,
                                purge_replicas=rule.purge_replicas,
                                ignore_availability=rule.ignore_availability,
@@ -2280,7 +2290,7 @@ def examine_rule(rule_id, session=None):
 
 
 @transactional_session
-def get_evaluation_backlog(session=None):
+def get_evaluation_backlog(expiration_time=600, session=None):
     """
     Counts the number of entries in the rule evaluation backlog.
     (Number of files to be evaluated)
@@ -2288,7 +2298,7 @@ def get_evaluation_backlog(session=None):
     :returns:     Tuple (Count, Datetime of oldest entry)
     """
 
-    result = REGION.get('rule_evaluation_backlog', expiration_time=600)
+    result = REGION.get('rule_evaluation_backlog', expiration_time=expiration_time)
     if result is NO_VALUE:
         result = session.query(func.count(models.UpdatedDID.created_at), func.min(models.UpdatedDID.created_at)).one()
         REGION.set('rule_evaluation_backlog', result)
@@ -2481,7 +2491,7 @@ def __evaluate_did_detach(eval_did, session=None, logger=logging.log):
     """
 
     logger(logging.INFO, "Re-Evaluating did %s:%s for DETACH", eval_did.scope, eval_did.name)
-    force_epoch = core_config_get('rules', 'force_epoch_when_detach', default=False, session=session)
+    force_epoch = config_get('rules', 'force_epoch_when_detach', default=False, session=session)
 
     with record_timer_block('rule.evaluate_did_detach'):
         # Get all parent DID's
