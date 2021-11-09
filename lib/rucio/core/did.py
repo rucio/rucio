@@ -360,13 +360,14 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
     """
     Add files to dataset.
 
-    :param scope: The scope name.
-    :param name: The data identifier name.
-    :param files: .
-    :param account: The account owner.
-    :param rse_id: The RSE id for the replicas.
-    :param ignore_duplicate: If True, ignore duplicate entries.
-    :param session: The database session in use.
+    :param scope:              The scope name.
+    :param name:               The data identifier name.
+    :param files:              The list of files.
+    :param account:            The account owner.
+    :param rse_id:             The RSE id for the replicas.
+    :param ignore_duplicate:   If True, ignore duplicate entries.
+    :param session:            The database session in use.
+    :returns:                  List of files attached (excluding the ones that were already attached to the dataset).
     """
     # Get metadata from dataset
     try:
@@ -426,6 +427,7 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
     try:
         contents and session.bulk_insert_mappings(models.DataIdentifierAssociation, contents)
         session.flush()
+        return contents
     except IntegrityError as error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
                 or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
@@ -547,10 +549,10 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
     :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
-    parent_did_condition = list()
     parent_dids = list()
     for attachment in attachments:
         try:
+            cont = []
             parent_did = session.query(models.DataIdentifier).filter_by(scope=attachment['scope'], name=attachment['name']).\
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
                 one()
@@ -571,11 +573,11 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
                 raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is closed" % attachment)
 
             elif parent_did.did_type == DIDType.DATASET:
-                __add_files_to_dataset(scope=attachment['scope'], name=attachment['name'],
-                                       files=attachment['dids'], account=account,
-                                       ignore_duplicate=ignore_duplicate,
-                                       rse_id=attachment.get('rse_id'),
-                                       session=session)
+                cont = __add_files_to_dataset(scope=attachment['scope'], name=attachment['name'],
+                                              files=attachment['dids'], account=account,
+                                              ignore_duplicate=ignore_duplicate,
+                                              rse_id=attachment.get('rse_id'),
+                                              session=session)
 
             elif parent_did.did_type == DIDType.CONTAINER:
                 __add_collections_to_container(scope=attachment['scope'],
@@ -583,16 +585,19 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
                                                collections=attachment['dids'],
                                                account=account, session=session)
 
-            parent_did_condition.append(and_(models.DataIdentifier.scope == parent_did.scope,
-                                             models.DataIdentifier.name == parent_did.name))
-
-            parent_dids.append({'scope': parent_did.scope,
-                                'name': parent_did.name,
-                                'rule_evaluation_action': DIDReEvaluation.ATTACH})
+            if cont:
+                # cont contains the parent of the files and is only filled if the files does not exist yet
+                parent_dids.append({'scope': parent_did.scope,
+                                    'name': parent_did.name,
+                                    'rule_evaluation_action': DIDReEvaluation.ATTACH})
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (attachment['scope'], attachment['name']))
 
-        session.bulk_insert_mappings(models.UpdatedDID, parent_dids)
+    # Remove all duplicated dictionnaries from the list
+    # (convert the list of dictionaries into a list of tuple, then to a set of tuple
+    # to remove duplicates, then back to a list of unique dictionaries)
+    parent_dids = [dict(tup) for tup in set(tuple(dictionary.items()) for dictionary in parent_dids)]
+    session.bulk_insert_mappings(models.UpdatedDID, parent_dids)
 
 
 @transactional_session
