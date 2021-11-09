@@ -37,7 +37,7 @@ from rucio.core.transfer import __list_transfer_requests_and_source_replicas
 from rucio.db.sqla.constants import RequestState
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from typing import Optional, Tuple
     from sqlalchemy.orm import Session
 
 graceful_stop = threading.Event()
@@ -113,8 +113,9 @@ def preparer(once, sleep_time, bulk, partition_wait_time=10):
             prefix = 'conveyor-preparer[%s/%s] ' % (worker_number, total_workers)
             daemon_logger = formatted_logger(logging.log, prefix + '%s')
 
+            count = 0
             try:
-                updated_msg = run_once(total_workers=total_workers, worker_number=worker_number, limit=bulk, logger=daemon_logger)
+                count, updated_msg = run_once(total_workers=total_workers, worker_number=worker_number, limit=bulk, logger=daemon_logger)
             except RucioException:
                 daemon_logger(logging.ERROR, 'errored with a RucioException, retrying later', exc_info=True)
                 updated_msg = 'errored'
@@ -125,7 +126,8 @@ def preparer(once, sleep_time, bulk, partition_wait_time=10):
             end_time = time()
             time_diff = end_time - start_time
             daemon_logger(logging.INFO, '%s, taking %.3f seconds' % (updated_msg, time_diff))
-            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=daemon_logger)
+            if count < bulk:
+                daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=daemon_logger)
 
         daemon_logger(logging.INFO, 'gracefully stopping')
 
@@ -133,7 +135,7 @@ def preparer(once, sleep_time, bulk, partition_wait_time=10):
         heartbeat.die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
 
-def run_once(total_workers: int = 0, worker_number: int = 0, limit: "Optional[int]" = None, logger=logging.log, session: "Optional[Session]" = None) -> str:
+def run_once(total_workers: int = 0, worker_number: int = 0, limit: "Optional[int]" = None, logger=logging.log, session: "Optional[Session]" = None) -> "Tuple[int, str]":
     req_sources = __list_transfer_requests_and_source_replicas(
         total_workers=total_workers,
         worker_number=worker_number,
@@ -142,9 +144,9 @@ def run_once(total_workers: int = 0, worker_number: int = 0, limit: "Optional[in
         session=session
     )
     if not req_sources:
-        return 'had nothing to do'
+        return 0, 'had nothing to do'
 
     transfertool_filter = get_transfertool_filter(lambda rse_id: get_supported_transfertools(rse_id=rse_id, session=session))
     requests = reduce_requests(req_sources, [rse_lookup_filter, sort_requests_minimum_distance, transfertool_filter], logger=logger)
     count = preparer_update_requests(requests, session=session)
-    return f'updated {count}/{limit} requests'
+    return count, f'updated {count}/{limit} requests'
