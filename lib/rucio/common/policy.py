@@ -65,10 +65,11 @@ def get_lifetime_policy():
     lifetime_dict = REGION.get('lifetime_dict')
     if isinstance(lifetime_dict, NoValue):
         lifetime_dict = {'data': [], 'mc': [], 'valid': [], 'other': []}
+        lifetime_dir = '/opt/rucio/etc/policies'
         try:
             lifetime_dir = config_get('lifetime', 'directory')
         except (NoSectionError, NoOptionError):
-            lifetime_dir = '/opt/rucio/etc/policies'
+            pass
         for dtype in ['data', 'mc', 'valid', 'other']:
             input_file_name = '%s/config_%s.json' % (lifetime_dir, dtype)
             if os.path.isfile(input_file_name):
