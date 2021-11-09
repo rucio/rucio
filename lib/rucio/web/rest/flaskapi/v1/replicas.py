@@ -18,7 +18,9 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Eric Vaandering <ewv@fnal.gov>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Ilija Vukotic <ivukotic@cern.ch>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from datetime import datetime
 from itertools import chain
@@ -42,6 +44,20 @@ from rucio.core.replica_sorter import sort_replicas
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, parse_scope_name, \
     request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+
+
+def _sort_pfns_by_priority(pfns, sorted_pfns):
+    """
+    Sets the corresponding priority values for the given list of pfns and yields
+    the index of the element as well as the element.
+
+    :param pfns: List with the pfns which priorities should be set.
+    :param sorted_pfns: Sorted list of pfns.
+    :yields: index and corresponding pfn
+    """
+    for idx, pfn in enumerate(sorted_pfns, start=1):
+        pfns[pfn]['priority'] = idx
+        yield idx, pfn
 
 
 class Replicas(ErrorHandlingMethodView):
@@ -116,6 +132,7 @@ class Replicas(ErrorHandlingMethodView):
                     replicas = sort_replicas(dictreplica, client_location, selection=select)
 
                     if not metalink:
+                        _ = list(_sort_pfns_by_priority(rfile['pfns'], replicas))
                         yield dumps(rfile) + '\n'
                     else:
                         yield ' <file name="' + rfile['name'] + '">\n'
@@ -364,15 +381,10 @@ class ListReplicas(ErrorHandlingMethodView):
                             lanreplicas[pfn] = replica_tuple
                         else:
                             wanreplicas[pfn] = replica_tuple
-                    unsorted_replicas = rfile['pfns']
-                    sorted_replicas = rfile['pfns'] = {}
                     # Lan replicas sorted by priority; followed by wan replicas sorted by selection criteria
-                    for idx, pfn in enumerate(chain(sorted(lanreplicas.keys(), key=lambda pfn: lanreplicas[pfn][1]),
-                                                    sort_replicas(wanreplicas, client_location, selection=select)),
-                                              start=1):
-                        replica = unsorted_replicas[pfn]
-                        sorted_replicas[pfn] = replica
-                        replica['priority'] = idx
+                    for idx, pfn in _sort_pfns_by_priority(rfile['pfns'],
+                                                           chain(sorted(lanreplicas.keys(), key=lambda pfn: lanreplicas[pfn][1]),
+                                                                 sort_replicas(wanreplicas, client_location, selection=select))):
                         if limit and limit == idx:
                             break
 
