@@ -17,7 +17,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
@@ -45,6 +45,7 @@ from rucio.client.configclient import ConfigClient
 from rucio.client.touchclient import TouchClient
 from rucio.client.credentialclient import CredentialClient
 from rucio.client.diracclient import DiracClient
+from rucio.client.lifetimeclient import LifetimeClient
 
 
 class Client(AccountClient,
@@ -64,7 +65,8 @@ class Client(AccountClient,
              ImportClient,
              ExportClient,
              CredentialClient,
-             DiracClient):
+             DiracClient,
+             LifetimeClient):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 

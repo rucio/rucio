@@ -7,7 +7,7 @@
   http://www.apache.org/licenses/LICENSE-2.0
 
   Authors:
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2021
   - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
   PY3K COMPATIBLE
@@ -50,9 +50,22 @@ def add_exception(dids, account, pattern, comments, expires_at, vo='def'):
     """
 
     account = InternalAccount(account, vo=vo)
-    for d in dids:
-        d['scope'] = InternalScope(d['scope'], vo=vo)
-    return lifetime_exception.add_exception(dids=dids, account=account, pattern=pattern, comments=comments, expires_at=expires_at)
+    for did in dids:
+        did['scope'] = InternalScope(did['scope'], vo=vo)
+    exceptions = lifetime_exception.add_exception(dids=dids, account=account, pattern=pattern, comments=comments, expires_at=expires_at)
+
+    for key in exceptions:
+        if key == 'exceptions':
+            for reqid in exceptions[key]:
+                for did in exceptions[key][reqid]:
+                    did['scope'] = did['scope'].external
+                    did['did_type'] = did['did_type'].name
+        else:
+            for did in exceptions[key]:
+                did['scope'] = did['scope'].external
+                did['did_type'] = did['did_type'].name
+
+    return exceptions
 
 
 def update_exception(exception_id, state, issuer, vo='def'):
