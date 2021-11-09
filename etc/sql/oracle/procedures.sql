@@ -469,6 +469,15 @@ AS
   num_null_currtime NUMBER(10);
 BEGIN
 
+ALTER SESSION SET workarea_size_policy=MANUAL;
+ALTER SESSION SET sort_area_size=2100000000;
+ALTER SESSION SET hash_area_size=2100000000;
+
+-- 9th Nov 2021, version 1.7, include new rep_type column. rep_type defined as following :
+-- rep_type = 3 if no rule (similar to secondary). Cached data
+-- rep_type = 2 if locked rule. Custodial data
+-- rep_type = 1 if non locked rule with no expiration data. Permanent data
+-- rep_type = 0 if non locked rule with expiration date. Temporary data
 -- 28th May 2018, version 1.6, added check for the number or rows when the CURRTIME is null
 -- 10th Oct 2017, version 1.5, The CURRTIME is populated only at the end of the work because of the Monit Flume JDBC sorce  
 -- Direct select - insert instead of passing data via collection.
@@ -521,8 +530,28 @@ FOR i IN ( SELECT scope FROM scopes WHERE scope NOT LIKE 'mock%' AND scope NOT I
     TIER,
     SPACETOKEN,
     GRP_DATATYPE,
-    SITE)
-        SELECT /*+ LEADING(D R RS) USE_HASH(RS) USE_HASH(R) SWAP_JOIN_INPUTS(RS) INDEX_FFS(RS ("RSES"."ID")) FULL(R) FULL(D) USE_HASH_AGGREGATION */ 
+    SITE,
+    REP_TYPE)
+        WITH l AS
+         (SELECT /*+ use_hash(a,b) full(a) full(b) */ a.scope,
+                                                      a.name,
+                                                      a.rse_id,
+                                                      MAX(a.bytes) AS fbytes,
+                                                      MAX(CASE
+                                                              WHEN b.locked=1 THEN 2
+                                                              WHEN b.expires_at IS NULL THEN 1
+                                                              WHEN NOT b.expires_at IS NULL THEN 0
+                                                          END) AS rep_type
+          FROM LOCKS a,
+               RULES b
+          WHERE a.rule_id=b.id
+            AND a.scope = i.scope
+            AND b.scope = i.scope
+          GROUP BY a.scope,
+                   a.name,
+                   a.rse_id)
+
+        SELECT /*+ LEADING(R D RS L) USE_HASH(RS) USE_HASH(R) USE_HASH(L) USE_HASH(D) INDEX_FFS(RS ("RSES"."ID")) FULL(R) FULL(D) USE_HASH_AGGREGATION */
 	-- curr_time,
         rs.rse,
         CASE WHEN d.scope LIKE 'user%' THEN 'user'
@@ -548,9 +577,10 @@ FOR i IN ( SELECT scope FROM scopes WHERE scope NOT LIKE 'mock%' AND scope NOT I
 --      rmap.value as tier,
         regexp_substr(rs.rse, '[^_]+$', 1, 1) as spacetoken,
         regexp_replace(d.datatype, '_[^_]+$', '', 1, 1) as grp_datatype ,
-	NULL /* temporary NULL for the SITE column. After the loop it will be computed */
+	NULL, /* temporary NULL for the SITE column. After the loop it will be computed */
+        NVL(l.rep_type, 3)
         FROM DIDS d,
-           REPLICAS r,
+           REPLICAS r LEFT OUTER JOIN l on r.scope=l.scope and r.name=l.name and r.rse_id=l.rse_id,
            RSES rs
 --         ADG_ONLY_RSES_ATTR_MAP rmap
         WHERE
@@ -579,6 +609,7 @@ FOR i IN ( SELECT scope FROM scopes WHERE scope NOT LIKE 'mock%' AND scope NOT I
             d.campaign,
             d.phys_group,
             d.prod_step,
+            l.rep_type,
             d.scope ;
 --            rmap.value,
 --            regexp_substr(rs.rse, '[^_]+$', 1, 1),
