@@ -47,8 +47,9 @@ from rucio.common.logging import formatted_logger, setup_logging
 from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core import transfer as transfer_core
-from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfers_for_fts, get_conveyor_rses
+from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses
 from rucio.db.sqla.constants import RequestType
+from rucio.transfertool.fts3 import FTS3Transfertool
 
 graceful_stop = threading.Event()
 
@@ -129,6 +130,16 @@ def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
                 logger(logging.INFO, 'Starting to get stagein transfers for %s' % (activity))
                 start_time = time.time()
 
+                transfertool_kwargs = {
+                    FTS3Transfertool: {
+                        'group_policy': group_policy,
+                        'group_bulk': group_bulk,
+                        'source_strategy': source_strategy,
+                        'max_time_in_queue': max_time_in_queue,
+                        'bring_online': bring_online,
+                        'default_lifetime': -1,
+                    }
+                }
                 transfers = transfer_core.next_transfers_to_submit(
                     total_workers=heart_beat['nr_threads'],
                     worker_number=heart_beat['assign_thread'],
@@ -137,6 +148,7 @@ def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
                     activity=activity,
                     rses=rse_ids,
                     schemes=scheme,
+                    transfertools_by_name={'fts3': FTS3Transfertool},
                     older_than=None,
                     request_type=RequestType.STAGEIN,
                     logger=logger,
@@ -147,16 +159,16 @@ def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
                 record_timer('daemons.conveyor.stager.get_stagein_transfers.transfers', total_transfers)
                 logger(logging.INFO, 'Got %s stagein transfers for %s' % (total_transfers, activity))
 
-                for external_host, transfer_paths in transfers.items():
-                    logger(logging.INFO, 'Starting to group transfers for %s (%s)' % (activity, external_host))
+                for builder, transfer_paths in transfers.items():
+                    transfertool_obj = builder.make_transfertool(logger=logger, **transfertool_kwargs.get(builder.transfertool_class, {}))
+                    logger(logging.INFO, 'Starting to group transfers for %s (%s)' % (activity, transfertool_obj))
                     start_time = time.time()
-                    grouped_jobs = bulk_group_transfers_for_fts(transfer_paths, group_policy, group_bulk, source_strategy, max_time_in_queue,
-                                                                bring_online=bring_online, default_lifetime=-1)
+                    grouped_jobs = transfertool_obj.group_into_submit_jobs(transfer_paths)
                     record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfer_paths) or 1))
 
-                    logger(logging.INFO, 'Starting to submit transfers for %s (%s)' % (activity, external_host))
+                    logger(logging.INFO, 'Starting to submit transfers for %s (%s)' % (activity, transfertool_obj))
                     for job in grouped_jobs:
-                        submit_transfer(external_host=external_host, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter', logger=logger)
+                        submit_transfer(transfertool_obj=transfertool_obj, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter', logger=logger)
 
                 if total_transfers < group_bulk:
                     logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (total_transfers, activity, group_bulk, sleep_time))

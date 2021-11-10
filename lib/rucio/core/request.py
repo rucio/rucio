@@ -756,19 +756,19 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
         archive_request(request_id=req[0], session=session)
 
 
-def cancel_request_external_id(transfer_id, transfer_host):
+def cancel_request_external_id(transfertool_obj, transfer_id):
     """
     Cancel a request based on external transfer id.
 
-    :param transfer_id:    External-ID as a 32 character hex string.
-    :param transfer_host:  Name of the external host.
+    :param transfertool_obj: Transfertool object to be used for cancellation.
+    :param transfer_id:      External-ID as a 32 character hex string.
     """
 
     record_counter('core.request.cancel_request_external_id')
     try:
-        FTS3Transfertool(external_host=transfer_host).cancel(transfer_ids=[transfer_id])
+        transfertool_obj.cancel(transfer_ids=[transfer_id])
     except Exception:
-        raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfer_host, traceback.format_exc()))
+        raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, traceback.format_exc()))
 
 
 @read_session
