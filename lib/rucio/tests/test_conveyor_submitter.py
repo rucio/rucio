@@ -82,7 +82,7 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
     requests_id_in_submission_order = []
     with patch('rucio.transfertool.mock.MockTransfertool.submit') as mock_transfertool_submit:
         # Record the order of requests passed to MockTranfertool.submit()
-        mock_transfertool_submit.side_effect = lambda transfers, _: requests_id_in_submission_order.extend([t.rws.request_id for t in transfers])
+        mock_transfertool_submit.side_effect = lambda transfers, job_params, timeout: requests_id_in_submission_order.extend([t.rws.request_id for t in transfers])
 
         submitter(once=True, rses=[{'id': rse_id} for _, rse_id in dst_rses], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
 
@@ -170,8 +170,8 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
     replica = replica_core.get_replica(jump_rse3_id, **did)
     assert replica['tombstone'] is None
 
-    # Ensure that prometheus metrics were correctly registered. One submission for each transfer hop
-    assert metrics_mock.get_sample_value('rucio_core_request_submit_transfer_total') == 4
+    # Ensure that prometheus metrics were correctly registered. Only one submission, mock transfertool groups everything into one job.
+    assert metrics_mock.get_sample_value('rucio_core_request_submit_transfer_total') == 1
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")

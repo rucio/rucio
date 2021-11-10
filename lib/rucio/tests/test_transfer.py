@@ -180,14 +180,14 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
                 save(session=session, flush=False)
 
     # On equal priority and distance, disk should be preferred over tape. Both disk sources will be returned
-    [[_host, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
+    [[_, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
     assert len(transfer[0].legacy_sources) == 2
     assert transfer[0].legacy_sources[0][0] in (disk1_rse_name, disk2_rse_name)
 
     # Change the rating of the disk RSEs. Disk still preferred, because it must fail twice before tape is tried
     __fake_source_ranking(disk1_rse_id, -1)
     __fake_source_ranking(disk2_rse_id, -1)
-    [[_host, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
+    [[_, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
     assert len(transfer[0].legacy_sources) == 2
     assert transfer[0].legacy_sources[0][0] in (disk1_rse_name, disk2_rse_name)
 
@@ -195,20 +195,20 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
     # Multiple tape sources are not allowed. Only one tape RSE source must be returned.
     __fake_source_ranking(disk1_rse_id, -2)
     __fake_source_ranking(disk2_rse_id, -2)
-    [[_host, transfers]] = next_transfers_to_submit(rses=all_rses).items()
+    [[_, transfers]] = next_transfers_to_submit(rses=all_rses).items()
     assert len(transfers) == 1
     transfer = transfers[0]
     assert len(transfer[0].legacy_sources) == 1
     assert transfer[0].legacy_sources[0][0] in (tape1_rse_name, tape2_rse_name)
 
     # On equal source ranking, but different distance; the smaller distance is preferred
-    [[_host, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
+    [[_, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
     assert len(transfer[0].legacy_sources) == 1
     assert transfer[0].legacy_sources[0][0] == tape2_rse_name
 
     # On different source ranking, the bigger ranking is preferred
     __fake_source_ranking(tape2_rse_id, -1)
-    [[_host, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
+    [[_, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
     assert len(transfer[0].legacy_sources) == 1
     assert transfer[0].legacy_sources[0][0] == tape1_rse_name
 
@@ -235,7 +235,7 @@ def test_multihop_requests_created(rse_factory, did_factory, root_account, core_
     did = did_factory.upload_test_file(rs0_name)
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-    [[_host, [transfer]]] = next_transfers_to_submit(rses=rse_factory.created_rses).items()
+    [[_, [transfer]]] = next_transfers_to_submit(rses=rse_factory.created_rses).items()
     # the intermediate request was correctly created
     assert request_core.get_request_by_did(rse_id=intermediate_rse_id, **did)
 
@@ -284,7 +284,7 @@ def test_singlehop_vs_multihop_priority(rse_factory, root_account, mock_scope, c
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=rse3_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
     # The singlehop must be prioritized
-    [[_host, [transfer]]] = next_transfers_to_submit(rses=rse_factory.created_rses).items()
+    [[_, [transfer]]] = next_transfers_to_submit(rses=rse_factory.created_rses).items()
     assert len(transfer) == 1
     assert transfer[0].src.rse.id == rse2_id
     assert transfer[0].dst.rse.id == rse3_id
@@ -298,6 +298,6 @@ def test_singlehop_vs_multihop_priority(rse_factory, root_account, mock_scope, c
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=rse3_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
     # The multihop must be prioritized
-    [[_host, transfers]] = next_transfers_to_submit(rses=rse_factory.created_rses).items()
+    [[_, transfers]] = next_transfers_to_submit(rses=rse_factory.created_rses).items()
     transfer = next(iter(t for t in transfers if t[0].rws.name == file['name']))
     assert len(transfer) == 2
