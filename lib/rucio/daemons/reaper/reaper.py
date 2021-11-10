@@ -190,7 +190,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
                 else:
                     logger(logging.WARNING, 'Deletion UNAVAILABLE of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
 
-                monitor.record_timer('daemons.reaper.delete.%s.%s' % (prot.attributes['scheme'], rse_name), (time.time() - start) * 1000)
+                monitor.record_timer('daemons.reaper.delete.{scheme}.{rse}', (time.time() - start) * 1000, labels={'scheme': prot.attributes['scheme'], 'rse': rse_name})
                 duration = time.time() - start
 
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})

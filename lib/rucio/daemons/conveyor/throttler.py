@@ -236,9 +236,9 @@ def __release_all_activities(stats, direction, rse_name, rse_id, logger, session
     waiting = stats['waiting']
     strategy = stats['strategy']
     if threshold is not None and transfer + waiting > threshold:
-        record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.max_transfers' % (rse_name), threshold)
-        record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.transfers' % (rse_name), transfer)
-        record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.waitings' % (rse_name), waiting)
+        record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.{activity}.{rse}.{limit_attr}', threshold, labels={'activity': 'all_activities', 'rse': rse_name, 'limit_attr': 'max_transfers'})
+        record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.{activity}.{rse}.{limit_attr}', transfer, labels={'activity': 'all_activities', 'rse': rse_name, 'limit_attr': 'transfers'})
+        record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.{activity}.{rse}.{limit_attr}', waiting, labels={'activity': 'all_activities', 'rse': rse_name, 'limit_attr': 'waiting'})
         if transfer < 0.8 * threshold:
             to_be_released = threshold - transfer
             if strategy == 'grouped_fifo':
@@ -280,9 +280,9 @@ def __release_per_activity(stats, direction, rse_name, rse_id, logger, session):
             elif transfer + waiting > threshold:
                 logger(logging.DEBUG, "Throttler set limits for activity %s, rse %s" % (activity, rse_name))
                 set_rse_transfer_limits(rse_id, activity=activity, max_transfers=threshold, transfers=transfer, waitings=waiting, session=session)
-                record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.max_transfers' % (activity, rse_name), threshold)
-                record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.transfers' % (activity, rse_name), transfer)
-                record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.%s.%s.waitings' % (activity, rse_name), waiting)
+                record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.{activity}.{rse}.{limit_attr}', threshold, labels={'activity': activity, 'rse': rse_name, 'limit_attr': 'max_transfers'})
+                record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.{activity}.{rse}.{limit_attr}', transfer, labels={'activity': activity, 'rse': rse_name, 'limit_attr': 'transfers'})
+                record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.{activity}.{rse}.{limit_attr}', waiting, labels={'activity': activity, 'rse': rse_name, 'limit_attr': 'waiting'})
                 if transfer < 0.8 * threshold:
                     # release requests on account
                     nr_accounts = len(stats['activities'][activity]['accounts'])
@@ -296,7 +296,7 @@ def __release_per_activity(stats, direction, rse_name, rse_id, logger, session):
                         if nr_accounts == 1:
                             logger(logging.DEBUG, "Throttler release %s waiting requests for activity %s, rse %s, account %s " % (to_release, activity, rse_name, account))
                             release_waiting_requests_fifo(rse_id, activity=activity, account=account, count=to_release, direction=direction, session=session)
-                            record_gauge('daemons.conveyor.throttler.release_waiting_requests.%s.%s.%s' % (activity, rse_name, account), to_release)
+                            record_gauge('daemons.conveyor.throttler.release_waiting_requests.{activity}.{rse}.{account}', to_release, labels={'activity': activity, 'rse': rse_name, 'account': account})
                         elif accounts[account]['transfer'] > threshold_per_account:
                             logger(logging.DEBUG, "Throttler will not release  %s waiting requests for activity %s, rse %s, account %s: It queued more transfers than its share " %
                                    (accounts[account]['waiting'], activity, rse_name, account))
@@ -305,14 +305,14 @@ def __release_per_activity(stats, direction, rse_name, rse_id, logger, session):
                         elif accounts[account]['waiting'] < to_release_per_account:
                             logger(logging.DEBUG, "Throttler release %s waiting requests for activity %s, rse %s, account %s " % (accounts[account]['waiting'], activity, rse_name, account))
                             release_waiting_requests_fifo(rse_id, activity=activity, account=account, count=accounts[account]['waiting'], direction=direction, session=session)
-                            record_gauge('daemons.conveyor.throttler.release_waiting_requests.%s.%s.%s' % (activity, rse_name, account), accounts[account]['waiting'])
+                            record_gauge('daemons.conveyor.throttler.release_waiting_requests.{activity}.{rse}.{account}', accounts[account]['waiting'], labels={'activity': activity, 'rse': rse_name, 'account': account})
                             to_release = to_release - accounts[account]['waiting']
                             nr_accounts -= 1
                             to_release_per_account = math.ceil(to_release / nr_accounts)
                         else:
                             logger(logging.DEBUG, "Throttler release %s waiting requests for activity %s, rse %s, account %s " % (to_release_per_account, activity, rse_name, account))
                             release_waiting_requests_fifo(rse_id, activity=activity, account=account, count=to_release_per_account, direction=direction, session=session)
-                            record_gauge('daemons.conveyor.throttler.release_waiting_requests.%s.%s.%s' % (activity, rse_name, account), to_release_per_account)
+                            record_gauge('daemons.conveyor.throttler.release_waiting_requests.{activity}.{rse}.{account}', to_release_per_account, labels={'activity': activity, 'rse': rse_name, 'account': account})
                             to_release = to_release - to_release_per_account
                             nr_accounts -= 1
                 else:

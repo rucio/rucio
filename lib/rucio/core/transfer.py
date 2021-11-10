@@ -622,7 +622,7 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
         try:
             start_time = time.time()
             fts_resps = FTS3Transfertool(external_host=request_host).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
-            record_timer('core.request.bulk_query_transfers', (time.time() - start_time) * 1000 / len(transfer_ids))
+            record_timer('core.request.bulk_query_transfers_fts3', (time.time() - start_time) * 1000 / len(transfer_ids))
         except Exception:
             raise
 
