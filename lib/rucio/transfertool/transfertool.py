@@ -1,4 +1,5 @@
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +16,36 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-#
-# PY3K COMPATIBLE
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
+
+import logging
 
 from abc import ABCMeta, abstractmethod
 from six import add_metaclass
+
+
+class TransferToolBuilder(object):
+    """
+    Builder for Transfertool objects.
+    Stores the parameters needed to create the Transfertool object of the given type/class.
+
+    Implements __hash__ and __eq__ to allow using it as key in dictionaries and group transfers
+    by common transfertool.
+    """
+    def __init__(self, transfertool_class, **kwargs):
+        self.transfertool_class = transfertool_class
+        self.fixed_kwargs = frozenset(kwargs.items())
+
+    def __hash__(self):
+        return hash(frozenset(self.__dict__.items()))
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.__dict__ == other.__dict__
+
+    def make_transfertool(self, **additional_kwargs):
+        all_kwargs = dict(self.fixed_kwargs)
+        all_kwargs.update(additional_kwargs)
+        return self.transfertool_class(**all_kwargs)
 
 
 @add_metaclass(ABCMeta)
@@ -28,7 +54,7 @@ class Transfertool(object):
     Interface definition of the Rucio transfertool
     """
 
-    def __init__(self, external_host):
+    def __init__(self, external_host, logger=logging.log):
         """
         Initializes the transfertool
 
@@ -36,13 +62,40 @@ class Transfertool(object):
         """
 
         self.external_host = external_host
+        self.logger = logger
+
+    def __str__(self):
+        return self.external_host
+
+    @staticmethod
+    @abstractmethod
+    def submission_builder_for_path(transfer_path, logger=logging.log):
+        """
+        Analyze the transfer path. If this transfertool class can submit the given transfers, return
+        a TransferToolBuilder instance capable to build transfertool objects configured for this
+        particular submission.
+        :param transfer_path:  List of DirectTransferDefinitions
+        :param logger: logger instance
+        :return: a TransfertoolBuilder instance or None
+        """
+        pass
 
     @abstractmethod
-    def submit(self, files, job_params, timeout=None):
+    def group_into_submit_jobs(self, transfer_paths):
+        """
+        Takes an iterable over transfer paths, and create groups which can be submitted in one call to submit()
+
+        :param transfer_paths: Iterable over (potentially multihop) transfer paths.
+        :return: list of dicts of the form {"transfers": <transfer list>, "job_params": <data blob>}
+        """
+        pass
+
+    @abstractmethod
+    def submit(self, transfers, job_params, timeout=None):
         """
         Submit transfers to the transfertool.
 
-        :param files:        List of dictionaries describing the file transfers.
+        :param transfers:    List of dictionaries describing the file transfers.
         :param job_params:   Dictionary containing key/value pairs, for all transfers.
         :param timeout:      Timeout in seconds.
         :returns:            Transfertool internal identifiers.
