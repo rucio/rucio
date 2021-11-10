@@ -40,7 +40,6 @@ import datetime
 import logging
 import os
 import re
-import socket
 import threading
 import time
 
@@ -50,13 +49,14 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException, ConfigNotFound, UnsupportedOperation, ReplicaNotFound, RequestNotFound
-from rucio.common.logging import formatted_logger, setup_logging
+from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks, daemon_sleep
-from rucio.core import request as request_core, heartbeat, replica as replica_core
+from rucio.core import request as request_core, replica as replica_core
 from rucio.core.config import items
 from rucio.core.monitor import record_timer, record_counter
 from rucio.core.rse import list_rses
+from rucio.daemons.conveyor.common import HeartbeatHandler
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, BadFilesStatus
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager
@@ -91,81 +91,69 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
 
     retry_protocol_mismatches = conveyor_config.get('retry_protocol_mismatches', False)
 
-    executable = 'conveyor-finisher'
+    logger_prefix = executable = 'conveyor-finisher'
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)
-    hostname = socket.getfqdn()
-    pid = os.getpid()
-    hb_thread = threading.current_thread()
-    heartbeat.sanity_check(executable=executable, hostname=hostname)
-    # Make an initial heartbeat so that all finishers have the correct worker number on the next try
-    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prefix = 'conveyor-finisher[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logger = formatted_logger(logging.log, prefix + '%s')
-    logger(logging.INFO, 'Finisher starting - db_bulk(%i) bulk (%i)', db_bulk, bulk)
 
-    if partition_wait_time:
-        graceful_stop.wait(partition_wait_time)
-    while not graceful_stop.is_set():
+    with HeartbeatHandler(executable=executable, logger_prefix=logger_prefix) as heartbeat_handler:
+        logger = heartbeat_handler.logger
+        logger(logging.INFO, 'Finisher starting - db_bulk(%i) bulk (%i)', db_bulk, bulk)
 
-        start_time = time.time()
-        try:
-            heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            prefix = 'conveyor-finisher[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-            logger = formatted_logger(logging.log, prefix + '%s')
-            logger(logging.DEBUG, 'Starting new cycle')
-            if activities is None:
-                activities = [None]
+        if partition_wait_time:
+            graceful_stop.wait(partition_wait_time)
+        while not graceful_stop.is_set():
 
-            for activity in activities:
-                logger(logging.DEBUG, 'Working on activity %s', activity)
-                time1 = time.time()
-                reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                             state=[RequestState.DONE, RequestState.FAILED,
-                                                    RequestState.LOST, RequestState.SUBMITTING,
-                                                    RequestState.SUBMISSION_FAILED, RequestState.NO_SOURCES,
-                                                    RequestState.ONLY_TAPE_SOURCES, RequestState.MISMATCH_SCHEME],
-                                             limit=db_bulk,
-                                             older_than=datetime.datetime.utcnow(),
-                                             total_workers=heart_beat['nr_threads'],
-                                             worker_number=heart_beat['assign_thread'],
-                                             mode_all=True,
-                                             hash_variable='rule_id')
-                record_timer('daemons.conveyor.finisher.000-get_next', (time.time() - time1) * 1000)
-                time2 = time.time()
-                if reqs:
-                    logger(logging.DEBUG, 'Updating %i requests for activity %s', len(reqs), activity)
+            start_time = time.time()
+            try:
+                heart_beat, logger = heartbeat_handler.live(older_than=3600)
+                if activities is None:
+                    activities = [None]
 
-                for chunk in chunks(reqs, bulk):
-                    try:
-                        time3 = time.time()
-                        __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
-                        record_timer('daemons.conveyor.finisher.handle_requests', (time.time() - time3) * 1000 / (len(chunk) if chunk else 1))
-                        record_counter('daemons.conveyor.finisher.handle_requests', len(chunk))
-                    except Exception as error:
-                        logger(logging.WARNING, '%s', str(error))
-                if reqs:
-                    logger(logging.DEBUG, 'Finish to update %s finished requests for activity %s in %s seconds', len(reqs), activity, time.time() - time2)
+                for activity in activities:
+                    logger(logging.DEBUG, 'Working on activity %s', activity)
+                    time1 = time.time()
+                    reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                                                 state=[RequestState.DONE, RequestState.FAILED,
+                                                        RequestState.LOST, RequestState.SUBMITTING,
+                                                        RequestState.SUBMISSION_FAILED, RequestState.NO_SOURCES,
+                                                        RequestState.ONLY_TAPE_SOURCES, RequestState.MISMATCH_SCHEME],
+                                                 limit=db_bulk,
+                                                 older_than=datetime.datetime.utcnow(),
+                                                 total_workers=heart_beat['nr_threads'],
+                                                 worker_number=heart_beat['assign_thread'],
+                                                 mode_all=True,
+                                                 hash_variable='rule_id')
+                    record_timer('daemons.conveyor.finisher.000-get_next', (time.time() - time1) * 1000)
+                    time2 = time.time()
+                    if reqs:
+                        logger(logging.DEBUG, 'Updating %i requests for activity %s', len(reqs), activity)
 
-        except (DatabaseException, DatabaseError) as error:
-            if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
-                logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
-            else:
-                logger(logging.ERROR, 'Exception', exc_info=True)
-        except Exception:
-            logger(logging.CRITICAL, 'Exception', exc_info=True)
+                    for chunk in chunks(reqs, bulk):
+                        try:
+                            time3 = time.time()
+                            __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
+                            record_timer('daemons.conveyor.finisher.handle_requests', (time.time() - time3) * 1000 / (len(chunk) if chunk else 1))
+                            record_counter('daemons.conveyor.finisher.handle_requests', delta=len(chunk))
+                        except Exception as error:
+                            logger(logging.WARNING, '%s', str(error))
+                    if reqs:
+                        logger(logging.DEBUG, 'Finish to update %s finished requests for activity %s in %s seconds', len(reqs), activity, time.time() - time2)
 
-        if once:
-            break
+            except (DatabaseException, DatabaseError) as error:
+                if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+                    logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
+                else:
+                    logger(logging.ERROR, 'Exception', exc_info=True)
+            except Exception:
+                logger(logging.CRITICAL, 'Exception', exc_info=True)
+                if once:
+                    raise
 
-        daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=logger)
+            if once:
+                break
 
-    logger(logging.INFO, 'Graceful stop requests')
-
-    heartbeat.die(executable, hostname, pid, hb_thread)
-
-    logger(logging.INFO, 'Graceful stop done')
+            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=logger)
 
 
 def stop(signum=None, frame=None):

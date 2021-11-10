@@ -19,7 +19,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
 # - Wen Guan <wen.guan@cern.ch>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019-2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
@@ -27,6 +27,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -42,25 +43,25 @@ import threading
 import time
 import traceback
 from collections import OrderedDict
+from configparser import NoOptionError, NoSectionError
 from datetime import datetime, timedelta
 from math import ceil
 from typing import TYPE_CHECKING
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
-from prometheus_client import Counter, Gauge
+from prometheus_client import Gauge
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound,
+from rucio.common.exception import (DatabaseException, RSENotFound,
                                     ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
                                     VONotFound)
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.utils import chunks, daemon_sleep
 from rucio.core import monitor
-from rucio.core.config import get
 from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts
 from rucio.core.message import add_message
@@ -81,7 +82,8 @@ REGION = make_region().configure('dogpile.cache.memcached',
                                  arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
                                             'distributed_lock': True})
 
-DELETION_COUNTER = Counter('rucio_daemons_reaper_deletion_done', 'Number of deleted replicas')
+DELETION_COUNTER = monitor.MultiCounter(prom='rucio_daemons_reaper_deletion_done', statsd='reaper.deletion.done',
+                                        documentation='Number of deleted replicas')
 EXCLUDED_RSE_GAUGE = Gauge('rucio_daemons_reaper_excluded_rses', 'Temporarly excluded RSEs', labelnames=('rse',))
 
 
@@ -195,16 +197,22 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
 
                 deletion_dict['duration'] = duration
                 add_message('deletion-done', deletion_dict)
-                logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %s seconds', replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
+                logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %.2f seconds', replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
 
             except SourceNotFound:
-                err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse_name)
+                duration = time.time() - start
+                err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s in %.2f seconds' % (replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
                 logger(logging.WARNING, '%s', err_msg)
+                deletion_dict['reason'] = 'File Not Found'
+                deletion_dict['duration'] = duration
+                add_message('deletion-not-found', deletion_dict)
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
             except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
-                logger(logging.WARNING, 'Deletion NOACCESS of %s:%s as %s on %s: %s', replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
+                duration = time.time() - start
+                logger(logging.WARNING, 'Deletion NOACCESS of %s:%s as %s on %s: %s in %.2f', replica['scope'], replica['name'], replica['pfn'], rse_name, str(error), duration)
                 deletion_dict['reason'] = str(error)
+                deletion_dict['duration'] = duration
                 add_message('deletion-failed', deletion_dict)
                 noaccess_attempts += 1
                 if noaccess_attempts >= auto_exclude_threshold:
@@ -215,8 +223,10 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
                     break
 
             except Exception as error:
-                logger(logging.CRITICAL, 'Deletion CRITICAL of %s:%s as %s on %s: %s', replica['scope'], replica['name'], replica['pfn'], rse_name, str(traceback.format_exc()))
+                duration = time.time() - start
+                logger(logging.CRITICAL, 'Deletion CRITICAL of %s:%s as %s on %s in %.2f seconds : %s', replica['scope'], replica['name'], replica['pfn'], rse_name, duration, str(traceback.format_exc()))
                 deletion_dict['reason'] = str(error)
+                deletion_dict['duration'] = duration
                 add_message('deletion-failed', deletion_dict)
 
         if pfns_to_bulk_delete and prot.attributes['scheme'] == 'globus':
@@ -287,11 +297,11 @@ def get_max_deletion_threads_by_hostname(hostname):
     result = REGION.get('max_deletion_threads_%s' % hostname)
     if result is NO_VALUE:
         try:
-            max_deletion_thread = get('reaper', 'max_deletion_threads_%s' % hostname)
-        except ConfigNotFound:
+            max_deletion_thread = config_get('reaper', 'max_deletion_threads_%s' % hostname)
+        except (NoOptionError, NoSectionError, RuntimeError):
             try:
-                max_deletion_thread = get('reaper', 'nb_workers_by_hostname')
-            except ConfigNotFound:
+                max_deletion_thread = config_get('reaper', 'nb_workers_by_hostname')
+            except (NoOptionError, NoSectionError, RuntimeError):
                 max_deletion_thread = 5
         REGION.set('max_deletion_threads_%s' % hostname, max_deletion_thread)
         result = max_deletion_thread
@@ -422,19 +432,19 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     while not GRACEFUL_STOP.is_set():
         # try to get auto exclude parameters from the config table. Otherwise use CLI parameters.
         try:
-            auto_exclude_threshold = get('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold)
-            auto_exclude_timeout = get('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout)
-        except ConfigNotFound:
+            auto_exclude_threshold = config_get('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold)
+            auto_exclude_timeout = config_get('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout)
+        except (NoOptionError, NoSectionError, RuntimeError):
             pass
 
         # Check if there is a Judge Evaluator backlog
         try:
-            max_evaluator_backlog_count = get('reaper', 'max_evaluator_backlog_count')
-        except ConfigNotFound:
+            max_evaluator_backlog_count = config_get('reaper', 'max_evaluator_backlog_count')
+        except (NoOptionError, NoSectionError, RuntimeError):
             max_evaluator_backlog_count = None
         try:
-            max_evaluator_backlog_duration = get('reaper', 'max_evaluator_backlog_duration')
-        except ConfigNotFound:
+            max_evaluator_backlog_duration = config_get('reaper', 'max_evaluator_backlog_duration')
+        except (NoOptionError, NoSectionError, RuntimeError):
             max_evaluator_backlog_duration = None
         if max_evaluator_backlog_count or max_evaluator_backlog_duration:
             backlog = get_evaluation_backlog()
@@ -601,7 +611,6 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                         with monitor.record_timer_block('reaper.delete_replicas'):
                             delete_replicas(rse_id=rse_id, files=deleted_files)
                         logger(logging.DEBUG, 'delete_replicas successed on %s : %s replicas in %s seconds', rse_name, len(deleted_files), time.time() - del_start)
-                        monitor.record_counter(counters='reaper.deletion.done', delta=len(deleted_files))
                         DELETION_COUNTER.inc(len(deleted_files))
                 except Exception:
                     logger(logging.CRITICAL, 'Exception', exc_info=True)

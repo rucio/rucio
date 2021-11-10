@@ -36,9 +36,7 @@ from __future__ import division
 import datetime
 import json
 import logging
-import os
 import re
-import socket
 import threading
 import time
 from collections import defaultdict
@@ -50,11 +48,12 @@ from sqlalchemy.exc import DatabaseError
 import rucio.db.sqla.util
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
-from rucio.common.logging import formatted_logger, setup_logging
+from rucio.common.logging import setup_logging
 from rucio.common.utils import chunks
-from rucio.core import heartbeat, transfer as transfer_core, request as request_core
+from rucio.core import transfer as transfer_core, request as request_core
 from rucio.core.monitor import record_timer, record_counter
 from rucio.db.sqla.constants import RequestState, RequestType
+from rucio.daemons.conveyor.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
 
@@ -76,7 +75,7 @@ def poller(once=False, activities=None, sleep_time=60,
     except NoOptionError:
         timeout = None
 
-    executable = 'conveyor-poller'
+    logger_prefix = executable = 'conveyor-poller'
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)
@@ -86,84 +85,65 @@ def poller(once=False, activities=None, sleep_time=60,
     if FILTER_TRANSFERTOOL:
         executable += ' --filter-transfertool ' + FILTER_TRANSFERTOOL
 
-    hostname = socket.getfqdn()
-    pid = os.getpid()
-    hb_thread = threading.current_thread()
-    heartbeat.sanity_check(executable=executable, hostname=hostname)
-    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prefix = 'conveyor-poller[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logger = formatted_logger(logging.log, prefix + '%s')
-    logger(logging.INFO, 'Poller starting - db_bulk (%i) fts_bulk (%i) timeout (%s)' % (db_bulk, fts_bulk, timeout))
+    with HeartbeatHandler(executable=executable, logger_prefix=logger_prefix) as heartbeat_handler:
+        logger = heartbeat_handler.logger
+        logger(logging.INFO, 'Poller starting - db_bulk (%i) fts_bulk (%i) timeout (%s)' % (db_bulk, fts_bulk, timeout))
+        activity_next_exe_time = defaultdict(time.time)
 
-    if partition_wait_time:
-        time.sleep(partition_wait_time)  # To prevent running on the same partition if all the poller restart at the same time
-    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prefix = 'conveyor-poller[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logger = formatted_logger(logging.log, prefix + '%s')
+        if partition_wait_time:
+            graceful_stop.wait(partition_wait_time)  # To prevent running on the same partition if all the poller restart at the same time
+        while not graceful_stop.is_set():
 
-    logger(logging.INFO, 'Poller started')
+            try:
+                heart_beat, logger = heartbeat_handler.live(older_than=3600)
+                if activities is None:
+                    activities = [None]
+                for activity in activities:
+                    if activity_next_exe_time[activity] > time.time():
+                        graceful_stop.wait(1)
+                        continue
 
-    activity_next_exe_time = defaultdict(time.time)
+                    start_time = time.time()
+                    logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))
+                    transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                                                    state=[RequestState.SUBMITTED],
+                                                    limit=db_bulk,
+                                                    older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than),
+                                                    total_workers=heart_beat['nr_threads'], worker_number=heart_beat['assign_thread'],
+                                                    mode_all=False, hash_variable='id',
+                                                    activity=activity,
+                                                    activity_shares=activity_shares,
+                                                    transfertool=FILTER_TRANSFERTOOL)
 
-    while not graceful_stop.is_set():
+                    record_timer('daemons.conveyor.poller.000-get_next', (time.time() - start_time) * 1000)
 
-        try:
-            heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            prefix = 'conveyor-poller[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-            logger = formatted_logger(logging.log, prefix + '%s')
+                    if transfs:
+                        logger(logging.DEBUG, 'Polling %i transfers for activity %s' % (len(transfs), activity))
 
-            if activities is None:
-                activities = [None]
-            for activity in activities:
-                if activity_next_exe_time[activity] > time.time():
-                    graceful_stop.wait(1)
-                    continue
+                    xfers_ids = {}
+                    for transf in transfs:
+                        if not transf['external_host'] in xfers_ids:
+                            xfers_ids[transf['external_host']] = []
+                        xfers_ids[transf['external_host']].append((transf['external_id'], transf['request_id']))
 
-                start_time = time.time()
-                logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))
-                transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                                state=[RequestState.SUBMITTED],
-                                                limit=db_bulk,
-                                                older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than),
-                                                total_workers=heart_beat['nr_threads'], worker_number=heart_beat['assign_thread'],
-                                                mode_all=False, hash_variable='id',
-                                                activity=activity,
-                                                activity_shares=activity_shares,
-                                                transfertool=FILTER_TRANSFERTOOL)
+                    for external_host in xfers_ids:
+                        external_ids = list({trf[0] for trf in xfers_ids[external_host]})
+                        request_ids = [trf[1] for trf in xfers_ids[external_host]]
+                        for xfers in chunks(external_ids, fts_bulk):
+                            # poll transfers
+                            poll_transfers(external_host=external_host, xfers=xfers, request_ids=request_ids, timeout=timeout, logger=logger)
 
-                record_timer('daemons.conveyor.poller.000-get_next', (time.time() - start_time) * 1000)
+                    if len(transfs) < fts_bulk / 2:
+                        logger(logging.INFO, "Only %s transfers for activity %s, which is less than half of the bulk %s, will sleep %s seconds" % (len(transfs), activity, fts_bulk, sleep_time))
+                        if activity_next_exe_time[activity] < time.time():
+                            activity_next_exe_time[activity] = time.time() + sleep_time
+            except Exception:
+                logger(logging.CRITICAL, "Exception", exc_info=True)
+                if once:
+                    raise
 
-                if transfs:
-                    logger(logging.DEBUG, 'Polling %i transfers for activity %s' % (len(transfs), activity))
-
-                xfers_ids = {}
-                for transf in transfs:
-                    if not transf['external_host'] in xfers_ids:
-                        xfers_ids[transf['external_host']] = []
-                    xfers_ids[transf['external_host']].append((transf['external_id'], transf['request_id']))
-
-                for external_host in xfers_ids:
-                    external_ids = list({trf[0] for trf in xfers_ids[external_host]})
-                    request_ids = [trf[1] for trf in xfers_ids[external_host]]
-                    for xfers in chunks(external_ids, fts_bulk):
-                        # poll transfers
-                        poll_transfers(external_host=external_host, xfers=xfers, request_ids=request_ids, timeout=timeout, logger=logger)
-
-                if len(transfs) < fts_bulk / 2:
-                    logger(logging.INFO, "Only %s transfers for activity %s, which is less than half of the bulk %s, will sleep %s seconds" % (len(transfs), activity, fts_bulk, sleep_time))
-                    if activity_next_exe_time[activity] < time.time():
-                        activity_next_exe_time[activity] = time.time() + sleep_time
-        except Exception:
-            logger(logging.CRITICAL, "Exception", exc_info=True)
-
-        if once:
-            break
-
-    logger(logging.INFO, 'Graceful stop requested')
-
-    heartbeat.die(executable, hostname, pid, hb_thread)
-
-    logger(logging.INFO, 'Graceful stop done')
+            if once:
+                break
 
 
 def stop(signum=None, frame=None):
@@ -243,7 +223,7 @@ def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=
             logger(logging.DEBUG, 'Setting %s transfer requests status to DONE per mock tool' % (len(xfers)))
             for task_id in xfers:
                 ret = transfer_core.update_transfer_state(external_host=None, transfer_id=task_id, state=RequestState.DONE)
-                record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
+                record_counter('daemons.conveyor.poller.update_request_state.{updated}', labels={'updated': ret})
             return
         try:
             tss = time.time()
@@ -281,7 +261,7 @@ def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=
         if TRANSFER_TOOL == 'globus':
             for task_id in resps:
                 ret = transfer_core.update_transfer_state(external_host=None, transfer_id=task_id, state=resps[task_id])
-                record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
+                record_counter('daemons.conveyor.poller.update_request_state.{updated}', labels={'updated': ret})
         else:
             for transfer_id in resps:
                 try:
@@ -303,7 +283,7 @@ def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=
                                 # if True, really update request content; if False, only touch request
                                 if ret:
                                     cnt += 1
-                                record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
+                                record_counter('daemons.conveyor.poller.update_request_state.{updated}', labels={'updated': ret})
 
                     # should touch transfers.
                     # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.

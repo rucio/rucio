@@ -33,6 +33,7 @@
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 # - Nick Smith <nick.smith@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Nick Smith <nick.smith@cern.ch>, 2021
 
 import datetime
 import json
@@ -40,6 +41,7 @@ import logging
 import time
 import traceback
 from collections import namedtuple
+from configparser import NoOptionError, NoSectionError
 from itertools import filterfalse
 from typing import TYPE_CHECKING
 
@@ -48,12 +50,12 @@ from sqlalchemy import and_, or_, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, true
 
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get_bool, config_get
 from rucio.common.constants import FTS_STATE
-from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation, ConfigNotFound
+from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
-from rucio.core.config import get
+from rucio.core.config import get as core_config_get
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute
@@ -88,6 +90,10 @@ def should_retry_request(req, retry_protocol_mismatches):
     :param retry_protocol_mismatches:    Boolean to retry the transfer in case of protocol mismatch.
     :returns:                            True if should retry it; False if no more retry.
     """
+    if req['attributes'] and req['attributes'].get('next_hop_request_id'):
+        # This is an intermediate request in a multi-hop transfer. It must not be re-scheduled on its own.
+        # If needed, it will be re-scheduled via the creation of a new multi-hop transfer.
+        return False
     if req['state'] == RequestState.SUBMITTING:
         return True
     if req['state'] == RequestState.NO_SOURCES or req['state'] == RequestState.ONLY_TAPE_SOURCES:
@@ -303,7 +309,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     :returns:                 Request as a dictionary.
     """
 
-    record_counter('core.request.get_next.%s-%s' % (request_type, state))
+    record_counter('core.request.get_next.{request_type}.{state}', labels={'request_type': request_type, 'state': state})
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
     if type(request_type) is not list:
@@ -452,7 +458,8 @@ def query_request_details(request_id, transfertool='fts3', session=None, logger=
 
 
 @transactional_session
-def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, staging_started_at=None, staging_finished_at=None, src_rse_id=None, err_msg=None, session=None, logger=logging.log):
+def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, staging_started_at=None,
+                      staging_finished_at=None, src_rse_id=None, err_msg=None, attributes=None, session=None, logger=logging.log):
     """
     Update the state of a request.
 
@@ -486,6 +493,8 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
             update_items['source_rse_id'] = src_rse_id
         if err_msg:
             update_items['err_msg'] = err_msg
+        if attributes is not None:
+            update_items['attributes'] = json.dumps(attributes)
 
         request = get_request(request_id, session=session)
         if new_state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST] and (request["external_id"] != transfer_id):
@@ -583,6 +592,7 @@ def get_request(request_id, session=None):
         else:
             tmp = dict(tmp)
             tmp.pop('_sa_instance_state')
+            tmp['attributes'] = json.loads(str(tmp['attributes']))
             return tmp
     except IntegrityError as error:
         raise RucioException(error.args)
@@ -674,7 +684,7 @@ def archive_request(request_id, session=None):
                                              name=req['name'],
                                              dest_rse_id=req['dest_rse_id'],
                                              source_rse_id=req['source_rse_id'],
-                                             attributes=req['attributes'],
+                                             attributes=json.dumps(req['attributes']) if isinstance(req['attributes'], dict) else req['attributes'],
                                              state=req['state'],
                                              account=req['account'],
                                              external_id=req['external_id'],
@@ -750,19 +760,19 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
         archive_request(request_id=req[0], session=session)
 
 
-def cancel_request_external_id(transfer_id, transfer_host):
+def cancel_request_external_id(transfertool_obj, transfer_id):
     """
     Cancel a request based on external transfer id.
 
-    :param transfer_id:    External-ID as a 32 character hex string.
-    :param transfer_host:  Name of the external host.
+    :param transfertool_obj: Transfertool object to be used for cancellation.
+    :param transfer_id:      External-ID as a 32 character hex string.
     """
 
     record_counter('core.request.cancel_request_external_id')
     try:
-        FTS3Transfertool(external_host=transfer_host).cancel(transfer_ids=[transfer_id])
+        transfertool_obj.cancel(transfer_ids=[transfer_id])
     except Exception:
-        raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfer_host, traceback.format_exc()))
+        raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, traceback.format_exc()))
 
 
 @read_session
@@ -1247,7 +1257,7 @@ def update_request_state(response, session=None, logger=logging.log):
                 transfer_id = response['transfer_id'] if 'transfer_id' in response else None
                 logger(logging.INFO, 'UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
 
-                job_m_replica = response.get('job_m_replica', None)
+                multi_sources = response.get('multi_sources', None)
                 src_url = response.get('src_url', None)
                 src_rse = response.get('src_rse', None)
                 src_rse_id = response.get('src_rse_id', None)
@@ -1255,7 +1265,7 @@ def update_request_state(response, session=None, logger=logging.log):
                 staging_finished_at = response.get('staging_finished', None)
                 started_at = response.get('started_at', None)
                 transferred_at = response.get('transferred_at', None)
-                if job_m_replica and (str(job_m_replica).lower() == str('true')) and src_url:
+                if multi_sources and (str(multi_sources).lower() == str('true')) and src_url:
                     try:
                         src_rse_name, src_rse_id = __get_source_rse(response['request_id'], src_url, session=session)
                     except Exception:
@@ -1267,6 +1277,19 @@ def update_request_state(response, session=None, logger=logging.log):
                         logger(logging.DEBUG, 'Correct RSE: %s for source surl: %s' % (src_rse_name, src_url))
                 err_msg = get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
 
+                attributes = None
+                if response['new_state'] == RequestState.FAILED and 'Destination file exists and overwrite is not enabled' in (response.get('reason') or ''):
+                    dst_file = response['dst_file']
+                    # if the file size is wrong or the checksum is wrong
+                    if (dst_file and (
+                            dst_file.get('file_size') is not None and dst_file['file_size'] != request.get('bytes')
+                            or dst_file.get('checksum_type', '').lower() == 'adler32' and dst_file.get('checksum_value') != request.get('adler32')
+                            or dst_file.get('checksum_type', '').lower() == 'md5' and dst_file.get('checksum_value') != request.get('md5'))):
+                        overwrite = core_config_get('transfers', 'overwrite_corrupted_files', default=False, session=session)
+                        if overwrite:
+                            attributes = request['attributes']
+                            attributes['overwrite'] = True
+
                 set_request_state(response['request_id'],
                                   response['new_state'],
                                   transfer_id=transfer_id,
@@ -1276,6 +1299,7 @@ def update_request_state(response, session=None, logger=logging.log):
                                   transferred_at=transferred_at,
                                   src_rse_id=src_rse_id,
                                   err_msg=err_msg,
+                                  attributes=attributes,
                                   session=session,
                                   logger=logger)
 
@@ -1507,8 +1531,8 @@ def __throttler_request_state(activity, source_rse_id, dest_rse_id, session: "Op
     if the throttler mode is not set.
     """
     try:
-        throttler_mode = get('throttler', 'mode', default=None, use_cache=False, session=session)
-    except ConfigNotFound:
+        throttler_mode = config_get('throttler', 'mode', default=None, use_cache=False, session=session)
+    except (NoOptionError, NoSectionError, RuntimeError):
         throttler_mode = None
 
     limit_found = False

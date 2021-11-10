@@ -356,13 +356,14 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
     """
     Add files to dataset.
 
-    :param scope: The scope name.
-    :param name: The data identifier name.
-    :param files: .
-    :param account: The account owner.
-    :param rse_id: The RSE id for the replicas.
-    :param ignore_duplicate: If True, ignore duplicate entries.
-    :param session: The database session in use.
+    :param scope:              The scope name.
+    :param name:               The data identifier name.
+    :param files:              The list of files.
+    :param account:            The account owner.
+    :param rse_id:             The RSE id for the replicas.
+    :param ignore_duplicate:   If True, ignore duplicate entries.
+    :param session:            The database session in use.
+    :returns:                  List of files attached (excluding the ones that were already attached to the dataset).
     """
     # Get metadata from dataset
     try:
@@ -422,6 +423,7 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
     try:
         contents and session.bulk_insert_mappings(models.DataIdentifierAssociation, contents)
         session.flush()
+        return contents
     except IntegrityError as error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
                 or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
@@ -543,10 +545,10 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
     :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
-    parent_did_condition = list()
     parent_dids = list()
     for attachment in attachments:
         try:
+            cont = []
             parent_did = session.query(models.DataIdentifier).filter_by(scope=attachment['scope'], name=attachment['name']).\
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
                 one()
@@ -567,11 +569,11 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
                 raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is closed" % attachment)
 
             elif parent_did.did_type == DIDType.DATASET:
-                __add_files_to_dataset(scope=attachment['scope'], name=attachment['name'],
-                                       files=attachment['dids'], account=account,
-                                       ignore_duplicate=ignore_duplicate,
-                                       rse_id=attachment.get('rse_id'),
-                                       session=session)
+                cont = __add_files_to_dataset(scope=attachment['scope'], name=attachment['name'],
+                                              files=attachment['dids'], account=account,
+                                              ignore_duplicate=ignore_duplicate,
+                                              rse_id=attachment.get('rse_id'),
+                                              session=session)
 
             elif parent_did.did_type == DIDType.CONTAINER:
                 __add_collections_to_container(scope=attachment['scope'],
@@ -579,16 +581,19 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
                                                collections=attachment['dids'],
                                                account=account, session=session)
 
-            parent_did_condition.append(and_(models.DataIdentifier.scope == parent_did.scope,
-                                             models.DataIdentifier.name == parent_did.name))
-
-            parent_dids.append({'scope': parent_did.scope,
-                                'name': parent_did.name,
-                                'rule_evaluation_action': DIDReEvaluation.ATTACH})
+            if cont:
+                # cont contains the parent of the files and is only filled if the files does not exist yet
+                parent_dids.append({'scope': parent_did.scope,
+                                    'name': parent_did.name,
+                                    'rule_evaluation_action': DIDReEvaluation.ATTACH})
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (attachment['scope'], attachment['name']))
 
-        session.bulk_insert_mappings(models.UpdatedDID, parent_dids)
+    # Remove all duplicated dictionnaries from the list
+    # (convert the list of dictionaries into a list of tuple, then to a set of tuple
+    # to remove duplicates, then back to a list of unique dictionaries)
+    parent_dids = [dict(tup) for tup in set(tuple(dictionary.items()) for dictionary in parent_dids)]
+    session.bulk_insert_mappings(models.UpdatedDID, parent_dids)
 
 
 @transactional_session
@@ -612,7 +617,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     metadata_to_delete = []
     file_content_clause = []
 
-    archive_dids = config_core.get('undertaker', 'archive_dids', default=False, session=session)
+    archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
 
     for did in dids:
         logger(logging.INFO, 'Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
@@ -637,7 +642,8 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
             not_purge_replicas.append((did['scope'], did['name']))
 
             # Archive content
-            # Disable for postgres
+        archive_content = config_core.get('deletion', 'archive_content', default=False, session=session)
+        if archive_content:
             insert_content_history(content_clause=[and_(models.DataIdentifierAssociation.scope == did['scope'],
                                                         models.DataIdentifierAssociation.name == did['name'])],
                                    did_created_at=did.get('created_at'),
@@ -697,7 +703,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
         with record_timer_block('undertaker.parent_content'):
             for parent_did in session.query(models.DataIdentifierAssociation).filter(or_(*parent_content_clause)):
                 existing_parent_dids = True
-                detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_type}], session=session)
+                detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_name}], session=session)
 
     # Set Epoch tombstone for the files replicas inside the did
     if config_core.get('undertaker', 'purge_all_replicas', default=False, session=session) and file_content_clause:
@@ -716,7 +722,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
         with record_timer_block('undertaker.content'):
             rowcount = session.query(models.DataIdentifierAssociation).filter(or_(*content_clause)).\
                 delete(synchronize_session=False)
-        record_counter(counters='undertaker.content.rowcount', delta=rowcount)
+        record_counter(name='undertaker.content.rowcount', delta=rowcount)
 
     # Remove CollectionReplica
     if collection_replica_clause:
@@ -1317,26 +1323,95 @@ def get_metadata(scope, name, plugin='DID_COLUMN', session=None):
 
 
 @stream_session
-def get_metadata_bulk(dids, session=None):
+def list_parent_dids_bulk(dids, session=None):
     """
-    Get metadata for a list of dids
-    :param dids: A list of dids.
-    :param session: The database session in use.
+    List parent datasets and containers of a did.
+
+    :param dids:               A list of dids.
+    :param session:            The database session in use.
+    :returns:                  List of dids.
+    :rtype:                    Generator.
     """
     condition = []
     for did in dids:
-        condition.append(and_(models.DataIdentifier.scope == did['scope'],
-                              models.DataIdentifier.name == did['name']))
+        condition.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'],
+                              models.DataIdentifierAssociation.child_name == did['name']))
 
     try:
         for chunk in chunks(condition, 50):
-            for row in session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(or_(*chunk)):
-                data = {}
-                for column in row.__table__.columns:
-                    data[column.name] = getattr(row, column.name)
-                yield data
+            query = session.query(models.DataIdentifierAssociation.child_scope,
+                                  models.DataIdentifierAssociation.child_name,
+                                  models.DataIdentifierAssociation.scope,
+                                  models.DataIdentifierAssociation.name,
+                                  models.DataIdentifierAssociation.did_type).filter(or_(*chunk))
+            for did_chunk in query.yield_per(5):
+                yield {'scope': did_chunk.scope, 'name': did_chunk.name, 'child_scope': did_chunk.child_scope, 'child_name': did_chunk.child_name, 'type': did_chunk.did_type}
     except NoResultFound:
         raise exception.DataIdentifierNotFound('No Data Identifiers found')
+
+
+@stream_session
+def get_metadata_bulk(dids, inherit=False, session=None):
+    """
+    Get metadata for a list of dids
+    :param dids:               A list of dids.
+    :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
+    :param session:            The database session in use.
+    """
+    if inherit:
+        parent_list = []
+        unique_dids = []
+        parents = [1, ]
+        depth = 0
+        for did in dids:
+            unique_dids.append((did['scope'], did['name']))
+            parent_list.append([(did['scope'], did['name']), ])
+
+        while parents and depth < 20:
+            parents = []
+            for did in list_parent_dids_bulk(dids, session=session):
+                scope = did['scope']
+                name = did['name']
+                child_scope = did['child_scope']
+                child_name = did['child_name']
+                if (scope, name) not in unique_dids:
+                    unique_dids.append((scope, name))
+                if (scope, name) not in parents:
+                    parents.append((scope, name))
+                for entry in parent_list:
+                    if entry[-1] == (child_scope, child_name):
+                        entry.append((scope, name))
+            dids = [{'scope': did[0], 'name': did[1]} for did in parents]
+            depth += 1
+        unique_dids = [{'scope': did[0], 'name': did[1]} for did in unique_dids]
+        meta_dict = {}
+        for did in unique_dids:
+            try:
+                meta = get_metadata(did['scope'], did['name'], plugin='JSON', session=session)
+            except exception.DataIdentifierNotFound:
+                meta = {}
+            meta_dict[(did['scope'], did['name'])] = meta
+        for dids in parent_list:
+            result = {'scope': dids[0][0], 'name': dids[0][1]}
+            for did in dids:
+                for key in meta_dict[did]:
+                    if key not in result:
+                        result[key] = meta_dict[did][key]
+            yield result
+    else:
+        condition = []
+        for did in dids:
+            condition.append(and_(models.DataIdentifier.scope == did['scope'],
+                                  models.DataIdentifier.name == did['name']))
+        try:
+            for chunk in chunks(condition, 50):
+                for row in session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(or_(*chunk)):
+                    data = {}
+                    for column in row.__table__.columns:
+                        data[column.name] = getattr(row, column.name)
+                    yield data
+        except NoResultFound:
+            raise exception.DataIdentifierNotFound('No Data Identifiers found')
 
 
 @transactional_session

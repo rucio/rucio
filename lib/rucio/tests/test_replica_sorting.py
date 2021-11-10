@@ -19,6 +19,8 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import copy
 import json
@@ -122,10 +124,7 @@ def protocols_setup(vo):
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel, lists replicas and checks for length of returned list')
-@pytest.mark.parametrize("content_type", [
-    Mime.METALINK,
-    pytest.param(Mime.JSON_STREAM, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
-])
+@pytest.mark.parametrize("content_type", [Mime.METALINK, Mime.JSON_STREAM])
 def test_sort_geoip_wan(vo, rest_client, auth_token, protocols_setup, content_type):
     """Replicas: test sorting a few WANs via geoip."""
     n = 10
@@ -187,8 +186,8 @@ def prepare_sort_geoip_lan_before_wan_params():
     argvalues = [
         (Mime.METALINK, 0),
         (Mime.METALINK, 1),
-        pytest.param(Mime.JSON_STREAM, 0, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
-        pytest.param(Mime.JSON_STREAM, 1, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
+        (Mime.JSON_STREAM, 0),
+        (Mime.JSON_STREAM, 1),
     ]
     rargvalues = map(lambda p: p.values if hasattr(p, 'values') else p, argvalues)
     ids = [f'mime={repr(mime)}, lan-site={repr(base_rse_info[iid]["site"])}' for mime, iid in rargvalues]
@@ -323,10 +322,7 @@ def test_not_sorting_lan_replicas(vo, rest_client, auth_token, protocols_setup, 
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel')
-@pytest.mark.parametrize("content_type", [
-    Mime.METALINK,
-    pytest.param(Mime.JSON_STREAM, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
-])
+@pytest.mark.parametrize("content_type", [Mime.METALINK, Mime.JSON_STREAM])
 def test_sort_geoip_address_not_found_error(vo, rest_client, auth_token, protocols_setup, content_type):
     """Replicas: test sorting via geoip with ignoring geoip errors."""
 
@@ -358,3 +354,33 @@ def test_sort_geoip_address_not_found_error(vo, rest_client, auth_token, protoco
         assert replicas_response
 
         get_geoip_db_mock.assert_called()
+
+
+@pytest.mark.noparallel(reason='fails when run in parallel, replicas should not be changed')
+def test_get_sorted_list_replicas_no_metalink(vo, rest_client, auth_token, protocols_setup, mock_scope):
+    """Replicas: gets the json list replicas and checks if its sorted"""
+
+    global replica_singleton
+    replica_singleton = None
+
+    def _reverse_geoip(dictreplica, client_location, ignore_error=False):
+        global replica_singleton
+        if replica_singleton is None:
+            replica_singleton = list(dictreplica.keys())
+            return replica_singleton
+        replica_singleton.reverse()
+        return replica_singleton
+
+    def _extract_priorities(data):
+        return {k: v['priority'] for k, v in data['pfns'].items()}
+
+    def get_replicas():
+        return parse_replicas_from_string(rest_client.get(
+            '/replicas/%s/%s?select=geoip' % (mock_scope.external, protocols_setup['files'][0]['name']),
+            headers=headers(auth(auth_token), vohdr(vo), accept(Mime.JSON_STREAM))
+        ).get_data(as_text=True))
+
+    with mock.patch('rucio.core.replica_sorter.sort_geoip', side_effect=_reverse_geoip):
+        initial_priorities = _extract_priorities(get_replicas())
+        updated_priorities = _extract_priorities(get_replicas())
+        assert initial_priorities != updated_priorities, "The replica list is not sorted according to the priorities."

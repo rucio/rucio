@@ -162,11 +162,12 @@ class TestAbacusCollectionReplica(unittest.TestCase):
         assert dataset_replica[0]['available_length'] == 0
 
 
+@pytest.mark.noparallel(reason='runs multiple daemons which may impact other tests run in parallel')
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
     ('reaper', 'remove_open_did', True)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.core.config', 'rucio.core.replica'
+    'rucio.core.config.REGION', 'rucio.core.replica.REGION'
 ]}], indirect=True)
 def test_abacus_collection_replica_new(vo, rse_factory, rucio_client, did_factory, core_config_mock, caches_mock):
     """ ABACUS (COLLECTION REPLICA): Test update of collection replica. """

@@ -22,7 +22,7 @@
 # - Yun-Pin Sun <winter0128@gmail.com>, 2012-2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - David Cameron <david.cameron@cern.ch>, 2014-2020
+# - David Cameron <david.cameron@cern.ch>, 2014-2021
 # - Tomáš Kouba <tomas.kouba@cern.ch>, 2014
 # - Wen Guan <wen.guan@cern.ch>, 2014
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
@@ -47,7 +47,11 @@
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2021
+# - Petr Vokac <petr.vokac@fjfi.cvut.cz>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - zoepap05 <90753392+zoepap05@users.noreply.github.com>, 2021
+# - KosKyr <90753277+KosKyr@users.noreply.github.com>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -56,6 +60,7 @@ import errno
 import logging
 import math
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -79,8 +84,9 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, D
 from rucio.common.extra import import_extras
 from rucio.common.test_rucio_server import TestRucioServer
 from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, \
-    extract_scope, setup_logger
+    extract_scope, setup_logger, StoreAndDeprecateWarningAction
 from rucio.common.constants import ReplicaState
+from rucio.rse.protocols.protocol import RSEProtocol
 
 EXTRA_MODULES = import_extras(['argcomplete'])
 
@@ -194,7 +200,7 @@ def exception_handler(function):
             else:
                 logger.debug(traceback.format_exc())
                 contact = config_get('policy', 'support', raise_exception=False)
-                support = ('Please followup with all relevant information at: ' + contact) if contact else ''
+                support = ('Please follow up with all relevant information at: ' + contact) if contact else ''
                 logger.error('\nThe object is missing this property: %s\n'
                              'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n'
                              '%s' % (str(error), support))
@@ -215,9 +221,9 @@ def exception_handler(function):
             logger.debug(traceback.format_exc())
             logger.error(error)
             contact = config_get('policy', 'support', raise_exception=False)
-            support = ("If it's a problem concerning your experiment or if you're unsure what to do, please followup at: %s\n" % contact) if contact else ''
+            support = ("If it's a problem concerning your experiment or if you're unsure what to do, please follow up at: %s\n" % contact) if contact else ''
             contact = config_get('policy', 'support_rucio', default='https://github.com/rucio/rucio/issues')
-            support += "If you're sure there is a problem with Rucio itself, please followup at: " + contact
+            support += "If you're sure there is a problem with Rucio itself, please follow up at: " + contact
             logger.error('\nRucio exited with an unexpected/unknown error.\n'
                          'Please rerun the last command with the "-v" option to gather more information.\n'
                          '%s' % support)
@@ -359,7 +365,7 @@ def list_dataset_replicas(args):
     if args.csv:
         for dsn in result:
             for rse in list(result[dsn].values()):
-                print("{0}, {1}, {2}".format(rse[0], rse[1], rse[2]))
+                print(rse[0], rse[1], rse[2], sep=',')
     else:
         for dsn in result:
             print('\nDATASET: %s' % (dsn))
@@ -389,7 +395,7 @@ def list_file_replicas(args):
         print('Cannot use --missing without specifying a RSE')
         return FAILURE
     if args.link and ':' not in args.link:
-        print('The substition parameter must equal --link="/pfn/dir:/dst/dir"')
+        print('The substitution parameter must equal --link="/pfn/dir:/dst/dir"')
         return FAILURE
 
     for did in args.dids:
@@ -698,7 +704,7 @@ def list_files(args):
                     guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
                 else:
                     guid = '(None)'
-                print("{0}:{1},{2},{3},{4},{5}".format(f['scope'], f['name'], guid, f['adler32'], sizefmt(f['bytes'], args.human), f['events']))
+                print('{}:{}'.format(f['scope'], f['name']), guid, f['adler32'], sizefmt(f['bytes'], args.human), f['events'], sep=',')
         return SUCCESS
     elif args.LOCALPATH:
 
@@ -927,6 +933,44 @@ def erase(args):
 
 
 @exception_handler
+def list_impls(args):
+    """
+    %(prog)s list-impls
+
+    List protocol implementations.
+    """
+
+    PROTOCOL_DIRECTORY = '/opt/rucio/lib/rucio/rse/protocols'
+
+    for filename in os.listdir(PROTOCOL_DIRECTORY):
+        if os.path.isdir(os.path.join(PROTOCOL_DIRECTORY, filename)) or filename in ["__init__.py", "cache.py", "http_cache.py", "dummy.py", "protocol.py"]:
+            continue
+        else:
+            filename = re.sub(r".py", r"", filename)
+            __import__("rucio.rse.protocols", fromlist=[filename])
+
+    impls = []
+
+    def get_subclasses(cls):
+        for subclass in cls.__subclasses__():
+            if (str(subclass)[28:-2]).endswith('Default'):
+                class_name = str(subclass)[28:-10]
+            else:
+                class_name = str(subclass)[28:-2]
+            impls.append([class_name, subclass.__doc__])
+            get_subclasses(subclass)
+
+    get_subclasses(RSEProtocol)
+    impls = sorted(impls)
+    table = []
+    for impl in impls:
+        table.append([impl[0], impl[1]])
+
+    print(tabulate(table, tablefmt=tablefmt, headers=['impl', 'DESCRIPTION']))
+    return SUCCESS
+
+
+@exception_handler
 def upload(args):
     """
     rucio upload [scope:datasetname] [folder/] [files1 file2 file3]
@@ -949,10 +993,15 @@ def upload(args):
     for arg in args.args:
         if arg.count(':') > 0:
             continue
+        if args.pfn:
+            if args.impl:
+                logger.warning('Ignoring --impl option because --pfn option given')
+                args.impl = None
         items.append({'path': arg,
                       'rse': args.rse,
                       'did_scope': args.scope,
                       'did_name': args.name,
+                      'impl': args.impl,
                       'dataset_scope': dsscope,
                       'dataset_name': dsname,
                       'force_scheme': args.protocol,
@@ -1071,6 +1120,7 @@ def download(args):
         item_defaults['filters'] = filters
 
     if not args.pfn:
+        item_defaults['impl'] = args.impl
         item_defaults['force_scheme'] = args.protocol
         item_defaults['nrandom'] = args.nrandom
 
@@ -1092,6 +1142,8 @@ def download(args):
     else:
         if args.aria:
             logger.warning('Ignoring --aria option because --pfn option given')
+        if args.impl:
+            logger.warning('Ignoring --impl option because --pfn option given')
         if args.protocol:
             logger.warning('Ignoring --protocol option because --pfn option given')
         if args.transfer_speed_timeout:
@@ -1110,15 +1162,12 @@ def download(args):
 
     summary = {}
     for item in result:
-        scope = item.get('dataset_scope', item['scope'])
-        name = item.get('dataset_name', item['name'])
-        summary_key = '%s:%s' % (scope, name)
-
-        summary.setdefault(summary_key, {'DONE': 0, 'ALREADY_DONE': 0, '_total': 0})
-        summary[summary_key]['_total'] += 1
-        state = item['clientState'].upper()
-        if state in summary[summary_key]:
-            summary[summary_key][state] += 1
+        for did, did_stats in item.get('input_dids').items():
+            did_summary = summary.setdefault(did, {'length': did_stats.get('length'), 'DONE': 0, 'ALREADY_DONE': 0, '_total': 0})
+            did_summary['_total'] += 1
+            state = item['clientState'].upper()
+            if state in did_summary:
+                did_summary[state] += 1
 
     print('----------------------------------')
     print('Download summary')
@@ -1126,14 +1175,20 @@ def download(args):
         print('-' * 40)
         print('No DID matching the pattern')
 
-    for summary_key in summary:
+    for summary_key, did_summary in summary.items():
         print('-' * 40)
-        print('DID %s' % (summary_key))
-        ds_total = summary[summary_key]['_total']
-        downloaded_files = summary[summary_key]['DONE']
-        local_files = summary[summary_key]['ALREADY_DONE']
+        print('DID %s' % summary_key)
+        length = did_summary['length']
+        ds_total = did_summary['_total']
+        downloaded_files = did_summary['DONE']
+        local_files = did_summary['ALREADY_DONE']
         not_downloaded_files = ds_total - downloaded_files - local_files
-        print('{0:40} {1:6d}'.format('Total files: ', ds_total))
+
+        if length:
+            print('{0:40} {1:6d}'.format('Total files (DID): ', length))
+            print('{0:40} {1:6d}'.format('Total files (filtered):   ', ds_total))
+        else:
+            print('{0:40} {1:6d}'.format('Total files:   ', ds_total))
         print('{0:40} {1:6d}'.format('Downloaded files: ', downloaded_files))
         print('{0:40} {1:6d}'.format('Files already found locally: ', local_files))
         print('{0:40} {1:6d}'.format('Files that cannot be downloaded: ', not_downloaded_files))
@@ -1152,7 +1207,7 @@ def get_metadata(args):
     if args.plugin:
         plugin = args.plugin
     else:
-        plugin = 'DID_COLUMN'
+        plugin = config_get('client', 'metadata_default_plugin', default='DID_COLUMN')
 
     for i, did in enumerate(args.dids):
         if i > 0:
@@ -1348,11 +1403,16 @@ def update_rule(args):
     if args.source_replica_expression:
         options['source_replica_expression'] = None if args.source_replica_expression.lower() == 'none' else args.source_replica_expression
     if args.cancel_requests:
+        if 'state' not in options:
+            logger.error('--stuck or --suspend must be specified when running --cancel-requests')
+            return FAILURE
         options['cancel_requests'] = True
     if args.priority:
         options['priority'] = int(args.priority)
     if args.child_rule_id:
         options['child_rule_id'] = args.child_rule_id
+    if args.boost_rule:
+        options['boost_rule'] = args.boost_rule
     client.update_replication_rule(rule_id=args.rule_id, options=options)
     print('Updated Rule')
     return SUCCESS
@@ -1366,7 +1426,10 @@ def move_rule(args):
     Update a rule.
     """
     client = get_client(args)
-    print(client.move_replication_rule(rule_id=args.rule_id, rse_expression=args.rse_expression))
+    print(client.move_replication_rule(rule_id=args.rule_id,
+                                       rse_expression=args.rse_expression,
+                                       activity=args.activity,
+                                       source_replica_expression=args.source_replica_expression))
     return SUCCESS
 
 
@@ -1481,14 +1544,15 @@ def list_rules(args):
         return FAILURE
     if args.csv:
         for rule in rules:
-            print("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}".format(rule['id'],
-                                                                  rule['account'],
-                                                                  '%s:%s' % (rule['scope'], rule['name']),
-                                                                  '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
-                                                                  rule['rse_expression'],
-                                                                  rule['copies'],
-                                                                  rule['expires_at'],
-                                                                  rule['created_at']))
+            print(rule['id'],
+                  rule['account'],
+                  '%s:%s' % (rule['scope'], rule['name']),
+                  '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
+                  rule['rse_expression'],
+                  rule['copies'],
+                  rule['expires_at'],
+                  rule['created_at'],
+                  sep=',')
     else:
         table = []
         for rule in rules:
@@ -1693,7 +1757,7 @@ def list_account_usage(args):
     table = []
     usage = client.get_global_account_usage(account=args.usage_account)
     for item in usage:
-        if (args.rse and args.rse in item['resolved_rses']) or not args.rse:
+        if (args.rse and args.rse in item['rse_expression']) or not args.rse:
             remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
             table.append([item['rse_expression'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
     table.sort()
@@ -1794,7 +1858,7 @@ def get_parser():
     oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed by asynchronous Rucio daemon. '
                          + 'If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.')  # NOQA: W503
     oparser.add_argument('--oidc-issuer', dest='oidc_issuer', default=None,
-                         help='Defines which Identity Provider is goign to be used. The issuer string must correspond '
+                         help='Defines which Identity Provider is going to be used. The issuer string must correspond '
                          + 'to the keys configured in the /etc/idpsecrets.json auth server configuration file.')  # NOQA: W503
 
     # Options for the x509  auth_strategy
@@ -2184,12 +2248,17 @@ You can filter by key/value, e.g.::
     list_content_history_parser.set_defaults(function=list_content_history)
     list_content_history_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
-    # The upload subparser
+    # The list-impls command
+    list_impls_parser = subparsers.add_parser('list-impls', help='List all supported protocol implementations.')
+    list_impls_parser.set_defaults(function=list_impls)
+
+# The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method.')
     upload_parser.set_defaults(function=upload)
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True).completer = rse_completer
     upload_parser.add_argument('--lifetime', type=int, action='store', help='Lifetime of the rule in seconds.')
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
+    upload_parser.add_argument('--impl', dest='impl', action='store', help='Transfer protocol implementation to use (e.g: xrootd, gfal.NoRename, webdav, ssh.Rsync, rclone).')
     # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
     upload_parser.add_argument('--no-register', dest='no_register', action='store_true', default=False, help=argparse.SUPPRESS)
     upload_parser.add_argument('--register-after-upload', dest='register_after_upload', action='store_true', default=False, help='Register the file only after successful upload.')
@@ -2212,6 +2281,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--allow-tape', action='store_true', default=False, help="Also consider tape endpoints as source of the download.")
         selected_parser.add_argument('--rse', action='store', help='RSE Expression to specify allowed sources')  # TODO:remove-deprecated
         selected_parser.add_argument('--rses', action='store', help='RSE Expression to specify allowed sources')
+        selected_parser.add_argument('--impl', dest='impl', action='store', help='Transfer protocol implementation to use (e.g: xrootd, gfal.NoRename, webdav, ssh.Rsync, rclone).')
         selected_parser.add_argument('--protocol', action='store', help='Force the protocol to use.')
         selected_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID.')
         selected_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
@@ -2220,16 +2290,16 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--archive-did', action='store', dest='archive_did', help="Download from archive is transparent. This option is obsolete.")
         selected_parser.add_argument('--no-resolve-archives', action='store_true', default=False, help="If set archives will not be considered for download.")
         selected_parser.add_argument('--ignore-checksum', action='store_true', default=False, help="Don't validate checksum for downloaded files.")
-        selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, None), help='Transfer timeout (in seconds). Default: computed dynamically from --transfer-speed-timeout. If set to any value >= 0, --transfer-speed-timeout is ignored.')
-        selected_parser.add_argument('--transfer-speed-timeout', dest='transfer_speed_timeout', type=float, action='store', default=config_get('download', 'transfer_speed_timeout', False, 500), help='Minimum allowed average transfer speed (in KBps). Default: 500. Used to dynamically compute the timeout if --transfer-timeout not set. Is not supported for --pfn.')
+        selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, None), help='Transfer timeout (in seconds). Default: computed dynamically from --transfer-speed-timeout. If set to any value >= 0, --transfer-speed-timeout is ignored.')  # NOQA: E501
+        selected_parser.add_argument('--transfer-speed-timeout', dest='transfer_speed_timeout', type=float, action='store', default=config_get('download', 'transfer_speed_timeout', False, 500), help='Minimum allowed average transfer speed (in KBps). Default: 500. Used to dynamically compute the timeout if --transfer-timeout not set. Is not supported for --pfn.')  # NOQA: E501
         selected_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
-        selected_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
-        selected_parser.add_argument('--trace_dataset', dest='trace_dataset', action='store', default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)
-        selected_parser.add_argument('--trace_datasetscope', dest='trace_datasetscope', action='store', default=os.environ.get('RUCIO_TRACE_DATASETSCOPE', None), help=argparse.SUPPRESS)
-        selected_parser.add_argument('--trace_eventtype', dest='trace_eventtype', action='store', default=os.environ.get('RUCIO_TRACE_EVENTTYPE', None), help=argparse.SUPPRESS)
-        selected_parser.add_argument('--trace_pq', dest='trace_pq', action='store', default=os.environ.get('RUCIO_TRACE_PQ', None), help=argparse.SUPPRESS)
-        selected_parser.add_argument('--trace_taskid', dest='trace_taskid', action='store', default=os.environ.get('RUCIO_TRACE_TASKID', None), help=argparse.SUPPRESS)
-        selected_parser.add_argument('--trace_usrdn', dest='trace_usrdn', action='store', default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
+        selected_parser.add_argument('--trace_appid', '--trace-appid', new_option_string='--trace-appid', dest='trace_appid', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
+        selected_parser.add_argument('--trace_dataset', '--trace-dataset', new_option_string='--trace-dataset', dest='trace_dataset', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)
+        selected_parser.add_argument('--trace_datasetscope', '--trace-datasetscope', new_option_string='--trace-datasetscope', dest='trace_datasetscope', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_DATASETSCOPE', None), help=argparse.SUPPRESS)  # NOQA: E501
+        selected_parser.add_argument('--trace_eventtype', '--trace-eventtype', new_option_string='--trace-eventtype', dest='trace_eventtype', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_EVENTTYPE', None), help=argparse.SUPPRESS)  # NOQA: E501
+        selected_parser.add_argument('--trace_pq', '--trace-pq', new_option_string='--trace-pq', dest='trace_pq', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_PQ', None), help=argparse.SUPPRESS)
+        selected_parser.add_argument('--trace_taskid', '--trace-taskid', new_option_string='--trace-taskid', dest='trace_taskid', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_TASKID', None), help=argparse.SUPPRESS)
+        selected_parser.add_argument('--trace_usrdn', '--trace-usrdn', new_option_string='--trace-usrdn', dest='trace_usrdn', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
         selected_parser.add_argument('--filter', dest='filter', action='store', help='Filter files by key-value pairs like guid=2e2232aafac8324db452070304f8d745.')
         selected_parser.add_argument('--scope', dest='scope', action='store', help='Scope if you are using the filter option and no full DID.')
         selected_parser.add_argument('--metalink', dest='metalink_file', action='store', help='Path to a metalink file.')
@@ -2238,7 +2308,7 @@ You can filter by key/value, e.g.::
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
     get_metadata_parser.set_defaults(function=get_metadata)
     get_metadata_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
-    get_metadata_parser.add_argument('--plugin', dest='plugin', action='store', help='Filter down to metdata from specific metadata plugin', required=False)
+    get_metadata_parser.add_argument('--plugin', dest='plugin', action='store', help='Filter down to metadata from specific metadata plugin', required=False)
 
     # The set-metadata subparser
     set_metadata_parser = subparsers.add_parser('set-metadata', help='set-metadata method')
@@ -2298,7 +2368,7 @@ You can filter by key/value, e.g.::
     delete_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id or DID. If DID, the RSE expression is mandatory.')
     delete_rule_parser.add_argument('--purge-replicas', dest='purge_replicas', action='store_true', help='Purge rule replicas')
     delete_rule_parser.add_argument('--all', dest='delete_all', action='store_true', default=False, help='Delete all the rules, even the ones that are not owned by the account')
-    delete_rule_parser.add_argument('--rse_expression', dest='rse_expression', action='store', help='The RSE expression. Must be specified if a DID is provided.')  # TODO:remove-deprecated
+    delete_rule_parser.add_argument('--rse_expression', '--rse-expression', new_option_string='--rse-expression', dest='rse_expression', action=StoreAndDeprecateWarningAction, help='The RSE expression. Must be specified if a DID is provided.')
     delete_rule_parser.add_argument('--rses', dest='rses', action='store', help='The RSE expression. Must be specified if a DID is provided.')
     delete_rule_parser.add_argument('--account', dest='rule_account', action='store', help='The account of the rule that must be deleted')
 
@@ -2361,12 +2431,15 @@ You can filter by account::
     update_rule_parser.add_argument('--cancel-requests', dest='cancel_requests', action='store_true', help='Cancel requests when setting rules to stuck.')
     update_rule_parser.add_argument('--priority', dest='priority', action='store', help='Priority of the requests of the rule.')
     update_rule_parser.add_argument('--child-rule-id', dest='child_rule_id', action='store', help='Child rule id of the rule.')
+    update_rule_parser.add_argument('--boost-rule', dest='boost_rule', action='store_true', help='Quickens the transition of a rule from STUCK to REPLICATING.')
 
     # The move_rule command
     move_rule_parser = subparsers.add_parser('move-rule', help='Move a replication rule to another RSE.')
     move_rule_parser.set_defaults(function=move_rule)
     move_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
     move_rule_parser.add_argument(dest='rse_expression', action='store', help='RSE expression of new rule')
+    move_rule_parser.add_argument('--activity', dest='activity', action='store', help='Update activity for moved rule')
+    move_rule_parser.add_argument('--source-replica-expression', dest='source_replica_expression', action='store', help='Update source-replica-expression for moved rule')
 
     # The list-rses command
     list_rses_parser = subparsers.add_parser('list-rses', help='Show the list of all the registered Rucio Storage Elements (RSEs).')
@@ -2381,7 +2454,7 @@ can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#addi
     list_suspicious_replicas_parser.set_defaults(function=list_suspicious_replicas)
     list_suspicious_replicas_parser.add_argument('--expression', dest='rse_expression', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
 can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
-    list_suspicious_replicas_parser.add_argument('--younger_than', dest='younger_than', action='store', help='List files that have been marked suspicious since the date "younger_than".')
+    list_suspicious_replicas_parser.add_argument('--younger_than', '--younger-than', new_option_string='--younger-than', dest='younger_than', action=StoreAndDeprecateWarningAction, help='List files that have been marked suspicious since the date "younger_than".')  # NOQA: E501
     list_suspicious_replicas_parser.add_argument('--nattempts', dest='nattempts', action='store', help='Minimum number of failed attempts to access a suspicious file.')
 
     # The list-rses-attributes command

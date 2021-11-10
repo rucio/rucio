@@ -35,6 +35,8 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import json
 from io import StringIO
@@ -66,7 +68,8 @@ if TYPE_CHECKING:
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
-                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211',
+                                                              check_config_table=False),
                                             'distributed_lock': True})
 
 
@@ -659,7 +662,7 @@ def get_rse_is_checksum_supported(checksum_name, rse_id=None, session=None):
 
 
 @transactional_session
-def set_rse_usage(rse_id, source, used, free, session=None):
+def set_rse_usage(rse_id, source, used, free, files=None, session=None):
     """
     Set RSE usage information.
 
@@ -667,11 +670,12 @@ def set_rse_usage(rse_id, source, used, free, session=None):
     :param source: The information source, e.g. srm.
     :param used: the used space in bytes.
     :param free: the free in bytes.
+    :param files: the number of files
     :param session: The database session in use.
 
     :returns: True if successful, otherwise false.
     """
-    rse_usage = models.RSEUsage(rse_id=rse_id, source=source, used=used, free=free)
+    rse_usage = models.RSEUsage(rse_id=rse_id, source=source, used=used, free=free, files=files)
     # versioned_session(session)
     rse_usage = session.merge(rse_usage)
     rse_usage.save(session=session)

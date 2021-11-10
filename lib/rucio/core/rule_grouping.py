@@ -32,9 +32,9 @@ from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import func
 
+from rucio.common.config import config_get
 from rucio.common.exception import InsufficientTargetRSEs
 from rucio.core import account_counter, rse_counter, request as request_core
-from rucio.core.config import get as core_config_get
 import rucio.core.did
 import rucio.core.lock
 import rucio.core.replica
@@ -1172,7 +1172,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, session=None, logger=l
     :param session:      the database session in use
     """
 
-    max_partition_size = core_config_get('rules', 'apply_rule_max_partition_size', default=2000, session=session)  # process dataset files in bunches of max this size
+    max_partition_size = config_get('rules', 'apply_rule_max_partition_size', default=2000, session=session)  # process dataset files in bunches of max this size
 
     # accounting counters
     rse_counters_files = {}

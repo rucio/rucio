@@ -22,15 +22,18 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Tobias Wegner <twegner@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """Provides functions to access the local configuration. The configuration locations are provided by get_config_dirs."""
 
 import os
 import json
 import sys
+
+from rucio.common.exception import ConfigNotFound, DatabaseException
 
 try:
     import ConfigParser
@@ -40,26 +43,51 @@ except ImportError:
 from rucio.common import exception
 
 
-def config_get(section, option, raise_exception=True, default=None, clean_cached=False):
+def config_get(section, option, raise_exception=True, default=None, clean_cached=False, check_config_table=True,
+               session=None, use_cache=True, expiration_time=3600):
     """
     Return the string value for a given option in a section
 
+    First it looks at the configuration file and, if it is not found, check in the config table only if it is called
+    from a server/daemon (and if check_config_table is set).
+
     :param section: the named section.
     :param option: the named option.
-    :param raise_exception: Boolean to raise or not NoOptionError or NoSectionError.
+    :param raise_exception: Boolean to raise or not NoOptionError, NoSectionError or RuntimeError.
     :param default: the default value if not found.
-.
+    :param check_config_table: if not set, avoid looking at config table even if it is called from server/daemon
+    :param session: The database session in use. Only used if not found in config file and if it is called from
+                    server/daemon
+    :param use_cache: Boolean if the cache should be used. Only used if not found in config file and if it is called
+                      from server/daemon
+    :param expiration_time: Time after that the cached value gets ignored. Only used if not found in config file and if
+                            it is called from server/daemon
+
     :returns: the configuration value.
+
+    :raises NoOptionError
+    :raises NoSectionError
+    :raises RuntimeError
     """
     global __CONFIG
+    from rucio.common.utils import is_client
+    client_mode = is_client()
     try:
         return get_config().get(section, option)
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
-        if raise_exception and default is None:
-            raise err
-        if clean_cached:
-            __CONFIG = None
-        return default
+        if not client_mode and check_config_table:
+            try:
+                return __config_get_table(section=section, option=option, raise_exception=raise_exception,
+                                          default=default, clean_cached=clean_cached, session=session,
+                                          use_cache=use_cache, expiration_time=expiration_time)
+            except (ConfigNotFound, DatabaseException, ImportError):
+                raise err
+        else:
+            if raise_exception and default is None:
+                raise err
+            if clean_cached:
+                __CONFIG = None
+            return default
 
 
 def config_has_section(section):
@@ -82,45 +110,176 @@ def config_add_section(section):
     return get_config().add_section(section)
 
 
-def config_get_int(section, option, raise_exception=True, default=None):
-    """Return the integer value for a given option in a section"""
+def config_get_int(section, option, raise_exception=True, default=None, check_config_table=True, session=None,
+                   use_cache=True, expiration_time=3600):
+    """
+    Return the integer value for a given option in a section
+
+    :param section: the named section.
+    :param option: the named option.
+    :param raise_exception: Boolean to raise or not NoOptionError, NoSectionError or RuntimeError.
+    :param default: the default value if not found.
+    :param check_config_table: if not set, avoid looking at config table even if it is called from server/daemon
+    :param session: The database session in use. Only used if not found in config file and if it is called from
+                    server/daemon
+    :param use_cache: Boolean if the cache should be used. Only used if not found in config file and if it is called
+                      from server/daemon
+    :param expiration_time: Time after that the cached value gets ignored. Only used if not found in config file and if
+                            it is called from server/daemon
+
+    :returns: the configuration value.
+
+    :raises NoOptionError
+    :raises NoSectionError
+    :raises RuntimeError
+    :raises ValueError
+    """
+    from rucio.common.utils import is_client
+    client_mode = is_client()
     try:
         return get_config().getint(section, option)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
-        if raise_exception and default is None:
-            raise err
-        return default
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
+        if not client_mode and check_config_table:
+            try:
+                return int(__config_get_table(section=section, option=option, raise_exception=raise_exception,
+                                              default=default, session=session, use_cache=use_cache,
+                                              expiration_time=expiration_time))
+            except (ConfigNotFound, DatabaseException, ImportError):
+                raise err
+            except ValueError as err_:
+                raise err_
+        else:
+            if raise_exception and default is None:
+                raise err
+            try:
+                return int(default)
+            except ValueError as err_:
+                raise err_
 
 
-def config_get_float(section, option, raise_exception=True, default=None):
-    """Return the floating point value for a given option in a section"""
+def config_get_float(section, option, raise_exception=True, default=None, check_config_table=True, session=None,
+                     use_cache=True, expiration_time=3600):
+    """
+    Return the floating point value for a given option in a section
+
+    :param section: the named section.
+    :param option: the named option.
+    :param raise_exception: Boolean to raise or not NoOptionError, NoSectionError or RuntimeError.
+    :param default: the default value if not found.
+    :param check_config_table: if not set, avoid looking at config table even if it is called from server/daemon
+    :param session: The database session in use. Only used if not found in config file and if it is called from
+                    server/daemon
+    :param use_cache: Boolean if the cache should be used. Only used if not found in config file and if it is called
+                      from server/daemon
+    :param expiration_time: Time after that the cached value gets ignored. Only used if not found in config file and if
+                            it is called from server/daemon
+
+    :returns: the configuration value.
+
+    :raises NoOptionError
+    :raises NoSectionError
+    :raises RuntimeError
+    :raises ValueError
+    """
+    from rucio.common.utils import is_client
+    client_mode = is_client()
     try:
         return get_config().getfloat(section, option)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
-        if raise_exception and default is None:
-            raise err
-        return default
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
+        if not client_mode and check_config_table:
+            try:
+                return float(__config_get_table(section=section, option=option, raise_exception=raise_exception,
+                                                default=default, session=session, use_cache=use_cache,
+                                                expiration_time=expiration_time))
+            except (ConfigNotFound, DatabaseException, ImportError):
+                raise err
+            except ValueError as err_:
+                raise err_
+        else:
+            if raise_exception and default is None:
+                raise err
+            try:
+                return float(default)
+            except ValueError as err_:
+                raise err_
 
 
-def config_get_bool(section, option, raise_exception=True, default=None):
+def config_get_bool(section, option, raise_exception=True, default=None, check_config_table=True, session=None,
+                    use_cache=True, expiration_time=3600):
     """
     Return the boolean value for a given option in a section
 
     :param section: the named section.
     :param option: the named option.
-    :param raise_exception: Boolean to raise or not NoOptionError or NoSectionError.
+    :param raise_exception: Boolean to raise or not NoOptionError, NoSectionError or RuntimeError.
     :param default: the default value if not found.
+    :param check_config_table: if not set, avoid looking at config table even if it is called from server/daemon
+    :param session: The database session in use. Only used if not found in config file and if it is called from
+                    server/daemon
+    :param use_cache: Boolean if the cache should be used. Only used if not found in config file and if it is called
+                      from server/daemon
+    :param expiration_time: Time after that the cached value gets ignored. Only used if not found in config file and if
+                            it is called from server/daemon
 .
     :returns: the configuration value.
+
+    :raises NoOptionError
+    :raises NoSectionError
+    :raises RuntimeError
+    :raises ValueError
     """
+    from rucio.common.utils import is_client
+    client_mode = is_client()
     try:
         return get_config().getboolean(section, option)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
-        if raise_exception:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
+        if not client_mode and check_config_table:
+            try:
+                return bool(__config_get_table(section=section, option=option, raise_exception=raise_exception,
+                                               default=default, session=session, use_cache=use_cache,
+                                               expiration_time=expiration_time))
+            except (ConfigNotFound, DatabaseException, ImportError):
+                raise err
+            except ValueError as err_:
+                raise err_
+        else:
+            if raise_exception and default is None:
+                raise err
+            try:
+                return bool(default)
+            except ValueError as err_:
+                raise err_
+
+
+def __config_get_table(section, option, raise_exception=True, default=None, clean_cached=False, session=None,
+                       use_cache=True, expiration_time=3600):
+    """
+    Search for a section-option configuration parameter in the configuration table
+
+    :param section: the named section.
+    :param option: the named option.
+    :param raise_exception: Boolean to raise or not ConfigNotFound.
+    :param default: the default value if not found.
+    :param session: The database session in use.
+    :param use_cache: Boolean if the cache should be used.
+    :param expiration_time: Time after that the cached value gets ignored.
+
+    :returns: the configuration value from the config table.
+
+    :raises ConfigNotFound
+    :raises DatabaseException
+    """
+    global __CONFIG
+    try:
+        from rucio.core.config import get as core_config_get
+        return core_config_get(section, option, default=default, session=session, use_cache=use_cache,
+                               expiration_time=expiration_time)
+    except (ConfigNotFound, DatabaseException, ImportError) as err:
+        if raise_exception and default is None:
             raise err
-        if default is None:
-            return default
-        return bool(default)
+        if clean_cached:
+            __CONFIG = None
+        return default
 
 
 def config_get_options(section):
@@ -184,7 +343,7 @@ def get_lfn2pfn_algorithm_default():
     default_lfn2pfn = "hash"
     try:
         default_lfn2pfn = config_get('policy', 'lfn2pfn_algorithm_default')
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError):
         pass
     return default_lfn2pfn
 

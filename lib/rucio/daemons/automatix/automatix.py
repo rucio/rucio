@@ -24,6 +24,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import division
 
@@ -32,6 +33,7 @@ import random
 import socket
 import tempfile
 import threading
+from configparser import NoOptionError, NoSectionError
 from datetime import datetime
 from json import load
 from math import exp
@@ -41,13 +43,13 @@ from time import sleep, time
 import rucio.db.sqla.util
 from rucio.client import Client
 from rucio.common import exception
-from rucio.common.exception import FileReplicaAlreadyExists, ConfigNotFound
+from rucio.common.config import config_get
+from rucio.common.exception import FileReplicaAlreadyExists
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.types import InternalScope
 from rucio.common.utils import adler32, daemon_sleep
 from rucio.common.utils import execute, generate_uuid
 from rucio.core import monitor, heartbeat
-from rucio.core.config import get
 from rucio.core.scope import list_scopes
 from rucio.rse import rsemanager as rsemgr
 
@@ -173,13 +175,13 @@ def generate_file(fname, size, logger=logging.log):
 
 def generate_didname(metadata, dsn, did_type):
     try:
-        did_prefix = get('automatix', 'did_prefix')
-    except ConfigNotFound:
+        did_prefix = config_get('automatix', 'did_prefix')
+    except (NoOptionError, NoSectionError, RuntimeError):
         did_prefix = ''
     try:
-        pattern = get('automatix', '%s_pattern' % did_type)
-        separator = get('automatix', 'separator')
-    except ConfigNotFound:
+        pattern = config_get('automatix', '%s_pattern' % did_type)
+        separator = config_get('automatix', 'separator')
+    except (NoOptionError, NoSectionError, RuntimeError):
         return generate_uuid()
     fields = pattern.split(separator)
     file_name = ''
@@ -261,8 +263,8 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
                     remove(physical_fname)
                 rmdir(tmpdir)
                 if status:
-                    monitor.record_counter(counters='automatix.addnewdataset.done', delta=1)
-                    monitor.record_counter(counters='automatix.addnewfile.done', delta=nbfiles)
+                    monitor.record_counter(name='automatix.addnewdataset.done', delta=1)
+                    monitor.record_counter(name='automatix.addnewfile.done', delta=nbfiles)
                     monitor.record_timer('automatix.datasetinjection', (time() - start_time) * 1000)
                     break
                 else:
@@ -291,31 +293,31 @@ def run(total_workers=1, once=False, inputfile=None, sleep_time=-1):
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     try:
-        sites = [s.strip() for s in get('automatix', 'sites').split(',')]
-    except Exception:
+        sites = [s.strip() for s in config_get('automatix', 'sites').split(',')]
+    except (NoOptionError, NoSectionError, RuntimeError):
         raise Exception('Could not load sites from configuration')
     if not inputfile:
         inputfile = '/opt/rucio/etc/automatix.json'
     if sleep_time == -1:
         try:
-            sleep_time = get('automatix', 'sleep_time')
-        except Exception:
+            sleep_time = config_get('automatix', 'sleep_time')
+        except (NoOptionError, NoSectionError, RuntimeError):
             sleep_time = 30
     try:
-        account = get('automatix', 'account')
-    except Exception:
+        account = config_get('automatix', 'account')
+    except (NoOptionError, NoSectionError, RuntimeError):
         account = 'root'
     try:
-        dataset_lifetime = get('automatix', 'dataset_lifetime')
-    except Exception:
+        dataset_lifetime = config_get('automatix', 'dataset_lifetime')
+    except (NoOptionError, NoSectionError, RuntimeError):
         dataset_lifetime = None
     try:
-        set_metadata = get('automatix', 'set_metadata')
-    except Exception:
+        set_metadata = config_get('automatix', 'set_metadata')
+    except (NoOptionError, NoSectionError, RuntimeError):
         set_metadata = False
 
     try:
-        scope = get('automatix', 'scope')
+        scope = config_get('automatix', 'scope')
         client = Client()
         filters = {'scope': InternalScope('*', vo=client.vo)}
         if InternalScope(scope, vo=client.vo) not in list_scopes(filter_=filters):

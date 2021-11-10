@@ -16,7 +16,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2012-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2012-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
@@ -41,6 +41,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import division
 from __future__ import print_function
@@ -71,7 +72,8 @@ from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists
                                     Duplicate, ReplicaIsLocked, ConfigNotFound, ScopeNotFound)
 from rucio.common.extra import import_extras
 from rucio.common.utils import (chunks, construct_surl, sizefmt, get_bytes_value_from_string,
-                                render_json, parse_response, extract_scope, clean_surls)
+                                render_json, parse_response, extract_scope, clean_surls,
+                                StoreAndDeprecateWarningAction)
 from rucio.rse import rsemanager as rsemgr
 
 EXTRA_MODULES = import_extras(['argcomplete'])
@@ -1143,8 +1145,8 @@ def declare_temporary_unavailable_replicas(args):
     else:
         bad_files = args.listbadfiles
 
-    if args.expiration_date is not None:
-        expiration_date = (datetime.datetime.utcnow() + datetime.timedelta(hours=args.expiration_date)).isoformat()
+    assert args.duration is not None, "Duration should have been set, something went wrong!"
+    expiration_date = (datetime.datetime.utcnow() + datetime.timedelta(seconds=args.duration)).isoformat()
 
     chunk_size = 10000
     tot_files = len(bad_files)
@@ -1284,8 +1286,11 @@ def set_tombstone(args):
     dids = args.dids
     rse = args.rse
     dids = [dids] if ',' not in dids else dids.split(',')
-    dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1], 'rse': rse} for did in dids]
-    client.set_tombstone(dids)
+    replicas = []
+    for did in dids:
+        scope, name = get_scope(did, client)
+        replicas.append({'scope': scope, 'name': name, 'rse': rse})
+    client.set_tombstone(replicas)
     logger.info('Set tombstone successfully on: %s' % args.dids)
     return SUCCESS
 
@@ -2250,12 +2255,12 @@ def get_parser():
                                                                                     '::\n'
                                                                                     '\n'
                                                                                     '    $ rucio-admin replicas declare-temporary-unavailable\n'
-                                                                                    '    srm://se.bfg.uni-freiburg.de/pnfs/bfg.uni-freiburg.de/data/atlasdatadisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt --expiration-date 168 --reason \'test only\'\n')
+                                                                                    '    srm://se.bfg.uni-freiburg.de/pnfs/bfg.uni-freiburg.de/data/atlasdatadisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt --duration 3600 --reason \'test only\'\n')
     declare_temporary_unavailable_replicas_parser.set_defaults(which='declare_temporary_unavailable_replicas')
     declare_temporary_unavailable_replicas_parser.add_argument(dest='listbadfiles', action='store', nargs='*', help='List of replicas. Each needs to be a proper PFN including the protocol')
     declare_temporary_unavailable_replicas_parser.add_argument('--reason', dest='reason', required=True, action='store', help='Reason')
     declare_temporary_unavailable_replicas_parser.add_argument('--inputfile', dest='inputfile', nargs='?', action='store', help='File containing list of replicas')
-    declare_temporary_unavailable_replicas_parser.add_argument('--expiration-date', dest='expiration_date', action='store', type=int, default=24, help='Timeout in hours when the replicas will become available again. Default 24')
+    declare_temporary_unavailable_replicas_parser.add_argument('--expiration-date', '--duration', new_option_string='--duration', dest='duration', required=True, action=StoreAndDeprecateWarningAction, type=int, help='Timeout in seconds when the replicas will become available again.')  # NOQA: E501
 
     # The list-pfns command
     list_pfns_parser = rep_subparser.add_parser('list-pfns',

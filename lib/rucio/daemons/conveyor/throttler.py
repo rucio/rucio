@@ -23,6 +23,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
 Conveyor throttler is a daemon to manage rucio internal queue.
@@ -32,78 +33,69 @@ from __future__ import division
 
 import logging
 import math
-import os
-import socket
 import threading
 import time
 import traceback
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.logging import setup_logging, formatted_logger
+from rucio.common.logging import setup_logging
 from rucio.common.utils import get_parsed_throttler_mode
-from rucio.core import heartbeat, config as config_core
+from rucio.core import config as config_core
 from rucio.core.monitor import record_counter, record_gauge
 from rucio.core.request import get_stats_by_activity_direction_state, release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo
 from rucio.core.rse import get_rse, set_rse_transfer_limits, delete_rse_transfer_limits, get_rse_transfer_limits
+from rucio.daemons.conveyor.common import HeartbeatHandler
 from rucio.db.sqla.constants import RequestState
 
 graceful_stop = threading.Event()
 
 
-def throttler(once=False, sleep_time=600):
+def throttler(once=False, sleep_time=600, partition_wait_time=10):
     """
     Main loop to check rse transfer limits.
     """
 
     logging.info('Throttler starting')
 
-    executable = 'conveyor-throttler'
-    hostname = socket.getfqdn()
-    pid = os.getpid()
-    hb_thread = threading.current_thread()
-    heartbeat.sanity_check(executable=executable, hostname=hostname)
-    # Make an initial heartbeat so that all throttlers have the correct worker number on the next try
-    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logging.info(prepend_str + 'Throttler started - timeout (%s)' % (sleep_time))
+    logger_prefix = executable = 'conveyor-throttler'
 
-    current_time = time.time()
-    graceful_stop.wait(10)
+    with HeartbeatHandler(executable=executable, logger_prefix=logger_prefix) as heartbeat_handler:
+        logger = heartbeat_handler.logger
+        logger(logging.INFO, 'Throttler started - timeout (%s)' % sleep_time)
 
-    while not graceful_stop.is_set():
+        current_time = time.time()
 
-        try:
-            heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-            if heart_beat['assign_thread'] != 0:
-                logging.info(prepend_str + 'Throttler thread id is not 0, will sleep. Only thread 0 will work')
+        if partition_wait_time:
+            graceful_stop.wait(partition_wait_time)
+        while not graceful_stop.is_set():
+
+            try:
+                heart_beat, logger = heartbeat_handler.live(older_than=3600)
+                if heart_beat['assign_thread'] != 0:
+                    logger(logging.INFO, 'Throttler thread id is not 0, will sleep. Only thread 0 will work')
+                    if once:
+                        break
+                    if time.time() < current_time + sleep_time:
+                        graceful_stop.wait(int((current_time + sleep_time) - time.time()))
+                    current_time = time.time()
+                    continue
+
+                logger(logging.INFO, "Throttler - schedule requests")
+                run_once(logger=logger)
+
                 if once:
                     break
                 if time.time() < current_time + sleep_time:
                     graceful_stop.wait(int((current_time + sleep_time) - time.time()))
                 current_time = time.time()
-                continue
-
-            logging.info(prepend_str + "Throttler - schedule requests")
-            run_once(logger=formatted_logger(logging.log, prepend_str + '%s'))
+            except Exception:
+                logger(logging.CRITICAL, 'Throtter crashed %s' % (traceback.format_exc()))
+                if once:
+                    raise
 
             if once:
                 break
-            if time.time() < current_time + sleep_time:
-                graceful_stop.wait(int((current_time + sleep_time) - time.time()))
-            current_time = time.time()
-        except Exception:
-            logging.critical(prepend_str + 'Throtter crashed %s' % (traceback.format_exc()))
-
-        if once:
-            break
-
-    logging.info(prepend_str + 'Throtter - graceful stop requested')
-
-    heartbeat.die(executable, hostname, pid, hb_thread)
-
-    logging.info(prepend_str + 'Throtter - graceful stop done')
 
 
 def stop(signum=None, frame=None):
@@ -261,7 +253,7 @@ def __release_all_activities(stats, direction, rse_name, rse_id, logger, session
         logger(logging.DEBUG, "Throttler remove limits(threshold: %s) and release all waiting requests, rse %s" % (threshold, rse_name))
         delete_rse_transfer_limits(rse_id, activity='all_activities', session=session)
         release_all_waiting_requests(rse_id, direction=direction, session=session)
-        record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s' % (rse_name))
+        record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.{activity}.{rse}', labels={'activity': 'all_activities', 'rse': rse_name})
 
 
 def __release_per_activity(stats, direction, rse_name, rse_id, logger, session):
@@ -284,7 +276,7 @@ def __release_per_activity(stats, direction, rse_name, rse_id, logger, session):
                 logger(logging.DEBUG, "Throttler remove limits(threshold: %s) and release all waiting requests for activity %s, rse_id %s" % (threshold, activity, rse_id))
                 delete_rse_transfer_limits(rse_id, activity=activity, session=session)
                 release_all_waiting_requests(rse_id, activity=activity, direction=direction, session=session)
-                record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s.%s' % (activity, rse_name))
+                record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.{activity}.{rse}', labels={'activity': activity, 'rse': rse_name})
             elif transfer + waiting > threshold:
                 logger(logging.DEBUG, "Throttler set limits for activity %s, rse %s" % (activity, rse_name))
                 set_rse_transfer_limits(rse_id, activity=activity, max_transfers=threshold, transfers=transfer, waitings=waiting, session=session)
@@ -329,4 +321,4 @@ def __release_per_activity(stats, direction, rse_name, rse_id, logger, session):
                 logger(logging.DEBUG, "Throttler remove limits(threshold: %s) and release all waiting requests for activity %s, rse %s" % (threshold, activity, rse_name))
                 delete_rse_transfer_limits(rse_id, activity=activity, session=session)
                 release_all_waiting_requests(rse_id, activity=activity, direction=direction, session=session)
-                record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.%s.%s' % (activity, rse_name))
+                record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.{activity}.{rse}', labels={'activity': activity, 'rse': rse_name})

@@ -22,6 +22,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
 Fax consumer is a daemon to retrieve rucio cache operation information to synchronize rucio catalog.
@@ -139,7 +140,7 @@ def consumer(id_, num_thread=1):
 
             if not conn.is_connected():
                 logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
-                record_counter('daemons.messaging.cache.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
+                record_counter('daemons.messaging.cache.reconnect.{}', labels={'host': conn.transport._Transport__host_and_ports[0][0].split('.')[0]})
 
                 conn.set_listener('rucio-cache-messaging', conns[conn])
                 conn.connect()

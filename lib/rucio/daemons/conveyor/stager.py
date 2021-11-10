@@ -32,8 +32,6 @@ Conveyor stager is a daemon to manage stagein file transfers.
 from __future__ import division
 
 import logging
-import os
-import socket
 import threading
 import time
 from collections import defaultdict
@@ -43,18 +41,18 @@ from six.moves.configparser import NoOptionError
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.logging import formatted_logger, setup_logging
-from rucio.core import heartbeat
+from rucio.common.logging import setup_logging
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core import transfer as transfer_core
-from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfers_for_fts, get_conveyor_rses
+from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, HeartbeatHandler
 from rucio.db.sqla.constants import RequestType
+from rucio.transfertool.fts3 import FTS3Transfertool
 
 graceful_stop = threading.Event()
 
 
 def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
-           source_strategy=None, activities=None, sleep_time=600, retry_other_fts=False):
+           source_strategy=None, activities=None, sleep_time=600):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -88,94 +86,83 @@ def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
     logging.debug("Maximum time in queue for different activities: %s" % max_time_in_queue)
 
     activity_next_exe_time = defaultdict(time.time)
-    executable = 'conveyor-stager'
+    logger_prefix = executable = 'conveyor-stager'
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)
-    hostname = socket.getfqdn()
-    pid = os.getpid()
-    hb_thread = threading.current_thread()
-    heartbeat.sanity_check(executable=executable, hostname=hostname)
-    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prefix = 'conveyor-stager[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logger = formatted_logger(logging.log, prefix + '%s')
-    logger(logging.INFO, 'Stager starting with bring_online %s seconds' % (bring_online))
+    with HeartbeatHandler(executable=executable, logger_prefix=logger_prefix) as heartbeat_handler:
+        logger = heartbeat_handler.logger
+        logger(logging.INFO, 'Stager starting with bring_online %s seconds' % (bring_online))
 
-    time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
-    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prefix = 'conveyor-stager[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logger = formatted_logger(logging.log, prefix + '%s')
-    logger(logging.INFO, 'Stager started')
+        while not graceful_stop.is_set():
 
-    while not graceful_stop.is_set():
+            try:
+                heart_beat, logger = heartbeat_handler.live()
 
-        try:
-            heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-            prefix = 'conveyor-stager[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-            logger = formatted_logger(logging.log, prefix + '%s')
+                if activities is None:
+                    activities = [None]
+                if rses:
+                    rse_ids = [rse['id'] for rse in rses]
+                else:
+                    rse_ids = None
 
-            if activities is None:
-                activities = [None]
-            if rses:
-                rse_ids = [rse['id'] for rse in rses]
-            else:
-                rse_ids = None
+                for activity in activities:
+                    if activity_next_exe_time[activity] > time.time():
+                        graceful_stop.wait(1)
+                        continue
 
-            for activity in activities:
-                if activity_next_exe_time[activity] > time.time():
-                    graceful_stop.wait(1)
-                    continue
-
-                logger(logging.INFO, 'Starting to get stagein transfers for %s' % (activity))
-                start_time = time.time()
-
-                transfers = transfer_core.next_transfers_to_submit(
-                    total_workers=heart_beat['nr_threads'],
-                    worker_number=heart_beat['assign_thread'],
-                    failover_schemes=failover_scheme,
-                    limit=bulk,
-                    activity=activity,
-                    rses=rse_ids,
-                    schemes=scheme,
-                    retry_other_fts=retry_other_fts,
-                    older_than=None,
-                    request_type=RequestType.STAGEIN,
-                    logger=logger,
-                )
-                total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
-                record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - start_time) * 1000 / (total_transfers if transfers else 1))
-                record_counter('daemons.conveyor.stager.get_stagein_transfers', total_transfers)
-                record_timer('daemons.conveyor.stager.get_stagein_transfers.transfers', total_transfers)
-                logger(logging.INFO, 'Got %s stagein transfers for %s' % (total_transfers, activity))
-
-                for external_host, transfer_paths in transfers.items():
-                    logger(logging.INFO, 'Starting to group transfers for %s (%s)' % (activity, external_host))
+                    logger(logging.INFO, 'Starting to get stagein transfers for %s' % (activity))
                     start_time = time.time()
-                    for transfer_path in transfer_paths:
-                        for i, hop in enumerate(transfer_path):
-                            hop.init_legacy_transfer_definition(bring_online=bring_online, default_lifetime=-1, logger=logger)
-                    grouped_jobs = bulk_group_transfers_for_fts(transfer_paths, group_policy, group_bulk, source_strategy, max_time_in_queue)
-                    record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfer_paths) or 1))
 
-                    logger(logging.INFO, 'Starting to submit transfers for %s (%s)' % (activity, external_host))
-                    for job in grouped_jobs:
-                        submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter', logger=logger)
+                    transfertool_kwargs = {
+                        FTS3Transfertool: {
+                            'group_policy': group_policy,
+                            'group_bulk': group_bulk,
+                            'source_strategy': source_strategy,
+                            'max_time_in_queue': max_time_in_queue,
+                            'bring_online': bring_online,
+                            'default_lifetime': -1,
+                        }
+                    }
+                    transfers = transfer_core.next_transfers_to_submit(
+                        total_workers=heart_beat['nr_threads'],
+                        worker_number=heart_beat['assign_thread'],
+                        failover_schemes=failover_scheme,
+                        limit=bulk,
+                        activity=activity,
+                        rses=rse_ids,
+                        schemes=scheme,
+                        transfertools_by_name={'fts3': FTS3Transfertool},
+                        older_than=None,
+                        request_type=RequestType.STAGEIN,
+                        logger=logger,
+                    )
+                    total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
+                    record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - start_time) * 1000 / (total_transfers if transfers else 1))
+                    record_counter('daemons.conveyor.stager.get_stagein_transfers', total_transfers)
+                    record_timer('daemons.conveyor.stager.get_stagein_transfers.transfers', total_transfers)
+                    logger(logging.INFO, 'Got %s stagein transfers for %s' % (total_transfers, activity))
 
-                if total_transfers < group_bulk:
-                    logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (total_transfers, activity, group_bulk, sleep_time))
-                    if activity_next_exe_time[activity] < time.time():
-                        activity_next_exe_time[activity] = time.time() + sleep_time
-        except Exception:
-            raise
+                    for builder, transfer_paths in transfers.items():
+                        transfertool_obj = builder.make_transfertool(logger=logger, **transfertool_kwargs.get(builder.transfertool_class, {}))
+                        logger(logging.INFO, 'Starting to group transfers for %s (%s)' % (activity, transfertool_obj))
+                        start_time = time.time()
+                        grouped_jobs = transfertool_obj.group_into_submit_jobs(transfer_paths)
+                        record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfer_paths) or 1))
 
-        if once:
-            break
+                        logger(logging.INFO, 'Starting to submit transfers for %s (%s)' % (activity, transfertool_obj))
+                        for job in grouped_jobs:
+                            submit_transfer(transfertool_obj=transfertool_obj, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter', logger=logger)
 
-    logger(logging.INFO, 'Graceful stop requested')
+                    if total_transfers < group_bulk:
+                        logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (total_transfers, activity, group_bulk, sleep_time))
+                        if activity_next_exe_time[activity] < time.time():
+                            activity_next_exe_time[activity] = time.time() + sleep_time
+            except Exception:
+                raise
 
-    heartbeat.die(executable, hostname, pid, hb_thread)
-
-    logger(logging.INFO, 'Graceful stop done')
+            if once:
+                break
 
 
 def stop(signum=None, frame=None):
@@ -188,7 +175,7 @@ def stop(signum=None, frame=None):
 
 def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
         rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
-        activities=[], sleep_time=600, retry_other_fts=False):
+        activities=[], sleep_time=600):
     """
     Starts up the conveyer threads.
     """
@@ -218,8 +205,7 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
                group_bulk=group_bulk,
                group_policy=group_policy,
                source_strategy=source_strategy,
-               activities=activities,
-               retry_other_fts=retry_other_fts)
+               activities=activities)
 
     else:
         logging.info('starting stager threads')
@@ -229,8 +215,7 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
                                                            'group_policy': group_policy,
                                                            'activities': activities,
                                                            'sleep_time': sleep_time,
-                                                           'source_strategy': source_strategy,
-                                                           'retry_other_fts': retry_other_fts}) for _ in range(0, total_threads)]
+                                                           'source_strategy': source_strategy}) for _ in range(0, total_threads)]
 
         [thread.start() for thread in threads]
 

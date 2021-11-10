@@ -22,6 +22,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
 Suspicious-Replica-Recoverer is a daemon that declares suspicious replicas as bad if they are found available on other RSE.
@@ -218,16 +219,16 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
         except (DatabaseException, DatabaseError) as err:
             if match('.*QueuePool.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('replica.recoverer.exceptions.' + err.__class__.__name__)
+                record_counter('replica.recoverer.exceptions.{exception}', labels={'exception': err.__class__.__name__})
             elif match('.*ORA-03135.*', str(err.args[0])):
                 logging.warning(traceback.format_exc())
-                record_counter('replica.recoverer.exceptions.' + err.__class__.__name__)
+                record_counter('replica.recoverer.exceptions.{exception}', labels={'exception': err.__class__.__name__})
             else:
                 logging.critical(traceback.format_exc())
-                record_counter('replica.recoverer.exceptions.' + err.__class__.__name__)
+                record_counter('replica.recoverer.exceptions.{exception}', labels={'exception': err.__class__.__name__})
         except Exception as err:
             logging.critical(traceback.format_exc())
-            record_counter('replica.recoverer.exceptions.' + err.__class__.__name__)
+            record_counter('replica.recoverer.exceptions.{exception}', labels={'exception': err.__class__.__name__})
         if once:
             break
 
