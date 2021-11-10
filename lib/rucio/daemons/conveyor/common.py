@@ -171,9 +171,9 @@ def _submit_transfers(transfertool_obj, transfers, job_params, submitter='submit
     if eid is not None:
         duration = time.time() - start_time
         logger(logging.INFO, 'Submit job %s to %s in %s seconds' % (eid, transfertool_obj, duration))
-        record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - start_time) * 1000 / len(transfers) or 1)
+        record_timer('daemons.conveyor.{submitter}.submit_bulk_transfer.per_file', (time.time() - start_time) * 1000 / len(transfers) or 1, labels={'submitter': submitter})
         record_counter('daemons.conveyor.{submitter}.submit_bulk_transfer', delta=len(transfers), labels={'submitter': submitter})
-        record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, len(transfers))
+        record_timer('daemons.conveyor.{submitter}.submit_bulk_transfer.files', len(transfers), labels={'submitter': submitter})
 
     if state_to_set:
         try:

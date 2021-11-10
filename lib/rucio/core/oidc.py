@@ -310,8 +310,7 @@ def get_auth_oidc(account, session=None, **kwargs):
             auth_url = build_url('https://' + auth_server.netloc,
                                  path='auth/oidc_redirect', params=access_msg)
 
-        record_counter(name='IdP_authentication.request')
-        record_timer(stat='IdP_authentication.request', time=time.time() - start)
+        record_timer(name='IdP_authentication.request', time=time.time() - start)
         return auth_url
 
     except Exception:
@@ -448,7 +447,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
                 return {'fetchcode': fetchcode}
         else:
             return {'token': new_token}
-        record_timer(stat='IdP_authorization', time=time.time() - start)
+        record_timer(name='IdP_authorization', time=time.time() - start)
 
     except Exception:
         # TO-DO catch different exceptions - InvalidGrant etc. ...
@@ -746,7 +745,7 @@ def __exchange_token_oidc(subject_token_object, session=None, **kwargs):
         record_counter(name='IdP_authorization.access_token.saved')
         if 'refresh_token' in oidc_tokens:
             record_counter(name='IdP_authorization.refresh_token.saved')
-        record_timer(stat='IdP_authorization.token_exchange', time=time.time() - start)
+        record_timer(name='IdP_authorization.token_exchange', time=time.time() - start)
         return new_token
 
     except Exception:
@@ -957,7 +956,7 @@ def __refresh_token_oidc(token_object, session=None):
         else:
             raise CannotAuthorize("OIDC identity '%s' of the '%s' account is did not " % (token_object.identity, token_object.account)
                                   + "succeed requesting a new access and refresh tokens.")  # NOQA: W503
-        record_timer(stat='IdP_authorization.refresh_token', time=time.time() - start)
+        record_timer(name='IdP_authorization.refresh_token', time=time.time() - start)
         return new_token
 
     except Exception:
