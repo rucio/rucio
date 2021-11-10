@@ -50,7 +50,7 @@ data_files = [
     ('rucio/', ['requirements.txt']),
     ('rucio/etc/', glob.glob('etc/*.template')),
     ('rucio/etc/web', glob.glob('etc/web/*.template')),
-    ('rucio/tools/', ['tools/bootstrap.py', 'tools/reset_database.py']),
+    ('rucio/tools/', ['tools/bootstrap.py', 'tools/reset_database.py', 'tools/merge_rucio_configs.py']),
     ('rucio/etc/mail_templates/', glob.glob('etc/mail_templates/*.tmpl')),
 ]
 scripts = glob.glob('bin/rucio*')
