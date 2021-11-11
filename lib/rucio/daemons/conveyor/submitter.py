@@ -194,7 +194,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
 
                         logger(logging.INFO, 'Starting to submit transfers for %s (%s)', activity, transfertool_obj)
                         for job in grouped_jobs:
-                            logger(logging.DEBUG, 'submitjob: %s' % job)
+                            logger(logging.DEBUG, 'submitjob: transfers=%s, job_params=%s' % ([str(t) for t in job['transfers']], job['job_params']))
                             submit_transfer(transfertool_obj=transfertool_obj, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter',
                                             timeout=timeout, logger=logger)
 
