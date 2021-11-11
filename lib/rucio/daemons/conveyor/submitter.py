@@ -335,6 +335,12 @@ def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, lim
                                                                                                                                      bring_online=bring_online,
                                                                                                                                      retry_other_fts=retry_other_fts,
                                                                                                                                      failover_schemes=failover_schemes)
+    if reqs_no_source:
+        logging.info("Marking requests as no-sources: %s", reqs_no_source)
+    if reqs_only_tape_source:
+        logging.info("Marking requests as only-tape-sources: %s", reqs_only_tape_source)
+    if reqs_scheme_mismatch:
+        logging.info("Marking requests as scheme-mismatch: %s", reqs_scheme_mismatch)
     request_core.set_requests_state(reqs_no_source, RequestState.NO_SOURCES)
     request_core.set_requests_state(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES)
     request_core.set_requests_state(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME)
