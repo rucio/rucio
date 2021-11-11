@@ -308,7 +308,7 @@ class UploadClient:
                         try:
                             self.client.update_replicas_states(rse, files=[replica_for_api])
                         except Exception as error:
-                            logger(logging.WARNING, 'Failed to update replica state')
+                            logger(logging.ERROR, 'Failed to update replica state for file {}'.format(basename))
                             logger(logging.DEBUG, 'Details: {}'.format(str(error)))
 
                 # add file to dataset if needed
