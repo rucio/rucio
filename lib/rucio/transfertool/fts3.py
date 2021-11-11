@@ -352,7 +352,7 @@ class FTS3Transfertool(Transfertool):
     FTS3 implementation of a Rucio transfertool
     """
 
-    def __init__(self, external_host, oidc_account=None, group_bulk=1, group_policy='rule', source_strategy=None,
+    def __init__(self, external_host, oidc_account=None, vo=None, group_bulk=1, group_policy='rule', source_strategy=None,
                  max_time_in_queue=None, bring_online=43200, default_lifetime=172800, archive_timeout_override=None,
                  logger=logging.log):
         """
@@ -372,6 +372,8 @@ class FTS3Transfertool(Transfertool):
         self.archive_timeout_override = archive_timeout_override
 
         usercert = config_get('conveyor', 'usercert', False, None)
+        if vo:
+            usercert = config_get('vo_certs', vo, False, usercert)
 
         # token for OAuth 2.0 OIDC authorization scheme (working only with dCache + davs/https protocols as of Sep 2019)
         self.token = None
@@ -402,8 +404,12 @@ class FTS3Transfertool(Transfertool):
             self.cert = None
             self.verify = True  # True is the default setting of a requests.* method
 
-    @staticmethod
-    def submission_builder_for_path(transfer_path, logger=logging.log):
+    @classmethod
+    def submission_builder_for_path(cls, transfer_path, logger=logging.log):
+        vo = None
+        if config_get_bool('common', 'multi_vo', False, None):
+            vo = transfer_path[-1].rws.scope.vo
+
         all_hops_have_an_fts_attr = True
         fts_hosts = []
         for hop in transfer_path:
@@ -425,7 +431,7 @@ class FTS3Transfertool(Transfertool):
             logger(logging.DEBUG, 'OAuth2/OIDC available for transfer {}'.format([str(hop) for hop in transfer_path]))
             oidc_account = transfer_path[-1].rws.account
 
-        return TransferToolBuilder(FTS3Transfertool, external_host=fts_hosts[0], oidc_account=oidc_account)
+        return TransferToolBuilder(cls, external_host=fts_hosts[0], oidc_account=oidc_account, vo=vo)
 
     def group_into_submit_jobs(self, transfer_paths):
         jobs = bulk_group_transfers(
