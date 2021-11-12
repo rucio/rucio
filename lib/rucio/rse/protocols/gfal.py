@@ -238,7 +238,7 @@ class Default(protocol.RSEProtocol):
                 timeout = int(TIMEOUT)
                 self.__ctx.set_opt_integer("HTTP PLUGIN", "OPERATION_TIMEOUT", timeout)
                 self.__ctx.set_opt_integer("SRM PLUGIN", "OPERATION_TIMEOUT", timeout)
-                self.__ctx.set_opt_integer("GSIFTP PLUGIN", "OPERATION_TIMEOUT", timeout)
+                self.__ctx.set_opt_integer("GRIDFTP PLUGIN", "OPERATION_TIMEOUT", timeout)
             except ValueError:
                 self.logger(logging.ERROR, 'wrong timeout value %s', TIMEOUT)
 
