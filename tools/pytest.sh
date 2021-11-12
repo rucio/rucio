@@ -71,4 +71,4 @@ if [[ "$NO_XDIST" == "False" ]]; then
   echo "Running pytest with pytest-xdist: ${XDIST_ARGS[@]}"
 fi
 
-exec python -bb -m pytest -r fExX ${XDIST_ARGS[@]} ${ARGS[@]}
+exec python -bb -m pytest -r fExX --log-level=DEBUG ${XDIST_ARGS[@]} ${ARGS[@]}
