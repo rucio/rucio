@@ -181,11 +181,8 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
     :returns: List of dids.
     """
     meta_handler_to_use = None
-
     # Ensure that a single handler manages all the keys of the query
     for key in filters:
-        if key == 'name':
-            continue
         if meta_handler_to_use is None:
             for meta_handler in METADATA_HANDLERS:
                 if meta_handler.manages_key(key, session=session):
