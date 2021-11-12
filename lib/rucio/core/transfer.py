@@ -497,12 +497,14 @@ def mark_submitting_and_prepare_sources_for_transfers(
                 raise RequestNotFound("Failed to prepare transfer: request %s does not exist or is not in queued state" % transfer.rws)
 
             for src_rse, src_url, src_rse_id, rank in transfer.legacy_sources:
+                # For multi-hops, sources in database are bound to the initial request
+                source_request_id = transfer.rws.attributes.get('initial_request_id', transfer.rws.request_id)
                 src_rowcount = session.query(models.Source)\
-                                      .filter_by(request_id=transfer.rws.request_id)\
+                                      .filter_by(request_id=source_request_id)\
                                       .filter(models.Source.rse_id == src_rse_id)\
                                       .update({'is_using': True}, synchronize_session=False)
                 if src_rowcount == 0:
-                    models.Source(request_id=transfer.rws.request_id,
+                    models.Source(request_id=source_request_id,
                                   scope=transfer.rws.scope,
                                   name=transfer.rws.name,
                                   rse_id=src_rse_id,

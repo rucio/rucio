@@ -247,7 +247,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
                 tss = time.time()
                 try:
                     if request_core.should_retry_request(req, retry_protocol_mismatches):
-                        new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches, logger=logger)
+                        new_req = request_core.requeue_and_archive(req, source_ranking_update=True, retry_protocol_mismatches=retry_protocol_mismatches, logger=logger)
                         # should_retry_request and requeue_and_archive are not in one session,
                         # another process can requeue_and_archive and this one will return None.
                         record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
@@ -274,7 +274,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
                 try:
                     tss = time.time()
                     if request_core.should_retry_request(req, retry_protocol_mismatches):
-                        new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches, logger=logger)
+                        new_req = request_core.requeue_and_archive(req, source_ranking_update=False, retry_protocol_mismatches=retry_protocol_mismatches, logger=logger)
                         record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
                         logger(logging.WARNING, 'REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                                            req['name'],

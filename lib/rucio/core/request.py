@@ -107,14 +107,15 @@ def should_retry_request(req, retry_protocol_mismatches):
 
 
 @transactional_session
-def requeue_and_archive(request, retry_protocol_mismatches=False, session=None, logger=logging.log):
+def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mismatches=False, session=None, logger=logging.log):
     """
     Requeue and archive a failed request.
     TODO: Multiple requeue.
 
-    :param request:     Original request.
-    :param session:     Database session to use.
-    :param logger:      Optional decorated logger that can be passed from the calling daemons or servers.
+    :param request:               Original request.
+    :param source_ranking_update  Boolean. If True, the source ranking is decreased (making the sources less likely to be used)
+    :param session:               Database session to use.
+    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
     record_counter('core.request.requeue_request')
@@ -134,7 +135,7 @@ def requeue_and_archive(request, retry_protocol_mismatches=False, session=None, 
             elif new_req['state'] != RequestState.SUBMITTING:
                 new_req['retry_count'] += 1
 
-            if new_req['sources']:
+            if source_ranking_update and new_req['sources']:
                 for i in range(len(new_req['sources'])):
                     if new_req['sources'][i]['is_using']:
                         if new_req['sources'][i]['ranking'] is None:
