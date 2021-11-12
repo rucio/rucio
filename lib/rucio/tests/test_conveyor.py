@@ -110,6 +110,16 @@ def set_query_parameters(url, params):
     return urlunparse(url_parts)
 
 
+@read_session
+def __get_source(request_id, src_rse_id, scope, name, session=None):
+    return session.query(models.Source) \
+        .filter(models.Source.request_id == request_id) \
+        .filter(models.Source.scope == scope) \
+        .filter(models.Source.name == name) \
+        .filter(models.Source.rse_id == src_rse_id) \
+        .first()
+
+
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter, poller and finisher; changes XRD3 usage and limits")
@@ -178,7 +188,11 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         replica = replica_core.get_replica(rse_id=jump_rse_id, **did)
         assert replica
 
-        # FTS fails the second transfer, so run submitter again to copy from jump rse to destination rse
+        # FTS fails the second transfer
+        request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, **did)
+        # ensure tha the ranking was correctly decreased
+        assert __get_source(request_id=request['id'], src_rse_id=jump_rse_id, **did).ranking == -1
+        # run submitter again to copy from jump rse to destination rse
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
         # Wait for the destination replica to become ready
@@ -249,6 +263,9 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
     with pytest.raises(RequestNotFound):
         request_core.get_request_by_did(rse_id=jump_rse_id, **did)
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    # ensure tha the ranking was correctly decreased for the whole path
+    assert __get_source(request_id=request['id'], src_rse_id=jump_rse_id, **did).ranking == -1
+    assert __get_source(request_id=request['id'], src_rse_id=src_rse_id, **did).ranking == -1
     assert request['state'] == RequestState.QUEUED
 
 
@@ -471,6 +488,9 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         with pytest.raises(RequestNotFound):
             request_core.get_request_by_did(rse_id=jump_rse_id, **did)
         request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+        # ensure tha the ranking was correctly decreased for the whole path
+        assert __get_source(request_id=request['id'], src_rse_id=jump_rse_id, **did).ranking == -1
+        assert __get_source(request_id=request['id'], src_rse_id=src_rse_id, **did).ranking == -1
         assert request['state'] == RequestState.QUEUED
     finally:
         receiver_graceful_stop.set()
@@ -716,6 +736,9 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
     # Run finisher and submitter, the request must be resubmitted and transferred correctly
     __update_request(request['id'], updated_at=datetime.utcnow() - timedelta(days=1))
     finisher(once=True, partition_wait_time=None)
+    # The source ranking must not be updated for submission failures and lost transfers
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert __get_source(request_id=request['id'], src_rse_id=src_rse_id, **did).ranking == 0
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
     replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, **did)
     assert replica['state'] == ReplicaState.AVAILABLE
