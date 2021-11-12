@@ -364,8 +364,8 @@ class TestDIDClients(unittest.TestCase):
     def test_list_recursive(self):
         """ DATA IDENTIFIERS (CLIENT): List did recursive """
         # Create nested containers and datast
-        tmp_scope_1 = 'list-did-recursive'
-        tmp_scope_2 = 'list-did-recursive-2'
+        tmp_scope_1 = ('list-did-recursive-%s' % generate_uuid())[:25]
+        tmp_scope_2 = ('list-did-recursive-%s' % generate_uuid())[:25]
         self.scope_client.add_scope('root', tmp_scope_1)
         self.scope_client.add_scope('root', tmp_scope_2)
 

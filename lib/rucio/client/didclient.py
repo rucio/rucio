@@ -31,9 +31,12 @@
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020-2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2021
 
 from __future__ import print_function
 
+from datetime import datetime
 from json import dumps, loads
 
 from requests.status_codes import codes
@@ -67,20 +70,26 @@ class DIDClient(BaseClient):
         :param recursive: Recursively list DIDs content.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search'])
-        payload = {}
 
-        for k, v in list(filters.items()):
-            if k in ('created_before', 'created_after'):
-                payload[k] = date_to_str(v)
-            else:
-                payload[k] = v
-        payload['long'] = long
-        payload['type'] = did_type
-        payload['recursive'] = recursive
+        # stringify dates.
+        if isinstance(filters, dict):   # backwards compatability for filters as single {}
+            filters = [filters]
+        for or_group in filters:
+            for key, value in or_group.items():
+                if isinstance(value, datetime):
+                    or_group[key] = date_to_str(value)
+
+        payload = {
+            'type': did_type,
+            'filters': filters,
+            'long': long,
+            'recursive': recursive
+        }
 
         url = build_url(choice(self.list_hosts), path=path, params=payload)
 
         r = self._send_request(url, type_='GET')
+
         if r.status_code == codes.ok:
             dids = self._load_json_data(r)
             return dids

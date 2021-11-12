@@ -30,6 +30,7 @@
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from datetime import datetime, timedelta
@@ -80,7 +81,7 @@ HARDCODED_KEYS = [
     # all keys in constants.RESERVED_KEYS should be read-only from the API,
     # but could be used in internal calls to set_metadata_*
     # fields in did table and constants.RESERVED_KEYS
-    "name"
+    "name",
     "length",
     "md5",
     "expired_at",
@@ -112,7 +113,6 @@ class DidColumnMeta(DidMetaPlugin):
     def get_metadata(self, scope, name, session=None):
         """
         Get data identifier metadata
-
         :param scope: The scope name.
         :param name: The data identifier name.
         :param session: The database session in use.
@@ -232,7 +232,6 @@ class DidColumnMeta(DidMetaPlugin):
                   offset=None, long=False, recursive=False, session=None):
         """
         Search data identifiers
-
         :param scope: the scope name.
         :param filters: dictionary of attributes by which the results should be filtered.
         :param did_type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
@@ -351,7 +350,6 @@ class DidColumnMeta(DidMetaPlugin):
     def delete_metadata(self, scope, name, key, session=None):
         """
         Deletes the metadata stored for the given key.
-
         :param scope: The scope of the did.
         :param name: The name of the did.
         :param key: Key of the metadata.

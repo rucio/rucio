@@ -30,10 +30,12 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2021
 # - Paul Millar <paul.millar@desy.de>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
@@ -1212,7 +1214,7 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
         # search for the file
-        cmd = "rucio list-dids --filter type=all {0}:{1}".format(self.user, tmp_file1[5:])
+        cmd = "rucio list-dids --filter type==all {0}:{1}".format(self.user, tmp_file1[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
