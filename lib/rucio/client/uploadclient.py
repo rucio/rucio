@@ -309,9 +309,13 @@ class UploadClient:
                 if not no_register:
                     if register_after_upload:
                         self._register_file(file, registered_dataset_dids)
-                    replica_for_api = self._convert_file_for_api(file)
-                    if not self.client.update_replicas_states(rse, files=[replica_for_api]):
-                        logger(logging.WARNING, 'Failed to update replica state')
+                    else:
+                        replica_for_api = self._convert_file_for_api(file)
+                        try:
+                            self.client.update_replicas_states(rse, files=[replica_for_api])
+                        except Exception as error:
+                            logger(logging.ERROR, 'Failed to update replica state for file {}'.format(basename))
+                            logger(logging.DEBUG, 'Details: {}'.format(str(error)))
 
                 # add file to dataset if needed
                 if dataset_did_str and not no_register:
