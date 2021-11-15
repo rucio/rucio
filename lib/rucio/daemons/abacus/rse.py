@@ -21,6 +21,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 """
 Abacus-RSE is a daemon to update RSE counters.
@@ -35,7 +36,7 @@ import traceback
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.logging import setup_logging
+from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.utils import get_thread_with_periodic_running_function, daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.rse_counter import get_updated_rse_counters, update_rse_counter, fill_rse_counter_history_table
@@ -47,10 +48,6 @@ def rse_update(once=False, sleep_time=10):
     """
     Main loop to check and update the RSE Counters.
     """
-
-    logging.info('rse_update: starting')
-
-    logging.info('rse_update: started')
 
     # Make an initial heartbeat so that all abacus-rse daemons have the correct worker number on the next try
     executable = 'abacus-rse'
@@ -64,15 +61,18 @@ def rse_update(once=False, sleep_time=10):
             # Heartbeat
             heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
+            prepend_str = 'rse_update[%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
+            logger = formatted_logger(logging.log, prepend_str + '%s')
+
             # Select a bunch of rses for to update for this worker
             start = time.time()  # NOQA
             rse_ids = get_updated_rse_counters(total_workers=heartbeat['nr_threads'],
                                                worker_number=heartbeat['assign_thread'])
-            logging.debug('Index query time %f size=%d' % (time.time() - start, len(rse_ids)))
+            logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(rse_ids)))
 
             # If the list is empty, sent the worker to sleep
             if not rse_ids and not once:
-                logging.info('rse_update[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1))
+                logger(logging.INFO, 'did not get any work')
                 daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop)
             else:
                 for rse_id in rse_ids:
@@ -80,9 +80,9 @@ def rse_update(once=False, sleep_time=10):
                         break
                     start_time = time.time()
                     update_rse_counter(rse_id=rse_id)
-                    logging.debug('rse_update[%s/%s]: update of rse "%s" took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, rse_id, time.time() - start_time))
+                    logger(logging.DEBUG, 'update of rse "%s" took %f' % (rse_id, time.time() - start_time))
         except Exception:
-            logging.error(traceback.format_exc())
+            logger(logging.ERROR, traceback.format_exc())
         if once:
             break
 
