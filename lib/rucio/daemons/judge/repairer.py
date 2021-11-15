@@ -23,6 +23,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 """
 Judge-Repairer is a daemon to repair stuck replication rules.
@@ -44,7 +45,7 @@ from sqlalchemy.exc import DatabaseError
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import DatabaseException
-from rucio.common.logging import setup_logging
+from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
@@ -66,13 +67,17 @@ def rule_repairer(once=False, sleep_time=60):
 
     # Make an initial heartbeat so that all judge-repairers have the correct worker number on the next try
     executable = 'judge-repairer'
-    live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
+    heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
+    prepend_str = 'rule_repairer [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
+    logger = formatted_logger(logging.log, prepend_str + '%s')
     graceful_stop.wait(1)
 
     while not graceful_stop.is_set():
         try:
             # heartbeat
             heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
+            prepend_str = 'rule_repairer [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
+            logger = formatted_logger(logging.log, prepend_str + '%s')
 
             start = time.time()
 
@@ -89,45 +94,45 @@ def rule_repairer(once=False, sleep_time=60):
                                     limit=100,
                                     blocked_rules=[key for key in paused_rules])
 
-            logging.debug('rule_repairer[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'], time.time() - start, len(rules)))
+            logger(logging.DEBUG, 'index query time %f fetch size is %d' % (time.time() - start, len(rules)))
 
             if not rules and not once:
-                logging.debug('rule_repairer[%s/%s] did not get any work (paused_rules=%s)' % (heartbeat['assign_thread'], heartbeat['nr_threads'], str(len(paused_rules))))
+                logger(logging.DEBUG, 'did not get any work (paused_rules=%s)' % (str(len(paused_rules))))
                 daemon_sleep(start, sleep_time, graceful_stop)
             else:
                 for rule_id in rules:
                     rule_id = rule_id[0]
-                    logging.info('rule_repairer[%s/%s]: Repairing rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads'], rule_id))
+                    logger(logging.INFO, 'Repairing rule %s' % (rule_id))
                     if graceful_stop.is_set():
                         break
                     try:
                         start = time.time()
                         repair_rule(rule_id=rule_id)
-                        logging.debug('rule_repairer[%s/%s]: repairing of %s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'], rule_id, time.time() - start))
+                        logger(logging.DEBUG, 'repairing of %s took %f' % (rule_id, time.time() - start))
                     except (DatabaseException, DatabaseError) as e:
                         if match('.*ORA-00054.*', str(e.args[0])):
                             paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
-                            logging.warning('rule_repairer[%s/%s]: Locks detected for %s' % (heartbeat['assign_thread'], heartbeat['nr_threads'], rule_id))
+                            logger(logging.WARNING, 'Locks detected for %s' % (rule_id))
                             record_counter('rule.judge.exceptions.{exception}', labels={'exception': 'LocksDetected'})
                         elif match('.*QueuePool.*', str(e.args[0])):
-                            logging.warning(traceback.format_exc())
+                            logger(logging.WARNING, traceback.format_exc())
                             record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                         elif match('.*ORA-03135.*', str(e.args[0])):
-                            logging.warning(traceback.format_exc())
+                            logger(logging.WARNING, traceback.format_exc())
                             record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                         else:
-                            logging.error(traceback.format_exc())
+                            logger(logging.ERROR, traceback.format_exc())
                             record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
 
         except (DatabaseException, DatabaseError) as e:
             if match('.*QueuePool.*', str(e.args[0])):
-                logging.warning(traceback.format_exc())
+                logger(logging.WARNING, traceback.format_exc())
                 record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
             elif match('.*ORA-03135.*', str(e.args[0])):
-                logging.warning(traceback.format_exc())
+                logger(logging.WARNING, traceback.format_exc())
                 record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
             else:
-                logging.critical(traceback.format_exc())
+                logger(logging.CRITICAL, traceback.format_exc())
                 record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
         except Exception as e:
             logging.critical(traceback.format_exc())
