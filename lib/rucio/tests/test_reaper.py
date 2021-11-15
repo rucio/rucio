@@ -31,7 +31,6 @@ from rucio.api import replica as replica_api
 from rucio.api import rse as rse_api
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
-from rucio.common.config import config_get_bool
 from rucio.common.exception import ReplicaNotFound, DataIdentifierNotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
@@ -39,8 +38,6 @@ from rucio.core import did as did_core
 from rucio.core import replica as replica_core
 from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
-from rucio.core import scope as scope_core
-from rucio.core import vo as vo_core
 from rucio.daemons.reaper.reaper import reaper
 from rucio.daemons.reaper.reaper import run as run_reaper
 from rucio.db.sqla.models import ConstituentAssociationHistory
@@ -77,28 +74,6 @@ def __add_test_rse_and_replicas(vo, scope, rse_name, names, file_size, epoch_tom
                                  tombstone=tombstone,
                                  account=InternalAccount('root', vo=vo), adler32=None, md5=None)
     return rse_name, rse_id, dids
-
-
-def __setup_new_vo():
-    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
-    if not multi_vo:
-        pytest.skip('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode would result in failures.')
-
-    new_vo = 'new'
-    if not vo_core.vo_exists(vo=new_vo):
-        vo_core.add_vo(vo=new_vo, description='Test', email='rucio@email.com')
-    return new_vo
-
-
-def __setup_scopes_for_vos(*vos):
-    scope_uuid = str(generate_uuid()).lower()[:16]
-    scope_name = 'shr_%s' % scope_uuid
-    created_scopes = []
-    for vo in vos:
-        scope = InternalScope(scope_name, vo=vo)
-        scope_core.add_scope(scope, InternalAccount('root', vo=vo))
-        created_scopes.append(scope)
-    return scope_name, created_scopes
 
 
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
@@ -164,11 +139,11 @@ def test_reaper_bulk_delete(vo, caches_mock):
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION'
 ]}], indirect=True)
-def test_reaper_multi_vo_via_run(vo, caches_mock):
+def test_reaper_multi_vo_via_run(vo, second_vo, scope_factory, caches_mock):
     """ MULTI VO (DAEMON): Test that reaper runs on the specified VO(s) """
     [cache_region] = caches_mock
-    new_vo = __setup_new_vo()
-    scope_name, [scope_tst, scope_new] = __setup_scopes_for_vos(vo, new_vo)
+    new_vo = second_vo
+    scope_name, [scope_tst, scope_new] = scope_factory(vos=[vo, new_vo])
     rse_name = rse_name_generator()
 
     nb_files = 30
@@ -199,11 +174,11 @@ def test_reaper_multi_vo_via_run(vo, caches_mock):
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION'
 ]}], indirect=True)
-def test_reaper_affect_other_vo_via_run(vo, caches_mock):
+def test_reaper_affect_other_vo_via_run(vo, second_vo, scope_factory, caches_mock):
     """ MULTI VO (DAEMON): Test that reaper runs on the specified VO(s) and does not reap others"""
     [cache_region] = caches_mock
-    new_vo = __setup_new_vo()
-    scope_name, [scope_tst, scope_new] = __setup_scopes_for_vos(vo, new_vo)
+    new_vo = second_vo
+    scope_name, [scope_tst, scope_new] = scope_factory(vos=[vo, new_vo])
     rse_name = rse_name_generator()
 
     nb_files = 30
@@ -234,11 +209,11 @@ def test_reaper_affect_other_vo_via_run(vo, caches_mock):
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION'
 ]}], indirect=True)
-def test_reaper_multi_vo(vo, caches_mock):
+def test_reaper_multi_vo(vo, second_vo, scope_factory, caches_mock):
     """ REAPER (DAEMON): Test the reaper daemon with multiple vo."""
     [cache_region] = caches_mock
-    new_vo = __setup_new_vo()
-    _, [scope_tst, scope_new] = __setup_scopes_for_vos(vo, new_vo)
+    new_vo = second_vo
+    _, [scope_tst, scope_new] = scope_factory(vos=[vo, new_vo])
 
     nb_files = 250
     file_size = 200  # 2G
