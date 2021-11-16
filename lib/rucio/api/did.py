@@ -456,6 +456,29 @@ def set_metadata_bulk(scope, name, meta, issuer, recursive=False, vo='def'):
     return did.set_metadata_bulk(scope=scope, name=name, meta=meta, recursive=recursive)
 
 
+def set_dids_metadata_bulk(dids, issuer, recursive=False, vo='def'):
+    """
+    Add metadata to a list of data identifiers.
+
+    :param issuer: The issuer account.
+    :param dids: A list of dids including metadata.
+    :param recursive: Option to propagate the metadata update to content.
+    :param vo: The VO to act on.
+    """
+
+    for entry in dids:
+        kwargs = {'scope': entry['scope'], 'name': entry['name'], 'meta': entry['meta'], 'issuer': issuer}
+        if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata_bulk', kwargs=kwargs):
+            raise rucio.common.exception.AccessDenied('Account %s can not add metadata to data identifier %s:%s' % (issuer, entry['scope'], entry['name']))
+        entry['scope'] = InternalScope(entry['scope'], vo=vo)
+        meta = entry['meta']
+        for key in meta:
+            if key in RESERVED_KEYS:
+                raise rucio.common.exception.AccessDenied('Account %s can not change the value of the metadata key %s to data identifier %s:%s' % (issuer, key, entry['scope'], entry['name']))
+
+    return did.set_dids_metadata_bulk(dids=dids, recursive=recursive)
+
+
 def get_metadata(scope, name, plugin='DID_COLUMN', vo='def'):
     """
     Get data identifier metadata

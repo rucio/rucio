@@ -17,6 +17,9 @@
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
+
+from copy import deepcopy
 
 import unittest
 
@@ -27,7 +30,7 @@ from rucio.common.config import config_get_bool
 from rucio.common.exception import KeyNotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.core.did import add_did, delete_dids, set_metadata_bulk
+from rucio.core.did import add_did, delete_dids, set_metadata_bulk, set_dids_metadata_bulk
 from rucio.core.did_meta_plugins import list_dids, get_metadata, set_metadata
 from rucio.db.sqla.session import get_session
 from rucio.db.sqla.util import json_implemented
@@ -495,6 +498,28 @@ def test_did_set_metadata_bulk_multi(testdid):
         assert testkey in meta and meta[testkey] == testmeta[testkey]
 
 
+def test_set_dids_metadata_bulk_multi(did_factory):
+    """ DID (CORE) : Test setting metadata in bulk with multiple key-values on multiple dids"""
+    skip_without_json()
+    nb_dids = 5
+    dids = [did_factory.make_dataset() for _ in range(nb_dids)]
+
+    for did in dids:
+        testkeys = list(map(lambda i: 'testkey' + generate_uuid(), range(3)))
+        testmeta = {key: key + 'value' for key in testkeys}
+        did['meta'] = testmeta
+    print(dids)
+
+    set_dids_metadata_bulk(dids=dids, recursive=False)
+    for did in dids:
+        testmeta = did['meta']
+        print('Metadata:', testmeta)
+        meta = get_metadata(plugin="ALL", scope=did['scope'], name=did['name'])
+        print('Metadata:', meta)
+        for testkey in testmeta:
+            assert testkey in meta and meta[testkey] == testmeta[testkey]
+
+
 def test_did_set_metadata_bulk_multi_client(testdid):
     """ DID (CLIENT) : Test setting metadata in bulk with multiple key-values """
     skip_without_json()
@@ -515,3 +540,31 @@ def test_did_set_metadata_bulk_multi_client(testdid):
 
     for testkey in testkeys:
         assert testkey in meta and meta[testkey] == testmeta[testkey]
+
+
+def test_set_dids_metadata_bulk_multi_client(did_factory, rucio_client):
+    """ DID (CLIENT) : Test setting metadata in bulk with multiple key-values on multiple dids"""
+    skip_without_json()
+    nb_dids = 5
+    dids = [did_factory.make_dataset() for _ in range(nb_dids)]
+    for did in dids:
+        testkeys = list(map(lambda i: 'testkey' + generate_uuid(), range(3)))
+        testmeta = {key: key + 'value' for key in testkeys}
+        did['meta'] = testmeta
+
+    external_testdids = deepcopy(dids)
+    for did in external_testdids:
+        did['scope'] = did['scope'].external
+    print(dids)
+    print(external_testdids)
+
+    result = rucio_client.set_dids_metadata_bulk(dids=external_testdids, recursive=False)
+    assert result is True
+
+    for did in dids:
+        testmeta = did['meta']
+        print('Metadata:', testmeta)
+        meta = get_metadata(plugin="ALL", scope=did['scope'], name=did['name'])
+        print('Metadata:', meta)
+        for testkey in testmeta:
+            assert testkey in meta and meta[testkey] == testmeta[testkey]
