@@ -17,7 +17,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
@@ -45,6 +45,7 @@ from rucio.client.configclient import ConfigClient
 from rucio.client.touchclient import TouchClient
 from rucio.client.credentialclient import CredentialClient
 from rucio.client.diracclient import DiracClient
+from rucio.client.lifetimeclient import LifetimeClient
 
 
 class Client(AccountClient,
@@ -64,11 +65,12 @@ class Client(AccountClient,
              ImportClient,
              ExportClient,
              CredentialClient,
-             DiracClient):
+             DiracClient,
+             LifetimeClient):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
+    def __init__(self, **args):
         """
         Constructor for the Rucio main client class.
 
@@ -80,5 +82,6 @@ class Client(AccountClient,
         :param creds: credentials needed for authentication.
         :param timeout: Float describes the timeout of the request (in seconds).
         :param vo: The vo that the client will interact with.
+        :param logger: Logger instance to use (optional)
         """
-        super(Client, self).__init__(rucio_host=rucio_host, auth_host=auth_host, account=account, ca_cert=ca_cert, auth_type=auth_type, creds=creds, timeout=timeout, user_agent=user_agent, vo=vo)
+        super(Client, self).__init__(**args)

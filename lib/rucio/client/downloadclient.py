@@ -31,8 +31,9 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
-# - David Población Criado <13998309+davidpob99@users.noreply.github.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import division
 
@@ -186,7 +187,7 @@ class DownloadClient:
         self.extraction_tools.append(BaseExtractionTool('tar', '--version', extract_args, logger=self.logger))
         self.extract_scope_convention = config_get('common', 'extract_scope', False, None)
 
-    def download_pfns(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None):
+    def download_pfns(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None, deactivate_file_download_exceptions=False):
         """
         Download items with a given PFN. This function can only download files, no datasets.
 
@@ -202,6 +203,8 @@ class DownloadClient:
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
+        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
+
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
                   clientState can be one of the following: ALREADY_DONE, DONE, FILE_NOT_FOUND, FAIL_VALIDATE, FAILED
@@ -253,12 +256,12 @@ class DownloadClient:
         output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields, traces_copy_out)
         num_files_out = len(output_items)
 
-        if num_files_in != num_files_out:
+        if not deactivate_file_download_exceptions and num_files_in != num_files_out:
             raise RucioException('%d items were in the input queue but only %d are in the output queue' % (num_files_in, num_files_out))
 
-        return self._check_output(output_items)
+        return self._check_output(output_items, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
-    def download_dids(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None):
+    def download_dids(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None, deactivate_file_download_exceptions=False):
         """
         Download items with given DIDs. This function can also download datasets and wildcarded DIDs.
 
@@ -266,6 +269,7 @@ class DownloadClient:
             did                    - DID string of this file (e.g. 'scope:file.name')
             filters                - Filter to select DIDs for download. Optional if DID is given
             rse                    - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
+            impl                   - Optional: name of the protocol implementation to be used to download this item.
             no_resolve_archives    - Optional: bool indicating whether archives should not be considered for download (Default: False)
             resolve_archives       - Deprecated: Use no_resolve_archives instead
             force_scheme           - Optional: force a specific scheme to download this item. (Default: None)
@@ -278,6 +282,7 @@ class DownloadClient:
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces.
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
+        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -299,12 +304,12 @@ class DownloadClient:
         output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields, traces_copy_out)
         num_files_out = len(output_items)
 
-        if num_files_in != num_files_out:
+        if not deactivate_file_download_exceptions and num_files_in != num_files_out:
             raise RucioException('%d items were in the input queue but only %d are in the output queue' % (num_files_in, num_files_out))
 
-        return self._check_output(output_items)
+        return self._check_output(output_items, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
-    def download_from_metalink_file(self, item, metalink_file_path, num_threads=2, trace_custom_fields={}, traces_copy_out=None):
+    def download_from_metalink_file(self, item, metalink_file_path, num_threads=2, trace_custom_fields={}, traces_copy_out=None, deactivate_file_download_exceptions=False):
         """
         Download items using a given metalink file.
 
@@ -316,6 +321,7 @@ class DownloadClient:
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces.
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
+        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -343,10 +349,10 @@ class DownloadClient:
         output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields, traces_copy_out)
         num_files_out = len(output_items)
 
-        if num_files_in != num_files_out:
+        if not deactivate_file_download_exceptions and num_files_in != num_files_out:
             raise RucioException('%d items were in the input queue but only %d are in the output queue' % (num_files_in, num_files_out))
 
-        return self._check_output(output_items)
+        return self._check_output(output_items, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
     def _download_multithreaded(self, input_items, num_threads, trace_custom_fields={}, traces_copy_out=None):
         """
@@ -596,8 +602,12 @@ class DownloadClient:
 
             logger(logging.INFO, '%sTrying to download with %s%s from %s: %s ' % (log_prefix, scheme, timeout_log_string, rse_name, did_str))
 
+            impl = item.get('impl')
+            if impl:
+                logger(logging.INFO, '%sUsing Implementation (impl): %s ' % (log_prefix, impl))
+
             try:
-                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, auth_token=self.auth_token, logger=logger)
+                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, impl=impl, auth_token=self.auth_token, logger=logger)
                 protocol.connect()
             except Exception as error:
                 logger(logging.WARNING, '%sFailed to create protocol for PFN: %s' % (log_prefix, pfn))
@@ -605,6 +615,7 @@ class DownloadClient:
                 trace['stateReason'] = str(error)
                 continue
 
+            logger(logging.INFO, '%sUsing PFN: %s' % (log_prefix, pfn))
             attempt = 0
             retries = 2
             # do some retries with the same PFN if the download fails
@@ -714,7 +725,7 @@ class DownloadClient:
 
         return item
 
-    def download_aria2c(self, items, trace_custom_fields={}, filters={}):
+    def download_aria2c(self, items, trace_custom_fields={}, filters={}, deactivate_file_download_exceptions=False):
         """
         Uses aria2c to download the items with given DIDs. This function can also download datasets and wildcarded DIDs.
         It only can download files that are available via https/davs.
@@ -729,6 +740,7 @@ class DownloadClient:
             ignore_checksum     - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
         :param trace_custom_fields: Custom key value pairs to send with the traces
         :param filters: dictionary containing filter options
+        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -765,7 +777,7 @@ class DownloadClient:
             finally:
                 rpcproc.terminate()
 
-        return self._check_output(output_items)
+        return self._check_output(output_items, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
     def _start_aria2c_rpc(self, rpc_secret):
         """
@@ -1129,6 +1141,16 @@ class DownloadClient:
             rse_expression = item.get('rse')
             logger(logging.DEBUG, 'rse_expression: %s' % rse_expression)
 
+            # obtaining the choice of Implementation
+            impl = item.get('impl')
+            if impl:
+                impl_split = impl.split('.')
+                if len(impl_split) == 1:
+                    impl = 'rucio.rse.protocols.' + impl + '.Default'
+                else:
+                    impl = 'rucio.rse.protocols.' + impl
+            logger(logging.DEBUG, 'impl: %s' % impl)
+
             # get PFNs of files and datasets
             logger(logging.DEBUG, 'num DIDs for list_replicas call: %d' % len(item['dids']))
 
@@ -1146,6 +1168,11 @@ class DownloadClient:
                                                      nrandom=nrandom,
                                                      metalink=True)
             file_items = parse_replicas_from_string(metalink_str)
+            for file in file_items:
+                if impl:
+                    file['impl'] = impl
+                elif not item.get('force_scheme'):
+                    file['impl'] = self.preferred_impl(file['sources'])
 
             logger(logging.DEBUG, 'num resolved files: %s' % len(file_items))
 
@@ -1159,7 +1186,7 @@ class DownloadClient:
                     if not any([input_did == f['did'] or str(input_did) in f['parent_dids'] for f in file_items]):
                         logger(logging.ERROR, 'DID does not exist: %s' % input_did)
                         # TODO: store did directly as DIDType object
-                        file_items.append({'did': str(input_did), 'adler32': None, 'md5': None, 'sources': [], 'parent_dids': set()})
+                        file_items.append({'did': str(input_did), 'adler32': None, 'md5': None, 'sources': [], 'parent_dids': set(), 'impl': impl or None})
 
             # filtering out tape sources
             if self.is_tape_excluded:
@@ -1508,12 +1535,13 @@ class DownloadClient:
 
         return dest_dir_path
 
-    def _check_output(self, output_items):
+    def _check_output(self, output_items, deactivate_file_download_exceptions=False):
         """
         Checks if all files were successfully downloaded
         (This function is meant to be used as class internal only)
 
         :param output_items: list of dictionaries describing the downloaded files
+        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
 
         :returns: output_items list
 
@@ -1531,9 +1559,9 @@ class DownloadClient:
             else:
                 num_failed += 1
 
-        if num_successful == 0:
+        if not deactivate_file_download_exceptions and num_successful == 0:
             raise NoFilesDownloaded()
-        elif num_failed > 0:
+        elif not deactivate_file_download_exceptions and num_failed > 0:
             raise NotAllFilesDownloaded()
 
         return output_items
@@ -1546,6 +1574,69 @@ class DownloadClient:
         """
         if self.tracing:
             send_trace(trace, self.client.trace_host, self.client.user_agent)
+
+    def preferred_impl(self, sources):
+        """
+            Finds the optimum protocol impl preferred by the client and
+            supported by the remote RSE.
+
+            :param sources: List of sources for a given DID
+
+            :raises RucioException(msg): general exception with msg for more details.
+        """
+
+        preferred_protocols = []
+        checked_rses = []
+        supported_impl = None
+
+        try:
+            preferred_impls = config_get('download', 'preferred_impl')
+        except Exception as error:
+            self.logger(logging.INFO, 'No preferred protocol impl in rucio.cfg: %s' % (error))
+            return supported_impl
+        else:
+            preferred_impls = list(preferred_impls.split(', '))
+            i = 0
+            while i < len(preferred_impls):
+                impl = preferred_impls[i]
+                impl_split = impl.split('.')
+                if len(impl_split) == 1:
+                    preferred_impls[i] = 'rucio.rse.protocols.' + impl + '.Default'
+                else:
+                    preferred_impls[i] = 'rucio.rse.protocols.' + impl
+                i += 1
+
+        for source in sources:
+            if source['rse'] in checked_rses:
+                continue
+            try:
+                rse_settings = rsemgr.get_rse_info(source['rse'], vo=self.client.vo)
+                checked_rses.append(str(source['rse']))
+            except RucioException as error:
+                self.logger(logging.DEBUG, 'Could not get info of RSE %s: %s' % (source['source'], error))
+                continue
+
+            preferred_protocols = [protocol for protocol in reversed(rse_settings['protocols']) if protocol['impl'] in preferred_impls]
+
+            if len(preferred_protocols) == 0:
+                continue
+
+            for protocol in preferred_protocols:
+                if not protocol['domains']['wan'].get("read"):
+                    self.logger(logging.WARNING, 'Unsuitable protocol "%s": "WAN Read" operation is not supported' % (protocol['impl']))
+                    continue
+                try:
+                    supported_protocol = rsemgr.create_protocol(rse_settings, 'read', impl=protocol['impl'], auth_token=self.auth_token, logger=self.logger)
+                    supported_protocol.connect()
+                except Exception as error:
+                    self.logger(logging.WARNING, 'Failed to create protocol "%s", exception: %s' % (protocol['impl'], error))
+                    pass
+                else:
+                    self.logger(logging.INFO, 'Preferred protocol impl supported locally and remotely: %s' % (protocol['impl']))
+                    supported_impl = protocol['impl']
+                    break
+
+        return supported_impl
 
 
 def _verify_checksum(item, path):

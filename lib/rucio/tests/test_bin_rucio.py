@@ -30,13 +30,15 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2021
 # - Paul Millar <paul.millar@desy.de>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
-# - jdierkes <joel.dierkes@cern.ch>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
 from __future__ import print_function
 
@@ -414,6 +416,19 @@ class TestBinRucio(unittest.TestCase):
         upload_string_1 = (self.upload_success_str % path.basename(tmp_file1))
         assert upload_string_1 in out or upload_string_1 in err
 
+    def test_upload_file_with_impl(self):
+        """CLIENT(USER): Rucio upload file with impl parameter assigned 'posix' value"""
+        tmp_file1 = file_generator()
+        impl = 'posix'
+        cmd = 'rucio -v upload --rse {0} --scope {1} --impl {2} {3}'.format(self.def_rse, self.user, impl, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        remove(tmp_file1)
+        upload_string_1 = (self.upload_success_str % path.basename(tmp_file1))
+        assert re.search(upload_string_1, err) is not None
+
     def test_upload_repeated_file(self):
         """CLIENT(USER): Rucio upload repeated files"""
         # One of the files to upload is already catalogued but was removed
@@ -618,6 +633,52 @@ class TestBinRucio(unittest.TestCase):
         print(out, err)
         # download files
         cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:-2] + '*')  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # search for the files with ls
+        cmd = 'ls /tmp/'    # search in /tmp/
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert re.search(tmp_file1[5:], out) is not None
+
+        try:
+            for i in listdir('data13_hip'):
+                unlink('data13_hip/%s' % i)
+            rmdir('data13_hip')
+        except Exception:
+            pass
+
+    def test_download_file_with_impl(self):
+        """CLIENT(USER): Rucio download files with impl parameter assigned 'posix' value"""
+        tmp_file1 = file_generator()
+        impl = 'posix'
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} {3}'.format(self.def_rse, self.user, impl, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # download files
+        cmd = 'rucio -v download --dir /tmp {0}:{1} --impl {2}'.format(self.user, tmp_file1[5:], impl)  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # search for the files with ls
+        cmd = 'ls /tmp/'    # search in /tmp/
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert re.search(tmp_file1[5:], out) is not None
+
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} {3}'.format(self.def_rse, self.user, impl, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # download files
+        cmd = 'rucio -v download --dir /tmp {0}:{1} --impl {2}'.format(self.user, tmp_file1[5:-2] + '*', impl)  # triming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -1153,7 +1214,7 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
         # search for the file
-        cmd = "rucio list-dids --filter type=all {0}:{1}".format(self.user, tmp_file1[5:])
+        cmd = "rucio list-dids --filter type==all {0}:{1}".format(self.user, tmp_file1[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -1913,3 +1974,50 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         assert '--stuck or --suspend must be specified when running --cancel-requests' in err
         assert exitcode != 0
+
+    def test_update_rule_boost_rule_arg(self):
+        """CLIENT(USER): update a rule with the `--boost_rule` option """
+        self.account_client.set_local_account_limit('root', self.def_rse, -1)
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
+
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASDELETERULE'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rules
+        cmd = "rucio add-rule {0}:{1} 1 'spacetoken=ATLASDELETERULE'".format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(err)
+        print(out)
+        # get the rules for the file
+        cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        (rule1, rule2) = out.split()
+
+        # update the rules
+        cmd = "rucio update-rule --boost-rule {0}".format(rule1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        print(out, err)
+        cmd = "rucio update-rule --boost-rule {0}".format(rule2)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
