@@ -116,6 +116,8 @@ Note that attempting the use the ``--vos`` argument when in single-VO mode will 
                         help='Explicit list of activities to include')
     parser.add_argument('--exclude-activities', nargs='+', type=str,
                         help='Explicit list of activities to exclude')
+    parser.add_argument('--ignore-availability', action="store_true", default=False,
+                        help='If True, will also try to submit transfers having blocklisted RSEs as sources')
     parser.add_argument('--sleep-time', action="store", default=600, type=int,
                         help='Seconds to sleep if few requests')
     parser.add_argument('--max-sources', action="store", default=4, type=int,
@@ -143,6 +145,7 @@ if __name__ == "__main__":
             source_strategy=args.source_strategy,
             activities=args.activities,
             exclude_activities=args.exclude_activities,
+            ignore_availability=args.ignore_availability,
             sleep_time=args.sleep_time,
             max_sources=args.max_sources,
             archive_timeout_override=args.archive_timeout_override,

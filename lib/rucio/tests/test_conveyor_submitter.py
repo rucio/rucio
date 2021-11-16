@@ -175,6 +175,39 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', True)
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
+    'rucio.core.transfer.REGION_SHORT',
+]}], indirect=True)
+def test_ignore_availability(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
+
+    def __setup_test():
+        src_rse, src_rse_id = rse_factory.make_posix_rse()
+        dst_rse, dst_rse_id = rse_factory.make_posix_rse()
+
+        distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+        did = did_factory.upload_test_file(src_rse)
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        rse_core.update_rse(src_rse_id, {'availability_read': False})
+
+        return src_rse_id, dst_rse_id, did
+
+    src_rse_id, dst_rse_id, did = __setup_test()
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in (src_rse_id, dst_rse_id)], partition_wait_time=None, transfertool='mock', transfertype='single')
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['state'] == RequestState.NO_SOURCES
+
+    src_rse_id, dst_rse_id, did = __setup_test()
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in (src_rse_id, dst_rse_id)], partition_wait_time=None, transfertool='mock', transfertype='single', ignore_availability=True)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['state'] == RequestState.SUBMITTED
+
+
+@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
 def test_globus(rse_factory, did_factory, root_account):
     """
     Test bulk submissions with globus transfertool.
