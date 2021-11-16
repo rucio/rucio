@@ -66,6 +66,9 @@ FTS_STATE = namedtuple('FTS_STATE', ['SUBMITTED', 'READY', 'ACTIVE', 'FAILED', '
 
 FTS_COMPLETE_STATE = namedtuple('FTS_COMPLETE_STATE', ['OK', 'ERROR'])('Ok', 'Error')
 
+# https://gitlab.cern.ch/fts/fts3/-/blob/master/src/db/generic/Job.h#L41
+FTS_JOB_TYPE = namedtuple('FTS_JOB_TYPE', ['MULTIPLE_REPLICA', 'MULTI_HOP', 'SESSION_REUSE', 'REGULAR'])('R', 'H', 'Y', 'N')
+
 
 class ReplicaState(Enum):
     # From rucio.db.sqla.constants, update that file at the same time than this
