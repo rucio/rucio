@@ -31,8 +31,9 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
-# - David Población Criado <13998309+davidpob99@users.noreply.github.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import division
 
@@ -186,7 +187,7 @@ class DownloadClient:
         self.extraction_tools.append(BaseExtractionTool('tar', '--version', extract_args, logger=self.logger))
         self.extract_scope_convention = config_get('common', 'extract_scope', False, None)
 
-    def download_pfns(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None):
+    def download_pfns(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None, deactivate_file_download_exceptions=False):
         """
         Download items with a given PFN. This function can only download files, no datasets.
 
@@ -202,6 +203,8 @@ class DownloadClient:
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
+        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
+
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
                   clientState can be one of the following: ALREADY_DONE, DONE, FILE_NOT_FOUND, FAIL_VALIDATE, FAILED
@@ -253,12 +256,12 @@ class DownloadClient:
         output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields, traces_copy_out)
         num_files_out = len(output_items)
 
-        if num_files_in != num_files_out:
+        if not deactivate_file_download_exceptions and num_files_in != num_files_out:
             raise RucioException('%d items were in the input queue but only %d are in the output queue' % (num_files_in, num_files_out))
 
-        return self._check_output(output_items)
+        return self._check_output(output_items, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
-    def download_dids(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None):
+    def download_dids(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None, deactivate_file_download_exceptions=False):
         """
         Download items with given DIDs. This function can also download datasets and wildcarded DIDs.
 
@@ -279,6 +282,7 @@ class DownloadClient:
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces.
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
+        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -300,12 +304,12 @@ class DownloadClient:
         output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields, traces_copy_out)
         num_files_out = len(output_items)
 
-        if num_files_in != num_files_out:
+        if not deactivate_file_download_exceptions and num_files_in != num_files_out:
             raise RucioException('%d items were in the input queue but only %d are in the output queue' % (num_files_in, num_files_out))
 
-        return self._check_output(output_items)
+        return self._check_output(output_items, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
-    def download_from_metalink_file(self, item, metalink_file_path, num_threads=2, trace_custom_fields={}, traces_copy_out=None):
+    def download_from_metalink_file(self, item, metalink_file_path, num_threads=2, trace_custom_fields={}, traces_copy_out=None, deactivate_file_download_exceptions=False):
         """
         Download items using a given metalink file.
 
@@ -317,6 +321,7 @@ class DownloadClient:
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces.
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
+        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -344,10 +349,10 @@ class DownloadClient:
         output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields, traces_copy_out)
         num_files_out = len(output_items)
 
-        if num_files_in != num_files_out:
+        if not deactivate_file_download_exceptions and num_files_in != num_files_out:
             raise RucioException('%d items were in the input queue but only %d are in the output queue' % (num_files_in, num_files_out))
 
-        return self._check_output(output_items)
+        return self._check_output(output_items, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
     def _download_multithreaded(self, input_items, num_threads, trace_custom_fields={}, traces_copy_out=None):
         """
@@ -720,7 +725,7 @@ class DownloadClient:
 
         return item
 
-    def download_aria2c(self, items, trace_custom_fields={}, filters={}):
+    def download_aria2c(self, items, trace_custom_fields={}, filters={}, deactivate_file_download_exceptions=False):
         """
         Uses aria2c to download the items with given DIDs. This function can also download datasets and wildcarded DIDs.
         It only can download files that are available via https/davs.
@@ -735,6 +740,7 @@ class DownloadClient:
             ignore_checksum     - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
         :param trace_custom_fields: Custom key value pairs to send with the traces
         :param filters: dictionary containing filter options
+        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -771,7 +777,7 @@ class DownloadClient:
             finally:
                 rpcproc.terminate()
 
-        return self._check_output(output_items)
+        return self._check_output(output_items, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
     def _start_aria2c_rpc(self, rpc_secret):
         """
@@ -1529,12 +1535,13 @@ class DownloadClient:
 
         return dest_dir_path
 
-    def _check_output(self, output_items):
+    def _check_output(self, output_items, deactivate_file_download_exceptions=False):
         """
         Checks if all files were successfully downloaded
         (This function is meant to be used as class internal only)
 
         :param output_items: list of dictionaries describing the downloaded files
+        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
 
         :returns: output_items list
 
@@ -1552,9 +1559,9 @@ class DownloadClient:
             else:
                 num_failed += 1
 
-        if num_successful == 0:
+        if not deactivate_file_download_exceptions and num_successful == 0:
             raise NoFilesDownloaded()
-        elif num_failed > 0:
+        elif not deactivate_file_download_exceptions and num_failed > 0:
             raise NotAllFilesDownloaded()
 
         return output_items
