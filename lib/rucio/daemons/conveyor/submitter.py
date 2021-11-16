@@ -78,7 +78,8 @@ TRANSFERTOOL_CLASSES_BY_NAME = {
 def submitter(once=False, rses=None, partition_wait_time=10,
               bulk=100, group_bulk=1, group_policy='rule', source_strategy=None,
               activities=None, sleep_time=600, max_sources=4, archive_timeout_override=None,
-              filter_transfertool=FILTER_TRANSFERTOOL, transfertool=TRANSFER_TOOL, transfertype=TRANSFER_TYPE):
+              filter_transfertool=FILTER_TRANSFERTOOL, transfertool=TRANSFER_TOOL,
+              transfertype=TRANSFER_TYPE, ignore_availability=False):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -181,6 +182,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                         transfertools_by_name={transfertool: TRANSFERTOOL_CLASSES_BY_NAME[transfertool]},
                         older_than=None,
                         request_type=RequestType.TRANSFER,
+                        ignore_availability=ignore_availability,
                         logger=logger,
                     )
                     total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
@@ -225,7 +227,7 @@ def stop(signum=None, frame=None):
 
 def run(once=False, group_bulk=1, group_policy='rule', mock=False,
         rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
-        activities=None, exclude_activities=None, sleep_time=600, max_sources=4,
+        activities=None, exclude_activities=None, ignore_availability=False, sleep_time=600, max_sources=4,
         archive_timeout_override=None, total_threads=1):
     """
     Starts up the conveyer threads.
@@ -271,6 +273,7 @@ def run(once=False, group_bulk=1, group_policy='rule', mock=False,
                                                           'group_bulk': group_bulk,
                                                           'group_policy': group_policy,
                                                           'activities': activities,
+                                                          'ignore_availability': ignore_availability,
                                                           'sleep_time': sleep_time,
                                                           'max_sources': max_sources,
                                                           'source_strategy': source_strategy,
