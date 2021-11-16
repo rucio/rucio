@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -931,7 +931,7 @@ class TestReplicationRuleCore(unittest.TestCase):
 
         activity = "No User Subscriptions"
         source_replica_expression = self.rse3 + "|" + self.rse1
-        rule_id2 = move_rule(rule_id, self.rse3, activity=activity, source_replica_expression=source_replica_expression)
+        rule_id2 = move_rule(rule_id, self.rse3, override={'activity': activity, 'source_replica_expression': source_replica_expression})
 
         assert(get_rule(rule_id2)['state'] == RuleState.REPLICATING)
         assert(get_rule(rule_id)['child_rule_id'] == rule_id2)
@@ -1546,3 +1546,21 @@ def test_detach_dataset_lock_removal_shared_file(did_client, did_factory, root_a
     dataset_locks = list(get_dataset_locks(**dataset_internal))
     print("Dataset locks after detach: {0}".format(dataset_locks))
     assert(len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 0)
+
+
+def test_move_rule_invalid_argument(vo, rse_factory, mock_scope, root_account):
+    rse, rse_id = rse_factory.make_rse()
+    new_rse, new_rse_id = rse_factory.make_rse()
+    files = create_files(3, mock_scope, [rse_id])
+    dataset = 'dataset_' + str(uuid())
+    add_did(mock_scope, dataset, DIDType.DATASET, root_account)
+    attach_dids(mock_scope, dataset, files, root_account)
+
+    rule_id = add_rule(dids=[{'scope': mock_scope, 'name': dataset}], account=root_account, copies=1, rse_expression=rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+    assert(get_rule(rule_id)['state'] == RuleState.OK)
+
+    with pytest.raises(UnsupportedOperation):
+        _ = move_rule(rule_id, new_rse, override={'session': 17})
+
+    with pytest.raises(UnsupportedOperation):
+        _ = move_rule(rule_id, new_rse, override={'xX_MyFirstStreetName_Xx': 17})
