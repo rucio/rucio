@@ -39,7 +39,7 @@ from __future__ import print_function
 import hashlib
 import time
 from datetime import datetime, timedelta
-from json import dumps, loads
+from json import dumps
 from unittest import mock
 from xml.etree import ElementTree
 
@@ -48,20 +48,19 @@ import xmltodict
 from werkzeug.datastructures import MultiDict
 
 from rucio.client.ruleclient import RuleClient
-from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, UnsupportedOperation,
-                                    RucioException, ReplicaIsLocked, ReplicaNotFound, ScopeNotFound,
+from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, RucioException,
+                                    ReplicaIsLocked, ReplicaNotFound, ScopeNotFound,
                                     DatabaseException)
 from rucio.common.utils import generate_uuid, clean_surls, parse_response
 from rucio.core.config import set as cconfig_set
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
 from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_replicas_state,
-                                get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas,
-                                update_replica_state, get_RSEcoverage_of_dataset, get_replica_atime,
+                                get_replica, list_replicas, update_replica_state,
+                                get_RSEcoverage_of_dataset, get_replica_atime,
                                 touch_replica, get_bad_pfns, set_tombstone)
 from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
-from rucio.daemons.badreplicas.necromancer import run as necromancer_run
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, ReplicaState, BadPFNStatus, OBSOLETE
 from rucio.db.sqla.session import transactional_session
@@ -199,62 +198,6 @@ class TestReplicaCore:
         files.append({'scope': mock_scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef', 'pfn': pfn})
 
         add_replicas(rse_id=rse_id, files=files, account=root_account)
-
-    @pytest.mark.noparallel(reason='calls list_bad_replicas() which acts on all bad replicas without any filtering')
-    def test_add_list_bad_replicas(self, rse_factory, mock_scope, root_account):
-        """ REPLICA (CORE): Add bad replicas and list them"""
-
-        nbfiles = 5
-        # Adding replicas to deterministic RSE
-        _, rse1_id = rse_factory.make_srm_rse(deterministic=True)
-        files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        add_replicas(rse_id=rse1_id, files=files, account=root_account, ignore_availability=True)
-
-        # Listing replicas on deterministic RSE
-        replicas = []
-        list_rep = []
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
-            replicas.extend(replica['rses'][rse1_id])
-            list_rep.append(replica)
-        r = declare_bad_file_replicas(replicas, 'This is a good reason', root_account)
-        assert r == {}
-        bad_replicas = list_bad_replicas()
-        nbbadrep = 0
-        for rep in list_rep:
-            for badrep in bad_replicas:
-                if badrep['rse_id'] == rse1_id:
-                    if badrep['scope'] == rep['scope'] and badrep['name'] == rep['name']:
-                        nbbadrep += 1
-        assert len(replicas) == nbbadrep
-
-        # Adding replicas to non-deterministic RSE
-        _, rse2_id = rse_factory.make_srm_rse(deterministic=False)
-        files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-                  'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test/%s/%s' % (rse2_id, mock_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
-        add_replicas(rse_id=rse2_id, files=files, account=root_account, ignore_availability=True)
-
-        # Listing replicas on non-deterministic RSE
-        replicas = []
-        list_rep = []
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
-            replicas.extend(replica['rses'][rse2_id])
-            list_rep.append(replica)
-        r = declare_bad_file_replicas(replicas, 'This is a good reason', root_account)
-        assert r == {}
-        bad_replicas = list_bad_replicas()
-        nbbadrep = 0
-        for rep in list_rep:
-            for badrep in bad_replicas:
-                if badrep['rse_id'] == rse2_id:
-                    if badrep['scope'] == rep['scope'] and badrep['name'] == rep['name']:
-                        nbbadrep += 1
-        assert len(replicas) == nbbadrep
-
-        # Now adding non-existing bad replicas
-        files = ['srm://%s.cern.ch/test/%s/%s' % (rse2_id, mock_scope, generate_uuid()), ]
-        r = declare_bad_file_replicas(files, 'This is a good reason', root_account)
-        output = ['%s Unknown replica' % rep for rep in files]
-        assert r == {rse2_id: output}
 
     def test_add_list_replicas(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): Add and list file replicas """
@@ -681,184 +624,6 @@ def test_delete_replicas_from_datasets_new(core_config_mock, caches_mock, rse_fa
         get_did(scope=mock_scope, name=tmp_dsn1)
 
 
-@pytest.mark.noparallel(reason='calls list_bad_replicas() and runs necromancer. Both act on all bad replicas without any filtering')
-def test_client_add_list_bad_replicas(rse_factory, replica_client, did_client):
-    """ REPLICA (CLIENT): Add bad replicas"""
-    tmp_scope = 'mock'
-    nbfiles = 5
-    # Adding replicas to deterministic RSE
-    files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-    rse1, rse1_id = rse_factory.make_srm_rse(deterministic=True)
-    replica_client.add_replicas(rse=rse1, files=files)
-
-    # Listing replicas on deterministic RSE
-    replicas, list_rep = [], []
-    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], all_states=True):
-        replicas.extend(replica['rses'][rse1])
-        list_rep.append(replica)
-    r = replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
-    assert r == {}
-    bad_replicas = list_bad_replicas()
-    nbbadrep = 0
-    for rep in list_rep:
-        for badrep in bad_replicas:
-            if badrep['rse_id'] == rse1_id:
-                if badrep['scope'].external == rep['scope'] and badrep['name'] == rep['name']:
-                    nbbadrep += 1
-    assert len(replicas) == nbbadrep
-
-    # Run necromancer once
-    necromancer_run(threads=1, bulk=10000, once=True)
-
-    # Try to attach a lost file
-    tmp_dsn = 'dataset_%s' % generate_uuid()
-    did_client.add_dataset(scope=tmp_scope, name=tmp_dsn)
-    with pytest.raises(UnsupportedOperation):
-        did_client.add_files_to_dataset(tmp_scope, name=tmp_dsn, files=files, rse=rse1)
-
-    # Adding replicas to non-deterministic RSE
-    rse2, rse2_id = rse_factory.make_srm_rse(deterministic=False)
-    files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-              'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test/%s/%s' % (rse2_id, tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
-    replica_client.add_replicas(rse=rse2, files=files)
-
-    # Listing replicas on non-deterministic RSE
-    replicas, list_rep = [], []
-    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], all_states=True):
-        replicas.extend(replica['rses'][rse2])
-        list_rep.append(replica)
-    print(replicas, list_rep)
-    r = replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
-    print(r)
-    assert r == {}
-    bad_replicas = list_bad_replicas()
-    nbbadrep = 0
-    for rep in list_rep:
-        for badrep in bad_replicas:
-            if badrep['rse_id'] == rse2_id:
-                if badrep['scope'].external == rep['scope'] and badrep['name'] == rep['name']:
-                    nbbadrep += 1
-    assert len(replicas) == nbbadrep
-
-    # Now adding non-existing bad replicas
-    files = ['srm://%s.cern.ch/test/%s/%s' % (rse2_id, tmp_scope, generate_uuid()), ]
-    r = replica_client.declare_bad_file_replicas(files, 'This is a good reason')
-    output = ['%s Unknown replica' % rep for rep in files]
-    assert r == {rse2: output}
-
-
-def test_client_add_suspicious_replicas(rse_factory, replica_client):
-    """ REPLICA (CLIENT): Add suspicious replicas"""
-    tmp_scope = 'mock'
-    nbfiles = 5
-    # Adding replicas to deterministic RSE
-    rse1, _ = rse_factory.make_srm_rse(deterministic=True)
-    files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-    replica_client.add_replicas(rse=rse1, files=files)
-
-    # Listing replicas on deterministic RSE
-    replicas = []
-    list_rep = []
-    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], all_states=True):
-        replicas.extend(replica['rses'][rse1])
-        list_rep.append(replica)
-    r = replica_client.declare_suspicious_file_replicas(replicas, 'This is a good reason')
-    assert r == {}
-
-    # Adding replicas to non-deterministic RSE
-    rse2, rse2_id = rse_factory.make_srm_rse(deterministic=False)
-    files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-              'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test/%s/%s' % (rse2_id, tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
-    replica_client.add_replicas(rse=rse2, files=files)
-
-    # Listing replicas on non-deterministic RSE
-    replicas = []
-    list_rep = []
-    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], all_states=True):
-        replicas.extend(replica['rses'][rse2])
-        list_rep.append(replica)
-    r = replica_client.declare_suspicious_file_replicas(replicas, 'This is a good reason')
-    assert r == {}
-    # Now adding non-existing bad replicas
-    files = ['srm://%s.cern.ch/test/%s/%s' % (rse2_id, tmp_scope, generate_uuid()), ]
-    r = replica_client.declare_suspicious_file_replicas(files, 'This is a good reason')
-    output = ['%s Unknown replica' % rep for rep in files]
-    assert r == {rse2: output}
-
-
-@pytest.mark.noparallel(reason='Lists bad replicas multiple times. If the list changes between calls, test fails.')
-def test_rest_bad_replica_methods_for_ui(rest_client, auth_token):
-    __test_rest_bad_replica_methods_for_ui(rest_client, auth_token, list_pfns=False)
-    __test_rest_bad_replica_methods_for_ui(rest_client, auth_token, list_pfns=True)
-
-
-def __test_rest_bad_replica_methods_for_ui(rest_client, auth_token, list_pfns):
-    """ REPLICA (REST): Test the listing of bad and suspicious replicas """
-    if list_pfns:
-        common_data = {'list_pfns': 'True'}
-    else:
-        common_data = {}
-
-    data = {**common_data}
-    response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
-    assert response.status_code == 200
-    tot_files = []
-    for line in response.get_data(as_text=True).split('\n'):
-        if line != '':
-            tot_files.append(dumps(line))
-    nb_tot_files = len(tot_files)
-
-    data = {'state': 'B', **common_data}
-    response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
-    assert response.status_code == 200
-    tot_bad_files = []
-    for line in response.get_data(as_text=True).split('\n'):
-        if line != '':
-            tot_bad_files.append(dumps(line))
-    nb_tot_bad_files1 = len(tot_bad_files)
-
-    data = {'state': 'S', **common_data}
-    response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
-    assert response.status_code == 200
-    tot_suspicious_files = []
-    for line in response.get_data(as_text=True).split('\n'):
-        if line != '':
-            tot_suspicious_files.append(dumps(line))
-    nb_tot_suspicious_files = len(tot_suspicious_files)
-
-    data = {'state': 'T', **common_data}
-    response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
-    assert response.status_code == 200
-    tot_temporary_unavailable_files = []
-    for line in response.get_data(as_text=True).split('\n'):
-        if line != '':
-            tot_temporary_unavailable_files.append(dumps(line))
-    nb_tot_temporary_unavailable_files = len(tot_temporary_unavailable_files)
-
-    assert nb_tot_files == nb_tot_bad_files1 + nb_tot_suspicious_files + nb_tot_temporary_unavailable_files
-
-    tomorrow = datetime.utcnow() + timedelta(days=1)
-    data = {'state': 'B', 'younger_than': tomorrow.isoformat(), **common_data}
-    response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
-    assert response.status_code == 200
-    tot_bad_files = []
-    for line in response.get_data(as_text=True).split('\n'):
-        if line != '':
-            tot_bad_files.append(dumps(line))
-    nb_tot_bad_files = len(tot_bad_files)
-    assert nb_tot_bad_files == 0
-
-    if not list_pfns:
-        response = rest_client.get('/replicas/bad/summary', headers=headers(auth(auth_token)))
-        assert response.status_code == 200
-        nb_tot_bad_files2 = 0
-        for line in response.get_data(as_text=True).split('\n'):
-            if line != '':
-                line = loads(line)
-                nb_tot_bad_files2 += int(line.get('BAD', 0))
-        assert nb_tot_bad_files1 == nb_tot_bad_files2
-
-
 def test_rest_list_replicas_content_type(rse_factory, mock_scope, replica_client, rest_client, auth_token):
     """ REPLICA (REST): send a GET to list replicas with specific ACCEPT header."""
     rse, _ = rse_factory.make_mock_rse()
@@ -1036,7 +801,7 @@ def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_
     # Submit bad PFNs
     now = datetime.utcnow()
     reason_str = generate_uuid()
-    replica_client.add_bad_pfns(pfns=list_rep, reason=str(reason_str), state='TEMPORARY_UNAVAILABLE', expires_at=now.isoformat())
+    replica_client.add_bad_pfns(pfns=list_rep, reason=str(reason_str), state='TEMPORARY_UNAVAILABLE', expires_at=(now + timedelta(seconds=10)).isoformat())
     result = get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None)
     bad_pfns = {}
     for res in result:

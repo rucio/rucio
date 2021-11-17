@@ -34,14 +34,20 @@ from math import ceil
 from sys import exc_info
 from traceback import format_exception
 
+try:
+    from ConfigParser import NoOptionError, NoSectionError
+except ImportError:
+    from configparser import NoOptionError, NoSectionError
+
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.exception import DatabaseException, ConfigNotFound
+from rucio.common.config import config_get
+from rucio.common.exception import DatabaseException
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.utils import chunks, daemon_sleep
 from rucio.core import monitor, heartbeat
-from rucio.core.config import get
-from rucio.core.replica import list_bad_replicas, get_replicas_state, list_bad_replicas_history, update_bad_replicas_history
+from rucio.core.replica import (list_bad_replicas, get_replicas_state, list_bad_replicas_history,
+                                update_bad_replicas_history, get_bad_replicas_backlog)
 from rucio.core.rule import update_rules_for_lost_replica, update_rules_for_bad_replica, get_evaluation_backlog
 from rucio.db.sqla.constants import ReplicaState
 
@@ -76,12 +82,14 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
 
         # Check if there is a Judge Evaluator backlog
         try:
-            max_evaluator_backlog_count = get('necromancer', 'max_evaluator_backlog_count')
-        except ConfigNotFound:
+            max_evaluator_backlog_count = config_get('necromancer', 'max_evaluator_backlog_count')
+            max_evaluator_backlog_count = int(max_evaluator_backlog_count)
+        except (NoOptionError, NoSectionError, RuntimeError, ValueError):
             max_evaluator_backlog_count = None
         try:
-            max_evaluator_backlog_duration = get('necromancer', 'max_evaluator_backlog_duration')
-        except ConfigNotFound:
+            max_evaluator_backlog_duration = config_get('necromancer', 'max_evaluator_backlog_duration')
+            max_evaluator_backlog_duration = int(max_evaluator_backlog_duration)
+        except (NoOptionError, NoSectionError, RuntimeError, ValueError):
             max_evaluator_backlog_duration = None
         if max_evaluator_backlog_count or max_evaluator_backlog_duration:
             backlog = get_evaluation_backlog(expiration_time=sleep_time)
@@ -103,35 +111,60 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
                 GRACEFUL_STOP.wait(30)
                 continue
 
+        # Check how many bad replicas are queued
+        try:
+            max_bad_replicas_backlog_count = config_get('necromancer', 'max_bad_replicas_backlog_count')
+            max_bad_replicas_backlog_count = int(max_bad_replicas_backlog_count)
+        except (NoOptionError, NoSectionError, RuntimeError, ValueError):
+            max_bad_replicas_backlog_count = None
+        bad_replicas_backlog = get_bad_replicas_backlog()
+        tot_bad_files = sum([bad_replicas_backlog[key] for key in bad_replicas_backlog])
+        list_of_rses = list()
+        # If too many replica, call list_bad_replicas with a list of RSEs
+        if max_bad_replicas_backlog_count and tot_bad_files > max_bad_replicas_backlog_count and len(bad_replicas_backlog) > 1:
+            logger(logging.INFO, 'Backlog of bads replica too big. Apply some sharing between different RSEs')
+            rses = list()
+            cnt = 0
+            for key in sorted(bad_replicas_backlog, key=bad_replicas_backlog.get, reverse=False):
+                rses.append({'id': key})
+                cnt += bad_replicas_backlog[key]
+                if cnt >= bulk:
+                    list_of_rses.append(rses)
+                    rses = list()
+                    cnt = 0
+        else:
+            list_of_rses.append(None)
+
         stime = time.time()
         replicas = []
         try:
-            replicas = list_bad_replicas(limit=bulk, thread=heart_beat['assign_thread'], total_threads=heart_beat['nr_threads'])
+            for rses in list_of_rses:
+                replicas = list_bad_replicas(limit=bulk, thread=heart_beat['assign_thread'], total_threads=heart_beat['nr_threads'], rses=rses)
 
-            for replica in replicas:
-                scope, name, rse_id, rse = replica['scope'], replica['name'], replica['rse_id'], replica['rse']
-                logger(logging.INFO, 'Working on %s:%s on %s' % (scope, name, rse))
+                for replica in replicas:
+                    scope, name, rse_id, rse = replica['scope'], replica['name'], replica['rse_id'], replica['rse']
+                    logger(logging.INFO, 'Working on %s:%s on %s' % (scope, name, rse))
 
-                list_replicas = get_replicas_state(scope=scope, name=name)
-                if ReplicaState.AVAILABLE not in list_replicas and ReplicaState.TEMPORARY_UNAVAILABLE not in list_replicas:
-                    logger(logging.INFO, 'File %s:%s has no other available or temporary available replicas, it will be marked as lost' % (scope, name))
-                    try:
-                        update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
-                        monitor.record_counter(name='necromancer.badfiles.lostfile')
-                    except DatabaseException as error:
-                        logger(logging.WARNING, str(error))
+                    list_replicas = get_replicas_state(scope=scope, name=name)
+                    if ReplicaState.AVAILABLE not in list_replicas and ReplicaState.TEMPORARY_UNAVAILABLE not in list_replicas:
+                        logger(logging.INFO, 'File %s:%s has no other available or temporary available replicas, it will be marked as lost' % (scope, name))
+                        try:
+                            update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
+                            monitor.record_counter(name='necromancer.badfiles.lostfile')
+                        except DatabaseException as error:
+                            logger(logging.WARNING, str(error))
 
-                else:
-                    rep = list_replicas.get(ReplicaState.AVAILABLE, [])
-                    unavailable_rep = list_replicas.get(ReplicaState.TEMPORARY_UNAVAILABLE, [])
-                    logger(logging.INFO, 'File %s:%s can be recovered. Available sources : %s + Unavailable sources : %s' % (scope, name, str(rep), str(unavailable_rep)))
-                    try:
-                        update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
-                        monitor.record_counter(name='necromancer.badfiles.recovering')
-                    except DatabaseException as error:
-                        logger(logging.WARNING, str(error))
+                    else:
+                        rep = list_replicas.get(ReplicaState.AVAILABLE, [])
+                        unavailable_rep = list_replicas.get(ReplicaState.TEMPORARY_UNAVAILABLE, [])
+                        logger(logging.INFO, 'File %s:%s can be recovered. Available sources : %s + Unavailable sources : %s' % (scope, name, str(rep), str(unavailable_rep)))
+                        try:
+                            update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
+                            monitor.record_counter(name='necromancer.badfiles.recovering')
+                        except DatabaseException as error:
+                            logger(logging.WARNING, str(error))
 
-            logger(logging.INFO, 'It took %s seconds to process %s replicas' % (str(time.time() - stime), str(len(replicas))))
+                logger(logging.INFO, 'It took %s seconds to process %s replicas' % (str(time.time() - stime), str(len(replicas))))
         except Exception:
             exc_type, exc_value, exc_traceback = exc_info()
             logger(logging.CRITICAL, ''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())

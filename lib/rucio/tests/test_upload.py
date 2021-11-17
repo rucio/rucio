@@ -14,9 +14,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Mayank Sharma <imptodefeat@gmail.com>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import json
 import logging
@@ -384,3 +385,19 @@ def test_upload_file_with_supported_protocol_from_config(rse_factory, upload_cli
             mock_put.__name__ = "mock_put"
             upload_client.upload([item])
             mock_put.assert_called()
+
+
+def test_upload_file_ignore_availability(rse_factory, scope, upload_client, file_factory, rucio_client):
+    rse, rse_id = rse_factory.make_posix_rse()
+    rucio_client.update_rse(rse, {'availability_write': False})
+    local_file = file_factory.file_generator()
+    item = [
+        {
+            'path': local_file,
+            'rse': rse,
+            'did_scope': scope,
+        }
+    ]
+
+    status = upload_client.upload(item, ignore_availability=True)
+    assert status == 0

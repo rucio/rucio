@@ -19,6 +19,7 @@
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -259,7 +260,7 @@ def file_config_mock(request):
     via the API, as the server config is not changed.
     """
     from unittest import mock
-    from rucio.common.config import Config, config_set
+    from rucio.common.config import Config, config_set, config_has_section, config_add_section
 
     # Get the fixture parameters
     overrides = []
@@ -270,6 +271,8 @@ def file_config_mock(request):
     parser = Config().parser
     with mock.patch('rucio.common.config.get_config', side_effect=lambda: parser):
         for section, option, value in (overrides or []):
+            if not config_has_section(section):
+                config_add_section(section)
             config_set(section, option, value)
         yield
 
