@@ -124,7 +124,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
                                                  worker_number=heart_beat['assign_thread'],
                                                  mode_all=True,
                                                  hash_variable='rule_id')
-                    record_timer('daemons.conveyor.finisher.000-get_next', (time.time() - time1) * 1000)
+                    record_timer('daemons.conveyor.finisher.get_next', (time.time() - time1) * 1000)
                     time2 = time.time()
                     if reqs:
                         logger(logging.DEBUG, 'Updating %i requests for activity %s', len(reqs), activity)
@@ -133,7 +133,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
                         try:
                             time3 = time.time()
                             __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
-                            record_timer('daemons.conveyor.finisher.handle_requests', (time.time() - time3) * 1000 / (len(chunk) if chunk else 1))
+                            record_timer('daemons.conveyor.finisher.handle_requests_time', (time.time() - time3) * 1000 / (len(chunk) if chunk else 1))
                             record_counter('daemons.conveyor.finisher.handle_requests', delta=len(chunk))
                         except Exception as error:
                             logger(logging.WARNING, '%s', str(error))

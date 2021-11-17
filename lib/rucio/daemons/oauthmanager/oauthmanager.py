@@ -169,7 +169,7 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100, sleep_time=300):
 
         tottime = time.time() - start
         logging.info('oauth_manager[%i/%i]: took %f seconds to delete %i tokens, %i session parameters and refreshed %i tokens', worker_number, total_workers, tottime, ndeleted, ndeletedreq, nrefreshed)
-        record_timer(stat='oauth_manager.duration', time=1000 * tottime)
+        record_timer(name='oauth_manager.duration', time=1000 * tottime)
 
         if once:
             break

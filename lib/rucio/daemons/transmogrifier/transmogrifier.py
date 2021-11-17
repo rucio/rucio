@@ -453,7 +453,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
             logger(logging.INFO, 'It took %f seconds to process %i DIDs' % (tottime, len(dids)))
             logger(logging.DEBUG, 'DIDs processed : %s' % (str(dids)))
             monitor.record_counter(name='transmogrifier.job.done', delta=1)
-            monitor.record_timer(stat='transmogrifier.job.duration', time=1000 * tottime)
+            monitor.record_timer(name='transmogrifier.job.duration', time=1000 * tottime)
         except Exception:
             logger(logging.ERROR, "Failed to run transmogrifier", exc_info=True)
             monitor.record_counter(name='transmogrifier.job.error', delta=1)
