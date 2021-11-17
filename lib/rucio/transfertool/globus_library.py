@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +14,8 @@
 # limitations under the License.
 #
 # Authors:
-# - Matt Snyder <msnyder@bnl.gov>, 2019-2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
+# - Matt Snyder <msnyder@bnl.gov>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import datetime
 import logging
@@ -33,50 +34,49 @@ if EXTRA_MODULES['globus_sdk']:
 GLOBUS_AUTH_APP = config_get('conveyor', 'globus_auth_app', False, None)
 
 
-def load_config(cfg_file='globus-config.yml'):
+def load_config(cfg_file='globus-config.yml', logger=logging.log):
     config = None
     config_dir = get_config_dirs()[0]
     if os.path.isfile(os.path.join(config_dir, cfg_file)):
         config = os.path.join(config_dir, cfg_file)
     else:
-        logging.error('Could not find globus config file')
+        logger(logging.ERROR, 'Could not find globus config file')
         raise Exception
     return yaml.safe_load(open(config).read())
 
 
-def get_transfer_client():
-    cfg = load_config()
+def get_transfer_client(logger=logging.log):
+    cfg = load_config(logger=logger)
     # cfg = yaml.safe_load(open("/opt/rucio/lib/rucio/transfertool/config.yml"))
     client_id = cfg['globus']['apps'][GLOBUS_AUTH_APP]['client_id']
     auth_client = NativeAppAuthClient(client_id)
     refresh_token = cfg['globus']['apps'][GLOBUS_AUTH_APP]['refresh_token']
-    logging.info('authorizing token...')
+    logger(logging.INFO, 'authorizing token...')
     authorizer = RefreshTokenAuthorizer(refresh_token=refresh_token, auth_client=auth_client)
-    logging.info('initializing TransferClient...')
+    logger(logging.INFO, 'initializing TransferClient...')
     tc = TransferClient(authorizer=authorizer)
     return tc
 
 
-def auto_activate_endpoint(tc, ep_id):
+def auto_activate_endpoint(tc, ep_id, logger=logging.log):
     r = tc.endpoint_autoactivate(ep_id, if_expires_in=3600)
     if r['code'] == 'AutoActivationFailed':
-        logging.critical('Endpoint({}) Not Active! Error! Source message: {}'.format(ep_id, r['message']))
+        logger(logging.CRITICAL, 'Endpoint({}) Not Active! Error! Source message: {}'.format(ep_id, r['message']))
         # sys.exit(1) # TODO: don't want to exit; hook into graceful exit
     elif r['code'] == 'AutoActivated.CachedCredential':
-        logging.info('Endpoint({}) autoactivated using a cached credential.'.format(ep_id))
+        logger(logging.INFO, 'Endpoint({}) autoactivated using a cached credential.'.format(ep_id))
     elif r['code'] == 'AutoActivated.GlobusOnlineCredential':
-        logging.info(('Endpoint({}) autoactivated using a built-in Globus credential.').format(ep_id))
+        logger(logging.INFO, ('Endpoint({}) autoactivated using a built-in Globus credential.').format(ep_id))
     elif r['code'] == 'AlreadyActivated':
-        logging.info('Endpoint({}) already active until at least {}'.format(ep_id, 3600))
+        logger(logging.INFO, 'Endpoint({}) already active until at least {}'.format(ep_id, 3600))
     return r['code']
 
 
-def submit_xfer(source_endpoint_id, destination_endpoint_id, source_path, dest_path, job_label, recursive=False):
-
-    tc = get_transfer_client()
+def submit_xfer(source_endpoint_id, destination_endpoint_id, source_path, dest_path, job_label, recursive=False, logger=logging.log):
+    tc = get_transfer_client(logger=logger)
     # as both endpoints are expected to be Globus Server endpoints, send auto-activate commands for both globus endpoints
-    auto_activate_endpoint(tc, source_endpoint_id)
-    auto_activate_endpoint(tc, destination_endpoint_id)
+    auto_activate_endpoint(tc, source_endpoint_id, logger=logger)
+    auto_activate_endpoint(tc, destination_endpoint_id, logger=logger)
 
     # from Globus... sync_level=checksum means that before files are transferred, Globus will compute checksums on the source and
     # destination files, and only transfer files that have different checksums are transferred. verify_checksum=True means that after
@@ -93,8 +93,8 @@ def submit_xfer(source_endpoint_id, destination_endpoint_id, source_path, dest_p
     return transfer_result["task_id"]
 
 
-def bulk_submit_xfer(submitjob, recursive=False):
-    cfg = load_config()
+def bulk_submit_xfer(submitjob, recursive=False, logger=logging.log):
+    cfg = load_config(logger=logger)
     client_id = cfg['globus']['apps'][GLOBUS_AUTH_APP]['client_id']
     auth_client = NativeAppAuthClient(client_id)
     refresh_token = cfg['globus']['apps'][GLOBUS_AUTH_APP]['refresh_token']
@@ -130,41 +130,41 @@ def bulk_submit_xfer(submitjob, recursive=False):
 
     # logging.info('submitting transfer...')
     transfer_result = tc.submit_transfer(tdata)
-    logging.info("transfer_result: %s" % transfer_result)
+    logger(logging.INFO, "transfer_result: %s" % transfer_result)
 
     return transfer_result["task_id"]
 
 
-def check_xfer(task_id):
-    tc = get_transfer_client()
+def check_xfer(task_id, logger=logging.log):
+    tc = get_transfer_client(logger=logger)
     transfer = tc.get_task(task_id)
     status = str(transfer["status"])
     return status
 
 
-def bulk_check_xfers(task_ids):
-    tc = get_transfer_client()
+def bulk_check_xfers(task_ids, logger=logging.log):
+    tc = get_transfer_client(logger=logger)
 
-    logging.debug('task_ids: %s' % task_ids)
+    logger(logging.DEBUG, 'task_ids: %s' % task_ids)
 
     responses = {}
 
     for task_id in task_ids:
         transfer = tc.get_task(str(task_id))
-        logging.debug('transfer: %s' % transfer)
+        logger(logging.DEBUG, 'transfer: %s' % transfer)
         status = str(transfer["status"])
         if status == 'SUCCEEDED':
             record_counter('daemons.conveyor.transfer_submitter.globus.transfers.bytes_transferred', transfer['bytes_transferred'])
             record_counter('daemons.conveyor.transfer_submitter.globus.transfers.effective_bytes_per_second', transfer['effective_bytes_per_second'])
         responses[str(task_id)] = status
 
-    logging.debug('responses: %s' % responses)
+    logger(logging.DEBUG, 'responses: %s' % responses)
 
     return responses
 
 
-def send_delete_task(endpoint_id=None, path=None):
-    tc = get_transfer_client()
+def send_delete_task(endpoint_id=None, path=None, logger=logging.log):
+    tc = get_transfer_client(logger=logger)
     ddata = DeleteData(tc, endpoint_id, recursive=True)
     ddata.add_item(path)
     delete_result = tc.submit_delete(ddata)
@@ -172,11 +172,11 @@ def send_delete_task(endpoint_id=None, path=None):
     return delete_result
 
 
-def send_bulk_delete_task(endpoint_id=None, pfns=None):
-    tc = get_transfer_client()
+def send_bulk_delete_task(endpoint_id=None, pfns=None, logger=logging.log):
+    tc = get_transfer_client(logger=logger)
     ddata = DeleteData(tc, endpoint_id, recursive=True)
     for pfn in pfns:
-        logging.debug('pfn: %s' % pfn)
+        logger(logging.DEBUG, 'pfn: %s' % pfn)
         ddata.add_item(pfn)
     bulk_delete_result = tc.submit_delete(ddata)
 
