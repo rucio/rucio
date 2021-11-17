@@ -1036,7 +1036,7 @@ def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_
     # Submit bad PFNs
     now = datetime.utcnow()
     reason_str = generate_uuid()
-    replica_client.add_bad_pfns(pfns=list_rep, reason=str(reason_str), state='TEMPORARY_UNAVAILABLE', expires_at=now.isoformat())
+    replica_client.add_bad_pfns(pfns=list_rep, reason=str(reason_str), state='TEMPORARY_UNAVAILABLE', expires_at=(now + timedelta(seconds=10)).isoformat())
     result = get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None)
     bad_pfns = {}
     for res in result:
