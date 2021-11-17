@@ -31,7 +31,7 @@ import string
 import time
 from abc import abstractmethod
 
-from prometheus_client import start_http_server, Counter, REGISTRY
+from prometheus_client import start_http_server, Counter, Gauge, Histogram, REGISTRY
 from statsd import StatsClient
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
@@ -47,6 +47,8 @@ if ENABLE_METRICS:
     start_http_server(METRICS_PORT, registry=REGISTRY)
 
 COUNTERS = {}
+GAUGES = {}
+TIMINGS = {}
 
 
 class MultiMetric:
@@ -106,6 +108,26 @@ class MultiCounter(MultiMetric):
         return Counter(name, documentation, labelnames=labelnames, labelvalues=labelvalues, registry=self._registry)
 
 
+class MultiGauge(MultiMetric):
+
+    def set(self, value):
+        self._prom.set(value)
+        CLIENT.gauge(self._statsd, value)
+
+    def init_prometheus_metric(self, name, documentation, labelnames=(), labelvalues=None):
+        return Gauge(name, documentation, labelnames=labelnames, labelvalues=labelvalues, registry=self._registry)
+
+
+class MultiTiming(MultiMetric):
+
+    def observe(self, value):
+        self._prom.observe(value)
+        CLIENT.timing(self._statsd, value)
+
+    def init_prometheus_metric(self, name, documentation, labelnames=(), labelvalues=None):
+        return Histogram(name, documentation, labelnames=labelnames, labelvalues=labelvalues, registry=self._registry)
+
+
 def record_counter(name, delta=1, labels=None):
     """
     Log one or more counters by arbitrary amounts
@@ -127,24 +149,40 @@ def record_counter(name, delta=1, labels=None):
         counter.inc(delta)
 
 
-def record_gauge(stat, value):
+def record_gauge(name, value, labels=None):
     """
      Log gauge information for a single stat
 
-    :param stat: The name of the stat to be updated.
+    :param name: The name of the stat to be updated.
     :param value: The value to log.
+    :param labels: labels used to parametrize the metric
     """
-    CLIENT.gauge(stat, value)
+    gauge = GAUGES.get(name)
+    if not gauge:
+        GAUGES[name] = gauge = MultiGauge(statsd=name, labelnames=labels.keys() if labels else ())
+
+    if labels:
+        gauge.labels(**labels).set(value)
+    else:
+        gauge.set(value)
 
 
-def record_timer(stat, time):
+def record_timer(name, time, labels=None):
     """
      Log timing information for a single stat (in miliseconds)
 
-    :param stat: The name of the stat to be updated.
-    :param value: The time to log.
+    :param name: The name of the stat to be updated.
+    :param time: The time to log.
+    :param labels: labels used to parametrize the metric
     """
-    CLIENT.timing(stat, time)
+    timing = TIMINGS.get(name)
+    if not timing:
+        TIMINGS[name] = timing = MultiTiming(statsd=name, labelnames=labels.keys() if labels else ())
+
+    if labels:
+        timing.labels(**labels).observe(time)
+    else:
+        timing.observe(time)
 
 
 class record_timer_block(object):
@@ -164,10 +202,11 @@ class record_timer_block(object):
             stuff2()
     """
 
-    def __init__(self, stats):
+    def __init__(self, stats, labels=None):
         if not isinstance(stats, list):
             stats = [stats]
         self.stats = stats
+        self.labels = labels
 
     def __enter__(self):
         self.start = time.time()
@@ -178,8 +217,8 @@ class record_timer_block(object):
         ms = int(round(1000 * dt))  # Convert to ms.
         for s in self.stats:
             if isinstance(s, str):
-                record_timer(s, ms)
+                record_timer(s, ms, labels=self.labels)
             elif isinstance(s, tuple):
                 if s[1] != 0:
                     ms = ms / s[1]
-                    record_timer(s[0], ms)
+                    record_timer(s[0], ms, labels=self.labels)

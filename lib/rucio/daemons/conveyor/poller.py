@@ -115,7 +115,7 @@ def poller(once=False, activities=None, sleep_time=60,
                                                     activity_shares=activity_shares,
                                                     transfertool=FILTER_TRANSFERTOOL)
 
-                    record_timer('daemons.conveyor.poller.000-get_next', (time.time() - start_time) * 1000)
+                    record_timer('daemons.conveyor.poller.get_next', (time.time() - start_time) * 1000)
 
                     if transfs:
                         logger(logging.DEBUG, 'Polling %i transfers for activity %s' % (len(transfs), activity))

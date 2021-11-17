@@ -535,8 +535,8 @@ class FTS3Transfertool(Transfertool):
                                         data=params_str,
                                         headers=self.headers,
                                         timeout=timeout)
-            record_timer('transfertool.fts3.submit_transfer.%s' % self.__extract_host(self.external_host), (time.time() - start_time) * 1000 / len(files))
             labels = {'host': self.__extract_host(self.external_host)}
+            record_timer('transfertool.fts3.submit_transfer.{host}', (time.time() - start_time) * 1000 / len(files), labels=labels)
             SUBMISSION_TIMER.labels(**labels).observe((time.time() - start_time) * 1000 / len(files))
         except ReadTimeout as error:
             raise TransferToolTimeout(error)
