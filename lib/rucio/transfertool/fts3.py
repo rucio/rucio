@@ -404,19 +404,20 @@ class FTS3Transfertool(Transfertool):
 
     @staticmethod
     def submission_builder_for_path(transfer_path, logger=logging.log):
-        common_fts_hosts = []
+        all_hops_have_an_fts_attr = True
+        fts_hosts = []
         for hop in transfer_path:
             fts_hosts = hop.dst.rse.attributes.get('fts', None)
             if hop.src.rse.attributes.get('sign_url', None) == 'gcs':
                 fts_hosts = hop.src.rse.attributes.get('fts', None)
             fts_hosts = fts_hosts.split(",") if fts_hosts else []
 
-            common_fts_hosts = fts_hosts if not common_fts_hosts else list(set(common_fts_hosts).intersection(fts_hosts))
-            if not common_fts_hosts:
+            if not fts_hosts:
+                all_hops_have_an_fts_attr = False
                 break
 
-        if not common_fts_hosts:
-            logger(logging.WARN, 'FTS3Transfertool cannot be used to submit transfer {}: no common fts host found'.format([str(hop) for hop in transfer_path]))
+        if not fts_hosts or not all_hops_have_an_fts_attr:
+            logger(logging.WARN, 'FTS3Transfertool cannot be used to submit transfer {}: some hops do not have an fts attribute'.format([str(hop) for hop in transfer_path]))
             return None
 
         oidc_account = None
@@ -424,7 +425,7 @@ class FTS3Transfertool(Transfertool):
             logger(logging.DEBUG, 'OAuth2/OIDC available for transfer {}'.format([str(hop) for hop in transfer_path]))
             oidc_account = transfer_path[-1].rws.account
 
-        return TransferToolBuilder(FTS3Transfertool, external_host=common_fts_hosts[0], oidc_account=oidc_account)
+        return TransferToolBuilder(FTS3Transfertool, external_host=fts_hosts[0], oidc_account=oidc_account)
 
     def group_into_submit_jobs(self, transfer_paths):
         jobs = bulk_group_transfers(
