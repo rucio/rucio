@@ -50,6 +50,7 @@ import errno
 import getpass
 import hashlib
 import io
+import itertools
 import json
 import logging
 import mmap
@@ -466,6 +467,15 @@ def chunks(list_, n):
     """
     for i in range(0, len(list_), n):
         yield list_[i:i + n]
+
+
+def dict_chunks(dict_, n):
+    """
+    Iterate over the dictionary in groups of the requested size
+    """
+    it = iter(dict_)
+    for _ in range(0, len(dict_), n):
+        yield {k: dict_[k] for k in itertools.islice(it, n)}
 
 
 def my_key_generator(namespace, fn, **kw):
