@@ -19,5 +19,6 @@
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 # - Joaquin Bogado <joaquinbogado@gmail.com>, 2021
+# - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
 
-ALEMBIC_REVISION = '739064d31565'  # the current alembic head revision
+ALEMBIC_REVISION = '9a45bc4ea66d'  # the current alembic head revision
