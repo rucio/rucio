@@ -307,7 +307,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 logger(logging.DEBUG, "Created rule %s for injection", str(new_rule.id))
                 if delay_injection:
                     new_rule.created_at = datetime.utcnow() + timedelta(seconds=delay_injection)
-                    logger(logging.DEBUG, "Scheduled rule %s for injection on %s", (str(new_rule.id), new_rule.created_at))
+                    logger(logging.DEBUG, "Scheduled rule %s for injection on %s", str(new_rule.id), new_rule.created_at)
                 continue
 
             # If Split Container is chosen, the rule will be processed ASYNC
