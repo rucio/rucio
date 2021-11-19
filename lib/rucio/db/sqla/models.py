@@ -30,6 +30,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - joaquinbogado <joaquinbogado@gmail.com>, 2021
+# - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
 
 import datetime
 import sys
@@ -97,13 +98,16 @@ def _psql_rename_type(target, connection, **kw):
 
 @event.listens_for(Table, "before_create")
 def _oracle_json_constraint(target, connection, **kw):
-    if connection.dialect.name == 'oracle' and target.name == 'did_meta':
+    if connection.dialect.name == 'oracle':
         try:
             oracle_version = int(connection.connection.version.split('.')[0])
         except Exception:
             return
         if oracle_version >= 12:
-            target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_META_JSON_CHK'))
+            if target.name == 'did_meta':
+                target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_META_JSON_CHK'))
+            if target.name == 'virtual_placements':
+                target.append_constraint(CheckConstraint('PLACEMENTS IS JSON', 'ORACLE_PLACEMENTS_JSON_CHK'))
 
 
 @event.listens_for(Engine, "before_execute", retval=True)
@@ -459,6 +463,17 @@ class DataIdentifier(BASE, ModelBase):
                    CheckConstraint('PURGE_REPLICAS IS NOT NULL', name='DIDS_PURGE_REPLICAS_NN'),
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
+
+
+class VirtualPlacements(BASE, ModelBase):
+    """Represents virtual placements"""
+    __tablename__ = 'virtual_placements'
+    scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
+    name = Column(String(get_schema_value('NAME_LENGTH')))
+    placements = Column(JSON())
+    _table_args = (PrimaryKeyConstraint('scope', 'name', name='VP_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='VP_FK')
+                   )
 
 
 class DidMeta(BASE, ModelBase):
@@ -1698,6 +1713,7 @@ def register_models(engine):
               DIDKeyValueAssociation,
               DataIdentifier,
               DidMeta,
+              VirtualPlacements,
               DeletedDataIdentifier,
               DidsFollowed,
               FollowEvents,
