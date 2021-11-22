@@ -33,9 +33,9 @@ class MockTransfertool(Transfertool):
     def __init__(self, external_host, logger=logging.log):
         super(MockTransfertool, self).__init__(external_host, logger)
 
-    @staticmethod
-    def submission_builder_for_path(transfer_path, logger=logging.log):
-        return TransferToolBuilder(MockTransfertool, external_host='Mock Transfertool')
+    @classmethod
+    def submission_builder_for_path(cls, transfer_path, logger=logging.log):
+        return TransferToolBuilder(cls, external_host='Mock Transfertool')
 
     def group_into_submit_jobs(self, transfers):
         return [{'transfers': list(itertools.chain.from_iterable(transfers)), 'job_params': {}}]

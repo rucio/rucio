@@ -48,7 +48,7 @@ from six.moves.configparser import NoOptionError
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.logging import setup_logging
 from rucio.common.utils import dict_chunks
@@ -77,6 +77,7 @@ def poller(once=False, activities=None, sleep_time=60,
     except NoOptionError:
         timeout = None
 
+    multi_vo = config_get_bool('common', 'multi_vo', False, None)
     logger_prefix = executable = 'conveyor-poller'
     if activities:
         activities.sort()
@@ -110,7 +111,7 @@ def poller(once=False, activities=None, sleep_time=60,
                     transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                                     state=[RequestState.SUBMITTED],
                                                     limit=db_bulk,
-                                                    older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than),
+                                                    older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
                                                     total_workers=heart_beat['nr_threads'], worker_number=heart_beat['assign_thread'],
                                                     mode_all=True, hash_variable='id',
                                                     activity=activity,
@@ -130,16 +131,18 @@ def poller(once=False, activities=None, sleep_time=60,
                         logger(logging.DEBUG, 'Polling %i transfers for activity %s' % (len(transfs), activity))
 
                     transfs.sort(key=lambda t: (t['external_host'] or '',
+                                                t['scope'].vo if multi_vo else '',
                                                 t['external_id'] or '',
                                                 t['request_id'] or ''))
-                    for external_host, transfers_for_host in groupby(transfs, key=lambda t: t['external_host']):
+                    for (external_host, vo), transfers_for_host in groupby(transfs, key=lambda t: (t['external_host'],
+                                                                                                   t['scope'].vo if multi_vo else None)):
                         transfers_by_eid = {}
                         for external_id, xfers in groupby(transfers_for_host, key=lambda t: t['external_id']):
                             transfers_by_eid[external_id] = list(xfers)
 
                         for chunk in dict_chunks(transfers_by_eid, fts_bulk):
                             try:
-                                poll_transfers(external_host=external_host, transfers_by_eid=chunk, timeout=timeout, logger=logger)
+                                poll_transfers(external_host=external_host, transfers_by_eid=chunk, vo=vo, timeout=timeout, logger=logger)
                             except Exception:
                                 logger(logging.ERROR, 'Exception', exc_info=True)
 
@@ -217,7 +220,7 @@ def run(once=False, sleep_time=60, activities=None,
             threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
 
 
-def poll_transfers(external_host, transfers_by_eid, timeout=None, logger=logging.log):
+def poll_transfers(external_host, transfers_by_eid, vo=None, timeout=None, logger=logging.log):
     """
     Poll a list of transfers from an FTS server
 
@@ -229,7 +232,7 @@ def poll_transfers(external_host, transfers_by_eid, timeout=None, logger=logging
 
     poll_individual_transfers = False
     try:
-        _poll_transfers(external_host, transfers_by_eid, timeout, logger)
+        _poll_transfers(external_host, transfers_by_eid, vo, timeout, logger)
     except TransferToolWrongAnswer:
         poll_individual_transfers = True
 
@@ -238,12 +241,12 @@ def poll_transfers(external_host, transfers_by_eid, timeout=None, logger=logging
         for external_id, transfers in transfers_by_eid.items():
             logger(logging.DEBUG, 'Checking %s on %s' % (external_id, external_host))
             try:
-                _poll_transfers(external_host, {external_id: transfers}, timeout, logger)
+                _poll_transfers(external_host, {external_id: transfers}, vo, timeout, logger)
             except Exception as err:
                 logger(logging.ERROR, 'Problem querying %s on %s . Error returned : %s' % (external_id, external_host, str(err)))
 
 
-def _poll_transfers(external_host, transfers_by_eid, timeout, logger):
+def _poll_transfers(external_host, transfers_by_eid, vo, timeout, logger):
     """
     Helper function for poll_transfers which performs the actual polling and database update.
     """
@@ -251,7 +254,7 @@ def _poll_transfers(external_host, transfers_by_eid, timeout, logger):
     try:
         tss = time.time()
         logger(logging.INFO, 'Polling %i transfers against %s with timeout %s' % (len(transfers_by_eid), external_host, timeout))
-        resps = transfer_core.bulk_query_transfers(external_host, transfers_by_eid, TRANSFER_TOOL, timeout)
+        resps = transfer_core.bulk_query_transfers(external_host, transfers_by_eid, TRANSFER_TOOL, vo, timeout, logger)
         duration = time.time() - tss
         record_timer('daemons.conveyor.poller.bulk_query_transfers', duration * 1000 / len(transfers_by_eid))
         logger(logging.DEBUG, 'Polled %s transfer requests status in %s seconds' % (len(transfers_by_eid), duration))
