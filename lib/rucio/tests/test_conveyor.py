@@ -384,6 +384,12 @@ def test_multisource(vo, did_factory, root_account, replica_client, core_config_
     # Only one request was handled; doesn't matter that it's multisource
     assert metrics_mock.get_sample_value('rucio_daemons_conveyor_finisher_handle_requests_total') >= 1
     assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 1
+    assert metrics_mock.get_sample_value(
+        'rucio_core_request_get_next_total',
+        labels={
+            'request_type': 'TRANSFER.STAGEIN.STAGEOUT',
+            'state': 'DONE.FAILED.LOST.SUBMITTING.SUBMISSION_FAILED.NO_SOURCES.ONLY_TAPE_SOURCES.MISMATCH_SCHEME'}
+    )
 
 
 @skip_rse_tests_with_accounts
