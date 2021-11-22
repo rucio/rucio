@@ -38,6 +38,20 @@ def vo():
 
 
 @pytest.fixture(scope='session')
+def second_vo():
+    from rucio.common.config import config_get_bool
+    from rucio.core.vo import vo_exists, add_vo
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    if not multi_vo:
+        pytest.skip('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode would result in failures.')
+
+    new_vo = 'new'
+    if not vo_exists(vo=new_vo):
+        add_vo(vo=new_vo, description='Test', email='rucio@email.com')
+    return new_vo
+
+
+@pytest.fixture(scope='session')
 def long_vo():
     from rucio.tests.common import get_long_vo
     return get_long_vo()
@@ -173,6 +187,25 @@ def file_factory(tmp_path_factory):
 
     with TemporaryFileFactory(pytest_path_factory=tmp_path_factory) as factory:
         yield factory
+
+
+@pytest.fixture
+def scope_factory():
+    from rucio.common.utils import generate_uuid
+    from rucio.core.scope import add_scope
+    from rucio.common.types import InternalAccount, InternalScope
+
+    def create_scopes(vos, account_name=None):
+        scope_uuid = str(generate_uuid()).lower()[:16]
+        scope_name = 'shr_%s' % scope_uuid
+        created_scopes = []
+        for vo in vos:
+            scope = InternalScope(scope_name, vo=vo)
+            add_scope(scope, InternalAccount(account_name if account_name else 'root', vo=vo))
+            created_scopes.append(scope)
+        return scope_name, created_scopes
+
+    return create_scopes
 
 
 @pytest.fixture

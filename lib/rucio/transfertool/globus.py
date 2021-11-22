@@ -68,8 +68,8 @@ class GlobusTransferTool(Transfertool):
         self.group_policy = group_policy
         # TODO: initialize vars from config file here
 
-    @staticmethod
-    def submission_builder_for_path(transfer_path, logger=logging.log):
+    @classmethod
+    def submission_builder_for_path(cls, transfer_path, logger=logging.log):
         if len(transfer_path) != 1:
             # Only accept single hop
             logger(logging.WARNING, "Globus cannot submit multi-hop transfers. Skipping {}".format([str(hop) for hop in transfer_path]))
@@ -82,7 +82,7 @@ class GlobusTransferTool(Transfertool):
             logger(logging.WARNING, "Source or destination globus_endpoint_id not set. Skipping {}".format(hop))
             return None
 
-        return TransferToolBuilder(GlobusTransferTool, external_host='Globus Online Transfertool')
+        return TransferToolBuilder(cls, external_host='Globus Online Transfertool')
 
     def group_into_submit_jobs(self, transfer_paths):
         jobs = bulk_group_transfers(transfer_paths, policy=self.group_policy, group_bulk=self.group_bulk)

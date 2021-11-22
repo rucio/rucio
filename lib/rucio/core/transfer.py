@@ -608,7 +608,7 @@ def is_recoverable_fts_overwrite_error(fts_status_dict):
     return False
 
 
-def bulk_query_transfers(request_host, transfers_by_eid, transfertool='fts3', timeout=None, logger=logging.log):
+def bulk_query_transfers(request_host, transfers_by_eid, transfertool='fts3', vo=None, timeout=None, logger=logging.log):
     """
     Query the status of a transfer.
     :param request_host:     Name of the external host.
@@ -623,7 +623,7 @@ def bulk_query_transfers(request_host, transfers_by_eid, transfertool='fts3', ti
 
     if transfertool == 'fts3':
         start_time = time.time()
-        fts_resps = FTS3Transfertool(external_host=request_host).bulk_query(transfer_ids=list(transfers_by_eid), timeout=timeout)
+        fts_resps = FTS3Transfertool(external_host=request_host, vo=vo).bulk_query(transfer_ids=list(transfers_by_eid), timeout=timeout)
         record_timer('core.request.bulk_query_transfers_fts3', (time.time() - start_time) * 1000 / len(transfers_by_eid))
 
         for external_id, transfers in transfers_by_eid.items():
