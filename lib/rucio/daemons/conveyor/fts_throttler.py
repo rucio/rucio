@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019-2020 CERN
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 """
 Conveyor FTS Throttler is a daemon that will configure a fts storage's transfer settings
@@ -43,7 +44,7 @@ import requests
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.common.logging import setup_logging
+from rucio.common.logging import setup_logging, formatted_logger
 from rucio.core import heartbeat
 from rucio.transfertool.fts3 import FTS3Transfertool
 
@@ -52,8 +53,9 @@ graceful_stop = threading.Event()
 
 class FTSThrottler(object):
 
-    def __init__(self, cycle_interval=3600):
+    def __init__(self, cycle_interval=3600, logger=logging.log):
         self.__cycle_interval = cycle_interval
+        self.logger = logger
 
     def tune(self):
         """
@@ -65,13 +67,13 @@ class FTSThrottler(object):
             try:
                 cycle_file = config_get('conveyor', 'fts_throttler_cycle')
             except Exception:
-                logging.warning('could not get the cycle file, cannot perform tuning for this cycle without cycle file, returning')
+                self.logger(logging.WARNING, 'could not get the cycle file, cannot perform tuning for this cycle without cycle file, returning')
                 return
 
             try:
                 tuning_ratio = config_get('conveyor', 'fts_throttler_tuning_ratio')
             except Exception:
-                logging.warning('could not get the tuning ratio from config, returning')
+                self.logger(logging.WARNING, 'could not get the tuning ratio from config, returning')
                 return
 
             rses = result['aggregations']['rse']['buckets']
@@ -85,7 +87,7 @@ class FTSThrottler(object):
 
                     # Tapes might have other reasons for timeouts which should be treated differently, therefor they are ignored and not tuned for now.
                     if rse['storage_type']['hits']['hits'][0]['_source']['payload']['dst-type'] == 'TAPE':
-                        logging.info('%s is a tape storage type, it will not be tuned', rse_info[0])
+                        self.logger(logging.INFO, '%s is a tape storage type, it will not be tuned', rse_info[0])
                         continue
                     # instantiate transfertool for access to get_se_config and set_se_config.
                     t = FTS3Transfertool(rse_info[1])
@@ -96,21 +98,21 @@ class FTSThrottler(object):
 
                     n = rse['failure_ratio'].get('value')
 
-                    logging.info(' RSE ' + rse_info[0] + ' on FTS host ' + rse_info[1]
-                                 + ' has failure ratio ' + str(rse['failure_ratio'].get('value')) + ' on storage ' + url)  # NOQA: W503
+                    self.logger(logging.INFO, ' RSE ' + rse_info[0] + ' on FTS host ' + rse_info[1]
+                                + ' has failure ratio ' + str(rse['failure_ratio'].get('value')) + ' on storage ' + url)  # NOQA: W503
 
                     try:
                         se = t.get_se_config(url)
-                        logging.info('storage settings: %s', se)
+                        self.logger(logging.INFO, 'storage settings: %s', se)
                     except KeyError:
-                        logging.warning('configuration for storage element was not found, config will be set from default values')
+                        self.logger(logging.WARNING, 'configuration for storage element was not found, config will be set from default values')
                         # all FTS Host servers have a default reference storage named '*' that holds the default values for all storages that arent listed yet.
                         default_storage = t.get_se_config('*')
                         t.set_se_config(url, inbound_max_active=int((100 / (100 + n)) * default_storage['se_info']['inbound_max_active']),
                                         outbound_max_active=int((100 / (100 + n)) * default_storage['se_info']['outbound_max_active']))
 
-                        logging.info(url + 'inbound_max_active changed from ' + str(default_storage['se_info']['inbound_max_active']) + ' to ' + str(int((100 / (100 + n)) * default_storage['se_info']['inbound_max_active']))
-                                     + ', outbound_max_active changed from ' + str(default_storage['se_info']['outbound_max_active']) + ' to ' + str(int((100 / (100 + n)) * default_storage['se_info']['outbound_max_active'])))  # NOQA: W503
+                        self.logger(logging.INFO, url + 'inbound_max_active changed from ' + str(default_storage['se_info']['inbound_max_active']) + ' to ' + str(int((100 / (100 + n)) * default_storage['se_info']['inbound_max_active']))
+                                    + ', outbound_max_active changed from ' + str(default_storage['se_info']['outbound_max_active']) + ' to ' + str(int((100 / (100 + n)) * default_storage['se_info']['outbound_max_active'])))  # NOQA: W503
 
                         # cycle_info_dict is used to write changes down to the cycle file.
                         cycle_info_dict['storages'].append({'storage': url, 'inbound_max_active': default_storage['se_info']['inbound_max_active'],
@@ -120,8 +122,8 @@ class FTSThrottler(object):
                                                             'fts-host': rse_info[1], 'time': str(datetime.datetime.now())})
                         continue
                     except Exception as error:
-                        logging.warning('an error occured when trying to get the storage configuration')
-                        logging.warning(str(error))
+                        self.logger(logging.WARNING, 'an error occured when trying to get the storage configuration')
+                        self.logger(logging.WARNING, str(error))
                         continue
 
                     # Even though we could read the config, we still need to know if the important attributes are empty.
@@ -151,16 +153,16 @@ class FTSThrottler(object):
                     # tune down the configuration of a storage relative to the failure ratio(n) and existing configuration.
                     t.set_se_config(url, inbound_max_active=int((100 / (100 + n)) * ima), outbound_max_active=int((100 / (100 + n)) * oma))
 
-                    logging.info(url + 'inbound_max_active changed from ' + str(ima) + ' to ' + str(int((100 / (100 + n)) * ima))
-                                 + ', outbound_max_active changed from ' + str(oma) + ' to ' + str(int((100 / (100 + n)) * oma)))  # NOQA: W503
+                    self.logger(logging.INFO, url + 'inbound_max_active changed from ' + str(ima) + ' to ' + str(int((100 / (100 + n)) * ima))
+                                + ', outbound_max_active changed from ' + str(oma) + ' to ' + str(int((100 / (100 + n)) * oma)))  # NOQA: W503
 
             if cycle_info_dict['storages'] == []:
-                logging.info('no storages are failing significantly due to timeout errors, therefor no tuning happened.')
+                self.logger(logging.INFO, 'no storages are failing significantly due to timeout errors, therefor no tuning happened.')
 
             with open(cycle_file, 'w') as outfile:
                 json.dump(cycle_info_dict, outfile)
         else:
-            logging.warning('Could not detect any storages with sufficient failure ratio for tuning, trying again next cycle')
+            self.logger(logging.WARNING, 'Could not detect any storages with sufficient failure ratio for tuning, trying again next cycle')
         return
 
     def revert(self):
@@ -173,7 +175,7 @@ class FTSThrottler(object):
         try:
             cycle_file = config_get('conveyor', 'fts_throttler_cycle')
         except Exception:
-            logging.warning('could not get the cycle file, cannot revert cycle changes, therefor no tuning either')
+            self.logger(logging.WARNING, 'could not get the cycle file, cannot revert cycle changes, therefor no tuning either')
             return False
 
         with open(cycle_file) as cycle_info:
@@ -181,12 +183,12 @@ class FTSThrottler(object):
             storages = cycle_info_dict['storages']
             for storage in storages:
                 t = FTS3Transfertool(storage['fts-host'])
-                logging.info('storage information: %s', storage)
+                self.logger(logging.INFO, 'storage information: %s', storage)
                 t.set_se_config(storage['storage'], inbound_max_active=storage['inbound_max_active'], outbound_max_active=storage['outbound_max_active'])
-                logging.info('on storage ' + storage['storage'] + ' outbound_max_active reverted from '
-                             + str(storage['tuned_outbound_max_active']) + ' to ' + str(storage['outbound_max_active'])  # NOQA: W503
-                             + ', inbound_max_active reverted from ' + str(storage['tuned_inbound_max_active']) + ' to ' + str(storage['inbound_max_active']))  # NOQA: W503
-            logging.info('revert performed')
+                self.logger(logging.INFO, 'on storage ' + storage['storage'] + ' outbound_max_active reverted from '
+                            + str(storage['tuned_outbound_max_active']) + ' to ' + str(storage['outbound_max_active'])  # NOQA: W503
+                            + ', inbound_max_active reverted from ' + str(storage['tuned_inbound_max_active']) + ' to ' + str(storage['inbound_max_active']))  # NOQA: W503
+            self.logger(logging.INFO, 'revert performed')
         return True
 
     def request_timeout_data(self, destination=True, last_hours=1, transfer_successes_lower_boundary=20, transfer_timeouts_lower_boundary=20, kserver='http://atlas-kibana.mwt2.org:9200/rucio-events-*/_search'):
@@ -308,7 +310,7 @@ class FTSThrottler(object):
                                   timeout=None)
 
         except Exception:
-            logging.warning('could not retrieve transfer failure data from %s - %s', kserver, str(traceback.format_exc()))
+            self.logger(logging.WARNING, 'could not retrieve transfer failure data from %s - %s', kserver, str(traceback.format_exc()))
         if result and result.status_code == 200:
             return result.json()
         raise Exception('could not get result from %s, status code returned : %s', kserver, result.status_code if result else None)
@@ -338,17 +340,17 @@ class FTSThrottler(object):
 
                     try:
                         se = t.get_se_config(url)
-                        logging.info('storage settings: %s', se)
+                        self.logger(logging.INFO, 'storage settings: %s', se)
                     except KeyError:
-                        logging.warning('configuration for storage element was not found')
+                        self.logger(logging.WARNING, 'configuration for storage element was not found')
                     except Exception as error:
-                        logging.warning('an error occured when trying to get the storage configuration')
-                        logging.warning(str(error))
+                        self.logger(logging.WARNING, 'an error occured when trying to get the storage configuration')
+                        self.logger(logging.WARNING, str(error))
                         continue
 
             return rses
         else:
-            logging.warning('Could not retrieve timeout data with elastic search, trying again next cycle')
+            self.logger(logging.WARNING, 'Could not retrieve timeout data with elastic search, trying again next cycle')
 
 
 def fts_throttler(once=False, cycle_interval=3600):
@@ -365,13 +367,17 @@ def fts_throttler(once=False, cycle_interval=3600):
     heartbeat.sanity_check(executable=executable, hostname=hostname)
 
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    prepend_str = 'conveyor-fts-throttler [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    logger = formatted_logger(logging.log, prepend_str + '%s')
+
     current_time = time.time()
     graceful_stop.wait(10)
     running_instance = False
 
     while not graceful_stop.is_set():
         heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
+        prepend_str = 'conveyor-fts-throttler [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+        logger = formatted_logger(logging.log, prepend_str + '%s')
         if heart_beat['nr_threads'] < 2:
             running_instance = True
             # this loop cannot be entered by more than one instance at a time.
@@ -379,15 +385,16 @@ def fts_throttler(once=False, cycle_interval=3600):
 
                 try:
                     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-                    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+                    prepend_str = 'conveyor-fts-throttler [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+                    logger = formatted_logger(logging.log, prepend_str + '%s')
 
-                    logging.info(prepend_str + "fts_throttler start cycle")
-                    if FTSThrottler().revert():
-                        logging.info('revert was successful, now tuning')
-                        FTSThrottler().tune()
-                        logging.info('Tuning finished for this cycle')
+                    logger(logging.INFO, "fts_throttler start cycle")
+                    if FTSThrottler(logger=logger).revert():
+                        logger(logging.INFO, 'revert was successful, now tuning')
+                        FTSThrottler(logger=logger).tune()
+                        logger(logging.INFO, 'Tuning finished for this cycle')
                     else:
-                        logging.warning('could not revert, cannot tune unless revert has been done, will try again next cycle.')
+                        logger(logging.WARNING, 'could not revert, cannot tune unless revert has been done, will try again next cycle.')
 
                     if once:
                         break
@@ -395,30 +402,29 @@ def fts_throttler(once=False, cycle_interval=3600):
                         graceful_stop.wait(int((current_time + cycle_interval) - time.time()))
                     current_time = time.time()
                 except Exception:
-                    logging.critical(prepend_str + 'fts_throttler crashed %s' % (traceback.format_exc()))
+                    logger(logging.CRITICAL, 'fts_throttler crashed %s' % (traceback.format_exc()))
 
                 if once:
                     break
         else:
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-            logging.info(prepend_str + 'another fts_throttler instance already exists. will wait')
+            logger(logging.INFO, 'another fts_throttler instance already exists. will wait')
             if time.time() < current_time + cycle_interval:
                 graceful_stop.wait(int((current_time + cycle_interval) - time.time()))
             current_time = time.time()
 
-    logging.info(prepend_str + 'Throttler - graceful stop requested')
+    logger(logging.INFO, prepend_str + 'Throttler - graceful stop requested')
 
     # before we stop, try to revert, but only if this instance was running the cycles.
     # ! If the cycle info file information is shared between instances, then this implementation must be changed !
     if running_instance:
         try:
-            FTSThrottler().revert()
+            FTSThrottler(logger=logger).revert()
         except Exception:
-            logging.warning('could not revert changes before stopping')
+            logger(logging.WARNING, 'could not revert changes before stopping')
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.info(prepend_str + 'Throttler - graceful stop done')
+    logger(logging.INFO, prepend_str + 'Throttler - graceful stop done')
 
 
 def stop(signum=None, frame=None):

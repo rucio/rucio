@@ -24,6 +24,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 '''
 Undertaker is a daemon to manage expired did.
@@ -44,7 +45,7 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
-from rucio.common.logging import setup_logging
+from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks, daemon_sleep
 from rucio.core.did import list_expired_dids, delete_dids
@@ -73,7 +74,9 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False, sleep
     while not GRACEFUL_STOP.is_set():
         try:
             heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, older_than=6000)
-            logging.info('Undertaker({0[worker_number]}/{0[total_workers]}): Live gives {0[heartbeat]}'.format(locals()))
+            prepend_str = 'undertaker [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
+            logger = formatted_logger(logging.log, prepend_str + '%s')
+            logger(logging.INFO, 'Live gives {0[heartbeat]}'.format(locals()))
 
             start = time.time()
 
@@ -88,26 +91,26 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False, sleep
             dids = [did for did in dids if (did['scope'], did['name']) not in paused_dids]
 
             if not dids and not once:
-                logging.info('Undertaker(%s): Nothing to do. sleep 60.', worker_number)
+                logger(logging.INFO, 'Nothing to do. sleep 60.')
                 daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
                 continue
 
             for chunk in chunks(dids, chunk_size):
                 try:
-                    logging.info('Undertaker(%s): Receive %s dids to delete', worker_number, len(chunk))
+                    logger(logging.INFO, 'Receive %s dids to delete', len(chunk))
                     delete_dids(dids=chunk, account=InternalAccount('root', vo='def'), expire_rules=True)
-                    logging.info('Undertaker(%s): Delete %s dids', worker_number, len(chunk))
+                    logger(logging.INFO, 'Delete %s dids', len(chunk))
                     record_counter(name='undertaker.delete_dids', delta=len(chunk))
                 except RuleNotFound as error:
-                    logging.error(error)
+                    logger(logging.ERROR, error)
                 except (DatabaseException, DatabaseError, UnsupportedOperation) as e:
                     if match('.*ORA-00054.*', str(e.args[0])) or match('.*55P03.*', str(e.args[0])) or match('.*3572.*', str(e.args[0])):
                         for did in chunk:
                             paused_dids[(did['scope'], did['name'])] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
                         record_counter('undertaker.delete_dids.exceptions.{exception}', labels={'exception': 'LocksDetected'})
-                        logging.warning('undertaker[%s/%s]: Locks detected for chunk', heartbeat['assign_thread'], heartbeat['nr_threads'])
+                        logger(logging.WARNING, 'Locks detected for chunk')
                     else:
-                        logging.error('Undertaker(%s): Got database error %s.', worker_number, str(e))
+                        logger(logging.ERROR, 'Got database error %s.', str(e))
         except:
             logging.critical(traceback.format_exc())
             time.sleep(1)

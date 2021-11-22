@@ -18,6 +18,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import logging
 
@@ -98,14 +99,14 @@ class GlobusTransferTool(Transfertool):
         """
 
         source_path = files[0]['sources'][0]
-        logging.info('source_path: %s' % source_path)
+        self.logger(logging.INFO, 'source_path: %s' % source_path)
 
         source_endpoint_id = files[0]['metadata']['source_globus_endpoint_id']
 
         # TODO: use prefix from rse_protocol to properly construct destination url
         # parse and assemble dest_path for Globus endpoint
         dest_path = files[0]['destinations'][0]
-        logging.info('dest_path: %s' % dest_path)
+        self.logger(logging.INFO, 'dest_path: %s' % dest_path)
 
         # TODO: rucio.common.utils.construct_url logic adds unnecessary '/other' into file path
         # s = dest_path.split('/') # s.remove('other') # dest_path = '/'.join(s)
@@ -113,7 +114,7 @@ class GlobusTransferTool(Transfertool):
         destination_endpoint_id = files[0]['metadata']['dest_globus_endpoint_id']
         job_label = files[0]['metadata']['request_id']
 
-        task_id = submit_xfer(source_endpoint_id, destination_endpoint_id, source_path, dest_path, job_label, recursive=False)
+        task_id = submit_xfer(source_endpoint_id, destination_endpoint_id, source_path, dest_path, job_label, recursive=False, logger=self.logger)
 
         return task_id
 
@@ -147,7 +148,7 @@ class GlobusTransferTool(Transfertool):
         ]
         self.logger(logging.DEBUG, '... Starting globus xfer ...')
         self.logger(logging.DEBUG, 'job_files: %s' % submitjob)
-        task_id = bulk_submit_xfer(submitjob, recursive=False)
+        task_id = bulk_submit_xfer(submitjob, recursive=False, logger=self.logger)
 
         return task_id
 
@@ -161,7 +162,7 @@ class GlobusTransferTool(Transfertool):
         if not isinstance(transfer_ids, list):
             transfer_ids = [transfer_ids]
 
-        job_responses = bulk_check_xfers(transfer_ids)
+        job_responses = bulk_check_xfers(transfer_ids, logger=self.logger)
 
         return job_responses
 
