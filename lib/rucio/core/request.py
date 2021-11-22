@@ -26,7 +26,7 @@
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
@@ -310,7 +310,13 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     :returns:                 Request as a dictionary.
     """
 
-    record_counter('core.request.get_next.{request_type}.{state}', labels={'request_type': request_type, 'state': state})
+    request_type_label = request_type
+    state_label = state
+    if isinstance(request_type_label, list):
+        request_type_label = list(map(str, request_type_label))
+    if isinstance(state_label, list):
+        state_label = list(map(str, state_label))
+    record_counter('core.request.get_next.{request_type}.{state}', labels={'request_type': request_type_label, 'state': state_label})
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
     if type(request_type) is not list:
