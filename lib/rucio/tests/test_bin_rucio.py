@@ -30,15 +30,15 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
-# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Rob Barnsley <rob.barnsley@skao.int>, 2021
 # - Paul Millar <paul.millar@desy.de>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - jdierkes <joel.dierkes@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
 
 from __future__ import print_function
 
@@ -2030,3 +2030,47 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
+
+    def test_rucio_list_file_replicas_rse_is_deprecated(self):
+        """CLIENT(USER): Warn about deprecated command line args"""
+        cmd = 'rucio list-file-replicas test:file1 --rse MOCK --missing'
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert 'The use of --rse is deprecated in favour of --rses and will be removed in 1.27' in err
+
+    def test_rucio_list_file_replicas(self):
+        """CLIENT(USER): List missing file replicas """
+        self.account_client.set_local_account_limit('root', self.def_rse, -1)
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
+
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value MARIOSPACEODYSSEY'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rules
+        cmd = "rucio add-rule {0}:{1} 1 'spacetoken=MARIOSPACEODYSSEY'".format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(err)
+        print(out)
+
+        cmd = 'rucio list-file-replicas {0}:{1} --rses "spacetoken=MARIOSPACEODYSSEY" --missing'.format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        assert tmp_file1[5:] in out
