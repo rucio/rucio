@@ -23,6 +23,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 """
 Suspicious-Replica-Recoverer is a daemon that declares suspicious replicas as bad if they are found available on other RSE.
@@ -46,7 +47,7 @@ from sqlalchemy.exc import DatabaseError
 import rucio.db.sqla.util
 from rucio.common.config import config_get_bool
 from rucio.common.exception import DatabaseException, VONotFound, InvalidRSEExpression
-from rucio.common.logging import setup_logging
+from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.types import InternalAccount
 from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
@@ -126,7 +127,9 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
     # make an initial heartbeat - expected only one replica-recoverer thread on one node
     # heartbeat mechanism is used in this daemon only for information purposes
     # (due to expected low load, the actual DB query does not filter the result based on worker number)
-    live(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
+    heartbeat = live(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
+    prepend_str = 'replica_recoverer [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
+    logger = formatted_logger(logging.log, prepend_str + '%s')
 
     # wait a moment in case all workers started at the same time
     GRACEFUL_STOP.wait(1)
@@ -135,20 +138,20 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
         try:
             # issuing the heartbeat for a second time to make all workers aware of each other (there is only 1 worker allowed for this daemon)
             heartbeat = live(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
-            total_workers = heartbeat['nr_threads']
-            worker_number = heartbeat['assign_thread']
+            prepend_str = 'replica_recoverer [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
+            logger = formatted_logger(logging.log, prepend_str + '%s')
 
             # there is only 1 worker allowed for this daemon
-            if total_workers != 1:
-                logging.error('replica_recoverer: Another running instance on %s has been detected. Stopping gracefully.', socket.gethostname())
+            if heartbeat['nr_threads'] != 1:
+                logger(logging.ERROR, 'Another running instance on %s has been detected. Stopping gracefully.', socket.gethostname())
                 die(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
                 break
 
             start = time.time()
 
-            logging.info('replica_recoverer[%i/%i]: ready to query replicas at RSE %s,'
-                         + ' reported suspicious in the last %i days at least %i times which are available on other RSEs.',  # NOQA: W503
-                         worker_number, total_workers, rse_expression, younger_than, nattempts)
+            logger(logging.INFO, 'ready to query replicas at RSE %s,'
+                   + ' reported suspicious in the last %i days at least %i times which are available on other RSEs.',  # NOQA: W503
+                   rse_expression, younger_than, nattempts)
 
             getfileskwargs = {'younger_than': younger_than,
                               'nattempts': nattempts,
@@ -167,14 +170,14 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
             if exceptions_raised == len(vos):
                 raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
 
-            logging.info('replica_recoverer[%i/%i]: suspicious replica query took %.2f seconds, total of %i replicas were found.',
-                         worker_number, total_workers, time.time() - start, len(recoverable_replicas))
+            logger(logging.INFO, 'suspicious replica query took %.2f seconds, total of %i replicas were found.',
+                   time.time() - start, len(recoverable_replicas))
 
             if not recoverable_replicas and not once:
-                logging.info('replica_recoverer[%i/%i]: found %i recoverable suspicious replicas.', worker_number, total_workers, len(recoverable_replicas))
+                logger(logging.INFO, 'found %i recoverable suspicious replicas.', len(recoverable_replicas))
                 daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
             else:
-                logging.info('replica_recoverer[%i/%i]: looking for replica surls.', worker_number, total_workers)
+                logger(logging.INFO, 'looking for replica surls.')
 
                 start = time.time()
                 surls_to_recover = {}  # dictionary of { vo1: {rse1: [surl1, surl2, ... ], rse2: ...}, vo2:... }
@@ -200,40 +203,40 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
                                 surl_not_found = False
                     if surl_not_found:
                         cnt_surl_not_found += 1
-                        logging.warning('replica_recoverer[%i/%i]: skipping suspicious replica %s on %s, no surls were found.', worker_number, total_workers, name, rse)
+                        logger(logging.WARNING, 'skipping suspicious replica %s on %s, no surls were found.', name, rse)
 
-                logging.info('replica_recoverer[%i/%i]: found %i/%i surls (took %.2f seconds), declaring them as bad replicas now.',
-                             worker_number, total_workers, len(recoverable_replicas) - cnt_surl_not_found, len(recoverable_replicas), time.time() - start)
+                logger(logging.INFO, 'found %i/%i surls (took %.2f seconds), declaring them as bad replicas now.',
+                       len(recoverable_replicas) - cnt_surl_not_found, len(recoverable_replicas), time.time() - start)
 
                 for vo in surls_to_recover:
                     for rse_id in surls_to_recover[vo]:
-                        logging.info('replica_recoverer[%i/%i]: ready to declare %i bad replica(s) on %s: %s.',
-                                     worker_number, total_workers, len(surls_to_recover[vo][rse_id]), rse, str(surls_to_recover[vo][rse_id]))
+                        logger(logging.INFO, 'ready to declare %i bad replica(s) on %s: %s.',
+                               len(surls_to_recover[vo][rse_id]), rse, str(surls_to_recover[vo][rse_id]))
                         if len(surls_to_recover[vo][rse_id]) > max_replicas_per_rse:
-                            logging.warning('replica_recoverer[%i/%i]: encountered more than %i suspicious replicas (%s) on %s. Please investigate.',
-                                            worker_number, total_workers, max_replicas_per_rse, str(len(surls_to_recover[vo][rse_id])), rse)
+                            logger(logging.WARNING, 'encountered more than %i suspicious replicas (%s) on %s. Please investigate.',
+                                   max_replicas_per_rse, str(len(surls_to_recover[vo][rse_id])), rse)
                         else:
                             declare_bad_file_replicas(pfns=surls_to_recover[vo][rse_id], reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), status=BadFilesStatus.BAD, session=None)
-                            logging.info('replica_recoverer[%i/%i]: finished declaring bad replicas on %s.', worker_number, total_workers, rse)
+                            logger(logging.INFO, 'finished declaring bad replicas on %s.', rse)
 
         except (DatabaseException, DatabaseError) as err:
             if match('.*QueuePool.*', str(err.args[0])):
-                logging.warning(traceback.format_exc())
+                logger(logging.WARNING, traceback.format_exc())
                 record_counter('replica.recoverer.exceptions.{exception}', labels={'exception': err.__class__.__name__})
             elif match('.*ORA-03135.*', str(err.args[0])):
-                logging.warning(traceback.format_exc())
+                logger(logging.WARNING, traceback.format_exc())
                 record_counter('replica.recoverer.exceptions.{exception}', labels={'exception': err.__class__.__name__})
             else:
-                logging.critical(traceback.format_exc())
+                logger(logging.CRITICAL, traceback.format_exc())
                 record_counter('replica.recoverer.exceptions.{exception}', labels={'exception': err.__class__.__name__})
         except Exception as err:
-            logging.critical(traceback.format_exc())
+            logger(logging.CRITICAL, traceback.format_exc())
             record_counter('replica.recoverer.exceptions.{exception}', labels={'exception': err.__class__.__name__})
         if once:
             break
 
     die(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
-    logging.info('replica_recoverer[%i/%i]: graceful stop done', worker_number, total_workers)
+    logger(logging.INFO, 'graceful stop done')
 
 
 def run(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=None, max_replicas_per_rse=100,

@@ -18,7 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Wen Guan <wen.guan@cern.ch>, 2014-2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Eric Vaandering <ewv@fnal.gov>, 2018
 # - dciangot <diego.ciangottini@cern.ch>, 2018
@@ -29,7 +29,9 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2020
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
+# - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import absolute_import, division
 import datetime
@@ -521,7 +523,7 @@ class FTS3Transfertool(Transfertool):
             job_params["id_generator"] = "deterministic"
             job_params["sid"] = files[0]['metadata']['request_id']
             expected_transfer_id = self.__get_deterministic_id(job_params["sid"])
-            logging.debug("Submit bulk transfers in deterministic mode, sid %s, expected transfer id: %s", job_params["sid"], expected_transfer_id)
+            self.logger(logging.DEBUG, "Submit bulk transfers in deterministic mode, sid %s, expected transfer id: %s", job_params["sid"], expected_transfer_id)
 
         # bulk submission
         params_dict = {'files': files, 'params': job_params}
@@ -544,7 +546,7 @@ class FTS3Transfertool(Transfertool):
         except JSONDecodeError as error:
             raise TransferToolWrongAnswer(error)
         except Exception as error:
-            logging.warning('Could not submit transfer to %s - %s' % (self.external_host, str(error)))
+            self.logger(logging.WARNING, 'Could not submit transfer to %s - %s' % (self.external_host, str(error)))
 
         if post_result and post_result.status_code == 200:
             SUBMISSION_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc(len(files))
@@ -555,9 +557,9 @@ class FTS3Transfertool(Transfertool):
         else:
             if expected_transfer_id:
                 transfer_id = expected_transfer_id
-                logging.warning("Failed to submit transfer to %s, will use expected transfer id %s, error: %s", self.external_host, transfer_id, post_result.text if post_result is not None else post_result)
+                self.logger(logging.WARNING, "Failed to submit transfer to %s, will use expected transfer id %s, error: %s", self.external_host, transfer_id, post_result.text if post_result is not None else post_result)
             else:
-                logging.warning("Failed to submit transfer to %s, error: %s", self.external_host, post_result.text if post_result is not None else post_result)
+                self.logger(logging.WARNING, "Failed to submit transfer to %s, error: %s", self.external_host, post_result.text if post_result is not None else post_result)
             SUBMISSION_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc(len(files))
 
         if not transfer_id:
@@ -773,7 +775,7 @@ class FTS3Transfertool(Transfertool):
                                   headers=self.headers,
                                   timeout=None)
         except Exception:
-            logging.warning('Could not get config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
+            self.logger(logging.WARNING, 'Could not get config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
         if result and result.status_code == 200:
             C = result.json()
             config_se = C[storage_element]
@@ -783,13 +785,14 @@ class FTS3Transfertool(Transfertool):
     def set_se_config(self, storage_element, inbound_max_active=None, outbound_max_active=None, inbound_max_throughput=None, outbound_max_throughput=None, staging=None):
         """
         Set the configuration for a storage element. Used for alleviating transfer failures due to timeout.
-        :returns: JSON post response in case of success, otherwise raise Exception.
+
         :param storage_element: The storage element to be configured
         :param inbound_max_active: the integer to set the inbound_max_active for the SE.
         :param outbound_max_active: the integer to set the outbound_max_active for the SE.
         :param inbound_max_throughput: the float to set the inbound_max_throughput for the SE.
         :param outbound_max_throughput: the float to set the outbound_max_throughput for the SE.
         :param staging: the integer to set the staging for the operation of a SE.
+        :returns: JSON post response in case of success, otherwise raise Exception.
         """
 
         params_dict = {storage_element: {'operations': {}, 'se_info': {}}}
@@ -797,7 +800,7 @@ class FTS3Transfertool(Transfertool):
             try:
                 policy = config_get('policy', 'permission')
             except Exception:
-                logging.warning('Could not get policy from config')
+                self.logger(logging.WARNING, 'Could not get policy from config')
             params_dict[storage_element]['operations'] = {policy: {'staging': staging}}
         # A lot of try-excepts to avoid dictionary overwrite's,
         # see https://stackoverflow.com/questions/27118687/updating-nested-dictionaries-when-data-has-existing-key/27118776
@@ -833,7 +836,7 @@ class FTS3Transfertool(Transfertool):
                                    timeout=None)
 
         except Exception:
-            logging.warning('Could not set the config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
+            self.logger(logging.WARNING, 'Could not set the config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
         if result and result.status_code == 200:
             configSe = result.json()
             return configSe
@@ -871,7 +874,7 @@ class FTS3Transfertool(Transfertool):
                                        headers=self.headers,
                                        timeout=None)
             except Exception:
-                logging.warning('Could not ban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
+                self.logger(logging.WARNING, 'Could not ban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
             if result and result.status_code == 200:
                 return 0
             raise Exception('Could not ban the storage %s , status code returned : %s', (storage_element, result.status_code if result else None))
@@ -885,7 +888,7 @@ class FTS3Transfertool(Transfertool):
                                          headers=self.headers,
                                          timeout=None)
             except Exception:
-                logging.warning('Could not unban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
+                self.logger(logging.WARNING, 'Could not unban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
             if result and result.status_code == 204:
                 return 0
             raise Exception('Could not unban the storage %s , status code returned : %s', (storage_element, result.status_code if result else None))
@@ -908,7 +911,7 @@ class FTS3Transfertool(Transfertool):
             key = 'voname: %s' % self.external_host
             result = REGION_SHORT.get(key)
             if isinstance(result, NoValue):
-                logging.debug("Refresh transfer baseid and voname for %s", self.external_host)
+                self.logger(logging.DEBUG, "Refresh transfer baseid and voname for %s", self.external_host)
 
                 get_result = None
                 try:
@@ -922,7 +925,7 @@ class FTS3Transfertool(Transfertool):
                 except JSONDecodeError as error:
                     raise TransferToolWrongAnswer(error)
                 except Exception as error:
-                    logging.warning('Could not get baseid and voname from %s - %s' % (self.external_host, str(error)))
+                    self.logger(logging.WARNING, 'Could not get baseid and voname from %s - %s' % (self.external_host, str(error)))
 
                 if get_result and get_result.status_code == 200:
                     baseid = str(get_result.json()['base_id'])
@@ -931,12 +934,12 @@ class FTS3Transfertool(Transfertool):
 
                     REGION_SHORT.set(key, result)
 
-                    logging.debug("Get baseid %s and voname %s from %s", baseid, voname, self.external_host)
+                    self.logger(logging.DEBUG, "Get baseid %s and voname %s from %s", baseid, voname, self.external_host)
                 else:
-                    logging.warning("Failed to get baseid and voname from %s, error: %s", self.external_host, get_result.text if get_result is not None else get_result)
+                    self.logger(logging.WARNING, "Failed to get baseid and voname from %s, error: %s", self.external_host, get_result.text if get_result is not None else get_result)
                     result = (None, None)
         except Exception as error:
-            logging.warning("Failed to get baseid and voname from %s: %s" % (self.external_host, str(error)))
+            self.logger(logging.WARNING, "Failed to get baseid and voname from %s: %s" % (self.external_host, str(error)))
             result = (None, None)
         return result
 
