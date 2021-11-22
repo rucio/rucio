@@ -99,22 +99,22 @@
 /lib/rucio/daemons/transmogrifier/      @cserf
 
 # Testing
-/.github/                               @bziemons
-/etc/docker/test/                       @bziemons
-/lib/rucio/tests/conftest.py            @bziemons
-/lib/rucio/tests/ruciopytest/           @bziemons
-/tools/github/                          @bziemons
-/tools/test/                            @bziemons
+/.github/                               @maany
+/etc/docker/test/                       @maany
+/lib/rucio/tests/conftest.py            @maany
+/lib/rucio/tests/ruciopytest/           @maany
+/tools/github/                          @maany
+/tools/test/                            @maany
 
 # Traces
 /lib/rucio/core/trace.py                @mlassnig
 /lib/rucio/daemons/tracer/              @mlassnig
 
 # Transfers
-/lib/rucio/core/transfer.py             @bari12
-/lib/rucio/core/request.py              @bari12
-/lib/rucio/daemons/conveyor/            @bari12
-/lib/rucio/transfertool/                @bari12
+/lib/rucio/core/transfer.py             @rcarpa
+/lib/rucio/core/request.py              @rcarpa
+/lib/rucio/daemons/conveyor/            @rcarpa
+/lib/rucio/transfertool/                @rcarpa
 
 # WebUI
-/lib/rucio/web/ui/                      @bari12
+/lib/rucio/web/ui/                      @maany
