@@ -22,6 +22,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 '''
 Light Reaper is a daemon to manage temporary object/file deletion.
@@ -41,7 +42,7 @@ import rucio.db.sqla.util
 from rucio.common.config import config_get_bool
 from rucio.common.exception import (SourceNotFound, DatabaseException, ServiceUnavailable,
                                     RSEAccessDenied, RSENotFound, ResourceTemporaryUnavailable, VONotFound)
-from rucio.common.logging import setup_logging
+from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.utils import daemon_sleep
 from rucio.core import rse as rse_core
 from rucio.core.heartbeat import live, die, sanity_check
@@ -81,7 +82,9 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
         try:
             # heartbeat
             heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)
-            logging.info('Light Reaper({0[worker_number]}/{0[total_workers]}): Live gives {0[heartbeat]}'.format(locals()))
+            prepend_str = 'light-reaper [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
+            logger = formatted_logger(logging.log, prepend_str + '%s')
+            logger(logging.INFO, 'Live gives {0[heartbeat]}'.format(locals()))
             nothing_to_do = True
             start_time = time.time()
 
@@ -110,7 +113,7 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                             start = time.time()
                             prot.delete(pfn)
                             duration = time.time() - start
-                            logging.info('Light Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, total_workers, replica['scope'], replica['name'], pfn, rse, duration)
+                            logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %s seconds', replica['scope'], replica['name'], pfn, rse, duration)
                             payload = {'scope': replica['scope'].external,
                                        'name': replica['name'],
                                        'rse': rse,
@@ -125,12 +128,12 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                             add_message('deletion-done', payload)
                             deleted_replicas.append(replica)
                         except SourceNotFound:
-                            err_msg = 'Light Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, total_workers, replica['scope'], replica['name'], pfn, rse)
-                            logging.warning(err_msg)
+                            err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], pfn, rse)
+                            logger(logging.WARNING, err_msg)
                             deleted_replicas.append(replica)
                         except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
-                            err_msg = 'Light Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, total_workers, replica['scope'], replica['name'], pfn, rse, str(error))
-                            logging.warning(err_msg)
+                            err_msg = 'Deletion NOACCESS of %s:%s as %s on %s: %s' % (replica['scope'], replica['name'], pfn, rse, str(error))
+                            logger(logging.WARNING, err_msg)
                             payload = {'scope': replica['scope'].external,
                                        'name': replica['name'],
                                        'rse': rse,
@@ -145,7 +148,7 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                             add_message('deletion-failed', payload)
 
                         except:
-                            logging.critical(traceback.format_exc())
+                            logger(logging.CRITICAL, traceback.format_exc())
                 finally:
                     prot.close()
 
@@ -158,7 +161,7 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                 break
 
             if nothing_to_do:
-                logging.info('Light Reaper %s-%s: Nothing to do. I will sleep for 60s', worker_number, total_workers)
+                logger(logging.INFO, 'Nothing to do. I will sleep for 60s')
                 daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
         except DatabaseException as error:

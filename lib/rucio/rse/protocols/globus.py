@@ -18,6 +18,8 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -205,7 +207,7 @@ class GlobusRSEProtocol(RSEProtocol):
         """
         if self.globus_endpoint_id:
             try:
-                delete_response = send_delete_task(endpoint_id=self.globus_endpoint_id[0], path=path)
+                delete_response = send_delete_task(endpoint_id=self.globus_endpoint_id[0], path=path, logger=self.logger)
             except TransferAPIError as err:
                 print(err)
         else:
@@ -225,7 +227,7 @@ class GlobusRSEProtocol(RSEProtocol):
         """
         if self.globus_endpoint_id:
             try:
-                bulk_delete_response = send_bulk_delete_task(endpoint_id=self.globus_endpoint_id[0], pfns=pfns)
+                bulk_delete_response = send_bulk_delete_task(endpoint_id=self.globus_endpoint_id[0], pfns=pfns, logger=self.logger)
             except TransferAPIError as err:
                 self.logger(logging.WARNING, str(err))
         else:
