@@ -20,6 +20,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 """
 Abacus-Collection-Replica is a daemon to update collection replica.
@@ -34,7 +35,7 @@ import traceback
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.logging import setup_logging
+from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.replica import get_cleaned_updated_collection_replicas, update_collection_replica
@@ -46,10 +47,6 @@ def collection_replica_update(once=False, limit=1000, sleep_time=10):
     """
     Main loop to check and update the collection replicas.
     """
-
-    logging.info('collection_replica_update: starting')
-
-    logging.info('collection_replica_update: started')
 
     # Make an initial heartbeat so that all abacus-collection-replica daemons have the correct worker number on the next try
     executable = 'abacus-collection-replica'
@@ -63,16 +60,19 @@ def collection_replica_update(once=False, limit=1000, sleep_time=10):
             # Heartbeat
             heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
+            prepend_str = 'collection_replica_update[%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
+            logger = formatted_logger(logging.log, prepend_str + '%s')
+
             # Select a bunch of collection replicas for to update for this worker
             start = time.time()  # NOQA
             replicas = get_cleaned_updated_collection_replicas(total_workers=heartbeat['nr_threads'] - 1,
                                                                worker_number=heartbeat['assign_thread'],
                                                                limit=limit)
 
-            logging.debug('Index query time %f size=%d' % (time.time() - start, len(replicas)))
+            logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(replicas)))
             # If the list is empty, sent the worker to sleep
             if not replicas and not once:
-                logging.info('collection_replica_update[%s/%s] did not get any work' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1))
+                logger(logging.INFO, 'did not get any work')
                 daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop)
             else:
                 for replica in replicas:
@@ -80,12 +80,12 @@ def collection_replica_update(once=False, limit=1000, sleep_time=10):
                         break
                     start_time = time.time()
                     update_collection_replica(replica)
-                    logging.debug('collection_replica_update[%s/%s]: update of collection replica "%s" took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, replica['id'], time.time() - start_time))
+                    logger(logging.DEBUG, 'update of collection replica "%s" took %f' % (replica['id'], time.time() - start_time))
                 if limit and len(replicas) < limit and not once:
                     daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop)
 
         except Exception:
-            logging.error(traceback.format_exc())
+            logger(logging.ERROR, traceback.format_exc())
         if once:
             break
 
