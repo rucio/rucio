@@ -61,7 +61,7 @@ from dogpile.cache.api import NoValue
 from prometheus_client import Summary
 
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.constants import FTS_STATE
+from rucio.common.constants import FTS_JOB_TYPE, FTS_STATE
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
 from rucio.common.utils import APIEncoder, chunks, set_checksum_value
 from rucio.core.rse import get_rse_supported_checksums_from_attributes
@@ -975,10 +975,12 @@ class FTS3Transfertool(Transfertool):
 
         resps = {}
         multi_sources = fts_job_response['job_metadata'].get('multi_sources', False)
+        multi_hop = fts_job_response.get('job_type') == FTS_JOB_TYPE.MULTI_HOP
         for file_resp in fts_files_response:
+            file_state = file_resp['file_state']
             # for multiple source replicas jobs, the file_metadata(request_id) will be the same.
             # The next used file will overwrite the current used one. Only the last used file will return.
-            if multi_sources and file_resp['file_state'] == 'NOT_USED':
+            if multi_sources and file_state == FTS_STATE.NOT_USED:
                 continue
 
             if file_resp['start_time'] is None or file_resp['finish_time'] is None:
@@ -988,11 +990,14 @@ class FTS3Transfertool(Transfertool):
                             - datetime.datetime.strptime(file_resp['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds  # NOQA: W503
 
             request_id = file_resp['file_metadata']['request_id']
+            reason = file_resp.get('reason', None)
+            if not reason and file_state == FTS_STATE.NOT_USED and multi_hop:
+                reason = 'Cancelled hop in multi-hop'
             resps[request_id] = {'new_state': None,
                                  'transfer_id': fts_job_response.get('job_id'),
                                  'job_state': fts_job_response.get('job_state', None),
                                  'priority': fts_job_response.get('priority', None),
-                                 'file_state': file_resp.get('file_state', None),
+                                 'file_state': file_state,
                                  'src_url': file_resp.get('source_surl', None),
                                  'dst_url': file_resp.get('dest_surl', None),
                                  'started_at': datetime.datetime.strptime(file_resp['start_time'], '%Y-%m-%dT%H:%M:%S') if file_resp['start_time'] else None,
@@ -1000,7 +1005,7 @@ class FTS3Transfertool(Transfertool):
                                  'staging_finished': datetime.datetime.strptime(file_resp['staging_finished'], '%Y-%m-%dT%H:%M:%S') if file_resp['staging_finished'] else None,
                                  'transferred_at': datetime.datetime.strptime(file_resp['finish_time'], '%Y-%m-%dT%H:%M:%S') if file_resp['finish_time'] else None,
                                  'duration': duration,
-                                 'reason': file_resp.get('reason', None),
+                                 'reason': reason,
                                  'scope': file_resp['file_metadata'].get('scope', None),
                                  'name': file_resp['file_metadata'].get('name', None),
                                  'src_type': file_resp['file_metadata'].get('src_type', None),
@@ -1021,7 +1026,7 @@ class FTS3Transfertool(Transfertool):
                                  'details': {'files': file_resp['file_metadata']}}
 
             # multiple source replicas jobs and we found the successful one, it's the final state.
-            if multi_sources and file_resp['file_state'] in [FTS_STATE.FINISHED]:
+            if multi_sources and file_state in [FTS_STATE.FINISHED]:
                 break
         return resps
 
