@@ -120,6 +120,26 @@ codes = {
 DATE_FORMAT = '%a, %d %b %Y %H:%M:%S UTC'
 
 
+def dids_as_dicts(did_list):
+    """
+    Converts list of DIDs to list of dictionaries
+    :param did_list: list of DIDs as either "scope:name" or {"scope":"scope", "name","name"}
+    :returns: list of dictionaries {"scope":"scope", "name","name"}
+    """
+    out = []
+    for did in did_list:
+        if isinstance(did, str):
+            scope, name = did.split(":", 1)
+            did = dict(scope=scope, name=name)
+        if isinstance(did, dict):
+            if not ("name" in did and "scope" in did):
+                raise ValueError("Scope or name missing in: %s" % (did,))
+        else:
+            raise ValueError("Can not convert item %s (%s) to a DID" % (did, type(did)))
+        out.append(did)
+    return out
+
+
 def build_url(url, path=None, params=None, doseq=False):
     """
     utitily function to build an url for requests to the rucio system.
