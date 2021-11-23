@@ -84,6 +84,10 @@ def submitter(once=False, rses=None, partition_wait_time=10,
     """
 
     try:
+        partition_hash_var = config_get('conveyor', 'partition_hash_var')
+    except NoOptionError:
+        partition_hash_var = None
+    try:
         scheme = config_get('conveyor', 'scheme')
     except NoOptionError:
         scheme = None
@@ -167,6 +171,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                     transfers = transfer_core.next_transfers_to_submit(
                         total_workers=heart_beat['nr_threads'],
                         worker_number=heart_beat['assign_thread'],
+                        partition_hash_var=partition_hash_var,
                         failover_schemes=failover_scheme,
                         limit=bulk,
                         activity=activity,
