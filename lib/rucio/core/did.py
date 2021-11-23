@@ -1285,7 +1285,7 @@ def get_files(files, session=None):
 def set_metadata(scope, name, key, value, did_type=None, did=None,
                  recursive=False, session=None):
     """
-    Add metadata to data identifier.
+    Add single metadata to a data identifier.
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -1301,7 +1301,7 @@ def set_metadata(scope, name, key, value, did_type=None, did=None,
 @transactional_session
 def set_metadata_bulk(scope, name, meta, recursive=False, session=None):
     """
-    Add metadata to data identifier.
+    Add metadata to a data identifier.
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -1310,6 +1310,20 @@ def set_metadata_bulk(scope, name, meta, recursive=False, session=None):
     :param session: The database session in use.
     """
     did_meta_plugins.set_metadata_bulk(scope=scope, name=name, meta=meta, recursive=recursive, session=session)
+
+
+@transactional_session
+def set_dids_metadata_bulk(dids, recursive=False, session=None):
+    """
+    Add metadata to a list of data identifiers.
+
+    :param dids: A list of dids including metadata.
+    :param recursive: Option to propagate the metadata change to content.
+    :param session: The database session in use.
+    """
+
+    for did in dids:
+        did_meta_plugins.set_metadata_bulk(scope=did['scope'], name=did['name'], meta=did['meta'], recursive=recursive, session=session)
 
 
 @read_session

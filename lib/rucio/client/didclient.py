@@ -502,6 +502,23 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
+    def set_dids_metadata_bulk(self, dids, recursive=False):
+        """
+        Set metadata to a list of data identifiers.
+
+        :param dids: A list of dids including metadata, i.e. [['scope': scope1, 'name': name1, 'meta': {key1: value1, key2: value2}] .
+        :param recursive: Option to propagate the metadata update to content.
+        """
+        path = '/'.join([self.DIDS_BASEURL, 'bulkdidsmeta'])
+        url = build_url(choice(self.list_hosts), path=path)
+        data = dumps({'dids': dids, 'recursive': recursive})
+        r = self._send_request(url, type_='POST', data=data)
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
     def set_status(self, scope, name, **kwargs):
         """
         Set data identifier status
