@@ -1137,13 +1137,14 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
 
 
 @transactional_session
-def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
+def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
                              failover_schemes=None, filter_transfertool=None, transfertools_by_name=None, request_type=RequestType.TRANSFER,
                              logger=logging.log, session=None):
     """
     Get next transfers to be submitted; grouped by transfertool which can submit them
     :param total_workers:         Number of total workers.
     :param worker_number:         Id of the executing worker.
+    :param partition_hash_var     The hash variable used for partitioning thread work
     :param limit:                 Maximum number of requests to retrieve from database.
     :param activity:              Activity.
     :param older_than:            Get transfers older than.
@@ -1181,6 +1182,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activ
     request_with_sources = __list_transfer_requests_and_source_replicas(
         total_workers=total_workers,
         worker_number=worker_number,
+        partition_hash_var=partition_hash_var,
         limit=limit,
         activity=activity,
         older_than=older_than,
@@ -1528,6 +1530,7 @@ def create_missing_replicas_and_requests(
 def __list_transfer_requests_and_source_replicas(
     total_workers=0,
     worker_number=0,
+    partition_hash_var=None,
     limit=None,
     activity=None,
     older_than=None,
@@ -1539,18 +1542,22 @@ def __list_transfer_requests_and_source_replicas(
 ) -> "List[RequestWithSources]":
     """
     List requests with source replicas
-    :param total_workers:    Number of total workers.
-    :param worker_number:    Id of the executing worker.
-    :param limit:            Integer of requests to retrieve.
-    :param activity:         Activity to be selected.
-    :param older_than:       Only select requests older than this DateTime.
-    :param rses:             List of rse_id to select requests.
-    :param request_type:     Filter on the given request type.
-    :param request_state:    Filter on the given request state
-    :param transfertool:     The transfer tool as specified in rucio.cfg.
-    :param session:          Database session to use.
-    :returns:                List of RequestWithSources objects.
+    :param total_workers:     Number of total workers.
+    :param worker_number:     Id of the executing worker.
+    :param partition_hash_var The hash variable used for partitioning thread work
+    :param limit:             Integer of requests to retrieve.
+    :param activity:          Activity to be selected.
+    :param older_than:        Only select requests older than this DateTime.
+    :param rses:              List of rse_id to select requests.
+    :param request_type:      Filter on the given request type.
+    :param request_state:     Filter on the given request state
+    :param transfertool:      The transfer tool as specified in rucio.cfg.
+    :param session:           Database session to use.
+    :returns:                 List of RequestWithSources objects.
     """
+
+    if partition_hash_var is None:
+        partition_hash_var = 'request.id'
 
     if request_state is None:
         request_state = RequestState.QUEUED
@@ -1592,7 +1599,7 @@ def __list_transfer_requests_and_source_replicas(
     else:
         sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')
 
-    sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number, hash_variable='requests.id')
+    sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number, hash_variable=partition_hash_var)
 
     if limit:
         sub_requests = sub_requests.limit(limit)
