@@ -44,8 +44,6 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
-# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020-2021
-# - Rob Barnsley <rob.barnsley@skao.int>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2021
@@ -55,11 +53,13 @@
 # - KosKyr <90753277+KosKyr@users.noreply.github.com>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 # - jdierkes <joel.dierkes@cern.ch>, 2021
+# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
 
 from __future__ import print_function
 
 import argparse
 import errno
+import itertools
 import logging
 import math
 import os
@@ -388,15 +388,30 @@ def list_file_replicas(args):
     if args.missing:
         args.all_states = True
     client = get_client(args)
+
+    if args.selected_rse and args.rses:
+        # If the new cli arg and the old one are defined we don't know which one to take
+        logger.error("Cannot use --rse and --rses together, please use --rses")
+        return FAILURE
+    elif args.rse_expression and args.rses:
+        # If the new cli arg and the old one are defined we don't know which one to take
+        logger.error("Cannot use --expression and --rses together, please use --rses")
+        return FAILURE
+    elif args.selected_rse:
+        option_deprecation_message("--rse", "--rses")
+        client.get_rse(args.selected_rse)    # Raise an exception if RSE does not exist
+        args.rses = args.selected_rse
+    elif args.rse_expression:
+        option_deprecation_message("--expression", "--rses")
+        args.rses = args.rse_expression
+
     protocols = None
     if args.protocols:
         protocols = args.protocols.split(',')
 
     table = []
     dids = []
-    if args.selected_rse:
-        client.get_rse(args.selected_rse)    # Raise an exception if RSE does not exist
-    if args.missing and not args.selected_rse:
+    if args.missing and not args.rses:
         print('Cannot use --missing without specifying a RSE')
         return FAILURE
     if args.link and ':' not in args.link:
@@ -408,13 +423,6 @@ def list_file_replicas(args):
         client.get_metadata(scope=scope, name=name)  # break with Exception before streaming replicas if DID does not exist
         dids.append({'scope': scope, 'name': name})
 
-    if args.rse_expression:  # TODO:remove-deprecated
-        args.rses = args.rse_expression
-        option_deprecation_message("--expression", "--rses")
-
-    if args.selected_rse:  # TODO:remove-deprecated
-        option_deprecation_message("--rse", "--rses")
-
     replicas = client.list_replicas(dids, schemes=protocols,
                                     ignore_availability=True,
                                     all_states=args.all_states,
@@ -423,58 +431,62 @@ def list_file_replicas(args):
                                     client_location=detect_client_location(),
                                     sort=args.sort, domain=args.domain,
                                     resolve_archives=not args.no_resolve_archives)
+    rses = [rse["rse"] for rse in client.list_rses(rse_expression=args.rses)]
 
     if args.metalink:
         print(replicas[:-1])  # last character is newline, no need to print that
-    else:
-        if args.missing:
-            for replica in replicas:
-                if replica['states'].get(args.selected_rse) != 'AVAILABLE':
-                    table.append([replica['scope'], replica['name']])
-            print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME']))
-        elif args.link:
-            pfn_dir, dst_dir = args.link.split(':')
-            for replica in replicas:
-                if args.selected_rse:
-                    if args.selected_rse in list(replica['rses'].keys()) and replica['rses'][args.selected_rse]:
-                        for pfn in replica['rses'][args.selected_rse]:
-                            os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
-                else:
-                    for rse in replica['rses']:
-                        if replica['rses'][rse]:
-                            for pfn in replica['rses'][rse]:
-                                os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
-        elif args.pfns:
-            for replica in replicas:
-                if args.selected_rse:
-                    if args.selected_rse in list(replica['rses'].keys()) and replica['rses'][args.selected_rse]:
-                        for pfn in replica['rses'][args.selected_rse]:
-                            print(pfn)
-                else:
-                    for rse in replica['rses']:
-                        if replica['rses'][rse]:
-                            for pfn in replica['rses'][rse]:
-                                print(pfn)
-        else:
-            if args.all_states:
-                header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', '(STATE) RSE: REPLICA']
-            else:
-                header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA']
-            for replica in replicas:
-                if 'bytes' in replica:
-                    for rse in replica['rses']:
-                        for pfn in replica['rses'][rse]:
-                            if args.all_states:
-                                rse_string = '({2}) {0}: {1}'.format(rse, pfn, ReplicaState[replica['states'][rse]].value)
-                            else:
-                                rse_string = '{0}: {1}'.format(rse, pfn)
-                            if args.selected_rse:
-                                if rse == args.selected_rse:
-                                    table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
-                            else:
-                                table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
-            print(tabulate(table, tablefmt=tablefmt, headers=header, disable_numparse=True))
+        return SUCCESS
 
+    if args.missing:
+        for replica, rse in itertools.product(replicas, rses):
+            if 'states' in replica and rse in replica['states'] and replica['states'].get(rse) != 'AVAILABLE':
+                table.append([replica['scope'], replica['name'], "({0}) {1}".format(ReplicaState[replica['states'].get(rse)].value, rse)])
+        print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', '(STATE) RSE']))
+    elif args.link:
+        pfn_dir, dst_dir = args.link.split(':')
+        if args.rses:
+            for replica, rse in itertools.product(replicas, rses):
+                if rse in list(replica['rses'].keys()) and replica['rses'][rse]:
+                    for pfn in replica['rses'][rse]:
+                        os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
+        else:
+            for replica in replicas:
+                for rse in replica['rses']:
+                    if replica['rses'][rse]:
+                        for pfn in replica['rses'][rse]:
+                            os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
+    elif args.pfns:
+        if args.rses:
+            for replica, rse in itertools.product(replicas, rses):
+                if rse in list(replica['rses'].keys()) and replica['rses'][rse]:
+                    for pfn in replica['rses'][rse]:
+                        print(pfn)
+        else:
+            for replica in replicas:
+                for rse in replica['rses']:
+                    if replica['rses'][rse]:
+                        for pfn in replica['rses'][rse]:
+                            print(pfn)
+    else:
+        if args.all_states:
+            header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', '(STATE) RSE: REPLICA']
+        else:
+            header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA']
+        for replica in replicas:
+            if 'bytes' in replica:
+                for rse in replica['rses']:
+                    for pfn in replica['rses'][rse]:
+                        if args.all_states:
+                            rse_string = '({2}) {0}: {1}'.format(rse, pfn, ReplicaState[replica['states'][rse]].value)
+                        else:
+                            rse_string = '{0}: {1}'.format(rse, pfn)
+                        if args.rses:
+                            for selected_rse in rses:
+                                if rse == selected_rse:
+                                    table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
+                        else:
+                            table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
+        print(tabulate(table, tablefmt=tablefmt, headers=header, disable_numparse=True))
     return SUCCESS
 
 
@@ -1925,14 +1937,14 @@ To list the file replicas for a given dataset::
     | user.jdoe | user.jdoe.test.data.1234.file.2 | 82.173 MB  | 01e56f23  | SITE2_DISK: file://another/path/to/file/user.jdoe/user.jdoe.test.data.1234.file.2 |
     +-----------+---------------------------------+------------+-----------+-----------------------------------------------------------------------------------+
 
-To list the missing replica of a dataset of a given RSE::
+To list the missing replica of a dataset of a given RSE-expression::
 
-    $ rucio list-file-replicas --rse SITE1_DISK user.jdoe:user.jdoe.test.data.1234.1
-    +-----------+----------------------------+
-    | SCOPE     | NAME                       |
-    |-----------+----------------------------|
-    | user.jdoe | user.jdoe.test.data.1234.2 |
-    +-----------+----------------------------+
+    $ rucio list-file-replicas --rses SITE1_DISK user.jdoe:user.jdoe.test.data.1234.1
+    +-----------+---------------------------------+------------+-----------+-----------------------------------------------------------------------------------+
+    | SCOPE     | NAME                            | FILESIZE   | ADLER32   | RSE: REPLICA                                                                      |
+    |-----------+---------------------------------+------------+-----------+-----------------------------------------------------------------------------------|
+    | user.jdoe | user.jdoe.test.data.1234.file.1 | 94.835 MB  | 5d000974  | SITE1_DISK: srm://blahblih/path/to/file/user.jdoe/user.jdoe.test.data.1234.file.1 |
+    +-----------+---------------------------------+------------+-----------+-----------------------------------------------------------------------------------+
     ''')
     list_file_replicas_parser.set_defaults(function=list_file_replicas)
     list_file_replicas_parser.add_argument('--protocols', dest='protocols', action='store', help='List of comma separated protocols. (i.e. https, root, srm).', required=False)
@@ -1943,8 +1955,8 @@ To list the missing replica of a dataset of a given RSE::
     list_file_replicas_parser.add_argument('--pfns', default=False, action='store_true', help='Show only the PFNs.', required=False)
     list_file_replicas_parser.add_argument('--domain', default=None, action='store', help='Force the networking domain. Available options: wan, lan, all.', required=False)
     list_file_replicas_parser.add_argument('--link', dest='link', default=None, action='store', help='Symlink PFNs with directory substitution.', required=False)
-    list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE.', required=False).completer = rse_completer  # TODO:remove-deprecated
-    list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE. Must be used with --rse option', required=False)
+    list_file_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Show only results for this RSE. Deprecated, use --rses instead', required=False).completer = rse_completer  # TODO:remove-deprecated
+    list_file_replicas_parser.add_argument('--missing', dest='missing', default=False, action='store_true', help='To list missing replicas at a RSE-Expression. Must be used with --rses option', required=False)
     list_file_replicas_parser.add_argument('--metalink', dest='metalink', default=False, action='store_true', help='Output available replicas as metalink.', required=False)
     list_file_replicas_parser.add_argument('--no-resolve-archives', dest='no_resolve_archives', default=False, action='store_true', help='Do not resolve archives which may contain the files.', required=False)
     list_file_replicas_parser.add_argument('--sort', dest='sort', default=None, action='store', help='Replica sort algorithm. Available options: geoip (default), random', required=False)

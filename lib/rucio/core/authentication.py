@@ -27,6 +27,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import datetime
 import hashlib
@@ -41,7 +42,7 @@ from dogpile.cache.api import NO_VALUE
 from sqlalchemy import and_, or_, select, delete
 
 from rucio.common.exception import CannotAuthenticate, RucioException
-from rucio.common.utils import generate_uuid
+from rucio.common.utils import chunks, generate_uuid
 from rucio.core.account import account_exists
 from rucio.core.oidc import validate_jwt
 from rucio.db.sqla import filter_thread_work
@@ -483,7 +484,8 @@ def __delete_expired_tokens_account(account, session=None):
     for t in result_select.columns('token'):
         tokens.append(t.token)
 
-    stmt_delete = delete(models.Token) \
-        .where(models.Token.token.in_(tokens)) \
-        .prefix_with("/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */")
-    session.execute(stmt_delete)
+    for t in chunks(tokens, 100):
+        stmt_delete = delete(models.Token) \
+            .where(models.Token.token.in_(t)) \
+            .prefix_with("/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */")
+        session.execute(stmt_delete)

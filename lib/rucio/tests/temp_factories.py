@@ -121,7 +121,10 @@ class TemporaryRSEFactory:
 
     def _make_rse(self, scheme, protocol_impl, parameters=None, add_rse_kwargs=None):
         rse_name = rse_name_generator()
-        rse_id = rse_core.add_rse(rse_name, vo=self.vo, **(add_rse_kwargs or {}))
+        if add_rse_kwargs and 'vo' in add_rse_kwargs:
+            rse_id = rse_core.add_rse(rse_name, **add_rse_kwargs)
+        else:
+            rse_id = rse_core.add_rse(rse_name, vo=self.vo, **(add_rse_kwargs or {}))
         if scheme and protocol_impl:
             protocol_parameters = {
                 'scheme': scheme,
