@@ -77,7 +77,7 @@ from six.moves.configparser import NoOptionError, NoSectionError
 
 from rucio.common.config import config_get, config_has_section
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException, \
-    DuplicateCriteriaInDIDFilter, DIDFilterSyntaxError
+    DuplicateCriteriaInDIDFilter, DIDFilterSyntaxError, InvalidAlgorithmName
 
 from rucio.common.extra import import_extras
 from rucio.common.types import InternalAccount, InternalScope
@@ -609,7 +609,16 @@ def _register_policy_package_surl_algorithms():
             package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo['vo']))
             module = importlib.import_module(package)
             if hasattr(module, 'get_surl_algorithms'):
-                _SURL_ALGORITHMS.update(module.get_surl_algorithms())
+                surl_algorithms = module.get_surl_algorithms()
+                if not vo:
+                    _SURL_ALGORITHMS.update(surl_algorithms)
+                else:
+                    # check that the names are correctly prefixed
+                    for k in surl_algorithms.keys():
+                        if k.lower().startswith(vo['vo'].lower()):
+                            _SURL_ALGORITHMS[k] = surl_algorithms[k]
+                        else:
+                            raise InvalidAlgorithmName(k, vo['vo'])
         except (NoOptionError, NoSectionError, ImportError):
             pass
 

@@ -1045,3 +1045,13 @@ class DIDFilterSyntaxError(RucioException):
         super(DIDFilterSyntaxError, self).__init__(*args, **kwargs)
         self._message = 'Syntax error in filter expression.'
         self.error_code = 99
+
+
+class InvalidAlgorithmName(RucioException):
+    """
+    The given algorithm name is not valid for the VO.
+    """
+    def __init__(self, algorithm, vo, *args, **kwargs):
+        super(InvalidAlgorithmName, self).__init__(*args, **kwargs)
+        self.message = 'Algorithm name %s is not valid for VO %s' % (algorithm, vo)
+        self.error_code = 100
