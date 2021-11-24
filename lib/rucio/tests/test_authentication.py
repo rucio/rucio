@@ -26,12 +26,15 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import base64
 import unittest
 
+import datetime
 import pytest
 from requests import session
+import time
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token, \
     get_auth_token_saml
@@ -40,6 +43,7 @@ from rucio.common.exception import Duplicate, AccessDenied
 from rucio.common.types import InternalAccount
 from rucio.common.utils import ssh_sign
 from rucio.core.identity import add_account_identity, del_account_identity
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.tests.common import headers, hdrdict, loginhdr, vohdr
 from rucio.tests.common_server import get_vo
@@ -281,3 +285,15 @@ def test_saml_fail(vo, rest_client):
         response = rest_client.get('/auth/saml', headers=headers(hdrdict(headers_dict)))
 
     assert response.status_code == 401
+
+
+@pytest.mark.noparallel(reason='adds many tokens')
+def test_many_tokens(vo, root_account, db_session):
+    """AUTHENTIFICATION (REST): Error when deleting too many tokens."""
+    for i in range(2000):
+        models.Token(account=root_account, token="dummytoken" + str(i), ip='127.0.0.1', expired_at=datetime.datetime.utcnow()).save(session=db_session)
+    db_session.commit()
+
+    # Ensures that the tokens are expired
+    time.sleep(1)
+    print(get_auth_token_user_pass(account='root', username='ddmlab', password='secret', appid='test', ip='127.0.0.1', vo=vo))
