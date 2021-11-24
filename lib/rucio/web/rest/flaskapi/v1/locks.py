@@ -25,11 +25,11 @@
 
 from flask import Flask, Blueprint, request
 
-from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
+from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks, get_dataset_locks_bulk
 from rucio.common.exception import RSENotFound
 from rucio.common.utils import render_json
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
-    request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView
+    request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parse
 
 
 class LockByRSE(ErrorHandlingMethodView):
@@ -61,13 +61,12 @@ class LockByRSE(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
 
-class LockByScopeName(ErrorHandlingMethodView):
+class LocksByScopeName(ErrorHandlingMethodView):
     """ REST APIs for dataset locks. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
         """ get locks for a given scope, name.
-
         :param scope_name: data identifier (scope)/(name).
         :query did_type: The type used to filter, e.g., DATASET, CONTAINER.
         :resheader Content-Type: application/x-json-stream
@@ -92,13 +91,49 @@ class LockByScopeName(ErrorHandlingMethodView):
             return generate_http_error_flask(400, error)
 
 
+class DatasetLocksForDids(ErrorHandlingMethodView):
+    """ REST APIs for multiple dataset locks. """
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def post(self):
+        """ get locks for a given scope, name.
+
+        :resheader Content-Type: application/x-json-stream
+        :status 200: OK.
+        :status 400: Wrong DID type.
+        :returns: Line separated list of dictionary with lock information.
+        """
+
+        data = json_parse(types=(dict,))
+        try:
+            dids = data["dids"]
+        except KeyError:
+            return 'Can not find the list of DIDs in the data. Use "dids" keyword.', 400
+        vo = request.environ.get('vo')
+        try:
+            locks = get_dataset_locks_bulk(dids, vo)        # removes duplicates
+
+            def generate(locks):
+                for lock in locks:
+                    lock["scope"] = str(lock["scope"])
+                    yield render_json(**lock) + '\n'
+            return try_stream(generate(locks))
+
+        except ValueError as error:
+            return generate_http_error_flask(400, error)
+
+
 def blueprint():
     bp = Blueprint('locks', __name__, url_prefix='/locks')
 
     lock_by_rse_view = LockByRSE.as_view('lock_by_rse')
     bp.add_url_rule('/<rse>', view_func=lock_by_rse_view, methods=['get', ])
-    lock_by_scope_name_view = LockByScopeName.as_view('lock_by_scope_name')
+
+    lock_by_scope_name_view = LocksByScopeName.as_view('locks_by_scope_name')
     bp.add_url_rule('/<path:scope_name>', view_func=lock_by_scope_name_view, methods=['get', ])
+
+    locks_for_dids_view = DatasetLocksForDids.as_view('locks_for_dids')
+    bp.add_url_rule('/bulk_locks_for_dids', view_func=locks_for_dids_view, methods=['post', ])
 
     bp.before_request(request_auth_env)
     bp.after_request(response_headers)

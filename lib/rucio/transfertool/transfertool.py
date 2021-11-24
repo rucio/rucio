@@ -68,8 +68,8 @@ class Transfertool(object):
         return self.external_host
 
     @staticmethod
-    @abstractmethod
-    def submission_builder_for_path(transfer_path, logger=logging.log):
+    @classmethod
+    def submission_builder_for_path(cls, transfer_path, logger=logging.log):
         """
         Analyze the transfer path. If this transfertool class can submit the given transfers, return
         a TransferToolBuilder instance capable to build transfertool objects configured for this

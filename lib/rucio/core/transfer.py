@@ -608,7 +608,7 @@ def is_recoverable_fts_overwrite_error(fts_status_dict):
     return False
 
 
-def bulk_query_transfers(request_host, transfers_by_eid, transfertool='fts3', timeout=None, logger=logging.log):
+def bulk_query_transfers(request_host, transfers_by_eid, transfertool='fts3', vo=None, timeout=None, logger=logging.log):
     """
     Query the status of a transfer.
     :param request_host:     Name of the external host.
@@ -623,7 +623,7 @@ def bulk_query_transfers(request_host, transfers_by_eid, transfertool='fts3', ti
 
     if transfertool == 'fts3':
         start_time = time.time()
-        fts_resps = FTS3Transfertool(external_host=request_host).bulk_query(transfer_ids=list(transfers_by_eid), timeout=timeout)
+        fts_resps = FTS3Transfertool(external_host=request_host, vo=vo).bulk_query(transfer_ids=list(transfers_by_eid), timeout=timeout)
         record_timer('core.request.bulk_query_transfers_fts3', (time.time() - start_time) * 1000 / len(transfers_by_eid))
 
         for external_id, transfers in transfers_by_eid.items():
@@ -1137,13 +1137,14 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
 
 
 @transactional_session
-def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
+def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
                              failover_schemes=None, filter_transfertool=None, transfertools_by_name=None, request_type=RequestType.TRANSFER,
-                             logger=logging.log, session=None):
+                             ignore_availability=False, logger=logging.log, session=None):
     """
     Get next transfers to be submitted; grouped by transfertool which can submit them
     :param total_workers:         Number of total workers.
     :param worker_number:         Id of the executing worker.
+    :param partition_hash_var     The hash variable used for partitioning thread work
     :param limit:                 Maximum number of requests to retrieve from database.
     :param activity:              Activity.
     :param older_than:            Get transfers older than.
@@ -1153,6 +1154,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activ
     :param transfertools_by_name: Dict: {transfertool_name_str: transfertool class}
     :param filter_transfertool:   The transfer tool to filter requests on.
     :param request_type           The type of requests to retrieve (Transfer/Stagein)
+    :param ignore_availability:   Ignore blocklisted RSEs
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     :param session:               The database session in use.
     :returns:                     Dict: {TransferToolBuilder: <list of transfer paths (possibly multihop) to be submitted>}
@@ -1181,12 +1183,14 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activ
     request_with_sources = __list_transfer_requests_and_source_replicas(
         total_workers=total_workers,
         worker_number=worker_number,
+        partition_hash_var=partition_hash_var,
         limit=limit,
         activity=activity,
         older_than=older_than,
         rses=rses,
         request_type=request_type,
         request_state=RequestState.QUEUED,
+        ignore_availability=ignore_availability,
         transfertool=filter_transfertool,
         session=session,
     )
@@ -1197,6 +1201,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, limit=None, activ
         multihop_rses=multihop_rses,
         schemes=schemes,
         failover_schemes=failover_schemes,
+        ignore_availability=ignore_availability,
         logger=logger,
         session=session,
     )
@@ -1230,6 +1235,7 @@ def __build_transfer_paths(
         multihop_rses: "List[str]",
         schemes: "List[str]",
         failover_schemes: "List[str]",
+        ignore_availability: bool = False,
         logger: "Callable" = logging.log,
         session: "Optional[Session]" = None,
 ):
@@ -1249,7 +1255,8 @@ def __build_transfer_paths(
     unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
     # Disallow multihop via blocklisted RSEs
-    multihop_rses = list(set(multihop_rses).difference(unavailable_write_rse_ids).difference(unavailable_read_rse_ids))
+    if not ignore_availability:
+        multihop_rses = list(set(multihop_rses).difference(unavailable_write_rse_ids).difference(unavailable_read_rse_ids))
 
     candidate_paths_by_request_id, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, set(), set(), set()
     for rws in requests_with_sources:
@@ -1267,7 +1274,7 @@ def __build_transfer_paths(
         reqs_no_source.add(rws.request_id)
 
         # Check if destination is blocked
-        if rws.dest_rse.id in unavailable_write_rse_ids:
+        if not ignore_availability and rws.dest_rse.id in unavailable_write_rse_ids:
             logger(logging.WARNING, 'RSE %s is blocked for write. Will skip the submission of new jobs', rws.dest_rse)
             continue
 
@@ -1289,7 +1296,8 @@ def __build_transfer_paths(
             filtered_sources = filter(lambda s: s.rse.id in allowed_source_rses, filtered_sources)
         filtered_sources = filter(lambda s: s.rse.name is not None, filtered_sources)
         # Ignore blocklisted RSEs
-        filtered_sources = filter(lambda s: s.rse.id not in unavailable_read_rse_ids, filtered_sources)
+        if not ignore_availability:
+            filtered_sources = filter(lambda s: s.rse.id not in unavailable_read_rse_ids, filtered_sources)
         # For staging requests, the staging_buffer attribute must be correctly set
         if rws.request_type == RequestType.STAGEIN:
             filtered_sources = filter(lambda s: s.rse.attributes.get('staging_buffer') == rws.dest_rse.name, filtered_sources)
@@ -1528,29 +1536,36 @@ def create_missing_replicas_and_requests(
 def __list_transfer_requests_and_source_replicas(
     total_workers=0,
     worker_number=0,
+    partition_hash_var=None,
     limit=None,
     activity=None,
     older_than=None,
     rses=None,
     request_type=RequestType.TRANSFER,
     request_state=None,
+    ignore_availability=False,
     transfertool=None,
     session=None,
 ) -> "List[RequestWithSources]":
     """
     List requests with source replicas
-    :param total_workers:    Number of total workers.
-    :param worker_number:    Id of the executing worker.
-    :param limit:            Integer of requests to retrieve.
-    :param activity:         Activity to be selected.
-    :param older_than:       Only select requests older than this DateTime.
-    :param rses:             List of rse_id to select requests.
-    :param request_type:     Filter on the given request type.
-    :param request_state:    Filter on the given request state
-    :param transfertool:     The transfer tool as specified in rucio.cfg.
-    :param session:          Database session to use.
-    :returns:                List of RequestWithSources objects.
+    :param total_workers:      Number of total workers.
+    :param worker_number:      Id of the executing worker.
+    :param partition_hash_var  The hash variable used for partitioning thread work
+    :param limit:              Integer of requests to retrieve.
+    :param activity:           Activity to be selected.
+    :param older_than:         Only select requests older than this DateTime.
+    :param rses:               List of rse_id to select requests.
+    :param request_type:       Filter on the given request type.
+    :param request_state:      Filter on the given request state
+    :param transfertool:       The transfer tool as specified in rucio.cfg.
+    :param ignore_availability Ignore blocklisted RSEs
+    :param session:            Database session to use.
+    :returns:                  List of RequestWithSources objects.
     """
+
+    if partition_hash_var is None:
+        partition_hash_var = 'request.id'
 
     if request_state is None:
         request_state = RequestState.QUEUED
@@ -1576,8 +1591,10 @@ def __list_transfer_requests_and_source_replicas(
         .filter(models.Request.request_type == request_type) \
         .join(models.RSE, models.RSE.id == models.Request.dest_rse_id) \
         .filter(models.RSE.deleted == false()) \
-        .order_by(models.Request.created_at) \
-        .filter(models.RSE.availability.in_((2, 3, 6, 7)))
+        .order_by(models.Request.created_at)
+
+    if not ignore_availability:
+        sub_requests = sub_requests.filter(models.RSE.availability.in_((2, 3, 6, 7)))
 
     if isinstance(older_than, datetime.datetime):
         sub_requests = sub_requests.filter(models.Request.requested_at < older_than)
@@ -1592,7 +1609,7 @@ def __list_transfer_requests_and_source_replicas(
     else:
         sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')
 
-    sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number, hash_variable='requests.id')
+    sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number, hash_variable=partition_hash_var)
 
     if limit:
         sub_requests = sub_requests.limit(limit)

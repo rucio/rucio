@@ -77,7 +77,7 @@ from six.moves.configparser import NoOptionError, NoSectionError
 
 from rucio.common.config import config_get, config_has_section
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException, \
-    DuplicateCriteriaInDIDFilter, DIDFilterSyntaxError
+    DuplicateCriteriaInDIDFilter, DIDFilterSyntaxError, InvalidAlgorithmName
 
 from rucio.common.extra import import_extras
 from rucio.common.types import InternalAccount, InternalScope
@@ -118,6 +118,26 @@ codes = {
 
 # RFC 1123 (ex RFC 822)
 DATE_FORMAT = '%a, %d %b %Y %H:%M:%S UTC'
+
+
+def dids_as_dicts(did_list):
+    """
+    Converts list of DIDs to list of dictionaries
+    :param did_list: list of DIDs as either "scope:name" or {"scope":"scope", "name","name"}
+    :returns: list of dictionaries {"scope":"scope", "name","name"}
+    """
+    out = []
+    for did in did_list:
+        if isinstance(did, str):
+            scope, name = did.split(":", 1)
+            did = dict(scope=scope, name=name)
+        if isinstance(did, dict):
+            if not ("name" in did and "scope" in did):
+                raise ValueError("Scope or name missing in: %s" % (did,))
+        else:
+            raise ValueError("Can not convert item %s (%s) to a DID" % (did, type(did)))
+        out.append(did)
+    return out
 
 
 def build_url(url, path=None, params=None, doseq=False):
@@ -589,7 +609,16 @@ def _register_policy_package_surl_algorithms():
             package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo['vo']))
             module = importlib.import_module(package)
             if hasattr(module, 'get_surl_algorithms'):
-                _SURL_ALGORITHMS.update(module.get_surl_algorithms())
+                surl_algorithms = module.get_surl_algorithms()
+                if not vo:
+                    _SURL_ALGORITHMS.update(surl_algorithms)
+                else:
+                    # check that the names are correctly prefixed
+                    for k in surl_algorithms.keys():
+                        if k.lower().startswith(vo['vo'].lower()):
+                            _SURL_ALGORITHMS[k] = surl_algorithms[k]
+                        else:
+                            raise InvalidAlgorithmName(k, vo['vo'])
         except (NoOptionError, NoSectionError, ImportError):
             pass
 

@@ -31,6 +31,8 @@ from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
 import pytest
 
 import rucio.daemons.reaper.reaper
+from rucio.common.types import InternalAccount
+from rucio.common.utils import generate_uuid
 from rucio.common.exception import ReplicaNotFound, RequestNotFound
 from rucio.core import config as core_config
 from rucio.core import distance as distance_core
@@ -251,6 +253,7 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
     request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, **did)
+    assert 'Cancelled hop in multi-hop' in request['err_msg']
     assert request['state'] == RequestState.FAILED
     request = request_core.get_request_by_did(rse_id=jump_rse_id, **did)
     assert request['state'] == RequestState.FAILED
@@ -478,6 +481,7 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         # TODO: set the run_poller argument to False if we ever manage to make the receiver correctly handle multi-hop failures.
         request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, run_poller=True, **did)
         assert request['state'] == RequestState.FAILED
+        assert 'Cancelled hop in multi-hop' in request['err_msg']
 
         # First hop will be handled by receiver; second hop by poller
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 1
@@ -985,3 +989,59 @@ def test_overwrite_corrupted_files(overwrite_on_tape_topology, core_config_mock,
         request = request_core.get_request_by_did(rse_id=rse3_id, **did2)
         assert request['state'] == RequestState.SUBMITTED
         assert __wait_for_fts_state(request, expected_state='ARCHIVING') == 'ARCHIVING'
+
+
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+@pytest.mark.parametrize("file_config_mock", [{"overrides": [
+    ('conveyor', 'usercert', 'DEFAULT_DUMMY_CERT'),
+    ('vo_certs', 'new', 'NEW_VO_DUMMY_CERT'),
+]}], indirect=True)
+def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope_factory, vo, second_vo):
+    """
+    Test that submitter and poller call fts with correct certificates in multi-vo env
+    """
+
+    _, [scope1, scope2] = scope_factory(vos=[vo, second_vo])
+
+    def __init_test_for_vo(vo, scope):
+        src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', vo=vo)
+        dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', vo=vo)
+        all_rses = [src_rse_id, dst_rse_id]
+
+        for rse_id in all_rses:
+            rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+        distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+        account = InternalAccount('root', vo=vo)
+        did = did_factory.random_did(scope=scope)
+        replica_core.add_replica(rse_id=src_rse_id, scope=scope, name=did['name'], bytes_=1, account=account, adler32=None, md5=None)
+        rule_core.add_rule(dids=[did], account=account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None,
+                           lifetime=None, locked=False, subscription_id=None, ignore_account_limit=True)
+        return all_rses
+
+    all_rses = []
+    rses = __init_test_for_vo(vo=vo, scope=scope1)
+    all_rses.extend(rses)
+    rses = __init_test_for_vo(vo=second_vo, scope=scope2)
+    all_rses.extend(rses)
+
+    certs_used_by_submitter = []
+    certs_used_by_poller = []
+
+    class _FTSWrapper(FTS3Transfertool):
+        # Override fts3 transfertool. Don't actually perform any interaction with fts; and record the certificates used
+        def submit(self, transfers, job_params, timeout=None):
+            certs_used_by_submitter.append(self.cert[0])
+            return generate_uuid()
+
+        def bulk_query(self, transfer_ids, timeout=None):
+            certs_used_by_poller.append(self.cert[0])
+            return {}
+
+    with patch('rucio.daemons.conveyor.submitter.TRANSFERTOOL_CLASSES_BY_NAME') as tt_mock:
+        tt_mock.__getitem__.return_value = _FTSWrapper
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+        assert sorted(certs_used_by_submitter) == ['DEFAULT_DUMMY_CERT', 'NEW_VO_DUMMY_CERT']
+
+    with patch('rucio.core.transfer.FTS3Transfertool', _FTSWrapper):
+        poller(once=True, older_than=0, partition_wait_time=None)
+        assert sorted(certs_used_by_poller) == ['DEFAULT_DUMMY_CERT', 'NEW_VO_DUMMY_CERT']

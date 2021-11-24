@@ -35,7 +35,7 @@ from rucio.api.did import add_did, add_dids, list_content, list_content_history,
     list_files, scope_list, get_did, set_metadata, get_metadata, get_metadata_bulk, set_status, attach_dids, \
     detach_dids, attach_dids_to_dids, get_dataset_by_guid, list_parent_dids, create_did_sample, list_new_dids, \
     resurrect, get_users_following_did, remove_did_from_followed, add_did_to_followed, delete_metadata, \
-    set_metadata_bulk
+    set_metadata_bulk, set_dids_metadata_bulk
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import ScopeNotFound, DataIdentifierNotFound, DataIdentifierAlreadyExists, \
     DuplicateContent, AccessDenied, KeyNotFound, Duplicate, InvalidValueForKey, UnsupportedStatus, \
@@ -867,6 +867,34 @@ class SingleMeta(ErrorHandlingMethodView):
         return 'Created', 201
 
 
+class BulkDIDsMeta(ErrorHandlingMethodView):
+
+    def post(self):
+        """
+        Set metadata on a list of data identifiers.
+
+        .. :quickref: BulkDIDsMeta; Set metadata to multiple DIDs
+
+        :status 201: Created
+        :status 400: Bad Request
+        :status 401: Unauthorized
+        :status 404: DataIdentifierNotFound
+        """
+        parameters = json_parameters()
+        dids = param_get(parameters, 'dids')
+
+        try:
+            set_dids_metadata_bulk(dids=dids, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+        except DataIdentifierNotFound as error:
+            return generate_http_error_flask(404, error)
+        except UnsupportedOperation as error:
+            return generate_http_error_flask(409, error)
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error)
+
+        return 'Created', 201
+
+
 class Rules(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -1202,6 +1230,8 @@ def blueprint():
     bp.add_url_rule('/<path:scope_name>/meta', view_func=meta_view, methods=['get', 'post', 'delete'])
     singlemeta_view = SingleMeta.as_view('singlemeta')
     bp.add_url_rule('/<path:scope_name>/meta/<key>', view_func=singlemeta_view, methods=['post', ])
+    bulkdidsmeta_view = BulkDIDsMeta.as_view('bulkdidsmeta')
+    bp.add_url_rule('/bulkdidsmeta', view_func=bulkdidsmeta_view, methods=['post', ])
     rules_view = Rules.as_view('rules')
     bp.add_url_rule('/<path:scope_name>/rules', view_func=rules_view, methods=['get', ])
     parents_view = Parents.as_view('parents')
