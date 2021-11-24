@@ -41,7 +41,8 @@ def file_generator(size=2048, namelen=10):
 def get_scope_and_rses():
     """
     Check if xrd containers rses for xrootd are available in the testing environment.
-    :return: A tuple (scope, rses) for the rucio client where scope is mock/test and rses is a list.
+
+    :return: A tuple (scope, rses) for the rucio client where scope is mock/test and rses is a list or (None, [None]) if no suitable rse exists.
     """
     cmd = "rucio list-rses --expression 'test_container_xrd=True'"
     print(cmd)
@@ -49,7 +50,7 @@ def get_scope_and_rses():
     print(out, err)
     rses = out.split()
     if len(rses) == 0:
-        return 'mock', ['MOCK-POSIX']
+        return None, [None]
     return 'test', rses
 
 
@@ -99,6 +100,9 @@ class TestRucioServer(unittest.TestCase):
 
     def test_upload_download(self):
         """CLIENT(USER): rucio upload files to dataset/download dataset"""
+        if self.rse is None:
+            return
+
         tmp_file1 = file_generator()
         tmp_file2 = file_generator()
         tmp_file3 = file_generator()
