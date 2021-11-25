@@ -220,4 +220,3 @@ def list_requests_history(src_rses, dst_rses, states, issuer, vo='def'):
     for req in request.list_requests_history(src_rse_ids, dst_rse_ids, states):
         req = req.to_dict()
         yield api_update_return_dict(req)
-

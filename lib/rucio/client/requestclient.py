@@ -22,8 +22,7 @@
 # - Rob Barnsley <rob.barnsley@skao.int>, 2021
 
 from requests.status_codes import codes
-
-
+from six.moves.urllib.parse import quote_plus
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
@@ -40,8 +39,8 @@ class RequestClient(BaseClient):
         :return: request information
         :rtype: dict
         """
-        path = '/'.join([self.REQUEST_BASEURL, 'list']) + '?' +'&'.join(['src_rse={}'.format(src_rse), 'dst_rse={}'.format
-            (dst_rse), 'request_states={}'.format(request_states)])
+        path = '/'.join([self.REQUEST_BASEURL, 'list']) + '?' + '&'.join(['src_rse={}'.format(src_rse), 'dst_rse={}'.format(
+            dst_rse), 'request_states={}'.format(request_states)])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type_='GET')
 
@@ -57,8 +56,8 @@ class RequestClient(BaseClient):
         :return: request information
         :rtype: dict
         """
-        path = '/'.join([self.REQUEST_BASEURL, 'history', 'list']) + '?' +'&'.join(['src_rse={}'.format(src_rse), 'dst_rse={}'.format
-            (dst_rse), 'request_states={}'.format(request_states)])
+        path = '/'.join([self.REQUEST_BASEURL, 'history', 'list']) + '?' + '&'.join(['src_rse={}'.format(src_rse), 'dst_rse={}'.format(
+            dst_rse), 'request_states={}'.format(request_states)])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type_='GET')
 

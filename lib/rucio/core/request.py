@@ -680,8 +680,7 @@ def get_request_history_by_did(scope, name, rse_id, request_type=None, session=N
 
     record_counter('core.request.get_request_history_by_did')
     try:
-        tmp = session.query(models.RequestHistory).filter_by(scope=scope,
-                                                      name=name)
+        tmp = session.query(models.RequestHistory).filter_by(scope=scope, name=name)
 
         tmp = tmp.filter_by(dest_rse_id=rse_id)
 
@@ -1543,8 +1542,8 @@ def list_requests_history(src_rse_ids, dst_rse_ids, states=[RequestState.WAITING
     :param session: The database session in use.
     """
     query = session.query(models.RequestHistory).filter(models.RequestHistory.state.in_(states),
-                                                 models.RequestHistory.source_rse_id.in_(src_rse_ids),
-                                                 models.RequestHistory.dest_rse_id.in_(dst_rse_ids))
+                                                        models.RequestHistory.source_rse_id.in_(src_rse_ids),
+                                                        models.RequestHistory.dest_rse_id.in_(dst_rse_ids))
     for request in query.yield_per(500):
         yield request
 
