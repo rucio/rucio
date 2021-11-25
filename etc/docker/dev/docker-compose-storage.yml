@@ -1,4 +1,3 @@
-version: "3.5"
 services:
   rucio:
     image: docker.io/rucio/rucio-dev:py3
@@ -36,7 +35,6 @@ services:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
       - RDBMS=postgres11
-    network_mode: host
   ruciodb:
     image: docker.io/postgres:11
     network_mode: "service:rucio"
