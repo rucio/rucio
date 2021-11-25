@@ -1565,7 +1565,7 @@ def __list_transfer_requests_and_source_replicas(
     """
 
     if partition_hash_var is None:
-        partition_hash_var = 'request.id'
+        partition_hash_var = 'requests.id'
 
     if request_state is None:
         request_state = RequestState.QUEUED
