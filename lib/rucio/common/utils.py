@@ -1564,12 +1564,16 @@ def is_client():
     :returns client_mode: True if is called from a client, False if it is called from a server/daemon
     """
     if 'RUCIO_CLIENT_MODE' not in os.environ:
-        if config_has_section('database'):
-            client_mode = False
-        elif config_has_section('client'):
+        try:
+            if config_has_section('database'):
+                client_mode = False
+            elif config_has_section('client'):
+                client_mode = True
+            else:
+                client_mode = False
+        except RuntimeError:
+            # If no configuration file is found the default value should be True
             client_mode = True
-        else:
-            client_mode = False
     else:
         if os.environ['RUCIO_CLIENT_MODE']:
             client_mode = True
