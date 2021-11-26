@@ -192,7 +192,8 @@ def process_output(output, sanity_check=True, compress=True):
     for chunk in chunks(lost_replicas, 1000):
         lost_pfns.extend([r['rses'][rse_id][0] for r in list_replicas(chunk) if rse_id in r['rses']])
 
-    add_quarantined_replicas(rse_id=rse_id, replicas=dark_replicas)
+    for chunk in chunks(dark_replicas, 1000):
+        add_quarantined_replicas(rse_id=rse_id, replicas=chunk)
     logger.debug('Processed %d DARK files from "%s"', len(dark_replicas),
                  output)
     declare_bad_file_replicas(lost_pfns, reason='Reported by Auditor',
