@@ -115,7 +115,7 @@ class RseData:
 
     def __str__(self):
         if self.name is not None:
-            return "{}({})".format(self.name, self.id)
+            return self.name
         return self.id
 
     def __eq__(self, other):
@@ -164,7 +164,7 @@ class TransferSource:
         self.url = url
 
     def __str__(self):
-        return "source rse={}".format(self.rse)
+        return "src_rse={}".format(self.rse)
 
 
 class TransferDestination:
@@ -173,7 +173,7 @@ class TransferDestination:
         self.scheme = scheme
 
     def __str__(self):
-        return "destination rse={}".format(self.rse)
+        return "dst_rse={}".format(self.rse)
 
 
 class RequestWithSources:
@@ -201,7 +201,7 @@ class RequestWithSources:
         self.sources = []
 
     def __str__(self):
-        return "request {}:{}({})".format(self.scope, self.name, self.request_id)
+        return "{}({}:{})".format(self.request_id, self.scope, self.name)
 
     @property
     def attributes(self):
@@ -293,7 +293,11 @@ class DirectTransferDefinition:
         self._legacy_sources = None
 
     def __str__(self):
-        return 'transfer {} from {} to {}'.format(self.rws, ' and '.join([str(s) for s in self.sources]), self.dst.rse)
+        return '{sources}--{request_id}->{destination}'.format(
+            sources=','.join([str(s.rse) for s in self.sources]),
+            request_id=self.rws.request_id or '',
+            destination=self.dst.rse
+        )
 
     @property
     def src(self):
@@ -457,6 +461,22 @@ class StageinTransferDefinition(DirectTransferDefinition):
                 self.src.source_ranking
             )]
         return self._legacy_sources
+
+
+def transfer_path_str(transfer_path: "List[DirectTransferDefinition]") -> str:
+    """
+    an implementation of __str__ for a transfer path, which is a list of direct transfers, so not really an object
+    """
+    if not transfer_path:
+        return 'empty transfer path'
+
+    if len(transfer_path) == 1:
+        return str(transfer_path[0])
+
+    path_str = str(transfer_path[0].src.rse)
+    for hop in transfer_path:
+        path_str += '--{request_id}->{destination}'.format(request_id=hop.rws.request_id or '', destination=hop.dst.rse)
+    return path_str
 
 
 @transactional_session
@@ -1254,6 +1274,11 @@ def __build_transfer_paths(
     unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
     unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
+    # Do not print full source RSE list for DIDs which have many sources. Otherwise we fill the monitoring
+    # storage with data which has little to no benefit. This log message is unlikely to help debugging
+    # transfers issues when there are many sources, but can be very useful for small number of sources.
+    num_sources_in_logs = 4
+
     # Disallow multihop via blocklisted RSEs
     if not ignore_availability:
         multihop_rses = list(set(multihop_rses).difference(unavailable_write_rse_ids).difference(unavailable_read_rse_ids))
@@ -1269,7 +1294,8 @@ def __build_transfer_paths(
         if rws.previous_attempt_id and failover_schemes:
             transfer_schemes = failover_schemes
 
-        logger(logging.INFO, 'Found following sources for %s: %s', rws, [str(src.rse) for src in rws.sources])
+        logger(logging.INFO, '%s: Found %d sources', rws, len(rws.sources))
+
         # Assume request doesn't have any sources. Will be removed later if sources are found.
         reqs_no_source.add(rws.request_id)
         if not rws.sources:
@@ -1277,7 +1303,7 @@ def __build_transfer_paths(
 
         # Check if destination is blocked
         if not ignore_availability and rws.dest_rse.id in unavailable_write_rse_ids:
-            logger(logging.WARNING, 'RSE %s is blocked for write. Will skip the submission of new jobs', rws.dest_rse)
+            logger(logging.WARNING, '%s: dst RSE is blocked for write. Will skip the submission of new jobs', rws.request_id)
             continue
 
         # parse source expression
@@ -1287,7 +1313,7 @@ def __build_transfer_paths(
             try:
                 parsed_rses = parse_expression(source_replica_expression, session=session)
             except InvalidRSEExpression as error:
-                logger(logging.ERROR, "Invalid RSE exception %s: %s", source_replica_expression, str(error))
+                logger(logging.ERROR, "%s: Invalid RSE exception %s: %s", rws.request_id, source_replica_expression, str(error))
                 continue
             else:
                 allowed_source_rses = [x['id'] for x in parsed_rses]
@@ -1311,7 +1337,11 @@ def __build_transfer_paths(
 
         filtered_sources = list(filtered_sources)
         if len(rws.sources) != len(filtered_sources):
-            logger(logging.DEBUG, 'Sources after filtering for %s: %s', rws, [str(src.rse) for src in filtered_sources])
+            dropped_rses = list(set(s.rse.name for s in rws.sources).difference(s.rse.name for s in filtered_sources))
+            dropped_rses_log = ','.join(dropped_rses[:num_sources_in_logs])
+            if len(dropped_rses) > num_sources_in_logs:
+                dropped_rses_log += '... and %d others' % (len(dropped_rses) - num_sources_in_logs)
+            logger(logging.INFO, '%s: %d/%d sources left after filtering. Dropped: %s', rws.request_id, len(filtered_sources), len(rws.sources), dropped_rses_log)
         any_source_had_scheme_mismatch = False
         candidate_paths = []
 
@@ -1337,42 +1367,45 @@ def __build_transfer_paths(
         for source in filtered_sources:
             transfer_path = paths.get(source.rse.id)
             if transfer_path is None:
-                logger(logging.WARNING, "Request %s: no path from %s to %s", rws.request_id, source.rse, rws.dest_rse)
+                logger(logging.WARNING, "%s: no path from %s to %s", rws.request_id, source.rse, rws.dest_rse)
                 continue
             if not transfer_path:
                 any_source_had_scheme_mismatch = True
-                logger(logging.WARNING, "Request %s: no matching protocol between %s and %s", rws.request_id, source.rse, rws.dest_rse)
+                logger(logging.WARNING, "%s: no matching protocol between %s and %s", rws.request_id, source.rse, rws.dest_rse)
                 continue
 
             if len(transfer_path) > 1:
-                logger(logging.DEBUG, 'From %s to %s requires multihop: %s', source.rse, rws.dest_rse, [str(hop) for hop in transfer_path])
+                logger(logging.DEBUG, '%s: From %s to %s requires multihop: %s', rws.request_id, source.rse, rws.dest_rse, transfer_path_str(transfer_path))
 
             candidate_paths.append(transfer_path)
 
         if len(filtered_sources) != len(candidate_paths):
-            logger(logging.DEBUG, 'Sources after path computation for %s: %s', rws, [str(path[0].src.rse) for path in candidate_paths])
+            logger(logging.DEBUG, '%s: Sources after path computation: %s', rws.request_id, [str(path[0].src.rse) for path in candidate_paths])
 
         candidate_paths = __filter_multihops_with_intermediate_tape(candidate_paths)
         candidate_paths = __compress_multihops(candidate_paths, rws.sources)
         candidate_paths = list(__sort_paths(candidate_paths))
 
-        logger(logging.INFO, 'Final ordered candidate sources for %s: %s', rws, [('multihop: ' if len(path) > 1 else '') + str(path[0].src.rse)
-                                                                                 for path in candidate_paths])
+        logger(logging.INFO, '%s: Ordered sources: %s%s',
+               rws,
+               ','.join(('multihop: ' if len(path) > 1 else '') + '{}:{}:{}'.format(path[0].src.rse, path[0].src.source_ranking, path[0].src.distance_ranking)
+                        for path in candidate_paths[:num_sources_in_logs]),
+               '... and %d others' % (len(candidate_paths) - num_sources_in_logs) if len(candidate_paths) > num_sources_in_logs else '')
 
         if not candidate_paths:
             # It can happen that some sources are skipped because they are TAPE, and others because
             # of scheme mismatch. However, we can only have one state in the database. I picked to
             # prioritize setting only_tape_source without any particular reason.
             if had_tape_sources and not filtered_sources:
-                logger(logging.DEBUG, 'Only tape sources found for %s' % rws)
+                logger(logging.DEBUG, '%s: Only tape sources found' % rws.request_id)
                 reqs_only_tape_source.add(rws.request_id)
                 reqs_no_source.remove(rws.request_id)
             elif any_source_had_scheme_mismatch:
-                logger(logging.DEBUG, 'Scheme mismatch detected for %s' % rws)
+                logger(logging.DEBUG, '%s: Scheme mismatch detected' % rws.request_id)
                 reqs_scheme_mismatch.add(rws.request_id)
                 reqs_no_source.remove(rws.request_id)
             else:
-                logger(logging.DEBUG, 'No candidate path found for %s' % rws)
+                logger(logging.DEBUG, '%s: No candidate path found' % rws.request_id)
             continue
 
         candidate_paths_by_request_id[rws.request_id] = candidate_paths
@@ -1447,13 +1480,17 @@ def __assign_paths_to_transfertool_and_create_hops(
 
         if not best_path:
             reqs_no_host.add(request_id)
-            logger(logging.INFO, 'Cannot pick transfertool, or create intermediate requests for %s' % request_id)
+            logger(logging.INFO, '%s: Cannot pick transfertool, or create intermediate requests' % request_id)
             continue
 
         if len(best_path) > 1:
-            logger(logging.INFO, 'Best path is multihop for %s: %s' % (rws, [str(hop) for hop in best_path]))
-        else:
-            logger(logging.INFO, 'Best path is direct for %s: %s' % (rws, best_path[0]))
+            logger(logging.INFO, '%s: Best path is multihop: %s' % (rws.request_id, transfer_path_str(best_path)))
+        elif best_path is not candidate_paths[0] or len(best_path[0].sources) > 1:
+            # Only print singlehop if it brings additional information:
+            # - either it's not the first candidate path
+            # - or it's a multi-source
+            # in other cases, it doesn't bring any additional information to what is known from previous logs
+            logger(logging.INFO, '%s: Best path is direct: %s' % (rws.request_id, transfer_path_str(best_path)))
 
         paths_by_transfertool_builder.setdefault(builder_to_use, []).append(best_path)
     return paths_by_transfertool_builder, reqs_no_host, reqs_unsupported_transfertool
@@ -1469,6 +1506,7 @@ def create_missing_replicas_and_requests(
     """
     Create replicas and requests in the database for the intermediate hops
     """
+    initial_request_id = transfer_path[-1].rws.request_id
     creation_successful = True
     created_requests = []
     # Iterate the path in reverse order. The last hop is the initial request, so
@@ -1501,10 +1539,10 @@ def create_missing_replicas_and_requests(
             # Can happen when a multihop transfer failed previously, and we are re-scheduling it now.
             update_replica_state(rse_id=rws.dest_rse.id, scope=rws.scope, name=rws.name, state=ReplicaState.COPYING, session=session)
         except Exception as error:
-            logger(logging.ERROR, 'Problem adding replicas %s:%s on %s : %s', rws.scope, rws.name, rws.dest_rse, str(error))
+            logger(logging.ERROR, '%s: Problem adding replicas on %s : %s', initial_request_id, rws.dest_rse, str(error))
 
         rws.attributes['next_hop_request_id'] = transfer_path[i + 1].rws.request_id
-        rws.attributes['initial_request_id'] = transfer_path[-1].rws.request_id
+        rws.attributes['initial_request_id'] = initial_request_id
         new_req = queue_requests(requests=[{'dest_rse_id': rws.dest_rse.id,
                                             'scope': rws.scope,
                                             'name': rws.name,
@@ -1519,17 +1557,18 @@ def create_missing_replicas_and_requests(
             creation_successful = False
             break
         rws.request_id = new_req[0]['id']
-        logger(logging.DEBUG, 'New request created for the transfer between %s and %s : %s', transfer_path[0].src, transfer_path[-1].dst, rws)
+        logger(logging.DEBUG, '%s: New request created for the transfer between %s and %s : %s', initial_request_id, transfer_path[0].src, transfer_path[-1].dst, rws.request_id)
         set_requests_state(request_ids=[rws.request_id, ], new_state=RequestState.QUEUED, session=session)
         created_requests.append(rws.request_id)
 
     if not creation_successful:
         # Need to fail all the intermediate requests
-        logger(logging.WARNING, 'Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests', transfer_path[0].src, transfer_path[-1].dst)
+        logger(logging.WARNING, '%s: Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests',
+               initial_request_id, transfer_path[0].src, transfer_path[-1].dst)
         try:
             set_requests_state(request_ids=created_requests, new_state=RequestState.FAILED, session=session)
         except UnsupportedOperation:
-            logger(logging.ERROR, 'Multihop : Cannot cancel all the parent requests : %s', str(created_requests))
+            logger(logging.ERROR, '%s: Multihop : Cannot cancel all the parent requests : %s', initial_request_id, str(created_requests))
 
     return creation_successful
 
