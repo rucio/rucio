@@ -244,10 +244,8 @@ DID = {"description": "Data Identifier(DID)",
        "required": ["scope", "name"],
        "additionalProperties": False}
 
-DID_FILTERS = {"description": "Filters dictionary to list DIDs",
-               "type": "object",
-               "properties": {"created_before": DATE,
-                              "created_afted": DATE},
+DID_FILTERS = {"description": "Array to filter DIDs by metadata",
+               "type": "array",
                "additionalProperties": True}
 
 R_DID = {"description": "Data Identifier(DID)",

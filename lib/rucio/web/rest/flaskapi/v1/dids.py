@@ -228,20 +228,25 @@ class SearchExtended(ErrorHandlingMethodView):
         :status 409: Wrong DID type
         :returns: Line separated name of DIDs or dictionaries of DIDs for long option
         """
-        filters = request.args.copy()
-        for param in ['type', 'limit', 'long', 'recursive']:
-            if param in filters:
-                del filters[param]
+        filters = request.args.get('filters', default=None)
+        if filters is not None:
+            filters = ast.literal_eval(filters)
+        else:
+            # backwards compatability for created*, length* and name filters passed through as request args
+            filters = {}
+            for arg, value in request.args.copy().items():
+                if arg not in ['type', 'limit', 'long', 'recursive']:
+                    filters[arg] = value
+            filters = [filters]
 
-        type_param = request.args.get('type', default=None)
+        did_type = request.args.get('type', default=None)
         limit = request.args.get('limit', default=None)
         long = request.args.get('long', type=['True', '1'].__contains__, default=False)
         recursive = request.args.get('recursive', type='True'.__eq__, default=False)
         try:
             def generate(vo):
-                for did in list_dids_extended(scope=scope, filters=filters, did_type=type_param, limit=limit, long=long, recursive=recursive, vo=vo):
+                for did in list_dids_extended(scope=scope, filters=filters, did_type=did_type, limit=limit, long=long, recursive=recursive, vo=vo):
                     yield dumps(did) + '\n'
-
             return try_stream(generate(vo=request.environ.get('vo')))
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, error)

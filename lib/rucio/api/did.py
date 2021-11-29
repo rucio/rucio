@@ -94,13 +94,15 @@ def list_dids_extended(scope, filters, did_type='collection', ignore_case=False,
     validate_schema(name='did_filters', obj=filters, vo=vo)
     scope = InternalScope(scope, vo=vo)
 
-    if 'account' in filters:
-        filters['account'] = InternalAccount(filters['account'], vo=vo)
-    if 'scope' in filters:
-        filters['scope'] = InternalScope(filters['scope'], vo=vo)
+    # replace account and scope in filters with internal representation
+    for or_group in filters:
+        if 'account' in or_group:
+            or_group['account'] = InternalAccount(or_group['account'], vo=vo)
+        if 'scope' in or_group:
+            or_group['account'] = InternalScope(or_group['scope'], vo=vo)
 
     result = did.list_dids_extended(scope=scope, filters=filters, did_type=did_type, ignore_case=ignore_case,
-                                    limit=limit, offset=offset, long=long, recursive=recursive)
+                           limit=limit, offset=offset, long=long, recursive=recursive)
 
     for d in result:
         yield api_update_return_dict(d)

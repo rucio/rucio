@@ -299,8 +299,6 @@ class FilterEngine:
 
                 and_expressions.append(expression)
             or_expressions.append(and_(*and_expressions))
-        # raise ValueError(session.query(*all_model_attributes).filter(or_(*or_expressions)).statement.compile(
-        #     compile_kwargs={"literal_binds": True}, dialect=sqlalchemy.dialects.postgresql.dialect()))    # debug
         return session.query(*all_model_attributes).filter(or_(*or_expressions))
 
     def evaluate(self):
@@ -317,3 +315,6 @@ class FilterEngine:
                 and_group_evaluations.append(oper(key, value))
             or_group_evaluations.append(all(and_group_evaluations))
         return any(or_group_evaluations)
+
+    def query_to_psql(self, query):
+        return query.statement.compile(compile_kwargs={"literal_binds": True}, dialect=sqlalchemy.dialects.postgresql.dialect())

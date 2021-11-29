@@ -97,7 +97,7 @@ def get_metadata(scope, name, plugin="DID_COLUMN", session=None):
         for metadata_plugin in METADATA_PLUGIN_MODULES:
             if metadata_plugin.get_plugin_name().lower() == plugin.lower():
                 return metadata_plugin.get_metadata(scope, name, session=session)  
-    raise NotImplementedError('Metadata plugin "%s" is not enabled on the server.' % plugin)
+    raise NotImplementedError('Metadata plugin "%s" is not enabled on the server.' % plugin)    #FIXME: this exception isn't returned correctly?
 
 
 def set_metadata(scope, name, key, value, recursive=False, session=None):
@@ -176,7 +176,7 @@ def delete_metadata(scope, name, key, session=None):
 
 @read_session
 def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False, limit=None,
-              offset=None, long=False, recursive=False, session=None):
+              offset=None, long=False, recursive=False, ignore_dids=None, session=None):
     """
     List dids according to metadata.
 
@@ -197,19 +197,21 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
     """
     # Set [metadata_plugin_to_use] to be the first key's plugin... 
     metadata_plugin_to_use = None
-    for key in filters.keys():
-        if metadata_plugin_to_use is None:
-            for metadata_plugin in METADATA_PLUGIN_MODULES:
-                if metadata_plugin.manages_key(key, session=session):
-                    metadata_plugin_to_use = metadata_plugin
-                    break
-        else:   # ... then check that this plugin manages the rest of the keys.
-            if not metadata_plugin_to_use.manages_key(key, session=session):
-                raise NotImplementedError('Filter keys used do not all belong to the same metadata plugin.')
-
+    for or_group in filters:
+        for key in or_group.keys():
+            key_nooperator = key.split('.')[0]      # each key can have an operator attribute suffixed, i.e. <key>.<operator>
+            if metadata_plugin_to_use is None:
+                for metadata_plugin in METADATA_PLUGIN_MODULES:
+                    if metadata_plugin.manages_key(key_nooperator, session=session):
+                        metadata_plugin_to_use = metadata_plugin
+                        break
+            else:   # ... then check that this plugin manages the rest of the keys.
+                if not metadata_plugin_to_use.manages_key(key_nooperator, session=session):
+                    raise NotImplementedError('Filter keys used do not all belong to the same metadata plugin.')    #FIXME: this exception isn't returned correctly?
     if metadata_plugin_to_use:
         return metadata_plugin_to_use.list_dids(scope=scope, filters=filters, did_type=did_type,
                                                 ignore_case=ignore_case, limit=limit,
-                                                offset=offset, long=long, recursive=recursive, session=session)
+                                                offset=offset, long=long, recursive=recursive, 
+                                                ignore_dids=ignore_dids, session=session)
     else:
-        raise NotImplementedError('There is no metadata plugin that manages the filter keys you requested.')
+        raise NotImplementedError('There is no metadata plugin that manages the filter keys you requested.')        #FIXME: this exception isn't returned correctly?

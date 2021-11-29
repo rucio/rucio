@@ -1606,7 +1606,7 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
 
 @read_session
 def list_dids_extended(scope, filters, did_type='collection', ignore_case=False, limit=None,
-                       offset=None, long=False, recursive=False, session=None):
+                       offset=None, long=False, recursive=False, ignore_dids=None, session=None):
     """
     Search data identifiers
 
@@ -1619,8 +1619,9 @@ def list_dids_extended(scope, filters, did_type='collection', ignore_case=False,
     :param long: Long format option to display more information for each DID.
     :param session: The database session in use.
     :param recursive: Recursively list DIDs content.
+    :param ignore_dids: List of DIDs to refrain from yielding.
     """
-    return did_meta_plugins.list_dids(scope, filters, did_type, ignore_case, limit, offset, long, recursive, session=session)
+    return did_meta_plugins.list_dids(scope, filters, did_type, ignore_case, limit, offset, long, recursive, ignore_dids, session=session)
 
 
 @read_session

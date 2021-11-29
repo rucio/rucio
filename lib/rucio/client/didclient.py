@@ -59,7 +59,10 @@ class DIDClient(BaseClient):
         List all data identifiers in a scope which match a given pattern.
 
         :param scope: The scope name.
-        :param filters: A dictionary of key/value pairs like {'type': 'dataset', 'scope': 'test'}.
+        :param filters: A nested dictionary of key/value pairs like [{'key1': 'value1', 'key2.lte': 'value2'}, {'key3.gte, 'value3'}].
+                        Keypairs in the same dictionary are AND'ed together, dictionaries are OR'ed together. Keys should be suffixed 
+                        like <key>.<operation>, e.g. key1 >= value1 is equivalent to {'key1.gte': value}, where <operation> belongs to one 
+                        of the set {'lte', 'gte', 'gt', 'lt', 'ne' or ''}. Equivalence doesn't require an operator.
         :param did_type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
         :param long: Long format option to display more information for each DID.
         :param recursive: Recursively list DIDs content.
@@ -94,28 +97,38 @@ class DIDClient(BaseClient):
 
     def list_dids_extended(self, scope, filters, did_type='collection', long=False, recursive=False):
         """
-        List all data identifiers in a scope which match a given pattern. Extended version that goes through plugin mechanism.
+        List all data identifiers in a scope which match a given pattern.
 
         :param scope: The scope name.
-        :param filters: A dictionary of key/value pairs like {'type': 'dataset', 'scope': 'test'}.
+        :param filters: A nested dictionary of key/value pairs like [{'key1': 'value1', 'key2.lte': 'value2'}, {'key3.gte, 'value3'}].
+                        Keypairs in the same dictionary are AND'ed together, dictionaries are OR'ed together. Keys should be suffixed 
+                        like <key>.<operation>, e.g. key1 >= value1 is equivalent to {'key1.gte': value}, where <operation> belongs to one 
+                        of the set {'lte', 'gte', 'gt', 'lt', 'ne' or ''}. Equivalence doesn't require an operator.
         :param did_type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
         :param long: Long format option to display more information for each DID.
         :param recursive: Recursively list DIDs content.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search_extended'])
-        payload = {}
 
-        for k, v in list(filters.items()):
-            if k in ('created_before', 'created_after'):
-                payload[k] = date_to_str(v)
-            else:
-                payload[k] = v
-        payload['long'] = long
-        payload['type'] = did_type
-        payload['recursive'] = recursive
+        # stringify dates.
+        if isinstance(filters, dict):   # backwards compatability for filters as single {}
+            filters = [filters]
+        for or_group in filters:
+            for key, value in or_group.items():
+                if isinstance(value, datetime):
+                    or_group[key] = date_to_str(value)
+
+        payload = {
+            'type': did_type,
+            'filters': filters,
+            'long': long,
+            'recursive': recursive
+        }
 
         url = build_url(choice(self.list_hosts), path=path, params=payload)
+
         r = self._send_request(url, type_='GET')
+
         if r.status_code == codes.ok:
             dids = self._load_json_data(r)
             return dids
