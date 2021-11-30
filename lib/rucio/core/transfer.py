@@ -1272,6 +1272,8 @@ def __build_transfer_paths(
         logger(logging.INFO, 'Found following sources for %s: %s', rws, [str(src.rse) for src in rws.sources])
         # Assume request doesn't have any sources. Will be removed later if sources are found.
         reqs_no_source.add(rws.request_id)
+        if not rws.sources:
+            continue
 
         # Check if destination is blocked
         if not ignore_availability and rws.dest_rse.id in unavailable_write_rse_ids:
