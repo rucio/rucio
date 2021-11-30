@@ -58,7 +58,6 @@ from requests.packages.urllib3 import disable_warnings  # pylint: disable=import
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
-from prometheus_client import Summary
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import FTS_JOB_TYPE, FTS_STATE
@@ -91,7 +90,6 @@ BULK_QUERY_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_bulk_query', sta
                                   documentation='Number of bulk queries', labelnames=('state', 'host'))
 QUERY_DETAILS_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query_details', statsd='transfertool.fts3.{host}.query_details.{state}',
                                      documentation='Number of detailed status queries', labelnames=('state', 'host'))
-SUBMISSION_TIMER = Summary('rucio_transfertool_fts3_submit_transfer', 'Timer for transfer submission', labelnames=('host',))
 
 
 ALLOW_USER_OIDC_TOKENS = config_get('conveyor', 'allow_user_oidc_tokens', False, False)
@@ -546,7 +544,6 @@ class FTS3Transfertool(Transfertool):
                                         timeout=timeout)
             labels = {'host': self.__extract_host(self.external_host)}
             record_timer('transfertool.fts3.submit_transfer.{host}', (time.time() - start_time) * 1000 / len(files), labels=labels)
-            SUBMISSION_TIMER.labels(**labels).observe((time.time() - start_time) * 1000 / len(files))
         except ReadTimeout as error:
             raise TransferToolTimeout(error)
         except JSONDecodeError as error:
