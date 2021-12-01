@@ -188,9 +188,7 @@ def process_output(output, sanity_check=True, compress=True):
 
     # While converting LOST replicas to PFNs, entries that do not
     # correspond to a replica registered in Rucio are silently dropped.
-    lost_pfns = []
-    for chunk in chunks(lost_replicas, 1000):
-        lost_pfns.extend([r['rses'][rse_id][0] for r in list_replicas(chunk) if rse_id in r['rses']])
+    lost_pfns = [r['rses'][rse_id][0] for chunk in chunks(lost_replicas, 1000) for r in list_replicas(chunk) if rse_id in r['rses']]
 
     for chunk in chunks(dark_replicas, 1000):
         add_quarantined_replicas(rse_id=rse_id, replicas=chunk)
