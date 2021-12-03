@@ -3116,6 +3116,11 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
     else:
         rep_state = state
 
+    if rep_state == BadPFNStatus.TEMPORARY_UNAVAILABLE and expires_at is None:
+        raise exception.InputValidationError("When adding a TEMPORARY UNAVAILABLE pfn the expires_at value should be set.")
+    elif rep_state == BadPFNStatus.BAD and expires_at is not None:
+        raise exception.InputValidationError("When adding a BAD pfn the expires_at value shouldn't be set.")
+
     pfns = clean_surls(pfns)
     for pfn in pfns:
         new_pfn = models.BadPFNs(path=str(pfn), account=account, state=rep_state, reason=reason, expires_at=expires_at)
