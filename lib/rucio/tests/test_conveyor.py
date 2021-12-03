@@ -758,6 +758,44 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
     assert replica['state'] == ReplicaState.AVAILABLE
 
 
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+def test_cancel_rule(rse_factory, did_factory, root_account):
+    """
+    Ensure that, when we cancel a rule, the request is cancelled in FTS
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    all_rses = [src_rse_id, dst_rse_id]
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+
+    did = did_factory.upload_test_file(src_rse)
+
+    [rule_id] = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    class _FTSWrapper(FTSWrapper):
+        @staticmethod
+        def on_submit(file):
+            # Simulate using the mock gfal plugin that it takes a long time to copy the file
+            file['sources'] = [set_query_parameters(s_url, {'time': 30}) for s_url in file['sources']]
+
+    with patch('rucio.daemons.conveyor.submitter.TRANSFERTOOL_CLASSES_BY_NAME') as tt_mock:
+        tt_mock.__getitem__.return_value = _FTSWrapper
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+
+    rule_core.delete_rule(rule_id)
+
+    with pytest.raises(RequestNotFound):
+        request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+
+    fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query(request['external_id'])
+    assert fts_response[request['external_id']][request['id']]['job_state'] == 'CANCELED'
+
+
 class FTSWrapper(FTS3Transfertool):
     """
     Used to alter the JSON exchange with FTS.
