@@ -22,6 +22,8 @@ from __future__ import print_function
 
 import unittest
 from os import remove
+from os.path import basename
+
 
 from rucio.common.utils import generate_uuid as uuid, execute
 
@@ -55,7 +57,7 @@ def get_scope_and_rses():
 def delete_rules(did):
     # get the rules for the file
     print('Deleting rules')
-    cmd = "rucio list-rules --did {0} | grep {0} | cut -f1 -d\\ ".format(did)
+    cmd = "rucio list-rules {0} | grep {0} | cut -f1 -d\\ ".format(did)
     print(cmd)
     exitcode, out, err = execute(cmd)
     print(out, err)
@@ -78,7 +80,7 @@ class TestRucioServer(unittest.TestCase):
     def tearDown(self):
         for did in self.generated_dids:
             delete_rules(did)
-            self.generated_dids.remove(did)
+        self.generated_dids = []
 
     def test_ping(self):
         """CLIENT (USER): rucio ping"""
@@ -147,8 +149,8 @@ class TestRucioServer(unittest.TestCase):
         self.assertEqual(exitcode, 0)
 
         # cleaning
-        remove('/tmp/{0}/'.format(tmp_dsn) + tmp_file1[5:])
-        remove('/tmp/{0}/'.format(tmp_dsn) + tmp_file2[5:])
-        remove('/tmp/{0}/'.format(tmp_dsn) + tmp_file3[5:])
-        added_dids = ['{0}:{1}'.format(self.scope, did) for did in (tmp_file1, tmp_file2, tmp_file3, tmp_dsn)]
+        remove('/tmp/{0}/'.format(tmp_dsn) + basename(tmp_file1))
+        remove('/tmp/{0}/'.format(tmp_dsn) + basename(tmp_file2))
+        remove('/tmp/{0}/'.format(tmp_dsn) + basename(tmp_file3))
+        added_dids = ['{0}:{1}'.format(self.scope, did) for did in (basename(tmp_file1), basename(tmp_file2), basename(tmp_file3), tmp_dsn)]
         self.generated_dids += added_dids
