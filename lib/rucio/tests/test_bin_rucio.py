@@ -2074,3 +2074,21 @@ class TestBinRucio(unittest.TestCase):
         print(out, err)
         assert exitcode == 0
         assert tmp_file1[5:] in out
+
+    def test_rucio_create_rule_with_0_copies(self):
+        """CLIENT(USER): The creation of a rule with 0 copies shouldn't be possible."""
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+
+        # Try to add a rules with 0 copies, this shouldn't be possible
+        cmd = "rucio add-rule {0}:{1} 0 MOCK".format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(err)
+        print(out)
+        assert exitcode != 0
+        assert "The number of copies for a replication rule should be greater than 0." in err

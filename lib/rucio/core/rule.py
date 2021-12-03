@@ -74,7 +74,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject, RSEWriteBlocked, RuleReplaceFailed, RequestNotFound,
-                                    ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy)
+                                    ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy, InvalidValueForKey)
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import str_to_date, sizefmt, chunks
@@ -139,6 +139,9 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
                                        StagingAreaRuleRequiresLifetime, DuplicateRule, RSEWriteBlocked, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, RSEOverQuota
     """
+    if copies <= 0:
+        raise InvalidValueForKey("The number of copies for a replication rule should be greater than 0.")
+
     rule_ids = []
 
     grouping = {'ALL': RuleGrouping.ALL, 'NONE': RuleGrouping.NONE}.get(grouping, RuleGrouping.DATASET)
@@ -364,6 +367,8 @@ def add_rules(dids, rules, session=None, logger=logging.log):
     :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
                      StagingAreaRuleRequiresLifetime, DuplicateRule, RSEWriteBlocked, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked
     """
+    if any(r.get("copies", 1) <= 0 for r in rules):
+        raise InvalidValueForKey("The number of copies for a replication rule should be greater than 0.")
 
     with record_timer_block('rule.add_rules'):
         rule_ids = {}
