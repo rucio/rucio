@@ -22,6 +22,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 
 """
 Core tracer module
@@ -190,8 +191,8 @@ GET_SCHEMA = {
         "traceId": UUID,
         "usrdn": {"type": "string"},
     },
-    "required": ['hostname', 'eventType', 'localSite', 'account', 'eventType', 'eventVersion', 'uuid', 'scope',
-                 'filename', 'datasetScope', 'dataset', 'filesize', 'clientState', 'stateReason']
+    "required": ['eventType', 'localSite', 'eventVersion', 'uuid', 'scope',
+                 'filename', 'dataset']
 }
 
 SCHEMAS = {
