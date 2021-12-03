@@ -32,7 +32,6 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Rob Barnsley <rob.barnsley@skao.int>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Rob Barnsley <rob.barnsley@skao.int>, 2021
 
 from datetime import datetime, timedelta
 import operator
@@ -272,7 +271,7 @@ class DidColumnMeta(DidMetaPlugin):
                 models.DataIdentifier.length
             ], additional_filters=[
                 (models.DataIdentifier.scope, operator.eq, scope),
-                (models.DataIdentifier.suppressed, operator.ne, true()),
+                (models.DataIdentifier.suppressed, operator.ne, true())
             ]
         )
 
@@ -294,7 +293,7 @@ class DidColumnMeta(DidMetaPlugin):
                 for result in self.list_dids(scope=did['scope'], filters=filters, recursive=True, did_type=did_type, limit=limit, offset=offset, 
                                             long=long, ignore_dids=ignore_dids, session=session):
                     yield result
-                    
+
         if long:
             for did in query.yield_per(5):              # don't unpack this as it makes it dependent on query return order!
                 did_full = "{}:{}".format(did.scope, did.name)

@@ -180,8 +180,7 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
     """
     List dids according to metadata.
 
-    Either all of the metadata in the query should belong in the hardcoded ones, or none at all.
-    A mixture of hardcoded and generic metadata is not supported at the moment.
+    All filter keys should belong to a single plugin. Queries across plugins are not supported.
 
     :param scope: The scope of the did.
     :param filters: Dictionary of attributes by which the results should be filtered.
@@ -194,24 +193,32 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
     :param session: The database session in use.
 
     :returns: List of dids satisfying metadata criteria.
-    """
-    # Set [metadata_plugin_to_use] to be the first key's plugin... 
-    metadata_plugin_to_use = None
+    """                   
+    which_plugins_per_key = []                      # keep track of which plugins are required for each key
     for or_group in filters:
         for key in or_group.keys():
-            key_nooperator = key.split('.')[0]      # each key can have an operator attribute suffixed, i.e. <key>.<operator>
-            if metadata_plugin_to_use is None:
-                for metadata_plugin in METADATA_PLUGIN_MODULES:
-                    if metadata_plugin.manages_key(key_nooperator, session=session):
-                        metadata_plugin_to_use = metadata_plugin
-                        break
-            else:   # ... then check that this plugin manages the rest of the keys.
-                if not metadata_plugin_to_use.manages_key(key_nooperator, session=session):
-                    raise NotImplementedError('Filter keys used do not all belong to the same metadata plugin.')    #FIXME: this exception isn't returned correctly?
-    if metadata_plugin_to_use:
-        return metadata_plugin_to_use.list_dids(scope=scope, filters=filters, did_type=did_type,
-                                                ignore_case=ignore_case, limit=limit,
-                                                offset=offset, long=long, recursive=recursive, 
-                                                ignore_dids=ignore_dids, session=session)
-    else:
-        raise NotImplementedError('There is no metadata plugin that manages the filter keys you requested.')        #FIXME: this exception isn't returned correctly?
+            # [name] is in both the dids and did_meta tables, and it can (probably?) be safely assumed that it would also be in any backend 
+            # provided by any other external plugin.
+            if key == 'name':
+                continue
+            key_nooperator = key.split('.')[0]      # each key can have an operator attribute suffixed, i.e. <key>.<operator>. Remove it.
+            # Iterate through the list of metadata plugins, checking which (if any) manages this particular key
+            # and appending the corresponding plugin to [which_plugins_per_key].
+            is_this_key_managed = False
+            for metadata_plugin in METADATA_PLUGIN_MODULES:
+                if metadata_plugin.manages_key(key_nooperator, session=session):
+                    which_plugins_per_key.append(metadata_plugin)
+                    is_this_key_managed = True
+                    break
+            if not is_this_key_managed:
+                raise exception.InvalidMetadata('There is no metadata plugin that manages the filter key(s) you requested.')
+
+    # Check that only a single plugin is required for the query.
+    which_plugin_to_use = list(set(which_plugins_per_key))
+    if len(which_plugin_to_use) > 1:
+        raise exception.InvalidMetadata('Filter keys used do not all belong to the same metadata plugin.')
+
+    return which_plugin_to_use[0].list_dids(scope=scope, filters=filters, did_type=did_type,
+                                            ignore_case=ignore_case, limit=limit,
+                                            offset=offset, long=long, recursive=recursive, 
+                                            ignore_dids=ignore_dids, session=session)

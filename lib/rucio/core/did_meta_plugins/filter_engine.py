@@ -25,11 +25,13 @@ from datetime import datetime
 from importlib import import_module
 
 import sqlalchemy
+from sqlalchemy import String, cast, type_coerce, JSON, or_, and_
+from sqlalchemy.sql.expression import text
+
 from rucio.common import exception
 from rucio.common.utils import parse_did_filter_from_string_fe
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session
-from sqlalchemy import or_, and_
 
 # lookup table converting keyword suffixes to pythonic operators.
 operators_conversion_LUT = {
@@ -175,23 +177,23 @@ class FilterEngine:
         """
         Reformats filters from:
 
-        [{or_group_1:key_1.or_group_1:operator_1: or_group_1:value_1,
-         {or_group_1:key_m.or_group_1:operator_m: or_group_1:value_m}
+        [{or_group_1->key_1.or_group_1->operator_1: or_group_1->value_1,
+         {or_group_1->key_m.or_group_1->operator_m: or_group_1->value_m}
          ...
-         {or_group_n:key_1.or_group_n:operator_1: or_group_n:value_1,
-         {or_group_n:key_m.or_group_n:operator_m: or_group_n:value_m}
+         {or_group_n->key_1.or_group_n->operator_1: or_group_n->value_1,
+         {or_group_n->key_m.or_group_n->operator_m: or_group_n->value_m}
         ]
 
         to the format used by the engine:
 
-        [[[or_group_1:key_1, or_group_1:operator_1, or_group_1:value_1],
+        [[[or_group_1->key_1, or_group_1->operator_1, or_group_1->value_1],
           ...
-          [or_group_1:key_m, or_group_1:operator_m, or_group_1:value_m]
+          [or_group_1->key_m, or_group_1->operator_m, or_group_1->value_m]
          ],
          ...
-         [[or_group_n:key_1, or_group_n:operator_1, or_group_n:value_1],
+         [[or_group_n->key_1, or_group_n->operator_1, or_group_n->value_1],
           ...
-          [or_group_n:key_m, or_group_n:operator_m, or_group_n:value_m]
+          [or_group_n->key_m, or_group_n->operator_m, or_group_n->value_m]
          ]
         ]
 
@@ -256,46 +258,59 @@ class FilterEngine:
         return list(mandatory_model_attributes)
 
     @read_session
-    def create_sqla_query(self, session=None, additional_model_attributes=[], additional_filters={}):
+    def create_sqla_query(self, session=None, additional_model_attributes=[], additional_filters={}, json_column=None):
         """
-        Returns the database query that fully describes the filters.
+        Returns a database query that fully describes the filters.
 
-        :param session: the database session.
-        :param additional_model_attributes: additional model attributes to retrieve.
-        :param additional_filters: additional filters to be applied to all clauses.
-        :returns: list of database queries
+        The logic for construction of syntax describing a filter for key is dependent on whether the key has been previously coerced to a model attribute (i.e. key 
+        is a table column).
+
+        :param session: The database session.
+        :param additional_model_attributes: Additional model attributes to retrieve.
+        :param additional_filters: Additional filters to be applied to all clauses.
+        :param json_column: Column to be checked if filter key has not been coerced to a model attribute. Only valid if engine instantiated with strict_coerce=False.
+        :returns: A database query.
         """
         all_model_attributes = set(self.mandatory_model_attributes + additional_model_attributes)
-
+        
         # Add additional filters, applied as AND clauses to each OR group.
         for or_group in self._filters:
-            for filter in additional_filters:
-                or_group.append(list(filter))
-
+            for _filter in additional_filters:
+                or_group.append(list(_filter))
+        
         or_expressions = []
         for or_group in self._filters:
             and_expressions = []
             for and_group in or_group:
                 key, oper, value = and_group
-                if isinstance(value, str) and any([char in value for char in ['*', '%']]):  # wildcards
-                    if value in ('*', '%', u'*', u'%'):                                     # match wildcard exactly == no filtering on key
-                        continue
-                    else:                                                                   # partial match with wildcard == like || notlike
-                        if session.bind.dialect.name == 'postgresql':
-                            if oper == operator.eq:
-                                expression = key.like(value.replace('*', '%').replace('_', '\_'), escape='\\')     # NOQA: W605
-                            elif oper == operator.ne:
-                                expression = key.notlike(value.replace('*', '%').replace('_', '\_'), escape='\\')  # NOQA: W605
-                        else:
-                            if oper == operator.eq:
-                                expression = key.like(value.replace('*', '%').replace('_', '\_'), escape='\\')     # NOQA: W605
-                            elif oper == operator.ne:
-                                expression = key.notlike(value.replace('*', '%').replace('_', '\_'), escape='\\')  # NOQA: W605
-                else:
-                    expression = oper(key, value)
+                if isinstance(key, sqlalchemy.orm.attributes.InstrumentedAttribute):            # -> This key filters on a table column.
+                    if isinstance(value, str) and any([char in value for char in ['*', '%']]):  # wildcards
+                        if value in ('*', '%', u'*', u'%'):                                     # match wildcard exactly == no filtering on key
+                            continue
+                        else:                                                                   # partial match with wildcard == like || notlike
+                            if session.bind.dialect.name == 'postgresql':
+                                if oper == operator.eq:
+                                    expression = key.like(value.replace('*', '%').replace('_', '\_'), escape='\\')     # NOQA: W605
+                                elif oper == operator.ne:
+                                    expression = key.notlike(value.replace('*', '%').replace('_', '\_'), escape='\\')  # NOQA: W605
+                            else:
+                                if oper == operator.eq:
+                                    expression = key.like(value.replace('*', '%').replace('_', '\_'), escape='\\')     # NOQA: W605
+                                elif oper == operator.ne:
+                                    expression = key.notlike(value.replace('*', '%').replace('_', '\_'), escape='\\')  # NOQA: W605
+                    else:
+                        expression = oper(key, value)
 
-                if oper == operator.ne:                                                     # set .ne operator to include NULLs.
-                    expression = or_(expression, key.is_(None))
+                    if oper == operator.ne:                                                     # set .ne operator to include NULLs.
+                        expression = or_(expression, key.is_(None))
+                elif json_column:                                                               # -> This key filters filters on the content of a json column
+                    if session.bind.dialect.name == 'oracle':
+                        pass
+                        #query = query.filter(text("json_exists(meta,'$?(@.{} == \"{}\")')".format(k, v)))  #TODO
+                    else:
+                        expression = oper(cast(json_column[key], String), type_coerce(value, JSON))         #UPTOHERE !!!!
+                else:
+                    raise exception.FilterEngineGenericError("Requested filter on key without model attribute, but [json_column] not set.")
 
                 and_expressions.append(expression)
             or_expressions.append(and_(*and_expressions))

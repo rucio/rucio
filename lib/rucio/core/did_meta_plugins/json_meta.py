@@ -33,14 +33,13 @@
 # - Rizart Dona <rizart.dona@cern.ch>, 2021
 
 import json as json_lib
+import operator
 
-from six import iteritems
-from sqlalchemy import String, cast, type_coerce, JSON
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.sql.expression import text
 
 from rucio.common import exception
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
+from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.db.sqla.util import json_implemented
@@ -150,34 +149,35 @@ class JSONDidMeta(DidMetaPlugin):
 
     @stream_session
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
-                  offset=None, long=False, recursive=False, session=None):
+                  offset=None, long=False, recursive=False, ignore_dids=None, session=None):
         # Currently for sqlite only add, get and delete is implemented.
         if not json_implemented(session=session):
             raise NotImplementedError
 
-        query = session.query(models.DidMeta)
-        if scope is not None:
-            query = query.filter(models.DidMeta.scope == scope)
-        filters.pop('name', None)
-        for k, v in iteritems(filters):
-            if session.bind.dialect.name == 'oracle':
-                query = query.filter(text("json_exists(meta,'$?(@.{} == \"{}\")')".format(k, v)))
-            else:
-                query = query.filter(cast(models.DidMeta.meta[k], String) == type_coerce(v, JSON))
+        if not ignore_dids:
+            ignore_dids = set()
 
-        if long:
-            for row in query.yield_per(5):
-                yield {
-                    'scope': row.scope,
-                    'name': row.name,
-                    'did_type': 'Info not available in JSON Plugin',
-                    'bytes': 'Info not available in JSON Plugin',
-                    'length': 'Info not available in JSON Plugin'
-                }
-        else:
-            for row in query.yield_per(5):
-                yield row.name
+        # backwards compatability for filters as single {}.
+        if isinstance(filters, dict):
+            filters = [filters]
 
+        # instantiate fe and create sqla query, note that coercion to a model keyword
+        # is not appropriate here as the filter words are stored in a single json column.
+        fe = FilterEngine(filters, model_class=models.DidMeta, strict_coerce=False)
+        query = fe.create_sqla_query(
+            additional_model_attributes=[
+                models.DidMeta.scope,
+                models.DidMeta.name
+            ], additional_filters=[
+                (models.DidMeta.scope, operator.eq, scope)
+            ],
+            json_column = models.DidMeta.meta
+        )
+
+        raise exception.DataIdentifierNotFound(query)       #FIXME 
+
+        yield []
+        
     @read_session
     def manages_key(self, key, session=None):
         return json_implemented(session=session)

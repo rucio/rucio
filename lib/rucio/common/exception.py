@@ -1055,3 +1055,13 @@ class InvalidAlgorithmName(RucioException):
         super(InvalidAlgorithmName, self).__init__(*args, **kwargs)
         self.message = 'Algorithm name %s is not valid for VO %s' % (algorithm, vo)
         self.error_code = 100
+
+
+class FilterEngineGenericError(RucioException):
+    """
+    Generic Filter Engine error.
+    """
+    def __init__(self, *args, **kwargs):
+        super(FilterEngineGenericError, self).__init__(*args, **kwargs)
+        self._message = 'Generic filter engine error.'
+        self.error_code = 101
