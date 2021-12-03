@@ -2482,7 +2482,7 @@ can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#addi
     list_suspicious_replicas_parser.set_defaults(function=list_suspicious_replicas)
     list_suspicious_replicas_parser.add_argument('--expression', dest='rse_expression', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
 can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
-    list_suspicious_replicas_parser.add_argument('--younger_than', '--younger-than', new_option_string='--younger-than', dest='younger_than', action=StoreAndDeprecateWarningAction, help='List files that have been marked suspicious since the date "younger_than".')  # NOQA: E501
+    list_suspicious_replicas_parser.add_argument('--younger_than', '--younger-than', new_option_string='--younger-than', dest='younger_than', action=StoreAndDeprecateWarningAction, help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00.')  # NOQA: E501
     list_suspicious_replicas_parser.add_argument('--nattempts', dest='nattempts', action='store', help='Minimum number of failed attempts to access a suspicious file.')
 
     # The list-rses-attributes command
