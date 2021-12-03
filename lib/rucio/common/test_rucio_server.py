@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -41,7 +39,8 @@ def file_generator(size=2048, namelen=10):
 def get_scope_and_rses():
     """
     Check if xrd containers rses for xrootd are available in the testing environment.
-    :return: A tuple (scope, rses) for the rucio client where scope is mock/test and rses is a list.
+
+    :return: A tuple (scope, rses) for the rucio client where scope is mock/test and rses is a list or (None, [None]) if no suitable rse exists.
     """
     cmd = "rucio list-rses --rses 'test_container_xrd=True'"
     print(cmd)
@@ -49,7 +48,7 @@ def get_scope_and_rses():
     print(out, err)
     rses = out.split()
     if len(rses) == 0:
-        return 'mock', ['MOCK-POSIX']
+        return None, [None]
     return 'test', rses
 
 
@@ -99,6 +98,9 @@ class TestRucioServer(unittest.TestCase):
 
     def test_upload_download(self):
         """CLIENT(USER): rucio upload files to dataset/download dataset"""
+        if self.rse is None:
+            return
+
         tmp_file1 = file_generator()
         tmp_file2 = file_generator()
         tmp_file3 = file_generator()
