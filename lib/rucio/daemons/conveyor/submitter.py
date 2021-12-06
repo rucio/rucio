@@ -51,6 +51,7 @@ from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
+from rucio.common.utils import PriorityQueue
 from rucio.core import transfer as transfer_core
 from rucio.core.monitor import MultiCounter, record_timer
 from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, HeartbeatHandler
@@ -129,6 +130,13 @@ def submitter(once=False, rses=None, partition_wait_time=10,
     if filter_transfertool:
         executable += ' --filter-transfertool ' + filter_transfertool
 
+    if activities is None:
+        activities = [None]
+    if rses:
+        rse_ids = [rse['id'] for rse in rses]
+    else:
+        rse_ids = None
+
     with HeartbeatHandler(executable=executable, logger_prefix=logger_prefix) as heartbeat_handler:
         logger = heartbeat_handler.logger
         logger(logging.INFO, 'Submitter starting with timeout %s', timeout)
@@ -136,86 +144,90 @@ def submitter(once=False, rses=None, partition_wait_time=10,
         if partition_wait_time:
             graceful_stop.wait(partition_wait_time)
 
-        while not graceful_stop.is_set():
-            if activities is None:
-                activities = [None]
-            if rses:
-                rse_ids = [rse['id'] for rse in rses]
-            else:
-                rse_ids = None
-            for activity in activities:
-                try:
-                    if activity_next_exe_time[activity] > time.time():
-                        graceful_stop.wait(1)
-                        continue
+        activity_next_exe_time = PriorityQueue()
+        for activity in activities:
+            activity_next_exe_time[activity] = time.time()
 
-                    heart_beat, logger = heartbeat_handler.live(older_than=3600)
+        while not graceful_stop.is_set() and activity_next_exe_time:
+            try:
+                time_to_sleep = 0
+                if once:
+                    activity = activity_next_exe_time.pop()
+                else:
+                    activity = activity_next_exe_time.top()
+                    time_to_sleep = activity_next_exe_time[activity] - time.time()
+                    activity_next_exe_time[activity] = time.time() + 1
+                if time_to_sleep > 0:
+                    logger(logging.DEBUG, 'Switching to activity %s and sleeping %s seconds', activity, time_to_sleep)
+                    graceful_stop.wait(time_to_sleep)
+                else:
+                    logger(logging.DEBUG, 'Switching to activity %s', activity)
 
-                    logger(logging.INFO, 'Starting to get transfer transfers for %s', activity)
+                heart_beat, logger = heartbeat_handler.live(older_than=3600)
+
+                start_time = time.time()
+
+                transfertool_kwargs = {
+                    FTS3Transfertool: {
+                        'group_policy': group_policy,
+                        'group_bulk': group_bulk,
+                        'source_strategy': source_strategy,
+                        'max_time_in_queue': max_time_in_queue,
+                        'bring_online': bring_online,
+                        'default_lifetime': 172800,
+                        'archive_timeout_override': archive_timeout_override,
+                    },
+                    GlobusTransferTool: {
+                        'group_policy': transfertype,
+                        'group_bulk': group_bulk,
+                    },
+                }
+                transfers = transfer_core.next_transfers_to_submit(
+                    total_workers=heart_beat['nr_threads'],
+                    worker_number=heart_beat['assign_thread'],
+                    partition_hash_var=partition_hash_var,
+                    failover_schemes=failover_scheme,
+                    limit=bulk,
+                    activity=activity,
+                    rses=rse_ids,
+                    schemes=scheme,
+                    filter_transfertool=filter_transfertool,
+                    transfertools_by_name={transfertool: TRANSFERTOOL_CLASSES_BY_NAME[transfertool]},
+                    older_than=None,
+                    request_type=RequestType.TRANSFER,
+                    ignore_availability=ignore_availability,
+                    logger=logger,
+                )
+                total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
+
+                record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (total_transfers or 1))
+                GET_TRANSFERS_COUNTER.inc(total_transfers)
+                record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', total_transfers)
+                logger(logging.INFO, '%sGot %s transfers for %s in %s seconds',
+                       'Slept %s seconds, then ' % time_to_sleep if time_to_sleep > 0 else '',
+                       total_transfers, activity, time.time() - start_time)
+
+                for builder, transfer_paths in transfers.items():
+                    transfertool_obj = builder.make_transfertool(logger=logger, **transfertool_kwargs.get(builder.transfertool_class, {}))
                     start_time = time.time()
+                    logger(logging.DEBUG, 'Starting to group transfers for %s (%s)', activity, transfertool_obj)
+                    grouped_jobs = transfertool_obj.group_into_submit_jobs(transfer_paths)
+                    record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfer_paths) or 1))
 
-                    transfertool_kwargs = {
-                        FTS3Transfertool: {
-                            'group_policy': group_policy,
-                            'group_bulk': group_bulk,
-                            'source_strategy': source_strategy,
-                            'max_time_in_queue': max_time_in_queue,
-                            'bring_online': bring_online,
-                            'default_lifetime': 172800,
-                            'archive_timeout_override': archive_timeout_override,
-                        },
-                        GlobusTransferTool: {
-                            'group_policy': transfertype,
-                            'group_bulk': group_bulk,
-                        },
-                    }
-                    transfers = transfer_core.next_transfers_to_submit(
-                        total_workers=heart_beat['nr_threads'],
-                        worker_number=heart_beat['assign_thread'],
-                        partition_hash_var=partition_hash_var,
-                        failover_schemes=failover_scheme,
-                        limit=bulk,
-                        activity=activity,
-                        rses=rse_ids,
-                        schemes=scheme,
-                        filter_transfertool=filter_transfertool,
-                        transfertools_by_name={transfertool: TRANSFERTOOL_CLASSES_BY_NAME[transfertool]},
-                        older_than=None,
-                        request_type=RequestType.TRANSFER,
-                        ignore_availability=ignore_availability,
-                        logger=logger,
-                    )
-                    total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
+                    logger(logging.DEBUG, 'Starting to submit transfers for %s (%s)', activity, transfertool_obj)
+                    for job in grouped_jobs:
+                        logger(logging.DEBUG, 'submitjob: transfers=%s, job_params=%s' % ([str(t) for t in job['transfers']], job['job_params']))
+                        submit_transfer(transfertool_obj=transfertool_obj, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter',
+                                        timeout=timeout, logger=logger)
 
-                    record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (total_transfers or 1))
-                    GET_TRANSFERS_COUNTER.inc(total_transfers)
-                    record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', total_transfers)
-                    logger(logging.INFO, 'Got %s transfers for %s in %s seconds', total_transfers, activity, time.time() - start_time)
+                if not once and total_transfers < group_bulk:
+                    logger(logging.DEBUG, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', total_transfers, activity, group_bulk, sleep_time)
+                    activity_next_exe_time[activity] = time.time() + sleep_time
 
-                    for builder, transfer_paths in transfers.items():
-                        transfertool_obj = builder.make_transfertool(logger=logger, **transfertool_kwargs.get(builder.transfertool_class, {}))
-                        start_time = time.time()
-                        logger(logging.INFO, 'Starting to group transfers for %s (%s)', activity, transfertool_obj)
-                        grouped_jobs = transfertool_obj.group_into_submit_jobs(transfer_paths)
-                        record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfer_paths) or 1))
-
-                        logger(logging.INFO, 'Starting to submit transfers for %s (%s)', activity, transfertool_obj)
-                        for job in grouped_jobs:
-                            logger(logging.DEBUG, 'submitjob: transfers=%s, job_params=%s' % ([str(t) for t in job['transfers']], job['job_params']))
-                            submit_transfer(transfertool_obj=transfertool_obj, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter',
-                                            timeout=timeout, logger=logger)
-
-                    if total_transfers < group_bulk:
-                        logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', total_transfers, activity, group_bulk, sleep_time)
-                        if activity_next_exe_time[activity] < time.time():
-                            activity_next_exe_time[activity] = time.time() + sleep_time
-                except Exception:
-                    logger(logging.CRITICAL, 'Exception', exc_info=True)
-                    if once:
-                        raise
-
-            if once:
-                break
+            except Exception:
+                logger(logging.CRITICAL, 'Exception', exc_info=True)
+                if once:
+                    raise
 
 
 def stop(signum=None, frame=None):
