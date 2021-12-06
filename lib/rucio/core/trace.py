@@ -38,7 +38,7 @@ from jsonschema import validate, ValidationError
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import InvalidObject
-from rucio.common.schema.generic import SCOPE, RSE, UUID, TIME_ENTRY, IP, CLIENT_STATE
+from rucio.common.schema.generic import SCOPE, RSE, UUID, TIME_ENTRY, IPv4orIPv6, CLIENT_STATE
 from rucio.core.monitor import record_counter
 
 CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
@@ -94,7 +94,7 @@ TOUCH_SCHEMA = {
         "dataset": {"type": ["string", "null"]},
         "traceTimeentry": TIME_ENTRY,
         "traceTimeentryUnix": {"type": "number"},
-        "traceIp": IP,
+        "traceIp": IPv4orIPv6,
         "traceId": UUID,
         "localSite": RSE,
         "remoteSite": RSE,
@@ -123,7 +123,7 @@ UPLOAD_SCHEMA = {
         "transferEnd": {"type": "number"},
         "traceTimeentry": TIME_ENTRY,
         "traceTimeentryUnix": {"type": "number"},
-        "traceIp": IP,
+        "traceIp": IPv4orIPv6,
         "traceId": UUID,
         "vo": {"type": "string"},
         "stateReason": {"type": "string"},
@@ -159,7 +159,7 @@ DOWNLOAD_SCHEMA = {
         "transferEnd": {"type": "number"},
         "traceTimeentry": TIME_ENTRY,
         "traceTimeentryUnix": {"type": "number"},
-        "traceIp": IP,
+        "traceIp": IPv4orIPv6,
         "traceId": UUID,
         "vo": {"type": "string"},
         "usrdn": {"type": "string"},
@@ -187,7 +187,7 @@ GET_SCHEMA = {
         "name": {"type": "string"},
         "traceTimeentry": TIME_ENTRY,
         "traceTimeentryUnix": {"type": "number"},
-        "traceIp": IP,
+        "traceIp": IPv4orIPv6,
         "traceId": UUID,
         "usrdn": {"type": "string"},
     },
