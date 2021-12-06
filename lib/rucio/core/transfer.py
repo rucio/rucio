@@ -47,7 +47,7 @@ import json
 import logging
 import re
 import time
-from heapq import heappop, heappush
+from rucio.common.utils import PriorityQueue
 from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NoValue
@@ -845,19 +845,12 @@ def __search_shortest_paths(
         sources_to_find = set(source_rse_ids)
 
     next_hop = {dest_rse_id: {'cumulated_distance': 0}}
-    priority_q = []
+    priority_q = PriorityQueue()
 
     remaining_sources = copy.copy(sources_to_find)
-    heappush(priority_q, (0, dest_rse_id))
+    priority_q[dest_rse_id] = 0
     while priority_q:
-        pq_distance, current_node = heappop(priority_q)
-
-        current_distance = next_hop[current_node]['cumulated_distance']
-        if pq_distance > current_distance:
-            # Lazy deletion.
-            # We don't update the priorities in the queue. The same element can be found multiple times,
-            # with different priorities. Skip this element if it was already processed.
-            continue
+        current_node = priority_q.pop()
 
         if current_node in remaining_sources:
             remaining_sources.remove(current_node)
@@ -865,6 +858,7 @@ def __search_shortest_paths(
             # We found the shortest paths to all desired sources
             break
 
+        current_distance = next_hop[current_node]['cumulated_distance']
         inbound_links = __load_inbound_distances_node(rse_id=current_node, session=session)
         if inbound_links_by_node is not None:
             inbound_links_by_node[current_node] = inbound_links
@@ -899,7 +893,7 @@ def __search_shortest_paths(
                     'hop_distance': link_distance,
                     'cumulated_distance': new_adjacent_distance,
                 }
-                heappush(priority_q, (new_adjacent_distance, adjacent_node))
+                priority_q[adjacent_node] = new_adjacent_distance
             except RSEProtocolNotSupported:
                 if next_hop.get(adjacent_node) is None:
                     next_hop[adjacent_node] = {}
