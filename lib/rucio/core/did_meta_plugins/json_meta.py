@@ -34,6 +34,7 @@
 
 import json as json_lib
 import operator
+from six import print_
 
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -41,6 +42,7 @@ from rucio.common import exception
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models
+from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.db.sqla.util import json_implemented
 
@@ -163,28 +165,70 @@ class JSONDidMeta(DidMetaPlugin):
 
         # instantiate fe and create sqla query, note that coercion to a model keyword
         # is not appropriate here as the filter words are stored in a single json column.
-        fe = FilterEngine(filters, model_class=models.DidMeta, strict_coerce=False)
-        query = fe.create_sqla_query(
-            additional_model_attributes=[
-                models.DidMeta.scope,
-                models.DidMeta.name
-            ], additional_filters=[
-                (models.DidMeta.scope, operator.eq, scope)
-            ],
-            json_column = models.DidMeta.meta
-        )
+        try:                                                                                      #FIXME
+            fe = FilterEngine(filters, model_class=models.DidMeta, strict_coerce=False)
+            query = fe.create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ], additional_filters=[
+                    (models.DidMeta.scope, operator.eq, scope)
+                ],
+                json_column = models.DidMeta.meta
+            ) 
+        except Exception as e:                                                                  #FIXME
+            raise exception.DataIdentifierNotFound(e)                                           #FIXME
+        #raise exception.DataIdentifierNotFound(FilterEngine.print_query(query))                #FIXME
+        #try:                                                                                   #FIXME
+        #    query.yield_per(5)                                                                 #FIXME
+        #except Exception as e:                                                                 #FIXME
+        #    raise exception.DataIdentifierNotFound(e)                                          #FIXME
 
-        raise exception.DataIdentifierNotFound(query)       #FIXME 
+        if limit:
+            query = query.limit(limit)
+        if recursive:
+            from rucio.core.did import list_content
 
-        yield []
-        
+            # Get attached DIDs and save in list because query has to be finished before starting a new one in the recursion
+            collections_content = []
+            for did in query.yield_per(100):
+                if (did.did_type == DIDType.CONTAINER or did.did_type == DIDType.DATASET):
+                    collections_content += [d for d in list_content(scope=did.scope, name=did.name)]
+
+            # Replace any name filtering with recursed DID names.
+            for did in collections_content:
+                for or_group in filters:
+                    or_group['name'] = did['name']
+                for result in self.list_dids(scope=did['scope'], filters=filters, recursive=True, did_type=did_type, limit=limit, offset=offset, 
+                                            long=long, ignore_dids=ignore_dids, session=session):
+                    yield result
+
+        if long:
+            for did in query.yield_per(5):              # don't unpack this as it makes it dependent on query return order!
+                did_full = "{}:{}".format(did.scope, did.name)
+                if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
+                    ignore_dids.add(did_full)
+                    yield {
+                        'scope': did.scope, 
+                        'name': did.name, 
+                        'did_type': 'Not available with {} plugin.'.format(self.get_plugin_name()), 
+                        'bytes': 'Not available with {} plugin.'.format(self.get_plugin_name()), 
+                        'length': 'Not available with {} plugin.'.format(self.get_plugin_name())
+                    }
+        else:
+            for did in query.yield_per(5):              # don't unpack this as it makes it dependent on query return order!
+                did_full = "{}:{}".format(did.scope, did.name)
+                if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
+                    ignore_dids.add(did_full)
+                    yield did.name
+
     @read_session
     def manages_key(self, key, session=None):
         return json_implemented(session=session)
 
     def get_plugin_name(self):
         """
-        Returns Plugins Name.
-        This can then be used when listing the metadata of did to only provide dids from this plugin.
+        Returns a unique identifier for this plugin. This can be later used for filtering down results to this plugin only.
+        :returns: The name of the plugin.
         """
         return self.plugin_name

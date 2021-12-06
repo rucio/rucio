@@ -299,7 +299,13 @@ class DidColumnMeta(DidMetaPlugin):
                 did_full = "{}:{}".format(did.scope, did.name)
                 if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
                     ignore_dids.add(did_full)
-                    yield {'scope': did.scope, 'name': did.name, 'did_type': str(did.did_type), 'bytes': did.bytes, 'length': did.length}
+                    yield {
+                        'scope': did.scope, 
+                        'name': did.name, 
+                        'did_type': str(did.did_type), 
+                        'bytes': did.bytes, 
+                        'length': did.length
+                    }
         else:
             for did in query.yield_per(5):              # don't unpack this as it makes it dependent on query return order!
                 did_full = "{}:{}".format(did.scope, did.name)
@@ -321,8 +327,7 @@ class DidColumnMeta(DidMetaPlugin):
 
     def get_plugin_name(self):
         """
-        Returns a unique identifier for the Plugin.
-        This can be later used for filtering down results to this plugin only."
-        :returns: (STRING) The name of the plugin
+        Returns a unique identifier for this plugin. This can be later used for filtering down results to this plugin only.
+        :returns: The name of the plugin.
         """
         return self.plugin_name

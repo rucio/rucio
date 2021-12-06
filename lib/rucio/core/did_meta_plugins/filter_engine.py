@@ -21,11 +21,11 @@
 
 import ast
 import operator
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from importlib import import_module
 
 import sqlalchemy
-from sqlalchemy import String, cast, type_coerce, JSON, or_, and_
+from sqlalchemy import String, Integer, Float, DateTime, Boolean, cast, type_coerce, JSON, or_, and_
 from sqlalchemy.sql.expression import text
 
 from rucio.common import exception
@@ -76,31 +76,35 @@ class FilterEngine:
     def filters(self):
         return self._filters
 
-    @property
-    def filters_pretty(self):
+    def _coerce_filter_word_to_model_attribute(self, word, model_class, strict=True):
         """
-        A (more) human readable format of <filters>.
+        Attempts to coerce a filter word to an attribute of a <model_class>.
+
+        :param model_class: The word.
+        :param model_class: The SQL model class.
+        :returns: The coerced attribute if successful or the word if not.
         """
-        filters = '\n'
+        if isinstance(word, str):
+            if hasattr(model_class, word):
+                return getattr(model_class, word)
+            else:
+                if strict:
+                    raise exception.KeyNotFound("'{}' keyword could not be coerced to model class attribute. Attribute not found.".format(word))
+        return word
+
+    def _make_input_backwards_compatible(self):
+        """
+        Backwards compatibility for previous versions of filtering.
+
+        Does the following:
+        - converts "created_after" key to "created_at.gte"
+        - converts "created_before" key to "created_at.lte"
+        """
         for or_group in self._filters:
-            for and_group in or_group:
-                key, oper, value = and_group
-                if isinstance(key, sqlalchemy.orm.attributes.InstrumentedAttribute):
-                    key = and_group[0].key
-                if operators_conversion_LUT_inv[oper] == "":
-                    oper = "eq"
-                else:
-                    oper = operators_conversion_LUT_inv[oper]
-                if isinstance(value, sqlalchemy.orm.attributes.InstrumentedAttribute):
-                    value = and_group[2].key
-                elif isinstance(value, DIDType):
-                    value = and_group[2].name
-                filters = "{}{} {} {}".format(filters, key, oper, value)
-                if and_group != or_group[-1]:
-                    filters += ' AND '
-            if or_group != self._filters[-1]:
-                filters += ' OR\n'
-        return filters
+            if 'created_after' in or_group:
+                or_group['created_at.gte'] = or_group.pop('created_after')
+            elif 'created_before' in or_group:
+                or_group['created_at.lte'] = or_group.pop('created_before')
 
     def _sanity_check_translated_filters(self):
         """
@@ -142,36 +146,6 @@ class FilterEngine:
                 or_group_test_duplicates.append((key, oper))
             if len(set(or_group_test_duplicates)) != len(or_group_test_duplicates):     # (6)
                 raise exception.DuplicateCriteriaInDIDFilter()
-
-    def _make_input_backwards_compatible(self):
-        """
-        Backwards compatibility for previous versions of filtering.
-
-        Does the following:
-        - converts "created_after" key to "created_at.gte"
-        - converts "created_before" key to "created_at.lte"
-        """
-        for or_group in self._filters:
-            if 'created_after' in or_group:
-                or_group['created_at.gte'] = or_group.pop('created_after')
-            elif 'created_before' in or_group:
-                or_group['created_at.lte'] = or_group.pop('created_before')
-
-    def _coerce_filter_word_to_model_attribute(self, word, model_class, strict=True):
-        """
-        Attempts to coerce a filter word to an attribute of a <model_class>.
-
-        :param model_class: The word.
-        :param model_class: The SQL model class.
-        :returns: The coerced attribute if successful or the word if not.
-        """
-        if isinstance(word, str):
-            if hasattr(model_class, word):
-                return getattr(model_class, word)
-            else:
-                if strict:
-                    raise exception.KeyNotFound("'{}' keyword could not be coerced to model class attribute. Attribute not found.".format(word))
-        return word
 
     def _translate_filters(self, model_class, strict_coerce=True):
         """
@@ -239,23 +213,32 @@ class FilterEngine:
 
                 # logic for value
                 if isinstance(value, str):
-                    value = value.replace('true', 'True').replace('false', 'False')
-                    for format in valid_date_formats:   # try parsing multiple date formats.
-                        try:
-                            value = datetime.strptime(value, format)
-                            break
-                        except ValueError:
-                            continue
-                    try:
-                        value = ast.literal_eval(value)
-                    except (ValueError, SyntaxError):
-                        pass
+                    value = self._try_typecast_string(value)
 
                 and_group_parsed.append(
                     (key_no_suffix, operators_conversion_LUT.get(oper), value))
             filters_translated.append(and_group_parsed)
         self._filters = filters_translated
         return list(mandatory_model_attributes)
+
+    def _try_typecast_string(self, value):
+        """
+        Check if string can be typecasted to bool, datetime or float
+        """
+        value = value.replace('true', 'True').replace('TRUE', 'True')
+        value = value.replace('false', 'False').replace('FALSE', 'False')
+        for format in valid_date_formats:   # try parsing multiple date formats.
+            try:
+                value = datetime.strptime(value, format)
+            except ValueError:
+                continue
+            else:
+                return value
+        try:
+            value = ast.literal_eval(value) # will catch float, int and bool
+        except (ValueError, SyntaxError):
+            pass
+        return value                        
 
     @read_session
     def create_sqla_query(self, session=None, additional_model_attributes=[], additional_filters={}, json_column=None):
@@ -288,27 +271,43 @@ class FilterEngine:
                         if value in ('*', '%', u'*', u'%'):                                     # match wildcard exactly == no filtering on key
                             continue
                         else:                                                                   # partial match with wildcard == like || notlike
-                            if session.bind.dialect.name == 'postgresql':
-                                if oper == operator.eq:
-                                    expression = key.like(value.replace('*', '%').replace('_', '\_'), escape='\\')     # NOQA: W605
-                                elif oper == operator.ne:
-                                    expression = key.notlike(value.replace('*', '%').replace('_', '\_'), escape='\\')  # NOQA: W605
-                            else:
-                                if oper == operator.eq:
-                                    expression = key.like(value.replace('*', '%').replace('_', '\_'), escape='\\')     # NOQA: W605
-                                elif oper == operator.ne:
-                                    expression = key.notlike(value.replace('*', '%').replace('_', '\_'), escape='\\')  # NOQA: W605
+                            if oper == operator.eq:
+                                expression = key.like(value.replace('*', '%').replace('_', '\_'), escape='\\')     # NOQA: W605
+                            elif oper == operator.ne:
+                                expression = key.notlike(value.replace('*', '%').replace('_', '\_'), escape='\\')  # NOQA: W605
                     else:
                         expression = oper(key, value)
 
                     if oper == operator.ne:                                                     # set .ne operator to include NULLs.
                         expression = or_(expression, key.is_(None))
-                elif json_column:                                                               # -> This key filters filters on the content of a json column
+                elif json_column:                                                               # -> This key filters on the content of a json column
                     if session.bind.dialect.name == 'oracle':
                         pass
                         #query = query.filter(text("json_exists(meta,'$?(@.{} == \"{}\")')".format(k, v)))  #TODO
                     else:
-                        expression = oper(cast(json_column[key], String), type_coerce(value, JSON))         #UPTOHERE !!!!
+                        if isinstance(value, str) and any([char in value for char in ['*', '%']]):  # wildcards
+                            if value in ('*', '%', u'*', u'%'):                                     # match wildcard exactly == no filtering on key
+                                continue
+                            else:                                                                   # partial match with wildcard == like || notlike
+                                if oper == operator.eq:
+                                    expression = json_column[key].as_string().like(value.replace('*', '%').replace('_', '\_'), escape='\\')     # NOQA: W605
+                                elif oper == operator.ne:
+                                    expression = json_column[key].as_string().notlike(value.replace('*', '%').replace('_', '\_'), escape='\\')  # NOQA: W605
+                        else:
+                            try:
+                                if isinstance(value, int):                                              # this could be bool or int as bool subclass of int
+                                    if type(value) == bool:
+                                        expression = oper(json_column[key].as_boolean(), value)
+                                    else:
+                                        expression = oper(json_column[key].as_integer(), value)
+                                elif isinstance(value, float):
+                                    expression = oper(json_column[key].as_float(), value)
+                                elif isinstance(value, datetime):
+                                    pass                                                                #FIXME how to do dates?
+                                else:
+                                    expression = oper(json_column[key].as_string(), value)
+                            except Exception as e:
+                                raise exception.FilterEngineGenericError(e)
                 else:
                     raise exception.FilterEngineGenericError("Requested filter on key without model attribute, but [json_column] not set.")
 
@@ -331,5 +330,62 @@ class FilterEngine:
             or_group_evaluations.append(all(and_group_evaluations))
         return any(or_group_evaluations)
 
-    def query_to_psql(self, query):
-        return query.statement.compile(compile_kwargs={"literal_binds": True}, dialect=sqlalchemy.dialects.postgresql.dialect())
+    @staticmethod
+    def print_query(statement, dialect=sqlalchemy.dialects.postgresql.dialect()):
+        """ 
+        Generates SQL expression with parameters rendered inline. 
+        
+        For debugging ONLY. 
+        """
+        if isinstance(statement, sqlalchemy.orm.Query):
+            if dialect is None:
+                dialect = statement.session.bind.dialect
+            statement = statement.statement
+        elif dialect is None:
+            dialect = statement.bind.dialect
+
+        class LiteralCompiler(dialect.statement_compiler):
+            def visit_bindparam(self, bindparam, within_columns_clause=False,
+                                literal_binds=False, **kwargs):
+                return self.render_literal_value(bindparam.value, bindparam.type)
+
+            def render_array_value(self, val, item_type):
+                if isinstance(val, list):
+                    return "{%s}" % ",".join([self.render_array_value(x, item_type) for x in val])
+                return self.render_literal_value(val, item_type)
+
+            def render_literal_value(self, value, type_):
+                if isinstance(value, int):
+                    return str(value)
+                elif isinstance(value, (str, date, datetime, timedelta)):
+                    return "'%s'" % str(value).replace("'", "''")
+                elif isinstance(value, list):
+                    return "'{%s}'" % (",".join([self.render_array_value(x, type_.item_type) for x in value]))
+                return super(LiteralCompiler, self).render_literal_value(value, type_)
+
+        return LiteralCompiler(dialect, statement).process(statement)
+
+    def pprint_filters(self):
+        """
+        A (more) human readable format of <filters>.
+        """
+        filters = '\n'
+        for or_group in self._filters:
+            for and_group in or_group:
+                key, oper, value = and_group
+                if isinstance(key, sqlalchemy.orm.attributes.InstrumentedAttribute):
+                    key = and_group[0].key
+                if operators_conversion_LUT_inv[oper] == "":
+                    oper = "eq"
+                else:
+                    oper = operators_conversion_LUT_inv[oper]
+                if isinstance(value, sqlalchemy.orm.attributes.InstrumentedAttribute):
+                    value = and_group[2].key
+                elif isinstance(value, DIDType):
+                    value = and_group[2].name
+                filters = "{}{} {} {}".format(filters, key, oper, value)
+                if and_group != or_group[-1]:
+                    filters += ' AND '
+            if or_group != self._filters[-1]:
+                filters += ' OR\n'
+        return filters
