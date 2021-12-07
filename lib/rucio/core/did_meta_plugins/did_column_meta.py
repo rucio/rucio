@@ -294,8 +294,8 @@ class DidColumnMeta(DidMetaPlugin):
                                             long=long, ignore_dids=ignore_dids, session=session):
                     yield result
 
-        if long:
-            for did in query.yield_per(5):              # don't unpack this as it makes it dependent on query return order!
+        for did in query.yield_per(5):                  # don't unpack this as it makes it dependent on query return order!
+            if long:
                 did_full = "{}:{}".format(did.scope, did.name)
                 if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
                     ignore_dids.add(did_full)
@@ -306,8 +306,7 @@ class DidColumnMeta(DidMetaPlugin):
                         'bytes': did.bytes, 
                         'length': did.length
                     }
-        else:
-            for did in query.yield_per(5):              # don't unpack this as it makes it dependent on query return order!
+            else:
                 did_full = "{}:{}".format(did.scope, did.name)
                 if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
                     ignore_dids.add(did_full)

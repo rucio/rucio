@@ -179,10 +179,13 @@ class JSONDidMeta(DidMetaPlugin):
         except Exception as e:                                                                  #FIXME
             raise exception.DataIdentifierNotFound(e)                                           #FIXME
         #raise exception.DataIdentifierNotFound(FilterEngine.print_query(query))                #FIXME
-        #try:                                                                                   #FIXME
-        #    query.yield_per(5)                                                                 #FIXME
-        #except Exception as e:                                                                 #FIXME
-        #    raise exception.DataIdentifierNotFound(e)                                          #FIXME
+        try:                                                                                    #FIXME
+            dids = query.yield_per(5)                                                           #FIXME
+            for did in dids:
+                raise exception.DataIdentifierNotFound(type(did))
+        except Exception as e:                                                                  #FIXME
+            raise exception.DataIdentifierNotFound(type(e))                                     #FIXME
+        #raise exception.DataIdentifierNotFound(FilterEngine.print_query(query))                #FIXME
 
         if limit:
             query = query.limit(limit)
@@ -203,8 +206,8 @@ class JSONDidMeta(DidMetaPlugin):
                                             long=long, ignore_dids=ignore_dids, session=session):
                     yield result
 
-        if long:
-            for did in query.yield_per(5):              # don't unpack this as it makes it dependent on query return order!
+        for did in query.yield_per(5):                  # don't unpack this as it makes it dependent on query return order!
+            if long: 
                 did_full = "{}:{}".format(did.scope, did.name)
                 if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
                     ignore_dids.add(did_full)
@@ -215,8 +218,7 @@ class JSONDidMeta(DidMetaPlugin):
                         'bytes': 'Not available with {} plugin.'.format(self.get_plugin_name()), 
                         'length': 'Not available with {} plugin.'.format(self.get_plugin_name())
                     }
-        else:
-            for did in query.yield_per(5):              # don't unpack this as it makes it dependent on query return order!
+            else:
                 did_full = "{}:{}".format(did.scope, did.name)
                 if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
                     ignore_dids.add(did_full)

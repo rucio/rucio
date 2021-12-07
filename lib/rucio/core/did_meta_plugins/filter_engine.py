@@ -266,21 +266,20 @@ class FilterEngine:
             and_expressions = []
             for and_group in or_group:
                 key, oper, value = and_group
-                if isinstance(key, sqlalchemy.orm.attributes.InstrumentedAttribute):            # -> This key filters on a table column.
-                    if isinstance(value, str) and any([char in value for char in ['*', '%']]):  # wildcards
-                        if value in ('*', '%', u'*', u'%'):                                     # match wildcard exactly == no filtering on key
+                if isinstance(key, sqlalchemy.orm.attributes.InstrumentedAttribute):                # -> this key filters on a table column.
+                    if isinstance(value, str) and any([char in value for char in ['*', '%']]):      # wildcards
+                        if value in ('*', '%', u'*', u'%'):                                         # match wildcard exactly == no filtering on key
                             continue
-                        else:                                                                   # partial match with wildcard == like || notlike
+                        else:                                                                       # partial match with wildcard == like || notlike
                             if oper == operator.eq:
                                 expression = key.like(value.replace('*', '%').replace('_', '\_'), escape='\\')     # NOQA: W605
                             elif oper == operator.ne:
                                 expression = key.notlike(value.replace('*', '%').replace('_', '\_'), escape='\\')  # NOQA: W605
                     else:
                         expression = oper(key, value)
-
-                    if oper == operator.ne:                                                     # set .ne operator to include NULLs.
+                    if oper == operator.ne:                                                         # set .ne operator to include NULLs.
                         expression = or_(expression, key.is_(None))
-                elif json_column:                                                               # -> This key filters on the content of a json column
+                elif json_column:                                                                   # -> this key filters on the content of a json column
                     if session.bind.dialect.name == 'oracle':
                         pass
                         #query = query.filter(text("json_exists(meta,'$?(@.{} == \"{}\")')".format(k, v)))  #TODO
@@ -295,7 +294,7 @@ class FilterEngine:
                                     expression = json_column[key].as_string().notlike(value.replace('*', '%').replace('_', '\_'), escape='\\')  # NOQA: W605
                         else:
                             try:
-                                if isinstance(value, int):                                              # this could be bool or int as bool subclass of int
+                                if isinstance(value, int):                                          # this could be bool or int as bool subclass of int
                                     if type(value) == bool:
                                         expression = oper(json_column[key].as_boolean(), value)
                                     else:
@@ -303,11 +302,13 @@ class FilterEngine:
                                 elif isinstance(value, float):
                                     expression = oper(json_column[key].as_float(), value)
                                 elif isinstance(value, datetime):
-                                    pass                                                                #FIXME how to do dates?
+                                    pass                                                            #FIXME how to do dates?
                                 else:
                                     expression = oper(json_column[key].as_string(), value)
                             except Exception as e:
                                 raise exception.FilterEngineGenericError(e)
+                            if oper == operator.ne:                                                 # set .ne operator to include NULLs.
+                                expression = or_(expression, json_column[key].is_(None))
                 else:
                     raise exception.FilterEngineGenericError("Requested filter on key without model attribute, but [json_column] not set.")
 
