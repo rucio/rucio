@@ -187,6 +187,8 @@ class RequestHistoryList(ErrorHandlingMethodView):
         src_site = flask.request.args.get('src_site', default=None)
         dst_site = flask.request.args.get('dst_site', default=None)
         request_states = flask.request.args.get('request_states', default=None)
+        offset = flask.request.args.get('offset', default=0)
+        limit = flask.request.args.get('limit', default=100)
 
         if not request_states:
             return generate_http_error_flask(400, 'MissingParameter', 'Request state is missing')
@@ -220,7 +222,7 @@ class RequestHistoryList(ErrorHandlingMethodView):
             src_rses = [src_rse]
 
         def generate(issuer, vo):
-            for result in request.list_requests_history(src_rses, dst_rses, states, issuer=issuer, vo=vo):
+            for result in request.list_requests_history(src_rses, dst_rses, states, issuer=issuer, vo=vo, offset=offset, limit=limit):
                 del result['_sa_instance_state']
                 yield render_json(**result) + '\n'
 

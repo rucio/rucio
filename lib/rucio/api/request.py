@@ -201,7 +201,7 @@ def list_requests(src_rses, dst_rses, states, issuer, vo='def'):
         yield api_update_return_dict(req)
 
 
-def list_requests_history(src_rses, dst_rses, states, issuer, vo='def'):
+def list_requests_history(src_rses, dst_rses, states, issuer, vo='def', offset=None, limit=None):
     """
     List all historical requests in a specific state from a source RSE to a destination RSE.
 
@@ -209,6 +209,8 @@ def list_requests_history(src_rses, dst_rses, states, issuer, vo='def'):
     :param dst_rses: destination RSEs.
     :param states: list of request states.
     :param issuer: Issuing account as a string.
+    :param offset: offset (for paging).
+    :param limit: limit number of results.
     """
     src_rse_ids = [get_rse_id(rse=rse, vo=vo) for rse in src_rses]
     dst_rse_ids = [get_rse_id(rse=rse, vo=vo) for rse in dst_rses]
@@ -217,6 +219,6 @@ def list_requests_history(src_rses, dst_rses, states, issuer, vo='def'):
     if not permission.has_permission(issuer=issuer, vo=vo, action='list_requests_history', kwargs=kwargs):
         raise exception.AccessDenied('%(issuer)s cannot list requests from RSE %(src_rse)s to RSE %(dst_rse)s' % locals())
 
-    for req in request.list_requests_history(src_rse_ids, dst_rse_ids, states):
+    for req in request.list_requests_history(src_rse_ids, dst_rse_ids, states, offset, limit):
         req = req.to_dict()
         yield api_update_return_dict(req)

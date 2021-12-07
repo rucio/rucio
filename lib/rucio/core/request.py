@@ -1532,18 +1532,24 @@ def list_requests(src_rse_ids, dst_rse_ids, states=[RequestState.WAITING], sessi
 
 
 @stream_session
-def list_requests_history(src_rse_ids, dst_rse_ids, states=[RequestState.WAITING], session=None):
+def list_requests_history(src_rse_ids, dst_rse_ids, states=[RequestState.WAITING], offset=None, limit=None, session=None):
     """
     List all historical requests in a specific state from a source RSE to a destination RSE.
 
     :param src_rse_ids: source RSE ids.
     :param dst_rse_ids: destination RSE ids.
     :param states: list of request states.
+    :param offset: offset (for paging).
+    :param limit: limit number of results.
     :param session: The database session in use.
     """
     query = session.query(models.RequestHistory).filter(models.RequestHistory.state.in_(states),
                                                         models.RequestHistory.source_rse_id.in_(src_rse_ids),
                                                         models.RequestHistory.dest_rse_id.in_(dst_rse_ids))
+    if offset:
+        query = query.offset(offset)
+    if limit:
+        query = query.limit(limit)
     for request in query.yield_per(500):
         yield request
 
