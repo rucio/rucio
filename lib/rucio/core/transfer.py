@@ -69,7 +69,7 @@ from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
-from rucio.core.request import queue_requests, set_requests_state
+from rucio.core.request import queue_requests, set_request_state
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
@@ -1558,7 +1558,7 @@ def create_missing_replicas_and_requests(
             break
         rws.request_id = new_req[0]['id']
         logger(logging.DEBUG, '%s: New request created for the transfer between %s and %s : %s', initial_request_id, transfer_path[0].src, transfer_path[-1].dst, rws.request_id)
-        set_requests_state(request_ids=[rws.request_id, ], new_state=RequestState.QUEUED, session=session)
+        set_request_state(rws.request_id, RequestState.QUEUED, session=session, logger=logger)
         created_requests.append(rws.request_id)
 
     if not creation_successful:
@@ -1566,7 +1566,9 @@ def create_missing_replicas_and_requests(
         logger(logging.WARNING, '%s: Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests',
                initial_request_id, transfer_path[0].src, transfer_path[-1].dst)
         try:
-            set_requests_state(request_ids=created_requests, new_state=RequestState.FAILED, session=session)
+            for request_id in created_requests:
+                set_request_state(request_id=request_id, new_state=RequestState.FAILED,
+                                  err_msg="Cancelled hop in multi-hop", session=session)
         except UnsupportedOperation:
             logger(logging.ERROR, '%s: Multihop : Cannot cancel all the parent requests : %s', initial_request_id, str(created_requests))
 
