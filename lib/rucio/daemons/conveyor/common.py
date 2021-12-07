@@ -54,6 +54,7 @@ from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, T
 from rucio.common.logging import formatted_logger
 from rucio.core import heartbeat, request, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
+from rucio.core.request import set_request_state
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
@@ -117,14 +118,16 @@ def submit_transfer(transfertool_obj, transfers, job_params, submitter='submitte
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
-    try:
-        transfer_core.mark_submitting_and_prepare_sources_for_transfers(transfers, external_host=transfertool_obj.external_host, logger=logger)
-    except RequestNotFound as error:
-        logger(logging.ERROR, str(error))
-        return
-    except Exception:
-        logger(logging.ERROR, 'Failed to prepare requests %s state to SUBMITTING (Will not submit jobs but return directly) with error' % [str(t.rws) for t in transfers], exc_info=True)
-        return
+    for transfer in transfers:
+        try:
+            transfer_core.mark_submitting_and_prepare_sources_for_transfer(transfer, external_host=transfertool_obj.external_host, logger=logger)
+        except RequestNotFound as error:
+            logger(logging.ERROR, str(error))
+            return
+        except Exception:
+            logger(logging.ERROR, 'Failed to prepare requests %s state to SUBMITTING. Mark it SUBMISSION_FAILED and abort submission.' % [str(t.rws) for t in transfers], exc_info=True)
+            set_request_state(request_id=transfer.rws.request_id, new_state=RequestState.SUBMISSION_FAILED)
+            return
 
     try:
         _submit_transfers(transfertool_obj, transfers, job_params, submitter, timeout, logger)
