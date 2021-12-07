@@ -480,64 +480,57 @@ def transfer_path_str(transfer_path: "List[DirectTransferDefinition]") -> str:
 
 
 @transactional_session
-def mark_submitting_and_prepare_sources_for_transfers(
-        transfers: "Iterable[DirectTransferDefinition]",
+def mark_submitting_and_prepare_sources_for_transfer(
+        transfer: "DirectTransferDefinition",
         external_host: str,
         logger: "Callable",
         session: "Optional[Session]" = None,
 ):
     """
     Prepare the sources for transfers.
-    :param transfers:  Dictionary containing request transfer info.
+    :param transfer:   A transfer object
     :param session:    Database session to use.
     """
 
-    logger(logging.DEBUG, 'Start to prepare transfer')
-    try:
-        for transfer in transfers:
-            log_str = 'PREPARING REQUEST %s DID %s:%s TO SUBMITTING STATE PREVIOUS %s FROM %s TO %s USING %s ' % (transfer.rws.request_id,
-                                                                                                                  transfer.rws.scope,
-                                                                                                                  transfer.rws.name,
-                                                                                                                  transfer.rws.previous_attempt_id,
-                                                                                                                  transfer.legacy_sources,
-                                                                                                                  transfer.dest_url,
-                                                                                                                  external_host)
-            logger(logging.INFO, "%s", log_str)
+    log_str = 'PREPARING REQUEST %s DID %s:%s TO SUBMITTING STATE PREVIOUS %s FROM %s TO %s USING %s ' % (transfer.rws.request_id,
+                                                                                                          transfer.rws.scope,
+                                                                                                          transfer.rws.name,
+                                                                                                          transfer.rws.previous_attempt_id,
+                                                                                                          transfer.legacy_sources,
+                                                                                                          transfer.dest_url,
+                                                                                                          external_host)
+    logger(logging.INFO, "%s", log_str)
 
-            rowcount = session.query(models.Request)\
-                              .filter_by(id=transfer.rws.request_id)\
-                              .filter(models.Request.state == RequestState.QUEUED)\
-                              .update({'state': RequestState.SUBMITTING,
-                                       'external_id': None,
-                                       'external_host': external_host,
-                                       'dest_url': transfer.dest_url,
-                                       'submitted_at': datetime.datetime.utcnow()},
-                                      synchronize_session=False)
-            if rowcount == 0:
-                raise RequestNotFound("Failed to prepare transfer: request %s does not exist or is not in queued state" % transfer.rws)
+    rowcount = session.query(models.Request)\
+                      .filter_by(id=transfer.rws.request_id)\
+                      .filter(models.Request.state == RequestState.QUEUED)\
+                      .update({'state': RequestState.SUBMITTING,
+                               'external_id': None,
+                               'external_host': external_host,
+                               'dest_url': transfer.dest_url,
+                               'submitted_at': datetime.datetime.utcnow()},
+                              synchronize_session=False)
+    if rowcount == 0:
+        raise RequestNotFound("Failed to prepare transfer: request %s does not exist or is not in queued state" % transfer.rws)
 
-            for src_rse, src_url, src_rse_id, rank in transfer.legacy_sources:
-                # For multi-hops, sources in database are bound to the initial request
-                source_request_id = transfer.rws.attributes.get('initial_request_id', transfer.rws.request_id)
-                src_rowcount = session.query(models.Source)\
-                                      .filter_by(request_id=source_request_id)\
-                                      .filter(models.Source.rse_id == src_rse_id)\
-                                      .update({'is_using': True}, synchronize_session=False)
-                if src_rowcount == 0:
-                    models.Source(request_id=source_request_id,
-                                  scope=transfer.rws.scope,
-                                  name=transfer.rws.name,
-                                  rse_id=src_rse_id,
-                                  dest_rse_id=transfer.dst.rse.id,
-                                  ranking=rank if rank else 0,
-                                  bytes=transfer.rws.byte_count,
-                                  url=src_url,
-                                  is_using=True).\
-                        save(session=session, flush=False)
-
-    except IntegrityError as error:
-        raise RucioException(error.args)
-    logger(logging.DEBUG, 'Finished to prepare transfer')
+    for src_rse, src_url, src_rse_id, rank in transfer.legacy_sources:
+        # For multi-hops, sources in database are bound to the initial request
+        source_request_id = transfer.rws.attributes.get('initial_request_id', transfer.rws.request_id)
+        src_rowcount = session.query(models.Source)\
+                              .filter_by(request_id=source_request_id)\
+                              .filter(models.Source.rse_id == src_rse_id)\
+                              .update({'is_using': True}, synchronize_session=False)
+        if src_rowcount == 0:
+            models.Source(request_id=source_request_id,
+                          scope=transfer.rws.scope,
+                          name=transfer.rws.name,
+                          rse_id=src_rse_id,
+                          dest_rse_id=transfer.dst.rse.id,
+                          ranking=rank if rank else 0,
+                          bytes=transfer.rws.byte_count,
+                          url=src_url,
+                          is_using=True).\
+                save(session=session, flush=False)
 
 
 @transactional_session
