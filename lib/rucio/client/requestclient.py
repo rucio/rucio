@@ -50,14 +50,14 @@ class RequestClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_requests_history(self, src_rse, dst_rse, request_states):
+    def list_requests_history(self, src_rse, dst_rse, request_states, offset=0, limit=100):
         """Return historical request details
 
         :return: request information
         :rtype: dict
         """
         path = '/'.join([self.REQUEST_BASEURL, 'history', 'list']) + '?' + '&'.join(['src_rse={}'.format(src_rse), 'dst_rse={}'.format(
-            dst_rse), 'request_states={}'.format(request_states)])
+            dst_rse), 'request_states={}'.format(request_states), 'offset={}'.format(offset), 'limit={}'.format(limit)])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type_='GET')
 
