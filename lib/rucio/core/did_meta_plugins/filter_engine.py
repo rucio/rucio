@@ -294,7 +294,7 @@ class FilterEngine:
                                     expression = json_column[key].as_string().notlike(value.replace('*', '%').replace('_', '\_'), escape='\\')  # NOQA: W605
                         else:
                             try:
-                                if isinstance(value, int):                                          # this could be bool or int as bool subclass of int
+                                if isinstance(value, int):                                          # this could be bool or int (as bool subclass of int)
                                     if type(value) == bool:
                                         expression = oper(json_column[key].as_boolean(), value)
                                     else:
