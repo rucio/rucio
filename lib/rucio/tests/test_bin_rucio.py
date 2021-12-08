@@ -569,6 +569,43 @@ class TestBinRucio(unittest.TestCase):
         assert meta['md5'] == file_md5
         remove(filename)
 
+    def test_upload_expiration_date(self):
+        """CLIENT(USER): Rucio upload files"""
+        tmp_file = file_generator()
+        cmd = 'rucio -v upload --rse {0} --scope {1} --expiration-date 2021-10-10-20:00:00 --lifetime 20000  {2}'.format(self.def_rse, self.user, tmp_file)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        assert exitcode != 0
+        assert "--lifetime and --expiration-date cannot be specified at the same time." in err
+
+        cmd = 'rucio -v upload --rse {0} --scope {1} --expiration-date 2021----10-10-20:00:00 {2}'.format(self.def_rse, self.user, tmp_file)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        assert exitcode != 0
+        assert "does not match format '%Y-%m-%d-%H:%M:%S'" in err
+
+        cmd = 'rucio -v upload --rse {0} --scope {1} --expiration-date 2021-10-10-20:00:00 {2}'.format(self.def_rse, self.user, tmp_file)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        assert exitcode != 0
+        assert "The specified expiration date should be in the future!" in err
+
+        cmd = 'rucio -v upload --rse {0} --scope {1} --expiration-date 2030-10-10-20:00:00 {2}'.format(self.def_rse, self.user, tmp_file)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        assert exitcode == 0
+        remove(tmp_file)
+        upload_string = (self.upload_success_str % path.basename(tmp_file))
+        assert upload_string in out or upload_string in err
+
     def test_create_dataset(self):
         """CLIENT(USER): Rucio add dataset"""
         tmp_name = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
