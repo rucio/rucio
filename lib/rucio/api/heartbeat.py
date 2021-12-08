@@ -42,7 +42,6 @@ def create_heartbeat(executable, hostname, pid, thread, older_than, payload, iss
     :param pid: UNIX Process ID as a number, e.g., 1234.
     :param thread: Python Thread Object.
     :param older_than: Ignore specified heartbeats older than specified nr of seconds.
-    :param hash_executable: Hash of the executable.
     :param payload: Payload identifier which can be further used to identify the work a certain thread is executing.
 
     """
