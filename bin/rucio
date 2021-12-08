@@ -72,6 +72,7 @@ import time
 import traceback
 import unittest
 import uuid
+from datetime import datetime
 from functools import wraps
 
 from six.moves.configparser import NoOptionError, NoSectionError
@@ -1005,6 +1006,15 @@ def upload(args):
 
     Upload files into Rucio
     """
+    if args.lifetime and args.expiration_date:
+        logger.error("--lifetime and --expiration-date cannot be specified at the same time.")
+        return FAILURE
+    elif args.expiration_date:
+        expiration_date = datetime.strptime(args.expiration_date, "%Y-%m-%d-%H:%M:%S")
+        if expiration_date < datetime.utcnow():
+            logger.error("The specified expiration date should be in the future!")
+            return FAILURE
+        args.lifetime = (expiration_date - datetime.utcnow()).total_seconds()
 
     dsscope = None
     dsname = None
@@ -2290,6 +2300,7 @@ You can filter by key/value, e.g.::
     upload_parser.set_defaults(function=upload)
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True).completer = rse_completer
     upload_parser.add_argument('--lifetime', type=int, action='store', help='Lifetime of the rule in seconds.')
+    upload_parser.add_argument('--expiration-date', action='store', help='The date when the rule expires in UTC, format: <year>-<month>-<day>-<hour>:<minute>:<second>. E.g. 2022-10-20-20:00:00')
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
     upload_parser.add_argument('--impl', dest='impl', action='store', help='Transfer protocol implementation to use (e.g: xrootd, gfal.NoRename, webdav, ssh.Rsync, rclone).')
     # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
