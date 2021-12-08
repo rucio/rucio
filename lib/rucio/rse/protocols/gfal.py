@@ -50,7 +50,7 @@ from threading import Timer
 
 from rucio.common import exception, config
 from rucio.common.constraints import STRING_TYPES
-from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM
+from rucio.common.hash_algorithms import GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM
 from rucio.rse.protocols import protocol
 
 try:

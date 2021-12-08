@@ -59,8 +59,9 @@ from rucio.common.exception import (RucioException, RSEWriteBlocked, DataIdentif
                                     DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded, FileReplicaAlreadyExists,
                                     ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable,
                                     ScopeNotFound)
+from rucio.common.hash_algorithms import GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.common.utils import (adler32, detect_client_location, execute, generate_uuid, make_valid_did, md5, send_trace,
-                                retry, GLOBALLY_SUPPORTED_CHECKSUMS)
+                                retry)
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
 

@@ -22,7 +22,8 @@ import logging
 
 from rucio.common import exception
 from rucio.common.config import get_config_dirs, get_rse_credentials
-from rucio.common.utils import execute, PREFERRED_CHECKSUM
+from rucio.common.hash_algorithms import PREFERRED_CHECKSUM
+from rucio.common.utils import execute
 from rucio.rse.protocols import protocol
 
 

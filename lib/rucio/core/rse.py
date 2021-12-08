@@ -58,7 +58,7 @@ import rucio.core.account_counter
 from rucio.common import exception, utils
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import get_lfn2pfn_algorithm_default
-from rucio.common.utils import CHECKSUM_KEY, is_checksum_valid, GLOBALLY_SUPPORTED_CHECKSUMS
+from rucio.common.hash_algorithms import is_checksum_valid, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import (RSEType, ReplicaState)
@@ -67,6 +67,8 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 if TYPE_CHECKING:
     from typing import Dict, Optional
     from sqlalchemy.orm import Session
+
+CHECKSUM_KEY = 'supported_checksums'
 
 REGION = make_region_memcached(expiration_time=900)
 

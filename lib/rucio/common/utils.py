@@ -228,43 +228,11 @@ def generate_uuid_bytes():
     return uuid().bytes
 
 
-# GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5', 'sha256', 'crc32']
-GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5']
-CHECKSUM_ALGO_DICT = {}
-PREFERRED_CHECKSUM = GLOBALLY_SUPPORTED_CHECKSUMS[0]
-CHECKSUM_KEY = 'supported_checksums'
-
-
-def is_checksum_valid(checksum_name):
-    """
-    A simple function to check wether a checksum algorithm is supported.
-    Relies on GLOBALLY_SUPPORTED_CHECKSUMS to allow for expandability.
-
-    :param checksum_name: The name of the checksum to be verified.
-    :returns: True if checksum_name is in GLOBALLY_SUPPORTED_CHECKSUMS list, False otherwise.
-    """
-
-    return checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS
-
-
-def set_preferred_checksum(checksum_name):
-    """
-    A simple function to check wether a checksum algorithm is supported.
-    Relies on GLOBALLY_SUPPORTED_CHECKSUMS to allow for expandability.
-
-    :param checksum_name: The name of the checksum to be verified.
-    :returns: True if checksum_name is in GLOBALLY_SUPPORTED_CHECKSUMS list, False otherwise.
-    """
-    if is_checksum_valid(checksum_name):
-        global PREFERRED_CHECKSUM
-        PREFERRED_CHECKSUM = checksum_name
-
-
 def set_checksum_value(file, checksum_names_list):
     for checksum_name in checksum_names_list:
         if checksum_name in file['metadata'].keys() and file['metadata'][checksum_name]:
             file['checksum'] = '%s:%s' % (checksum_name.upper(), str(file['metadata'][checksum_name]))
-            if checksum_name == PREFERRED_CHECKSUM:
+            if checksum_name == rucio.common.hash_algorithms.PREFERRED_CHECKSUM:
                 break
 
 
@@ -273,15 +241,9 @@ def adler32(file):
     return rucio.common.hash_algorithms.adler32.compute_on_file(file)
 
 
-CHECKSUM_ALGO_DICT['adler32'] = adler32
-
-
 def md5(file):
     """For backward compatibility"""
     return rucio.common.hash_algorithms.md5.compute_on_file(file)
-
-
-CHECKSUM_ALGO_DICT['md5'] = md5
 
 
 def sha256(file):
@@ -289,15 +251,9 @@ def sha256(file):
     return rucio.common.hash_algorithms.sha256.compute_on_file(file)
 
 
-CHECKSUM_ALGO_DICT['sha256'] = sha256
-
-
 def crc32(file):
     """For backward compatibility"""
     return rucio.common.hash_algorithms.crc32.compute_on_file(file)
-
-
-CHECKSUM_ALGO_DICT['crc32'] = crc32
 
 
 def str_to_date(string):

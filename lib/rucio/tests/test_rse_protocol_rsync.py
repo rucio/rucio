@@ -28,7 +28,8 @@ from uuid import uuid4 as uuid
 import pytest
 
 from rucio.common import exception
-from rucio.common.utils import execute, PREFERRED_CHECKSUM, set_preferred_checksum
+from rucio.common.hash_algorithms import PREFERRED_CHECKSUM, set_preferred_checksum
+from rucio.common.utils import execute
 from rucio.rse import rsemanager
 from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 from rucio.tests.rsemgr_api_test import MgrTestCases
