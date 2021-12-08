@@ -170,7 +170,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
                                  'protocol': prot.attributes['scheme']}
                 if replica['scope'].vo != 'def':
                     deletion_dict['vo'] = replica['scope'].vo
-                logger(logging.INFO, 'Deletion ATTEMPT of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
+                logger(logging.DEBUG, 'Deletion ATTEMPT of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
                 start = time.time()
                 # For STAGING RSEs, no physical deletion
                 if rse_id in staging_areas:
