@@ -28,7 +28,7 @@ from flask import Flask, Blueprint, Response, request
 
 from rucio.api.heartbeat import list_heartbeats, create_heartbeat
 from rucio.common.utils import APIEncoder
-from rucio.common.exception import UnsupportedValueType, UnsupportedKeyType, KeyNotFound
+from rucio.common.exception import UnsupportedValueType, UnsupportedKeyType, KeyNotFound, AccessDenied
 from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
     ErrorHandlingMethodView, json_parameters, param_get, generate_http_error_flask
 
@@ -59,9 +59,10 @@ class Heartbeat(ErrorHandlingMethodView):
 
 
         :<json dict parameter: Dictionary with 'executable', 'hostname', 'pid', 'thread', 'older_than', 'payload'
-        :status 201: Created.
+        :status 200: OK.
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid Auth Token.
+        :status 404: Key not Found.
         """
         parameters = json_parameters()
         try:
@@ -77,6 +78,8 @@ class Heartbeat(ErrorHandlingMethodView):
             )
         except (UnsupportedValueType, UnsupportedKeyType) as error:
             return generate_http_error_flask(400, error)
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error)
         except KeyNotFound as error:
             return generate_http_error_flask(404, error)
 
