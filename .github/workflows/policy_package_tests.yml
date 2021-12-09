@@ -1,0 +1,12 @@
+name: Run tests with different policy package configurations
+
+on:
+  - pull_request
+  - push
+  - workflow_dispatch
+
+job:
+  setup:
+  runs-on: ubuntu-latest
+  steps:
+    

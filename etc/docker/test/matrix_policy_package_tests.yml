@@ -1,0 +1,46 @@
+belleii:
+  installation_cmd: ""
+  config_overrides:
+    permission: belleii
+    extract_scope:  belleii
+    schema: belleii
+    lfn2pfn_algorithm_default: "belleii"
+  test_suite_filter:
+    allow:
+      - all
+    deny:
+      - none
+    custom:
+      - none
+  rdbms: 
+    - postgres12
+  python:
+    - 3.6
+  dists:
+    - centos7
+    - fedora33
+    - fedora32
+  image_identifier: 
+    - belleii
+  suite:
+    - all
+
+atlas:
+  installation_cmd: ""
+  config_overrides: 
+    permission: atlas
+    extract_scope:  atlas
+    schema: atlas
+    lfn2pfn_algorithm_default: "default"
+  rdbms: 
+    - postgres12
+  python:
+    - 3.6
+  dists:
+    - centos7
+    - fedora33
+    - fedora32
+  image_identifier: 
+    - atlas
+  suite:
+    - all
