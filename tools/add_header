@@ -136,7 +136,7 @@ def main(arguments):
             if authors[author]['name'] == username:
                 authors[author]['max'] = now.year
 
-        if username not in authors:
+        if not arguments.disable_add_me and username not in authors:
             authors[username] = {'name': username,
                                  'mail': email,
                                  'max': max_,
@@ -258,6 +258,8 @@ if __name__ == '__main__':
     parser.add_argument('--dry-run', '-d', action='store_true', help='Dry run mode')
     parser.add_argument('--check', '-c', action='store_true',
                         help='Checks if the script would change anything (non-zero exit code equals change).')
+    parser.add_argument('--disable-add-me', action='store_true',
+                        help="Do not add the person who runs this command, except if there already is a contributing commit.")
     parser.add_argument(dest='MyFiles', action='store', nargs='+', default=None, help='The files')
 
     main(parser.parse_args())
