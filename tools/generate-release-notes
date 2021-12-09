@@ -76,6 +76,50 @@ def get_issue_component_type(issue):
             type_ = 'feature'
     return component, type_
 
+def print_issues(issues, section_title):
+    if not issues:
+        return
+    # Generate the formated printout
+    bugs = [issue for issue in issues if issue['type'] == 'bug']
+    bugs = sorted(bugs, key=lambda k: "%s %d" % (k['component'], k['number']))
+    enhancements = [issue for issue in issues if issue['type'] == 'enhancement']
+    enhancements = sorted(enhancements, key=lambda k: "%s %d" % (k['component'], k['number']))
+    features = [issue for issue in issues if issue['type'] == 'feature']
+    features = sorted(features, key=lambda k: "%s %d" % (k['component'], k['number']))
+
+    if not option_doc:
+        print('#', section_title)
+        if features:
+            print('## Features\n')
+            for issue in features:
+                print(format_issue(issue))
+            print('')
+        if enhancements:
+            print('## Enhancements\n')
+            for issue in enhancements:
+                print(format_issue(issue))
+            print('')
+        if bugs:
+            print('## Bugs\n')
+            for issue in bugs:
+                print(format_issue(issue))
+    else:
+        print('##', section_title)
+        if features:
+            print('### Features')
+            for issue in features:
+                print(format_issue(issue, doc=True))
+            print('')
+        if enhancements:
+            print('### Enhancements')
+            for issue in enhancements:
+                print(format_issue(issue, doc=True))
+            print('')
+        if bugs:
+            print('### Bugs')
+            for issue in bugs:
+                print(format_issue(issue, doc=True))
+
 root_git_dir = subprocess.check_output('git rev-parse --show-toplevel', shell=True).decode("utf-8").rstrip()
 # Load OAUTH token
 try:
@@ -126,41 +170,6 @@ if option_backport:
                    'number': issue['number'],
                    'title': issue['title']})
 
-# Generate the formated printout
-bugs = [issue for issue in issues if issue['type'] == 'bug']
-bugs = sorted(bugs, key=lambda k: "%s %d" % (k['component'], k['number']))
-enhancements = [issue for issue in issues if issue['type'] == 'enhancement']
-enhancements = sorted(enhancements, key=lambda k: "%s %d" % (k['component'], k['number']))
-features = [issue for issue in issues if issue['type'] == 'feature']
-features = sorted(features, key=lambda k: "%s %d" % (k['component'], k['number']))
-
-if not option_doc:
-    if features:
-        print('## Features\n')
-        for issue in features:
-            print(format_issue(issue))
-        print('')
-    if enhancements:
-        print('## Enhancements\n')
-        for issue in enhancements:
-            print(format_issue(issue))
-        print('')
-    if bugs:
-        print('## Bugs\n')
-        for issue in bugs:
-            print(format_issue(issue))
-else:
-    if features:
-        print('### Features')
-        for issue in features:
-            print(format_issue(issue, doc=True))
-        print('')
-    if enhancements:
-        print('### Enhancements')
-        for issue in enhancements:
-            print(format_issue(issue, doc=True))
-        print('')
-    if bugs:
-        print('### Bugs')
-        for issue in bugs:
-            print(format_issue(issue, doc=True))
+print_issues([issue for issue in issues if issue['component'] not in ['Clients', 'WebUI']], 'General')
+print_issues([issue for issue in issues if issue['component'] in ['Clients']], 'Clients')
+print_issues([issue for issue in issues if issue['component'] in ['WebUI']], 'WebUI')
