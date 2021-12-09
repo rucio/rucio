@@ -519,10 +519,12 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 list_rses_mult.extend([(rse_name, rse_id, dict_rses[rse_key][0], dict_rses[rse_key][1]) for _ in range(int(max_workers))])
             random.shuffle(list_rses_mult)
 
+            paused_rses = []
             for rse_name, rse_id, needed_free_space, max_being_deleted_files in list_rses_mult:
                 result = REGION.get('pause_deletion_%s' % rse_id, expiration_time=120)
                 if result is not NO_VALUE:
-                    logger(logging.INFO, 'Not enough replicas to delete on %s during the previous cycle. Deletion paused for a while', rse_name)
+                    paused_rses.append(rse_name)
+                    logger(logging.DEBUG, 'Not enough replicas to delete on %s during the previous cycle. Deletion paused for a while', rse_name)
                     continue
                 result = REGION.get('temporary_exclude_%s' % rse_id, expiration_time=auto_exclude_timeout)
                 if result is not NO_VALUE:
@@ -614,6 +616,9 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                         DELETION_COUNTER.inc(len(deleted_files))
                 except Exception:
                     logger(logging.CRITICAL, 'Exception', exc_info=True)
+
+            if paused_rses:
+                logger(logging.INFO, 'Deletion paused for a while for following RSEs: %s', ', '.join(paused_rses))
 
             if once:
                 break
