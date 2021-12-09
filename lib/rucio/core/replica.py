@@ -1738,11 +1738,19 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
         child_did_condition, tmp_parent_condition = [], []
         for chunk in chunks(parent_condition, 10):
 
-            query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name,
-                                  models.DataIdentifierAssociation.did_type,
-                                  models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name).\
-                filter(or_(*chunk))
-            for parent_scope, parent_name, did_type, child_scope, child_name in query:
+            stmt = select(
+                models.DataIdentifierAssociation.scope,
+                models.DataIdentifierAssociation.name,
+                models.DataIdentifierAssociation.did_type,
+                models.DataIdentifierAssociation.child_scope,
+                models.DataIdentifierAssociation.child_name,
+            ).prefix_with(
+                "/*+ NO_INDEX_FFS(CONTENTS CONTENTS_PK) */",
+                dialect='oracle',
+            ).where(
+                or_(*chunk)
+            )
+            for parent_scope, parent_name, did_type, child_scope, child_name in session.execute(stmt):
 
                 # Schedule removal of child file/dataset/container from the parent dataset/container
                 child_did_condition.append(
