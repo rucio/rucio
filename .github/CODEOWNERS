@@ -17,7 +17,7 @@
 /lib/rucio/client/uploadclient.py       @mlassnig
 /lib/rucio/client/downloadclient.py     @mlassnig
 /lib/rucio/client/                      @mlassnig
-/bin/                                   @mlassnig
+/bin/                                   @mlassnig @joeldierkes
 
 # ----
 
@@ -99,12 +99,12 @@
 /lib/rucio/daemons/transmogrifier/      @cserf
 
 # Testing
-/.github/                               @maany
-/etc/docker/test/                       @maany
-/lib/rucio/tests/conftest.py            @maany
-/lib/rucio/tests/ruciopytest/           @maany
-/tools/github/                          @maany
-/tools/test/                            @maany
+/.github/                               @maany @joeldierkes
+/etc/docker/test/                       @maany @joeldierkes
+/lib/rucio/tests/conftest.py            @maany @joeldierkes
+/lib/rucio/tests/ruciopytest/           @maany @joeldierkes
+/tools/github/                          @maany @joeldierkes
+/tools/test/                            @maany @joeldierkes
 
 # Traces
 /lib/rucio/core/trace.py                @mlassnig
