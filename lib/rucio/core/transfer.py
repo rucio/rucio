@@ -548,11 +548,12 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
     :param session:    Database session to use.
     """
 
-    logger(logging.DEBUG, 'Start register transfer state to %s for eid %s' % (state, external_id))
+    logger(logging.INFO, 'Setting state(%s), external_host(%s) and eid(%s) for transfers: %s',
+           state.name, external_host, external_id, ', '.join(t.rws.request_id for t in transfers))
     try:
         for transfer in transfers:
             rws = transfer.rws
-            logger(logging.INFO, 'COPYING REQUEST %s DID %s:%s USING %s with state(%s) with eid(%s)' % (rws.request_id, rws.scope, rws.name, external_host, state, external_id))
+            logger(logging.DEBUG, 'COPYING REQUEST %s DID %s:%s USING %s with state(%s) with eid(%s)' % (rws.request_id, rws.scope, rws.name, external_host, state, external_id))
             rowcount = session.query(models.Request)\
                               .filter_by(id=transfer.rws.request_id)\
                               .filter(models.Request.state == RequestState.SUBMITTING)\
