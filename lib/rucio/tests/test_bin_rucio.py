@@ -1007,6 +1007,33 @@ class TestBinRucio(unittest.TestCase):
         search = '{0} successfully downloaded'.format(tmp_file1[5:])  # triming '/tmp/' from filename
         assert re.search(search, err) is not None
 
+    def test_download_file_check_by_size(self):
+        """CLIENT(USER): Rucio download files"""
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # download files
+        cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # Alter downloaded file
+        cmd = 'echo "dummy" >> /tmp/{}/{}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        # Download file again and check for mismatch
+        cmd = 'rucio -v download --check-local-with-filesize-only --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        assert "File with same name exists locally, but filesize mismatches" in err
+
     def test_list_blocklisted_replicas(self):
         """CLIENT(USER): Rucio list replicas"""
         # add rse
