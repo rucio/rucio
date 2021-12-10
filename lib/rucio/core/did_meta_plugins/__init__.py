@@ -193,8 +193,8 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
     :param session: The database session in use.
 
     :returns: List of dids satisfying metadata criteria.
-    """                   
-    which_plugins_per_key = []                      # keep track of which plugins are required for each key
+    """                 
+    required_unique_plugins = set()                    # keep track of which plugins are required
     for or_group in filters:
         for key in or_group.keys():
             # [name] is in both the dids and did_meta tables, and it can (probably?) be safely assumed that it would also be in any backend 
@@ -202,23 +202,25 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
             if key == 'name':
                 continue
             key_nooperator = key.split('.')[0]      # each key can have an operator attribute suffixed, i.e. <key>.<operator>. Remove it.
+            
             # Iterate through the list of metadata plugins, checking which (if any) manages this particular key
             # and appending the corresponding plugin to [which_plugins_per_key].
             is_this_key_managed = False
             for metadata_plugin in METADATA_PLUGIN_MODULES:
                 if metadata_plugin.manages_key(key_nooperator, session=session):
-                    which_plugins_per_key.append(metadata_plugin)
+                    required_unique_plugins.add(metadata_plugin)
                     is_this_key_managed = True
                     break
             if not is_this_key_managed:
                 raise exception.InvalidMetadata('There is no metadata plugin that manages the filter key(s) you requested.')
 
-    # Check that only a single plugin is required for the query.
-    which_plugin_to_use = list(set(which_plugins_per_key))
-    if len(which_plugin_to_use) > 1:
+    if not required_unique_plugins:               # if no metadata keys were specified, fall back to using the hardcoded plugin.
+        required_unique_plugins = [METADATA_PLUGIN_MODULES[0]]
+    elif len(required_unique_plugins) > 1:        # check that only a single plugin is required for the query.
         raise exception.InvalidMetadata('Filter keys used do not all belong to the same metadata plugin.')
+    which_plugin_to_use = list(required_unique_plugins)[0]
 
-    return which_plugin_to_use[0].list_dids(scope=scope, filters=filters, did_type=did_type,
+    return which_plugin_to_use.list_dids(scope=scope, filters=filters, did_type=did_type,
                                             ignore_case=ignore_case, limit=limit,
                                             offset=offset, long=long, recursive=recursive, 
                                             ignore_dids=ignore_dids, session=session)

@@ -293,16 +293,17 @@ class FilterEngine:
                                 elif oper == operator.ne:
                                     expression = json_column[key].as_string().notlike(value.replace('*', '%').replace('_', '\_'), escape='\\')  # NOQA: W605
                         else:
+                            # Infer what type key should be cast to from typecasting the value in the expression.
                             try:
                                 if isinstance(value, int):                                          # this could be bool or int (as bool subclass of int)
                                     if type(value) == bool:
                                         expression = oper(json_column[key].as_boolean(), value)
                                     else:
-                                        expression = oper(json_column[key].as_integer(), value)
+                                        expression = oper(json_column[key].as_float(), value)       # cast as float, not integer, to avoid potentially losing precision in key
                                 elif isinstance(value, float):
                                     expression = oper(json_column[key].as_float(), value)
                                 elif isinstance(value, datetime):
-                                    pass                                                            #FIXME how to do dates?
+                                    expression = oper(cast(cast(json_column[key], sqlalchemy.types.Text), sqlalchemy.types.DateTime), value)
                                 else:
                                     expression = oper(json_column[key].as_string(), value)
                             except Exception as e:
@@ -366,7 +367,7 @@ class FilterEngine:
 
         return LiteralCompiler(dialect, statement).process(statement)
 
-    def pprint_filters(self):
+    def print_filters(self):
         """
         A (more) human readable format of <filters>.
         """

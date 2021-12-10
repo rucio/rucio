@@ -80,6 +80,7 @@ ADDITIONAL_KEYS = [
     'length.lt',
     'length.gte',
     'length.lte',
+    'type'
 ]
 
 HARDCODED_KEYS = list(set(ALL_DID_TABLE_COLUMNS) - set(EXCLUDE_DID_TABLE_COLUMNS)) + ADDITIONAL_KEYS

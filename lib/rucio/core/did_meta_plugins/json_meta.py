@@ -36,6 +36,7 @@ import json as json_lib
 import operator
 from six import print_
 
+from sqlalchemy.exc import DataError
 from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common import exception
@@ -152,7 +153,6 @@ class JSONDidMeta(DidMetaPlugin):
     @stream_session
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
                   offset=None, long=False, recursive=False, ignore_dids=None, session=None):
-        # Currently for sqlite only add, get and delete is implemented.
         if not json_implemented(session=session):
             raise NotImplementedError
 
@@ -165,27 +165,18 @@ class JSONDidMeta(DidMetaPlugin):
 
         # instantiate fe and create sqla query, note that coercion to a model keyword
         # is not appropriate here as the filter words are stored in a single json column.
-        try:                                                                                      #FIXME
-            fe = FilterEngine(filters, model_class=models.DidMeta, strict_coerce=False)
-            query = fe.create_sqla_query(
-                additional_model_attributes=[
-                    models.DidMeta.scope,
-                    models.DidMeta.name
-                ], additional_filters=[
-                    (models.DidMeta.scope, operator.eq, scope)
-                ],
-                json_column = models.DidMeta.meta
-            ) 
-        except Exception as e:                                                                  #FIXME
-            raise exception.DataIdentifierNotFound(e)                                           #FIXME
-        #raise exception.DataIdentifierNotFound(FilterEngine.print_query(query))                #FIXME
-        try:                                                                                    #FIXME
-            dids = query.yield_per(5)                                                           #FIXME
-            for did in dids:
-                raise exception.DataIdentifierNotFound(type(did))
-        except Exception as e:                                                                  #FIXME
-            raise exception.DataIdentifierNotFound(type(e))                                     #FIXME
-        #raise exception.DataIdentifierNotFound(FilterEngine.print_query(query))                #FIXME
+        fe = FilterEngine(filters, model_class=models.DidMeta, strict_coerce=False)
+        query = fe.create_sqla_query(
+            additional_model_attributes=[
+                models.DidMeta.scope,
+                models.DidMeta.name
+            ], additional_filters=[
+                (models.DidMeta.scope, operator.eq, scope)
+            ],
+            json_column = models.DidMeta.meta
+        ) 
+
+        #raise exception.DataIdentifierNotFound(FilterEngine.print_query(query))               #FIXME
 
         if limit:
             query = query.limit(limit)
@@ -206,23 +197,26 @@ class JSONDidMeta(DidMetaPlugin):
                                             long=long, ignore_dids=ignore_dids, session=session):
                     yield result
 
-        for did in query.yield_per(5):                  # don't unpack this as it makes it dependent on query return order!
-            if long: 
-                did_full = "{}:{}".format(did.scope, did.name)
-                if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
-                    ignore_dids.add(did_full)
-                    yield {
-                        'scope': did.scope, 
-                        'name': did.name, 
-                        'did_type': 'Not available with {} plugin.'.format(self.get_plugin_name()), 
-                        'bytes': 'Not available with {} plugin.'.format(self.get_plugin_name()), 
-                        'length': 'Not available with {} plugin.'.format(self.get_plugin_name())
-                    }
-            else:
-                did_full = "{}:{}".format(did.scope, did.name)
-                if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
-                    ignore_dids.add(did_full)
-                    yield did.name
+        try:
+            for did in query.yield_per(5):                  # don't unpack this as it makes it dependent on query return order!
+                if long: 
+                    did_full = "{}:{}".format(did.scope, did.name)
+                    if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
+                        ignore_dids.add(did_full)
+                        yield {
+                            'scope': did.scope, 
+                            'name': did.name, 
+                            'did_type': 'Not available with {} plugin.'.format(self.get_plugin_name()), 
+                            'bytes': 'Not available with {} plugin.'.format(self.get_plugin_name()), 
+                            'length': 'Not available with {} plugin.'.format(self.get_plugin_name())
+                        }
+                else:
+                    did_full = "{}:{}".format(did.scope, did.name)
+                    if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
+                        ignore_dids.add(did_full)
+                        yield did.name
+        except DataError as e:
+            raise exception.InvalidMetadata("Database query failed. This is usually raised when there is an incompatible datatype in a filter expression.")
 
     @read_session
     def manages_key(self, key, session=None):
