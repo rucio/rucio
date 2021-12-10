@@ -1681,3 +1681,107 @@ class StoreTrueAndDeprecateWarningAction(argparse._StoreConstAction):
             # The logger gets typically initialized after the argument parser
             # to set the verbosity of the logger. Thus using simple print to console.
             print("Warning: The commandline argument {} is deprecated! Please use {} in the future.".format(option_string, self.new_option_string))
+
+
+class PriorityQueue:
+    """
+    Heap-based [1] priority queue which supports priority update operations
+
+    It is used as a dictionary: pq['element'] = priority
+    The element with the highest priority can be accessed with pq.top() or pq.pop(),
+    depending on the desire to keep it in the heap or not.
+
+    [1] https://en.wikipedia.org/wiki/Heap_(data_structure)
+    """
+    class ContainerSlot:
+        def __init__(self, position, priority):
+            self.pos = position
+            self.prio = priority
+
+    def __init__(self):
+        self.heap = []
+        self.container = {}
+        self.empty_slots = []
+
+    def __len__(self):
+        return len(self.heap)
+
+    def __getitem__(self, item):
+        return self.container[item].prio
+
+    def __setitem__(self, key, value):
+        if key in self.container:
+            existing_prio = self.container[key].prio
+            self.container[key].prio = value
+            if value < existing_prio:
+                self._priority_decreased(key)
+            elif existing_prio < value:
+                self._priority_increased(key)
+        else:
+            self.heap.append(key)
+            self.container[key] = self.ContainerSlot(position=len(self.heap) - 1, priority=value)
+            self._priority_decreased(key)
+
+    def __contains__(self, item):
+        return item in self.container
+
+    def top(self):
+        return self.heap[0]
+
+    def pop(self):
+        item = self.heap[0]
+        self.container.pop(item)
+
+        tmp_item = self.heap.pop()
+        if self.heap:
+            self.heap[0] = tmp_item
+            self.container[tmp_item].pos = 0
+            self._priority_increased(tmp_item)
+        return item
+
+    def _priority_decreased(self, item):
+        heap_changed = False
+
+        pos = self.container[item].pos
+        pos_parent = (pos - 1) // 2
+        while pos > 0 and self.container[self.heap[pos]].prio < self.container[self.heap[pos_parent]].prio:
+            tmp_item, parent = self.heap[pos], self.heap[pos_parent] = self.heap[pos_parent], self.heap[pos]
+            self.container[tmp_item].pos, self.container[parent].pos = self.container[parent].pos, self.container[tmp_item].pos
+
+            pos = pos_parent
+            pos_parent = (pos - 1) // 2
+
+            heap_changed = True
+        return heap_changed
+
+    def _priority_increased(self, item):
+        heap_changed = False
+        heap_len = len(self.heap)
+        pos = self.container[item].pos
+        pos_child1 = 2 * pos + 1
+        pos_child2 = 2 * pos + 2
+
+        heap_restored = False
+        while not heap_restored:
+            # find minimum between item, child1, and child2
+            if pos_child1 < heap_len and self.container[self.heap[pos_child1]].prio < self.container[self.heap[pos]].prio:
+                pos_min = pos_child1
+            else:
+                pos_min = pos
+            if pos_child2 < heap_len and self.container[self.heap[pos_child2]].prio < self.container[self.heap[pos_min]].prio:
+                pos_min = pos_child2
+
+            if pos_min != pos:
+                _, tmp_item = self.heap[pos_min], self.heap[pos] = self.heap[pos], self.heap[pos_min]
+                self.container[tmp_item].pos = pos
+
+                pos = pos_min
+                pos_child1 = 2 * pos + 1
+                pos_child2 = 2 * pos + 2
+
+                heap_changed = True
+            else:
+                heap_restored = True
+
+        self.container[self.heap[pos]].pos = pos
+        return heap_changed
