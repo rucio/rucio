@@ -53,6 +53,7 @@
 # - KosKyr <90753277+KosKyr@users.noreply.github.com>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 # - jdierkes <joel.dierkes@cern.ch>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2021
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
 
 from __future__ import print_function
@@ -1096,6 +1097,10 @@ def download(args):
         logger.error('Arguments dids and metalink cannot be used together.')
         return FAILURE
 
+    if args.ignore_checksum and args.check_local_with_filesize_only:
+        logger.error('Arguments ignore-checksum and check-local-with-filesize-only cannot be used together.')
+        return FAILURE
+
     if args.rse:  # TODO:remove-deprecated
         args.rses = args.rse
         option_deprecation_message("--rse", "--rses")
@@ -1131,6 +1136,7 @@ def download(args):
     item_defaults['transfer_speed_timeout'] = args.transfer_speed_timeout
     item_defaults['no_resolve_archives'] = args.no_resolve_archives
     item_defaults['ignore_checksum'] = args.ignore_checksum
+    item_defaults['check_local_with_filesize_only'] = args.check_local_with_filesize_only
     archive_did = args.archive_did
     if archive_did:
         logger.warning("Archives are treated transparently. --archive-did option is being obsoleted.")  # TODO
@@ -2326,6 +2332,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--archive-did', action='store', dest='archive_did', help="Download from archive is transparent. This option is obsolete.")
         selected_parser.add_argument('--no-resolve-archives', action='store_true', default=False, help="If set archives will not be considered for download.")
         selected_parser.add_argument('--ignore-checksum', action='store_true', default=False, help="Don't validate checksum for downloaded files.")
+        selected_parser.add_argument('--check-local-with-filesize-only', action='store_true', default=False, help="Don't use checksum verification for already downloaded files, use filesize instead.")
         selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, None), help='Transfer timeout (in seconds). Default: computed dynamically from --transfer-speed-timeout. If set to any value >= 0, --transfer-speed-timeout is ignored.')  # NOQA: E501
         selected_parser.add_argument('--transfer-speed-timeout', dest='transfer_speed_timeout', type=float, action='store', default=config_get('download', 'transfer_speed_timeout', False, 500), help='Minimum allowed average transfer speed (in KBps). Default: 500. Used to dynamically compute the timeout if --transfer-timeout not set. Is not supported for --pfn.')  # NOQA: E501
         selected_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
@@ -2491,7 +2498,7 @@ can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#addi
     list_suspicious_replicas_parser.set_defaults(function=list_suspicious_replicas)
     list_suspicious_replicas_parser.add_argument('--expression', dest='rse_expression', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
 can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
-    list_suspicious_replicas_parser.add_argument('--younger_than', '--younger-than', new_option_string='--younger-than', dest='younger_than', action=StoreAndDeprecateWarningAction, help='List files that have been marked suspicious since the date "younger_than".')  # NOQA: E501
+    list_suspicious_replicas_parser.add_argument('--younger_than', '--younger-than', new_option_string='--younger-than', dest='younger_than', action=StoreAndDeprecateWarningAction, help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00.')  # NOQA: E501
     list_suspicious_replicas_parser.add_argument('--nattempts', dest='nattempts', action='store', help='Minimum number of failed attempts to access a suspicious file.')
 
     # The list-rses-attributes command

@@ -43,6 +43,7 @@ from rucio.common.dumper import mkdir
 from rucio.common.dumper import temp_file
 from rucio.common.dumper.consistency import Consistency
 from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import chunks
 from rucio.core.quarantined_replica import add_quarantined_replicas
 from rucio.core.replica import declare_bad_file_replicas, list_replicas
 from rucio.core.rse import get_rse_usage, get_rse_id
@@ -187,10 +188,10 @@ def process_output(output, sanity_check=True, compress=True):
 
     # While converting LOST replicas to PFNs, entries that do not
     # correspond to a replica registered in Rucio are silently dropped.
-    lost_pfns = [r['rses'][rse_id][0] for r in list_replicas(lost_replicas)
-                 if rse_id in r['rses']]
+    lost_pfns = [r['rses'][rse_id][0] for chunk in chunks(lost_replicas, 1000) for r in list_replicas(chunk) if rse_id in r['rses']]
 
-    add_quarantined_replicas(rse_id=rse_id, replicas=dark_replicas)
+    for chunk in chunks(dark_replicas, 1000):
+        add_quarantined_replicas(rse_id=rse_id, replicas=chunk)
     logger.debug('Processed %d DARK files from "%s"', len(dark_replicas),
                  output)
     declare_bad_file_replicas(lost_pfns, reason='Reported by Auditor',

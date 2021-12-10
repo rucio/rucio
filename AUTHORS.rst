@@ -59,6 +59,7 @@ Individual contributors to the source code
 - Nick Smith <nick.smith@cern.ch>, 2021
 - Rizart Dona <rizart.dona@cern.ch>, 2021
 - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+- Fabio Luchetti <fabio.luchetti@cern.ch>, 2021
 
 
 Organisations employing contributors
