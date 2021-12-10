@@ -50,7 +50,6 @@ import argparse
 import datetime
 import errno
 import json
-import logging
 import math
 import os
 import signal
@@ -72,6 +71,7 @@ from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists
                                     Duplicate, ReplicaIsLocked, ConfigNotFound, ScopeNotFound,
                                     InputValidationError)
 from rucio.common.extra import import_extras
+from rucio.common.logging import setup_logger
 from rucio.common.utils import (chunks, construct_surl, sizefmt, get_bytes_value_from_string,
                                 render_json, parse_response, extract_scope, clean_surls,
                                 StoreAndDeprecateWarningAction)
@@ -91,26 +91,7 @@ SUCCESS = 0
 FAILURE = 1
 DEFAULT_PORT = 443
 
-logger = logging.getLogger("user")
-
 tablefmt = 'psql'
-
-
-def setup_logger(logger):
-    logger.setLevel(logging.DEBUG)
-    hdlr = logging.StreamHandler()
-
-    def emit_decorator(fcn):
-        def func(*args):
-            formatter = logging.Formatter("%(message)s")
-            hdlr.setFormatter(formatter)
-            return fcn(*args)
-        return func
-    hdlr.emit = emit_decorator(hdlr.emit)
-    logger.addHandler(hdlr)
-
-
-setup_logger(logger)
 
 
 def signal_handler(signal, frame):
@@ -2368,8 +2349,8 @@ if __name__ == '__main__':
                 'delete_limit_rse': delete_limit_rse,
                 }
 
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
+    logger = setup_logger(module_name=__name__, verbose=args.verbose)
+
     start_time = time.time()
     command = commands.get(args.which)
     result = command(args)

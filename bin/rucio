@@ -53,6 +53,7 @@
 # - KosKyr <90753277+KosKyr@users.noreply.github.com>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 # - jdierkes <joel.dierkes@cern.ch>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2021
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
 
 from __future__ import print_function
@@ -86,9 +87,10 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, D
                                     RucioException, DuplicateRule, InvalidType, DuplicateCriteriaInDIDFilter,
                                     DIDFilterSyntaxError)
 from rucio.common.extra import import_extras
+from rucio.common.logging import setup_logger
 from rucio.common.test_rucio_server import TestRucioServer
 from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, \
-    parse_did_filter_from_string_fe, extract_scope, setup_logger, StoreAndDeprecateWarningAction
+    parse_did_filter_from_string_fe, extract_scope, StoreAndDeprecateWarningAction
 from rucio.common.constants import ReplicaState
 from rucio.rse.protocols.protocol import RSEProtocol
 
@@ -2527,7 +2529,7 @@ if __name__ == '__main__':
 
     args = oparser.parse_args(arguments)
 
-    logger = setup_logger(module_name=__name__, logger_name='user', verbose=args.verbose)
+    logger = setup_logger(module_name='user', verbose=args.verbose)
     start_time = time.time()
     result = args.function(args)
     end_time = time.time()

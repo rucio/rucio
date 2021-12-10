@@ -21,7 +21,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
@@ -37,6 +37,10 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Paul Millar <paul.millar@desy.de>, 2021
+# - martynia <martynia@users.noreply.github.com>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 '''
  Client class for callers of the Rucio system
@@ -68,7 +72,8 @@ from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupport
                                     NoAuthInformation, MissingClientParameter,
                                     MissingModuleException, ServerConnectionException)
 from rucio.common.extra import import_extras
-from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign, setup_logger
+from rucio.common.logging import setup_logger
+from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign
 
 EXTRA_MODULES = import_extras(['requests_kerberos'])
 

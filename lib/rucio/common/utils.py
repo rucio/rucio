@@ -39,6 +39,11 @@
 # - Anil Panta <47672624+panta-123@users.noreply.github.com>, 2021
 # - Ilija Vukotic <ivukotic@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - martynia <janusz.martyniak@googlemail.com>, 2021
+# - jdierkes <joel.dierkes@cern.ch>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import absolute_import, print_function
@@ -1467,85 +1472,6 @@ def get_parsed_throttler_mode(throttler_mode):
         direction = 'source'
         all_activities = True
     return (direction, all_activities)
-
-
-def setup_logger(module_name=None, logger_name=None, logger_level=None, verbose=False):
-    '''
-    Factory method to set logger with handlers.
-    :param module_name: __name__ of the module that is calling this method
-    :param logger_name: name of the logger, typically name of the module.
-    :param logger_level: if not given, fetched from config.
-    :param verbose: verbose option set in bin/rucio
-    '''
-    # helper method for cfg check
-    def _force_cfg_log_level(cfg_option):
-        cfg_forced_modules = config_get('logging', cfg_option, raise_exception=False, default=None, clean_cached=True,
-                                        check_config_table=False)
-        if cfg_forced_modules:
-            if re.match(str(cfg_forced_modules), module_name):
-                return True
-        return False
-
-    # creating log
-    if not logger_name:
-        if not module_name:
-            logger_name = 'usr'
-        else:
-            logger_name = module_name.split('.')[-1]
-    logger = logging.getLogger(logger_name)
-
-    # extracting the log level
-    if not logger_level:
-        logger_level = logging.INFO
-        if verbose:
-            logger_level = logging.DEBUG
-
-        # overriding by the config
-        cfg_levels = (logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR)
-        for level in cfg_levels:
-            cfg_opt = 'forceloglevel' + logging.getLevelName(level)
-            if _force_cfg_log_level(cfg_opt):
-                logger_level = level
-
-    # setting the log level
-    logger.setLevel(logger_level)
-
-    # preferred logger handling
-    def add_handler(logger):
-        hdlr = logging.StreamHandler()
-
-        def emit_decorator(fnc):
-            def func(*args):
-                if 'RUCIO_LOGGING_FORMAT' not in os.environ:
-                    levelno = args[0].levelno
-                    format_str = '%(asctime)s\t%(levelname)s\t%(message)s\033[0m'
-                    if levelno >= logging.CRITICAL:
-                        color = '\033[31;1m'
-                    elif levelno >= logging.ERROR:
-                        color = '\033[31;1m'
-                    elif levelno >= logging.WARNING:
-                        color = '\033[33;1m'
-                    elif levelno >= logging.INFO:
-                        color = '\033[32;1m'
-                    elif levelno >= logging.DEBUG:
-                        color = '\033[36;1m'
-                        format_str = '%(asctime)s\t%(levelname)s\t%(filename)s\t%(message)s\033[0m'
-                    else:
-                        color = '\033[0m'
-                    formatter = logging.Formatter('{0}{1}'.format(color, format_str))
-                else:
-                    formatter = logging.Formatter(os.environ['RUCIO_LOGGING_FORMAT'])
-                hdlr.setFormatter(formatter)
-                return fnc(*args)
-            return func
-        hdlr.emit = emit_decorator(hdlr.emit)
-        logger.addHandler(hdlr)
-
-    # setting handler and formatter
-    if not logger.handlers:
-        add_handler(logger)
-
-    return logger
 
 
 def daemon_sleep(start_time, sleep_time, graceful_stop, logger=logging.log):
