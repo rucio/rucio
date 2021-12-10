@@ -989,7 +989,7 @@ class FTS3Transfertool(Transfertool):
             request_id = file_resp['file_metadata']['request_id']
             reason = file_resp.get('reason', None)
             if not reason and file_state == FTS_STATE.NOT_USED and multi_hop:
-                reason = 'Cancelled hop in multi-hop'
+                reason = 'Unused hop in multi-hop'
             resps[request_id] = {'new_state': None,
                                  'transfer_id': fts_job_response.get('job_id'),
                                  'job_state': fts_job_response.get('job_state', None),
