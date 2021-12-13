@@ -268,6 +268,7 @@ def set_checksum_value(file, checksum_names_list):
             if checksum_name == PREFERRED_CHECKSUM:
                 break
 
+
 def adler32(file):
     """
     An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B
