@@ -18,6 +18,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2021
 
 import datetime
 import logging
@@ -62,7 +63,7 @@ class TestUtils(unittest.TestCase):
         assert match('[a-fA-F0-9]', ret) is not None
         assert ret == '198d03ff'
 
-        with pytest.raises(Exception, match='FATAL - could not get Adler32 checksum of file no_file - \\[Errno 2\\] No such file or directory: \'no_file\''):
+        with pytest.raises(Exception, match='FATAL - could not get Adler-32 checksum of file no_file: \\[Errno 2\\] No such file or directory: \'no_file\''):
             adler32('no_file')
 
     def test_parse_did_filter_string(self):

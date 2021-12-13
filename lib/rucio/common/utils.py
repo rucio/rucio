@@ -232,7 +232,9 @@ def set_checksum_value(file, checksum_names_list):
 
 def adler32(file):
     """
-    An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B and concatenating their bits into a 32-bit integer. A is the sum of all bytes in the stream plus one, and B is the sum of the individual values of A from each step.
+    An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B
+    and concatenating their bits into a 32-bit integer. A is the sum of all bytes in the
+    stream plus one, and B is the sum of the individual values of A from each step.
 
     :param file: file name
     :returns: Hexified string, padded to 8 values.
@@ -241,15 +243,29 @@ def adler32(file):
     # adler starting value is _not_ 0
     adler = 1
 
+    can_mmap = False
     try:
         with open(file, 'r+b') as f:
-            # memory map the file
-            m = mmap.mmap(f.fileno(), 0)
-            # partial block reads at slightly increased buffer sizes
-            for block in iter(partial(m.read, io.DEFAULT_BUFFER_SIZE), b''):
-                adler = zlib.adler32(block, adler)
+            can_mmap = True
+    except:
+        pass
+
+    try:
+        # use mmap if possible
+        if can_mmap:
+            with open(file, 'r+b') as f:
+                m = mmap.mmap(f.fileno(), 0)
+                # partial block reads at slightly increased buffer sizes
+                for block in iter(partial(m.read, io.DEFAULT_BUFFER_SIZE * 8), b''):
+                    adler = zlib.adler32(block, adler)
+        else:
+            with open(file, 'rb') as f:
+                # partial block reads at slightly increased buffer sizes
+                for block in iter(partial(f.read, io.DEFAULT_BUFFER_SIZE * 8), b''):
+                    adler = zlib.adler32(block, adler)
+
     except Exception as e:
-        raise Exception('FATAL - could not get Adler32 checksum of file %s - %s' % (file, e))
+        raise Exception('FATAL - could not get Adler-32 checksum of file %s: %s' % (file, e))
 
     # backflip on 32bit -- can be removed once everything is fully migrated to 64bit
     if adler < 0:
