@@ -422,7 +422,7 @@ class ReplicaClient(BaseClient):
         """
         Set a tombstone on a list of replicas.
 
-        :param replicas: list of replicas.
+        :param replicas: list of replicas. Each replica must be a dictionary like {"rse": rse, "scope": scope, "name": lfn}
         """
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'tombstone']))
         data = {'replicas': replicas}
