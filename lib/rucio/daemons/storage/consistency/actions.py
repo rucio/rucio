@@ -45,6 +45,7 @@ from rucio.core.replica import __exists_replicas, update_replicas_states
 from rucio.core.quarantined_replica import add_quarantined_replicas
 from rucio.core import monitor
 
+from rucio.common.utils import daemon_sleep
 from rucio.common import exception
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
@@ -52,36 +53,6 @@ from rucio.core.heartbeat import live, die, sanity_check
 # from rucio.core.monitor import record_counter
 from rucio.db.sqla.util import get_db_time
 
-
-########## from deckard - just dumping these here to test something. Remove them later!
-# import csv
-# from rucio.common import exception
-# from rucio.common.types import InternalAccount, InternalScope
-# from rucio.core import monitor
-# from rucio.core.replica import __exists_replicas, update_replicas_states
-# from rucio.core.quarantined_replica import add_quarantined_replicas
-# from rucio.core.rse import get_rse_id
-# from rucio.db.sqla import models
-# from rucio.db.sqla.constants import (ReplicaState, BadFilesStatus)
-# from rucio.db.sqla.session import transactional_session
-# from sqlalchemy.exc import DatabaseError, IntegrityError
-# from sqlalchemy.orm.exc import FlushError
-# 
-# # Adapted from add_quarantined_replicas in core/quarantined_replica.py
-# # 'path' is not used by CMS, only 'scope' and 'name'
-# 
-# #import datetime
-# 
-# from sqlalchemy import and_, or_, exists, not_
-# from sqlalchemy.sql.expression import select, false
-# 
-# from rucio.common.utils import chunks
-# from rucio.db.sqla import models, filter_thread_work
-# from rucio.db.sqla.session import read_session, transactional_session
-# 
-# from rucio.rse.rsemanager import lfns2pfns, get_rse_info, parse_pfns
-# from rucio.core.rse import get_rse_protocols
-##########
 
 # Prometheus
 from prometheus_client import CollectorRegistry, Counter, Gauge, push_to_gateway
@@ -675,7 +646,7 @@ def deckard_loop(rses,dark_min_age,dark_threshold_percent,miss_threshold_percent
         print("Now processing:",rse)
         deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force_proceed,scanner_files_path)
 
-def actions_loop(once,rses,dark_min_age,dark_threshold_percent,miss_threshold_percent,force_proceed,scanner_files_path):
+def actions_loop(once,rses,sleep_time,dark_min_age,dark_threshold_percent,miss_threshold_percent,force_proceed,scanner_files_path):
 
     """
     Main loop to apply the CC actions
@@ -707,6 +678,8 @@ def actions_loop(once,rses,dark_min_age,dark_threshold_percent,miss_threshold_pe
             print("\n\nDid logger log anything?")
             print("\nTrying hard. Really hard...")
             deckard_loop(rses,dark_min_age,dark_threshold_percent,miss_threshold_percent,force_proceed,scanner_files_path)
+            daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=logger)
+
 
         except Exception as e:
             traceback.print_exc()
@@ -752,11 +725,15 @@ def run(once=False, rses=None, sleep_time=60, dark_min_age=28, dark_threshold_pe
     hostname = socket.gethostname()
     sanity_check(executable=executable, hostname=hostname)
 
+# It was decided that for the time being this daemon is best executed in a single thread
+# If this decicion is reversed in the future, the following line should be removed.
+    threads=1 
+
     if once:
-        actions_loop(once,rses,dark_min_age,dark_threshold_percent,miss_threshold_percent,force_proceed,scanner_files_path)
+        actions_loop(once,rses,sleep_time,dark_min_age,dark_threshold_percent,miss_threshold_percent,force_proceed,scanner_files_path)
     else:
         logging.info('Consistency Actions starting %s threads' % str(threads))
-        threads = [threading.Thread(target=actions_loop, kwargs={'once': once, 'rses': rses, 'dark_min_age': dark_min_age, 'dark_threshold_percent': dark_threshold_percent, 'miss_threshold_percent': miss_threshold_percent, 'force_proceed': force_proceed, 'scanner_files_path': scanner_files_path}) for i in range(0, threads)]
+        threads = [threading.Thread(target=actions_loop, kwargs={'once': once, 'rses': rses, 'sleep_time': sleep_time,'dark_min_age': dark_min_age, 'dark_threshold_percent': dark_threshold_percent, 'miss_threshold_percent': miss_threshold_percent, 'force_proceed': force_proceed, 'scanner_files_path': scanner_files_path}) for i in range(0, threads)]
         print("\nThreads:",len(threads))
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
