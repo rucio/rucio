@@ -43,28 +43,29 @@ from rucio.common.config import config_get
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.replica import __exists_replicas, update_replicas_states
 from rucio.core.quarantined_replica import add_quarantined_replicas
-from rucio.core import monitor
+from rucio.core.monitor import record_gauge, record_counter, record_timer, MultiCounter
+
 
 from rucio.common.utils import daemon_sleep
 from rucio.common import exception
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
 from rucio.core.heartbeat import live, die, sanity_check
-# from rucio.core.monitor import record_counter
 from rucio.db.sqla.util import get_db_time
 
 
-# Prometheus
-from prometheus_client import CollectorRegistry, Counter, Gauge, push_to_gateway
 
+graceful_stop = threading.Event()
 
+##########################################################################
 ### NOTE: these are needed by local version of declare_bad_file_replicas()
 ### remove after move to core/replica.py
 from rucio.db.sqla.session import transactional_session
 from rucio.db.sqla.constants import (ReplicaState, BadFilesStatus)
+##########################################################################
 
-graceful_stop = threading.Event()
 
+##########################################################################
 ### NOTE: declare_bad_file_replicas will be used directly from core/replica.py when handling of DID is added there
 @transactional_session
 def declare_bad_file_replicas(dids, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', session=None):
@@ -118,8 +119,10 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer, status=BadFilesStatu
 
     return unknown_replicas
 ### NOTE: declare_bad_file_replicas will be used directly from core/replica.py when handling of DID is added there
+##########################################################################
 
 
+##############################
 ### This is Igor's Stats class
 class Stats(object):
     
@@ -209,8 +212,14 @@ def cmp2dark(new_list="T2_US_Purdue_2021_06_18_02_28_D.list", old_list="T2_US_Pu
             "status": "done"
         })
         stats[stats_key] = my_stats
+###############################
+### This was Igor's Stats class
+###############################
 
 
+####################
+### from Deckard
+####################
 def parse_filename(fn):
     # filename looks like this:
     #
@@ -331,21 +340,6 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
     maxdarkfraction = dark_threshold_percent
     maxmissfraction = miss_threshold_percent
     print("\n Scanner Output Path: ",Path,"\n minagedark: ",minagedark,"\n maxdarkfraction: ",maxdarkfraction,"\n maxmissfraction: ",maxmissfraction,"\n")
-
-### 
-# The Prometheus setup
-###
-    registry = CollectorRegistry()
-    GET_CCDARK_COUNTER = Counter('rucio_daemons_deckard_dark_files', 'Number of dark files processed',registry=registry)
-    GET_CCDARK_GAUGE = Gauge('rucio_daemons_deckard_dark_files_gauge', 'Gauge of dark files processed', registry=registry, labelnames=('rse',))
-#    GET_CCDARK_GAUGE = Gauge('rucio_daemons_deckard_dark_files_gauge', 'Gauge of dark files processed', registry=registry)
-    GET_CCMISS_COUNTER = Counter('rucio_daemons_deckard_missing_files', 'Number of missing files processed',registry=registry)
-
-    PROM_SERVERS = config_get('monitor', 'prometheus_servers', raise_exception=False, default='')
-    print("\n PROMETHEUS SERVERS: ",PROM_SERVERS)
-    if PROM_SERVERS != '':
-        PROM_SERVERS = PROM_SERVERS.split(',')
-
 
 
 ###
@@ -486,22 +480,12 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                     })
                     stats[stats_key] = cc_stats
                     print("\nINFO: Incrementing CCDARK_COUNTER\n\n")
-                    GET_CCDARK_COUNTER.inc(deleted_files)
                     labels = {'rse': rse}
-                    #print("\nLABELS: ", labels)
-                    GET_CCDARK_GAUGE.labels(**labels).set(deleted_files)
-##                    GET_CCDARK_GAUGE.set(deleted_files)
-                    print("\nREGISTRY: ",registry)
-#push to Prometheus servers
-
-                    if len(PROM_SERVERS):
-                        for server in PROM_SERVERS:
-                            print("\nSending to Phrometheus Server: ",server)
-                            try:
-                                push_to_gateway(server.strip(), job='deleted_dark_files', registry=registry)
-                            except:
-                                continue
-#push to Prometheus servers
+                    print("\nLABELS: ", labels)
+                    record_counter('storage.consistency.actions_dark', delta=deleted_files, labels=labels)
+#                    record_counter('storage.consistency.actions_dark', delta=deleted_files, labels={'rse': rse})
+                    record_gauge('storage.consistency.actions_dark_gauge', deleted_files, labels=labels)
+#                    record_gauge('storage.consistency.actions_dark_gauge', deleted_files, labels={'rse': rse})
 
                 else:
                     darkperc = 100.*confirmed_dark_files/max_files_at_site
@@ -521,13 +505,14 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
 
             else:
                 print("There's no other run for this RSE at least",minagedark,"days older, so cannot safely proceed with dark files deleteion.")
-###
-#   Done with Dark Files processing
-###
 
-###
+#####################################
+#   Done with Dark Files processing
+#####################################
+
+###########################################
 # Finally, deal with the missing replicas
-###
+###########################################
 
             latest_miss = re.sub('_stats.json$', '_M.list', latest_run)
             print("\n\nlatest_missing =",latest_miss)
@@ -591,19 +576,12 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                         "status": "done"
                     })
                     stats[stats_key] = cc_stats
-                    print("\nINFO: Incrementing CCMISS_COUNTER\n\n")
-                    GET_CCMISS_COUNTER.inc(invalidated_files)
-                    print("\nREGISTRY: ",registry)
-#push to Prometheus servers
-
-                    if len(PROM_SERVERS):
-                        for server in PROM_SERVERS:
-                            print("\nSending to Phrometheus Server: ",server)
-                            try:
-                                push_to_gateway(server.strip(), job='invalidated_missing_files', registry=registry)
-                            except:
-                                continue
-#push to Prometheus servers
+                    labels = {'rse': rse}
+                    print("\nLABELS: ", labels)
+#                    record_counter('storage.consistency.actions_miss', delta=invalidated_files, labels={'rse': rse})
+                    record_counter('storage.consistency.actions_miss', delta=invalidated_files, labels=labels)
+#                    record_gauge('storage.consistency.actions_miss_gauge', invalidated_files, labels={'rse': rse})
+                    record_gauge('storage.consistency.actions_miss_gauge', invalidated_files, labels=labels)
 
             else:
                 missperc = 100.*miss_files/max_files_at_site
