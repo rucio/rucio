@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+# Authors:
+# - Stefan Piperov <stefan.piperov@cern.ch>, 2021
+
+"""
+Storage-Consistency-Actions is a daemon to perform the deletion of dark files and re-transfer missing files at sites identified by the Storage-Consistency-Scanner.
+"""
+
+import time
+import argparse
+import pathlib
+import signal
+
+from rucio.core.rse import list_rses
+
+RSEs = [rse['rse'] for rse in list_rses({'availability_write': True})]
+
+from rucio.daemons.storage.consistency.actions import run, stop
+
+def get_parser():
+    """
+    Returns the argparse parser.
+    """
+    parser = argparse.ArgumentParser(description="The Consistency-Actions daemon is responsible for... .", epilog='''
+
+Run the daemon::
+  $ rucio-storage-consistency-actions --run-once --rses T2_US_Purdue T2_US_Nebraska --dark-threshold-percent 2.0 --miss-threshold-percent 1.5 --scanner-files-path /tmp/consistency-dump --sleep-time 10
+    ''')
+    parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
+    parser.add_argument("--rses", nargs='+', default=[], type=str, help='RSEs to check specified as a RSE expression, defaults to check (default: check all RSEs).')
+    parser.add_argument('--sleep-time', action="store", default=60, type=int, help='Concurrency control: thread sleep time after each chunk of work')
+    parser.add_argument('--dark-min-age', action="store", default=28, type=int, help='Min. age of a file to be considered as DARK.')
+    parser.add_argument('--dark-threshold-percent', action="store", default=1.0, type=float, help='Max. percentage of dark files at RSE.')
+    parser.add_argument('--miss-threshold-percent', action="store", default=1.0, type=float, help='Max. percentage of missing files at RSE.')
+    parser.add_argument('--scanner-files-path', action="store", default="/var/cache/consistency-dump", type=pathlib.Path, help='The path where the CC scanner files are mounted.')
+    parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads on this process')
+    parser.add_argument('-f', '--force-proceed', action="store_true", default=False, help='Force CC actions, even if number of dark/missing files over thresholds')
+
+    return parser
+
+
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, stop)
+    parser = get_parser()
+    args = parser.parse_args()
+    try:
+        run(once=args.run_once, rses=args.rses, sleep_time=args.sleep_time, dark_min_age=args.dark_min_age, dark_threshold_percent=args.dark_threshold_percent, miss_threshold_percent=args.miss_threshold_percent, force_proceed=args.force_proceed, scanner_files_path=args.scanner_files_path,threads=args.threads)
+    except KeyboardInterrupt:
+        stop()
+
