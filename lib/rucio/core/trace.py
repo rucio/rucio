@@ -34,7 +34,8 @@ import random
 import socket
 
 import stomp
-from jsonschema import validate, ValidationError
+import struct
+from jsonschema import validate, ValidationError, draft7_format_checker
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import InvalidObject
@@ -206,6 +207,25 @@ SCHEMAS = {
     'sm_get_a': GET_SCHEMA
 }
 
+FORMAT_CHECKER = draft7_format_checker
+
+
+@FORMAT_CHECKER.checks(format="ipv4_or_ipv6")
+def ip_format_checker(value: str) -> bool:
+    """
+    Validates IPv4 or IPv6 string values. json schemas can use `ipv4_or_ipv6` as a valid `format` argument
+    """
+    ipv4_checker = FORMAT_CHECKER.checkers['ipv4'][0]
+    ipv6_checker = FORMAT_CHECKER.checkers['ipv6'][0]
+    try:
+        result = ipv4_checker(value) or ipv6_checker(value)
+    except (OSError, ValueError, struct.error):
+        LOGGER.debug(f"{value} is not a valid IPv4 or IPv6 address and raises an errors upon validation.")
+        result = False
+    finally:
+        return result
+
+
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 for broker in BROKERS_ALIAS:
@@ -282,6 +302,6 @@ def validate_schema(obj):
 
     try:
         if obj and 'eventType' in obj:
-            validate(obj, SCHEMAS.get(obj['eventType'].lower()))
+            validate(obj, SCHEMAS.get(obj['eventType'].lower()), format_checker=FORMAT_CHECKER)
     except ValidationError as error:
         raise InvalidObject(error)

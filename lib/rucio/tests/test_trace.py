@@ -24,10 +24,10 @@ import datetime
 import time
 import uuid
 import pytest
-import functools
-from jsonschema import validate
-from jsonschema.exceptions import ValidationError
+import json
 from rucio.common.schema.generic import IPv4orIPv6
+from rucio.core.trace import SCHEMAS, validate_schema
+from rucio.common.exception import InvalidObject
 
 
 def test_submit_trace(rest_client):
@@ -59,12 +59,16 @@ def test_trace_ip():
     """
     Allow either IPv4 or IPv6 addresses as traceIp fields
     """
-    schema = {
+    TEST_SCHEMA = {
         "type": "object",
         "properties": {
+            "eventType": {"enum": ["test"]},
             "traceIp": IPv4orIPv6
         }
     }
+
+    SCHEMAS['test'] = TEST_SCHEMA
+
     valid_ips = [
         "::ffff:134.158.121.5",
         "126.36.54.98"
@@ -74,9 +78,12 @@ def test_trace_ip():
         "300.25.45.98",
         "128.69.32.45:80"
     ]
+    valid_obj = [json.dumps({"eventType": "test", "traceIp": ip}) for ip in valid_ips]
+    invalid_obj = [json.dumps({"eventType": "test", "traceIp": ip}) for ip in invalid_ips]
 
-    map(functools.partial(validate, schema=schema), valid_ips)
+    for obj in valid_obj:
+        validate_schema(obj)
 
-    for ip in invalid_ips:
-        with pytest.raises(ValidationError):
-            validate(instance={"traceIp": ip}, schema=schema)
+    for obj in invalid_obj:
+        with pytest.raises(InvalidObject):
+            validate_schema(obj)
