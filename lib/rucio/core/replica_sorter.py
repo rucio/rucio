@@ -40,7 +40,7 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
 from rucio.common import utils
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import InvalidRSEExpression
 from rucio.core.rse_expression_parser import parse_expression
 
@@ -54,13 +54,16 @@ REGION = make_region(function_key_generator=utils.my_key_generator).configure(
 
 
 def __download_geoip_db(directory, filename):
-    licence_key = config_get('core', 'geoip_licence_key', raise_exception=False, default='NOLICENCE')
-    path = 'https://download.maxmind.com/app/geoip_download?edition_id=%s&license_key=%s&suffix=tar.gz' % (filename, licence_key)
+    download_url = config_get('core', 'geoip_download_url', raise_exception=False, default=None)
+    verify_tls = config_get_bool('core', 'geoip_download_verify_tls', raise_exception=False, default=True)
+    if not download_url:
+        licence_key = config_get('core', 'geoip_licence_key', raise_exception=False, default='NOLICENCE')
+        download_url = 'https://download.maxmind.com/app/geoip_download?edition_id=%s&license_key=%s&suffix=tar.gz' % (filename, licence_key)
     try:
         os.unlink('%s/%s.tar.gz' % (directory, filename))
     except OSError:
         pass
-    result = requests.get(path, stream=True)
+    result = requests.get(download_url, stream=True, verify=verify_tls)
     if result and result.status_code in [200, ]:
         file_object = open('%s/%s.tar.gz' % (directory, filename), 'wb')
         for chunk in result.iter_content(8192):
