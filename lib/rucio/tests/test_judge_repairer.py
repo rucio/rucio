@@ -24,6 +24,9 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - Nick Smith <nick.smith@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import itertools
 import unittest
@@ -42,7 +45,7 @@ from rucio.core.lock import successful_transfer, failed_transfer, get_replica_lo
 from rucio.core.replica import get_replica
 from rucio.core.request import cancel_request_did
 from rucio.core.rse import add_rse_attribute, add_rse, update_rse, get_rse_id
-from rucio.core.rule import get_rule, add_rule
+from rucio.core.rule import get_rule, add_rule, delete_rule
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.judge.repairer import rule_repairer
 from rucio.db.sqla import models
@@ -330,7 +333,8 @@ class TestJudgeRepairer(unittest.TestCase):
 
             if ignore_availability:
                 change_availability(False)
-                rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping=grouping, weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=ignore_availability, activity='DebugJudge')[0]
+                rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping=grouping,
+                                   weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=ignore_availability, activity='DebugJudge')[0]
                 assert(RuleState.STUCK == get_rule(rule_id)['state'])
 
                 rule_repairer(once=True)
@@ -338,7 +342,8 @@ class TestJudgeRepairer(unittest.TestCase):
 
                 change_availability(True)
             else:
-                rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping=grouping, weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=ignore_availability, activity='DebugJudge')[0]
+                rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping=grouping,
+                                   weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=ignore_availability, activity='DebugJudge')[0]
                 failed_transfer(scope=scope, name=files[0]['name'], rse_id=get_replica_locks(scope=files[0]['scope'], name=files[0]['name'])[0].rse_id)
                 change_availability(False)
                 assert(RuleState.STUCK == get_rule(rule_id)['state'])
@@ -349,3 +354,4 @@ class TestJudgeRepairer(unittest.TestCase):
                 change_availability(True)
                 rule_repairer(once=True)
                 assert(RuleState.REPLICATING == get_rule(rule_id)['state'])
+            delete_rule(rule_id)

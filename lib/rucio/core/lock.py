@@ -219,6 +219,21 @@ def get_replica_locks_for_rule_id_per_rse(rule_id, session=None):
 
 
 @read_session
+def get_rule_ids_for_rse_id(rse_id, session=None):
+    """
+    Get the rules assiciated with a RSE.
+
+    :param rse_id:  The rse id to filter for.
+    :param session: The db session.
+    :returns:       List of touples with rule_ids [(id1,), (id2,), ...]
+    :raises:        NoResultfound
+    """
+    query = session.query(models.ReplicaLock.rule_id).filter_by(rse_id=rse_id).distinct(models.ReplicaLock.rule_id)
+
+    return query.all()
+
+
+@read_session
 def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_rses=None, only_stuck=False,
                                            total_threads=None, thread_id=None,
                                            session=None):

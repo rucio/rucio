@@ -1478,6 +1478,66 @@ def move_rule(rule_id, rse_expression, activity=None, source_replica_expression=
 
 
 @transactional_session
+def recalculate_rsese_for_rule(rule_id, session=None):
+    """
+    Update the associated rses for a rule.
+
+    :param rule_id:                    Rule to be moved.
+    :param session:                    The DB Session.
+    :raises:                           RuleNotFound, RuleReplaceFailed, InvalidRSEExpression, RSEWriteBlocked
+    """
+    try:
+        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+
+        if rule.child_rule_id:
+            raise RuleReplaceFailed('The rule must not have a child rule.')
+
+        grouping = {RuleGrouping.ALL: 'ALL', RuleGrouping.NONE: 'NONE'}.get(rule.grouping, 'DATASET')
+
+        if rule.expires_at:
+            lifetime = (rule.expires_at - datetime.utcnow()).days * 24 * 3600 + (rule.expires_at - datetime.utcnow()).seconds
+        else:
+            lifetime = None
+
+        notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C', RuleNotification.PROGRESS: 'P'}.get(rule.notification, 'N')
+
+        copies = rule.copies
+        rule.copies = -1
+        session.flush()
+
+        try:
+            new_rule_id = add_rule(dids=[{'scope': rule.scope, 'name': rule.name}],
+                                   account=rule.account,
+                                   copies=copies,
+                                   rse_expression=rule.rse_expression,
+                                   grouping=grouping,
+                                   weight=rule.weight,
+                                   lifetime=lifetime,
+                                   locked=rule.locked,
+                                   subscription_id=rule.subscription_id,
+                                   source_replica_expression=rule.source_replica_expression,
+                                   activity=rule.activity,
+                                   notify=notify,
+                                   purge_replicas=rule.purge_replicas,
+                                   ignore_availability=rule.ignore_availability,
+                                   comment=rule.comments,
+                                   session=session)
+        except RSEWriteBlocked as e:
+            # Could not create new Rule
+            rule.copies = copies
+            session.flush()
+            raise e
+        session.flush()
+
+        update_rule(rule_id=rule_id, options={'lifetime': 0}, session=session)
+
+        return new_rule_id[0]
+
+    except NoResultFound:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+
+
+@transactional_session
 def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
     """
     Re-Evaluates a did.

@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
 # - Wen Guan <wen.guan@cern.ch>, 2015-2016
@@ -25,7 +25,7 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2020
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
@@ -37,11 +37,13 @@
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 import json
 from io import StringIO
 from re import match
 from typing import TYPE_CHECKING
+from hashlib import sha256
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -56,6 +58,7 @@ from sqlalchemy.sql.expression import or_, false
 import rucio.core.account_counter
 from rucio.common import exception, utils
 from rucio.common.config import get_lfn2pfn_algorithm_default, config_get
+from rucio.common.exception import RSEWriteBlocked
 from rucio.common.utils import CHECKSUM_KEY, is_checksum_valid, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
@@ -1279,6 +1282,21 @@ def update_rse(rse_id, parameters, session=None):
                 param[key] = None
 
     query.update(param)
+    session.flush()
+
+    if not (param['availability'] & availability_mapping['availability_write']):
+        # Recalculates all rules associated with this rse since it is unwritable now
+        once = True
+        for lock in rucio.core.lock.get_rule_ids_for_rse_id(rse_id, session=session):  # Direct import to avoid cyclic dependencies
+            if once:
+                REGION.delete(sha256(rucio.core.rule.get_rule(lock.rule_id)["rse_expression"].encode()).hexdigest())  # Direct import to avoid cyclic dependencies
+                once = False
+            try:
+                rucio.core.rule.recalculate_rsese_for_rule(lock.rule_id, session=session)  # Direct import to avoid cyclic dependencies
+            except RSEWriteBlocked:
+                # Could not create a new rule, since there is no rse to write to
+                pass
+
     if 'rse' in param:
         add_rse_attribute(rse_id=rse_id, key=parameters['name'], value=True, session=session)
         query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == rse)

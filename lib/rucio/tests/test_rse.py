@@ -47,13 +47,19 @@ from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSuppor
                                     InvalidObject, ResourceTemporaryUnavailable,
                                     RSEAttributeNotFound, RSEOperationNotSupported)
 from rucio.common.utils import generate_uuid
+from rucio.core.did import add_did, attach_dids
+from rucio.core.lock import get_rule_ids_for_rse_id
+from rucio.core.replica import add_replica
+from rucio.core.rule import add_rule
 from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses,
                             rse_exists, add_rse_attribute, list_rse_attributes,
                             set_rse_transfer_limits, get_rse_transfer_limits,
                             delete_rse_transfer_limits, get_rse_protocols,
-                            del_rse_attribute, get_rse_attribute, get_rse, rse_is_empty)
+                            del_rse_attribute, get_rse_attribute, get_rse, rse_is_empty,
+                            update_rse)
+from rucio.daemons.judge.cleaner import rule_cleaner
 from rucio.db.sqla import session, models
-from rucio.db.sqla.constants import RSEType
+from rucio.db.sqla.constants import RSEType, DIDType
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import rse_name_generator, hdrdict, auth, headers
 from rucio.tests.common_server import get_vo
@@ -1480,3 +1486,41 @@ class TestRSEClient(unittest.TestCase):
         rse_name = rse_name_generator()
         with pytest.raises(RSENotFound):
             self.client.delete_rse(rse=rse_name)
+
+
+@pytest.mark.noparallel(reason='Internal structure change')
+def test_rse_decomision_reevaluates_rule(rse_factory, mock_scope, root_account, vo):
+    """RSE: When setting a RSE to read only the replication rules should be re-evaluated and a new rule should be created"""
+    _, rse0_id = rse_factory.make_mock_rse()
+    print(f'rse_id 0 {rse0_id}')
+    _, rse1_id = rse_factory.make_mock_rse()
+    print(f'rse_id 1 {rse1_id}')
+
+    rse_expr = f'tmp_rse_expr_{str(generate_uuid())}'
+    print(f'RSE Expression {rse_expr}')
+    add_rse_attribute(rse0_id, rse_expr, True)
+
+    file = {'scope': mock_scope, 'name': generate_uuid(), 'bytes': 1}
+    add_replica(rse0_id, scope=file['scope'], name=file['name'], account=root_account, bytes_=file['bytes'])
+    dataset = 'dataset_' + str(generate_uuid())
+
+    add_did(mock_scope, dataset, DIDType.DATASET, root_account)
+    attach_dids(mock_scope, dataset, [file], root_account)
+
+    did = {'scope': mock_scope, 'name': dataset}
+    rule_id = add_rule(dids=[did], account=root_account, copies=1, rse_expression=f'{rse_expr}',
+                       grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+    print(f'Created rule with Rule id {rule_id}')
+
+    add_rse_attribute(rse1_id, rse_expr, True)
+    update_rse(rse0_id, {'availability_write': False})
+    rule_cleaner(once=True)
+
+    new_rules = session.get_session().query(models.ReplicationRule).filter(models.ReplicationRule.rse_expression == rse_expr).all()
+    print(f'Found rules {[r.id for r in new_rules]}')
+    assert len(new_rules) == 1, 'Only one rule should exist.'
+    assert new_rules[0].id != rule_id, 'The old rule should be deleted.'
+
+    rse1_rules = get_rule_ids_for_rse_id(rse1_id)
+    assert len(rse1_rules) == 1, 'A new rule should be created for rse1.'
+    assert rse1_rules[0].rule_id == new_rules[0].id, 'The newly created rule with the same rse_expression should be on rse1.'
