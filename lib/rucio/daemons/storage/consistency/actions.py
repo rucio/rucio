@@ -26,13 +26,16 @@ import logging
 import os
 import socket
 import threading
-import time
 from copy import deepcopy
 from datetime import datetime, timedelta
 from random import randint
 from re import match
-import sys, glob, json, time, gzip, re
-from datetime import datetime
+import sys 
+import glob
+import json
+import time
+import gzip
+import re
 import csv
 
 
@@ -55,8 +58,6 @@ from rucio.db.sqla.util import get_db_time
 
 
 
-graceful_stop = threading.Event()
-
 ##########################################################################
 ### NOTE: these are needed by local version of declare_bad_file_replicas()
 ### remove after move to core/replica.py
@@ -64,11 +65,15 @@ from rucio.db.sqla.session import transactional_session
 from rucio.db.sqla.constants import (ReplicaState, BadFilesStatus)
 ##########################################################################
 
+graceful_stop = threading.Event()
+
 
 ##########################################################################
-### NOTE: declare_bad_file_replicas will be used directly from core/replica.py when handling of DID is added there
+### NOTE: declare_bad_file_replicas will be used directly from core/replica.py
+### when handling of DID is added there
 @transactional_session
-def declare_bad_file_replicas(dids, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', session=None):
+def declare_bad_file_replicas(dids, rse_id, reason, issuer,\
+     status=BadFilesStatus.BAD, scheme='srm', session=None):
     """
     Declare a list of bad replicas.
 
@@ -86,21 +91,24 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer, status=BadFilesStatu
         for did in dids:
             scope = InternalScope(did['scope'], vo=issuer.vo)
             name = did['name']
-            __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope, name, path=None,
-                                                                              session=session)
-            if __exists and ((str(status) == str(BadFilesStatus.BAD) and not already_declared) or str(status) == str(
-                    BadFilesStatus.SUSPICIOUS)):
-                replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
-                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status,
-                                                     account=issuer, bytes=size)
+            __exists, scope, name, already_declared, size =\
+               __exists_replicas(rse_id, scope, name, path=None, session=session)
+            if __exists and ((str(status) == str(BadFilesStatus.BAD) and not\
+              already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
+                replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id,\
+                  'state': ReplicaState.BAD})
+                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id,\
+                  reason=reason, state=status, account=issuer, bytes=size)
                 new_bad_replica.save(session=session, flush=False)
-                session.query(models.Source).filter_by(scope=scope, name=name, rse_id=rse_id).delete(
-                    synchronize_session=False)
+                session.query(models.Source).filter_by(scope=scope, name=name,\
+                  rse_id=rse_id).delete(synchronize_session=False)
             else:
                 if already_declared:
-                    unknown_replicas.append('%s:%s %s' % (did['scope'], did['name'], 'Already declared'))
+                    unknown_replicas.append('%s:%s %s' % (did['scope'], did['name'],\
+                     'Already declared'))
                 else:
-                    unknown_replicas.append('%s:%s %s' % (did['scope'], did['name'], 'Unknown replica'))
+                    unknown_replicas.append('%s:%s %s' % (did['scope'], did['name'],\
+                     'Unknown replica'))
         if str(status) == str(BadFilesStatus.BAD):
             # For BAD file, we modify the replica state, not for suspicious
             try:
@@ -118,32 +126,33 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer, status=BadFilesStatu
         raise exception.RucioException(error.args)
 
     return unknown_replicas
-### NOTE: declare_bad_file_replicas will be used directly from core/replica.py when handling of DID is added there
+### NOTE: declare_bad_file_replicas will be used directly from core/replica.py
+### when handling of DID is added there
 ##########################################################################
 
 
 ##############################
 ### This is Igor's Stats class
 class Stats(object):
-    
+
     def __init__(self, path):
         self.Path = path
         self.Data = {}
-        
+
     def __getitem__(self, name):
         return self.Data[name]
-        
+
     def __setitem__(self, name, value):
         self.Data[name] = value
         self.save()
-        
+
     def get(self, name, default=None):
         return self.Data.get(name, default)
-        
+
     def update(self, data):
         self.Data.update(data)
         self.save()
-        
+
     def save(self):
         try:
             with open(self.Path, "r") as f:
@@ -155,12 +164,12 @@ class Stats(object):
         data = json.loads(data or "{}")
         data.update(self.Data)
         open(self.Path, "w").write(json.dumps(data, indent=4))
-        
 
-def write_stats(my_stats, stats_file, stats_key = None):
+
+def write_stats(my_stats, stats_file, stats_key=None):
     if stats_file:
         stats = {}
-        if os.path.isfile(stats_file):    
+        if os.path.isfile(stats_file):
             with open(stats_file, "r") as f:
                 stats = json.loads(f.read())
         if stats_key:
@@ -171,18 +180,21 @@ def write_stats(my_stats, stats_file, stats_key = None):
 
 
 
-def cmp2dark(new_list="T2_US_Purdue_2021_06_18_02_28_D.list", old_list="T2_US_Purdue_2021_06_17_02_28_D.list", comm_list="out_D.list", stats_file="test_stats.json"):
+def cmp2dark(new_list="T2_US_Purdue_2021_06_18_02_28_D.list",\
+             old_list="T2_US_Purdue_2021_06_17_02_28_D.list",\
+             comm_list="out_D.list", stats_file="test_stats.json"):
 
     t0 = time.time()
     stats_key = "cmp2dark"
     my_stats = stats = None
     op = "and"
 
-    with open(new_list,"r") as a_list, open(old_list,"r") as b_list, open(comm_list,"w") as out_list:
+    with open(new_list, "r") as a_list, open(old_list, "r") as b_list,\
+         open(comm_list, "w") as out_list:
 
         if stats_file is not None:
             stats = Stats(stats_file)
-            my_stats= {
+            my_stats = {
                 "elapsed": None,
                 "start_time": t0,
                 "end_time": None,
@@ -225,7 +237,7 @@ def parse_filename(fn):
     #
     #   <rse>_%Y_%m_%d_%H_%M_<type>.<extension>
     #
-    fn, ext = fn.rsplit(".",1)
+    fn, ext = fn.rsplit(".", 1)
     parts = fn.split("_")
     typ = parts[-1]
     timestamp_parts = parts[-6:-1]
@@ -237,34 +249,34 @@ def list_cc_scanned_rses(Path):
     files = glob.glob(f"{Path}/*_stats.json")
     rses = set()
     for path in files:
-        fn = path.rsplit("/",1)[-1]
+        fn = path.rsplit("/", 1)[-1]
         rse, timestamp, typ, ext = parse_filename(fn)
         rses.add(rse)
     return sorted(list(rses))
 
-def list_runs_by_age(Path,rse, reffile):
+def list_runs_by_age(Path, rse, reffile):
     files = glob.glob(f"{Path}/{rse}_*_stats.json")
     r, reftimestamp, typ, ext = parse_filename(reffile)
-    reftime = datetime.strptime(reftimestamp,'%Y_%m_%d_%H_%M')
+    reftime = datetime.strptime(reftimestamp, '%Y_%m_%d_%H_%M')
     runs = {}
     for path in files:
-        fn = path.rsplit("/",1)[-1]
+        fn = path.rsplit("/", 1)[-1]
         if os.stat(path).st_size > 0:
             r, timestamp, typ, ext = parse_filename(fn)
-            filetime = datetime.strptime(timestamp,'%Y_%m_%d_%H_%M')
+            filetime = datetime.strptime(timestamp, '%Y_%m_%d_%H_%M')
             fileagedays = (reftime - filetime).days
             if r == rse:
                 # if the RSE was X, then rses like X_Y will appear in this list too,
                 # so double check that we get the right RSE
                 runs.update({path: fileagedays})
 
-    return {k:v for k,v in sorted(runs.items(), reverse=True)}
+    return {k:v for k, v in sorted(runs.items(), reverse=True)}
 
-def list_runs(Path,rse, nlast=0):
+def list_runs(Path, rse, nlast=0):
     files = glob.glob(f"{Path}/{rse}_*_stats.json")
     runs = []
     for path in files:
-        fn = path.rsplit("/",1)[-1]
+        fn = path.rsplit("/", 1)[-1]
         if os.stat(path).st_size > 0:
             r, timestamp, typ, ext = parse_filename(fn)
             if r == rse:
@@ -275,11 +287,11 @@ def list_runs(Path,rse, nlast=0):
         nlast = len(runs)
     return sorted(runs, reverse=False)[-nlast:]
 
-def list_unprocessed_runs(Path,rse, nlast=0):
+def list_unprocessed_runs(Path, rse, nlast=0):
     files = glob.glob(f"{Path}/{rse}_*_stats.json")
     unproc_runs = []
     for path in files:
-        fn = path.rsplit("/",1)[-1]
+        fn = path.rsplit("/", 1)[-1]
         if os.stat(path).st_size > 0:
             r, timestamp, typ, ext = parse_filename(fn)
             if r == rse:
@@ -295,7 +307,7 @@ def was_cc_attempted(stats_file):
     try:
         f = open(stats_file, "r")
     except:
-        print("get_data: error ",stats_file)
+        print("get_data: error ", stats_file)
         return None
     stats = json.loads(f.read())
     cc_dark_status = ''
@@ -309,7 +321,7 @@ def was_cc_processed(stats_file):
     try:
         f = open(stats_file, "r")
     except:
-        print("get_data: error ",stats_file)
+        print("get_data: error ", stats_file)
         return None
     stats = json.loads(f.read())
     cc_dark_status = ''
@@ -326,11 +338,13 @@ def was_cc_processed(stats_file):
         return False
 
 
-def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force_proceed,scanner_files_path):
+def deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,\
+      force_proceed, scanner_files_path):
 
     """
-    The core of CC actions. 
-    Use the results of the CC Scanner to check one RSE for confirmed dark files and delete them. Re-subscribe missing files.
+    The core of CC actions.
+    Use the results of the CC Scanner to check one RSE for confirmed dark files and delete them.
+    Re-subscribe missing files.
     """
 
     print("\n Now running the original deckard code...")
@@ -339,7 +353,8 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
     minagedark = dark_min_age
     maxdarkfraction = dark_threshold_percent
     maxmissfraction = miss_threshold_percent
-    print("\n Scanner Output Path: ",Path,"\n minagedark: ",minagedark,"\n maxdarkfraction: ",maxdarkfraction,"\n maxmissfraction: ",maxmissfraction,"\n")
+    print("\n Scanner Output Path: ", Path, "\n minagedark: ", minagedark, "\n maxdarkfraction: ",\
+      maxdarkfraction, "\n maxmissfraction: ", maxmissfraction, "\n")
 # Labels for the Prometheus counters/gauges
     labels = {'rse': rse}
 
@@ -350,19 +365,20 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
 
 # Check if we have any scans available for that RSE
     if rse in list_cc_scanned_rses(Path):
-        print("Found scans for RSE: ",rse)
+        print("Found scans for RSE: ", rse)
         #[print(run) for run in (list_runs(Path,rse))]
 
 # Have any of them still not been processed?
 # (no CC_dark or CC-miss sections in _stats.json)
         #[print(run) for run in (list_unprocessed_runs(Path,rse))]
-        np_runs = list_unprocessed_runs(Path,rse)
-        print(len(np_runs)," unprocessed runs found for this RSE")
+        np_runs = list_unprocessed_runs(Path, rse)
+        print(len(np_runs), " unprocessed runs found for this RSE")
 
 # Was the latest run ever attempted to be processed?
 
-        latest_run = list_runs(Path,rse,1)[0]
-        print("Was the latest run", latest_run, "attempted to be processed already? ", was_cc_attempted(latest_run))
+        latest_run = list_runs(Path, rse, 1)[0]
+        print("Was the latest run", latest_run, "attempted to be processed already? ",\
+          was_cc_attempted(latest_run))
         if was_cc_attempted(latest_run) is False or force_proceed is True:
             print("Will try to process the run")
 
@@ -374,11 +390,13 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
             oldenough_run = None
             max_files_at_site = 0
             #print(list_runs_by_age(Path,rse, latest_run))
-            d = list_runs_by_age(Path,rse, latest_run)
-            if len([k for k in d if d[k] > minagedark]) > 0:    # there is another dark run with appropriate age
+            d = list_runs_by_age(Path, rse, latest_run)
+            if len([k for k in d if d[k] > minagedark]) > 0:\
+              # i.e. there is another dark run with appropriate age
                 oldenough_run = [k for k in d if d[k] > minagedark][0]
-                print("Found another run,",minagedark,"days older than the latest!\nWill compare the dark files in the two.")
-                print("The first",minagedark,"days older run is: ", oldenough_run)
+                print("Found another run,", minagedark,\
+                  "days older than the latest!\nWill compare the dark files in the two.")
+                print("The first", minagedark, "days older run is: ", oldenough_run)
 
 # Create a cc_dark section in the stats file
 
@@ -386,7 +404,7 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                 stats_key = "cc_dark"
                 cc_stats = stats = None
                 stats = Stats(latest_run)
-                cc_stats= {
+                cc_stats = {
                     "start_time": t0,
                     "end_time": None,
                     "initial_dark_files": 0,
@@ -399,22 +417,22 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
 # Compare the two lists, and take only the dark files that are in both
                 latest_dark = re.sub('_stats.json$', '_D.list', latest_run)
                 oldenough_dark = re.sub('_stats.json$', '_D.list', oldenough_run)
-                print("\nlatest_dark =",latest_dark)
-                print("oldenough_dark =",oldenough_dark)
+                print("\nlatest_dark =", latest_dark)
+                print("oldenough_dark =", oldenough_dark)
                 confirmed_dark = "%s_DeletionList.csv" % latest_run
                 confirmed_dark = re.sub('_stats.json$', '_DeletionList.csv', latest_run)
-                cmp2dark(new_list=latest_dark, old_list=oldenough_dark, comm_list=confirmed_dark, stats_file=latest_run)
-                #cmp2dark(new_list=latest_dark, old_list=oldenough_dark, comm_list="out_D.list", stats_file="test_stats.json")
-                #cmp2dark(new_list="T2_US_Purdue_2021_06_18_02_28_D.list", old_list="T2_US_Purdue_2021_06_17_02_28_D.list", comm_list="out_D.list", stats_file="test_stats.json")
+                cmp2dark(new_list=latest_dark, old_list=oldenough_dark,\
+                  comm_list=confirmed_dark, stats_file=latest_run)
 
 ###
 #   SAFEGUARD
-#   If a large fraction (larger than 'maxdarkfraction') of the files at a site are reported as 'dark', do NOT proceed with the deletion.
+#   If a large fraction (larger than 'maxdarkfraction') of the files at a site
+#   are reported as 'dark', do NOT proceed with the deletion.
 #   Instead, put a warning in the _stats.json file, so that an operator can have a look.
 ###
 
 # Get the number of files recorded by the scanner
-                print("latest_run",latest_run)
+                print("latest_run", latest_run)
                 with open(latest_run, "r") as f:
                     fstats = json.loads(f.read())
                     if "scanner" in fstats:
@@ -429,21 +447,27 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                         dbdump_before_files = fstats["dbdump_before"]["files"]
                     if "dbdump_after" in fstats:
                         dbdump_after_files = fstats["dbdump_after"]["files"]
-                max_files_at_site = max(scanner_files,dbdump_before_files,dbdump_after_files)
-                print("\nscanner_files: ",scanner_files,"\ndbdump_before_files",dbdump_before_files,"\ndbdump_after_files",dbdump_after_files,"\nmax_files_at_site",max_files_at_site)
+                max_files_at_site = max(scanner_files, dbdump_before_files, dbdump_after_files)
+                print("\nscanner_files: ", scanner_files, "\ndbdump_before_files",\
+                  dbdump_before_files, "\ndbdump_after_files", dbdump_after_files,\
+                  "\nmax_files_at_site", max_files_at_site)
 
                 dark_files = sum(1 for line in open(latest_dark))
                 confirmed_dark_files = sum(1 for line in open(confirmed_dark))
-                print("\ndark_files",dark_files)
-                print("\nconfirmed_dark_files",confirmed_dark_files)
-                print("confirmed_dark_files/max_files_at_site = ",confirmed_dark_files/max_files_at_site)
-                print("maxdarkfraction configured for this RSE: ",maxdarkfraction)
+                print("\ndark_files", dark_files)
+                print("\nconfirmed_dark_files", confirmed_dark_files)
+                print("confirmed_dark_files/max_files_at_site = ",\
+                  confirmed_dark_files/max_files_at_site)
+                print("maxdarkfraction configured for this RSE: ", maxdarkfraction)
 
-                record_gauge('storage.consistency.actions_dark_files_found', confirmed_dark_files, labels=labels)
-                record_gauge('storage.consistency.actions_dark_files_confirmed', confirmed_dark_files, labels=labels)
+                record_gauge('storage.consistency.actions_dark_files_found',\
+                  confirmed_dark_files, labels=labels)
+                record_gauge('storage.consistency.actions_dark_files_confirmed',\
+                  confirmed_dark_files, labels=labels)
 
                 deleted_files = 0
-                if confirmed_dark_files/max_files_at_site < maxdarkfraction or force_proceed is True:
+                if confirmed_dark_files/max_files_at_site < maxdarkfraction\
+                  or force_proceed is True:
                     print("Can proceed with dark files deletion")
 
 
@@ -458,7 +482,8 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                         scope = "cms"
                         reason = "deleteing dark file"
                         for name, in reader:
-                            print("\n Processing dark file:\n RSE: ",rse," Scope: ",scope," Name: ",name)
+                            print("\n Processing dark file:\n RSE: ", rse, " Scope: ",\
+                              scope, " Name: ", name)
                             rse_id = get_rse_id(rse=rse)
                             Intscope = InternalScope(scope=scope, vo=issuer.vo)
                             lfns = [{'scope': scope, 'name': name}]
@@ -469,12 +494,13 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                             url = pfns[pfn_key]
                             urls = [url]
                             paths = parse_pfns(attributes, urls, operation='delete')
-                            replicas = [{'scope': Intscope, 'rse_id': rse_id, 'name': name, 'path': paths[url]['path']+paths[url]['name']}]
-#                            replicas = [{'scope': Intscope, 'rse_id': rse_id, 'name': name, 'path': url}]
+                            replicas = [{'scope': Intscope, 'rse_id': rse_id, 'name': name,\
+                              'path': paths[url]['path']+paths[url]['name']}]
                             add_quarantined_replicas(rse_id, replicas, session=None)
                             deleted_files += 1
                             labels = {'rse': rse}
-                            record_counter('storage.consistency.actions_dark_files_deleted_counter', delta=1, labels=labels)
+                            record_counter('storage.consistency.actions_dark_files_deleted_counter',\
+                              delta=1, labels=labels)
 
                     #Update the stats
                     t1 = time.time()
@@ -486,11 +512,13 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                         "status": "done"
                     })
                     stats[stats_key] = cc_stats
-                    record_gauge('storage.consistency.actions_dark_files_deleted', deleted_files, labels=labels)
+                    record_gauge('storage.consistency.actions_dark_files_deleted',\
+                      deleted_files, labels=labels)
 
                 else:
                     darkperc = 100.*confirmed_dark_files/max_files_at_site
-                    print("\nWARNING: Too many DARK files! (%3.2f%%) \nStopping and asking for operator's help." % darkperc)
+                    print("\nWARNING: Too many DARK files! (%3.2f%%) \n\
+                      Stopping and asking for operator's help." % darkperc)
 
                     #Update the stats
                     t1 = time.time()
@@ -506,7 +534,8 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                     record_gauge('storage.consistency.actions_dark_files_deleted', 0, labels=labels)
 
             else:
-                print("There's no other run for this RSE at least",minagedark,"days older, so cannot safely proceed with dark files deleteion.")
+                print("There's no other run for this RSE at least", minagedark, "days older,\
+                  so cannot safely proceed with dark files deleteion.")
 
 #####################################
 #   Done with Dark Files processing
@@ -517,7 +546,7 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
 ###########################################
 
             latest_miss = re.sub('_stats.json$', '_M.list', latest_run)
-            print("\n\nlatest_missing =",latest_miss)
+            print("\n\nlatest_missing =", latest_miss)
 
 # Create a cc_miss section in the stats file
 
@@ -525,7 +554,7 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
             stats_key = "cc_miss"
             cc_stats = stats = None
             stats = Stats(latest_run)
-            cc_stats= {
+            cc_stats = {
                 "start_time": t0,
                 "end_time": None,
                 "initial_miss_files": 0,
@@ -537,14 +566,15 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
 
 ###
 #   SAFEGUARD
-#   If a large fraction (larger than 'maxmissfraction') of the files at a site are reported as 'missing', do NOT proceed with the invalidation.
+#   If a large fraction (larger than 'maxmissfraction') of the files at a site are reported as
+#   'missing', do NOT proceed with the invalidation.
 #   Instead, put a warning in the _stats.json file, so that an operator can have a look.
 ###
 
             miss_files = sum(1 for line in open(latest_miss))
-            print("\nmiss_files",miss_files)
-            print("miss_files/max_files_at_site = ",miss_files/max_files_at_site)
-            print("maxmissfraction configured for this RSE: ",maxmissfraction)
+            print("\nmiss_files", miss_files)
+            print("miss_files/max_files_at_site = ", miss_files/max_files_at_site)
+            print("maxmissfraction configured for this RSE: ", maxmissfraction)
 
             record_gauge('storage.consistency.actions_miss_files_found', miss_files, labels=labels)
 
@@ -560,13 +590,16 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                     scope = "cms"
                     reason = "invalidating damaged/missing replica"
                     for name, in reader:
-                        print("\n Processing invalid replica:\n RSE: ",rse," Scope: ",scope," Name: ",name,"\n")
+                        print("\n Processing invalid replica:\n RSE: ", rse, " Scope: ",\
+                         scope, " Name: ", name, "\n")
 
                         rse_id = get_rse_id(rse=rse)
                         dids = [{'scope': scope, 'name': name}]
-                        declare_bad_file_replicas(dids=dids, rse_id=rse_id, reason=reason, issuer=issuer)
+                        declare_bad_file_replicas(dids=dids, rse_id=rse_id, reason=reason,\
+                          issuer=issuer)
                         invalidated_files += 1
-                        record_counter('storage.consistency.actions_miss_files_to_retransfer_counter', delta=1, labels=labels)
+                        record_counter('storage.consistency.actions_miss_files_to_retransfer_counter',\
+                          delta=1, labels=labels)
 
                     #Update the stats
                     t1 = time.time()
@@ -578,11 +611,13 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                         "status": "done"
                     })
                     stats[stats_key] = cc_stats
-                    record_gauge('storage.consistency.actions_miss_files_to_retransfer', invalidated_files, labels=labels)
+                    record_gauge('storage.consistency.actions_miss_files_to_retransfer',\
+                      invalidated_files, labels=labels)
 
             else:
                 missperc = 100.*miss_files/max_files_at_site
-                print("\nWARNING: Too many MISS files (%3.2f%%)! \nStopping and asking for operator's help." % missperc)
+                print("\nWARNING: Too many MISS files (%3.2f%%)! \n\
+                  Stopping and asking for operator's help." % missperc)
 
                 #Update the stats
                 t1 = time.time()
@@ -595,7 +630,8 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                     "aborted_reason": "%3.2f%% miss" % missperc,
                 })
                 stats[stats_key] = cc_stats
-                record_gauge('storage.consistency.actions_miss_files_to_retransfer', 0, labels=labels)
+                record_gauge('storage.consistency.actions_miss_files_to_retransfer',\
+                  0, labels=labels)
 
 
 ###
@@ -604,7 +640,7 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
 
         else:
 # This run was already processed
-         print("Nothing to do here")
+            print("Nothing to do here")
 
     else:
 # No scans outputs are available for this RSE
@@ -616,13 +652,16 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
 
 
 
-def deckard_loop(rses,dark_min_age,dark_threshold_percent,miss_threshold_percent,force_proceed,scanner_files_path):
+def deckard_loop(rses, dark_min_age, dark_threshold_percent, miss_threshold_percent,\
+  force_proceed, scanner_files_path):
     print("\n A loop over all RSEs")
     for rse in rses:
-        print("Now processing:",rse)
-        deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force_proceed,scanner_files_path)
+        print("Now processing:", rse)
+        deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,\
+          force_proceed, scanner_files_path)
 
-def actions_loop(once,rses,sleep_time,dark_min_age,dark_threshold_percent,miss_threshold_percent,force_proceed,scanner_files_path):
+def actions_loop(once, rses, sleep_time, dark_min_age, dark_threshold_percent,\
+  miss_threshold_percent, force_proceed, scanner_files_path):
 
     """
     Main loop to apply the CC actions
@@ -630,35 +669,42 @@ def actions_loop(once,rses,sleep_time,dark_min_age,dark_threshold_percent,miss_t
     hostname = socket.gethostname()
     pid = os.getpid()
     current_thread = threading.current_thread()
-    print("hostname:",hostname," pid:",pid," current_thread:",current_thread)
+    print("hostname:", hostname, " pid:", pid, " current_thread:", current_thread)
 
-    # Make an initial heartbeat so that all storage-consistency-actions have the correct worker number on the next try
+    # Make an initial heartbeat
+    # so that all storage-consistency-actions have the correct worker number on the next try
+
     executable = 'storage-consistency-actions'
     heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
-    prefix = 'storage-consistency-actions[%i/%i] ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
+    prefix = 'storage-consistency-actions[%i/%i] ' % (heartbeat['assign_thread'],\
+      heartbeat['nr_threads'])
     logger = formatted_logger(logging.log, prefix + '%s')
     graceful_stop.wait(1)
 
     while not graceful_stop.is_set():
         try:
             # heartbeat
-            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
+            heartbeat = live(executable=executable, hostname=hostname, pid=pid,\
+              thread=current_thread)
             print("\nheartbeat?", heartbeat)
-            prefix = 'storage-consistency-actions[%i/%i] ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-            print("\nprefix:",prefix)
+            prefix = 'storage-consistency-actions[%i/%i] ' % (heartbeat['assign_thread'],\
+              heartbeat['nr_threads'])
+            print("\nprefix:", prefix)
             logger = formatted_logger(logging.log, prefix + '%s')
             start = time.time()
-            print("\nStartTime:",start)
+            print("\nStartTime:", start)
             logger(logging.DEBUG, 'fake query time %f' % (time.time() - start))
 
-            deckard_loop(rses,dark_min_age,dark_threshold_percent,miss_threshold_percent,force_proceed,scanner_files_path)
-            daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=logger)
+            deckard_loop(rses, dark_min_age, dark_threshold_percent, miss_threshold_percent,\
+              force_proceed, scanner_files_path)
+            daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop,\
+              logger=logger)
 
 
         except Exception as e:
             traceback.print_exc()
-            print("\nSomething went wrong here...",e)
-            print("\nSomething went wrong here...",e.__class__.__name__)
+            print("\nSomething went wrong here...", e)
+            print("\nSomething went wrong here...", e.__class__.__name__)
         if once:
             break
 
@@ -672,7 +718,9 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, rses=None, sleep_time=60, dark_min_age=28, dark_threshold_percent=1.0, miss_threshold_percent=1.0, force_proceed=False, scanner_files_path="/var/cache/consistency-dump",threads=1):
+def run(once=False, rses=None, sleep_time=60, dark_min_age=28, dark_threshold_percent=1.0,\
+  miss_threshold_percent=1.0, force_proceed=False, scanner_files_path="/var/cache/consistency-dump",\
+  threads=1):
     """
     Starts up the Consistency-Actions.
     """
@@ -685,7 +733,10 @@ def run(once=False, rses=None, sleep_time=60, dark_min_age=28, dark_threshold_pe
 #        rses = [rse['rse'] for rse in list_rses({'tier': 2, 'availability_write': True})]
 
 #    logging.info('\n RSEs: %s' % rses)
-    print("\n...RSEs:",rses,"\n run once:",once,"\n Sleep time:",sleep_time,"\n Dark min age (days):",dark_min_age,"\n Dark files threshold %:",dark_threshold_percent,"\n Missing files threshold %:",miss_threshold_percent,"\n Force proceed:",force_proceed,"\n Scanner files path:",scanner_files_path)
+    print("\n...RSEs:", rses, "\n run once:", once, "\n Sleep time:", sleep_time,\
+      "\n Dark min age (days):", dark_min_age, "\n Dark files threshold %:", dark_threshold_percent,\
+      "\n Missing files threshold %:", miss_threshold_percent, "\n Force proceed:", force_proceed,\
+      "\n Scanner files path:", scanner_files_path)
 
     setup_logging()
 
@@ -702,16 +753,19 @@ def run(once=False, rses=None, sleep_time=60, dark_min_age=28, dark_threshold_pe
 
 # It was decided that for the time being this daemon is best executed in a single thread
 # If this decicion is reversed in the future, the following line should be removed.
-    threads=1 
+    threads = 1
 
     if once:
-        actions_loop(once,rses,sleep_time,dark_min_age,dark_threshold_percent,miss_threshold_percent,force_proceed,scanner_files_path)
+        actions_loop(once, rses, sleep_time, dark_min_age, dark_threshold_percent,\
+          miss_threshold_percent, force_proceed, scanner_files_path)
     else:
         logging.info('Consistency Actions starting %s threads' % str(threads))
-        threads = [threading.Thread(target=actions_loop, kwargs={'once': once, 'rses': rses, 'sleep_time': sleep_time,'dark_min_age': dark_min_age, 'dark_threshold_percent': dark_threshold_percent, 'miss_threshold_percent': miss_threshold_percent, 'force_proceed': force_proceed, 'scanner_files_path': scanner_files_path}) for i in range(0, threads)]
-        print("\nThreads:",len(threads))
+        threads = [threading.Thread(target=actions_loop, kwargs={'once': once, 'rses': rses, 'sleep_time': sleep_time,\
+         'dark_min_age': dark_min_age, 'dark_threshold_percent': dark_threshold_percent,\
+         'miss_threshold_percent': miss_threshold_percent, 'force_proceed': force_proceed,\
+         'scanner_files_path': scanner_files_path}) for i in range(0, threads)]
+        print("\nThreads:", len(threads))
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():
             [t.join(timeout=3.14) for t in threads]
-
