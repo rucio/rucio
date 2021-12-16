@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 """
 Graphite counters
@@ -27,14 +27,58 @@ Graphite counters
 
 from __future__ import division
 
+import atexit
+import logging
+import os
 import string
 import time
 from abc import abstractmethod
+from datetime import datetime, timedelta
+from pathlib import Path
+from retrying import retry
+from threading import Lock
 
-from prometheus_client import start_http_server, Counter, Gauge, Histogram, REGISTRY
+from prometheus_client import start_http_server, Counter, Gauge, Histogram, REGISTRY, CollectorRegistry, generate_latest, values, multiprocess
 from statsd import StatsClient
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
+
+
+def cleanup_prometheus_files_at_exit():
+    if os.environ.get('prometheus_multiproc_dir'):
+        multiprocess.mark_process_dead(os.getpid())
+
+
+class MultiprocessMutexValue(values.MultiProcessValue()):
+    """
+    MultiprocessValue protected by mutex
+
+    Rucio usually is deployed using the apache MPM module, which means that it both uses multiple
+    subprocesses, and multiple threads per subprocess.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._lock = Lock()
+
+    def inc(self, amount):
+        with self._lock:
+            return super().inc(amount)
+
+    def set(self, value):
+        with self._lock:
+            return super().set(value)
+
+    def get(self):
+        with self._lock:
+            return super().get()
+
+
+if 'prometheus_multiproc_dir' in os.environ:
+    os.makedirs(os.environ['prometheus_multiproc_dir'], exist_ok=True)
+    values.ValueClass = MultiprocessMutexValue
+
+    atexit.register(cleanup_prometheus_files_at_exit)
+
 
 SERVER = config_get('monitor', 'carbon_server', raise_exception=False, default='localhost')
 PORT = config_get('monitor', 'carbon_port', raise_exception=False, default=8125)
@@ -49,6 +93,43 @@ if ENABLE_METRICS:
 COUNTERS = {}
 GAUGES = {}
 TIMINGS = {}
+
+
+def _cleanup_old_prometheus_files(path, file_pattern, cleanup_delay, logger):
+    """cleanup behind processes which didn't finish gracefully."""
+
+    oldest_accepted_mtime = datetime.now() - timedelta(seconds=cleanup_delay)
+    for file in Path(path).glob(file_pattern):
+        if not file.is_file():
+            continue
+
+        file_mtime = datetime.fromtimestamp(file.stat().st_mtime)
+
+        if file_mtime < oldest_accepted_mtime:
+            logger(logging.INFO, 'Cleaning up prometheus db file %s', file)
+            try:
+                os.remove(file)
+            except FileNotFoundError:
+                # Probably file already removed by another concurrent process
+                pass
+
+
+def cleanup_old_prometheus_files(logger=logging.log):
+    path = os.environ.get('prometheus_multiproc_dir')
+    if path:
+        _cleanup_old_prometheus_files(path, file_pattern='gauge_live*.db', cleanup_delay=timedelta(hours=1).total_seconds(), logger=logger)
+        _cleanup_old_prometheus_files(path, file_pattern='*.db', cleanup_delay=timedelta(days=7).total_seconds(), logger=logger)
+
+
+@retry(retry_on_exception=lambda _: True,
+       wait_fixed=500,
+       stop_max_attempt_number=2)
+def generate_prometheus_metrics():
+    cleanup_old_prometheus_files()
+
+    registry = CollectorRegistry()
+    multiprocess.MultiProcessCollector(registry)
+    return generate_latest(registry)
 
 
 class MultiMetric:
