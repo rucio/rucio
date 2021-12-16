@@ -340,6 +340,8 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
     maxdarkfraction = dark_threshold_percent
     maxmissfraction = miss_threshold_percent
     print("\n Scanner Output Path: ",Path,"\n minagedark: ",minagedark,"\n maxdarkfraction: ",maxdarkfraction,"\n maxmissfraction: ",maxmissfraction,"\n")
+# Labels for the Prometheus counters/gauges
+    labels = {'rse': rse}
 
 
 ###
@@ -437,6 +439,9 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                 print("confirmed_dark_files/max_files_at_site = ",confirmed_dark_files/max_files_at_site)
                 print("maxdarkfraction configured for this RSE: ",maxdarkfraction)
 
+                record_gauge('storage.consistency.actions_dark_files_found', confirmed_dark_files, labels=labels)
+                record_gauge('storage.consistency.actions_dark_files_confirmed', confirmed_dark_files, labels=labels)
+
                 deleted_files = 0
                 if confirmed_dark_files/max_files_at_site < maxdarkfraction or force_proceed is True:
                     print("Can proceed with dark files deletion")
@@ -468,6 +473,8 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
 #                            replicas = [{'scope': Intscope, 'rse_id': rse_id, 'name': name, 'path': url}]
                             add_quarantined_replicas(rse_id, replicas, session=None)
                             deleted_files += 1
+                            labels = {'rse': rse}
+                            record_counter('storage.consistency.actions_dark_files_deleted_counter', delta=1, labels=labels)
 
                     #Update the stats
                     t1 = time.time()
@@ -479,13 +486,7 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                         "status": "done"
                     })
                     stats[stats_key] = cc_stats
-                    print("\nINFO: Incrementing CCDARK_COUNTER\n\n")
-                    labels = {'rse': rse}
-                    print("\nLABELS: ", labels)
-                    record_counter('storage.consistency.actions_dark', delta=deleted_files, labels=labels)
-#                    record_counter('storage.consistency.actions_dark', delta=deleted_files, labels={'rse': rse})
-                    record_gauge('storage.consistency.actions_dark_gauge', deleted_files, labels=labels)
-#                    record_gauge('storage.consistency.actions_dark_gauge', deleted_files, labels={'rse': rse})
+                    record_gauge('storage.consistency.actions_dark_files_deleted', deleted_files, labels=labels)
 
                 else:
                     darkperc = 100.*confirmed_dark_files/max_files_at_site
@@ -502,6 +503,7 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                         "aborted_reason": "%3.2f%% dark" % darkperc,
                     })
                     stats[stats_key] = cc_stats
+                    record_gauge('storage.consistency.actions_dark_files_deleted', 0, labels=labels)
 
             else:
                 print("There's no other run for this RSE at least",minagedark,"days older, so cannot safely proceed with dark files deleteion.")
@@ -544,6 +546,8 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
             print("miss_files/max_files_at_site = ",miss_files/max_files_at_site)
             print("maxmissfraction configured for this RSE: ",maxmissfraction)
 
+            record_gauge('storage.consistency.actions_miss_files_found', miss_files, labels=labels)
+
             if miss_files/max_files_at_site < maxmissfraction or force_proceed is True:
                 print("Can proceed with missing files retransfer")
 
@@ -561,10 +565,8 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                         rse_id = get_rse_id(rse=rse)
                         dids = [{'scope': scope, 'name': name}]
                         declare_bad_file_replicas(dids=dids, rse_id=rse_id, reason=reason, issuer=issuer)
-                        #n=len(declare_bad_file_replicas(dids=dids, rse_id=rse_id, reason=reason, issuer=issuer))
-                        #print("\nWas it a bad replica? - ",n)
-                        #invalidated_files += n
                         invalidated_files += 1
+                        record_counter('storage.consistency.actions_miss_files_to_retransfer_counter', delta=1, labels=labels)
 
                     #Update the stats
                     t1 = time.time()
@@ -576,12 +578,7 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                         "status": "done"
                     })
                     stats[stats_key] = cc_stats
-                    labels = {'rse': rse}
-                    print("\nLABELS: ", labels)
-#                    record_counter('storage.consistency.actions_miss', delta=invalidated_files, labels={'rse': rse})
-                    record_counter('storage.consistency.actions_miss', delta=invalidated_files, labels=labels)
-#                    record_gauge('storage.consistency.actions_miss_gauge', invalidated_files, labels={'rse': rse})
-                    record_gauge('storage.consistency.actions_miss_gauge', invalidated_files, labels=labels)
+                    record_gauge('storage.consistency.actions_miss_files_to_retransfer', invalidated_files, labels=labels)
 
             else:
                 missperc = 100.*miss_files/max_files_at_site
@@ -598,6 +595,7 @@ def deckard(rse,dark_min_age,dark_threshold_percent,miss_threshold_percent,force
                     "aborted_reason": "%3.2f%% miss" % missperc,
                 })
                 stats[stats_key] = cc_stats
+                record_gauge('storage.consistency.actions_miss_files_to_retransfer', 0, labels=labels)
 
 
 ###
@@ -649,12 +647,10 @@ def actions_loop(once,rses,sleep_time,dark_min_age,dark_threshold_percent,miss_t
             prefix = 'storage-consistency-actions[%i/%i] ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
             print("\nprefix:",prefix)
             logger = formatted_logger(logging.log, prefix + '%s')
-            print("\nlogger:",logger)
             start = time.time()
             print("\nStartTime:",start)
             logger(logging.DEBUG, 'fake query time %f' % (time.time() - start))
-            print("\n\nDid logger log anything?")
-            print("\nTrying hard. Really hard...")
+
             deckard_loop(rses,dark_min_age,dark_threshold_percent,miss_threshold_percent,force_proceed,scanner_files_path)
             daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=logger)
 
@@ -685,9 +681,10 @@ def run(once=False, rses=None, sleep_time=60, dark_min_age=28, dark_threshold_pe
         print("\n\n NO RSEs passed. Will loop over all writable RSEs.")
         rses = [rse['rse'] for rse in list_rses({'availability_write': True})]
 
-# Could limit it only to Tier-2s
+# Could limit it only to Tier-2s:
 #        rses = [rse['rse'] for rse in list_rses({'tier': 2, 'availability_write': True})]
 
+#    logging.info('\n RSEs: %s' % rses)
     print("\n...RSEs:",rses,"\n run once:",once,"\n Sleep time:",sleep_time,"\n Dark min age (days):",dark_min_age,"\n Dark files threshold %:",dark_threshold_percent,"\n Missing files threshold %:",miss_threshold_percent,"\n Force proceed:",force_proceed,"\n Scanner files path:",scanner_files_path)
 
     setup_logging()
