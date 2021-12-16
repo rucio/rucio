@@ -34,7 +34,7 @@ import random
 import socket
 
 import stomp
-import struct
+import ipaddress
 from jsonschema import validate, ValidationError, draft7_format_checker
 
 from rucio.common.config import config_get, config_get_int
@@ -215,13 +215,13 @@ def ip_format_checker(value: str) -> bool:
     """
     Validates IPv4 or IPv6 string values. json schemas can use `ipv4_or_ipv6` as a valid `format` argument
     """
-    ipv4_checker = FORMAT_CHECKER.checkers['ipv4'][0]
-    ipv6_checker = FORMAT_CHECKER.checkers['ipv6'][0]
     try:
-        result = ipv4_checker(value) or ipv6_checker(value)
-    except (OSError, ValueError, struct.error):
+        ipaddress.ip_address(value)
+    except ValueError:
         LOGGER.debug(f"{value} is not a valid IPv4 or IPv6 address and raises an errors upon validation.")
         result = False
+    else:
+        result = True
     finally:
         return result
 
