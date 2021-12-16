@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 # - Ilija Vukotic <ivukotic@cern.ch>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2021-2022
 
 from datetime import datetime
 from itertools import chain
@@ -703,15 +704,16 @@ class DatasetReplicasBulk(ErrorHandlingMethodView):
         """
         parameters = json_parameters(parse_response)
         dids = param_get(parameters, 'dids')
+        deep = parameters.get("deep", False)
         if len(dids) == 0:
             return generate_http_error_flask(400, ValueError.__name__, 'List of DIDs is empty')
 
         try:
-            def generate(vo):
-                for row in list_dataset_replicas_bulk(dids=dids, vo=vo):
+            def generate(vo, deep):
+                for row in list_dataset_replicas_bulk(dids=dids, vo=vo, deep=deep):
                     yield dumps(row, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(request.environ.get('vo'), deep))
         except InvalidObject as error:
             return generate_http_error_flask(400, error, f'Cannot validate DIDs: {error}')
 

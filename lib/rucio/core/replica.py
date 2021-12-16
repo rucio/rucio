@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,8 @@
 # - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
-# - Christoph Ames <cames@cern.ch>, 2021
+# - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2021-2022
 
 from __future__ import print_function
 
@@ -2678,21 +2679,26 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
 
 
 @stream_session
-def list_dataset_replicas_bulk(names_by_intscope, session=None):
+def list_dataset_replicas_bulk(names_by_intscope, deep=False, session=None):
     """
     :param names_by_intscope: The dictionary of internal scopes pointing at the list of names.
     :param session: Database session to use.
+    :param deep: Lookup at the file level.
 
     :returns: A list of dictionaries containing the dataset replicas
               with associated metrics and timestamps
     """
 
-    condition = []
-    for scope in names_by_intscope:
-        condition.append(and_(models.CollectionReplica.scope == scope,
-                              models.CollectionReplica.name.in_(names_by_intscope[scope])))
+    if deep:
+        for intscope, names in names_by_intscope.items():
+            for name in names:
+                yield from list_dataset_replicas(intscope, name, deep=True, session=session)
+    else:
+        condition = []
+        for scope in names_by_intscope:
+            condition.append(and_(models.CollectionReplica.scope == scope,
+                                  models.CollectionReplica.name.in_(names_by_intscope[scope])))
 
-    try:
         # chunk size refers to the number of different scopes, see above
         for chunk in chunks(condition, 10):
             query = session.query(models.CollectionReplica.scope,
@@ -2713,8 +2719,6 @@ def list_dataset_replicas_bulk(names_by_intscope, session=None):
                 .filter(models.RSE.deleted == false())
             for row in query:
                 yield row._asdict()
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound('No Data Identifiers found')
 
 
 @stream_session
