@@ -53,6 +53,7 @@ except ImportError:
 from six import string_types
 
 from rucio.common import config, exception
+from rucio.common.utils import register_policy_package_algorithms
 from rucio.rse import rsemanager
 
 if getattr(rsemanager, 'CLIENT_MODE', None):
@@ -267,40 +268,6 @@ class RSEDeterministicTranslation(object):
 
         cls._DEFAULT_LFN2PFN = config.get_lfn2pfn_algorithm_default()
 
-    def try_importing_policy(self, vo=None):
-        import importlib
-        try:
-            package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo['vo']))
-            module = importlib.import_module(package)
-            if hasattr(module, 'get_lfn2pfn_algorithms'):
-                lfn2pfn_algorithms = module.get_lfn2pfn_algorithms()
-                if not vo:
-                    RSEDeterministicTranslation._LFN2PFN_ALGORITHMS.update(lfn2pfn_algorithms)
-                else:
-                    # check that the names are correctly prefixed
-                    for k in lfn2pfn_algorithms.keys():
-                        if k.lower().startswith(vo['vo'].lower()):
-                            RSEDeterministicTranslation._LFN2PFN_ALGORITHMS[k] = lfn2pfn_algorithms[k]
-                        else:
-                            raise exception.InvalidAlgorithmName(k, vo['vo'])
-        except (NoOptionError, NoSectionError, ImportError):
-            pass
-
-    def query_policy_packages(self):
-        from rucio.core.vo import list_vos
-        try:
-            multivo = config.config_get_bool('common', 'multi_vo')
-        except (NoOptionError, NoSectionError):
-            multivo = False
-        if not multivo:
-            # single policy package
-            self.try_importing_policy()
-        else:
-            # policy package per VO
-            vos = list_vos()
-            for vo in vos:
-                self.try_importing_policy(vo)
-
     def path(self, scope, name):
         """ Transforms the logical file name into a PFN's path.
 
@@ -311,7 +278,7 @@ class RSEDeterministicTranslation(object):
         """
         # on first call, register any lfn2pfn algorithms from the policy package(s) (server only)
         if getattr(rsemanager, 'SERVER_MODE', None) and not self.loaded_policy_modules:
-            self.query_policy_packages()
+            register_policy_package_algorithms('lfn2pfn', RSEDeterministicTranslation._LFN2PFN_ALGORITHMS)
             self.loaded_policy_modules = True
 
         algorithm = self.rse_attributes.get('lfn2pfn_algorithm', 'default')

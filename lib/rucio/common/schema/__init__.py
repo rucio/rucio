@@ -20,6 +20,8 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
+from os import environ
+
 try:
     from ConfigParser import NoOptionError, NoSectionError
 except ImportError:
@@ -48,7 +50,10 @@ if not multivo:
 
     if config.config_has_section('policy'):
         try:
-            POLICY = config.config_get('policy', 'package', check_config_table=False) + ".schema"
+            if 'RUCIO_POLICY_PACKAGE' in environ:
+                POLICY = environ['RUCIO_POLICY_PACKAGE'] + ".schema"
+            else:
+                POLICY = config.config_get('policy', 'package', check_config_table=False) + ".schema"
         except (NoOptionError, NoSectionError):
             # fall back to old system for now
             try:
@@ -72,7 +77,11 @@ def load_schema_for_vo(vo):
     GENERIC_FALLBACK = 'generic_multi_vo'
     if config.config_has_section('policy'):
         try:
-            POLICY = config.config_get('policy', 'package-' + vo, check_config_table=False) + ".schema"
+            env_name = 'RUCIO_POLICY_PACKAGE_' + vo.upper()
+            if env_name in environ:
+                POLICY = environ[env_name] + ".schema"
+            else:
+                POLICY = config.config_get('policy', 'package-' + vo, check_config_table=False) + ".schema"
         except (NoOptionError, NoSectionError):
             # fall back to old system for now
             try:
