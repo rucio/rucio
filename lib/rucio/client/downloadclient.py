@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
 
 from __future__ import division
 
@@ -1205,7 +1205,7 @@ class DownloadClient:
                 for file_item in file_items:
                     unfiltered_sources = copy.copy(file_item['sources'])
                     for src in unfiltered_sources:
-                        if src in tape_rses:
+                        if src['rse'] in tape_rses:
                             file_item['sources'].remove(src)
                     if unfiltered_sources and not file_item['sources']:
                         logger(logging.WARNING, 'The requested DID {} only has replicas on tape. Direct download from tape is prohibited. '
