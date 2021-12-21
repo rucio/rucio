@@ -1,4 +1,5 @@
-# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +15,9 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2021
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2022
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 """

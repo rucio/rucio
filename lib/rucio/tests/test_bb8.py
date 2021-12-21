@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2021 CERN
+# Copyright 2016-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021-2022
 
 from datetime import datetime, timedelta
 
