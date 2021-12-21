@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2022
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
@@ -30,6 +30,8 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
 
 from __future__ import print_function
 
@@ -1152,6 +1154,7 @@ def test_bulk_get_meta_inheritance(vo, rse_factory, mock_scope, did_factory, ruc
         met = meta_mapping[did]
         for key in met:
             assert met[key] == meta[key]
+
 
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='uses pre-defined scope')

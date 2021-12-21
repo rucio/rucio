@@ -1,4 +1,5 @@
-# Copyright 2016-2021 CERN
+# -*- coding: utf-8 -*-
+# Copyright 2016-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,13 +17,14 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2017-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2022
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from __future__ import print_function, division
 
@@ -34,13 +36,12 @@ from sqlalchemy.orm import aliased
 from sqlalchemy import func, and_, or_, cast, BigInteger
 from sqlalchemy.sql.expression import case, select
 
-from rucio.core import config as config_core
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rule import get_rule, add_rule, update_rule
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse import list_rse_attributes, get_rse_name, get_rse_vo
 from rucio.core.rse_selector import RSESelector
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_int, config_get_bool
 from rucio.common.exception import (InsufficientTargetRSEs, RuleNotFound, DuplicateRule,
                                     InsufficientAccountLimit)
 from rucio.common.types import InternalAccount
@@ -180,7 +181,7 @@ def _list_rebalance_rule_candidates_dump(rse_id, mode=None, logger=logging.log):
     # looping over the dump and selecting the rules
     for line in resp.iter_lines():
         if line:
-            file_scope, file_name, rule_id, rse_expression, account, file_size, state = line.split('\t')
+            _, _, rule_id, rse_expression, account, file_size, state = line.split('\t')
             if rule_id not in rules:
                 rule_info = {}
                 try:
@@ -236,13 +237,68 @@ def list_rebalance_rule_candidates(rse_id, mode=None, session=None):
     if mode == 'decommission':
         return _list_rebalance_rule_candidates_dump(rse_id, mode)
 
-    # the rest is done with sql query
-    from_date = datetime.utcnow() + timedelta(days=60)
-    to_date = datetime.now() - timedelta(days=60)
-    to_date = datetime.now() + timedelta(days=60)
-    allowed_accounts = config_core.get(section='bb8', option='allowed_accounts', default='panda,root,ddmadmin,jdoe', use_cache=True, expiration_time=3600, session=session)
-    allowed_accounts = [InternalAccount(acc.strip(' '), vo=vo) for acc in allowed_accounts.split(',')]
-    allowed_grouping = [RuleGrouping.DATASET, RuleGrouping.ALL]
+    # If no decommissioning use SQLAlchemy
+
+    # Rules constraints. By default only moves rules in state OK that have no children and have only one copy
+    # Additional constraints can be imposed by setting specific configuration
+    rule_clause = [models.ReplicationRule.state == RuleState.OK,
+                   models.ReplicationRule.child_rule_id.is_(None),
+                   models.ReplicationRule.copies == 1]
+
+    # Only move rules w/o expiration date, or rules with expiration_date > >min_expires_date_in_days> days
+    expiration_clause = models.ReplicationRule.expires_at.is_(None)
+    min_expires_date_in_days = config_get_int(section='bb8', option='min_expires_date_in_days', raise_exception=False, default=-1, expiration_time=3600)
+    if min_expires_date_in_days > 0:
+        min_expires_date_in_days = datetime.utcnow() + timedelta(days=min_expires_date_in_days)
+        expiration_clause = or_(models.ReplicationRule.expires_at > min_expires_date_in_days, models.ReplicationRule.expires_at.is_(None))
+    rule_clause.append(expiration_clause)
+
+    # Only move rules which were created more than <min_created_days> days ago
+    min_created_days = config_get_int(section='bb8', option='min_created_days', raise_exception=False, default=-1, expiration_time=3600)
+    if min_created_days > 0:
+        min_created_days = datetime.now() - timedelta(days=min_created_days)
+        rule_clause.append(models.ReplicationRule.created_at < min_created_days)
+
+    # Only move rules which are owned by <allowed_accounts> (coma separated accounts, e.g. panda,root,ddmadmin,jdoe)
+    allowed_accounts = config_get(section='bb8', option='allowed_accounts', raise_exception=False, default=None, expiration_time=3600)
+    if allowed_accounts:
+        allowed_accounts = [InternalAccount(acc.strip(' '), vo=vo) for acc in allowed_accounts.split(',')]
+        rule_clause.append(models.ReplicationRule.account.in_(allowed_accounts))
+
+    # Only move rules that have a certain grouping <allowed_grouping> (accepted values : all, dataset, none)
+    rule_grouping_mapping = {
+        'all': RuleGrouping.ALL,
+        'dataset': RuleGrouping.DATASET,
+        'none': RuleGrouping.NONE
+    }
+    allowed_grouping = config_get(section='bb8', option='allowed_grouping', raise_exception=False, default=None, expiration_time=3600)
+    if allowed_grouping:
+        rule_clause.append(models.ReplicationRule.grouping == rule_grouping_mapping.get(allowed_grouping))
+
+    # DIDs constraints. By default only moves rules of DID where we can compute the size
+    # Additional constraints can be imposed by setting specific configuration
+    did_clause = [models.DataIdentifier.bytes.isnot(None)]
+
+    type_to_did_type_mapping = {
+        'all': [DIDType.CONTAINER, DIDType.DATASET, DIDType.FILE],
+        'collection': [DIDType.CONTAINER, DIDType.DATASET],
+        'container': [DIDType.CONTAINER],
+        'dataset': [DIDType.DATASET],
+        'file': [DIDType.FILE]
+    }
+
+    # Only allows to migrate rules of a certain did_type <allowed_did_type> (accepted values : all, collection, container, dataset, file)
+    allowed_did_type = config_get(section='bb8', option='allowed_did_type', raise_exception=False, default=None, expiration_time=3600)
+    if allowed_did_type:
+        allowed_did_type = [models.DataIdentifier.did_type == did_type for did_type in type_to_did_type_mapping.get(allowed_did_type)]
+        did_clause.append(or_(allowed_did_type))
+
+    # Only allows to migrate rules of closed DID is <only_move_closed_did> is set
+    only_move_closed_did = config_get_bool(section='bb8', option='only_move_closed_did', raise_exception=False, default=None, expiration_time=3600)
+    if only_move_closed_did:
+        did_clause.append(models.DataIdentifier.is_open == False)  # NOQA
+
+    # Now build the query
     external_dsl = aliased(models.DatasetLock)
     count_locks = select([func.count()]).where(and_(external_dsl.scope == models.DatasetLock.scope,
                                                     external_dsl.name == models.DatasetLock.name,
@@ -259,17 +315,8 @@ def list_rebalance_rule_candidates(rse_id, mode=None, session=None):
         join(models.ReplicationRule, models.ReplicationRule.id == models.DatasetLock.rule_id).\
         join(models.DataIdentifier, and_(models.DatasetLock.scope == models.DataIdentifier.scope, models.DatasetLock.name == models.DataIdentifier.name)).\
         filter(models.DatasetLock.rse_id == rse_id).\
-        filter(or_(models.ReplicationRule.expires_at > from_date, models.ReplicationRule.expires_at.is_(None))).\
-        filter(and_(models.ReplicationRule.created_at < to_date,
-                    models.ReplicationRule.account.in_(allowed_accounts),
-                    models.ReplicationRule.state == RuleState.OK,
-                    models.ReplicationRule.did_type == DIDType.DATASET,
-                    models.ReplicationRule.copies == 1,
-                    models.ReplicationRule.child_rule_id.is_(None),
-                    models.ReplicationRule.grouping.in_(allowed_grouping))).\
-        filter(and_(models.DataIdentifier.bytes.isnot(None),
-                    models.DataIdentifier.is_open == False, # NOQA
-                    models.DataIdentifier.did_type == DIDType.DATASET)).\
+        filter(and_(*rule_clause)).\
+        filter(and_(*did_clause)).\
         filter(case([(or_(models.DatasetLock.length < 1, models.DatasetLock.length.is_(None)), 0)],
                     else_=cast(models.DatasetLock.bytes / models.DatasetLock.length, BigInteger)) > 1000000000).\
         filter(count_locks == 1)

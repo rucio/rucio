@@ -18,7 +18,7 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2022
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
 # - Wen Guan <wen.guan@cern.ch>, 2015-2016
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
