@@ -18,7 +18,6 @@
 '''
 
 import calendar
-import copy
 import datetime
 import json
 import logging
@@ -42,7 +41,7 @@ from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.utils import daemon_sleep
 from rucio.core import heartbeat
-from rucio.core.message import retrieve_messages, delete_messages, update_messages_services
+from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import MultiCounter
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
@@ -162,6 +161,8 @@ def deliver_to_activemq(messages, conns, destination, username, password, use_ss
     :param password:           The username if no SSL connection.
     :param use_ssl:            Boolean to choose if SSL connection is used.
     :param logger:             The logger object.
+
+    :returns:                  List of message_id to delete
     """
     to_delete = []
     for message in messages:
@@ -255,9 +256,12 @@ def deliver_emails(messages, logger):
 
     :param messages:           The list of messages.
     :param logger:             The logger object.
+
+    :returns:                  List of message_id to delete
     """
 
     email_from = config_get('messaging-hermes', 'email_from')
+    send_email = config_get_bool('messaging-hermes', 'send_email', raise_exception=False, default=True)
     to_delete = []
     for message in messages:
         if message['event_type'] == 'email':
@@ -267,10 +271,11 @@ def deliver_emails(messages, logger):
             msg['Subject'] = message['payload']['subject']
 
             try:
-                smtp = smtplib.SMTP()
-                smtp.connect()
-                smtp.sendmail(msg['From'], message['payload']['to'], msg.as_string())
-                smtp.quit()
+                if send_email:
+                    smtp = smtplib.SMTP()
+                    smtp.connect()
+                    smtp.sendmail(msg['From'], message['payload']['to'], msg.as_string())
+                    smtp.quit()
                 to_delete.append(message['id'])
             except Exception as error:
                 logger(logging.ERROR, 'Cannot send email : %s', str(error))
@@ -287,12 +292,11 @@ def submit_to_elastic(messages, endpoint, logger):
     :param messages:           The list of messages.
     :param endpoint:           The ES endpoint were to send the messages.
     :param logger:             The logger object.
+
+    :returns:                  HTTP status code. 200 and 204 OK. Rest is failure.
     """
     text = ''
     for message in messages:
-        services = message['services']
-        if services and 'elastic' not in services.split(','):
-            continue
         text += '{ "index":{ } }\n%s\n' % json.dumps(message, default=default)
     res = requests.post(endpoint, data=text, headers={'Content-Type': 'application/json'})
     return res.status_code
@@ -307,15 +311,14 @@ def aggregate_to_influx(messages, bin_size, endpoint, logger):
     :param bin_size:           The size of the bins for the aggreagation (e.g. 10m, 1h, etc.).
     :param endpoint:           The InfluxDB endpoint were to send the messages.
     :param logger:             The logger object.
+
+    :returns:                  HTTP status code. 200 and 204 OK. Rest is failure.
     """
     bins = {}
     dtime = datetime.datetime.now()
     microsecond = dtime.microsecond
 
     for message in messages:
-        services = message['services']
-        if services and 'influx' not in services.split(','):
-            continue
         event_type = message['event_type']
         payload = message['payload']
         if event_type in ['transfer-failed', 'transfer-done']:
@@ -412,35 +415,35 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
     except (NoOptionError, NoSectionError, RuntimeError):
         logger(logging.DEBUG, 'No services found, exiting')
         sys.exit(1)
+
     if 'influx' in services_list:
+        influx_endpoint = None
         try:
             influx_endpoint = config_get('hermes', 'influxdb_endpoint', False, None)
             if not influx_endpoint:
-                logger(logging.ERROR, 'InfluxDB defined in the services list, but no endpoint can be find. Exiting')
-                sys.exit(1)
+                logger(logging.ERROR, 'InfluxDB defined in the services list, but no endpoint can be found')
         except Exception as err:
             logger(logging.ERROR, str(err))
     if 'elastic' in services_list:
+        elastic_endpoint = None
         try:
             elastic_endpoint = config_get('hermes', 'elastic_endpoint', False, None)
             if not elastic_endpoint:
-                logger(logging.ERROR, 'Elastic defined in the services list, but no endpoint can be find. Exiting')
-                sys.exit(1)
+                logger(logging.ERROR, 'Elastic defined in the services list, but no endpoint can be found')
         except Exception as err:
             logger(logging.ERROR, str(err))
+    conns = None
     if 'activemq' in services_list:
         try:
-            # activemq_endpoint = config_get('hermes', 'activemq_endpoint', False, None)
             conns, destination, username, password, use_ssl = setup_activemq(logger)
             if not conns:
                 logger(logging.ERROR, 'ActiveMQ defined in the services list, cannot be setup')
-                sys.exit(1)
         except Exception as err:
             logger(logging.ERROR, str(err))
 
     while not GRACEFUL_STOP.is_set():
-        message_status = copy.deepcopy(services_list)
-        message_statuses = {}
+        message_dict = {}
+        message_ids = []
         stime = time.time()
         try:
             start_time = time.time()
@@ -448,88 +451,79 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
             prepend_str = 'hermes2[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
             logger = formatted_logger(logging.log, prepend_str + '%s')
             messages = retrieve_messages(bulk=bulk,
+                                         old_mode=False,
                                          thread=heart_beat['assign_thread'],
                                          total_threads=heart_beat['nr_threads'])
 
+            to_delete = []
             if messages:
                 for message in messages:
-                    message_statuses[message['id']] = copy.deepcopy(services_list)
+                    service = message['services']
+                    if service not in message_dict:
+                        message_dict[service] = []
+                    message_dict[service].append(message)
+                    message_ids.append(message['id'])
                 logger(logging.DEBUG, 'Retrieved %i messages retrieved in %s seconds', len(messages), time.time() - start_time)
 
-                if 'influx' in message_status:
+                if 'influx' in message_dict and influx_endpoint:
+                    # For influxDB, bulk submission, either everything succeeds or fails
                     t_time = time.time()
                     logger(logging.DEBUG, 'Will submit to influxDB')
                     try:
-                        state = aggregate_to_influx(messages=messages, bin_size='1m', endpoint=influx_endpoint, logger=logger)
+                        state = aggregate_to_influx(messages=message_dict['influx'], bin_size='1m', endpoint=influx_endpoint, logger=logger)
+                        if state in [204, 200]:
+                            logger(logging.INFO, '%s messages successfully submitted to influxDB in %s seconds', len(message_dict['influx']), time.time() - t_time)
+                            for message in message_dict['influx']:
+                                to_delete.append(message)
+                        else:
+                            logger(logging.ERROR, 'Failure to submit %s messages to influxDB. Returned status: %s', len(message_dict['influx']), state)
                     except Exception as error:
                         logger(logging.ERROR, 'Error sending to InfluxDB : %s', str(error))
-                        state = 500
-                    if state in [204, 200]:
-                        logger(logging.INFO, 'Messages successfully submitted to influxDB in %s seconds', time.time() - t_time)
-                        for message in messages:
-                            message_statuses[message['id']].remove('influx')
-                    else:
-                        logger(logging.INFO, 'Failure to submit to influxDB')
 
-                if 'elastic' in message_status:
+                if 'elastic' in message_dict and elastic_endpoint:
+                    # For elastic, bulk submission, either everything succeeds or fails
                     t_time = time.time()
                     try:
-                        state = submit_to_elastic(messages=messages, endpoint=elastic_endpoint, logger=logger)
+                        state = submit_to_elastic(messages=message_dict['elastic'], endpoint=elastic_endpoint, logger=logger)
+                        if state in [200, 204]:
+                            logger(logging.INFO, '%s messages successfully submitted to elastic in %s seconds', len(message_dict['elastic']), time.time() - t_time)
+                            for message in message_dict['elastic']:
+                                to_delete.append(message)
+                        else:
+                            logger(logging.ERROR, 'Failure to submit %s messages to elastic. Returned status: %s', len(message_dict['influx']), state)
                     except Exception as error:
                         logger(logging.ERROR, 'Error sending to Elastic : %s', str(error))
-                        state = 500
-                    if state in [200, 204]:
-                        logger(logging.INFO, 'Messages successfully submitted to elastic in %s seconds', time.time() - t_time)
-                        for message in messages:
-                            message_statuses[message['id']].remove('elastic')
-                    else:
-                        logger(logging.INFO, 'Failure to submit to elastic')
 
-                if 'emails' in message_status:
+                if 'email' in message_dict:
                     t_time = time.time()
                     try:
-                        to_delete = deliver_emails(messages=messages, logger=logger)
-                        logger(logging.INFO, 'Messages successfully submitted by emails in %s seconds', time.time() - t_time)
-                        for message_id in to_delete:
-                            message_statuses[message_id].remove('emails')
+                        messages_sent = deliver_emails(messages=message_dict['email'], logger=logger)
+                        logger(logging.INFO, '%s messages successfully submitted by emails in %s seconds', len(message_dict['email']), time.time() - t_time)
+                        for message in message_dict['email']:
+                            if message['id'] in messages_sent:
+                                to_delete.append(message)
                     except Exception as error:
                         logger(logging.ERROR, 'Error sending email : %s', str(error))
 
-                if 'activemq' in message_status:
+                if 'activemq' in message_dict and conns:
                     t_time = time.time()
                     try:
-                        to_delete = deliver_to_activemq(messages=messages, conns=conns, destination=destination, username=username, password=password, use_ssl=use_ssl, logger=logger)
-                        logger(logging.INFO, 'Messages successfully submitted to ActiveMQ in %s seconds', time.time() - t_time)
-                        for message_id in to_delete:
-                            message_statuses[message_id].remove('activemq')
+                        messages_sent = deliver_to_activemq(messages=message_dict['activemq'], conns=conns, destination=destination, username=username, password=password, use_ssl=use_ssl, logger=logger)
+                        logger(logging.INFO, '%s messages successfully submitted to ActiveMQ in %s seconds', len(message_dict['activemq']), time.time() - t_time)
+                        for message_id in message_dict['activemq']:
+                            if message['id'] in messages_sent:
+                                to_delete.append(message)
                     except Exception as error:
                         logger(logging.ERROR, 'Error sending to ActiveMQ : %s', str(error))
 
-                to_delete = []
-                to_update = {}
-                for message in messages:
-                    status = message_statuses[message['id']]
-                    if not status:
-                        to_delete.append({'id': message['id'],
-                                          'created_at': message['created_at'],
-                                          'updated_at': message['created_at'],
-                                          'payload': str(message['payload']),
-                                          'event_type': message['event_type']})
-                    else:
-                        status = ",".join(status)
-                        if status not in to_update:
-                            to_update[status] = []
-                        to_update[status].append({'id': message['id'],
-                                                  'created_at': message['created_at'],
-                                                  'updated_at': message['created_at'],
-                                                  'payload': str(message['payload']),
-                                                  'event_type': message['event_type']})
-                logger(logging.INFO, 'Deleting %s messages', len(to_delete))
-                delete_messages(messages=to_delete)
-                for status in to_update:
-                    logger(logging.INFO, 'Failure to submit %s messages to %s. Will update the message status', str(len(to_update[status])), status)
-                    update_messages_services(messages=to_update[status], services=status)
-
+            logger(logging.INFO, 'Deleting %s messages', len(to_delete))
+            to_delete = [{'id': message['id'],
+                          'created_at': message['created_at'],
+                          'updated_at': message['created_at'],
+                          'payload': str(message['payload']),
+                          'event_type': message['event_type']}
+                         for message in to_delete]
+            delete_messages(messages=to_delete)
             if once:
                 break
             daemon_sleep(start_time=stime, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP, logger=logger)

@@ -31,6 +31,8 @@ from rucio.db.sqla.session import transactional_session
 
 REGION = make_region_memcached(expiration_time=900)
 
+SUPPORTED_SERVICES = ['influx', 'elastic', 'email', 'activemq']
+
 
 @transactional_session
 def add_message(event_type, payload, session=None):
@@ -49,33 +51,44 @@ def add_message(event_type, payload, session=None):
         try:
             services_list = config_get('hermes', 'services_list')
         except (NoOptionError, NoSectionError, RuntimeError):
-            services_list = None
+            services_list = 'influx,activemq,elastic,email'
         REGION.set('services_list', services_list)
 
     try:
         payload = json.dumps(payload, cls=APIEncoder)
-    except TypeError as e:  # noqa: F841
-        raise InvalidObject('Invalid JSON for payload: %(e)s' % locals())
+    except TypeError as err:  # noqa: F841
+        raise InvalidObject('Invalid JSON for payload: %(err)s' % locals())
 
-    if len(payload) > 4000:
-        new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload, services=services_list)
-    else:
-        new_message = Message(event_type=event_type, payload=payload, services=services_list)
+    services = services_list.split(',')
+    for service in services:
+        service.strip(' ')
+        if service not in SUPPORTED_SERVICES:
+            raise RucioException('Unsupported service type (%s)  for messages' % service)
+        if event_type == 'email' and service != 'email':
+            continue
+        if service == 'email' and event_type != 'email':
+            continue
 
-    new_message.save(session=session, flush=False)
+        if len(payload) > 4000:
+            new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload, services=service)
+        else:
+            new_message = Message(event_type=event_type, payload=payload, services=service)
+
+        new_message.save(session=session, flush=False)
 
 
 @transactional_session
 def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=None,
-                      lock=False, session=None):
+                      lock=False, old_mode=True, session=None):
     """
     Retrieve up to $bulk messages.
 
     :param bulk: Number of messages as an integer.
     :param thread: Identifier of the caller thread as an integer.
     :param total_threads: Maximum number of threads as an integer.
-    :param event_type: Return only specified event_type. If None, returns everything except email.
+    :param event_type: Return only specified event_type. If None, returns everything.
     :param lock: Select exclusively some rows.
+    :param old_mode: If True, doesn't return email if event_type is None.
     :param session: The database session to use.
 
     :returns messages: List of dictionaries {id, created_at, event_type, payload, services}
@@ -86,7 +99,7 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
         subquery = filter_thread_work(session=session, query=subquery, total_threads=total_threads, thread_id=thread)
         if event_type:
             subquery = subquery.filter_by(event_type=event_type)
-        else:
+        elif old_mode:
             subquery = subquery.filter(Message.event_type != 'email')
 
         # Step 1:
