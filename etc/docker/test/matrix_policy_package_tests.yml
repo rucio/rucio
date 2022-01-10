@@ -22,8 +22,6 @@ belleii:
     - fedora32
   image_identifier: 
     - belleii
-  suite:
-    - all
 
 atlas:
   installation_cmd: ""
@@ -42,5 +40,4 @@ atlas:
     - fedora32
   image_identifier: 
     - atlas
-  suite:
-    - all
+  

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,27 +16,17 @@
 # Authors:
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 
-import yaml
-import traceback
 import sys
+import traceback
 import json
+import argparse
+from pathlib import Path
+import yaml
 
 
-def readobj(policy_package: dict) -> dict:
-    """
-    parse individual objects from matrix_policy_package_tests.yaml
-    """
-
-def main():
-    input_conf: list = None
+def build_config(input_conf):
     build_matrix: list = None
-
     try:
-        input_conf = dict(yaml.safe_load(sys.stdin))
-    except yaml.parser.ParserError as ex:
-        traceback.print_exc()
-        print(f"Error parsing matrix for policy packages. Invalid YAML syntax")
-    else:
         build_matrix = [
             {
                 "POLICY": policy_package,
@@ -51,9 +41,66 @@ def main():
             for image_identifier in input_conf[policy_package]['image_identifier']
             for python_ver in input_conf[policy_package]['python']
         ]
+    except KeyError as e:
+        print(f"Key not found for policy package. Check YAML schema. Details: {e}")
+        sys.exit(1)
+    return json.dumps(build_matrix)
 
-        print(json.dumps(build_matrix), file=sys.stdout)
+
+def load_config_file(policy_package_matrix_file):
+    input_conf: list = None
+    with open(policy_package_matrix_file, 'r') as stream:
+        try: 
+            input_conf = yaml.safe_load(stream)
+        except yaml.parser.ParserError:
+            traceback.print_exc()
+            print("Error parsing matrix for policy packages. Invalid YAML syntax")
+            sys.exit(1)
+    return input_conf
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description='Process policy package build matrix')
+    parser.add_argument('--file',
+                        metavar="file",
+                        type=lambda p: Path(p).absolute(),
+                        default=Path(Path(__file__).parent.parent.parent / "etc" / "docker" / "test" / "matrix_policy_package_tests.yml").absolute(),
+                        help='the path to matric_policy_package_tests.yml',
+                        )
+    parser.add_argument('--vo', type=str, default='all', required=False)
+    output_type = parser.add_mutually_exclusive_group(required=False)
+    output_type.add_argument('-i', required=False,
+                             action='store_true',
+                             help="return the policy package installation command for given vo."
+                             )
+    output_type.add_argument('-c', required=False,
+                             action='store_true',
+                             help="return the rucio config section for the given vo.")
+    output_type.add_argument('-t', required=False,
+                             action='store_true',
+                             help="return the tests that will be run for the given vo.")
+
+    args = parser.parse_args()
+
+    file = args.file
+    vo = args.vo
+    input_conf = load_config_file(file)
+    if vo != 'all':
+        if args.i:
+            print("print installation command for vo")
+        elif args.c:
+            print("config overrides for vo")
+        elif args.t:
+            print("tests for vo")
+    else:
+        if args.i:
+            print("Please specify a single vo using the --vo option. The -i flag requires a single VO to be specified.")
+            sys.exit(1)
+        elif args.c:
+            print("Please specify a single vo using the --vo option. The -c flag requires a single VO to be specified.")
+            sys.exit(1)
+        elif args.t:
+            print("Please specify a single vo using the --vo option. The -t flag requires a single VO to be specified.")
+            sys.exit(1)
+        else:
+            print(build_config(input_conf))
