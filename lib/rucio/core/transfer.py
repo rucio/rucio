@@ -100,7 +100,7 @@ REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
 
-DEFAULT_MULTIHOP_TOMBSTONE_DELAY = datetime.timedelta(hours=2)
+DEFAULT_MULTIHOP_TOMBSTONE_DELAY = int(datetime.timedelta(hours=2).total_seconds())
 
 
 class RseData:
@@ -1511,10 +1511,14 @@ def create_missing_replicas_and_requests(
         if rws.request_id:
             continue
 
-        if 'multihop_tombstone_delay' in rws.dest_rse.attributes:
-            tombstone = tombstone_from_delay(rws.dest_rse.attributes['multihop_tombstone_delay'])
-        else:
-            tombstone = tombstone_from_delay(default_tombstone_delay)
+        tombstone_delay = rws.dest_rse.attributes.get('multihop_tombstone_delay', default_tombstone_delay)
+        try:
+            tombstone = tombstone_from_delay(tombstone_delay)
+        except ValueError:
+            logger(logging.ERROR, "%s: Cannot parse multihop tombstone delay %s", initial_request_id, tombstone_delay)
+            creation_successful = False
+            break
+
         files = [{'scope': rws.scope,
                   'name': rws.name,
                   'bytes': rws.byte_count,
