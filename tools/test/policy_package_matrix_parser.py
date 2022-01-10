@@ -20,8 +20,27 @@ import sys
 import traceback
 import json
 import argparse
+import logging
 from pathlib import Path
 import yaml
+
+
+logger = logging.getLogger(__name__)
+
+
+def get_installation_cmd(data, vo):
+    if vo not in data:
+        logger.warning(f"{vo} is not defined in the matrix configuration file.")
+        sys.exit(1)
+    if "installation_cmd" not in data[vo]:
+        logger.warning(f"No installation command found for installing policy packages for vo {vo}")
+        sys.exit(1)
+    installation_cmd = data[vo]["installation_cmd"]
+    if installation_cmd:
+        return installation_cmd
+    else:
+        logger.warning(f"Empty installation command for vo {vo}. Exiting")
+        sys.exit(1)
 
 
 def build_config(input_conf):
@@ -42,7 +61,7 @@ def build_config(input_conf):
             for python_ver in input_conf[policy_package]['python']
         ]
     except KeyError as e:
-        print(f"Key not found for policy package. Check YAML schema. Details: {e}")
+        logger.warning(f"Key not found for policy package. Check YAML schema. Details: {e}")
         sys.exit(1)
     return json.dumps(build_matrix)
 
@@ -50,11 +69,11 @@ def build_config(input_conf):
 def load_config_file(policy_package_matrix_file):
     input_conf: list = None
     with open(policy_package_matrix_file, 'r') as stream:
-        try: 
+        try:
             input_conf = yaml.safe_load(stream)
         except yaml.parser.ParserError:
             traceback.print_exc()
-            print("Error parsing matrix for policy packages. Invalid YAML syntax")
+            logger.warning("Error parsing matrix for policy packages. Invalid YAML syntax")
             sys.exit(1)
     return input_conf
 
@@ -68,6 +87,9 @@ if __name__ == "__main__":
                         help='the path to matric_policy_package_tests.yml',
                         )
     parser.add_argument('--vo', type=str, default='all', required=False)
+    parser.add_argument('-v', action='store_true',
+                        required=False,
+                        help="Verbose mode to show logged errors")
     output_type = parser.add_mutually_exclusive_group(required=False)
     output_type.add_argument('-i', required=False,
                              action='store_true',
@@ -81,26 +103,29 @@ if __name__ == "__main__":
                              help="return the tests that will be run for the given vo.")
 
     args = parser.parse_args()
-
+    if args.v:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.ERROR)
     file = args.file
     vo = args.vo
     input_conf = load_config_file(file)
     if vo != 'all':
         if args.i:
-            print("print installation command for vo")
+            print(get_installation_cmd(input_conf, vo))
         elif args.c:
             print("config overrides for vo")
         elif args.t:
             print("tests for vo")
     else:
         if args.i:
-            print("Please specify a single vo using the --vo option. The -i flag requires a single VO to be specified.")
+            logger.warning("Please specify a single vo using the --vo option. The -i flag requires a single VO to be specified.")
             sys.exit(1)
         elif args.c:
-            print("Please specify a single vo using the --vo option. The -c flag requires a single VO to be specified.")
+            logger.warning("Please specify a single vo using the --vo option. The -c flag requires a single VO to be specified.")
             sys.exit(1)
         elif args.t:
-            print("Please specify a single vo using the --vo option. The -t flag requires a single VO to be specified.")
+            logger.warning("Please specify a single vo using the --vo option. The -t flag requires a single VO to be specified.")
             sys.exit(1)
         else:
             print(build_config(input_conf))
