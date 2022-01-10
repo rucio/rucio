@@ -60,7 +60,7 @@ Individual contributors to the source code
 - Rizart Dona <rizart.dona@cern.ch>, 2021
 - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 - Fabio Luchetti <fabio.luchetti@cern.ch>, 2021
-
+- Stefan Piperov <stefan.piperov@cern.ch>, 2021
 
 Organisations employing contributors
 ------------------------------------
@@ -87,3 +87,4 @@ Organisations employing contributors
 - Institut Teknologi Bandung (Indonesia)
 - Imperial College London (UK)
 - University of Chicago (USA)
+- Purdue University (USA)
