@@ -1421,11 +1421,7 @@ def tombstone_from_delay(tombstone_delay):
     if not tombstone_delay:
         return None
 
-    if not isinstance(tombstone_delay, timedelta):
-        try:
-            tombstone_delay = timedelta(seconds=int(tombstone_delay))
-        except ValueError:
-            return None
+    tombstone_delay = timedelta(seconds=int(tombstone_delay))
 
     if not tombstone_delay:
         return None
