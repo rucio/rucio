@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019-2021 CERN
+# Copyright 2019-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
 
 import logging
 import os
@@ -723,3 +723,16 @@ def test_download_file_with_supported_protocol_from_config(rse_factory, did_fact
             patch('rucio.rse.protocols.%s.Default.close' % supported_impl):
         download_client.download_dids([{'did': did_str, 'impl': supported_impl}])
         mock_get.assert_called()
+
+
+def test_download_exclude_tape(rse_factory, did_factory, download_client):
+    """Client: Do not download from a tape rse."""
+    rse, rse_id = rse_factory.make_posix_rse()
+    did = did_factory.upload_test_file(rse)
+    did_str = '%s:%s' % (did['scope'], did['name'])
+
+    # We can not mock the server core code here, so mock the API
+    with patch('rucio.client.rseclient.RSEClient.list_rses', return_value=[{'rse': rse}]), \
+         TemporaryDirectory() as tmp_dir, \
+         pytest.raises(NoFilesDownloaded):
+        download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir}])
