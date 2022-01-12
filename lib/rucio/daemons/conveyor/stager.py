@@ -40,7 +40,7 @@ from six.moves.configparser import NoOptionError
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core import transfer as transfer_core
@@ -68,7 +68,7 @@ def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
         failover_scheme = None
 
     try:
-        bring_online = config_get('conveyor', 'bring_online')
+        bring_online = config_get_int('conveyor', 'bring_online')
     except NoOptionError:
         bring_online = 43200
 
