@@ -1225,7 +1225,8 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
     paths_by_transfertool_builder, reqs_no_host, reqs_unsupported_transfertool = __assign_paths_to_transfertool_and_create_hops(
         candidate_paths,
         transfertools_by_name=transfertools_by_name,
-        logger=logger
+        logger=logger,
+        session=session,
     )
 
     if reqs_unsupported_transfertool:
@@ -1428,7 +1429,8 @@ def __parse_request_transfertools(
 def __assign_paths_to_transfertool_and_create_hops(
         candidate_paths_by_request_id: "Dict[str: List[DirectTransferDefinition]]",
         transfertools_by_name: "Optional[Dict[str, Type[Transfertool]]]" = None,
-        logger: "Callable" = logging.log
+        logger: "Callable" = logging.log,
+        session: "Optional[Session]" = None,
 ) -> "Tuple[Dict[TransferToolBuilder, List[DirectTransferDefinition]], Set[str], Set[str]]":
     """
     for each request, pick the first path which can be submitted by one of the transfertools.
@@ -1467,7 +1469,7 @@ def __assign_paths_to_transfertool_and_create_hops(
                     if builder:
                         break
             if builder or not transfertools_by_name:
-                if create_missing_replicas_and_requests(transfer_path, default_tombstone_delay, logger=logger):
+                if create_missing_replicas_and_requests(transfer_path, default_tombstone_delay, logger=logger, session=session):
                     best_path = transfer_path
                     builder_to_use = builder
                     break
