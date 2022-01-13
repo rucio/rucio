@@ -2095,14 +2095,6 @@ class TestBinRucio(unittest.TestCase):
         print(out, err)
         assert exitcode == 0
 
-    def test_rucio_list_file_replicas_rse_is_deprecated(self):
-        """CLIENT(USER): Warn about deprecated command line args"""
-        cmd = 'rucio list-file-replicas test:file1 --rse MOCK --missing'
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert 'The use of --rse is deprecated in favour of --rses and will be removed in 1.27' in err
-
     def test_rucio_list_file_replicas(self):
         """CLIENT(USER): List missing file replicas """
         self.account_client.set_local_account_limit('root', self.def_rse, -1)
