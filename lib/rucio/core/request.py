@@ -309,8 +309,10 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     :param session:           Database session to use.
     :returns:                 Request as a dictionary.
     """
-
-    record_counter('core.request.get_next.{request_type}.{state}', labels={'request_type': request_type, 'state': state})
+    request_type_metric_label = '.'.join(a.name for a in request_type) if isinstance(request_type, list) else request_type.name
+    state_metric_label = '.'.join(s.name for s in state) if isinstance(state, list) else state.name
+    record_counter('core.request.get_next.{request_type}.{state}', labels={'request_type': request_type_metric_label,
+                                                                           'state': state_metric_label})
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
     if type(request_type) is not list:
