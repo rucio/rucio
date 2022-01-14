@@ -57,7 +57,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import false
 
 from rucio.common import constants
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import SUPPORTED_PROTOCOLS, FTS_STATE
 from rucio.common.exception import (InvalidRSEExpression, NoDistance,
                                     RequestNotFound, RSEProtocolNotSupported,
@@ -75,6 +75,7 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, RequestState, RSEType, RequestType, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.util import create_temp_table
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -1652,6 +1653,18 @@ def __list_transfer_requests_and_source_replicas(
     else:
         sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')
 
+    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
+    if rses and use_temp_tables:
+        temp_table_cls = create_temp_table(
+            "list_transfer_requests_and_source_replicas",
+            models.Column("rse_id", models.GUID()),
+            session=session,
+        )
+
+        session.bulk_insert_mappings(temp_table_cls, [{'rse_id': rse_id} for rse_id in rses])
+
+        sub_requests = sub_requests.join(temp_table_cls, temp_table_cls.rse_id == models.RSE.id)
+
     sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number, hash_variable=partition_hash_var)
 
     if limit:
@@ -1707,8 +1720,8 @@ def __list_transfer_requests_and_source_replicas(
     for (request_id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, dest_rse_id, account, retry_count,
          priority, transfertool, source_rse_id, source_rse_name, file_path, source_ranking, source_url, distance_ranking) in query:
 
-        # rses (of unknown length) should be a temporary table to check against instead of this special case
-        if rses and dest_rse_id not in rses:
+        # If we didn't pre-filter using temporary tables on database side, perform the filtering here
+        if not use_temp_tables and rses and dest_rse_id not in rses:
             continue
 
         request = requests_by_id.get(request_id)
