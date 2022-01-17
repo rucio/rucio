@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 
 REGION = make_region(function_key_generator=utils.my_key_generator).configure(
     'dogpile.cache.memory',
-    expiration_time=30 * 86400,
+    expiration_time=1800,
 )
 
 
