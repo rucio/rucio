@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
@@ -58,7 +58,6 @@ from struct import unpack
 from traceback import format_exc
 
 import requests
-from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from six import string_types
 from sqlalchemy import func, and_, or_, exists, not_, update, delete
@@ -71,6 +70,7 @@ from sqlalchemy.sql.expression import case, select, text, false, true
 import rucio.core.did
 import rucio.core.lock
 from rucio.common import exception
+from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get
 from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
@@ -87,7 +87,7 @@ from rucio.db.sqla.session import (read_session, stream_session, transactional_s
                                    DEFAULT_SCHEMA_NAME, BASE)
 from rucio.rse import rsemanager as rsemgr
 
-REGION = make_region().configure('dogpile.cache.memory', expiration_time=60)
+REGION = make_region_memcached(expiration_time=60)
 
 
 @read_session

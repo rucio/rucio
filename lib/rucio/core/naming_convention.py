@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +18,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Martin Barisits, <martin.barisits@cern.ch>, 2019
-#
-# PY3K COMPATIBLE
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 from __future__ import print_function
 
@@ -26,20 +26,15 @@ from re import match, compile, error
 from sqlalchemy.exc import IntegrityError
 from traceback import format_exc
 
-from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
 from rucio.common.exception import Duplicate, RucioException, InvalidObject
-from rucio.common.config import config_get
+from rucio.common.cache import make_region_memcached
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import KeyType
 from rucio.db.sqla.session import read_session, transactional_session
 
-
-REGION = make_region().configure('dogpile.cache.memcached',
-                                 expiration_time=3600,
-                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
-                                            'distributed_lock': True})
+REGION = make_region_memcached(expiration_time=3600)
 
 
 @transactional_session
