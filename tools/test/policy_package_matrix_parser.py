@@ -14,13 +14,14 @@
 # limitations under the License.
 #
 # Authors:
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021-2022
 
 import sys
 import traceback
 import json
 import argparse
 import logging
+import functools
 from pathlib import Path
 import yaml
 
@@ -28,19 +29,50 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
-def get_installation_cmd(data, vo):
-    if vo not in data:
-        logger.warning(f"{vo} is not defined in the matrix configuration file.")
+def validate(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if 'data' not in kwargs:
+            logger.error(f"Please specify a kwarg data for {func.__name__}")
+            sys.exit(1)
+        if 'vo' not in kwargs:
+            logger.error(f"Please specify a kwarg vo for {func.__name__}")
+        if 'section' not in kwargs:
+            logger.error(f"Please specify a kwarg section for {func.__name__}")
+        data = kwargs['data']
+        vo = kwargs['vo']
+        section = kwargs['section']
+        if vo not in data:
+            logger.error(f"{vo} is not defined in the matrix configuration file.")
+            sys.exit(1)
+        if section not in data[vo]:
+            logger.error(f"No {section} found for installing policy packages for vo {vo}")
+            sys.exit(1)
+        output = func(*args, **kwargs)
+        return output
+    return wrapper
+
+
+@validate
+def get_config(data: dict, vo: str, section: str):
+    return data[vo][section]
+
+
+def get_installation_cmd(data: dict, vo: str):
+    installation_cmd = get_config(data=data, vo=vo, section="installation_cmd")
+    if installation_cmd == '':
+        logger.warning(f"No Installation command specified for {vo}")
         sys.exit(1)
-    if "installation_cmd" not in data[vo]:
-        logger.warning(f"No installation command found for installing policy packages for vo {vo}")
-        sys.exit(1)
-    installation_cmd = data[vo]["installation_cmd"]
-    if installation_cmd:
-        return installation_cmd
-    else:
-        logger.warning(f"Empty installation command for vo {vo}. Exiting")
-        sys.exit(1)
+    return installation_cmd
+
+
+def get_config_overrides(data: dict, vo: str, rucio_cfg: Path):
+    config_overrides = get_config(data=data, vo=vo, section="config_overrides")
+    if rucio_cfg is None:
+        logger.warning("Config overrides will not take effect as path to rucio.cfg has not been specified")
+        return config_overrides
+    with open(rucio_cfg, 'r') as rucio:
+        pass
 
 
 def build_config(input_conf):
@@ -52,6 +84,7 @@ def build_config(input_conf):
                 "DIST": dist,
                 "RDBMS": rdbms,
                 "PYTHON": python_ver,
+                "SUITE": "votest",
                 "IMAGE_IDENTIFIER": f"votest-{image_identifier}",
             }
             for policy_package in input_conf
@@ -86,6 +119,12 @@ if __name__ == "__main__":
                         default=Path(Path(__file__).parent.parent.parent / "etc" / "docker" / "test" / "matrix_policy_package_tests.yml").absolute(),
                         help='the path to matric_policy_package_tests.yml',
                         )
+    parser.add_argument('--rucio-cfg',
+                        metavar="rucio",
+                        type=lambda p: Path(p).absolute(),
+                        default=Path(Path(__file__).parent.parent.parent / "etc" / "rucio.cfg").absolute(),
+                        help='the path to matric_policy_package_tests.yml',
+                        )
     parser.add_argument('--vo', type=str, default='all', required=False)
     parser.add_argument('-v', action='store_true',
                         required=False,
@@ -114,7 +153,10 @@ if __name__ == "__main__":
         if args.i:
             print(get_installation_cmd(input_conf, vo))
         elif args.c:
-            print("config overrides for vo")
+            rucio_cfg = args.rucio_cfg
+            if rucio_cfg is None:
+                logger.warning(f"Please specify path to rucio.cfg in order to apply the configration changes.")
+            print(get_config_overrides(input_conf, vo, rucio_cfg))
         elif args.t:
             print("tests for vo")
     else:

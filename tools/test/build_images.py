@@ -95,7 +95,8 @@ def build_images(matrix, script_args):
                         *itertools.chain(*map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), filtered_buildargs.items())),
                         f'{script_args.buildfiles_dir}',
                     )
-            elif buildargs.IMAGE_IDENTIFIER == 'autotest':
+            else:
+                # build images for autotest or votest
                 buildfile = pathlib.Path(script_args.buildfiles_dir) / f'{dist}.Dockerfile'
                 args = (
                     'docker',
