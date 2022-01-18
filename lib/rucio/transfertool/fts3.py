@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import absolute_import, division
@@ -56,9 +56,9 @@ from json import loads
 from requests.adapters import ReadTimeout
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 
-from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
+from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import FTS_JOB_TYPE, FTS_STATE
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
@@ -71,8 +71,7 @@ from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 disable_warnings()
 
-REGION_SHORT = make_region().configure('dogpile.cache.memory',
-                                       expiration_time=1800)
+REGION_SHORT = make_region_memcached(expiration_time=1800)
 
 SUBMISSION_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_submission', statsd='transfertool.fts3.{host}.submission.{state}',
                                   documentation='Number of transfers submitted', labelnames=('state', 'host'))

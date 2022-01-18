@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 import datetime
 import hashlib
@@ -37,10 +38,10 @@ import traceback
 from base64 import b64decode
 
 import paramiko
-from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy import and_, or_, select, delete
 
+from rucio.common.cache import make_region_memcached
 from rucio.common.exception import CannotAuthenticate, RucioException
 from rucio.common.utils import chunks, generate_uuid
 from rucio.core.account import account_exists
@@ -59,12 +60,7 @@ def token_key_generator(namespace, fni, **kwargs):
     return generate_key
 
 
-TOKENREGION = make_region(
-    function_key_generator=token_key_generator
-).configure(
-    'dogpile.cache.memory',
-    expiration_time=3600
-)
+TOKENREGION = make_region_memcached(expiration_time=3600, function_key_generator=token_key_generator)
 
 
 @transactional_session

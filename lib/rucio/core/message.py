@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2014-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 import json
 from configparser import NoOptionError, NoSectionError
@@ -30,9 +31,9 @@ from configparser import NoOptionError, NoSectionError
 from sqlalchemy import or_, delete, update
 from sqlalchemy.exc import IntegrityError
 
-from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
+from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get
 from rucio.common.exception import InvalidObject, RucioException
 from rucio.common.utils import APIEncoder
@@ -40,11 +41,7 @@ from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
 
-
-REGION = make_region().configure('dogpile.cache.memcached',
-                                 expiration_time=3600,
-                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
-                                            'distributed_lock': True})
+REGION = make_region_memcached(expiration_time=3600)
 
 
 @transactional_session

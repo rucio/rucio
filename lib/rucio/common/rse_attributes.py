@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 """
 methods to get closeness between sites
@@ -30,16 +29,12 @@ methods to get closeness between sites
 import logging
 import traceback
 
-from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
 from rucio.core import rse as rse_core
-from rucio.common.config import config_get
+from rucio.common.cache import make_region_memcached
 
-REGION = make_region().configure('dogpile.cache.memcached',
-                                 expiration_time=3600,
-                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
-
+REGION = make_region_memcached(expiration_time=3600)
 
 def get_rse_attributes(rse_id, session=None):
     """

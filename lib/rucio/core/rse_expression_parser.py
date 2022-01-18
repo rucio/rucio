@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,16 +24,16 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 import abc
 import re
 
-from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from hashlib import sha256
 from six import add_metaclass
 
-from rucio.common.config import config_get
+from rucio.common.cache import make_region_memcached
 from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
 from rucio.core.rse import list_rses, get_rses_with_attribute, get_rse_attribute
 from rucio.db.sqla.session import transactional_session
@@ -48,10 +48,7 @@ COMPLEMENT = r'(\\%s)' % (PRIMITIVE)
 
 PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 
-
-REGION = make_region().configure('dogpile.cache.memcached',
-                                 expiration_time=600,
-                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
+REGION = make_region_memcached(expiration_time=600)
 
 
 @transactional_session
