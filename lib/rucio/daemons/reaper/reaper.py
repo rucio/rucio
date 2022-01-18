@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2021 CERN
+# Copyright 2016-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -48,13 +48,13 @@ from datetime import datetime, timedelta
 from math import ceil
 from typing import TYPE_CHECKING
 
-from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from prometheus_client import Gauge
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.cache import make_region_memcached
 from rucio.common.exception import (DatabaseException, RSENotFound,
                                     ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
@@ -77,10 +77,7 @@ if TYPE_CHECKING:
 
 GRACEFUL_STOP = threading.Event()
 
-REGION = make_region().configure('dogpile.cache.memcached',
-                                 expiration_time=600,
-                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
-                                            'distributed_lock': True})
+REGION = make_region_memcached(expiration_time=600)
 
 DELETION_COUNTER = monitor.MultiCounter(prom='rucio_daemons_reaper_deletion_done', statsd='reaper.deletion.done',
                                         documentation='Number of deleted replicas')
