@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 import base64
 import datetime
@@ -27,20 +28,19 @@ from hashlib import sha1
 
 import boto3
 from botocore.client import Config
-from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from oauth2client.service_account import ServiceAccountCredentials
 from six import integer_types
 from six.moves.urllib.parse import urlparse, urlencode
 
+from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, get_rse_credentials
 from rucio.common.exception import UnsupportedOperation
 from rucio.core.monitor import record_timer_block
 
 CREDS_GCS = None
 
-REGION = make_region().configure('dogpile.cache.memory',
-                                 expiration_time=3600)
+REGION = make_region_memcached(expiration_time=3600)
 
 
 def get_signed_url(rse_id, service, operation, url, lifetime=600):

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,12 +25,13 @@
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 from dogpile.cache import make_region
 
+from rucio.common.cache import make_region_memcached
 from rucio.common.utils import is_client
 from rucio.rse import rsemanager
-from rucio.common import config
 
 if is_client():
     setattr(rsemanager, 'CLIENT_MODE', True)
@@ -106,8 +107,5 @@ if rsemanager.SERVER_MODE:   # pylint:disable=no-member
 
     setattr(rsemanager, '__request_rse_info', tmp_rse_info)
     setattr(rsemanager, '__get_signed_url', get_signed_url_server)
-    RSE_REGION = make_region(function_key_generator=rse_key_generator).configure(
-        'dogpile.cache.memcached',
-        expiration_time=3600,
-        arguments={'url': config.config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
+    RSE_REGION = make_region_memcached(expiration_time=3600)
     setattr(rsemanager, 'RSE_REGION', RSE_REGION)
