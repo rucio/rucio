@@ -15,7 +15,7 @@ belleii:
   rdbms: 
     - postgres12
   python:
-    - 3.6
+    - "3.6"
   dists:
     - centos7
     - fedora33
@@ -33,7 +33,7 @@ atlas:
   rdbms: 
     - postgres12
   python:
-    - 3.6
+    - "3.6"
   dists:
     - centos7
     - fedora33
