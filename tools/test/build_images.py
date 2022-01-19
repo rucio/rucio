@@ -53,7 +53,7 @@ def build_images(matrix, script_args):
                                 lambda argdict: {arg: val for arg, val in argdict.items() if arg in BUILD_ARG_KEYS})
     make_buildargs = partial(map, lambda argdict: BuildArgs(**argdict))
     distribution_buildargs = {dist: (set(make_buildargs(filter_build_args(args)))) for dist, args in
-                              itertools.groupby(matrix, lambda d: d[DIST_KEY])}
+                              itertools.groupby(sorted(matrix, key=lambda d: d[DIST_KEY]), lambda d: d[DIST_KEY])}
     use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
     images = dict()
     for dist, buildargs_list in distribution_buildargs.items():
