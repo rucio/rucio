@@ -24,6 +24,7 @@ import logging
 import functools
 import configparser
 from pathlib import Path
+import typing
 import yaml
 
 
@@ -88,6 +89,21 @@ def persist_config_overrides(data: dict, vo: str, rucio_cfg: Path):
         logger.warning(f"Overriding policy section in {rucio_cfg}")
         rucio_config.write(rucio)
     return config_overrides
+
+
+def collect_tests(data: dict, vo: str):
+    def is_excluded(path: Path, excluded_paths: typing.List[Path]):
+        """
+        Checks if the incoming path should be exluded from the final set of tests to run
+        """
+        return functools.reduce(lambda x, y: x and y, [bool(excluded_path in path.parents or excluded_path == path) for excluded_path in excluded_paths])
+    def process_keywords
+    tests = get_config(data=data, vo=vo, section="tests")
+    tests_allow = set(tests["allow"])
+    tests_deny = set(tests["deny"])
+    for test_allow_entry in tests_allow:
+        pass
+    return "Test"
 
 
 def build_config(input_conf):
@@ -171,7 +187,7 @@ if __name__ == "__main__":
             rucio_cfg = args.rucio_cfg
             print(persist_config_overrides(input_conf, vo, rucio_cfg))
         elif args.t:
-            print("tests for vo")
+            print(collect_tests(input_conf, vo))
     else:
         if args.i:
             logger.warning("Please specify a single vo using the --vo option. The -i flag requires a single VO to be specified.")

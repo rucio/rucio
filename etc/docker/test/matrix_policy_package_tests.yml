@@ -5,7 +5,7 @@ belleii:
     extract_scope:  belleii
     schema: belleii
     lfn2pfn_algorithm_default: "belleii"
-  test_suite_filter:
+  tests:
     allow:
       - all
     deny:
