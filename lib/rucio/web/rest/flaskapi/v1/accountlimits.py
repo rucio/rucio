@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2014
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2021
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from flask import Flask, Blueprint, request
 
@@ -35,16 +30,47 @@ from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers
 
 class LocalAccountLimit(ErrorHandlingMethodView):
     def post(self, account, rse):
-        """ Create or update an account limit.
-
-        .. :quickref: LocalAccountLimit; Create/update local account limits.
-
-        :param account: Account name.
-        :param rse: RSE name.
-        :status 201: Successfully created or updated.
-        :status 401: Invalid auth token.
-        :status 404: RSE not found.
-        :status 404: Account not found
+        """
+        ---
+        summary: Create or update a local accont limit
+        tags:
+          - Account Limit
+        parameters:
+        - name: account
+          in: path
+          description: The account for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        - name: rse
+          in: path
+          description: The rse for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - bytes
+                properties:
+                  bytes:
+                    description: The new limit in bytes.
+                    type: integer
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No RSE or account found for the given id.
         """
         parameters = json_parameters()
         bytes_param = param_get(parameters, 'bytes')
@@ -58,16 +84,31 @@ class LocalAccountLimit(ErrorHandlingMethodView):
         return 'Created', 201
 
     def delete(self, account, rse):
-        """ Delete an account limit.
-
-        .. :quickref: LocalAccountLimit; Delete local account limits.
-
-        :param account: Account name.
-        :param rse: RSE name.
-        :status 200: Successfully deleted.
-        :status 401: Invalid auth token.
-        :status 404: RSE not found.
-        :status 404: Account not found
+        """
+        ---
+        summary: Delete a local account limit
+        tags:
+          - Account Limit
+        parameters:
+        - name: account
+          in: path
+          description: The account for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        - name: rse
+          in: path
+          description: The rse for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No RSE or account found for the given id.
         """
         try:
             delete_local_account_limit(account=account, rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -81,16 +122,47 @@ class LocalAccountLimit(ErrorHandlingMethodView):
 
 class GlobalAccountLimit(ErrorHandlingMethodView):
     def post(self, account, rse_expression):
-        """ Create or update an account limit.
-
-        .. :quickref: GlobalAccountLimit; Create/update global account limits.
-
-        :param account: Account name.
-        :param rse_expression: RSE name.
-        :status 201: Successfully created or updated.
-        :status 401: Invalid auth token.
-        :status 404: RSE not found.
-        :status 404: Account not found
+        """
+        ---
+        summary: Create or update a global account limit
+        tags:
+          - Account Limit
+        parameters:
+        - name: account
+          in: path
+          description: The account for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        - name: rse_expression
+          in: path
+          description: The rse expression for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - bytes
+                properties:
+                  bytes:
+                    description: The new limit in bytes.
+                    type: integer
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No RSE or account found for the given id.
         """
         parameters = json_parameters()
         bytes_param = param_get(parameters, 'bytes')
@@ -110,16 +182,31 @@ class GlobalAccountLimit(ErrorHandlingMethodView):
         return 'Created', 201
 
     def delete(self, account, rse_expression):
-        """ Delete an account limit.
-
-        .. :quickref: GlobalAccountLimit; Delete global account limits.
-
-        :param account: Account name.
-        :param rse_expression: RSE name.
-        :status 200: Successfully deleted.
-        :status 401: Invalid auth token.
-        :status 404: RSE not found.
-        :status 404: Account not found
+        """
+        ---
+        summary: Delete a global account limit
+        tags:
+          - Account Limit
+        parameters:
+        - name: account
+          in: path
+          description: The account for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        - name: rse_expression
+          in: path
+          description: The rse expression for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No RSE or account found for the given id.
         """
         try:
             delete_global_account_limit(account=account, rse_expression=rse_expression, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
