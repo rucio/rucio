@@ -1720,10 +1720,10 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, rse_id, files, sessi
     :param files: list of files whose replica got deleted
     :param session: The database session in use.
     """
-    parents_to_analyze = set()
+    parents_to_analyze, affected_archives = set(), set()
     did_condition = []
     clt_replica_condition, dst_replica_condition = [], []
-    incomplete_condition, messages, clt_to_set_not_archive, archive_contents_condition = [], [], [], []
+    incomplete_condition, messages, clt_to_set_not_archive = [], [], []
     for file in files:
 
         # Schedule update of all collections containing this file and having a collection replica in the RSE
@@ -1755,16 +1755,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, rse_id, files, sessi
                           models.ConstituentAssociation.child_name == file['name']))))
 
         # 3) if the file is an archive, schedule cleanup on the files from inside the archive
-        archive_contents_condition.append(
-            and_(models.ConstituentAssociation.scope == file['scope'],
-                 models.ConstituentAssociation.name == file['name'],
-                 ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
-                     and_(models.DataIdentifier.scope == file['scope'],
-                          models.DataIdentifier.name == file['name'],
-                          models.DataIdentifier.availability == DIDAvailability.LOST)),
-                 ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
-                     and_(models.RSEFileAssociation.scope == file['scope'],
-                          models.RSEFileAssociation.name == file['name']))))
+        affected_archives.add(ScopeName(scope=file['scope'], name=file['name']))
 
     # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
     if dst_replica_condition:
@@ -1961,13 +1952,42 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, rse_id, files, sessi
                                              models.DidMeta.name == name))
 
     # Remove Archive Constituents
-    removed_constituents = []
-    constituents_to_delete_condition = []
-    for chunk in chunks(archive_contents_condition, 30):
-        query = session.query(models.ConstituentAssociation). \
-            with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_CHILD_IDX)", 'oracle'). \
-            filter(or_(*chunk))
-        for constituent in query:
+    session.query(scope_name_temp_table).delete()
+    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in affected_archives])
+
+    stmt = select(
+        models.ConstituentAssociation
+    ).distinct(
+    ).with_hint(
+        models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_CHILD_IDX)", 'oracle'
+    ).join(
+        scope_name_temp_table,
+        and_(scope_name_temp_table.scope == models.ConstituentAssociation.scope,
+             scope_name_temp_table.name == models.ConstituentAssociation.name),
+    ).with_hint(
+        models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
+    ).outerjoin(
+        models.DataIdentifier,
+        and_(models.DataIdentifier.availability == DIDAvailability.LOST,
+             models.DataIdentifier.scope == models.ConstituentAssociation.scope,
+             models.DataIdentifier.name == models.ConstituentAssociation.name)
+    ).where(
+        models.DataIdentifier.scope == null()
+    ).with_hint(
+        models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle'
+    ).outerjoin(
+        models.RSEFileAssociation,
+        and_(models.RSEFileAssociation.scope == models.ConstituentAssociation.scope,
+             models.RSEFileAssociation.name == models.ConstituentAssociation.name)
+    ).where(
+        models.RSEFileAssociation.scope == null()
+    )
+
+    constituents = list(session.execute(stmt).scalars().all())
+    for chunk in chunks(constituents, 200):
+        removed_constituents = []
+        constituents_to_delete_condition = []
+        for constituent in chunk:
             removed_constituents.append({'scope': constituent.child_scope, 'name': constituent.child_name})
             constituents_to_delete_condition.append(
                 and_(models.ConstituentAssociation.scope == constituent.scope,
@@ -1989,23 +2009,13 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, rse_id, files, sessi
                 created_at=constituent.created_at,
             ).save(session=session, flush=False)
 
-            if len(constituents_to_delete_condition) > 200:
-                stmt = delete(models.ConstituentAssociation). \
-                    prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle'). \
-                    where(or_(*constituents_to_delete_condition)). \
-                    execution_options(synchronize_session=False)
-                session.execute(stmt)
-                constituents_to_delete_condition.clear()
-
-                __cleanup_after_replica_deletion(scope_name_temp_table, rse_id=rse_id, files=removed_constituents, session=session)
-                removed_constituents.clear()
-    if constituents_to_delete_condition:
         stmt = delete(models.ConstituentAssociation). \
             prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle'). \
             where(or_(*constituents_to_delete_condition)). \
             execution_options(synchronize_session=False)
         session.execute(stmt)
-        __cleanup_after_replica_deletion(scope_name_temp_table, rse_id=rse_id, files=removed_constituents, session=session)
+        __cleanup_after_replica_deletion(scope_name_temp_table=scope_name_temp_table,
+                                         rse_id=rse_id, files=removed_constituents, session=session)
 
     # Remove rules in Waiting for approval or Suspended
     for chunk in chunks(deleted_rules, 100):
