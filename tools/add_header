@@ -95,6 +95,7 @@ def main(arguments):
     email = '<%s>' % email
     exit_code = 0
 
+    print("Checking %i files" % (len(arguments.MyFiles)))
     for MyFile in arguments.MyFiles:
         # Query log history
         cmd = '''git log --reverse --date=short --format='%s'  %s ''' % ('%aN,<%aE>,%ad', MyFile)
@@ -244,7 +245,7 @@ def main(arguments):
                         if count == 0 or not_comment_line:
                             modified.write(line)
 
-        else:
+        elif not arguments.check:
             print(header)
     exit(exit_code)
 
