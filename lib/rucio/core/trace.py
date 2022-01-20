@@ -233,8 +233,11 @@ SCHEMAS = {
     'sm_get': GET_SCHEMA,
     'get_sm_a': GET_SCHEMA,
     'sm_get_a': GET_SCHEMA,
+    'put': PUT_SCHEMA,
     'put_sm': PUT_SCHEMA,
-    'put_sm_a': PUT_SCHEMA
+    'put_sm_a': PUT_SCHEMA,
+    'sm_put': PUT_SCHEMA,
+    'sm_put_a': PUT_SCHEMA
 }
 
 FORMAT_CHECKER = draft7_format_checker
