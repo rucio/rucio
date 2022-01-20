@@ -18,8 +18,6 @@ belleii:
     - "3.6"
   dists:
     - centos7
-    - fedora33
-    - fedora32
   image_identifier: 
     - belleii
 
@@ -36,8 +34,6 @@ atlas:
     - "3.6"
   dists:
     - centos7
-    - fedora33
-    - fedora32
   image_identifier: 
     - atlas
   
