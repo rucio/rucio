@@ -217,7 +217,7 @@ PUT_SCHEMA = {
         "traceIp": IPv4orIPv6,
         "traceId": UUID,
         "usrdn": {"type": "string"},
-        "pq": RSE,
+        "pq": {"type": "string"},
         "localSite": RSE
     },
     "required": ['eventType', 'localSite', 'eventVersion', 'uuid', 'scope',
