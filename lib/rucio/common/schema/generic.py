@@ -197,7 +197,7 @@ CLIENT_STATE = {
     "description": "Client state",
     "type": "string",
     "enum": ['DONE', 'FAILED', 'PROCESSING', 'ALREADY_DONE', 'FILE_NOT_FOUND', 'FOUND_IN_PCACHE', 'DOWNLOAD_ATTEMPT',
-             'FAIL_VALIDATE', 'FOUND_ROOT']
+             'FAIL_VALIDATE', 'FOUND_ROOT', 'ServiceUnavailable']
 }
 
 RULE = {"description": "Replication rule",
