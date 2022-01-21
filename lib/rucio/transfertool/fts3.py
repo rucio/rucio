@@ -206,6 +206,7 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
 
     if transfer.get('multihop', False):
         job_params['multihop'] = True
+        job_params['job_metadata']['multihop'] = True
     if strict_copy:
         job_params['strict_copy'] = strict_copy
     if dest_spacetoken:
