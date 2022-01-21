@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2022
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2021
@@ -69,7 +69,7 @@ from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
-from rucio.core.request import queue_requests, set_request_state
+from rucio.core.request import get_request_by_did, queue_requests, set_request_state
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
@@ -1488,6 +1488,7 @@ def __assign_paths_to_transfertool_and_create_hops(
         # intermediate hops (if it is a multihop) work correctly
         best_path = None
         builder_to_use = None
+        concurrent_submission_detected = False
         for transfer_path in candidate_paths:
             builder = None
             if transfertools_by_name:
@@ -1499,10 +1500,18 @@ def __assign_paths_to_transfertool_and_create_hops(
                     if builder:
                         break
             if builder or not transfertools_by_name:
-                if create_missing_replicas_and_requests(transfer_path, default_tombstone_delay, logger=logger, session=session):
+                created, concurrent_submission_detected = create_missing_replicas_and_requests(
+                    transfer_path, default_tombstone_delay, logger=logger, session=session
+                )
+                if created:
                     best_path = transfer_path
                     builder_to_use = builder
+                if created or concurrent_submission_detected:
                     break
+
+        if concurrent_submission_detected:
+            logger(logging.INFO, '%s: Request is being handled by another submitter. Skipping for now.' % request_id)
+            continue
 
         if not best_path:
             reqs_no_host.add(request_id)
@@ -1528,12 +1537,13 @@ def create_missing_replicas_and_requests(
         default_tombstone_delay: int,
         logger: "Callable",
         session: "Optional[Session]" = None
-) -> bool:
+) -> "Tuple[bool, bool]":
     """
     Create replicas and requests in the database for the intermediate hops
     """
     initial_request_id = transfer_path[-1].rws.request_id
     creation_successful = True
+    concurrent_submission_detected = False
     created_requests = []
     # Iterate the path in reverse order. The last hop is the initial request, so
     # next_hop.rws.request_id will always be initialized when handling the current hop.
@@ -1586,13 +1596,18 @@ def create_missing_replicas_and_requests(
         # If a request already exists, new_req will be an empty list.
         if not new_req:
             creation_successful = False
+
+            existing_request = get_request_by_did(rws.scope, rws.name, rws.dest_rse.id, session=session)
+            if datetime.datetime.utcnow() - CONCURRENT_SUBMISSION_TOLERATION_DELAY < existing_request['requested_at']:
+                concurrent_submission_detected = True
+
             break
         rws.request_id = new_req[0]['id']
         logger(logging.DEBUG, '%s: New request created for the transfer between %s and %s : %s', initial_request_id, transfer_path[0].src, transfer_path[-1].dst, rws.request_id)
         set_request_state(rws.request_id, RequestState.QUEUED, session=session, logger=logger)
         created_requests.append(rws.request_id)
 
-    if not creation_successful:
+    if not concurrent_submission_detected and not creation_successful:
         # Need to fail all the intermediate requests
         logger(logging.WARNING, '%s: Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests',
                initial_request_id, transfer_path[0].src, transfer_path[-1].dst)
@@ -1603,7 +1618,7 @@ def create_missing_replicas_and_requests(
         except UnsupportedOperation:
             logger(logging.ERROR, '%s: Multihop : Cannot cancel all the parent requests : %s', initial_request_id, str(created_requests))
 
-    return creation_successful
+    return creation_successful, concurrent_submission_detected
 
 
 @read_session
