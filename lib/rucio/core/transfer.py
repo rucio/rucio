@@ -1573,6 +1573,7 @@ def create_missing_replicas_and_requests(
 
         rws.attributes['next_hop_request_id'] = transfer_path[i + 1].rws.request_id
         rws.attributes['initial_request_id'] = initial_request_id
+        rws.attributes['source_replica_expression'] = hop.src.rse.name
         new_req = queue_requests(requests=[{'dest_rse_id': rws.dest_rse.id,
                                             'scope': rws.scope,
                                             'name': rws.name,

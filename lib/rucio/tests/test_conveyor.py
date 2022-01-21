@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2021 CERN
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 # Authors:
 # - Wen Guan <wen.guan@cern.ch>, 2015-2016
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2022
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Mayank Sharma <imptodefeat@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
@@ -270,6 +270,7 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
     assert request['state'] == RequestState.FAILED
     request = request_core.get_request_by_did(rse_id=jump_rse_id, **did)
     assert request['state'] == RequestState.FAILED
+    assert request['attributes']['source_replica_expression'] == src_rse
 
     # Each hop is a separate transfer, which will be handled by the poller and marked as failed
     assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 2
