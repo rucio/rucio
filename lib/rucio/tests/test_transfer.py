@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 import pytest
+from concurrent.futures import ThreadPoolExecutor
 
 from rucio.common.exception import NoDistance
 from rucio.core.distance import add_distance
@@ -26,7 +28,7 @@ from rucio.core import rule as rule_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RSEType
+from rucio.db.sqla.constants import RSEType, RequestState
 from rucio.db.sqla.session import transactional_session
 from rucio.common.utils import generate_uuid
 
@@ -238,6 +240,46 @@ def test_multihop_requests_created(rse_factory, did_factory, root_account, core_
     [[_, [transfer]]] = next_transfers_to_submit(rses=rse_factory.created_rses).items()
     # the intermediate request was correctly created
     assert request_core.get_request_by_did(rse_id=intermediate_rse_id, **did)
+
+
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', True)
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
+    'rucio.core.config.REGION',
+]}], indirect=True)
+def test_multihop_concurrent_submitters(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
+    """
+    Ensure that multiple concurrent submitters on the same multi-hop don't result in an undesired database state
+    """
+    src_rse, src_rse_id = rse_factory.make_posix_rse()
+    jump_rse, jump_rse_id = rse_factory.make_posix_rse()
+    dst_rse, dst_rse_id = rse_factory.make_posix_rse()
+    rse_core.add_rse_attribute(jump_rse_id, 'available_for_multihop', True)
+
+    add_distance(src_rse_id, jump_rse_id, ranking=10)
+    add_distance(jump_rse_id, dst_rse_id, ranking=10)
+
+    did = did_factory.upload_test_file(src_rse)
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    nb_threads = 9
+    nb_executions = 18
+    with ThreadPoolExecutor(max_workers=nb_threads) as executor:
+        futures = [executor.submit(next_transfers_to_submit, rses=rse_factory.created_rses) for _ in range(nb_executions)]
+        for f in futures:
+            try:
+                f.result()
+            except Exception:
+                pass
+
+    jmp_request = request_core.get_request_by_did(rse_id=jump_rse_id, **did)
+    dst_request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert jmp_request['state'] == dst_request['state'] == RequestState.QUEUED
+    assert jmp_request['attributes']['source_replica_expression'] == src_rse
+    assert jmp_request['attributes']['initial_request_id'] == dst_request['id']
+    assert jmp_request['attributes']['next_hop_request_id'] == dst_request['id']
 
 
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
