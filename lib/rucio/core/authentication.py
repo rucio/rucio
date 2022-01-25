@@ -440,9 +440,10 @@ def validate_auth_token(token, session=None):
 
     # Be gentle with bash variables, there can be whitespace
     token = token.strip()
+    cache_key = token.replace(' ', '')
 
     # Check if token ca be found in cache region
-    value = TOKENREGION.get(token)
+    value = TOKENREGION.get(cache_key)
     if value is NO_VALUE:  # no cached entry found
         value = query_token(token, session=session)
         if not value:
@@ -455,9 +456,9 @@ def validate_auth_token(token, session=None):
             else:
                 return None
         # save token in the cache
-        TOKENREGION.set(token, value)
+        TOKENREGION.set(cache_key, value)
     if value.get('lifetime', datetime.datetime(1970, 1, 1)) < datetime.datetime.utcnow():  # check if expired
-        TOKENREGION.delete(token)
+        TOKENREGION.delete(cache_key)
         return None
     return value
 

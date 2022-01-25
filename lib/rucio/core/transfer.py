@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 # - Petr Vokac <petr.vokac@fjfi.cvut.cz>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
@@ -50,13 +50,13 @@ import time
 from heapq import heappop, heappush
 from typing import TYPE_CHECKING
 
-from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from sqlalchemy import and_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import false
 
 from rucio.common import constants
+from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import SUPPORTED_PROTOCOLS, FTS_STATE
 from rucio.common.exception import (InvalidRSEExpression, NoDistance,
@@ -96,9 +96,8 @@ where the external_id is already known.
 Requests accessed by request_id  are covered in the core request.py
 """
 
-REGION_SHORT = make_region().configure('dogpile.cache.memcached',
-                                       expiration_time=600,
-                                       arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
+REGION_SHORT = make_region_memcached(expiration_time=600)
+
 WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
 
 DEFAULT_MULTIHOP_TOMBSTONE_DELAY = int(datetime.timedelta(hours=2).total_seconds())
