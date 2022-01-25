@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020-2021 CERN
+# Copyright 2020-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 # - Ilija Vukotic <ivukotic@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 # This product includes GeoLite data created by MaxMind,
 # available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>
@@ -36,10 +37,10 @@ from urllib.parse import urlparse
 
 import geoip2.database
 import requests
-from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
 from rucio.common import utils
+from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import InvalidRSEExpression
 from rucio.core.rse_expression_parser import parse_expression
@@ -47,10 +48,7 @@ from rucio.core.rse_expression_parser import parse_expression
 if TYPE_CHECKING:
     from typing import Dict, List, Optional
 
-REGION = make_region(function_key_generator=utils.my_key_generator).configure(
-    'dogpile.cache.memory',
-    expiration_time=30 * 86400,
-)
+REGION = make_region_memcached(expiration_time=1800, function_key_generator=utils.my_key_generator)
 
 
 def __download_geoip_db(directory, filename):
@@ -120,7 +118,7 @@ def __get_distance(se1, client_location, ignore_error):
     # does not cache ignore_error, str.lower on hostnames/ips is fine
     canonical_parties = list(map(lambda x: str(x).lower(), [se1, client_location['ip'], client_location.get('latitude', ''), client_location.get('longitude', '')]))
     canonical_parties.sort()
-    cache_key = f'replica_sorter:__get_distance|site_distance|{canonical_parties}'
+    cache_key = f'replica_sorter:__get_distance|site_distance|{"".join(canonical_parties)}'
     cache_val = REGION.get(cache_key)
     if cache_val is NO_VALUE:
         directory = '/tmp'

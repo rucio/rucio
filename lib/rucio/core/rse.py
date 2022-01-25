@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import json
@@ -45,7 +45,6 @@ from typing import TYPE_CHECKING
 
 import sqlalchemy
 import sqlalchemy.orm
-from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from six import string_types
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
@@ -55,7 +54,8 @@ from sqlalchemy.sql.expression import or_, false
 
 import rucio.core.account_counter
 from rucio.common import exception, utils
-from rucio.common.config import get_lfn2pfn_algorithm_default, config_get
+from rucio.common.cache import make_region_memcached
+from rucio.common.config import get_lfn2pfn_algorithm_default
 from rucio.common.utils import CHECKSUM_KEY, is_checksum_valid, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
@@ -66,11 +66,7 @@ if TYPE_CHECKING:
     from typing import Dict, Optional
     from sqlalchemy.orm import Session
 
-REGION = make_region().configure('dogpile.cache.memcached',
-                                 expiration_time=3600,
-                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211',
-                                                              check_config_table=False),
-                                            'distributed_lock': True})
+REGION = make_region_memcached(expiration_time=3600)
 
 
 @transactional_session
