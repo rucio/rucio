@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2021 CERN
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # - Wen Guan <wen.guan@cern.ch>, 2015-2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
@@ -27,7 +27,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
@@ -250,7 +250,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
                         new_req = request_core.requeue_and_archive(req, source_ranking_update=True, retry_protocol_mismatches=retry_protocol_mismatches, logger=logger)
                         # should_retry_request and requeue_and_archive are not in one session,
                         # another process can requeue_and_archive and this one will return None.
-                        record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
+                        record_timer('daemons.conveyor.common.update_request_state.request_requeue_and_archive', (time.time() - tss) * 1000)
                         logger(logging.WARNING, 'REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                                 req['name'],
                                                                                                 req['request_id'],
@@ -275,7 +275,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
                     tss = time.time()
                     if request_core.should_retry_request(req, retry_protocol_mismatches):
                         new_req = request_core.requeue_and_archive(req, source_ranking_update=False, retry_protocol_mismatches=retry_protocol_mismatches, logger=logger)
-                        record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
+                        record_timer('daemons.conveyor.common.update_request_state.request_requeue_and_archive', (time.time() - tss) * 1000)
                         logger(logging.WARNING, 'REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                                            req['name'],
                                                                                                            req['request_id'],
