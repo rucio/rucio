@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import absolute_import, division
@@ -168,7 +168,7 @@ def checksum_validation_strategy(src_attributes, dst_attributes, logger):
     return verify_checksum, checksums_to_use
 
 
-def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archive_timeout_override, max_time_in_queue, logger):
+def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archive_timeout_override, max_time_in_queue, logger, multihop=False):
     """
     Prepare the job parameters which will be passed to FTS transfertool
     """
@@ -204,8 +204,9 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
                   'overwrite': transfer.rws.attributes.get('overwrite', overwrite),
                   'priority': transfer.rws.priority}
 
-    if transfer.get('multihop', False):
+    if multihop:
         job_params['multihop'] = True
+        job_params['job_metadata']['multihop'] = True
     if strict_copy:
         job_params['strict_copy'] = strict_copy
     if dest_spacetoken:
@@ -271,8 +272,6 @@ def bulk_group_transfers(transfer_paths, policy='rule', group_bulk=200, source_s
 
     for transfer_path in transfer_paths:
         for i, transfer in enumerate(transfer_path):
-            if len(transfer_path) > 1:
-                transfer['multihop'] = True
             transfer['selection_strategy'] = source_strategy if source_strategy else activity_source_strategy.get(str(transfer.rws.activity), default_source_strategy)
 
     _build_job_params = functools.partial(job_params_for_fts_transfer,
@@ -284,10 +283,10 @@ def bulk_group_transfers(transfer_paths, policy='rule', group_bulk=200, source_s
     for transfer_path in transfer_paths:
         if len(transfer_path) > 1:
             # for multihop transfers, all the path is submitted as a separate job
-            job_params = _build_job_params(transfer_path[-1])
+            job_params = _build_job_params(transfer_path[-1], multihop=True)
 
             for transfer in transfer_path[:-1]:
-                hop_params = _build_job_params(transfer)
+                hop_params = _build_job_params(transfer, multihop=True)
                 # Only allow overwrite if all transfers in multihop allow it
                 job_params['overwrite'] = hop_params['overwrite'] and job_params['overwrite']
                 # Activate bring_online if it was requested by first hop (it is a multihop starting at a tape)
