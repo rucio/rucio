@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,11 +34,11 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2020
-# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020-2021
-# - Rob Barnsley <rob.barnsley@skao.int>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 import logging
 import operator
@@ -47,10 +47,12 @@ from datetime import datetime, timedelta
 from enum import Enum
 from hashlib import md5
 from re import match
+from typing import Tuple
 
 from six import string_types
 from sqlalchemy import and_, or_, exists, update, delete
 from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
 from sqlalchemy.sql.expression import bindparam, case, select, true, false
@@ -1224,9 +1226,6 @@ def get_did(scope, name, dynamic=False, session=None):
         else:
             if dynamic:
                 bytes_, length, events = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
-                # replace None value for bytes with zero
-                if bytes_ is None:
-                    bytes_ = 0
             else:
                 bytes_, length = result.bytes, result.length
             return {'scope': result.scope, 'name': result.name, 'type': result.did_type,
@@ -1718,7 +1717,7 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, accoun
 
 
 @transactional_session
-def __resolve_bytes_length_events_did(scope, name, session):
+def __resolve_bytes_length_events_did(scope: str, name: str, session: Session) -> Tuple[int, int, int]:
     """
     Resolve bytes, length and events of a did
 
@@ -1742,6 +1741,10 @@ def __resolve_bytes_length_events_did(scope, name, session):
                                                    func.sum(models.DataIdentifierAssociation.events)).\
                 filter_by(scope=scope, name=name).\
                 one()
+
+            bytes_ = bytes_ or 0
+            length = length or 0
+            events = events or 0
         except NoResultFound:
             length, bytes_, events = 0, 0, 0
 
