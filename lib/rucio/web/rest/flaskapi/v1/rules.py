@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,19 +14,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
 
 from json import dumps
 
@@ -62,8 +53,11 @@ class Rule(ErrorHandlingMethodView):
         """
         parameters = json_parameters(optional=True)
         estimate_ttc = param_get(parameters, 'estimate_ttc', default=False)
+        if estimate_ttc:
+            return generate_http_error_flask(501, "NotImplemented", exc_msg="estimate_ttc is not implemented!")
+
         try:
-            rule = get_replication_rule(rule_id, estimate_ttc=estimate_ttc, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            rule = get_replication_rule(rule_id, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except RuleNotFound as error:
             return generate_http_error_flask(404, error)
 
