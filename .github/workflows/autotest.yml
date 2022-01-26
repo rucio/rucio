@@ -15,7 +15,6 @@ jobs:
       - name: Check headers
         shell: bash
         run: |
-          git pull origin master
           echo "Current git rev $(git rev-parse HEAD)"
           echo "Common ancestor git rev $(git merge-base HEAD remotes/origin/master)"
           echo "If a file header needs to be changed run 'tools/add_header -i FILE' from the rucio project directory."
