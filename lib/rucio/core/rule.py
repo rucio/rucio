@@ -36,7 +36,7 @@
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
 
 from __future__ import division
 
@@ -92,7 +92,6 @@ from rucio.db.sqla.constants import (LockState, ReplicaState, RuleState, RuleGro
                                      DIDAvailability, DIDReEvaluation, DIDType,
                                      RequestType, RuleNotification, OBSOLETE, RSEType)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
-from rucio.extensions.forecast import T3CModel
 
 
 REGION = make_region_memcached(expiration_time=3600)
@@ -1177,7 +1176,7 @@ def repair_rule(rule_id, session=None, logger=logging.log):
 
 
 @read_session
-def get_rule(rule_id, estimate_ttc=None, session=None):
+def get_rule(rule_id, session=None):
     """
     Get a specific replication rule.
 
@@ -1191,12 +1190,6 @@ def get_rule(rule_id, estimate_ttc=None, session=None):
         d = {}
         for column in rule.__table__.columns:
             d[column.name] = getattr(rule, column.name)
-        if estimate_ttc:
-            # TODO: include the path of the netmodel in T3CModle invocation
-            model = T3CModel()
-            result = model.predict_by_rule_id(rule_id)
-            d['estimated_start_in'] = result[0]
-            d['estimated_end_in'] = result[0] + result[1]
         return d
 
     except NoResultFound:

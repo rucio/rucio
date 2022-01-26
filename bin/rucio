@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2012-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2012-2022
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Yun-Pin Sun <winter0128@gmail.com>, 2012-2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
@@ -51,10 +51,11 @@
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - zoepap05 <90753392+zoepap05@users.noreply.github.com>, 2021
 # - KosKyr <90753277+KosKyr@users.noreply.github.com>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
 # - jdierkes <joel.dierkes@cern.ch>, 2021
 # - Igor Mandrichenko <ivm@fnal.gov>, 2021
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
+# - Carlosbg <bogomcar@gmail.com>, 2021
 
 from __future__ import print_function
 
@@ -1455,6 +1456,10 @@ def info_rule(args):
 
     Retrieve information about a rule.
     """
+    if args.estimate_ttc:
+        logger.error('"--estimate-ttc" is deprecated!')
+        return FAILURE
+
     client = get_client(args)
     if args.examine:
         analysis = client.examine_replication_rule(rule_id=args.rule_id)
@@ -1471,10 +1476,7 @@ def info_rule(args):
                 print('    Available sources:    %s' % ', '.join([source[0] for source in transfer['sources'] if source[1]]))
                 print('    Blocklisted sources:  %s' % ', '.join([source[0] for source in transfer['sources'] if not source[1]]))
     else:
-        if args.estimate_ttc:
-            rule = client.get_replication_rule(rule_id=args.rule_id, estimate_ttc=True)
-        else:
-            rule = client.get_replication_rule(rule_id=args.rule_id)
+        rule = client.get_replication_rule(rule_id=args.rule_id)
         print("Id:                         %s" % rule['id'])
         print("Account:                    %s" % rule['account'])
         print("Scope:                      %s" % rule['scope'])
@@ -1500,12 +1502,7 @@ def info_rule(args):
         print("Notification:               %s" % rule['notification'])
         print("End of life:                %s" % rule['eol_at'])
         print("Child Rule Id:              %s" % rule['child_rule_id'])
-        if args.estimate_ttc:
-            if 'estimated_start_in' in rule and 'estimated_end_in' in rule:
-                print("Expected transfer start in  %0.2f minutes." % (rule['estimated_start_in'] / 60.))
-                print("Expected transfer end in    %0.2f minutes." % (rule['estimated_end_in'] / 60.))
-            else:
-                print('Couldn\'t calculate the TTC for any of the transfers. No sources selected yet?')
+
     return SUCCESS
 
 
@@ -2382,7 +2379,7 @@ You can filter by key/value, e.g.::
     info_rule_parser.set_defaults(function=info_rule)
     info_rule_parser.add_argument(dest='rule_id', action='store', help='The rule ID')
     info_rule_parser.add_argument('--examine', dest='examine', action='store_true', help='Detailed analysis of transfer errors')
-    info_rule_parser.add_argument('--estimate-ttc', dest='estimate_ttc', action='store_true', help='Show Estimated Time To Complete for the rule. Calculation can be time consuming.')
+    info_rule_parser.add_argument('--estimate-ttc', dest='estimate_ttc', action='store_true', help='Deprecated, specifying this will cause the program to fail.')
 
     # The list_rules command
     list_rules_parser = subparsers.add_parser('list-rules', help='List replication rules.', formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Usage example

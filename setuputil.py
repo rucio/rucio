@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from __future__ import print_function
 
@@ -95,7 +96,6 @@ server_requirements_table = {
         'oauth2client',
         'retrying',
         'redis',
-        'numpy',
         'flask',
         'oic',
         'prometheus_client',

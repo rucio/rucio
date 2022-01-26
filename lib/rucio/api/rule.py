@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Ian Johnson <ijjorama@gmail.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
 
 from rucio.api.permission import has_permission
 from rucio.common.config import config_get_bool
@@ -122,7 +122,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
                          meta=meta)
 
 
-def get_replication_rule(rule_id, issuer, estimate_ttc=None, vo='def'):
+def get_replication_rule(rule_id, issuer, vo='def'):
     """
     Get replication rule by it's id.
 
@@ -133,7 +133,7 @@ def get_replication_rule(rule_id, issuer, estimate_ttc=None, vo='def'):
     kwargs = {'rule_id': rule_id}
     if is_multi_vo() and not has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs):
         raise AccessDenied('Account %s can not access rules at other VOs.' % (issuer))
-    result = rule.get_rule(rule_id, estimate_ttc)
+    result = rule.get_rule(rule_id)
     return api_update_return_dict(result)
 
 
