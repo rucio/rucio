@@ -16,7 +16,7 @@ We provide a `dockerized environment <https://github.com/rucio/rucio/tree/master
 Developers
 ----------
 
-For information on how to contribute to Rucio, please refer and follow our `CONTRIBUTING <CONTRIBUTING.rst>`_ guidelines. We strongly recommend to use the `dockerized environment <https://github.com/rucio/rucio/tree/master/etc/docker/dev>`_ for development.
+For information on how to contribute to Rucio, please refer and follow our `CONTRIBUTING <https://rucio.cern.ch/documentation/contributing>`_ guidelines. We strongly recommend to use the `dockerized environment <https://github.com/rucio/rucio/tree/master/etc/docker/dev>`_ for development.
 
 Operators
 ----------
