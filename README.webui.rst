@@ -12,7 +12,7 @@ General information and latest documentation about Rucio can be found at `readth
 Developers
 ----------
 
-For information on how to contribute to Rucio, please refer and follow our `CONTRIBUTING <CONTRIBUTING.rst>`_ guidelines.
+For information on how to contribute to Rucio, please refer and follow our `CONTRIBUTING <https://rucio.cern.ch/documentation/contributing>`_ guidelines.
 
 Operators
 ----------

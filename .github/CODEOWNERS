@@ -1,6 +1,6 @@
 # Code owner specification in Rucio
 #
-# Please consult the contribution guide for general contribution guidelines https://github.com/rucio/rucio/blob/master/CONTRIBUTING.rst
+# Please consult the contribution guide for general contribution guidelines https://rucio.cern.ch/documentation/contributing
 #
 # In addition to peer-review, which is open to the entire Rucio community, we also notify the respective component leads to review pull requests involving their components.
 # Component leads: https://github.com/rucio/rucio/wiki
