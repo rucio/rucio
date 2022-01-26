@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021-2022
 
 """
 Core tracer module
