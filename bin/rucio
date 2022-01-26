@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2012-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2012-2022
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Yun-Pin Sun <winter0128@gmail.com>, 2012-2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
@@ -42,7 +42,7 @@
 # - Jason Nielsen <jnielsen@ucsc.edu>, 2020
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
@@ -55,6 +55,7 @@
 # - jdierkes <joel.dierkes@cern.ch>, 2021
 # - Igor Mandrichenko <ivm@fnal.gov>, 2021
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
+# - Carlosbg <bogomcar@gmail.com>, 2021
 
 from __future__ import print_function
 
@@ -1181,7 +1182,7 @@ def download(args):
 
     summary = {}
     for item in result:
-        for did, did_stats in item.get('input_dids').items():
+        for did, did_stats in item.get('input_dids', {}).items():
             did_summary = summary.setdefault(did, {'length': did_stats.get('length'), 'DONE': 0, 'ALREADY_DONE': 0, '_total': 0})
             did_summary['_total'] += 1
             state = item['clientState'].upper()

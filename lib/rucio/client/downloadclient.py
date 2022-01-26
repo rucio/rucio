@@ -29,11 +29,11 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import division
 
@@ -224,6 +224,7 @@ class DownloadClient:
             did_str = item.get('did')
             pfn = item.get('pfn')
             rse = item.get('rse')
+            item['input_dids'] = {DIDType(did_str): {}}
 
             if not did_str or not pfn or not rse:
                 logger(logging.DEBUG, item)
