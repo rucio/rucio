@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2022
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -30,7 +30,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
@@ -679,6 +679,30 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert re.search(tmp_file1[5:], out) is not None
+
+        try:
+            for i in listdir('data13_hip'):
+                unlink('data13_hip/%s' % i)
+            rmdir('data13_hip')
+        except Exception:
+            pass
+
+    def test_download_pfn(self):
+        """CLIENT(USER): Rucio download files"""
+        tmp_file1 = file_generator()
+        name = os.path.basename(tmp_file1)
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+
+        # download files
+        replica_pfn = list(self.replica_client.list_replicas([{'scope': self.user, 'name': name}]))[0]['rses'][self.def_rse][0]
+        cmd = 'rucio -v download --rse {0} --pfn {1} {2}:{3}'.format(self.def_rse, replica_pfn, self.user, name)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert re.search('Total files.*1', out) is not None
 
         try:
             for i in listdir('data13_hip'):
