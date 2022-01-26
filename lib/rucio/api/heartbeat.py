@@ -8,6 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -29,3 +30,22 @@ def list_heartbeats(issuer=None, vo='def'):
     if not permission.has_permission(issuer=issuer, vo=vo, action='list_heartbeats', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot list heartbeats' % issuer)
     return heartbeat.list_heartbeats()
+
+
+def create_heartbeat(executable, hostname, pid, thread, older_than, payload, issuer=None, vo='def'):
+    """
+    Creates a heartbeat.
+    :param issuer: The issuer account.
+    :param vo: the VO for the issuer.
+    :param executable: Executable name as a string, e.g., conveyor-submitter.
+    :param hostname: Hostname as a string, e.g., rucio-daemon-prod-01.cern.ch.
+    :param pid: UNIX Process ID as a number, e.g., 1234.
+    :param thread: Python Thread Object.
+    :param older_than: Ignore specified heartbeats older than specified nr of seconds.
+    :param payload: Payload identifier which can be further used to identify the work a certain thread is executing.
+
+    """
+    kwargs = {'issuer': issuer}
+    if not permission.has_permission(issuer=issuer, vo=vo, action='send_heartbeats', kwargs=kwargs):
+        raise exception.AccessDenied('%s cannot send heartbeats' % issuer)
+    heartbeat.live(executable=executable, hostname=hostname, pid=pid, thread=thread, older_than=older_than, payload=payload)
