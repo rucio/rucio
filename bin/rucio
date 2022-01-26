@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2012-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2012-2022
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Yun-Pin Sun <winter0128@gmail.com>, 2012-2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
@@ -42,7 +42,7 @@
 # - Jason Nielsen <jnielsen@ucsc.edu>, 2020
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
@@ -55,6 +55,7 @@
 # - jdierkes <joel.dierkes@cern.ch>, 2021
 # - Igor Mandrichenko <ivm@fnal.gov>, 2021
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
+# - Carlosbg <bogomcar@gmail.com>, 2021
 
 from __future__ import print_function
 
@@ -1110,7 +1111,6 @@ def download(args):
     item_defaults['base_dir'] = args.dir
     item_defaults['no_subdir'] = args.no_subdir
     item_defaults['transfer_timeout'] = args.transfer_timeout
-    item_defaults['transfer_speed_timeout'] = args.transfer_speed_timeout
     item_defaults['no_resolve_archives'] = args.no_resolve_archives
     item_defaults['ignore_checksum'] = args.ignore_checksum
     item_defaults['check_local_with_filesize_only'] = args.check_local_with_filesize_only
@@ -1142,7 +1142,9 @@ def download(args):
         item_defaults['impl'] = args.impl
         item_defaults['force_scheme'] = args.protocol
         item_defaults['nrandom'] = args.nrandom
-
+        item_defaults['transfer_speed_timeout'] = args.transfer_speed_timeout \
+            if args.transfer_speed_timeout is not None \
+            else config_get('download', 'transfer_speed_timeout', False, 500)
         items = []
         if args.dids:
             for did in args.dids:
@@ -2296,7 +2298,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--ignore-checksum', action='store_true', default=False, help="Don't validate checksum for downloaded files.")
         selected_parser.add_argument('--check-local-with-filesize-only', action='store_true', default=False, help="Don't use checksum verification for already downloaded files, use filesize instead.")
         selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, None), help='Transfer timeout (in seconds). Default: computed dynamically from --transfer-speed-timeout. If set to any value >= 0, --transfer-speed-timeout is ignored.')  # NOQA: E501
-        selected_parser.add_argument('--transfer-speed-timeout', dest='transfer_speed_timeout', type=float, action='store', default=config_get('download', 'transfer_speed_timeout', False, 500), help='Minimum allowed average transfer speed (in KBps). Default: 500. Used to dynamically compute the timeout if --transfer-timeout not set. Is not supported for --pfn.')  # NOQA: E501
+        selected_parser.add_argument('--transfer-speed-timeout', dest='transfer_speed_timeout', type=float, action='store', default=None, help='Minimum allowed average transfer speed (in KBps). Default: 500. Used to dynamically compute the timeout if --transfer-timeout not set. Is not supported for --pfn.')  # NOQA: E501
         selected_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
         selected_parser.add_argument('--trace_appid', '--trace-appid', new_option_string='--trace-appid', dest='trace_appid', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
         selected_parser.add_argument('--trace_dataset', '--trace-dataset', new_option_string='--trace-dataset', dest='trace_dataset', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)
