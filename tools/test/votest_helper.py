@@ -94,20 +94,17 @@ def persist_config_overrides(data: dict, vo: str, rucio_cfg: Path):
 
 def collect_tests(data: dict, vo: str):
     keyword_path_mapping = {
-        "rucio_tests": Path("/root/rucio/lib/rucio/tests"),
-        "none": None
+        Path("rucio_tests"): Path("lib/rucio/tests"),
+        Path("rucio_root"): Path("/opt/rucio"),
     }
-    def _replace_keywords(path: str):
-        for keyword in keyword_path_mapping.keys():
-            path = path.replace(keyword, keyword_path_mapping[keyword])
-        return path
-    resolve_keywords = functools.partial(map, lambda path: Path(path) if path not in keyword_path_mapping else keyword_path_mapping[path])
+    substitute_keywords = functools.partial(functools.reduce, lambda path, part: path / keyword_path_mapping[part] if part in keyword_path_mapping.keys() else path / part)
+    resolve_path_keywords = functools.partial(map, lambda path: substitute_keywords([keyword_path_mapping[Path("rucio_root")]] + [Path(x) for x in Path(path).parts]))
     resolve_paths = functools.partial(map, lambda path: glob.glob(f"{path}/test_*.py") if path.is_dir() else [str(path)])
     combine_paths = lambda all_paths: itertools.chain.from_iterable(all_paths)
-    
+    filter_paths = functools.partial(filter, lambda path: Path(path).is_file())
     tests = get_config(data=data, vo=vo, section="tests")
-    allowed_paths = set(combine_paths(resolve_paths(resolve_keywords(tests['allow']))))
-    excluded_paths = set(combine_paths(resolve_paths(resolve_keywords(tests['allow']))))
+    allowed_paths = set(filter_paths(combine_paths(resolve_paths(resolve_path_keywords(tests['allow'])))))
+    excluded_paths = set(filter_paths(combine_paths(resolve_paths(resolve_path_keywords(tests['deny'])))))
     
     tests_to_run = allowed_paths - excluded_paths
     return " ".join(tests_to_run)
