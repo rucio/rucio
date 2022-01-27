@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from flask import Flask, Blueprint, request as request, jsonify
 
@@ -38,14 +38,23 @@ class Config(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """
-        List full configuration.
-
-        .. :quickref: Config; List full config.
-
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 406: Not Acceptable.
+        ---
+        summary: List
+        description: List the full configuration.
+        tags:
+          - Config
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: A dict with the sections as keys and a dict with the configuration as value.
+                  type: object
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
         """
         res = {}
         for section in config.sections(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
@@ -57,15 +66,31 @@ class Config(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Create or set the configuration option in the requested section.
-        The request body is expected to contain a json {"section": {"option": "value"}}.
-
-        .. :quickref: Config; set config value
-
-        :status 201: Option successfully created or updated.
-        :status 400: The input data is invalid or incomplete.
-        :status 401: Invalid Auth Token.
-        :status 500: Configuration Error.
+        ---
+        summary: Create
+        description: Create or set the configuration option in the requested section.
+        tags:
+          - Config
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                description: "The request body is expected to contain a json {'section': {'option': 'value'}}."
+                type: object
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          401:
+            description: Invalid Auth Token
+          400:
+            description: The input data was incomplete or invalid
+          500:
+            description: Configuration error
         """
         parameters = json_parameters()
         for section, section_config in parameters.items():
@@ -85,16 +110,42 @@ class Section(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, section):
         """
-        List configuration of a section
-
-        .. :quickref: Section; List config section.
-
-        :param section: The section name.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: Config not found.
-        :status 406: Not Acceptable.
+        ---
+        summary: List Sections
+        tags:
+          - Config
+        parameters:
+        - name: section
+          in: path
+          description: The section to return.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - bytes
+                properties:
+                  bytes:
+                    description: The new limit in bytes.
+                    type: integer
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: Dictionary of section options.
+                  type: object
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Config not found
+          406:
+            description: Not acceptable
         """
         res = {}
         for item in config.items(section, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
@@ -116,16 +167,38 @@ class OptionGetDel(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, section, option):
         """
-        Retrieve the value of an option.
-
-        .. :quickref: OptionGetDel; get config value.
-
-        :param section: The section name.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: Config not found.
-        :status 406: Not Acceptable.
+        ---
+        summary: Get option
+        description: Returns the value of an option
+        tags:
+          - Config
+        parameters:
+        - name: section
+          in: path
+          description: The section.
+          schema:
+            type: string
+          style: simple
+        - name: option
+          in: path
+          description: The option of the section.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: The value of the option
+                  type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Config not found
+          406:
+            description: Not acceptable
         """
         try:
             result = config.get(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -137,12 +210,29 @@ class OptionGetDel(ErrorHandlingMethodView):
 
     def delete(self, section, option):
         """
-        Delete an option.
-
-        .. :quickref: OptionGetDel; delete an option.
-
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
+        ---
+        summary: Delete option
+        description: Delete an option of a section.
+        tags:
+          - Config
+        parameters:
+        - name: section
+          in: path
+          description: The section.
+          schema:
+            type: string
+          style: simple
+        - name: option
+          in: path
+          description: The option of the section.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
         """
         config.remove_option(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         return '', 200
@@ -153,14 +243,48 @@ class OptionSet(ErrorHandlingMethodView):
 
     def put(self, section, option, value):
         """
-        Set the value of an option.
-        If the option does not exist, create it.
-
-        .. :quickref: OptionSet; set config value.
-
-        :status 201: Option successfully created or updated.
-        :status 401: Invalid Auth Token.
-        """
+        ---
+        summary: Create value
+        description: Create or set the value of an option.
+        tags:
+          - Config
+        parameters:
+        - name: section
+          in: path
+          description: The section.
+          schema:
+            type: string
+          style: simple
+        - name: option
+          in: path
+          description: The option of the section.
+          schema:
+            type: string
+          style: simple
+        - name: value
+          in: path
+          description: The value to set.
+          schema:
+            type: string
+          style: simple
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          401:
+            description: Invalid Auth Token
+          500:
+            description: Value could not be set
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Could not set value {} for section {} option {}']
+          """
         try:
             config.set(section=section, option=option, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
             return 'Created', 201
