@@ -26,7 +26,8 @@ import configparser
 from pathlib import Path
 import typing
 import yaml
-
+import glob
+import itertools
 
 logger = logging.getLogger(__name__)
 
@@ -92,18 +93,24 @@ def persist_config_overrides(data: dict, vo: str, rucio_cfg: Path):
 
 
 def collect_tests(data: dict, vo: str):
-    def is_excluded(path: Path, excluded_paths: typing.List[Path]):
-        """
-        Checks if the incoming path should be exluded from the final set of tests to run
-        """
-        return functools.reduce(lambda x, y: x and y, [bool(excluded_path in path.parents or excluded_path == path) for excluded_path in excluded_paths])
-    def process_keywords
+    keyword_path_mapping = {
+        "rucio_tests": Path("/root/rucio/lib/rucio/tests"),
+        "none": None
+    }
+    def _replace_keywords(path: str):
+        for keyword in keyword_path_mapping.keys():
+            path = path.replace(keyword, keyword_path_mapping[keyword])
+        return path
+    resolve_keywords = functools.partial(map, lambda path: Path(path) if path not in keyword_path_mapping else keyword_path_mapping[path])
+    resolve_paths = functools.partial(map, lambda path: glob.glob(f"{path}/test_*.py") if path.is_dir() else [str(path)])
+    combine_paths = lambda all_paths: itertools.chain.from_iterable(all_paths)
+    
     tests = get_config(data=data, vo=vo, section="tests")
-    tests_allow = set(tests["allow"])
-    tests_deny = set(tests["deny"])
-    for test_allow_entry in tests_allow:
-        pass
-    return "Test"
+    allowed_paths = set(combine_paths(resolve_paths(resolve_keywords(tests['allow']))))
+    excluded_paths = set(combine_paths(resolve_paths(resolve_keywords(tests['allow']))))
+    
+    tests_to_run = allowed_paths - excluded_paths
+    return " ".join(tests_to_run)
 
 
 def build_config(input_conf):
