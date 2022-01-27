@@ -52,14 +52,12 @@ if [ "$1" == "webui" ]; then
 fi
 
 /bin/rm setup.py
-/bin/cp README.rucio.rst README.rst
 /bin/cp MANIFEST.in.rucio MANIFEST.in
 /bin/cp setup_rucio.py setup.py
 # Pre-build one time to ensure correct vcversion file
 python setup.py build sdist
 
 if $rucio; then
-   /bin/cp README.rucio.rst README.rst
    /bin/cp MANIFEST.in.rucio MANIFEST.in
    /bin/cp setup_rucio.py setup.py
    # Push on pypi@org
@@ -67,7 +65,6 @@ if $rucio; then
 fi
 
 if $clients; then
-    /bin/cp README.client.rst README.rst
     /bin/cp MANIFEST.in.client MANIFEST.in
     /bin/cp setup_rucio_client.py setup.py
     # Push on pypi@org
@@ -75,7 +72,6 @@ if $clients; then
 fi
 
 if $webui; then
-    /bin/cp README.webui.rst README.rst
     /bin/cp MANIFEST.in.webui MANIFEST.in
     /bin/cp setup_webui.py setup.py
     # Push on pypi@org
