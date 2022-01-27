@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Yutaro Iiyama <yutaro.iiyama@cern.ch>, 2022
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 import logging
 import os
@@ -341,7 +343,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                                 for rse_dict in parse_expression(rule['rse_expression'], filter_={'vo': account.vo}):
                                                     preferred_rses.add(rse_dict['rse'])
                                             preferred_rses = list(preferred_rses)
-                                               
+
                                             try:
                                                 selected_rses, preferred_unmatched = resolve_rse_expression(rse_expression,
                                                                                                             account,
@@ -374,7 +376,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                                     # The DID won't be reevaluated at the next cycle
                                                     did_success = did_success and True
                                                     continue
-                                                    
+
                                             if len(preferred_rses) - len(preferred_unmatched) >= copies:
                                                 skip_rule_creation = True
 
