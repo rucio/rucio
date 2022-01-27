@@ -158,7 +158,7 @@ def consumer(id_, num_thread=1):
                 host_port = conn.transport._Transport__host_and_ports[0]
 
                 logger(logging.INFO, 'connecting to %s' % host_port[0])
-                record_counter('daemons.messaging.cache.reconnect.{}', labels={'host': host_port[0]})
+                record_counter('daemons.messaging.cache.reconnect.{host}', labels={'host': host_port[0]})
                 conn.set_listener('rucio-cache-consumer', AMQConsumer(broker=host_port, conn=conn, logger=logger))
                 if not use_ssl:
                     conn.connect(username, password)
