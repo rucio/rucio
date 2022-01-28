@@ -26,7 +26,7 @@ atlas:
     permission: atlas
     extract_scope:  atlas
     schema: atlas
-    lfn2pfn_algorithm_default: "default"
+    lfn2pfn_algorithm_default: "hash"
   tests:
     allow:
       - rucio_tests
