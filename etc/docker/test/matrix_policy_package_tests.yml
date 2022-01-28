@@ -11,8 +11,6 @@ belleii:
       - rucio_tests/belleii
     deny:
       - rucio_tests/belleii/test_belleii.py
-    custom:
-      - none
   rdbms: 
     - postgres12
   python:
@@ -29,6 +27,9 @@ atlas:
     extract_scope:  atlas
     schema: atlas
     lfn2pfn_algorithm_default: "default"
+  tests:
+    allow:
+      - rucio_tests
   rdbms: 
     - postgres12
   python:

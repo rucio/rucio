@@ -24,6 +24,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021-2022
 
 memcached -u root -d
 

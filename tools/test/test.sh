@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2022
 
 set -eo pipefail
 
