@@ -32,23 +32,9 @@ jobs:
         cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v2
-      - name: Build images
-        id: images
-        shell: bash
-        run: |
-          docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-          i=0; until [ "$i" -ge 3 ]; do
-            IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
-                --cache-repo ghcr.io/${{ github.repository }} \
-                --branch "${{ needs.setup.outputs.branch }}" ./etc/docker/test || echo "")
-            if [[ -n $IMAGES ]]; then break;
-            else
-              i=$((i+1)); sleep 5;
-              echo "::warning::Building images failed, retrying…"
-            fi
-          done
-          docker logout https://ghcr.io
-          if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
-          echo "::set-output name=images::$IMAGES"
-      - name: Run test with cfg
-        run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
+      - name: Build Images and Run Tests
+        uses: ./.github/actions/build-images-and-run-tests
+        with:
+          cfg: ${{ toJson(matrix.cfg) }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ needs.setup.outputs.branch }}
