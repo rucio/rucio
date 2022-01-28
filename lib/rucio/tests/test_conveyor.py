@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2021 CERN
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 # Authors:
 # - Wen Guan <wen.guan@cern.ch>, 2015-2016
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2022
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Mayank Sharma <imptodefeat@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
@@ -205,6 +205,8 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
 
         # FTS fails the second transfer
         request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, **did)
+        # Call finisher once to update the source rankings
+        finisher(once=True, partition_wait_time=None)
         # ensure tha the ranking was correctly decreased
         assert __get_source(request_id=request['id'], src_rse_id=jump_rse_id, **did).ranking == -1
         # run submitter again to copy from jump rse to destination rse
