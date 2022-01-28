@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2022
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
@@ -42,7 +42,8 @@ def test_quarantined_replicas():
 
     rse_id = get_rse_id(rse='MOCK', **vo)
 
-    quarantined_replicas = len(list_quarantined_replicas(rse_id=rse_id, limit=10000))
+    real_replicas, dark_replicas = list_quarantined_replicas(rse_id=rse_id, limit=10000)
+    quarantined_replicas = len(real_replicas) + len(dark_replicas)
 
     nbreplicas = 5
 
@@ -50,8 +51,10 @@ def test_quarantined_replicas():
 
     add_quarantined_replicas(rse_id=rse_id, replicas=replicas)
 
-    assert quarantined_replicas + nbreplicas == len(list_quarantined_replicas(rse_id=rse_id, limit=10000))
+    real_replicas, dark_replicas = list_quarantined_replicas(rse_id=rse_id, limit=10000)
+    assert quarantined_replicas + nbreplicas == len(dark_replicas) + len(real_replicas)
 
     delete_quarantined_replicas(rse_id=rse_id, replicas=replicas)
 
-    assert quarantined_replicas == len(list_quarantined_replicas(rse_id=rse_id, limit=10000))
+    real_replicas, dark_replicas = list_quarantined_replicas(rse_id=rse_id, limit=10000)
+    assert quarantined_replicas == len(dark_replicas) + len(real_replicas)
