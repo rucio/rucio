@@ -24,10 +24,9 @@ import logging
 import functools
 import configparser
 from pathlib import Path
-import typing
-import yaml
 import glob
 import itertools
+import yaml
 
 logger = logging.getLogger(__name__)
 

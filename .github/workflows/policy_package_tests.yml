@@ -7,6 +7,46 @@ on:
 
 job:
   setup:
-  runs-on: ubuntu-latest
-  steps:
-    
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Update pip
+        run: python3 -m pip install -U pip setuptools
+      - name: Install python requirements for matrix_parser.py
+        run: python3 -m pip install -U PyYAML
+      - name: Identify branch
+        id: branch
+        run: python3 -c 'from os import environ as env; print("::set-output name=branch::" + (env.get("GITHUB_BASE_REF", None) if env.get("GITHUB_BASE_REF", None) else env.get("GITHUB_REF", "master")))'
+      - name: Identify Matrix
+        id: matrix
+        run: echo "::set-output name=matrix::$(./tools/test/votest_helper.py)"
+    outputs:
+      branch: ${{ steps.branch.outputs.branch }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+  test:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build images
+        id: images
+        shell: bash
+        run: |
+          docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          i=0; until [ "$i" -ge 3 ]; do
+            IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
+                --cache-repo ghcr.io/${{ github.repository }} \
+                --branch "${{ needs.setup.outputs.branch }}" ./etc/docker/test || echo "")
+            if [[ -n $IMAGES ]]; then break;
+            else
+              i=$((i+1)); sleep 5;
+              echo "::warning::Building images failed, retrying…"
+            fi
+          done
+          docker logout https://ghcr.io
+          if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
+          echo "::set-output name=images::$IMAGES"
