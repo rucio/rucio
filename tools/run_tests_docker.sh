@@ -38,10 +38,11 @@ function usage {
   echo '  -t    Verbose output from pytest'
   echo '  -a    Skip alembic downgrade/upgrade test'
   echo '  -x    exit instantly on first error or failed test'
+  echo '  -p    Indicate policy package tests'
   exit
 }
 
-while getopts hirstax opt
+while getopts hirstaxp opt
 do
   case "$opt" in
     h) usage;;
@@ -51,6 +52,7 @@ do
     t) trace="true";;
     a) noalembic="true";;
     x) exitfirst="-x";;
+    p) votest="true";;
   esac
 done
 export RUCIO_HOME=/opt/etc/test
@@ -153,10 +155,24 @@ if test ${special}; then
 else
     if test ${trace}; then
         echo 'Running tests in verbose mode'
-        tools/pytest.sh -vvv ${exitfirst:-}
+        if test ${votest}; then
+            echo "Running the following votests for ${POLICY}"
+            TESTS=$(echo "${@:2}")
+            echo $TESTS | tr " " "\n"
+            tools/pytest.sh -vvv ${exitfirst:-} $TESTS
+        else
+            tools/pytest.sh -vvv ${exitfirst:-}
+        fi
     else
         echo 'Running tests'
-        tools/pytest.sh -v --tb=short ${exitfirst:-}
+        if test ${votest}; then
+            echo "Running the following votests for ${POLICY}"
+            TESTS=$(echo "${@:2}")
+            echo $TESTS | tr " " "\n"
+            tools/pytest.sh -v --tb=short ${exitfirst:-} $TESTS
+        else
+            tools/pytest.sh -v --tb=short ${exitfirst:-} 
+        fi
     fi
 fi
 

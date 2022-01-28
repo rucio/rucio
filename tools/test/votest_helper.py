@@ -105,7 +105,6 @@ def collect_tests(data: dict, vo: str):
     tests = get_config(data=data, vo=vo, section="tests")
     allowed_paths = set(filter_paths(combine_paths(resolve_paths(resolve_path_keywords(tests['allow'])))))
     excluded_paths = set(filter_paths(combine_paths(resolve_paths(resolve_path_keywords(tests['deny'])))))
-    
     tests_to_run = allowed_paths - excluded_paths
     return " ".join(tests_to_run)
 
@@ -152,13 +151,13 @@ if __name__ == "__main__":
                         metavar="file",
                         type=lambda p: Path(p).absolute(),
                         default=Path(Path(__file__).parent.parent.parent / "etc" / "docker" / "test" / "matrix_policy_package_tests.yml").absolute(),
-                        help='the path to matric_policy_package_tests.yml',
+                        help='the path to matrix_policy_package_tests.yml',
                         )
     parser.add_argument('--rucio-cfg',
                         metavar="rucio",
                         type=lambda p: Path(p).absolute(),
                         default=Path(Path(__file__).parent.parent.parent / "etc" / "rucio.cfg").absolute(),
-                        help='the path to matric_policy_package_tests.yml',
+                        help='the path to rucio.cfg',
                         )
     parser.add_argument('--vo', type=str, default='all', required=False)
     parser.add_argument('-v', action='store_true',

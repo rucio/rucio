@@ -7,9 +7,10 @@ belleii:
     lfn2pfn_algorithm_default: "belleii"
   tests:
     allow:
-      - all
+      - rucio_tests
+      - rucio_tests/belleii
     deny:
-      - none
+      - rucio_tests/belleii/test_belleii.py
     custom:
       - none
   rdbms: 
