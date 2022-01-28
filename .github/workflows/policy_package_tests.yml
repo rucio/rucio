@@ -1,4 +1,4 @@
-name: Run tests with different policy package configurations
+name: VO-specific tests
 
 on:
   - pull_request
@@ -50,3 +50,5 @@ jobs:
           docker logout https://ghcr.io
           if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
           echo "::set-output name=images::$IMAGES"
+      - name: Run test with cfg
+        run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
