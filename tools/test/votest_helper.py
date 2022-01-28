@@ -102,8 +102,8 @@ def collect_tests(data: dict, vo: str):
     combine_paths = lambda all_paths: itertools.chain.from_iterable(all_paths)
     filter_paths = functools.partial(filter, lambda path: Path(path).is_file())
     tests = get_config(data=data, vo=vo, section="tests")
-    allowed_paths = set(filter_paths(combine_paths(resolve_paths(resolve_path_keywords(tests['allow'])))))
-    excluded_paths = set(filter_paths(combine_paths(resolve_paths(resolve_path_keywords(tests['deny'])))))
+    allowed_paths = set(filter_paths(combine_paths(resolve_paths(resolve_path_keywords(tests.get('allow', []))))))
+    excluded_paths = set(filter_paths(combine_paths(resolve_paths(resolve_path_keywords(tests.get('deny', []))))))
     tests_to_run = allowed_paths - excluded_paths
     return " ".join(tests_to_run)
 
