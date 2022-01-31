@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,14 +19,17 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import copy
 import json
+import os
 from unittest import mock
 from urllib.parse import urlparse
+from tempfile import mkstemp
 
+import geoip2.database
 import pytest
 
 from rucio.common.types import InternalAccount, InternalScope
@@ -35,12 +38,65 @@ from rucio.core import rse_expression_parser, replica_sorter
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_rse, del_rse, add_rse_attribute, add_protocol, del_rse_attribute
 from rucio.tests.common import rse_name_generator, headers, auth, vohdr, Mime, accept
+from rucio.tests.inputs import GEOIP_LITE2_CITY_TEST_DB
+
+LOCATION_TO_IP = {
+    'Switzerland': '2a02:d000::1',
+    'Romania': '2a02:e940::1',
+    'Austria': '2a02:da80::1',
+    'United Kingdom': '81.2.69.142',
+    'China': '175.16.199.0',
+    'United States': '216.160.83.56',
+    'Japan': '2001:258::1',
+    'Taiwan': '2001:288::1',
+    'Israel': '2a02:cf80::1',
+    'Finland': '2a02:d200::1',
+    'United Arab Emirates': '2a02:f400::1',
+    'Libya': '2a02:e700::1',
+}
 
 base_rse_info = [
-    {'site': 'APERTURE', 'address': 'aperture.com'},
-    {'site': 'BLACKMESA', 'address': 'blackmesa.com'},
+    {'site': 'APERTURE', 'address': 'aperture.com', 'ip': LOCATION_TO_IP['Austria']},
+    {'site': 'BLACKMESA', 'address': 'blackmesa.com', 'ip': LOCATION_TO_IP['Japan']},
 ]
 schemes = ['root', 'gsiftp', 'davs']
+
+
+@pytest.fixture
+def mock_geoip_db():
+    temp_fd, temp_db_path = mkstemp()
+    os.close(temp_fd)
+    try:
+        with open(GEOIP_LITE2_CITY_TEST_DB, 'rb') as archive_file:
+            replica_sorter.extract_file_from_tar_gz(archive_file_obj=archive_file,
+                                                    file_name='GeoLite2-City-Test.mmdb',
+                                                    destination=temp_db_path)
+        with mock.patch('rucio.core.replica_sorter.__geoip_db', side_effect=lambda: geoip2.database.Reader(temp_db_path)):
+            yield geoip2.database.Reader(temp_db_path)
+    finally:
+        os.unlink(temp_db_path)
+
+
+@pytest.fixture
+def mock_get_lat_long():
+    def _get_lat_long_mock(se, gi):
+        ip = None
+        if se in LOCATION_TO_IP.values():
+            ip = se
+        else:
+            # Try to map the hostname to one of the test RSES fake ip
+            for rse_info in base_rse_info:
+                if rse_info['address'] in se:
+                    ip = rse_info['ip']
+                    break
+        if ip:
+            response = gi.city(ip)
+            return response.location.latitude, response.location.longitude
+
+        raise Exception("Unknown ip provided, fail the test")
+
+    with mock.patch('rucio.core.replica_sorter.__get_lat_long', side_effect=_get_lat_long_mock):
+        yield
 
 
 @pytest.fixture
@@ -65,7 +121,7 @@ def protocols_setup(vo):
         assert len(site_rses) > 0
         assert rse_info[idx]['id'] in [rse['id'] for rse in site_rses]
 
-    add_protocol(rse_info[0]['id'], {'scheme': schemes[0],
+    add_protocol(rse_info[0]['id'], {'scheme': 'root',
                                      'hostname': ('root.%s' % base_rse_info[0]['address']),
                                      'port': 1409,
                                      'prefix': '//test/chamber/',
@@ -73,7 +129,7 @@ def protocols_setup(vo):
                                      'domains': {
                                          'lan': {'read': 1, 'write': 1, 'delete': 1},
                                          'wan': {'read': 1, 'write': 1, 'delete': 1}}})
-    add_protocol(rse_info[0]['id'], {'scheme': schemes[2],
+    add_protocol(rse_info[0]['id'], {'scheme': 'davs',
                                      'hostname': ('davs.%s' % base_rse_info[0]['address']),
                                      'port': 443,
                                      'prefix': '/test/chamber/',
@@ -81,7 +137,7 @@ def protocols_setup(vo):
                                      'domains': {
                                          'lan': {'read': 2, 'write': 2, 'delete': 2},
                                          'wan': {'read': 2, 'write': 2, 'delete': 2}}})
-    add_protocol(rse_info[0]['id'], {'scheme': schemes[1],
+    add_protocol(rse_info[0]['id'], {'scheme': 'gsiftp',
                                      'hostname': ('gsiftp.%s' % base_rse_info[0]['address']),
                                      'port': 8446,
                                      'prefix': '/test/chamber/',
@@ -90,7 +146,7 @@ def protocols_setup(vo):
                                          'lan': {'read': 0, 'write': 0, 'delete': 0},
                                          'wan': {'read': 3, 'write': 3, 'delete': 3}}})
 
-    add_protocol(rse_info[1]['id'], {'scheme': schemes[1],
+    add_protocol(rse_info[1]['id'], {'scheme': 'gsiftp',
                                      'hostname': ('gsiftp.%s' % base_rse_info[1]['address']),
                                      'port': 8446,
                                      'prefix': '/lambda/complex/',
@@ -98,7 +154,7 @@ def protocols_setup(vo):
                                      'domains': {
                                          'lan': {'read': 2, 'write': 2, 'delete': 2},
                                          'wan': {'read': 1, 'write': 1, 'delete': 1}}})
-    add_protocol(rse_info[1]['id'], {'scheme': schemes[2],
+    add_protocol(rse_info[1]['id'], {'scheme': 'davs',
                                      'hostname': ('davs.%s' % base_rse_info[1]['address']),
                                      'port': 443,
                                      'prefix': '/lambda/complex/',
@@ -106,7 +162,7 @@ def protocols_setup(vo):
                                      'domains': {
                                          'lan': {'read': 0, 'write': 0, 'delete': 0},
                                          'wan': {'read': 2, 'write': 2, 'delete': 2}}})
-    add_protocol(rse_info[1]['id'], {'scheme': schemes[0],
+    add_protocol(rse_info[1]['id'], {'scheme': 'root',
                                      'hostname': ('root.%s' % base_rse_info[1]['address']),
                                      'port': 1409,
                                      'prefix': '//lambda/complex/',
@@ -121,6 +177,56 @@ def protocols_setup(vo):
         delete_replicas(rse_id=info['id'], files=files)
         del_rse_attribute(rse_id=info['id'], key='site')
         del_rse(info['id'])
+
+
+@pytest.mark.noparallel(reason='fails when run in parallel, lists replicas and checks for length of returned list')
+@pytest.mark.parametrize("content_type", [Mime.METALINK, Mime.JSON_STREAM])
+def test_sort_geoip_wan_client_location(vo, rest_client, auth_token, protocols_setup, content_type, mock_geoip_db, mock_get_lat_long):
+    """Replicas: test sorting a few WANs via geoip."""
+
+    data = {
+        'dids': [{'scope': f['scope'].external, 'name': f['name'], 'type': 'FILE'} for f in protocols_setup['files']],
+        'schemes': schemes,
+        'sort': 'geoip',
+    }
+
+    first_aut_then_jpn = ['root.aperture.com', 'davs.aperture.com', 'gsiftp.aperture.com', 'gsiftp.blackmesa.com', 'davs.blackmesa.com', 'root.blackmesa.com']
+    first_jpn_then_aut = ['gsiftp.blackmesa.com', 'davs.blackmesa.com', 'root.blackmesa.com', 'root.aperture.com', 'davs.aperture.com', 'gsiftp.aperture.com']
+    for client_location, expected_order in (
+            ('Switzerland', first_aut_then_jpn),
+            ('Romania', first_aut_then_jpn),
+            ('Austria', first_aut_then_jpn),
+            ('United Kingdom', first_aut_then_jpn),
+            ('Libya', first_aut_then_jpn),
+            ('China', first_jpn_then_aut),
+            ('United States', first_jpn_then_aut),
+            ('Japan', first_jpn_then_aut),
+            ('Taiwan', first_jpn_then_aut),
+            ('Israel', first_aut_then_jpn),
+            ('Finland', first_aut_then_jpn),
+            ('United Arab Emirates', first_aut_then_jpn),
+    ):
+        response = rest_client.post(
+            '/replicas/list',
+            headers=headers(auth(auth_token), vohdr(vo), accept(content_type), [('X-Forwarded-For', LOCATION_TO_IP[client_location])]),
+            json=data
+        )
+        assert response.status_code == 200
+        replicas_response = response.get_data(as_text=True)
+        assert replicas_response
+
+        replicas = []
+        pfns = []
+        if content_type == Mime.METALINK:
+            replicas = parse_replicas_from_string(replicas_response)
+            pfns = [s['pfn'] for s in replicas[0]['sources']]
+        elif content_type == Mime.JSON_STREAM:
+            replicas = list(map(json.loads, filter(bool, map(str.strip, replicas_response.splitlines(keepends=False)))))
+            pfns = list(replicas[0]['pfns'])
+
+        print(client_location, pfns)
+        assert len(replicas) == 1
+        assert [urlparse(pfn).hostname for pfn in pfns] == expected_order
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel, lists replicas and checks for length of returned list')
@@ -342,7 +448,7 @@ def test_sort_geoip_address_not_found_error(vo, rest_client, auth_token, protoco
     # invalidate cache for __get_distance so that __get_geoip_db is called
     replica_sorter.REGION.invalidate()
 
-    with mock.patch('rucio.core.replica_sorter.__get_geoip_db', side_effect=fake_get_geoip_db) as get_geoip_db_mock:
+    with mock.patch('rucio.core.replica_sorter.__geoip_db', side_effect=fake_get_geoip_db) as get_geoip_db_mock:
         response = rest_client.post(
             '/replicas/list',
             headers=headers(auth(auth_token), vohdr(vo), accept(content_type)),
