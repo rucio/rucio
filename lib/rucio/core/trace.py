@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021-2022
 
 """
 Core tracer module
@@ -196,6 +196,34 @@ GET_SCHEMA = {
                  'filename', 'dataset']
 }
 
+PUT_SCHEMA = {
+    "description": "get method, mainly sent by pilots",
+    "type": "object",
+    "properties": {
+        "eventType": {"enum": ["put_sm", "put_sm_a"]},
+        "clientState": CLIENT_STATE,
+        "stateReason": {"type": "string"},
+        "url": {"type": "string"},
+        "vo": {"type": "string"},
+        "scope": SCOPE,
+        "eventVersion": {"type": "string"},
+        "remoteSite": RSE,
+        "datasetScope": {"type": "string"},
+        "dataset": {"type": "string"},
+        "filename": {"type": "string"},
+        "name": {"type": "string"},
+        "traceTimeentry": TIME_ENTRY,
+        "traceTimeentryUnix": {"type": "number"},
+        "traceIp": IPv4orIPv6,
+        "traceId": UUID,
+        "usrdn": {"type": "string"},
+        "pq": {"type": "string"},
+        "localSite": RSE
+    },
+    "required": ['eventType', 'localSite', 'eventVersion', 'uuid', 'scope',
+                 'filename', 'dataset']
+}
+
 SCHEMAS = {
     'touch': TOUCH_SCHEMA,
     'upload': UPLOAD_SCHEMA,
@@ -204,7 +232,12 @@ SCHEMAS = {
     'get_sm': GET_SCHEMA,
     'sm_get': GET_SCHEMA,
     'get_sm_a': GET_SCHEMA,
-    'sm_get_a': GET_SCHEMA
+    'sm_get_a': GET_SCHEMA,
+    'put': PUT_SCHEMA,
+    'put_sm': PUT_SCHEMA,
+    'put_sm_a': PUT_SCHEMA,
+    'sm_put': PUT_SCHEMA,
+    'sm_put_a': PUT_SCHEMA
 }
 
 FORMAT_CHECKER = draft7_format_checker
