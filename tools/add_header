@@ -75,6 +75,7 @@ author_map = {
     ("Dhruv Sondhi", "<66117751+DhruvSondhi@users.noreply.github.com>"): ("Dhruv Sondhi", "<dhruvsondhi05@gmail.com>"),
     ("David Población Criado", "<13998309+davidpob99@users.noreply.github.com>"): ("David Población Criado", "<david.poblacion.criado@cern.ch>"),
     ("Joel Dierkes", "<dierkesjoel@gmail.com>"): ("Joel Dierkes", "<joel.dierkes@cern.ch>"),
+    ("maany", "<imptodefeat@gmail.com>"): ("Mayank Sharma", "<mayank.sharma@cern.ch>"),
 }
 
 
@@ -122,7 +123,6 @@ def main(arguments):
 
             if int(min_) > int(year):
                 min_ = year
-
             if author not in authors:
                 authors[author] = {'name': author,
                                    'mail': mail,
