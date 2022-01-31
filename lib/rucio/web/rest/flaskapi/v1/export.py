@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from flask import Flask, Blueprint, request, Response
 
@@ -30,31 +31,31 @@ class Export(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
-        """ Export data from Rucio.
-
-        .. :quickref: Export data
-
-        **Example request**:
-
-        .. sourcecode:: http
-
-            GET /export HTTP/1.1
-            Host: rucio.cern.ch
-
-        **Example response**:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Vary: Accept
-            Content-Type: application/json
-
-            {"rses": [{"rse": "MOCK", "rse_type": "TAPE"}], "distances": {}}
-        :resheader Content-Type: application/json
-        :status 200: DIDs found
-        :status 401: Invalid Auth Token
-        :status 406: Not Acceptable
-        :returns: dictionary with rucio data
+        """
+        ---
+        SUMMARY: Export data
+        description: Export data from rucio.
+        tags:
+          - Export
+        parameters:
+        - distance:
+          in: query
+          description: Should the distance be enabled?
+          schema:
+            type: boolean
+          required: false
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: object
+                  description: Dictionary with rucio data.
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
         """
         distance = request.args.get('distance', default='True') == 'True'
         return Response(render_json(**export_data(issuer=request.environ.get('issuer'), distance=distance, vo=request.environ.get('vo'))), content_type='application/json')
