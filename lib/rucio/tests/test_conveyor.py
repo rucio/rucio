@@ -272,6 +272,7 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
     assert request['state'] == RequestState.FAILED
     request = request_core.get_request_by_did(rse_id=jump_rse_id, **did)
     assert request['state'] == RequestState.FAILED
+    assert request['attributes']['source_replica_expression'] == src_rse
 
     # Each hop is a separate transfer, which will be handled by the poller and marked as failed
     assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 2

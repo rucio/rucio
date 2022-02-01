@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2022
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2021
@@ -69,7 +69,7 @@ from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
-from rucio.core.request import queue_requests, set_request_state
+from rucio.core.request import get_request_by_did, queue_requests, set_request_state
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
@@ -101,6 +101,9 @@ REGION_SHORT = make_region_memcached(expiration_time=600)
 WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
 
 DEFAULT_MULTIHOP_TOMBSTONE_DELAY = int(datetime.timedelta(hours=2).total_seconds())
+
+# For how much time to skip handling a request when a concurrent submission by multiple submitters is suspected
+CONCURRENT_SUBMISSION_TOLERATION_DELAY = datetime.timedelta(minutes=5)
 
 
 class RseData:
@@ -178,7 +181,7 @@ class TransferDestination:
 
 class RequestWithSources:
     def __init__(self, id_, request_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes,
-                 previous_attempt_id, dest_rse_data, account, retry_count, priority, transfertool):
+                 previous_attempt_id, dest_rse_data, account, retry_count, priority, transfertool, requested_at=None):
 
         self.request_id = id_
         self.request_type = request_type
@@ -197,6 +200,7 @@ class RequestWithSources:
         self.retry_count = retry_count or 0
         self.priority = priority if priority is not None else 3
         self.transfertool = transfertool
+        self.requested_at = requested_at if requested_at else datetime.datetime.utcnow()
 
         self.sources = []
 
@@ -1144,6 +1148,35 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
     yield from sorted(candidate_paths, key=__transfer_order_key)
 
 
+def __handle_intermediate_hop_requests(
+        requests_with_sources: "Iterable[RequestWithSources]",
+        logger: "Callable" = logging.log,
+) -> "Generator[RequestWithSources]":
+    """
+    Intermediate request of a multihop shouldn't stay in the QUEUED state for too long.
+    They should be transited to SUBMITTED state by the submitter who created them
+    almost immediately after creation.
+
+    Due to the distributed nature of rucio, the short time window can be enough for
+    this intermediate request to be picked by another submitter which will start
+    working on it. This function takes care that this "other" submitter doesn't try
+    to submit this intermediate request. It is also responsible to cleanup such
+    intermediate requests which stays in a queued state for "too long". This probably
+    means that the initial submitter, who created them, crashed before submission.
+    """
+    now = datetime.datetime.utcnow()
+    for rws in requests_with_sources:
+        if rws.attributes.get('initial_request_id'):
+            # This is an intermediate hop, don't consider it for submission
+            if rws.requested_at < now - CONCURRENT_SUBMISSION_TOLERATION_DELAY:
+                logger(logging.WARNING, '%s: marking stalled intermediate hop as submission_failed', rws.request_id)
+                set_request_state(request_id=rws.request_id, new_state=RequestState.SUBMISSION_FAILED)
+            else:
+                logger(logging.WARNING, '%s: skipping intermediate hop from being submitted on its own', rws.request_id)
+        else:
+            yield rws
+
+
 @transactional_session
 def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
                              failover_schemes=None, filter_transfertool=None, transfertools_by_name=None, request_type=RequestType.TRANSFER,
@@ -1202,6 +1235,9 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
         transfertool=filter_transfertool,
         session=session,
     )
+
+    # Filter (and maybe mark as failed) intermediate hop requests
+    request_with_sources = list(__handle_intermediate_hop_requests(request_with_sources, logger))
 
     # for each source, compute the (possibly multihop) path between it and the transfer destination
     candidate_paths, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source = __build_transfer_paths(
@@ -1452,6 +1488,7 @@ def __assign_paths_to_transfertool_and_create_hops(
         # intermediate hops (if it is a multihop) work correctly
         best_path = None
         builder_to_use = None
+        concurrent_submission_detected = False
         for transfer_path in candidate_paths:
             builder = None
             if transfertools_by_name:
@@ -1463,10 +1500,18 @@ def __assign_paths_to_transfertool_and_create_hops(
                     if builder:
                         break
             if builder or not transfertools_by_name:
-                if create_missing_replicas_and_requests(transfer_path, default_tombstone_delay, logger=logger, session=session):
+                created, concurrent_submission_detected = create_missing_replicas_and_requests(
+                    transfer_path, default_tombstone_delay, logger=logger, session=session
+                )
+                if created:
                     best_path = transfer_path
                     builder_to_use = builder
+                if created or concurrent_submission_detected:
                     break
+
+        if concurrent_submission_detected:
+            logger(logging.INFO, '%s: Request is being handled by another submitter. Skipping for now.' % request_id)
+            continue
 
         if not best_path:
             reqs_no_host.add(request_id)
@@ -1492,12 +1537,13 @@ def create_missing_replicas_and_requests(
         default_tombstone_delay: int,
         logger: "Callable",
         session: "Optional[Session]" = None
-) -> bool:
+) -> "Tuple[bool, bool]":
     """
     Create replicas and requests in the database for the intermediate hops
     """
     initial_request_id = transfer_path[-1].rws.request_id
     creation_successful = True
+    concurrent_submission_detected = False
     created_requests = []
     # Iterate the path in reverse order. The last hop is the initial request, so
     # next_hop.rws.request_id will always be initialized when handling the current hop.
@@ -1537,6 +1583,7 @@ def create_missing_replicas_and_requests(
 
         rws.attributes['next_hop_request_id'] = transfer_path[i + 1].rws.request_id
         rws.attributes['initial_request_id'] = initial_request_id
+        rws.attributes['source_replica_expression'] = hop.src.rse.name
         new_req = queue_requests(requests=[{'dest_rse_id': rws.dest_rse.id,
                                             'scope': rws.scope,
                                             'name': rws.name,
@@ -1549,13 +1596,18 @@ def create_missing_replicas_and_requests(
         # If a request already exists, new_req will be an empty list.
         if not new_req:
             creation_successful = False
+
+            existing_request = get_request_by_did(rws.scope, rws.name, rws.dest_rse.id, session=session)
+            if datetime.datetime.utcnow() - CONCURRENT_SUBMISSION_TOLERATION_DELAY < existing_request['requested_at']:
+                concurrent_submission_detected = True
+
             break
         rws.request_id = new_req[0]['id']
         logger(logging.DEBUG, '%s: New request created for the transfer between %s and %s : %s', initial_request_id, transfer_path[0].src, transfer_path[-1].dst, rws.request_id)
         set_request_state(rws.request_id, RequestState.QUEUED, session=session, logger=logger)
         created_requests.append(rws.request_id)
 
-    if not creation_successful:
+    if not concurrent_submission_detected and not creation_successful:
         # Need to fail all the intermediate requests
         logger(logging.WARNING, '%s: Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests',
                initial_request_id, transfer_path[0].src, transfer_path[-1].dst)
@@ -1566,7 +1618,7 @@ def create_missing_replicas_and_requests(
         except UnsupportedOperation:
             logger(logging.ERROR, '%s: Multihop : Cannot cancel all the parent requests : %s', initial_request_id, str(created_requests))
 
-    return creation_successful
+    return creation_successful, concurrent_submission_detected
 
 
 @read_session
@@ -1621,6 +1673,7 @@ def __list_transfer_requests_and_source_replicas(
                                  models.Request.retry_count,
                                  models.Request.account,
                                  models.Request.created_at,
+                                 models.Request.requested_at,
                                  models.Request.priority,
                                  models.Request.transfertool) \
         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle') \
@@ -1680,6 +1733,7 @@ def __list_transfer_requests_and_source_replicas(
                           sub_requests.c.retry_count,
                           sub_requests.c.priority,
                           sub_requests.c.transfertool,
+                          sub_requests.c.requested_at,
                           models.RSE.id.label("source_rse_id"),
                           models.RSE.rse,
                           models.RSEFileAssociation.path,
@@ -1711,7 +1765,7 @@ def __list_transfer_requests_and_source_replicas(
 
     requests_by_id = {}
     for (request_id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, dest_rse_id, account, retry_count,
-         priority, transfertool, source_rse_id, source_rse_name, file_path, source_ranking, source_url, distance_ranking) in query:
+         priority, transfertool, requested_at, source_rse_id, source_rse_name, file_path, source_ranking, source_url, distance_ranking) in query:
 
         # If we didn't pre-filter using temporary tables on database side, perform the filtering here
         if not use_temp_tables and rses and dest_rse_id not in rses:
@@ -1722,7 +1776,8 @@ def __list_transfer_requests_and_source_replicas(
             request = RequestWithSources(id_=request_id, request_type=request_type, rule_id=rule_id, scope=scope, name=name,
                                          md5=md5, adler32=adler32, byte_count=byte_count, activity=activity, attributes=attributes,
                                          previous_attempt_id=previous_attempt_id, dest_rse_data=RseData(id_=dest_rse_id),
-                                         account=account, retry_count=retry_count, priority=priority, transfertool=transfertool)
+                                         account=account, retry_count=retry_count, priority=priority, transfertool=transfertool,
+                                         requested_at=requested_at)
             requests_by_id[request_id] = request
 
         if source_rse_id is not None:
