@@ -44,6 +44,7 @@
 
 import heapq
 import logging
+import math
 import random
 from collections import defaultdict
 from copy import deepcopy
@@ -58,7 +59,7 @@ from traceback import format_exc
 import requests
 from dogpile.cache.api import NO_VALUE
 from six import string_types
-from sqlalchemy import func, and_, or_, exists, not_, update, delete
+from sqlalchemy import func, and_, or_, exists, not_, update, delete, Column
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
@@ -70,6 +71,7 @@ import rucio.core.lock
 from rucio.common import exception
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get
+from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.constants import SuspiciousAvailability
@@ -83,6 +85,8 @@ from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailab
                                      BadFilesStatus, RuleState, BadPFNStatus)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
                                    DEFAULT_SCHEMA_NAME, BASE)
+from rucio.db.sqla.types import InternalScopeString, String
+from rucio.db.sqla.util import create_temp_table
 from rucio.rse import rsemanager as rsemgr
 
 REGION = make_region_memcached(expiration_time=60)
@@ -2049,6 +2053,146 @@ def get_replica(rse_id, scope, name, session=None):
 
 @transactional_session
 def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_seconds=600, only_delete_obsolete=False, session=None):
+    """
+    List RSE File replicas with no locks.
+
+    :param limit:                    Number of replicas returned.
+    :param bytes_:                   The amount of needed bytes.
+    :param rse_id:                   The rse_id.
+    :param delay_seconds:            The delay to query replicas in BEING_DELETED state
+    :param only_delete_obsolete      If set to True, will only return the replicas with EPOCH tombstone
+    :param session:                  The database session in use.
+
+    :returns: a list of dictionary replica.
+    """
+
+    needed_space = bytes_
+    total_bytes = 0
+    rows = []
+
+    columns = [
+        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
+        Column("name", String(get_schema_value('NAME_LENGTH'))),
+    ]
+    temp_table_cls = create_temp_table(
+        "list_and_mark_unlocked_replicas",
+        *columns,
+        primary_key=columns,
+        session=session,
+    )
+
+    replicas_alias = aliased(models.RSEFileAssociation, name='replicas_alias')
+
+    stmt = select(
+        models.RSEFileAssociation.scope,
+        models.RSEFileAssociation.name,
+    ).with_hint(
+        models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle'
+    ).where(
+        models.RSEFileAssociation.lock_cnt == 0,
+        models.RSEFileAssociation.rse_id == rse_id,
+        models.RSEFileAssociation.tombstone == OBSOLETE if only_delete_obsolete else models.RSEFileAssociation.tombstone < datetime.utcnow(),
+    ).where(
+        or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
+            and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))
+    ).outerjoin(
+        models.Source,
+        and_(models.RSEFileAssociation.scope == models.Source.scope,
+             models.RSEFileAssociation.name == models.Source.name,
+             models.RSEFileAssociation.rse_id == models.Source.rse_id)
+    ).where(
+        models.Source.scope.is_(None)  # Only try to delete replicas if they are not used as sources in any transfers
+    ).order_by(
+        models.RSEFileAssociation.tombstone
+    ).with_for_update(
+        skip_locked=True,
+        # oracle: we must specify a column, not a table; however, it doesn't matter which column, the lock is put on the whole row
+        # postgresql/mysql: sqlalchemy driver automatically converts it to a table name
+        # sqlite: this is completely ignored
+        of=models.RSEFileAssociation.scope,
+    )
+
+    for chunk in chunks(session.execute(stmt).yield_per(2 * limit), math.ceil(1.25 * limit)):
+        session.query(temp_table_cls).delete()
+        session.bulk_insert_mappings(temp_table_cls, [{'scope': scope, 'name': name} for scope, name in chunk])
+
+        stmt = select(
+            models.RSEFileAssociation.scope,
+            models.RSEFileAssociation.name,
+            models.RSEFileAssociation.path,
+            models.RSEFileAssociation.bytes,
+            models.RSEFileAssociation.tombstone,
+            models.RSEFileAssociation.state,
+        ).join(
+            temp_table_cls,
+            and_(models.RSEFileAssociation.scope == temp_table_cls.scope,
+                 models.RSEFileAssociation.name == temp_table_cls.name,
+                 models.RSEFileAssociation.rse_id == rse_id)
+        ).with_hint(
+            replicas_alias, "index(%(name)s REPLICAS_PK)", 'oracle'
+        ).outerjoin(
+            replicas_alias,
+            and_(models.RSEFileAssociation.scope == replicas_alias.scope,
+                 models.RSEFileAssociation.name == replicas_alias.name,
+                 models.RSEFileAssociation.rse_id != replicas_alias.rse_id)
+        ).with_hint(
+            models.Request, "INDEX(requests REQUESTS_SCOPE_NAME_RSE_IDX)", 'oracle'
+        ).outerjoin(
+            models.Request,
+            and_(models.RSEFileAssociation.scope == models.Request.scope,
+                 models.RSEFileAssociation.name == models.Request.name)
+        ).group_by(
+            models.RSEFileAssociation
+        ).having(
+            case([(func.count(replicas_alias.scope) > 0, True),  # Can delete this replica if it's not the last replica
+                  (func.count(models.Request.scope) == 0, True)],  # If it's the last replica, only can delete if there are no requests using it
+                 else_=False).label("can_delete"),
+        ).order_by(
+            models.RSEFileAssociation.tombstone
+        ).limit(
+            limit - len(rows)
+        )
+
+        for scope, name, path, bytes_, tombstone, state in session.execute(stmt):
+            if len(rows) >= limit or (needed_space is not None and total_bytes > needed_space):
+                break
+            if state != ReplicaState.UNAVAILABLE:
+                total_bytes += bytes_
+
+            rows.append({'scope': scope, 'name': name, 'path': path,
+                         'bytes': bytes_, 'tombstone': tombstone,
+                         'state': state})
+        if len(rows) >= limit or (needed_space is not None and total_bytes > needed_space):
+            break
+
+    if rows:
+        replica_clause = [
+            and_(models.RSEFileAssociation.scope == r['scope'],
+                 models.RSEFileAssociation.name == r['name'],
+                 models.RSEFileAssociation.rse_id == rse_id)
+            for r in rows
+        ]
+        for chunk in chunks(replica_clause, 100):
+            stmt = update(
+                models.RSEFileAssociation
+            ).prefix_with(
+                "/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle'
+            ).where(
+                or_(*chunk)
+            ).execution_options(
+                synchronize_session=False
+            ).values(
+                updated_at=datetime.utcnow(),
+                state=ReplicaState.BEING_DELETED,
+                tombstone=OBSOLETE,
+            )
+            session.execute(stmt)
+
+    return rows
+
+
+@transactional_session
+def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=None, delay_seconds=600, only_delete_obsolete=False, session=None):
     """
     List RSE File replicas with no locks.
 
