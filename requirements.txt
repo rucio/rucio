@@ -68,3 +68,5 @@ s3cmd==2.0.2                                                # Used for testing o
 pydoc-markdown~=3.11.0; python_version >= '3.5'             # Used for generating Markdown documentation for docusaurus
 docspec_python==0.1.0; python_version >= '3.5'              # FIX incompatibility with pydoc-markdown
 sh~=1.14.1                                                  # Convenience library for running subprocesses in Python
+apispec==5.1.1                                              # Generate OpenApi definition out of pydoc comments
+apispec-webframeworks==0.5.2                                # Integration of apispec in Flask
