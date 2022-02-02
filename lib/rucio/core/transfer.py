@@ -1598,7 +1598,8 @@ def create_missing_replicas_and_requests(
             creation_successful = False
 
             existing_request = get_request_by_did(rws.scope, rws.name, rws.dest_rse.id, session=session)
-            if datetime.datetime.utcnow() - CONCURRENT_SUBMISSION_TOLERATION_DELAY < existing_request['requested_at']:
+            if existing_request['requested_at'] and \
+                    datetime.datetime.utcnow() - CONCURRENT_SUBMISSION_TOLERATION_DELAY < existing_request['requested_at']:
                 concurrent_submission_detected = True
 
             break
