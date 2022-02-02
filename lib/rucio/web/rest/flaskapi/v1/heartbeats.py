@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Ilija Vukotic <ivukotic@uchicago.edu>, 2022
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 import json
 
@@ -39,30 +36,69 @@ class Heartbeat(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """
-        List all heartbeats.
-
-        .. :quickref: Heartbeat; List heartbeats.
-
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 406: Not Acceptable.
-        :returns: List of heartbeats.
+        ---
+        summary: List
+        description: List all heartbeats.
+        tags:
+          - Heartbeat
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    description: List of tuples [('Executable', 'Hostname', ...), ...]
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
         """
         return Response(json.dumps(list_heartbeats(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')), cls=APIEncoder), content_type='application/json')
 
     def post(self):
         """
-        Accepts a heartbeat.
-
-        .. :quickref: Heartbeat; Accepts a heartbeat.
-
-
-        :<json dict parameter: Dictionary with 'executable', 'hostname', 'pid', 'thread', 'older_than', 'payload'
-        :status 200: OK.
-        :status 400: Cannot decode json parameter list.
-        :status 401: Invalid Auth Token.
-        :status 404: Key not Found.
+        ---
+        summary: Create
+        tags:
+          - Heartbeat
+        requestBody:
+          content:
+            'application/json':
+              shema:
+                type: object
+                required:
+                - bytes
+                properties:
+                  executable:
+                    description: Name of the executable.
+                    type: string
+                  hostname:
+                    description: Name of the host.
+                    type: string
+                  pid:
+                    description: UNIX Process ID as a number, e.g., 1234.
+                    type: integer
+                  thread:
+                    description: Python thread object.
+                    type: object
+                  older_than:
+                    description: Ignore specified heartbeats older than specified nr of seconds.
+                    type: integer
+                  payload:
+                    description: Payload identifier which can be further used to identify the work a certain thread is executing.
+                    type: string
+        responses:
+          200:
+            description: OK
+          400:
+            description: Cannot decode json parameter list.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Key not found.
         """
         parameters = json_parameters()
         try:
