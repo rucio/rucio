@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2021
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from flask import Flask, Blueprint, request, jsonify
 
@@ -33,17 +30,51 @@ class UserPass(ErrorHandlingMethodView):
 
     def put(self, account):
         """
-        Create a new identity and map it to an account.
-
-        .. :quickref: UserPass; add new userpass identity.
-
-        :reqheader X-Rucio-Username: the desired username.
-        :reqheader X-Rucio-Password: the desired password.
-        :reqheader X-Rucio-Email: the desired email.
-        :param account: the affected account.
-        :status 201: Created.
-        :status 400: Missing username or password.
-        :status 401: Invalid Auth Token.
+        ---
+        summary: Create UserPass identity
+        description: Creates a new UserPass identity and maps it to an account.
+        tags:
+          - Identity
+        parameters:
+        - name: account
+          in: path
+          description: The account for the identity.
+          schema:
+            type: string
+          style: simple
+        - name: X-Rucio-Username
+          in: query
+          description: Username for the identity.
+          schema:
+            type: string
+          style: simple
+          required: true
+        - name: X-Rucio-Password
+          in: query
+          description: The password for the identity.
+          schema:
+            type: string
+          style: simple
+          required: true
+        - name: X-Rucio-Email
+          in: query
+          description: The email for the identity.
+          schema:
+            type: string
+          style: simple
+          required: false
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          401:
+            description: Invalid Auth Token
+          400:
+            description: Missing username or password.
         """
         username = request.headers.get('X-Rucio-Username', default=None)
         password = request.headers.get('X-Rucio-Password', default=None)
@@ -72,14 +103,35 @@ class X509(ErrorHandlingMethodView):
 
     def put(self, account):
         """
-        Create a new identity and map it to an account.
-
-        .. :quickref: X509; add new x509 identity.
-
-        :param account: the affected account.
-        :reqheader X-Rucio-Email: the desired email.
-        :status 201: Created.
-        :status 401: Invalid Auth Token.
+        ---
+        summary: Create X509 identity
+        description: Creates a new X509 identity and maps it to an account.
+        tags:
+          - Identity
+        parameters:
+        - name: account
+          in: path
+          description: The account for the identity.
+          schema:
+            type: string
+          style: simple
+        - name: X-Rucio-Email
+          in: query
+          description: The email for the identity.
+          schema:
+            type: string
+          style: simple
+          required: false
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          401:
+            description: Invalid Auth Token
         """
         dn = request.environ.get('SSL_CLIENT_S_DN')
         email = request.headers.get('X-Rucio-Email', default=None)
@@ -102,14 +154,35 @@ class GSS(ErrorHandlingMethodView):
 
     def put(self, account):
         """
-        Create a new identity and map it to an account.
-
-        .. :quickref: GSS; add new GSS identity.
-
-        :param account: the affected account.
-        :reqheader X-Rucio-Email: the desired email.
-        :status 201: Created.
-        :status 401: Invalid Auth Token.
+        ---
+        summary: Create GSS identity
+        description: Creates a new GSS identity and maps it to an account.
+        tags:
+          - Identity
+        parameters:
+        - name: account
+          in: path
+          description: The account for the identity.
+          schema:
+            type: string
+          style: simple
+        - name: X-Rucio-Email
+          in: query
+          description: The email for the identity.
+          schema:
+            type: string
+          style: simple
+          required: false
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          401:
+            description: Invalid Auth Token
         """
         gsscred = request.environ.get('REMOTE_USER')
         email = request.headers.get('X-Rucio-Email', default=None)
@@ -133,17 +206,39 @@ class Accounts(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, identity_key, type):
         """
-        Return all identities mapped to an account.
-
-        .. :quickref: Accounts; list account identities.
-
-        :param identity_key: Identity string.
-        :param type: Identity type.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 406: Not Acceptable.
-        :returns: List of identities.
+        ---
+        summary: List
+        description: List all identities mapped to an account.
+        tags:
+          - Identity
+        parameters:
+        - name: identity_key
+          in: path
+          description: Identity string.
+          schema:
+            type: string
+          style: simple
+        - name: type
+          in: path
+          description: Identity type.
+          schema:
+            type: string
+          style: simple
+          required: false
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    description: Account for the identity.
+          401:
+            description: Invalid Auth Token
+          401:
+            description: Not acceptable
         """
         accounts = list_accounts_for_identity(identity_key, type)
         return jsonify(accounts)
