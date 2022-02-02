@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2021 CERN
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@
 # - Eric Vaandering <ewv@fnal.gov>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 from __future__ import print_function
 
@@ -383,7 +385,10 @@ def transactional_session(function):
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise
             finally:
-                session.remove()  # pylint: disable=maybe-no-member
+                # Compared to other session decorators, transactional_session will always: either
+                # commit, or rollback. The session object can be safely re-used. Calling session.remove()
+                # only results in an un-needed empty rollback.
+                pass
         else:
             result = function(*args, **kwargs)
         return result
