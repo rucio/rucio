@@ -73,7 +73,7 @@ def __wait_for_replica_transfer(dst_rse_id, scope, name, state=ReplicaState.AVAI
     return replica
 
 
-def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MAX_POLL_WAIT_SECONDS, run_poller=True):
+def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MAX_POLL_WAIT_SECONDS, run_poller=True, run_finisher=False):
     """
     Wait for the request state to be updated to the given expected state as a result of a pending transfer
     """
@@ -81,6 +81,8 @@ def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MA
     for _ in range(max_wait_seconds):
         if run_poller:
             poller(once=True, older_than=0, partition_wait_time=None)
+        if run_finisher:
+            finisher(once=True, partition_wait_time=None)
         request = request_core.get_request_by_did(rse_id=dst_rse_id, scope=scope, name=name)
         if request['state'] == state:
             break
@@ -204,9 +206,8 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         assert replica
 
         # FTS fails the second transfer
-        request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, **did)
-        # Call finisher once to update the source rankings
-        finisher(once=True, partition_wait_time=None)
+        request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.QUEUED, run_finisher=True, **did)
+        assert request['state'] == RequestState.QUEUED
         # ensure tha the ranking was correctly decreased
         assert __get_source(request_id=request['id'], src_rse_id=jump_rse_id, **did).ranking == -1
         # run submitter again to copy from jump rse to destination rse
