@@ -1,18 +1,25 @@
-"""
-  Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2016-2022 CERN
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Eric Vaandering <ewv@fnal.gov>, 2022
 
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
-  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-  - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-
-  PY3K COMPATIBLE
-"""
 
 from datetime import datetime
 
@@ -39,21 +46,22 @@ def add_volatile_replicas(rse_id, replicas, session=None):
     """
     # first check that the rse is a volatile one
     try:
-        session.query(models.RSE.id).filter_by(rse_id=rse_id, volatile=True).one()
+        session.query(models.RSE).filter_by(id=rse_id, volatile=True).one()
     except NoResultFound:
-        raise exception.UnsupportedOperation('No volatile rse found for %s !' % get_rse_name(rse_id=rse_id, session=session))
+        raise exception.UnsupportedOperation('No volatile rse found for %s !'
+                                             % get_rse_name(rse_id=rse_id, session=session))
 
     file_clause, replica_clause = [], []
     for replica in replicas:
         file_clause.append(and_(models.DataIdentifier.scope == replica['scope'],
                                 models.DataIdentifier.name == replica['name'],
-                                ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == replica['scope'],
-                                                                                                                                    models.RSEFileAssociation.name == replica['name'],
-                                                                                                                                    models.RSEFileAssociation.rse_id == rse_id))))
+                                ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle'))
+                                .where(and_(models.RSEFileAssociation.scope == replica['scope'],
+                                            models.RSEFileAssociation.name == replica['name'],
+                                            models.RSEFileAssociation.rse_id == rse_id))))
         replica_clause.append(and_(models.RSEFileAssociation.scope == replica['scope'],
                                    models.RSEFileAssociation.name == replica['name'],
                                    models.RSEFileAssociation.rse_id == rse_id))
-
     if replica_clause:
         now = datetime.utcnow()
         stmt = update(models.RSEFileAssociation).\
@@ -90,9 +98,10 @@ def delete_volatile_replicas(rse_id, replicas, session=None):
     """
     # first check that the rse is a volatile one
     try:
-        session.query(models.RSE.id).filter_by(rse_id=rse_id, volatile=True).one()
+        session.query(models.RSE).filter_by(id=rse_id, volatile=True).one()
     except NoResultFound:
-        raise exception.UnsupportedOperation('No volatile rse found for %s !' % get_rse_name(rse_id=rse_id, session=session))
+        raise exception.UnsupportedOperation('No volatile rse found for %s !'
+                                             % get_rse_name(rse_id=rse_id, session=session))
 
     conditions = []
     for replica in replicas:
