@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2014-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Eric Vaandering <ewv@fnal.gov>, 2022
 
 """
 This daemon consumes tracer messages from ActiveMQ and updates the atime for replicas.
@@ -42,12 +43,11 @@ from os import getpid
 from threading import Event, Thread, current_thread
 from time import sleep, time
 
-from stomp import Connection
-
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import RSENotFound, DatabaseException
 from rucio.common.logging import setup_logging, formatted_logger
+from rucio.common.stomp_utils import get_stomp_brokers
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import daemon_sleep
 from rucio.core.did import touch_dids, list_parent_dids
@@ -313,36 +313,6 @@ class AMQConsumer(object):
         self.__logger(logging.INFO, 'updated %d replica(s)' % len(replicas))
 
 
-def __get_broker_conns(brokers, port, use_ssl, vhost, reconnect_attempts, ssl_key_file, ssl_cert_file, timeout, logger=logging.log):
-    logger(logging.DEBUG, 'resolving broker dns alias: %s' % brokers)
-
-    brokers_resolved = []
-    for broker in brokers:
-        addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
-        brokers_resolved.extend(ai[4][0] for ai in addrinfos)
-
-    logger(logging.DEBUG, 'broker resolved to %s', brokers_resolved)
-    conns = []
-    for broker in brokers_resolved:
-        if not use_ssl:
-            conns.append(Connection(host_and_ports=[(broker, port)],
-                                    use_ssl=False,
-                                    vhost=vhost,
-                                    timeout=timeout,
-                                    heartbeats=(0, 1000),
-                                    reconnect_attempts_max=reconnect_attempts))
-        else:
-            conns.append(Connection(host_and_ports=[(broker, port)],
-                                    use_ssl=True,
-                                    ssl_key_file=ssl_key_file,
-                                    ssl_cert_file=ssl_cert_file,
-                                    vhost=vhost,
-                                    timeout=timeout,
-                                    heartbeats=(0, 1000),
-                                    reconnect_attempts_max=reconnect_attempts))
-    return conns
-
-
 def kronos_file(thread=0, dataset_queue=None, sleep_time=60):
     """
     Main loop to consume tracer reports.
@@ -396,15 +366,15 @@ def kronos_file(thread=0, dataset_queue=None, sleep_time=60):
         heart_beat = live(executable, hostname, pid, hb_thread)
         prepend_str = 'kronos-file[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
         logger = formatted_logger(logging.log, prepend_str + '%s')
-        conns = __get_broker_conns(brokers=brokers_alias,
-                                   port=port,
-                                   use_ssl=use_ssl,
-                                   vhost=vhost,
-                                   reconnect_attempts=reconnect_attempts,
-                                   ssl_key_file=ssl_key_file,
-                                   ssl_cert_file=ssl_cert_file,
-                                   timeout=sleep_time,
-                                   logger=logger)
+        conns = get_stomp_brokers(brokers=brokers_alias,
+                                  port=port,
+                                  use_ssl=use_ssl,
+                                  vhost=vhost,
+                                  reconnect_attempts=reconnect_attempts,
+                                  ssl_key_file=ssl_key_file,
+                                  ssl_cert_file=ssl_cert_file,
+                                  timeout=sleep_time,
+                                  logger=logger)
         for conn in conns:
             if not conn.is_connected():
                 logger(logging.INFO, 'connecting to %s' % str(conn.transport._Transport__host_and_ports[0]))
