@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,9 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
+# - Igor Mandrichenko <ivm@fnal.gov>, 2021
 
 from json import dumps, loads
 
@@ -107,18 +109,16 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def get_replication_rule(self, rule_id, estimate_ttc=False):
+    def get_replication_rule(self, rule_id):
         """
         Get a replication rule.
 
         :param rule_id:  The id of the rule to be retrieved.
-        :param estimate_ttc: bool, if rule_info should return ttc information
         :raises:         RuleNotFound
         """
         path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
-        data = dumps({'estimate_ttc': estimate_ttc})
-        r = self._send_request(url, type_='GET', data=data)
+        r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return next(self._load_json_data(r))
         else:
