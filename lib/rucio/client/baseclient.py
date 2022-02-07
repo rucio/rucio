@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
@@ -37,6 +37,10 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Paul Millar <paul.millar@desy.de>, 2021
+# - martynia <martynia@users.noreply.github.com>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 '''
  Client class for callers of the Rucio system
@@ -205,16 +209,26 @@ class BaseClient(object):
                     self.creds['username'] = config_get('client', 'username')
                     self.creds['password'] = config_get('client', 'password')
                 elif self.auth_type == 'x509':
-                    self.creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_cert'))))
+                    if "RUCIO_CLIENT_CERT" in environ:
+                        client_cert = environ["RUCIO_CLIENT_CERT"]
+                    else:
+                        client_cert = config_get('client', 'client_cert')
+                    self.creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(client_cert)))
                     if not path.exists(self.creds['client_cert']):
                         raise MissingClientParameter('X.509 client certificate not found: %s' % self.creds['client_cert'])
-                    self.creds['client_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_key'))))
+
+                    if "RUCIO_CLIENT_KEY" in environ:
+                        client_key = environ["RUCIO_CLIENT_KEY"]
+                    else:
+                        client_key = config_get('client', 'client_key')
+                    self.creds['client_key'] = path.abspath(path.expanduser(path.expandvars(client_key)))
                     if not path.exists(self.creds['client_key']):
                         raise MissingClientParameter('X.509 client key not found: %s' % self.creds['client_key'])
                     else:
                         perms = oct(os.stat(self.creds['client_key']).st_mode)[-3:]
                         if perms not in ['400', '600']:
                             raise CannotAuthenticate('X.509 authentication selected, but private key (%s) permissions are liberal (required: 400 or 600, found: %s)' % (self.creds['client_key'], perms))
+
                 elif self.auth_type == 'x509_proxy':
                     try:
                         self.creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
