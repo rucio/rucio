@@ -173,6 +173,17 @@ def rse_factory(vo):
         yield factory
 
 
+@pytest.fixture(scope="class")
+def rse_factory_unittest(request, vo):
+    """
+    unittest classes can get access to rse_factory fixture via this fixture 
+    """
+    from rucio.tests.temp_factories import TemporaryRSEFactory
+    with TemporaryRSEFactory(vo=vo) as factory:
+        request.cls.rse_factory = factory
+        yield factory
+        factory.cleanup()
+
 @pytest.fixture
 def did_factory(vo, mock_scope):
     from rucio.tests.temp_factories import TemporaryDidFactory
