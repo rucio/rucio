@@ -40,7 +40,7 @@ from dogpile.cache.api import NO_VALUE
 
 from rucio.common import utils
 from rucio.common.cache import make_region_memcached
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import InvalidRSEExpression
 from rucio.core.rse_expression_parser import parse_expression
 
@@ -94,13 +94,13 @@ def __download_geoip_db(destination):
 
 def __geoip_db():
     db_path = Path(f'/tmp/{GEOIP_DB_EDITION}.mmdb')
-    db_expire_delay = timedelta(days=30)
+    db_expire_delay = timedelta(days=config_get_int('core', 'geoip_expire_delay', raise_exception=False, default=30))
 
     must_download = False
     if not db_path.is_file():
         print('%s does not exist. Downloading it.' % db_path)
         must_download = True
-    elif datetime.fromtimestamp(db_path.stat().st_mtime) < datetime.now() - db_expire_delay:
+    elif db_expire_delay and datetime.fromtimestamp(db_path.stat().st_mtime) < datetime.now() - db_expire_delay:
         print('%s is too old. Re-downloading it.' % db_path)
         must_download = True
 
