@@ -39,7 +39,7 @@
 # - Anil Panta <47672624+panta-123@users.noreply.github.com>, 2021
 # - Ilija Vukotic <ivukotic@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - martynia <janusz.martyniak@googlemail.com>, 2021-2022
+# - martynia <janusz.martyniak@googlemail.com>, 2021
 # - jdierkes <joel.dierkes@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021

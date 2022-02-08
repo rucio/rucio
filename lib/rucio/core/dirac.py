@@ -19,7 +19,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - martynia <janusz.martyniak@googlemail.com>, 2021-2022
+# - martynia <janusz.martyniak@googlemail.com>, 2021
 # - Janusz Martyniak <janusz.martyniak@googlemail.com>, 2022
 
 from __future__ import print_function
