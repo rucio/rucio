@@ -198,18 +198,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         replica = __wait_for_replica_transfer(dst_rse_id=jump_rse_id, **did)
         assert replica['state'] == ReplicaState.AVAILABLE
 
-        # The intermediate replica is protected by an entry in the sources table
-        # Reaper must not remove this replica, even if it has an obsolete tombstone
-        rucio.daemons.reaper.reaper.REGION.invalidate()
-        reaper(once=True, rses=[], include_rses=jump_rse_name, exclude_rses=None)
-        replica = replica_core.get_replica(rse_id=jump_rse_id, **did)
-        assert replica
-
-        # FTS fails the second transfer
-        request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.QUEUED, run_finisher=True, **did)
-        assert request['state'] == RequestState.QUEUED
-        # ensure tha the ranking was correctly decreased
-        assert __get_source(request_id=request['id'], src_rse_id=jump_rse_id, **did).ranking == -1
+        # FTS can fail the second transfer
         # run submitter again to copy from jump rse to destination rse
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertype='single', filter_transfertool=None)
 

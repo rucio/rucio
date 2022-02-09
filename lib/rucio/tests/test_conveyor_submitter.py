@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 import pytest
 
@@ -22,6 +22,7 @@ import itertools
 from datetime import datetime, timedelta
 from random import randint
 from unittest.mock import patch
+from sqlalchemy import delete
 
 from rucio.core import distance as distance_core
 from rucio.core import request as request_core
@@ -30,6 +31,7 @@ from rucio.core import replica as replica_core
 from rucio.core import rule as rule_core
 from rucio.core import config as core_config
 from rucio.daemons.conveyor.submitter import submitter
+from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla.models import Request, Source
 from rucio.db.sqla.constants import RequestState
 from rucio.db.sqla.session import read_session, transactional_session
@@ -197,6 +199,73 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
 
     # Ensure that prometheus metrics were correctly registered. Only one submission, mock transfertool groups everything into one job.
     assert metrics_mock.get_sample_value('rucio_core_request_submit_transfer_total') == 1
+
+
+@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', True),
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.config.REGION',
+    'rucio.daemons.reaper.reaper.REGION',
+]}], indirect=True)
+def test_source_avoid_deletion(vo, caches_mock, core_config_mock, rse_factory, did_factory, root_account, file_factory):
+    """ Test that sources on a file block it from deletion """
+
+    _, reaper_region = caches_mock
+    src_rse1, src_rse1_id = rse_factory.make_mock_rse()
+    src_rse2, src_rse2_id = rse_factory.make_mock_rse()
+    dst_rse, dst_rse_id = rse_factory.make_mock_rse()
+    all_rses = [src_rse1_id, src_rse2_id, dst_rse_id]
+    any_source = f'{src_rse1}|{src_rse2}'
+
+    for rse_id in [src_rse1_id, src_rse2_id]:
+        rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=1)
+        rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=1, free=0)
+    distance_core.add_distance(src_rse1_id, dst_rse_id, ranking=20)
+    distance_core.add_distance(src_rse2_id, dst_rse_id, ranking=10)
+
+    # Upload a test file to both rses without registering
+    did = did_factory.random_did()
+
+    # Register replica on one source RSE
+    replica_core.add_replica(rse_id=src_rse1_id, account=root_account, bytes_=1, tombstone=datetime(year=1970, month=1, day=1), **did)
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    # Reaper will not delete a file which only has one replica if there is any pending transfer for it
+    reaper_region.invalidate()
+    reaper(once=True, rses=[], include_rses=any_source, exclude_rses=None)
+    replica = next(iter(replica_core.list_replicas(dids=[did], rse_expression=any_source)))
+    assert len(replica['pfns']) == 1
+
+    # Register replica on second source rse
+    replica_core.add_replica(rse_id=src_rse2_id, account=root_account, bytes_=1, tombstone=datetime(year=1970, month=1, day=1), **did)
+    replica = next(iter(replica_core.list_replicas(dids=[did], rse_expression=any_source)))
+    assert len(replica['pfns']) == 2
+
+    # Submit the transfer. This will create the sources.
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
+
+    # None of the replicas will be removed. They are protected by an entry in the sources table
+    reaper_region.invalidate()
+    reaper(once=True, rses=[], include_rses=any_source, exclude_rses=None)
+    replica = next(iter(replica_core.list_replicas(dids=[did], rse_expression=any_source)))
+    assert len(replica['pfns']) == 2
+
+    @transactional_session
+    def __delete_sources(rse_id, scope, name, session=None):
+        session.execute(
+            delete(Source).where(Source.rse_id == rse_id,
+                                 Source.scope == scope,
+                                 Source.name == name))
+
+    # Deletion succeeds for one replica (second still protected by existing request)
+    __delete_sources(src_rse1_id, **did)
+    __delete_sources(src_rse2_id, **did)
+    reaper_region.invalidate()
+    reaper(once=True, rses=[], include_rses=any_source, exclude_rses=None)
+    replica = next(iter(replica_core.list_replicas(dids=[did], rse_expression=any_source)))
+    assert len(replica['pfns']) == 1
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
