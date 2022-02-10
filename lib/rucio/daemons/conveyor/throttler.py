@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2021 CERN
+# Copyright 2016-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 """
 Conveyor throttler is a daemon to manage rucio internal queue.
@@ -34,7 +34,6 @@ from __future__ import division
 import logging
 import math
 import threading
-import time
 import traceback
 
 import rucio.db.sqla.util
@@ -45,7 +44,7 @@ from rucio.core import config as config_core
 from rucio.core.monitor import record_counter, record_gauge
 from rucio.core.request import get_stats_by_activity_direction_state, release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo
 from rucio.core.rse import get_rse, set_rse_transfer_limits, delete_rse_transfer_limits, get_rse_transfer_limits
-from rucio.daemons.conveyor.common import HeartbeatHandler
+from rucio.daemons.conveyor.common import run_conveyor_daemon
 from rucio.db.sqla.constants import RequestState
 
 graceful_stop = threading.Event()
@@ -60,42 +59,17 @@ def throttler(once=False, sleep_time=600, partition_wait_time=10):
 
     logger_prefix = executable = 'conveyor-throttler'
 
-    with HeartbeatHandler(executable=executable, logger_prefix=logger_prefix) as heartbeat_handler:
-        logger = heartbeat_handler.logger
-        logger(logging.INFO, 'Throttler started - timeout (%s)' % sleep_time)
-
-        current_time = time.time()
-
-        if partition_wait_time:
-            graceful_stop.wait(partition_wait_time)
-        while not graceful_stop.is_set():
-
-            try:
-                heart_beat, logger = heartbeat_handler.live(older_than=3600)
-                if heart_beat['assign_thread'] != 0:
-                    logger(logging.INFO, 'Throttler thread id is not 0, will sleep. Only thread 0 will work')
-                    if once:
-                        break
-                    if time.time() < current_time + sleep_time:
-                        graceful_stop.wait(int((current_time + sleep_time) - time.time()))
-                    current_time = time.time()
-                    continue
-
-                logger(logging.INFO, "Throttler - schedule requests")
-                run_once(logger=logger)
-
-                if once:
-                    break
-                if time.time() < current_time + sleep_time:
-                    graceful_stop.wait(int((current_time + sleep_time) - time.time()))
-                current_time = time.time()
-            except Exception:
-                logger(logging.CRITICAL, 'Throtter crashed %s' % (traceback.format_exc()))
-                if once:
-                    raise
-
-            if once:
-                break
+    run_conveyor_daemon(
+        once=once,
+        graceful_stop=graceful_stop,
+        executable=executable,
+        logger_prefix=logger_prefix,
+        partition_wait_time=partition_wait_time,
+        sleep_time=sleep_time,
+        run_once_fnc=run_once,
+        activities=None,
+        heart_beat_older_than=3600,
+    )
 
 
 def stop(signum=None, frame=None):
@@ -200,10 +174,14 @@ def __get_request_stats(all_activities=False, direction='destination'):
     return result_dict
 
 
-def run_once(logger=logging.log, session=None):
+def run_once(worker_number=0, logger=logging.log, session=None, **kwargs):
     """
     Schedule requests
     """
+    if worker_number != 0:
+        logger(logging.INFO, 'Throttler thread id is not 0, will sleep. Only thread 0 will work')
+        return True
+    logger(logging.INFO, "Throttler - schedule requests")
     try:
         throttler_mode = config_core.get('throttler', 'mode', default='DEST_PER_ACT', use_cache=False)
         direction, all_activities = get_parsed_throttler_mode(throttler_mode)
@@ -220,6 +198,7 @@ def run_once(logger=logging.log, session=None):
                         __release_per_activity(result_dict[rse_id], direction, rse_name, rse_id, logger=logger, session=session)
     except Exception:
         logger(logging.CRITICAL, "Failed to schedule requests, error: %s" % (traceback.format_exc()))
+    return True
 
 
 def __release_all_activities(stats, direction, rse_name, rse_id, logger, session):
