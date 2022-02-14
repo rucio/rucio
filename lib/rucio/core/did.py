@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2022
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
@@ -1571,6 +1571,7 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
             (models.DataIdentifier.suppressed, operator.ne, true()),
         ]
     )
+    query.with_hint(models.DataIdentifier, 'NO_EXPAND', 'oracle')
 
     if limit:
         query = query.limit(limit)
