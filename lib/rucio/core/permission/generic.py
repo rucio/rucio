@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2021 CERN
+# Copyright 2016-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Rob Barnsley <rob.barnsley@skao.int>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2021-2022
 
 import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
