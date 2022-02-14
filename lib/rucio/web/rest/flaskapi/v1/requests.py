@@ -87,7 +87,6 @@ class RequestHistoryGet(ErrorHandlingMethodView):
         :reqheader Content-Type: application/json
         :status 200: Request found.
         :status 404: Request not found.
-        :status 406: Not Acceptable.
         """
         try:
             scope, name = parse_scope_name(scope_name, flask.request.environ.get('vo'))
@@ -180,7 +179,6 @@ class RequestHistoryList(ErrorHandlingMethodView):
         :reqheader Content-Type: application/x-json-stream
         :status 200: Request found.
         :status 404: Request not found.
-        :status 406: Not Acceptable.
         """
         src_rse = flask.request.args.get('src_rse', default=None)
         dst_rse = flask.request.args.get('dst_rse', default=None)
