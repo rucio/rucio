@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Rob Barnsley <rob.barnsley@skao.int>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2021-2022
 
 """
 Interface for the requests abstraction layer

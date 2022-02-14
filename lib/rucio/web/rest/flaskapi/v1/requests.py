@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Rob Barnsley <rob.barnsley@skao.int>, 2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2021-2022
 
 import json
 

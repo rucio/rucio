@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2021 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2020-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,19 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2016
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Eric Vaandering, <ewv@fnal.gov>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Rob Barnsley <rob.barnsley@skao.int>, 2021
-#
-# PY3K COMPATIBLE
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2021-2022
 
 import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
