@@ -28,7 +28,6 @@
 import contextlib
 import datetime
 import gzip
-import json
 import logging
 import os
 import re
@@ -41,6 +40,7 @@ import requests
 import bz2
 
 from rucio.common import config
+from rucio.core.rse import get_rse_id, get_rse_protocols
 
 
 class HTTPDownloadFailed(Exception):
@@ -242,46 +242,14 @@ def to_datetime(str_or_datetime):
     return date
 
 
-def agis_endpoints_data(cache=True):
-    '''
-    Returns the result of querying the ddmendpoints list from AGIS
-    and parsing the results with json.loads().
-
-    :param cache: If True only makes one query to AGIS and returns
-    the same result for subsequent invocations. Consider the effects
-    of the cache when testing code which uses this function.
-    :returns: a list of dicts with the information returned by AGIS.
-    '''
-    if cache:
-        agis_data = getattr(agis_endpoints_data, '__agis_data', None)
-    else:
-        agis_data = None
-
-    if agis_data is None:
-        ddmendpoints_data_url = ('http://atlas-agis-api.cern.ch/request/ddmendpoint'
-                                 '/query/list/?json')
-
-        r = requests.get(ddmendpoints_data_url)
-        assert r.status_code == 200
-        agis_data = json.loads(r.text)
-        agis_endpoints_data.__agis_data = agis_data
-    return agis_data
+def ddmendpoint_preferred_protocol(ddmendpoint):
+    return next(p for p in get_rse_protocols(get_rse_id(ddmendpoint))['protocols'] if p['domains']['wan']['read'] == 1)
 
 
 def ddmendpoint_url(ddmendpoint):
-    agisdata = agis_endpoints_data()
-    endpointdata = next(entry for entry in agisdata if entry['name'] == ddmendpoint)
-    protocoldata = endpointdata['arprotocols']['read_wan'][0]
-    return str(''.join([protocoldata['endpoint'],
-                       re.sub(r'rucio/$', '', protocoldata['path'])]))
-
-# Using AGIS is better to avoid the use of ATLAS credentials, but using
-# rucio.client for the same task is also possible:
-# def ddmendpoint_url(ddmendpoint):
-#     protocols = rucio.client.RSEClient().get_rse(ddmendpoint)['protocols']
-#     pdata = next(proto for proto in protocols if proto['scheme'] == 'srm')
-#     pdata['prefix'] = '/'.join(pdata['prefix'].split('/')[:-1])
-#     return 'srm://{hostname}:{port}/{prefix}'.format(pdata)
+    preferred_protocol = ddmendpoint_preferred_protocol(ddmendpoint)
+    prefix = re.sub(r'rucio/$', '', preferred_protocol['prefix'])
+    return '{scheme}://{hostname}:{port}'.format(**preferred_protocol) + prefix
 
 
 def http_download_to_file(url, file_, session=None):

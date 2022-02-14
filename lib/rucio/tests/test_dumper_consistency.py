@@ -1,4 +1,5 @@
-# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,10 +14,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
+# - Fernando López <felopez@cern.ch>, 2015
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Fabio Luchetti <fabio.luchetti@cern.ch>, 2022
 
 import json
 import os
@@ -40,6 +42,19 @@ if sys.version_info >= (3, 3):
     from unittest import mock
 else:
     import mock
+
+
+RSEPROTOCOL = {
+    "hostname": "example.com",
+    "scheme": "root",
+    "port": 1094,
+    "prefix": "//atlasdatadisk/rucio/",
+    "domains": {
+        "wan": {
+            "read": 1,
+        }
+    },
+}
 
 
 def mocked_requests(*args, **kwargs):
@@ -96,16 +111,11 @@ class TestConsistency(unittest.TestCase):
 
     def setUp(self):  # pylint: disable=invalid-name
         self.tmp_dir = tempfile.mkdtemp()
-        self.fake_agis_data = [{
-            'name': 'MOCK_SCRATCHDISK',
-            'se': 'srm://example.com:8446/',
-            'endpoint': '/pnfs/example.com/atlas/atlasdatadisk/'
-        }]
 
     def tearDown(self):  # pylint: disable=invalid-name
         shutil.rmtree(self.tmp_dir)
 
-    @mock.patch('rucio.common.dumper.agis_endpoints_data')
+    @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
     def test_consistency_manual_correct_file_default_args(self, mock_get):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
@@ -115,7 +125,7 @@ class TestConsistency(unittest.TestCase):
         rrdf2 = make_temp_file(self.tmp_dir, rucio_dump)
         sdf = make_temp_file(self.tmp_dir, storage_dump)
 
-        mock_get.return_value = self.fake_agis_data
+        mock_get.return_value = RSEPROTOCOL
         consistency = Consistency.dump(
             'consistency-manual',
             'MOCK_SCRATCHDISK',
@@ -126,7 +136,7 @@ class TestConsistency(unittest.TestCase):
         )
         assert len(list(consistency)) == 0
 
-    @mock.patch('rucio.common.dumper.agis_endpoints_data')
+    @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
     def test_consistency_manual_lost_file(self, mock_get):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
@@ -137,7 +147,7 @@ class TestConsistency(unittest.TestCase):
         rrdf2 = make_temp_file(self.tmp_dir, rucio_dump)
         sdf = make_temp_file(self.tmp_dir, storage_dump)
 
-        mock_get.return_value = self.fake_agis_data
+        mock_get.return_value = RSEPROTOCOL
 
         consistency = Consistency.dump(
             'consistency-manual',
@@ -152,7 +162,7 @@ class TestConsistency(unittest.TestCase):
         assert consistency[0].apparent_status == 'LOST'
         assert consistency[0].path == 'user/someuser/aa/bb/user.someuser.filename2'
 
-    @mock.patch('rucio.common.dumper.agis_endpoints_data')
+    @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
     def test_consistency_manual_transient_file_is_not_lost(self, mock_get):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
@@ -164,7 +174,7 @@ class TestConsistency(unittest.TestCase):
         rrdf2 = make_temp_file(self.tmp_dir, rucio_dump_2)
         sdf = make_temp_file(self.tmp_dir, storage_dump)
 
-        mock_get.return_value = self.fake_agis_data
+        mock_get.return_value = RSEPROTOCOL
 
         consistency = Consistency.dump(
             'consistency-manual',
@@ -176,7 +186,7 @@ class TestConsistency(unittest.TestCase):
         )
         assert len(list(consistency)) == 0
 
-    @mock.patch('rucio.common.dumper.agis_endpoints_data')
+    @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
     def test_consistency_manual_dark_file(self, mock_get):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
@@ -187,7 +197,7 @@ class TestConsistency(unittest.TestCase):
         rrdf2 = make_temp_file(self.tmp_dir, rucio_dump)
         sdf = make_temp_file(self.tmp_dir, storage_dump)
 
-        mock_get.return_value = self.fake_agis_data
+        mock_get.return_value = RSEPROTOCOL
 
         consistency = Consistency.dump(
             'consistency-manual',
@@ -203,17 +213,17 @@ class TestConsistency(unittest.TestCase):
         assert consistency[0].apparent_status == 'DARK'
         assert consistency[0].path == 'user/someuser/aa/bb/user.someuser.filename2'
 
-    @mock.patch('rucio.common.dumper.agis_endpoints_data')
+    @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
     def test_consistency_manual_multiple_slashes_in_storage_dump_do_not_generate_false_positive(self, mock_get):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
-        storage_dump = '/pnfs/example.com/atlas///atlasdatadisk/rucio//user/someuser/aa/bb/user.someuser.filename\n'
+        storage_dump = '/example.com:1094////atlasdatadisk/rucio//user/someuser/aa/bb/user.someuser.filename\n'
 
         rrdf1 = make_temp_file(self.tmp_dir, rucio_dump)
         rrdf2 = make_temp_file(self.tmp_dir, rucio_dump)
         sdf = make_temp_file(self.tmp_dir, storage_dump)
 
-        mock_get.return_value = self.fake_agis_data
+        mock_get.return_value = RSEPROTOCOL
 
         consistency = Consistency.dump(
             'consistency-manual',
@@ -229,21 +239,15 @@ class TestConsistency(unittest.TestCase):
 
     @mock.patch('requests.Session.head', side_effect=mocked_requests)
     @mock.patch('requests.Session.get', side_effect=mocked_requests)
-    @mock.patch('rucio.common.dumper.agis_endpoints_data')
+    @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol', return_value=RSEPROTOCOL)
     def test_consistency(self, mock_dumper_get, mock_request_get, mock_request_head):
         ''' DUMPER '''
         storage_dump = (
-            '/pnfs/example.com/atlas///atlasdatadisk/rucio//user/someuser/aa/bb/user.someuser.filename\n'
-            '/pnfs/example.com/atlas///atlasdatadisk/rucio//user/someuser/aa/bb/user.someuser.dark\n'
+            '//atlasdatadisk/rucio/user/someuser/aa/bb/user.someuser.filename\n'
+            '//atlasdatadisk/rucio/user/someuser/aa/bb/user.someuser.dark\n'
         )
         sd = make_temp_file(self.tmp_dir, storage_dump)
 
-        agisdata = [{
-            'name': 'MOCK_SCRATCHDISK',
-            'se': 'srm://example.com/',
-            'endpoint': 'pnfs/example.com/atlas/atlasdatadisk/',
-        }]
-        mock_dumper_get.return_value = agisdata
         consistency = Consistency.dump('consistency',
                                        'MOCK_SCRATCHDISK',
                                        storage_dump=sd,
