@@ -22,6 +22,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -52,7 +53,7 @@ class TestRseXROOTD(unittest.TestCase):
         Detects if containerized rses for xrootd are available in the testing environment.
         :return: A tuple (rse, prefix, hostname, port).
         """
-        cmd = "rucio list-rses --expression 'test_container_xrd=True'"
+        cmd = "rucio list-rses --rses 'test_container_xrd=True'"
         print(cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)

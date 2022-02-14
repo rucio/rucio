@@ -469,9 +469,9 @@ AS
   num_null_currtime NUMBER(10);
 BEGIN
 
-ALTER SESSION SET workarea_size_policy=MANUAL;
-ALTER SESSION SET sort_area_size=2100000000;
-ALTER SESSION SET hash_area_size=2100000000;
+EXECUTE IMMEDIATE 'ALTER SESSION SET workarea_size_policy=MANUAL';
+EXECUTE IMMEDIATE 'ALTER SESSION SET sort_area_size=2100000000';
+EXECUTE IMMEDIATE 'ALTER SESSION SET hash_area_size=2100000000';
 
 -- 9th Nov 2021, version 1.7, include new rep_type column. rep_type defined as following :
 -- rep_type = 3 if no rule (similar to secondary). Cached data

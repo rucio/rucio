@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,9 +37,9 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
-#
-# PY3K COMPATIBLE
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from __future__ import print_function
 
@@ -291,7 +291,7 @@ def exists(rse_settings, files, domain='wan', scheme=None, impl=None, auth_token
     try:
         protocol.exists(None)
     except NotImplementedError:
-        protocol = create_protocol(rse_settings, 'write', scheme=scheme, impl=impl, domain=domain, auth_token=auth_token, logger=logger)
+        protocol = create_protocol(rse_settings, 'write', scheme=scheme, domain=domain, auth_token=auth_token, logger=logger)
         protocol.connect()
     except:
         pass

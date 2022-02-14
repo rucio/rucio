@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import absolute_import, division
@@ -56,10 +56,9 @@ from json import loads
 from requests.adapters import ReadTimeout
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 
-from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
-from prometheus_client import Summary
 
+from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import FTS_JOB_TYPE, FTS_STATE
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
@@ -72,8 +71,7 @@ from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 disable_warnings()
 
-REGION_SHORT = make_region().configure('dogpile.cache.memory',
-                                       expiration_time=1800)
+REGION_SHORT = make_region_memcached(expiration_time=1800)
 
 SUBMISSION_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_submission', statsd='transfertool.fts3.{host}.submission.{state}',
                                   documentation='Number of transfers submitted', labelnames=('state', 'host'))
@@ -91,7 +89,6 @@ BULK_QUERY_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_bulk_query', sta
                                   documentation='Number of bulk queries', labelnames=('state', 'host'))
 QUERY_DETAILS_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query_details', statsd='transfertool.fts3.{host}.query_details.{state}',
                                      documentation='Number of detailed status queries', labelnames=('state', 'host'))
-SUBMISSION_TIMER = Summary('rucio_transfertool_fts3_submit_transfer', 'Timer for transfer submission', labelnames=('host',))
 
 
 ALLOW_USER_OIDC_TOKENS = config_get('conveyor', 'allow_user_oidc_tokens', False, False)
@@ -170,7 +167,7 @@ def checksum_validation_strategy(src_attributes, dst_attributes, logger):
     return verify_checksum, checksums_to_use
 
 
-def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archive_timeout_override, max_time_in_queue, logger):
+def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archive_timeout_override, max_time_in_queue, logger, multihop=False):
     """
     Prepare the job parameters which will be passed to FTS transfertool
     """
@@ -206,8 +203,9 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
                   'overwrite': transfer.rws.attributes.get('overwrite', overwrite),
                   'priority': transfer.rws.priority}
 
-    if transfer.get('multihop', False):
+    if multihop:
         job_params['multihop'] = True
+        job_params['job_metadata']['multihop'] = True
     if strict_copy:
         job_params['strict_copy'] = strict_copy
     if dest_spacetoken:
@@ -273,8 +271,6 @@ def bulk_group_transfers(transfer_paths, policy='rule', group_bulk=200, source_s
 
     for transfer_path in transfer_paths:
         for i, transfer in enumerate(transfer_path):
-            if len(transfer_path) > 1:
-                transfer['multihop'] = True
             transfer['selection_strategy'] = source_strategy if source_strategy else activity_source_strategy.get(str(transfer.rws.activity), default_source_strategy)
 
     _build_job_params = functools.partial(job_params_for_fts_transfer,
@@ -286,10 +282,10 @@ def bulk_group_transfers(transfer_paths, policy='rule', group_bulk=200, source_s
     for transfer_path in transfer_paths:
         if len(transfer_path) > 1:
             # for multihop transfers, all the path is submitted as a separate job
-            job_params = _build_job_params(transfer_path[-1])
+            job_params = _build_job_params(transfer_path[-1], multihop=True)
 
             for transfer in transfer_path[:-1]:
-                hop_params = _build_job_params(transfer)
+                hop_params = _build_job_params(transfer, multihop=True)
                 # Only allow overwrite if all transfers in multihop allow it
                 job_params['overwrite'] = hop_params['overwrite'] and job_params['overwrite']
                 # Activate bring_online if it was requested by first hop (it is a multihop starting at a tape)
@@ -546,7 +542,6 @@ class FTS3Transfertool(Transfertool):
                                         timeout=timeout)
             labels = {'host': self.__extract_host(self.external_host)}
             record_timer('transfertool.fts3.submit_transfer.{host}', (time.time() - start_time) * 1000 / len(files), labels=labels)
-            SUBMISSION_TIMER.labels(**labels).observe((time.time() - start_time) * 1000 / len(files))
         except ReadTimeout as error:
             raise TransferToolTimeout(error)
         except JSONDecodeError as error:
@@ -992,7 +987,7 @@ class FTS3Transfertool(Transfertool):
             request_id = file_resp['file_metadata']['request_id']
             reason = file_resp.get('reason', None)
             if not reason and file_state == FTS_STATE.NOT_USED and multi_hop:
-                reason = 'Cancelled hop in multi-hop'
+                reason = 'Unused hop in multi-hop'
             resps[request_id] = {'new_state': None,
                                  'transfer_id': fts_job_response.get('job_id'),
                                  'job_state': fts_job_response.get('job_state', None),

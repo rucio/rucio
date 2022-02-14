@@ -1,0 +1,10 @@
+[
+    {
+        "datatype": "RAW",
+        "action": "ignore"
+    },
+    {
+        "datatype": "testtypedeclarebad",
+        "action": "declare bad"
+    }
+]

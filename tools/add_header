@@ -75,6 +75,7 @@ author_map = {
     ("Dhruv Sondhi", "<66117751+DhruvSondhi@users.noreply.github.com>"): ("Dhruv Sondhi", "<dhruvsondhi05@gmail.com>"),
     ("David Población Criado", "<13998309+davidpob99@users.noreply.github.com>"): ("David Población Criado", "<david.poblacion.criado@cern.ch>"),
     ("Joel Dierkes", "<dierkesjoel@gmail.com>"): ("Joel Dierkes", "<joel.dierkes@cern.ch>"),
+    ("maany", "<imptodefeat@gmail.com>"): ("Mayank Sharma", "<mayank.sharma@cern.ch>"),
 }
 
 
@@ -95,6 +96,7 @@ def main(arguments):
     email = '<%s>' % email
     exit_code = 0
 
+    print("Checking %i files" % (len(arguments.MyFiles)))
     for MyFile in arguments.MyFiles:
         # Query log history
         cmd = '''git log --reverse --date=short --format='%s'  %s ''' % ('%aN,<%aE>,%ad', MyFile)
@@ -121,7 +123,6 @@ def main(arguments):
 
             if int(min_) > int(year):
                 min_ = year
-
             if author not in authors:
                 authors[author] = {'name': author,
                                    'mail': mail,
@@ -136,7 +137,7 @@ def main(arguments):
             if authors[author]['name'] == username:
                 authors[author]['max'] = now.year
 
-        if username not in authors:
+        if not arguments.disable_add_me and username not in authors:
             authors[username] = {'name': username,
                                  'mail': email,
                                  'max': max_,
@@ -174,7 +175,7 @@ def main(arguments):
 
                 with open(MyFile, 'w') as modified:
                     modified.write(header + data)
-            else:
+            elif arguments.verbose:
                 print(header)
 
             sys.exit(0)
@@ -244,7 +245,7 @@ def main(arguments):
                         if count == 0 or not_comment_line:
                             modified.write(line)
 
-        else:
+        elif not arguments.check or arguments.verbose:
             print(header)
     exit(exit_code)
 
@@ -258,6 +259,9 @@ if __name__ == '__main__':
     parser.add_argument('--dry-run', '-d', action='store_true', help='Dry run mode')
     parser.add_argument('--check', '-c', action='store_true',
                         help='Checks if the script would change anything (non-zero exit code equals change).')
+    parser.add_argument('--disable-add-me', action='store_true',
+                        help="Do not add the person who runs this command, except if there already is a contributing commit.")
+    parser.add_argument('--verbose', '-v', action='store_true', help='Verbose mode')
     parser.add_argument(dest='MyFiles', action='store', nargs='+', default=None, help='The files')
 
     main(parser.parse_args())

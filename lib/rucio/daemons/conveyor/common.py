@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2014-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Nick Smith <nick.smith@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
@@ -52,8 +52,10 @@ from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
                                     DuplicateFileTransferSubmission, VONotFound)
 from rucio.common.logging import formatted_logger
+from rucio.common.utils import PriorityQueue
 from rucio.core import heartbeat, request, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
+from rucio.core.request import set_request_state
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
@@ -105,6 +107,56 @@ class HeartbeatHandler:
         return self.last_heart_beat, self.logger
 
 
+def run_conveyor_daemon(once, graceful_stop, executable, logger_prefix, partition_wait_time, sleep_time, run_once_fnc, activities=None, heart_beat_older_than=None):
+
+    with HeartbeatHandler(executable=executable, logger_prefix=logger_prefix) as heartbeat_handler:
+        logger = heartbeat_handler.logger
+        logger(logging.INFO, 'started')
+
+        if partition_wait_time:
+            graceful_stop.wait(partition_wait_time)
+
+        activity_next_exe_time = PriorityQueue()
+        for activity in activities or [None]:
+            activity_next_exe_time[activity] = time.time()
+
+        while not graceful_stop.is_set() and activity_next_exe_time:
+            if once:
+                activity = activity_next_exe_time.pop()
+                time_to_sleep = 0
+            else:
+                activity = activity_next_exe_time.top()
+                time_to_sleep = activity_next_exe_time[activity] - time.time()
+
+            if time_to_sleep > 0:
+                if activity:
+                    logger(logging.DEBUG, 'Switching to activity %s and sleeping %s seconds', activity, time_to_sleep)
+                else:
+                    logger(logging.DEBUG, 'Sleeping %s seconds', time_to_sleep)
+                graceful_stop.wait(time_to_sleep)
+            else:
+                if activity:
+                    logger(logging.DEBUG, 'Switching to activity %s', activity)
+                else:
+                    logger(logging.DEBUG, 'Starting next iteration')
+
+            heart_beat, logger = heartbeat_handler.live(older_than=heart_beat_older_than)
+
+            must_sleep = True
+            try:
+                must_sleep = run_once_fnc(activity=activity, total_workers=heart_beat['nr_threads'], worker_number=heart_beat['assign_thread'], logger=logger)
+            except Exception:
+                logger(logging.CRITICAL, "Exception", exc_info=True)
+                if once:
+                    raise
+
+            if not once:
+                if must_sleep:
+                    activity_next_exe_time[activity] = time.time() + sleep_time
+                else:
+                    activity_next_exe_time[activity] = time.time() + 1
+
+
 def submit_transfer(transfertool_obj, transfers, job_params, submitter='submitter', timeout=None, logger=logging.log):
     """
     Submit a transfer or staging request
@@ -117,14 +169,16 @@ def submit_transfer(transfertool_obj, transfers, job_params, submitter='submitte
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
-    try:
-        transfer_core.mark_submitting_and_prepare_sources_for_transfers(transfers, external_host=transfertool_obj.external_host, logger=logger)
-    except RequestNotFound as error:
-        logger(logging.ERROR, str(error))
-        return
-    except Exception:
-        logger(logging.ERROR, 'Failed to prepare requests %s state to SUBMITTING (Will not submit jobs but return directly) with error' % [str(t.rws) for t in transfers], exc_info=True)
-        return
+    for transfer in transfers:
+        try:
+            transfer_core.mark_submitting_and_prepare_sources_for_transfer(transfer, external_host=transfertool_obj.external_host, logger=logger)
+        except RequestNotFound as error:
+            logger(logging.ERROR, str(error))
+            return
+        except Exception:
+            logger(logging.ERROR, 'Failed to prepare requests %s state to SUBMITTING. Mark it SUBMISSION_FAILED and abort submission.' % [str(t.rws) for t in transfers], exc_info=True)
+            set_request_state(request_id=transfer.rws.request_id, new_state=RequestState.SUBMISSION_FAILED)
+            return
 
     try:
         _submit_transfers(transfertool_obj, transfers, job_params, submitter, timeout, logger)

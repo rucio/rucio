@@ -28,6 +28,7 @@
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
 
 from typing import TYPE_CHECKING
 
@@ -121,6 +122,7 @@ def has_permission(issuer, action, kwargs):
             'add_attribute': perm_add_account_attribute,
             'del_attribute': perm_del_account_attribute,
             'list_heartbeats': perm_list_heartbeats,
+            'send_heartbeats': perm_send_heartbeats,
             'resurrect': perm_resurrect,
             'update_lifetime_exceptions': perm_update_lifetime_exceptions,
             'get_ssh_challenge_token': perm_get_ssh_challenge_token,
@@ -1103,6 +1105,17 @@ def perm_list_heartbeats(issuer, kwargs):
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return _is_root(issuer)
+
+
+def perm_send_heartbeats(issuer, kwargs):
+    """
+    Checks if an account can send heartbeats.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_resurrect(issuer, kwargs):

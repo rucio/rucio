@@ -50,9 +50,8 @@ from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.config import config_get_bool
 from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEWriteBlocked,
-                                    RSEOverQuota,
-                                    RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError,
-                                    UnsupportedOperation)
+                                    RSEOverQuota, RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError,
+                                    UnsupportedOperation, InvalidValueForKey)
 from rucio.common.policy import get_policy
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
@@ -1425,6 +1424,25 @@ class TestReplicationRuleClient(unittest.TestCase):
         self.rule_client.approve_replication_rule(rule_id)
         rule = self.rule_client.get_replication_rule(rule_id)
         assert rule['state'] == RuleState.INJECT.name
+
+
+def test_add_rule_with_0_copies(did_client, did_factory, root_account, rse_factory):
+    """ REPLICATION RULE (CLIENT): Add a replication rule and list full history """
+    rse, rse_id = rse_factory.make_posix_rse()
+    file = did_factory.upload_test_file(rse)
+    dataset_internal = did_factory.make_dataset()
+    container_internal = did_factory.make_container()
+
+    # make all scopes external
+    file, dataset, container = ({'scope': did['scope'].external, 'name': did['name']} for did in (file, dataset_internal, container_internal))
+
+    # Attach dataset to container
+    did_client.add_files_to_dataset(files=[file], **dataset)
+    did_client.add_datasets_to_container(dsns=[dataset], **container)
+
+    with pytest.raises(InvalidValueForKey) as e:
+        add_rule(dids=[container_internal], account=root_account, copies=0, rse_expression='MOCK', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        assert "The number of copies for a replication rule should be greater than 0" in str(e)
 
 
 @pytest.mark.noparallel(reason='Asynchronos behavior when loading locks')

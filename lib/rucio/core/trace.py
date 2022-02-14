@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021-2022
 
 """
 Core tracer module
@@ -33,11 +34,12 @@ import random
 import socket
 
 import stomp
-from jsonschema import validate, ValidationError
+import ipaddress
+from jsonschema import validate, ValidationError, draft7_format_checker
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import InvalidObject
-from rucio.common.schema.generic import SCOPE, RSE, UUID, TIME_ENTRY, IP, CLIENT_STATE
+from rucio.common.schema.generic import SCOPE, RSE, UUID, TIME_ENTRY, IPv4orIPv6, CLIENT_STATE
 from rucio.core.monitor import record_counter
 
 CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
@@ -93,7 +95,7 @@ TOUCH_SCHEMA = {
         "dataset": {"type": ["string", "null"]},
         "traceTimeentry": TIME_ENTRY,
         "traceTimeentryUnix": {"type": "number"},
-        "traceIp": IP,
+        "traceIp": IPv4orIPv6,
         "traceId": UUID,
         "localSite": RSE,
         "remoteSite": RSE,
@@ -122,7 +124,7 @@ UPLOAD_SCHEMA = {
         "transferEnd": {"type": "number"},
         "traceTimeentry": TIME_ENTRY,
         "traceTimeentryUnix": {"type": "number"},
-        "traceIp": IP,
+        "traceIp": IPv4orIPv6,
         "traceId": UUID,
         "vo": {"type": "string"},
         "stateReason": {"type": "string"},
@@ -158,7 +160,7 @@ DOWNLOAD_SCHEMA = {
         "transferEnd": {"type": "number"},
         "traceTimeentry": TIME_ENTRY,
         "traceTimeentryUnix": {"type": "number"},
-        "traceIp": IP,
+        "traceIp": IPv4orIPv6,
         "traceId": UUID,
         "vo": {"type": "string"},
         "usrdn": {"type": "string"},
@@ -186,12 +188,40 @@ GET_SCHEMA = {
         "name": {"type": "string"},
         "traceTimeentry": TIME_ENTRY,
         "traceTimeentryUnix": {"type": "number"},
-        "traceIp": IP,
+        "traceIp": IPv4orIPv6,
         "traceId": UUID,
         "usrdn": {"type": "string"},
     },
-    "required": ['hostname', 'eventType', 'localSite', 'account', 'eventType', 'eventVersion', 'uuid', 'scope',
-                 'filename', 'datasetScope', 'dataset', 'filesize', 'clientState', 'stateReason']
+    "required": ['eventType', 'localSite', 'eventVersion', 'uuid', 'scope',
+                 'filename', 'dataset']
+}
+
+PUT_SCHEMA = {
+    "description": "get method, mainly sent by pilots",
+    "type": "object",
+    "properties": {
+        "eventType": {"enum": ["put_sm", "put_sm_a"]},
+        "clientState": CLIENT_STATE,
+        "stateReason": {"type": "string"},
+        "url": {"type": "string"},
+        "vo": {"type": "string"},
+        "scope": SCOPE,
+        "eventVersion": {"type": "string"},
+        "remoteSite": RSE,
+        "datasetScope": {"type": "string"},
+        "dataset": {"type": "string"},
+        "filename": {"type": "string"},
+        "name": {"type": "string"},
+        "traceTimeentry": TIME_ENTRY,
+        "traceTimeentryUnix": {"type": "number"},
+        "traceIp": IPv4orIPv6,
+        "traceId": UUID,
+        "usrdn": {"type": "string"},
+        "pq": {"type": "string"},
+        "localSite": RSE
+    },
+    "required": ['eventType', 'localSite', 'eventVersion', 'uuid', 'scope',
+                 'filename', 'dataset']
 }
 
 SCHEMAS = {
@@ -202,8 +232,32 @@ SCHEMAS = {
     'get_sm': GET_SCHEMA,
     'sm_get': GET_SCHEMA,
     'get_sm_a': GET_SCHEMA,
-    'sm_get_a': GET_SCHEMA
+    'sm_get_a': GET_SCHEMA,
+    'put': PUT_SCHEMA,
+    'put_sm': PUT_SCHEMA,
+    'put_sm_a': PUT_SCHEMA,
+    'sm_put': PUT_SCHEMA,
+    'sm_put_a': PUT_SCHEMA
 }
+
+FORMAT_CHECKER = draft7_format_checker
+
+
+@FORMAT_CHECKER.checks(format="ipv4_or_ipv6")
+def ip_format_checker(value: str) -> bool:
+    """
+    Validates IPv4 or IPv6 string values. json schemas can use `ipv4_or_ipv6` as a valid `format` argument
+    """
+    try:
+        ipaddress.ip_address(value)
+    except ValueError:
+        LOGGER.debug(f"{value} is not a valid IPv4 or IPv6 address and raises an errors upon validation.")
+        result = False
+    else:
+        result = True
+    finally:
+        return result
+
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
@@ -281,6 +335,6 @@ def validate_schema(obj):
 
     try:
         if obj and 'eventType' in obj:
-            validate(obj, SCHEMAS.get(obj['eventType'].lower()))
+            validate(obj, SCHEMAS.get(obj['eventType'].lower()), format_checker=FORMAT_CHECKER)
     except ValidationError as error:
         raise InvalidObject(error)

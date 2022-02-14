@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2022
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -30,7 +30,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
@@ -569,6 +569,43 @@ class TestBinRucio(unittest.TestCase):
         assert meta['md5'] == file_md5
         remove(filename)
 
+    def test_upload_expiration_date(self):
+        """CLIENT(USER): Rucio upload files"""
+        tmp_file = file_generator()
+        cmd = 'rucio -v upload --rse {0} --scope {1} --expiration-date 2021-10-10-20:00:00 --lifetime 20000  {2}'.format(self.def_rse, self.user, tmp_file)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        assert exitcode != 0
+        assert "--lifetime and --expiration-date cannot be specified at the same time." in err
+
+        cmd = 'rucio -v upload --rse {0} --scope {1} --expiration-date 2021----10-10-20:00:00 {2}'.format(self.def_rse, self.user, tmp_file)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        assert exitcode != 0
+        assert "does not match format '%Y-%m-%d-%H:%M:%S'" in err
+
+        cmd = 'rucio -v upload --rse {0} --scope {1} --expiration-date 2021-10-10-20:00:00 {2}'.format(self.def_rse, self.user, tmp_file)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        assert exitcode != 0
+        assert "The specified expiration date should be in the future!" in err
+
+        cmd = 'rucio -v upload --rse {0} --scope {1} --expiration-date 2030-10-10-20:00:00 {2}'.format(self.def_rse, self.user, tmp_file)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out)
+        print(err)
+        assert exitcode == 0
+        remove(tmp_file)
+        upload_string = (self.upload_success_str % path.basename(tmp_file))
+        assert upload_string in out or upload_string in err
+
     def test_create_dataset(self):
         """CLIENT(USER): Rucio add dataset"""
         tmp_name = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
@@ -642,6 +679,30 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert re.search(tmp_file1[5:], out) is not None
+
+        try:
+            for i in listdir('data13_hip'):
+                unlink('data13_hip/%s' % i)
+            rmdir('data13_hip')
+        except Exception:
+            pass
+
+    def test_download_pfn(self):
+        """CLIENT(USER): Rucio download files"""
+        tmp_file1 = file_generator()
+        name = os.path.basename(tmp_file1)
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+
+        # download files
+        replica_pfn = list(self.replica_client.list_replicas([{'scope': self.user, 'name': name}]))[0]['rses'][self.def_rse][0]
+        cmd = 'rucio -v download --rse {0} --pfn {1} {2}:{3}'.format(self.def_rse, replica_pfn, self.user, name)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert re.search('Total files.*1', out) is not None
 
         try:
             for i in listdir('data13_hip'):
@@ -1006,6 +1067,33 @@ class TestBinRucio(unittest.TestCase):
         print(out, err)
         search = '{0} successfully downloaded'.format(tmp_file1[5:])  # triming '/tmp/' from filename
         assert re.search(search, err) is not None
+
+    def test_download_file_check_by_size(self):
+        """CLIENT(USER): Rucio download files"""
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # download files
+        cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # Alter downloaded file
+        cmd = 'echo "dummy" >> /tmp/{}/{}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        # Download file again and check for mismatch
+        cmd = 'rucio -v download --check-local-with-filesize-only --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        assert "File with same name exists locally, but filesize mismatches" in err
 
     def test_list_blocklisted_replicas(self):
         """CLIENT(USER): Rucio list replicas"""
@@ -2031,14 +2119,6 @@ class TestBinRucio(unittest.TestCase):
         print(out, err)
         assert exitcode == 0
 
-    def test_rucio_list_file_replicas_rse_is_deprecated(self):
-        """CLIENT(USER): Warn about deprecated command line args"""
-        cmd = 'rucio list-file-replicas test:file1 --rse MOCK --missing'
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert 'The use of --rse is deprecated in favour of --rses and will be removed in 1.27' in err
-
     def test_rucio_list_file_replicas(self):
         """CLIENT(USER): List missing file replicas """
         self.account_client.set_local_account_limit('root', self.def_rse, -1)
@@ -2074,3 +2154,21 @@ class TestBinRucio(unittest.TestCase):
         print(out, err)
         assert exitcode == 0
         assert tmp_file1[5:] in out
+
+    def test_rucio_create_rule_with_0_copies(self):
+        """CLIENT(USER): The creation of a rule with 0 copies shouldn't be possible."""
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+
+        # Try to add a rules with 0 copies, this shouldn't be possible
+        cmd = "rucio add-rule {0}:{1} 0 MOCK".format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(err)
+        print(out)
+        assert exitcode != 0
+        assert "The number of copies for a replication rule should be greater than 0." in err

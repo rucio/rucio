@@ -187,11 +187,17 @@ IP = {
     "pattern": r'^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}$'
 }
 
+IPv4orIPv6 = {
+    "description": "IPv4 or IPv6 address",
+    "type": "string",
+    "format": "ipv4_or_ipv6"
+}
+
 CLIENT_STATE = {
     "description": "Client state",
     "type": "string",
     "enum": ['DONE', 'FAILED', 'PROCESSING', 'ALREADY_DONE', 'FILE_NOT_FOUND', 'FOUND_IN_PCACHE', 'DOWNLOAD_ATTEMPT',
-             'FAIL_VALIDATE', 'FOUND_ROOT']
+             'FAIL_VALIDATE', 'FOUND_ROOT', 'ServiceUnavailable']
 }
 
 RULE = {"description": "Replication rule",

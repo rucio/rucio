@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 # - Nick Smith <nick.smith@cern.ch>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -34,13 +34,13 @@ Conveyor is a daemon to manage file transfers.
 from __future__ import division
 
 import datetime
+import functools
 import itertools
 import json
 import logging
 import re
 import threading
 import time
-from collections import defaultdict
 from itertools import groupby
 
 from requests.exceptions import RequestException
@@ -55,7 +55,7 @@ from rucio.common.utils import dict_chunks
 from rucio.core import transfer as transfer_core, request as request_core
 from rucio.core.monitor import record_timer, record_counter
 from rucio.db.sqla.constants import RequestState, RequestType
-from rucio.daemons.conveyor.common import HeartbeatHandler
+from rucio.daemons.conveyor.common import run_conveyor_daemon
 
 graceful_stop = threading.Event()
 
@@ -63,6 +63,56 @@ datetime.datetime.strptime('', '')
 
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)  # NOTE: This should eventually be completely removed, as it can be fetched from the request
 FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)  # NOTE: TRANSFERTOOL to filter requests on
+
+
+def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, activity, total_workers, worker_number, logger):
+    start_time = time.time()
+    logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))
+    transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                                    state=[RequestState.SUBMITTED],
+                                    limit=db_bulk,
+                                    older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
+                                    total_workers=total_workers,
+                                    worker_number=worker_number,
+                                    mode_all=True, hash_variable='id',
+                                    activity=activity,
+                                    activity_shares=activity_shares,
+                                    transfertool=FILTER_TRANSFERTOOL)
+
+    record_timer('daemons.conveyor.poller.get_next', (time.time() - start_time) * 1000)
+
+    if TRANSFER_TOOL and not FILTER_TRANSFERTOOL:
+        # only keep transfers which don't have any transfertool set, or have one equal to TRANSFER_TOOL
+        transfs_tmp = [t for t in transfs if not t['transfertool'] or t['transfertool'] == TRANSFER_TOOL]
+        if len(transfs_tmp) != len(transfs):
+            logger(logging.INFO, 'Skipping %i transfers because of missmatched transfertool', len(transfs) - len(transfs_tmp))
+        transfs = transfs_tmp
+
+    if transfs:
+        logger(logging.DEBUG, 'Polling %i transfers for activity %s' % (len(transfs), activity))
+
+    transfs.sort(key=lambda t: (t['external_host'] or '',
+                                t['scope'].vo if multi_vo else '',
+                                t['external_id'] or '',
+                                t['request_id'] or ''))
+    for (external_host, vo), transfers_for_host in groupby(transfs, key=lambda t: (t['external_host'],
+                                                                                   t['scope'].vo if multi_vo else None)):
+        transfers_by_eid = {}
+        for external_id, xfers in groupby(transfers_for_host, key=lambda t: t['external_id']):
+            transfers_by_eid[external_id] = list(xfers)
+
+        for chunk in dict_chunks(transfers_by_eid, fts_bulk):
+            try:
+                poll_transfers(external_host=external_host, transfers_by_eid=chunk, vo=vo, timeout=timeout, logger=logger)
+            except Exception:
+                logger(logging.ERROR, 'Exception', exc_info=True)
+
+    queue_empty = False
+    if len(transfs) < fts_bulk / 2:
+        logger(logging.INFO, "Only %s transfers for activity %s, which is less than half of the bulk %s" % (len(transfs), activity, fts_bulk))
+        queue_empty = True
+
+    return queue_empty
 
 
 def poller(once=False, activities=None, sleep_time=60,
@@ -88,75 +138,25 @@ def poller(once=False, activities=None, sleep_time=60,
     if FILTER_TRANSFERTOOL:
         executable += ' --filter-transfertool ' + FILTER_TRANSFERTOOL
 
-    with HeartbeatHandler(executable=executable, logger_prefix=logger_prefix) as heartbeat_handler:
-        logger = heartbeat_handler.logger
-        logger(logging.INFO, 'Poller starting - db_bulk (%i) fts_bulk (%i) timeout (%s)' % (db_bulk, fts_bulk, timeout))
-        activity_next_exe_time = defaultdict(time.time)
-
-        if partition_wait_time:
-            graceful_stop.wait(partition_wait_time)  # To prevent running on the same partition if all the poller restart at the same time
-        while not graceful_stop.is_set():
-
-            try:
-                heart_beat, logger = heartbeat_handler.live(older_than=3600)
-                if activities is None:
-                    activities = [None]
-                for activity in activities:
-                    if activity_next_exe_time[activity] > time.time():
-                        graceful_stop.wait(1)
-                        continue
-
-                    start_time = time.time()
-                    logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))
-                    transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                                    state=[RequestState.SUBMITTED],
-                                                    limit=db_bulk,
-                                                    older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
-                                                    total_workers=heart_beat['nr_threads'], worker_number=heart_beat['assign_thread'],
-                                                    mode_all=True, hash_variable='id',
-                                                    activity=activity,
-                                                    activity_shares=activity_shares,
-                                                    transfertool=FILTER_TRANSFERTOOL)
-
-                    record_timer('daemons.conveyor.poller.get_next', (time.time() - start_time) * 1000)
-
-                    if TRANSFER_TOOL and not FILTER_TRANSFERTOOL:
-                        # only keep transfers which don't have any transfertool set, or have one equal to TRANSFER_TOOL
-                        transfs_tmp = [t for t in transfs if not t['transfertool'] or t['transfertool'] == TRANSFER_TOOL]
-                        if len(transfs_tmp) != len(transfs):
-                            logger(logging.INFO, 'Skipping %i transfers because of missmatched transfertool', len(transfs) - len(transfs_tmp))
-                        transfs = transfs_tmp
-
-                    if transfs:
-                        logger(logging.DEBUG, 'Polling %i transfers for activity %s' % (len(transfs), activity))
-
-                    transfs.sort(key=lambda t: (t['external_host'] or '',
-                                                t['scope'].vo if multi_vo else '',
-                                                t['external_id'] or '',
-                                                t['request_id'] or ''))
-                    for (external_host, vo), transfers_for_host in groupby(transfs, key=lambda t: (t['external_host'],
-                                                                                                   t['scope'].vo if multi_vo else None)):
-                        transfers_by_eid = {}
-                        for external_id, xfers in groupby(transfers_for_host, key=lambda t: t['external_id']):
-                            transfers_by_eid[external_id] = list(xfers)
-
-                        for chunk in dict_chunks(transfers_by_eid, fts_bulk):
-                            try:
-                                poll_transfers(external_host=external_host, transfers_by_eid=chunk, vo=vo, timeout=timeout, logger=logger)
-                            except Exception:
-                                logger(logging.ERROR, 'Exception', exc_info=True)
-
-                    if len(transfs) < fts_bulk / 2:
-                        logger(logging.INFO, "Only %s transfers for activity %s, which is less than half of the bulk %s, will sleep %s seconds" % (len(transfs), activity, fts_bulk, sleep_time))
-                        if activity_next_exe_time[activity] < time.time():
-                            activity_next_exe_time[activity] = time.time() + sleep_time
-            except Exception:
-                logger(logging.CRITICAL, "Exception", exc_info=True)
-                if once:
-                    raise
-
-            if once:
-                break
+    run_conveyor_daemon(
+        once=once,
+        graceful_stop=graceful_stop,
+        executable=executable,
+        logger_prefix=logger_prefix,
+        partition_wait_time=partition_wait_time,
+        sleep_time=sleep_time,
+        run_once_fnc=functools.partial(
+            run_once,
+            fts_bulk=fts_bulk,
+            db_bulk=db_bulk,
+            older_than=older_than,
+            activity_shares=activity_shares,
+            multi_vo=multi_vo,
+            timeout=timeout,
+        ),
+        activities=activities,
+        heart_beat_older_than=3600,
+    )
 
 
 def stop(signum=None, frame=None):

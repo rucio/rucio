@@ -19,7 +19,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2020-2022
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
@@ -54,7 +54,7 @@ from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.quarantined_replica import (list_quarantined_replicas,
                                             delete_quarantined_replicas,
-                                            list_rses)
+                                            list_rses_with_quarantined_replicas)
 import rucio.core.rse as rse_core
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
@@ -65,7 +65,7 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 GRACEFUL_STOP = threading.Event()
 
 
-def reaper(rses, worker_number=0, total_workers=1, chunk_size=100, once=False, scheme=None, sleep_time=60):
+def reaper(rses, worker_number=0, total_workers=1, chunk_size=100, once=False, scheme=None, sleep_time=300):
     """
     Main loop to select and delete files.
 
@@ -97,20 +97,21 @@ def reaper(rses, worker_number=0, total_workers=1, chunk_size=100, once=False, s
             nothing_to_do = True
             start_time = time.time()
 
-            rses_to_process = list(set(rses) & set(list_rses()))
+            rses_to_process = list(set(rses) & set(list_rses_with_quarantined_replicas()))
             random.shuffle(rses_to_process)
             for rse_id in rses_to_process:
-                replicas = list_quarantined_replicas(rse_id=rse_id,
-                                                     limit=chunk_size, worker_number=worker_number,
-                                                     total_workers=total_workers)
+                # The following query returns the list of real replicas (deleted_replicas) and list of dark replicas (dark_replicas)
+                # Real replicas can be directly removed from the quarantine table
+                deleted_replicas, dark_replicas = list_quarantined_replicas(rse_id=rse_id,
+                                                                            limit=chunk_size, worker_number=worker_number,
+                                                                            total_workers=total_workers)
 
                 rse_info = rsemgr.get_rse_info(rse_id=rse_id)
                 rse = rse_info['rse']
                 prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
-                deleted_replicas = []
                 try:
                     prot.connect()
-                    for replica in replicas:
+                    for replica in dark_replicas:
                         nothing_to_do = False
                         scope = ''
                         if replica['scope']:
@@ -198,7 +199,7 @@ def stop(signum=None, frame=None):
 
 
 def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
-        exclude_rses=None, include_rses=None, vos=None, delay_seconds=0, sleep_time=60):
+        exclude_rses=None, include_rses=None, vos=None, delay_seconds=0, sleep_time=300):
     """
     Starts up the reaper threads.
 

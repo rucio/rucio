@@ -23,15 +23,16 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2022
 
 import datetime
 
-from sqlalchemy import and_, or_, exists, not_
-from sqlalchemy.sql.expression import select, false
+from sqlalchemy import and_, or_
+from sqlalchemy.sql.expression import false
 
-from rucio.common.utils import chunks
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.common.utils import chunks
 
 
 @transactional_session
@@ -44,39 +45,41 @@ def add_quarantined_replicas(rse_id, replicas, session=None):
     :param session:  The database session in use.
     """
 
-    for chunk in chunks(replicas, 100):
-        # Exlude files that have a registered replica.  This is a
-        # safeguard against potential issues in the Auditor.
-        file_clause = []
-        for replica in chunk:
-            file_clause.append(and_(models.RSEFileAssociation.scope == replica.get('scope', None),
-                                    models.RSEFileAssociation.name == replica.get('name', None),
-                                    models.RSEFileAssociation.rse_id == rse_id))
-        file_query = session.query(models.RSEFileAssociation.scope,
-                                   models.RSEFileAssociation.name,
-                                   models.RSEFileAssociation.rse_id).\
-            with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
-            filter(or_(*file_clause))
-        existing_replicas = [(scope, name, rseid) for scope, name, rseid in file_query]
-        chunk = [replica for replica in chunk if (replica.get('scope', None), replica.get('name', None), rse_id) not in existing_replicas]
+    # Exlude files that have a registered replica.  This is a
+    # safeguard against potential issues in the Auditor.
+    file_clause = []
+    for replica in replicas:
+        file_clause.append(and_(models.RSEFileAssociation.scope == replica.get('scope', None),
+                                models.RSEFileAssociation.name == replica.get('name', None),
+                                models.RSEFileAssociation.rse_id == rse_id))
+    file_query = session.query(models.RSEFileAssociation.scope,
+                               models.RSEFileAssociation.name,
+                               models.RSEFileAssociation.rse_id).\
+        with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
+        filter(or_(*file_clause))
+    existing_replicas = [(scope, name, rseid) for scope, name, rseid in file_query]
+    replicas = [replica for replica in replicas if (replica.get('scope', None), replica.get('name', None), rse_id) not in existing_replicas]
 
-        # Exclude files that have already been added to the quarantined
-        # replica table.
-        quarantine_clause = []
-        for replica in chunk:
-            quarantine_clause.append(and_(models.QuarantinedReplica.path == replica['path'],
-                                          models.QuarantinedReplica.rse_id == rse_id))
-        quarantine_query = session.query(models.QuarantinedReplica.path,
-                                         models.QuarantinedReplica.rse_id).\
-            filter(or_(*quarantine_clause))
-        quarantine_replicas = [(path, rseid) for path, rseid in quarantine_query]
-        chunk = [replica for replica in chunk if (replica['path'], rse_id) not in quarantine_replicas]
+    # Exclude files that have already been added to the quarantined
+    # replica table.
+    quarantine_clause = []
+    for replica in replicas:
+        quarantine_clause.append(and_(models.QuarantinedReplica.path == replica['path'],
+                                      models.QuarantinedReplica.rse_id == rse_id))
+    quarantine_query = session.query(models.QuarantinedReplica.path,
+                                     models.QuarantinedReplica.rse_id).\
+        filter(or_(*quarantine_clause))
+    quarantine_replicas = [(path, rseid) for path, rseid in quarantine_query]
+    replicas = [replica for replica in replicas if (replica['path'], rse_id) not in quarantine_replicas]
 
-        session.bulk_insert_mappings(
-            models.QuarantinedReplica,
-            [{'rse_id': rse_id, 'path': file['path'],
-              'scope': file.get('scope'), 'name': file.get('name'),
-              'bytes': file.get('bytes')} for file in chunk])
+    session.bulk_insert_mappings(
+        models.QuarantinedReplica,
+        [{'rse_id': rse_id,
+          'path': file['path'],
+          'scope': file.get('scope'),
+          'name': file.get('name'),
+          'bytes': file.get('bytes')}
+         for file in replicas])
 
 
 @transactional_session
@@ -119,34 +122,60 @@ def list_quarantined_replicas(rse_id, limit, worker_number=None, total_workers=N
     :param total_workers:      Number of total workers.
     :param session: The database session in use.
 
-    :returns: a list of dictionary replica.
+    :returns: two lists :
+              - The first one contains quarantine replicas actually registered in the replicas tables
+              - The second one contains real "dark" files
     """
 
+    replicas_clause = []
+    quarantined_replicas = {}
+    real_replicas = []
+    dark_replicas = []
     query = session.query(models.QuarantinedReplica.path,
                           models.QuarantinedReplica.bytes,
                           models.QuarantinedReplica.scope,
                           models.QuarantinedReplica.name,
                           models.QuarantinedReplica.created_at).\
         filter(models.QuarantinedReplica.rse_id == rse_id)
-
-    # do no delete valid replicas
-    stmt = exists(select([1]).prefix_with("/*+ index(REPLICAS REPLICAS_PK) */", dialect='oracle')).\
-        where(and_(models.RSEFileAssociation.scope == models.QuarantinedReplica.scope,
-                   models.RSEFileAssociation.name == models.QuarantinedReplica.name,
-                   models.RSEFileAssociation.rse_id == models.QuarantinedReplica.rse_id))
-    query = query.filter(not_(stmt))
     query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='path')
-    return [{'path': path,
-             'rse_id': rse_id,
-             'created_at': created_at,
-             'scope': scope,
-             'name': name,
-             'bytes': bytes_}
-            for path, bytes_, scope, name, created_at in query.limit(limit)]
+
+    for path, bytes_, scope, name, created_at in query.limit(limit):
+        if not (scope, name) in quarantined_replicas:
+            quarantined_replicas[(scope, name)] = []
+            replicas_clause.append(and_(models.RSEFileAssociation.scope == scope,
+                                        models.RSEFileAssociation.name == name))
+        quarantined_replicas[(scope, name)].append((path, bytes_, created_at))
+
+    for chunk in chunks(replicas_clause, 20):
+        query = session.query(models.RSEFileAssociation.scope,
+                              models.RSEFileAssociation.name).\
+            filter(models.RSEFileAssociation.rse_id == rse_id).\
+            filter(or_(*chunk))
+
+        for scope, name in query.all():
+            reps = quarantined_replicas.pop((scope, name))
+            real_replicas.extend([{'scope': scope,
+                                   'name': name,
+                                   'rse_id': rse_id,
+                                   'path': rep[0],
+                                   'bytes': rep[1],
+                                   'created_at': rep[2]}
+                                  for rep in reps])
+
+    for key, value in quarantined_replicas.items():
+        dark_replicas.extend([{'scope': key[0],
+                               'name': key[1],
+                               'rse_id': rse_id,
+                               'path': rep[0],
+                               'bytes': rep[1],
+                               'created_at': rep[2]}
+                              for rep in value])
+
+    return real_replicas, dark_replicas
 
 
 @read_session
-def list_rses(filters=None, session=None):
+def list_rses_with_quarantined_replicas(filters=None, session=None):
     """
     List RSEs in the Quarantined Queues.
 

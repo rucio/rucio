@@ -33,7 +33,7 @@ multi_word_sections = {
     'messaging_cache': 'messaging-cache',
     'messaging_hermes': 'messaging-hermes',
     'messaging_hermes2': 'hermes',
-    'nongrid_trace': 'nogrid-trace',
+    'nongrid_trace': 'nongrid-trace',
     'tracer_kronos': 'tracer-kronos',
 }
 

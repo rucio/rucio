@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,16 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 
 import datetime
 import time
 import uuid
+import pytest
+import json
+from rucio.common.schema.generic import IPv4orIPv6
+from rucio.core.trace import SCHEMAS, validate_schema
+from rucio.common.exception import InvalidObject
 
 
 def test_submit_trace(rest_client):
@@ -47,3 +53,37 @@ def test_submit_trace_wrong_content_type(rest_client):
     """
     response = rest_client.post('/traces/', data='{"a": "b"}', content_type=[('Content-Type', 'application/x-www-form-urlencoded')])
     assert response.status_code == 201
+
+
+def test_trace_ip():
+    """
+    Allow either IPv4 or IPv6 addresses as traceIp fields
+    """
+    TEST_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "eventType": {"enum": ["test"]},
+            "traceIp": IPv4orIPv6
+        }
+    }
+
+    SCHEMAS['test'] = TEST_SCHEMA
+
+    valid_ips = [
+        "::ffff:134.158.121.5",
+        "126.36.54.98"
+    ]
+    invalid_ips = [
+        "::ffff:134.158.121.5:80",
+        "300.25.45.98",
+        "128.69.32.45:80"
+    ]
+    valid_obj = [json.dumps({"eventType": "test", "traceIp": ip}) for ip in valid_ips]
+    invalid_obj = [json.dumps({"eventType": "test", "traceIp": ip}) for ip in invalid_ips]
+
+    for obj in valid_obj:
+        validate_schema(obj)
+
+    for obj in invalid_obj:
+        with pytest.raises(InvalidObject):
+            validate_schema(obj)
