@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2021 CERN
+# Copyright 2016-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -48,13 +48,13 @@ from datetime import datetime, timedelta
 from math import ceil
 from typing import TYPE_CHECKING
 
-from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from prometheus_client import Gauge
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.cache import make_region_memcached
 from rucio.common.exception import (DatabaseException, RSENotFound,
                                     ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
@@ -77,10 +77,7 @@ if TYPE_CHECKING:
 
 GRACEFUL_STOP = threading.Event()
 
-REGION = make_region().configure('dogpile.cache.memcached',
-                                 expiration_time=600,
-                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
-                                            'distributed_lock': True})
+REGION = make_region_memcached(expiration_time=600)
 
 DELETION_COUNTER = monitor.MultiCounter(prom='rucio_daemons_reaper_deletion_done', statsd='reaper.deletion.done',
                                         documentation='Number of deleted replicas')
@@ -170,7 +167,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
                                  'protocol': prot.attributes['scheme']}
                 if replica['scope'].vo != 'def':
                     deletion_dict['vo'] = replica['scope'].vo
-                logger(logging.INFO, 'Deletion ATTEMPT of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
+                logger(logging.DEBUG, 'Deletion ATTEMPT of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
                 start = time.time()
                 # For STAGING RSEs, no physical deletion
                 if rse_id in staging_areas:
@@ -519,10 +516,12 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 list_rses_mult.extend([(rse_name, rse_id, dict_rses[rse_key][0], dict_rses[rse_key][1]) for _ in range(int(max_workers))])
             random.shuffle(list_rses_mult)
 
+            paused_rses = []
             for rse_name, rse_id, needed_free_space, max_being_deleted_files in list_rses_mult:
                 result = REGION.get('pause_deletion_%s' % rse_id, expiration_time=120)
                 if result is not NO_VALUE:
-                    logger(logging.INFO, 'Not enough replicas to delete on %s during the previous cycle. Deletion paused for a while', rse_name)
+                    paused_rses.append(rse_name)
+                    logger(logging.DEBUG, 'Not enough replicas to delete on %s during the previous cycle. Deletion paused for a while', rse_name)
                     continue
                 result = REGION.get('temporary_exclude_%s' % rse_id, expiration_time=auto_exclude_timeout)
                 if result is not NO_VALUE:
@@ -614,6 +613,9 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                         DELETION_COUNTER.inc(len(deleted_files))
                 except Exception:
                     logger(logging.CRITICAL, 'Exception', exc_info=True)
+
+            if paused_rses:
+                logger(logging.INFO, 'Deletion paused for a while for following RSEs: %s', ', '.join(paused_rses))
 
             if once:
                 break

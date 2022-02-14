@@ -50,7 +50,7 @@ from werkzeug.datastructures import MultiDict
 from rucio.client.ruleclient import RuleClient
 from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, RucioException,
                                     ReplicaIsLocked, ReplicaNotFound, ScopeNotFound,
-                                    DatabaseException)
+                                    DatabaseException, InputValidationError)
 from rucio.common.utils import generate_uuid, clean_surls, parse_response
 from rucio.core.config import set as cconfig_set
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
@@ -843,6 +843,57 @@ def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_
     for did in files:
         rep = get_replicas_state(scope=mock_scope, name=did['name'])
         assert list(rep.keys())[0] == ReplicaState.AVAILABLE
+
+
+def test_client_declare_bad_pfns(rse_factory, mock_scope, replica_client):
+    """ REPLICA (CLIENT): Client should be able to declare bad pfns."""
+    rse, rse_id = rse_factory.make_posix_rse()
+    nbfiles = 5
+    # Adding replicas to deterministic RSE
+    files = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    replica_client.add_replicas(rse=rse, files=files)
+
+    # Listing replicas on deterministic RSE
+    list_rep = []
+    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['file'], all_states=True):
+        pfn = list(replica['pfns'].keys())[0]
+        list_rep.append(pfn)
+
+    # Submit bad PFNs
+    reason_str = generate_uuid()
+    replica_client.add_bad_pfns(pfns=list_rep, reason=str(reason_str), state='BAD', expires_at=None)
+    result = get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None)
+    print("bad pfns:", result)
+    bad_pfns = {}
+    for res in result:
+        bad_pfns[res['pfn']] = (res['state'], res['reason'], res['expires_at'])
+
+    for pfn in list_rep:
+        pfn = str(clean_surls([pfn])[0])
+        assert pfn in bad_pfns
+        assert bad_pfns[pfn][0] == BadPFNStatus.BAD
+        assert bad_pfns[pfn][1] == reason_str
+
+
+def test_client_add_temporary_pfns_input_validation_error(rse_factory, mock_scope, replica_client):
+    """ REPLICA (CLIENT): Try to add temporary unavailable PFNs without the expired at value, this should fail."""
+    rse, rse_id = rse_factory.make_posix_rse()
+    nbfiles = 5
+    # Adding replicas to deterministic RSE
+    files = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    replica_client.add_replicas(rse=rse, files=files)
+
+    # Listing replicas on deterministic RSE
+    list_rep = []
+    for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['file'], all_states=True):
+        pfn = list(replica['pfns'].keys())[0]
+        list_rep.append(pfn)
+
+    with pytest.raises(InputValidationError):
+        replica_client.add_bad_pfns(pfns=list_rep, reason="Some weird reason", state='TEMPORARY_UNAVAILABLE', expires_at=None)
+
+    with pytest.raises(InputValidationError):
+        replica_client.add_bad_pfns(pfns=list_rep, reason="Some weird reason", state='BAD', expires_at=(datetime.utcnow() + timedelta(seconds=10)).isoformat())
 
 
 def test_client_set_tombstone(rse_factory, mock_scope, root_account, replica_client):

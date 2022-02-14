@@ -1,0 +1,18 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v2.3.0
+  hooks:
+  - id: end-of-file-fixer
+  - id: trailing-whitespace
+- repo: https://github.com/PyCQA/flake8
+  rev: 4.0.1
+  hooks:
+  - id: flake8
+- repo: local
+  hooks:
+  - id: add-header
+    name: Run `add_header` script
+    description: Run the `add_header` script to verify the python file headers
+    entry: tools/add_header -i
+    language: system
+    types: [python]

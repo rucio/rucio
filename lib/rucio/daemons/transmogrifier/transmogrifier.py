@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Yutaro Iiyama <yutaro.iiyama@cern.ch>, 2022
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 import logging
 import os
@@ -55,7 +57,7 @@ from rucio.core import monitor, heartbeat
 from rucio.core.did import list_new_dids, set_new_dids, get_metadata
 from rucio.core.rse import list_rses, rse_exists, get_rse_id, list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.rse_selector import RSESelector
+from rucio.core.rse_selector import resolve_rse_expression
 from rucio.core.rule import add_rule, list_rules, get_rule
 from rucio.core.subscription import list_subscriptions, update_subscription
 from rucio.db.sqla.constants import DIDType, SubscriptionState
@@ -336,24 +338,21 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                     else:
                                         # In the case of chained subscription, don't use rseselector but use the rses returned by the algorithm
                                         if split_rule:
-                                            vo = account.vo
-                                            rses = parse_expression(rse_expression, filter_={'vo': vo})
-                                            list_of_rses = [rse['id'] for rse in rses]
-                                            # Check that some rule doesn't already exist for this DID and subscription
-                                            preferred_rse_ids = []
+                                            preferred_rses = set()
                                             for rule in list_rules(filters={'subscription_id': subscription_id, 'scope': did['scope'], 'name': did['name']}):
-                                                already_existing_rses = [(rse['rse'], rse['id']) for rse in parse_expression(rule['rse_expression'], filter_={'vo': vo})]
-                                                for rse, rse_id in already_existing_rses:
-                                                    if (rse_id in list_of_rses) and (rse_id not in preferred_rse_ids):
-                                                        preferred_rse_ids.append(rse_id)
-                                            if len(preferred_rse_ids) >= copies:
-                                                skip_rule_creation = True
-                                            rse_id_dict = {}
-                                            for rse in rses:
-                                                rse_id_dict[rse['id']] = rse['rse']
+                                                for rse_dict in parse_expression(rule['rse_expression'], filter_={'vo': account.vo}):
+                                                    preferred_rses.add(rse_dict['rse'])
+                                            preferred_rses = list(preferred_rses)
+
                                             try:
-                                                rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
-                                                selected_rses = [rse_id_dict[rse_id] for rse_id, _, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blocklist=blocklisted_rse_id)]
+                                                selected_rses, preferred_unmatched = resolve_rse_expression(rse_expression,
+                                                                                                            account,
+                                                                                                            weight=weight,
+                                                                                                            copies=copies,
+                                                                                                            size=0,
+                                                                                                            preferred_rses=preferred_rses,
+                                                                                                            blocklist=blocklisted_rse_id)
+
                                             except (InsufficientTargetRSEs, InsufficientAccountLimit, InvalidRuleWeight, RSEOverQuota) as error:
                                                 logger(logging.WARNING, 'Problem getting RSEs for subscription "%s" for account %s : %s. Try including blocklisted sites' %
                                                        (subscription['name'],
@@ -361,8 +360,12 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                                         str(error)))
                                                 # Now including the blocklisted sites
                                                 try:
-                                                    rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies - len(preferred_rse_ids))
-                                                    selected_rses = [rse_id_dict[rse_id] for rse_id, _, _ in rseselector.select_rse(0, preferred_rse_ids=preferred_rse_ids, copies=copies, blocklist=[])]
+                                                    selected_rses, preferred_unmatched = resolve_rse_expression(rse_expression,
+                                                                                                                account,
+                                                                                                                weight=weight,
+                                                                                                                copies=copies,
+                                                                                                                size=0,
+                                                                                                                preferred_rses=preferred_rses)
                                                     ignore_availability = True
                                                 except (InsufficientTargetRSEs, InsufficientAccountLimit, InvalidRuleWeight, RSEOverQuota) as error:
                                                     logger(logging.ERROR, 'Problem getting RSEs for subscription "%s" for account %s : %s. Skipping rule creation.' %
@@ -373,6 +376,9 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                                     # The DID won't be reevaluated at the next cycle
                                                     did_success = did_success and True
                                                     continue
+
+                                            if len(preferred_rses) - len(preferred_unmatched) >= copies:
+                                                skip_rule_creation = True
 
                                     for attempt in range(0, nattempt):
                                         attemptnr = attempt

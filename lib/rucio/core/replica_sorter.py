@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020-2021 CERN
+# Copyright 2020-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,77 +18,96 @@
 # - Ilija Vukotic <ivukotic@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
-
-# This product includes GeoLite data created by MaxMind,
-# available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 from __future__ import print_function, division
 
-import os
 import random
+import shutil
 import socket
 import tarfile
-import time
 from collections import OrderedDict
+from datetime import datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
+from pathlib import Path
+from tempfile import TemporaryDirectory, TemporaryFile
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 import geoip2.database
 import requests
-from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
 from rucio.common import utils
-from rucio.common.config import config_get
+from rucio.common.cache import make_region_memcached
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import InvalidRSEExpression
 from rucio.core.rse_expression_parser import parse_expression
 
 if TYPE_CHECKING:
     from typing import Dict, List, Optional
 
-REGION = make_region(function_key_generator=utils.my_key_generator).configure(
-    'dogpile.cache.memory',
-    expiration_time=30 * 86400,
-)
+REGION = make_region_memcached(expiration_time=1800, function_key_generator=utils.my_key_generator)
+
+# This product uses GeoLite data created by MaxMind,
+# available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>
+GEOIP_DB_EDITION = 'GeoLite2-City'
 
 
-def __download_geoip_db(directory, filename):
-    licence_key = config_get('core', 'geoip_licence_key', raise_exception=False, default='NOLICENCE')
-    path = 'https://download.maxmind.com/app/geoip_download?edition_id=%s&license_key=%s&suffix=tar.gz' % (filename, licence_key)
-    try:
-        os.unlink('%s/%s.tar.gz' % (directory, filename))
-    except OSError:
-        pass
-    result = requests.get(path, stream=True)
-    if result and result.status_code in [200, ]:
-        file_object = open('%s/%s.tar.gz' % (directory, filename), 'wb')
-        for chunk in result.iter_content(8192):
-            file_object.write(chunk)
-        file_object.close()
-        tarfile_name = '%s/%s.tar.gz' % (directory, filename)
-        with tarfile.open(name=tarfile_name, mode='r:gz') as tfile:
-            tfile.extractall(path=directory)
+def extract_file_from_tar_gz(archive_file_obj, file_name, destination):
+    """
+    Extract one file from the archive and put it at the destination
+
+    archive_fileobj is supposed to be at position 0
+    """
+    with TemporaryDirectory(prefix=file_name) as tmp_dir:
+        tmp_dir = Path(tmp_dir)
+        with tarfile.open(fileobj=archive_file_obj, mode='r:gz') as tfile:
+            tfile.extractall(path=tmp_dir)
             for entry in tfile:
-                if entry.name.find('%s.mmdb' % filename) > -1:
-                    print('Will move %s/%s to %s/%s' % (directory, entry.name, directory, entry.name.split('/')[-1]))
-                    os.rename('%s/%s' % (directory, entry.name), '%s/%s' % (directory, entry.name.split('/')[-1]))
+                if entry.name.find(file_name) > -1:
+                    print('Will move %s to %s' % (tmp_dir / entry.name, destination))
+                    shutil.move(tmp_dir / entry.name, destination)
+
+
+def __download_geoip_db(destination):
+    edition_id = GEOIP_DB_EDITION
+    download_url = config_get('core', 'geoip_download_url', raise_exception=False, default=None)
+    verify_tls = config_get_bool('core', 'geoip_download_verify_tls', raise_exception=False, default=True)
+    if not download_url:
+        licence_key = config_get('core', 'geoip_licence_key', raise_exception=False, default='NOLICENCE')
+        download_url = 'https://download.maxmind.com/app/geoip_download?edition_id=%s&license_key=%s&suffix=tar.gz' % (edition_id, licence_key)
+
+    result = requests.get(download_url, stream=True, verify=verify_tls)
+    if result and result.status_code in [200, ]:
+        with TemporaryFile() as file_obj:
+            for chunk in result.iter_content(8192):
+                file_obj.write(chunk)
+            file_obj.seek(0)
+
+            extract_file_from_tar_gz(archive_file_obj=file_obj, file_name=f'{edition_id}.mmdb', destination=destination)
     else:
-        raise Exception('Cannot download GeoIP database: %s, Code: %s, Error: %s' % (filename,
+        raise Exception('Cannot download GeoIP database: %s, Code: %s, Error: %s' % (edition_id,
                                                                                      result.status_code,
                                                                                      result.text))
 
 
-def __get_geoip_db(directory, filename):
-    if directory.endswith('/'):
-        directory = directory[:-1]
-    if not os.path.isfile('%s/%s.mmdb' % (directory, filename)):
-        print('%s does not exist. Downloading it.' % (filename))
-        __download_geoip_db(directory, filename)
-    elif time.time() - os.stat('%s/%s.mmdb' % (directory, filename)).st_atime > 30 * 86400:
-        print('%s is too old. Re-downloading it.' % (filename))
-        __download_geoip_db(directory, filename)
-    return
+def __geoip_db():
+    db_path = Path(f'/tmp/{GEOIP_DB_EDITION}.mmdb')
+    db_expire_delay = timedelta(days=config_get_int('core', 'geoip_expire_delay', raise_exception=False, default=30))
+
+    must_download = False
+    if not db_path.is_file():
+        print('%s does not exist. Downloading it.' % db_path)
+        must_download = True
+    elif db_expire_delay and datetime.fromtimestamp(db_path.stat().st_mtime) < datetime.now() - db_expire_delay:
+        print('%s is too old. Re-downloading it.' % db_path)
+        must_download = True
+
+    if must_download:
+        __download_geoip_db(destination=db_path)
+
+    return geoip2.database.Reader(str(db_path))
 
 
 def __get_lat_long(se, gi):
@@ -117,18 +136,14 @@ def __get_distance(se1, client_location, ignore_error):
     # does not cache ignore_error, str.lower on hostnames/ips is fine
     canonical_parties = list(map(lambda x: str(x).lower(), [se1, client_location['ip'], client_location.get('latitude', ''), client_location.get('longitude', '')]))
     canonical_parties.sort()
-    cache_key = f'replica_sorter:__get_distance|site_distance|{canonical_parties}'
+    cache_key = f'replica_sorter:__get_distance|site_distance|{"".join(canonical_parties)}'
     cache_val = REGION.get(cache_key)
     if cache_val is NO_VALUE:
-        directory = '/tmp'
-        ipv6_filename = 'GeoLite2-City'
         try:
-            __get_geoip_db(directory, ipv6_filename)
-
-            gi = geoip2.database.Reader('%s/%s' % (directory, '%s.mmdb' % ipv6_filename))
+            gi = __geoip_db()
 
             lat1, long1 = __get_lat_long(se1, gi)
-            if client_location['latitude'] and client_location['longitude']:
+            if client_location.get('latitude') and client_location.get('longitude'):
                 lat2 = client_location['latitude']
                 long2 = client_location['longitude']
             else:

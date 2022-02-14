@@ -40,6 +40,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Nicholas Smith <nick.smith@cern.ch>, 2021
 
 import copy
 import json
@@ -629,7 +630,7 @@ class UploadClient:
             raise FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))  # wrong exception ?
 
         # Removing tmp from earlier attempts
-        if protocol_read.exists(readpfn_tmp):
+        if protocol_write.exists(readpfn_tmp):
             logger(logging.DEBUG, 'Removing remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.

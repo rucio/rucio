@@ -1,1 +1,1 @@
-<!-- Please read https://github.com/rucio/rucio/blob/master/CONTRIBUTING.rst before submitting a pull request -->
+<!-- Please read https://rucio.cern.ch/documentation/contributing before submitting a pull request -->

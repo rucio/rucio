@@ -259,7 +259,7 @@ def run(once=False, total_threads=1, full_mode=False):
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.info('starting receiver thread')
-    threads = [threading.Thread(target=receiver, kwargs={'id': i,
+    threads = [threading.Thread(target=receiver, kwargs={'id_': i,
                                                          'full_mode': full_mode,
                                                          'total_threads': total_threads}) for i in range(0, total_threads)]
 

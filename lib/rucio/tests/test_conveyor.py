@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2021 CERN
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 # Authors:
 # - Wen Guan <wen.guan@cern.ch>, 2015-2016
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2022
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Mayank Sharma <imptodefeat@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
@@ -73,7 +73,7 @@ def __wait_for_replica_transfer(dst_rse_id, scope, name, state=ReplicaState.AVAI
     return replica
 
 
-def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MAX_POLL_WAIT_SECONDS, run_poller=True):
+def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MAX_POLL_WAIT_SECONDS, run_poller=True, run_finisher=False):
     """
     Wait for the request state to be updated to the given expected state as a result of a pending transfer
     """
@@ -81,6 +81,8 @@ def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MA
     for _ in range(max_wait_seconds):
         if run_poller:
             poller(once=True, older_than=0, partition_wait_time=None)
+        if run_finisher:
+            finisher(once=True, partition_wait_time=None)
         request = request_core.get_request_by_did(rse_id=dst_rse_id, scope=scope, name=name)
         if request['state'] == state:
             break
@@ -134,7 +136,20 @@ def __get_source(request_id, src_rse_id, scope, name, session=None):
     'rucio.core.config.REGION',
     'rucio.daemons.reaper.reaper.REGION',
 ]}], indirect=True)
-def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, core_config_mock, caches_mock, metrics_mock):
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {
+        "overrides": [
+            ('core', 'use_temp_tables', 'True'),
+        ]
+    },
+    {
+        "overrides": [
+            ('core', 'use_temp_tables', 'False'),
+        ]
+    }
+], indirect=True)
+def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, core_config_mock, caches_mock, metrics_mock, file_config_mock):
     """
     Ensure that intermediate replicas created by the submitter are protected from deletion even if their tombstone is
     set to epoch.
@@ -183,17 +198,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         replica = __wait_for_replica_transfer(dst_rse_id=jump_rse_id, **did)
         assert replica['state'] == ReplicaState.AVAILABLE
 
-        # The intermediate replica is protected by an entry in the sources table
-        # Reaper must not remove this replica, even if it has an obsolete tombstone
-        rucio.daemons.reaper.reaper.REGION.invalidate()
-        reaper(once=True, rses=[], include_rses=jump_rse_name, exclude_rses=None)
-        replica = replica_core.get_replica(rse_id=jump_rse_id, **did)
-        assert replica
-
-        # FTS fails the second transfer
-        request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, **did)
-        # ensure tha the ranking was correctly decreased
-        assert __get_source(request_id=request['id'], src_rse_id=jump_rse_id, **did).ranking == -1
+        # FTS can fail the second transfer
         # run submitter again to copy from jump rse to destination rse
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
@@ -253,10 +258,11 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
     request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, **did)
-    assert 'Cancelled hop in multi-hop' in request['err_msg']
+    assert 'Unused hop in multi-hop' in request['err_msg']
     assert request['state'] == RequestState.FAILED
     request = request_core.get_request_by_did(rse_id=jump_rse_id, **did)
     assert request['state'] == RequestState.FAILED
+    assert request['attributes']['source_replica_expression'] == src_rse
 
     # Each hop is a separate transfer, which will be handled by the poller and marked as failed
     assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 2
@@ -384,6 +390,12 @@ def test_multisource(vo, did_factory, root_account, replica_client, core_config_
     # Only one request was handled; doesn't matter that it's multisource
     assert metrics_mock.get_sample_value('rucio_daemons_conveyor_finisher_handle_requests_total') >= 1
     assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 1
+    assert metrics_mock.get_sample_value(
+        'rucio_core_request_get_next_total',
+        labels={
+            'request_type': 'TRANSFER.STAGEIN.STAGEOUT',
+            'state': 'DONE.FAILED.LOST.SUBMITTING.SUBMISSION_FAILED.NO_SOURCES.ONLY_TAPE_SOURCES.MISMATCH_SCHEME'}
+    )
 
 
 @skip_rse_tests_with_accounts
@@ -481,7 +493,7 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         # TODO: set the run_poller argument to False if we ever manage to make the receiver correctly handle multi-hop failures.
         request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, run_poller=True, **did)
         assert request['state'] == RequestState.FAILED
-        assert 'Cancelled hop in multi-hop' in request['err_msg']
+        assert 'Unused hop in multi-hop' in request['err_msg']
 
         # First hop will be handled by receiver; second hop by poller
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 1
@@ -756,6 +768,44 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
     replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, **did)
     assert replica['state'] == ReplicaState.AVAILABLE
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+def test_cancel_rule(rse_factory, did_factory, root_account):
+    """
+    Ensure that, when we cancel a rule, the request is cancelled in FTS
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    all_rses = [src_rse_id, dst_rse_id]
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+
+    did = did_factory.upload_test_file(src_rse)
+
+    [rule_id] = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    class _FTSWrapper(FTSWrapper):
+        @staticmethod
+        def on_submit(file):
+            # Simulate using the mock gfal plugin that it takes a long time to copy the file
+            file['sources'] = [set_query_parameters(s_url, {'time': 30}) for s_url in file['sources']]
+
+    with patch('rucio.daemons.conveyor.submitter.TRANSFERTOOL_CLASSES_BY_NAME') as tt_mock:
+        tt_mock.__getitem__.return_value = _FTSWrapper
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+
+    rule_core.delete_rule(rule_id)
+
+    with pytest.raises(RequestNotFound):
+        request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+
+    fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query(request['external_id'])
+    assert fts_response[request['external_id']][request['id']]['job_state'] == 'CANCELED'
 
 
 class FTSWrapper(FTS3Transfertool):

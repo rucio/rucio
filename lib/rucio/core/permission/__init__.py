@@ -85,7 +85,7 @@ def load_permission_for_vo(vo):
                 POLICY = GENERIC_FALLBACK
             POLICY = 'rucio.core.permission.' + POLICY.lower()
     else:
-        POLICY = 'rucio.common.permission.' + GENERIC_FALLBACK.lower()
+        POLICY = 'rucio.core.permission.' + GENERIC_FALLBACK.lower()
 
     try:
         module = importlib.import_module(POLICY)

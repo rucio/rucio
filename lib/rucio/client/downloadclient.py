@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
@@ -192,14 +192,15 @@ class DownloadClient:
         Download items with a given PFN. This function can only download files, no datasets.
 
         :param items: List of dictionaries. Each dictionary describing a file to download. Keys:
-            pfn                 - PFN string of this file
-            did                 - DID string of this file (e.g. 'scope:file.name'). Wildcards are not allowed
-            rse                 - rse name (e.g. 'CERN-PROD_DATADISK'). RSE Expressions are not allowed
-            base_dir            - Optional: Base directory where the downloaded files will be stored. (Default: '.')
-            no_subdir           - Optional: If true, files are written directly into base_dir. (Default: False)
-            adler32             - Optional: The adler32 checmsum to compare the downloaded files adler32 checksum with
-            md5                 - Optional: The md5 checksum to compare the downloaded files md5 checksum with
-            transfer_timeout    - Optional: Timeout time for the download protocols. (Default: None)
+            pfn                            - PFN string of this file
+            did                            - DID string of this file (e.g. 'scope:file.name'). Wildcards are not allowed
+            rse                            - rse name (e.g. 'CERN-PROD_DATADISK'). RSE Expressions are not allowed
+            base_dir                       - Optional: Base directory where the downloaded files will be stored. (Default: '.')
+            no_subdir                      - Optional: If true, files are written directly into base_dir. (Default: False)
+            adler32                        - Optional: The adler32 checmsum to compare the downloaded files adler32 checksum with
+            md5                            - Optional: The md5 checksum to compare the downloaded files md5 checksum with
+            transfer_timeout               - Optional: Timeout time for the download protocols. (Default: None)
+            check_local_with_filesize_only - Optional: If true, already downloaded files will not be validated by checksum.
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
@@ -223,6 +224,7 @@ class DownloadClient:
             did_str = item.get('did')
             pfn = item.get('pfn')
             rse = item.get('rse')
+            item['input_dids'] = {DIDType(did_str): {}}
 
             if not did_str or not pfn or not rse:
                 logger(logging.DEBUG, item)
@@ -266,19 +268,20 @@ class DownloadClient:
         Download items with given DIDs. This function can also download datasets and wildcarded DIDs.
 
         :param items: List of dictionaries. Each dictionary describing an item to download. Keys:
-            did                    - DID string of this file (e.g. 'scope:file.name')
-            filters                - Filter to select DIDs for download. Optional if DID is given
-            rse                    - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
-            impl                   - Optional: name of the protocol implementation to be used to download this item.
-            no_resolve_archives    - Optional: bool indicating whether archives should not be considered for download (Default: False)
-            resolve_archives       - Deprecated: Use no_resolve_archives instead
-            force_scheme           - Optional: force a specific scheme to download this item. (Default: None)
-            base_dir               - Optional: base directory where the downloaded files will be stored. (Default: '.')
-            no_subdir              - Optional: If true, files are written directly into base_dir. (Default: False)
-            nrandom                - Optional: if the DID addresses a dataset, nrandom files will be randomly choosen for download from the dataset
-            ignore_checksum        - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
-            transfer_timeout       - Optional: Timeout time for the download protocols. (Default: None)
-            transfer_speed_timeout - Optional: Minimum allowed transfer speed (in KBps). Ignored if transfer_timeout set. Otherwise, used to compute default timeout (Default: 500)
+            did                            - DID string of this file (e.g. 'scope:file.name')
+            filters                        - Filter to select DIDs for download. Optional if DID is given
+            rse                            - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
+            impl                           - Optional: name of the protocol implementation to be used to download this item.
+            no_resolve_archives            - Optional: bool indicating whether archives should not be considered for download (Default: False)
+            resolve_archives               - Deprecated: Use no_resolve_archives instead
+            force_scheme                   - Optional: force a specific scheme to download this item. (Default: None)
+            base_dir                       - Optional: base directory where the downloaded files will be stored. (Default: '.')
+            no_subdir                      - Optional: If true, files are written directly into base_dir. (Default: False)
+            nrandom                        - Optional: if the DID addresses a dataset, nrandom files will be randomly choosen for download from the dataset
+            ignore_checksum                - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
+            transfer_timeout               - Optional: Timeout time for the download protocols. (Default: None)
+            transfer_speed_timeout         - Optional: Minimum allowed transfer speed (in KBps). Ignored if transfer_timeout set. Otherwise, used to compute default timeout (Default: 500)
+            check_local_with_filesize_only - Optional: If true, already downloaded files will not be validated by checksum.
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces.
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
@@ -314,10 +317,12 @@ class DownloadClient:
         Download items using a given metalink file.
 
         :param item: dictionary describing an item to download. Keys:
-            base_dir            - Optional: base directory where the downloaded files will be stored. (Default: '.')
-            no_subdir           - Optional: If true, files are written directly into base_dir. (Default: False)
-            ignore_checksum     - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
-            transfer_timeout    - Optional: Timeout time for the download protocols. (Default: None)
+            base_dir                       - Optional: base directory where the downloaded files will be stored. (Default: '.')
+            no_subdir                      - Optional: If true, files are written directly into base_dir. (Default: False)
+            ignore_checksum                - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
+            transfer_timeout               - Optional: Timeout time for the download protocols. (Default: None)
+            check_local_with_filesize_only - Optional: If true, already downloaded files will not be validated by checksum.
+
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces.
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
@@ -508,7 +513,13 @@ class DownloadClient:
         # if file already exists make sure it exists at all destination paths, set state, send trace, and return
         for dest_file_path in dest_file_paths:
             if os.path.isfile(dest_file_path):
-                if not item.get('merged_options', {}).get('ignore_checksum', False):
+                if item.get('merged_options', {}).get('check_local_with_filesize_only', False):
+                    local_filesize = os.stat(dest_file_path).st_size
+                    if item.get('bytes') != local_filesize:
+                        logger(logging.INFO, '%sFile with same name exists locally, but filesize mismatches: %s' % (log_prefix, did_str))
+                        logger(logging.DEBUG, '%slocal filesize: %d bytes, expected filesize: %d bytes' % (log_prefix, local_filesize, item.get('bytes')))
+                        continue
+                elif not item.get('merged_options', {}).get('ignore_checksum', False):
                     verified, _, _ = _verify_checksum(item, dest_file_path)
                     if not verified:
                         logger(logging.INFO, '%sFile with same name exists locally, but checksum mismatches: %s' % (log_prefix, did_str))
@@ -732,12 +743,14 @@ class DownloadClient:
         Aria2c needs to be installed and X509_USER_PROXY needs to be set!
 
         :param items: List of dictionaries. Each dictionary describing an item to download. Keys:
-            did                 - DID string of this file (e.g. 'scope:file.name'). Wildcards are not allowed
-            rse                 - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
-            base_dir            - Optional: base directory where the downloaded files will be stored. (Default: '.')
-            no_subdir           - Optional: If true, files are written directly into base_dir. (Default: False)
-            nrandom             - Optional: if the DID addresses a dataset, nrandom files will be randomly choosen for download from the dataset
-            ignore_checksum     - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
+            did                            - DID string of this file (e.g. 'scope:file.name'). Wildcards are not allowed
+            rse                            - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
+            base_dir                       - Optional: base directory where the downloaded files will be stored. (Default: '.')
+            no_subdir                      - Optional: If true, files are written directly into base_dir. (Default: False)
+            nrandom                        - Optional: if the DID addresses a dataset, nrandom files will be randomly choosen for download from the dataset
+            ignore_checksum                - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
+            check_local_with_filesize_only - Optional: If true, already downloaded files will not be validated by checksum.
+
         :param trace_custom_fields: Custom key value pairs to send with the traces
         :param filters: dictionary containing filter options
         :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
@@ -1193,7 +1206,7 @@ class DownloadClient:
                 for file_item in file_items:
                     unfiltered_sources = copy.copy(file_item['sources'])
                     for src in unfiltered_sources:
-                        if src in tape_rses:
+                        if src['rse'] in tape_rses:
                             file_item['sources'].remove(src)
                     if unfiltered_sources and not file_item['sources']:
                         logger(logging.WARNING, 'The requested DID {} only has replicas on tape. Direct download from tape is prohibited. '
@@ -1227,7 +1240,6 @@ class DownloadClient:
         for item in input_items:
             base_dir = item.get('base_dir', '.')
             no_subdir = item.get('no_subdir', False)
-            ignore_checksum = item.get('ignore_checksum', False)
             new_transfer_timeout = item.get('transfer_timeout', None)
             new_transfer_speed_timeout = item.get('transfer_speed_timeout', None)
 
@@ -1235,7 +1247,8 @@ class DownloadClient:
 
             # Merge some options
             # The other options of this DID will be inherited from the first item that contained the DID
-            options['ignore_checksum'] = (options.get('ignore_checksum') or ignore_checksum)
+            options['ignore_checksum'] = options.get('ignore_checksum') or item.get('ignore_checksum', False)
+            options['check_local_with_filesize_only'] = options.get('check_local_with_filesize_only') or item.get('check_local_with_filesize_only', False)
 
             # if one item wants to resolve archives we enable it for all items
             options['resolve_archives'] = (options.get('resolve_archives') or not item.get('no_resolve_archives'))

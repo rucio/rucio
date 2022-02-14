@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,11 +32,11 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020-2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
 
 from __future__ import division
 
@@ -53,7 +53,6 @@ from datetime import datetime, timedelta
 from re import match
 from string import Template
 
-from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from six import string_types
 
@@ -68,13 +67,14 @@ import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 from rucio.common.policy import policy_filter, get_scratchdisk_lifetime
 
+from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError, RSEOverQuota,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject, RSEWriteBlocked, RuleReplaceFailed, RequestNotFound,
-                                    ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy)
+                                    ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy, InvalidValueForKey)
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import str_to_date, sizefmt, chunks
@@ -92,13 +92,9 @@ from rucio.db.sqla.constants import (LockState, ReplicaState, RuleState, RuleGro
                                      DIDAvailability, DIDReEvaluation, DIDType,
                                      RequestType, RuleNotification, OBSOLETE, RSEType)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
-from rucio.extensions.forecast import T3CModel
 
 
-REGION = make_region().configure('dogpile.cache.memcached',
-                                 expiration_time=3600,
-                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
-                                            'distributed_lock': True})
+REGION = make_region_memcached(expiration_time=3600)
 
 
 @transactional_session
@@ -139,6 +135,9 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
                                        StagingAreaRuleRequiresLifetime, DuplicateRule, RSEWriteBlocked, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, RSEOverQuota
     """
+    if copies <= 0:
+        raise InvalidValueForKey("The number of copies for a replication rule should be greater than 0.")
+
     rule_ids = []
 
     grouping = {'ALL': RuleGrouping.ALL, 'NONE': RuleGrouping.NONE}.get(grouping, RuleGrouping.DATASET)
@@ -364,6 +363,8 @@ def add_rules(dids, rules, session=None, logger=logging.log):
     :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
                      StagingAreaRuleRequiresLifetime, DuplicateRule, RSEWriteBlocked, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked
     """
+    if any(r.get("copies", 1) <= 0 for r in rules):
+        raise InvalidValueForKey("The number of copies for a replication rule should be greater than 0.")
 
     with record_timer_block('rule.add_rules'):
         rule_ids = {}
@@ -1175,7 +1176,7 @@ def repair_rule(rule_id, session=None, logger=logging.log):
 
 
 @read_session
-def get_rule(rule_id, estimate_ttc=None, session=None):
+def get_rule(rule_id, session=None):
     """
     Get a specific replication rule.
 
@@ -1189,12 +1190,6 @@ def get_rule(rule_id, estimate_ttc=None, session=None):
         d = {}
         for column in rule.__table__.columns:
             d[column.name] = getattr(rule, column.name)
-        if estimate_ttc:
-            # TODO: include the path of the netmodel in T3CModle invocation
-            model = T3CModel()
-            result = model.predict_by_rule_id(rule_id)
-            d['estimated_start_in'] = result[0]
-            d['estimated_end_in'] = result[0] + result[1]
         return d
 
     except NoResultFound:

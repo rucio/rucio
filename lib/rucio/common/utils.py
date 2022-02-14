@@ -271,7 +271,9 @@ def set_checksum_value(file, checksum_names_list):
 
 def adler32(file):
     """
-    An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B and concatenating their bits into a 32-bit integer. A is the sum of all bytes in the stream plus one, and B is the sum of the individual values of A from each step.
+    An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B
+    and concatenating their bits into a 32-bit integer. A is the sum of all bytes in the
+    stream plus one, and B is the sum of the individual values of A from each step.
 
     :param file: file name
     :returns: Hexified string, padded to 8 values.
@@ -280,15 +282,29 @@ def adler32(file):
     # adler starting value is _not_ 0
     adler = 1
 
+    can_mmap = False
     try:
         with open(file, 'r+b') as f:
-            # memory map the file
-            m = mmap.mmap(f.fileno(), 0)
-            # partial block reads at slightly increased buffer sizes
-            for block in iter(partial(m.read, io.DEFAULT_BUFFER_SIZE), b''):
-                adler = zlib.adler32(block, adler)
+            can_mmap = True
+    except:
+        pass
+
+    try:
+        # use mmap if possible
+        if can_mmap:
+            with open(file, 'r+b') as f:
+                m = mmap.mmap(f.fileno(), 0)
+                # partial block reads at slightly increased buffer sizes
+                for block in iter(partial(m.read, io.DEFAULT_BUFFER_SIZE * 8), b''):
+                    adler = zlib.adler32(block, adler)
+        else:
+            with open(file, 'rb') as f:
+                # partial block reads at slightly increased buffer sizes
+                for block in iter(partial(f.read, io.DEFAULT_BUFFER_SIZE * 8), b''):
+                    adler = zlib.adler32(block, adler)
+
     except Exception as e:
-        raise Exception('FATAL - could not get Adler32 checksum of file %s - %s' % (file, e))
+        raise Exception('FATAL - could not get Adler-32 checksum of file %s: %s' % (file, e))
 
     # backflip on 32bit -- can be removed once everything is fully migrated to 64bit
     if adler < 0:
@@ -1564,12 +1580,16 @@ def is_client():
     :returns client_mode: True if is called from a client, False if it is called from a server/daemon
     """
     if 'RUCIO_CLIENT_MODE' not in os.environ:
-        if config_has_section('database'):
-            client_mode = False
-        elif config_has_section('client'):
+        try:
+            if config_has_section('database'):
+                client_mode = False
+            elif config_has_section('client'):
+                client_mode = True
+            else:
+                client_mode = False
+        except RuntimeError:
+            # If no configuration file is found the default value should be True
             client_mode = True
-        else:
-            client_mode = False
     else:
         if os.environ['RUCIO_CLIENT_MODE']:
             client_mode = True
@@ -1677,3 +1697,107 @@ class StoreTrueAndDeprecateWarningAction(argparse._StoreConstAction):
             # The logger gets typically initialized after the argument parser
             # to set the verbosity of the logger. Thus using simple print to console.
             print("Warning: The commandline argument {} is deprecated! Please use {} in the future.".format(option_string, self.new_option_string))
+
+
+class PriorityQueue:
+    """
+    Heap-based [1] priority queue which supports priority update operations
+
+    It is used as a dictionary: pq['element'] = priority
+    The element with the highest priority can be accessed with pq.top() or pq.pop(),
+    depending on the desire to keep it in the heap or not.
+
+    [1] https://en.wikipedia.org/wiki/Heap_(data_structure)
+    """
+    class ContainerSlot:
+        def __init__(self, position, priority):
+            self.pos = position
+            self.prio = priority
+
+    def __init__(self):
+        self.heap = []
+        self.container = {}
+        self.empty_slots = []
+
+    def __len__(self):
+        return len(self.heap)
+
+    def __getitem__(self, item):
+        return self.container[item].prio
+
+    def __setitem__(self, key, value):
+        if key in self.container:
+            existing_prio = self.container[key].prio
+            self.container[key].prio = value
+            if value < existing_prio:
+                self._priority_decreased(key)
+            elif existing_prio < value:
+                self._priority_increased(key)
+        else:
+            self.heap.append(key)
+            self.container[key] = self.ContainerSlot(position=len(self.heap) - 1, priority=value)
+            self._priority_decreased(key)
+
+    def __contains__(self, item):
+        return item in self.container
+
+    def top(self):
+        return self.heap[0]
+
+    def pop(self):
+        item = self.heap[0]
+        self.container.pop(item)
+
+        tmp_item = self.heap.pop()
+        if self.heap:
+            self.heap[0] = tmp_item
+            self.container[tmp_item].pos = 0
+            self._priority_increased(tmp_item)
+        return item
+
+    def _priority_decreased(self, item):
+        heap_changed = False
+
+        pos = self.container[item].pos
+        pos_parent = (pos - 1) // 2
+        while pos > 0 and self.container[self.heap[pos]].prio < self.container[self.heap[pos_parent]].prio:
+            tmp_item, parent = self.heap[pos], self.heap[pos_parent] = self.heap[pos_parent], self.heap[pos]
+            self.container[tmp_item].pos, self.container[parent].pos = self.container[parent].pos, self.container[tmp_item].pos
+
+            pos = pos_parent
+            pos_parent = (pos - 1) // 2
+
+            heap_changed = True
+        return heap_changed
+
+    def _priority_increased(self, item):
+        heap_changed = False
+        heap_len = len(self.heap)
+        pos = self.container[item].pos
+        pos_child1 = 2 * pos + 1
+        pos_child2 = 2 * pos + 2
+
+        heap_restored = False
+        while not heap_restored:
+            # find minimum between item, child1, and child2
+            if pos_child1 < heap_len and self.container[self.heap[pos_child1]].prio < self.container[self.heap[pos]].prio:
+                pos_min = pos_child1
+            else:
+                pos_min = pos
+            if pos_child2 < heap_len and self.container[self.heap[pos_child2]].prio < self.container[self.heap[pos_min]].prio:
+                pos_min = pos_child2
+
+            if pos_min != pos:
+                _, tmp_item = self.heap[pos_min], self.heap[pos] = self.heap[pos], self.heap[pos_min]
+                self.container[tmp_item].pos = pos
+
+                pos = pos_min
+                pos_child1 = 2 * pos + 1
+                pos_child2 = 2 * pos + 2
+
+                heap_changed = True
+            else:
+                heap_restored = True
+
+        self.container[self.heap[pos]].pos = pos
+        return heap_changed

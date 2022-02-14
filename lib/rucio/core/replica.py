@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,10 +36,11 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Christoph Ames <cames@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -57,7 +58,6 @@ from struct import unpack
 from traceback import format_exc
 
 import requests
-from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from six import string_types
 from sqlalchemy import func, and_, or_, exists, not_, update, delete
@@ -70,9 +70,11 @@ from sqlalchemy.sql.expression import case, select, text, false, true
 import rucio.core.did
 import rucio.core.lock
 from rucio.common import exception
+from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get
 from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
+from rucio.common.constants import SuspiciousAvailability
 from rucio.core.credential import get_signed_url
 from rucio.core import config as config_core
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
@@ -85,7 +87,7 @@ from rucio.db.sqla.session import (read_session, stream_session, transactional_s
                                    DEFAULT_SCHEMA_NAME, BASE)
 from rucio.rse import rsemanager as rsemgr
 
-REGION = make_region().configure('dogpile.cache.memory', expiration_time=60)
+REGION = make_region_memcached(expiration_time=60)
 
 
 @read_session
@@ -1419,11 +1421,7 @@ def tombstone_from_delay(tombstone_delay):
     if not tombstone_delay:
         return None
 
-    if not isinstance(tombstone_delay, timedelta):
-        try:
-            tombstone_delay = timedelta(seconds=int(tombstone_delay))
-        except ValueError:
-            return None
+    tombstone_delay = timedelta(seconds=int(tombstone_delay))
 
     if not tombstone_delay:
         return None
@@ -1738,11 +1736,19 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
         child_did_condition, tmp_parent_condition = [], []
         for chunk in chunks(parent_condition, 10):
 
-            query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name,
-                                  models.DataIdentifierAssociation.did_type,
-                                  models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name).\
-                filter(or_(*chunk))
-            for parent_scope, parent_name, did_type, child_scope, child_name in query:
+            stmt = select(
+                models.DataIdentifierAssociation.scope,
+                models.DataIdentifierAssociation.name,
+                models.DataIdentifierAssociation.did_type,
+                models.DataIdentifierAssociation.child_scope,
+                models.DataIdentifierAssociation.child_name,
+            ).prefix_with(
+                "/*+ NO_INDEX_FFS(CONTENTS CONTENTS_PK) */",
+                dialect='oracle',
+            ).where(
+                or_(*chunk)
+            )
+            for parent_scope, parent_name, did_type, child_scope, child_name in session.execute(stmt):
 
                 # Schedule removal of child file/dataset/container from the parent dataset/container
                 child_did_condition.append(
@@ -3116,6 +3122,11 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
     else:
         rep_state = state
 
+    if rep_state == BadPFNStatus.TEMPORARY_UNAVAILABLE and expires_at is None:
+        raise exception.InputValidationError("When adding a TEMPORARY UNAVAILABLE pfn the expires_at value should be set.")
+    elif rep_state == BadPFNStatus.BAD and expires_at is not None:
+        raise exception.InputValidationError("When adding a BAD pfn the expires_at value shouldn't be set.")
+
     pfns = clean_surls(pfns)
     for pfn in pfns:
         new_pfn = models.BadPFNs(path=str(pfn), account=account, state=rep_state, reason=reason, expires_at=expires_at)
@@ -3179,7 +3190,7 @@ def get_replicas_state(scope=None, name=None, session=None):
 
 
 @read_session
-def get_suspicious_files(rse_expression, filter_=None, **kwargs):
+def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logger=logging.log, younger_than=10, nattempts=0, session=None, exclude_states=['B', 'R', 'D'], is_suspicious=False):
     """
     Gets a list of replicas from bad_replicas table which are: declared more than <nattempts> times since <younger_than> date,
     present on the RSE specified by the <rse_expression> and do not have a state in <exclude_states> list.
@@ -3193,8 +3204,10 @@ def get_suspicious_files(rse_expression, filter_=None, **kwargs):
     :param: exclude_states: List of states which eliminates replicas from search result if any of the states in the list
                             was declared for a replica since younger_than date. Allowed values
                             = ['B', 'R', 'D', 'L', 'T', 'S'] (meaning 'BAD', 'RECOVERED', 'DELETED', 'LOST', 'TEMPORARY_UNAVAILABLE', 'SUSPICIOUS').
-    :param: available_elsewhere: If True, only replicas declared in addition as AVAILABLE on another RSE
-                                 than the one in the bad_replicas table will be taken into account. Default value = False.
+    :param: available_elsewhere: Default: SuspiciousAvailability["ALL"].value, all suspicious replicas are returned.
+                                 If SuspiciousAvailability["EXIST_COPIES"].value, only replicas that additionally have copies declared as AVAILABLE on at least one other RSE
+                                 than the one in the bad_replicas table will be taken into account.
+                                 If SuspiciousAvailability["LAST_COPY"].value, only replicas that do not have another copy declared as AVAILABLE on another RSE will be taken into account.
     :param: is_suspicious: If True, only replicas declared as SUSPICIOUS in bad replicas table will be taken into account. Default value = False.
     :param session: The database session in use. Default value = None.
 
@@ -3202,12 +3215,15 @@ def get_suspicious_files(rse_expression, filter_=None, **kwargs):
     [{'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, cnt': cnt, 'created_at': created_at}, ...]
     """
 
-    younger_than = kwargs.get("younger_than", datetime.now() - timedelta(days=10))
-    nattempts = kwargs.get("nattempts", 0)
-    session = kwargs.get("session", None)
-    exclude_states = kwargs.get("exclude_states", ['B', 'R', 'D'])
-    available_elsewhere = kwargs.get("available_elsewhere", False)
-    is_suspicious = kwargs.get("is_suspicious", False)
+    if available_elsewhere not in [SuspiciousAvailability["ALL"].value, SuspiciousAvailability["EXIST_COPIES"].value, SuspiciousAvailability["LAST_COPY"].value]:
+        logger(logging.WARNING, """ERROR, available_elsewhere must be set to one of the following:
+        SuspiciousAvailability["ALL"].value: (default) all suspicious replicas are returned
+        SuspiciousAvailability["EXIST_COPIES"].value: only replicas that additionally have copies declared as AVAILABLE on at least one other RSE are returned
+        SuspiciousAvailability["LAST_COPY"].value: only replicas that do not have another copy declared as AVAILABLE on another RSE are returned""")
+        raise exception.RucioException("""ERROR, available_elsewhere must be set to one of the following:
+        SuspiciousAvailability["ALL"].value: (default) all suspicious replicas are returned
+        SuspiciousAvailability["EXIST_COPIES"].value: only replicas that additionally have copies declared as AVAILABLE on at least one other RSE are returned
+        SuspiciousAvailability["LAST_COPY"].value: only replicas that do not have another copy declared as AVAILABLE on another RSE are returned""")
 
     # only for the 2 web api used parameters, checking value types and assigning the default values
     if not isinstance(nattempts, int):
@@ -3241,12 +3257,22 @@ def get_suspicious_files(rse_expression, filter_=None, **kwargs):
         query.filter(bad_replicas_alias.state == BadFilesStatus.SUSPICIOUS)
     if rse_clause:
         query = query.filter(or_(*rse_clause))
-    if available_elsewhere:
+
+    # Only return replicas that have at least one copy on another RSE
+    if available_elsewhere == SuspiciousAvailability["EXIST_COPIES"].value:
         available_replica = exists(select([1]).where(and_(replicas_alias.state == ReplicaState.AVAILABLE,
                                                           replicas_alias.scope == bad_replicas_alias.scope,
                                                           replicas_alias.name == bad_replicas_alias.name,
                                                           replicas_alias.rse_id != bad_replicas_alias.rse_id)))
         query = query.filter(available_replica)
+
+    # Only return replicas that are the last remaining copy
+    if available_elsewhere == SuspiciousAvailability["LAST_COPY"].value:
+        last_replica = ~exists(select([1]).where(and_(replicas_alias.state == ReplicaState.AVAILABLE,
+                                                      replicas_alias.scope == bad_replicas_alias.scope,
+                                                      replicas_alias.name == bad_replicas_alias.name,
+                                                      replicas_alias.rse_id != bad_replicas_alias.rse_id)))
+        query = query.filter(last_replica)
 
     # it is required that the selected replicas
     # do not occur as BAD/DELETED/LOST/RECOVERED/...
@@ -3261,7 +3287,7 @@ def get_suspicious_files(rse_expression, filter_=None, **kwargs):
     # finally, the results are grouped by RSE, scope, name and required to have
     # at least 'nattempts' occurrences in the result of the query per replica
     query_result = query.group_by(models.RSEFileAssociation.rse_id, bad_replicas_alias.scope, bad_replicas_alias.name).having(func.count() > nattempts).all()
-    # print(query)
+
     # translating the rse_id to RSE name and assembling the return list of dictionaries
     result = []
     rses = {}

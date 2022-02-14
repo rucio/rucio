@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2022
 # - Wen Guan <wen.guan@cern.ch>, 2014-2016
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
@@ -28,7 +28,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 # - Nick Smith <nick.smith@cern.ch>, 2021
@@ -309,8 +309,10 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     :param session:           Database session to use.
     :returns:                 Request as a dictionary.
     """
-
-    record_counter('core.request.get_next.{request_type}.{state}', labels={'request_type': request_type, 'state': state})
+    request_type_metric_label = '.'.join(a.name for a in request_type) if isinstance(request_type, list) else request_type.name
+    state_metric_label = '.'.join(s.name for s in state) if isinstance(state, list) else state.name
+    record_counter('core.request.get_next.{request_type}.{state}', labels={'request_type': request_type_metric_label,
+                                                                           'state': state_metric_label})
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
     if type(request_type) is not list:
@@ -510,26 +512,6 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
 
 
 @transactional_session
-def set_requests_state(request_ids, new_state, session=None, logger=logging.log):
-    """
-    Bulk update the state of requests.
-
-    :param request_ids:  List of (Request-ID as a 32 character hex string).
-    :param new_state:    New state as string.
-    :param session:      Database session to use.
-    :param logger:       Optional decorated logger that can be passed from the calling daemons or servers.
-    """
-
-    record_counter('core.request.set_requests_state')
-
-    try:
-        for request_id in request_ids:
-            set_request_state(request_id, new_state, session=session, logger=logger)
-    except IntegrityError as error:
-        raise RucioException(error.args)
-
-
-@transactional_session
 def set_requests_state_if_possible(request_ids, new_state, session=None, logger=logging.log):
     """
     Bulk update the state of requests. Skips silently if the request_id does not exist.
@@ -659,6 +641,7 @@ def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
 
             tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
             tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
+            tmp['attributes'] = json.loads(str(tmp['attributes']))
 
             return tmp
     except IntegrityError as error:
