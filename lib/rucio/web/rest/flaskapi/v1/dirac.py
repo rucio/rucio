@@ -20,7 +20,6 @@
 # - martynia <janusz.martyniak@googlemail.com>, 2021
 # - Janusz Martyniak <janusz.martyniak@googlemail.com>, 2022
 
-import logging
 from flask import Flask, Blueprint, request
 
 from rucio.api.dirac import add_files
@@ -58,8 +57,6 @@ class AddFiles(ErrorHandlingMethodView):
         lfns = param_get(parameters, 'lfns')
         ignore_availability = param_get(parameters, 'ignore_availability', default=False)
 
-        LOGGER = logging.getLogger('Dirac.addFiles')
-        LOGGER.setLevel(logging.INFO)
         try:
             add_files(lfns=lfns, issuer=request.environ.get('issuer'), ignore_availability=ignore_availability,
                       vo=request.environ.get('vo'))

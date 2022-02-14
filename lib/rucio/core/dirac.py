@@ -54,7 +54,7 @@ def _exists(scope, name, session=None):
 
 
 @transactional_session
-def add_files(lfns, account, ignore_availability, session=None, vo='def'):
+def add_files(lfns, account, ignore_availability, vo='def', session=None):
     """
     Bulk add files :
     - Create the file and replica.
@@ -64,13 +64,13 @@ def add_files(lfns, account, ignore_availability, session=None, vo='def'):
     :param lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}
     :param issuer: The issuer account.
     :param ignore_availability: A boolean to ignore blocklisted sites.
-    :param session: The session used
     :param vo: The VO to act on
+    :param session: The session used
     """
     attachments = []
     # The list of scopes is necessary for the extract_scope
     filter_ = {'scope': InternalScope(scope='*', vo=vo)}
-    scopes = list_scopes(session=session, filter_=filter_)
+    scopes = list_scopes(filter_=filter_, session=session)
     scopes = [scope.external for scope in scopes]
     exist_lfn = []
     for lfn in lfns:
