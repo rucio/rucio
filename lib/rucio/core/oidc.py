@@ -306,9 +306,9 @@ def get_auth_oidc(account, session=None, **kwargs):
         # If user selected authentication via web browser, a redirection
         # URL is returned instead of the direct URL pointing to the IdP.
         if not auto:
-            auth_server = urlparse(redirect_url)
-            auth_url = build_url('https://' + auth_server.netloc,
-                                 path='auth/oidc_redirect', params=access_msg)
+            # remove last section of <redirect_url> path and replace with /oidc_redirect
+            auth_url = build_url(
+                '/'.join(redirect_url.split('/')[:-1]) + '/oidc_redirect', params=access_msg)
 
         record_timer(name='IdP_authentication.request', time=time.time() - start)
         return auth_url
