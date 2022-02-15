@@ -28,7 +28,7 @@
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2022
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
@@ -265,7 +265,7 @@ def parse_pfns(rse_settings, pfns, operation='read', domain='wan', auth_token=No
     return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme, domain, auth_token=auth_token).parse_pfns(pfns)
 
 
-def exists(rse_settings, files, domain='wan', scheme=None, impl=None, auth_token=None, logger=logging.log):
+def exists(rse_settings, files, domain='wan', scheme=None, impl=None, auth_token=None, vo='def', logger=logging.log):
     """
         Checks if a file is present at the connected storage.
         Providing a list indicates the bulk mode.
@@ -276,6 +276,7 @@ def exists(rse_settings, files, domain='wan', scheme=None, impl=None, auth_token
                             E.g. {'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'name': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
         :param domain:      The network domain, either 'wan' (default) or 'lan'
         :param auth_token:  Optionally passing JSON Web Token (OIDC) string for authentication
+        :param vo:          The VO for the RSE
         :param logger:      Optional decorated logger that can be passed from the calling daemons or servers.
 
         :returns:           True/False for a single file or a dict object with 'scope:name' for LFNs or 'name' for PFNs as keys and True or the exception as value for each file in bulk mode
@@ -309,7 +310,7 @@ def exists(rse_settings, files, domain='wan', scheme=None, impl=None, auth_token
             logger(logging.DEBUG, 'Checking if %s exists', pfn)
             # deal with URL signing if required
             if rse_settings['sign_url'] is not None and pfn[:5] == 'https':
-                pfn = __get_signed_url(rse_settings['rse'], rse_settings['sign_url'], 'read', pfn)    # NOQA pylint: disable=undefined-variable
+                pfn = __get_signed_url(rse_settings['rse'], rse_settings['sign_url'], 'read', pfn, vo)    # NOQA pylint: disable=undefined-variable
             exists = protocol.exists(pfn)
             ret[f['scope'] + ':' + f['name']] = exists
         else:
@@ -325,7 +326,7 @@ def exists(rse_settings, files, domain='wan', scheme=None, impl=None, auth_token
     return [gs, ret]
 
 
-def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None, auth_token=None, logger=logging.log, impl=None):
+def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None, auth_token=None, vo='def', logger=logging.log, impl=None):
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
@@ -345,6 +346,7 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
         :param transfer_timeout:  set this timeout (in seconds) for the transfers, for protocols that support it
         :param sign_service:      use the given service (e.g. gcs, s3, swift) to sign the URL
         :param auth_token:        Optionally passing JSON Web Token (OIDC) string for authentication
+        :param vo:                The VO for the RSE
         :param logger:            Optional decorated logger that can be passed from the calling daemons or servers.
 
         :returns:                 True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
@@ -385,8 +387,8 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
             readpfn = pfn
             if sign_service is not None:
                 # need a separate signed URL for read operations (exists and stat)
-                readpfn = __get_signed_url(rse_settings['rse'], sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
-                pfn = __get_signed_url(rse_settings['rse'], sign_service, 'write', pfn)       # NOQA pylint: disable=undefined-variable
+                readpfn = __get_signed_url(rse_settings['rse'], sign_service, 'read', pfn, vo)    # NOQA pylint: disable=undefined-variable
+                pfn = __get_signed_url(rse_settings['rse'], sign_service, 'write', pfn, vo)       # NOQA pylint: disable=undefined-variable
 
         # First check if renaming operation is supported
         if protocol.renaming:

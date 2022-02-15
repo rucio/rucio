@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2022
 
 from __future__ import print_function
 
@@ -72,6 +73,7 @@ class MgrTestCases:
                 self.impl = 'rucio.rse.protocols.' + impl + '.Default'
             else:
                 self.impl = 'rucio.rse.protocols.' + impl
+        self.vo = vo
 
     def setup_scheme(self, scheme):
         """(RSE/PROTOCOLS):  Make mgr to select this scheme first."""
@@ -138,7 +140,8 @@ class MgrTestCases:
                                                     {'name': '2_rse_local_put.raw', 'scope': 'user.%s' % self.user,
                                                      'md5': md5(str(self.tmpdir) + '/2_rse_local_put.raw'),
                                                      'filesize': os.stat('%s/2_rse_local_put.raw' % self.tmpdir)[
-                                                         os.path.stat.ST_SIZE]}], source_dir=self.tmpdir, impl=self.impl)
+                                                         os.path.stat.ST_SIZE]}], source_dir=self.tmpdir, vo=self.vo,
+                                impl=self.impl)
         else:
             result = mgr.upload(self.rse_settings, [{'name': '1_rse_local_put.raw', 'scope': 'user.%s' % self.user,
                                                      'adler32': adler32('%s/1_rse_local_put.raw' % self.tmpdir),
@@ -147,7 +150,7 @@ class MgrTestCases:
                                                     {'name': '2_rse_local_put.raw', 'scope': 'user.%s' % self.user,
                                                      'adler32': adler32('%s/2_rse_local_put.raw' % self.tmpdir),
                                                      'filesize': os.stat('%s/2_rse_local_put.raw' % self.tmpdir)[
-                                                         os.path.stat.ST_SIZE]}], source_dir=self.tmpdir)
+                                                         os.path.stat.ST_SIZE]}], source_dir=self.tmpdir, vo=self.vo)
 
         status = result[0]
         details = result[1]
@@ -158,17 +161,17 @@ class MgrTestCases:
         """(RSE/PROTOCOLS): Put a single file to storage (Success)"""
         if self.rse_settings['protocols'][0]['hostname'] == 'ssh1':
             mgr.upload(self.rse_settings, {'name': '3_rse_local_put.raw', 'scope': 'user.%s' % self.user,
-                                           'md5': md5('%s/3_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/3_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}, source_dir=self.tmpdir, impl=self.impl)
+                                           'md5': md5('%s/3_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/3_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}, source_dir=self.tmpdir, vo=self.vo, impl=self.impl)
         else:
             mgr.upload(self.rse_settings, {'name': '3_rse_local_put.raw', 'scope': 'user.%s' % self.user,
-                                           'adler32': adler32('%s/3_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/3_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}, source_dir=self.tmpdir)
+                                           'adler32': adler32('%s/3_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/3_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}, source_dir=self.tmpdir, vo=self.vo)
 
     def test_put_mgr_SourceNotFound_multi(self):
         """(RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
         result = mgr.upload(self.rse_settings, [{'name': 'not_existing_data.raw', 'scope': 'user.%s' % self.user,
                                                 'adler32': 'some_random_stuff', 'filesize': 4711},
                                                 {'name': '4_rse_local_put.raw', 'scope': 'user.%s' % self.user,
-                                                'adler32': adler32('%s/4_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/4_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}], source_dir=self.tmpdir, impl=self.impl)
+                                                 'adler32': adler32('%s/4_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/4_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}], source_dir=self.tmpdir, vo=self.vo, impl=self.impl)
         status = result[0]
         details = result[1]
         if details['user.%s:4_rse_local_put.raw' % self.user]:
@@ -178,12 +181,12 @@ class MgrTestCases:
 
     def test_put_mgr_SourceNotFound_single(self):
         """(RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
-        mgr.upload(self.rse_settings, {'name': 'not_existing_data2.raw', 'scope': 'user.%s' % self.user, 'adler32': 'random_stuff', 'filesize': 0}, source_dir=self.tmpdir, impl=self.impl)
+        mgr.upload(self.rse_settings, {'name': 'not_existing_data2.raw', 'scope': 'user.%s' % self.user, 'adler32': 'random_stuff', 'filesize': 0}, source_dir=self.tmpdir, vo=self.vo, impl=self.impl)
 
     def test_put_mgr_FileReplicaAlreadyExists_multi(self):
         """(RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
         result = mgr.upload(self.rse_settings, [{'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'adler32': "bla-bla", 'filesize': 4711},
-                                                {'name': '2_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'adler32': "bla-bla", 'filesize': 4711}], source_dir=self.tmpdir, impl=self.impl)
+                                                {'name': '2_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'adler32': "bla-bla", 'filesize': 4711}], source_dir=self.tmpdir, vo=self.vo, impl=self.impl)
         status = result[0]
         details = result[1]
         if details['user.%s:1_rse_remote_get.raw' % self.user]:
@@ -193,7 +196,7 @@ class MgrTestCases:
 
     def test_put_mgr_FileReplicaAlreadyExists_single(self):
         """(RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
-        mgr.upload(self.rse_settings, {'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'adler32': 'bla-bla', 'filesize': 4711}, source_dir=self.tmpdir, impl=self.impl)
+        mgr.upload(self.rse_settings, {'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'adler32': 'bla-bla', 'filesize': 4711}, source_dir=self.tmpdir, vo=self.vo, impl=self.impl)
 
     # MGR-Tests: DELETE
     def test_delete_mgr_ok_multi(self):
@@ -235,18 +238,18 @@ class MgrTestCases:
         status, details = mgr.exists(self.rse_settings, [{'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user},
                                                          {'name': '2_rse_remote_get.raw', 'scope': 'user.%s' % self.user},
                                                          {'name': pfn_a},
-                                                         {'name': pfn_b}], impl=self.impl)
+                                                         {'name': pfn_b}], impl=self.impl, vo=self.vo)
         if not (status and details['user.%s:1_rse_remote_get.raw' % self.user] and details['user.%s:2_rse_remote_get.raw' % self.user] and details[pfn_a] and details[pfn_b]):
             raise Exception('Return not as expected: %s, %s' % (status, details))
 
     def test_exists_mgr_ok_single_lfn(self):
         """(RSE/PROTOCOLS): Check a single file on storage using LFN (Success)"""
-        mgr.exists(self.rse_settings, {'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user}, impl=self.impl)
+        mgr.exists(self.rse_settings, {'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user}, impl=self.impl, vo=self.vo)
 
     def test_exists_mgr_ok_single_pfn(self):
         """(RSE/PROTOCOLS): Check a single file on storage using PFN (Success)"""
         pfn = list(mgr.lfns2pfns(self.rse_settings, {'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user}, impl=self.impl).values())[0]
-        mgr.exists(self.rse_settings, {'name': pfn}, impl=self.impl)
+        mgr.exists(self.rse_settings, {'name': pfn}, impl=self.impl, vo=self.vo)
 
     def test_exists_mgr_false_multi(self):
         """(RSE/PROTOCOLS): Check multiple files on storage (Fail)"""
@@ -255,18 +258,18 @@ class MgrTestCases:
         status, details = mgr.exists(self.rse_settings, [{'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user},
                                                          {'name': 'not_existing_data.raw', 'scope': 'user.%s' % self.user},
                                                          {'name': pfn_a},
-                                                         {'name': pfn_b}], impl=self.impl)
+                                                         {'name': pfn_b}], impl=self.impl, vo=self.vo)
         if status or not details['user.%s:1_rse_remote_get.raw' % self.user] or details['user.%s:not_existing_data.raw' % self.user] or not details[pfn_a] or details[pfn_b]:
             raise Exception('Return not as expected: %s, %s' % (status, details))
 
     def test_exists_mgr_false_single_lfn(self):
         """(RSE/PROTOCOLS): Check a single file on storage using LFN (Fail)"""
-        not mgr.exists(self.rse_settings, {'name': 'not_existing_data.raw', 'scope': 'user.%s' % self.user}, impl=self.impl)
+        not mgr.exists(self.rse_settings, {'name': 'not_existing_data.raw', 'scope': 'user.%s' % self.user}, impl=self.impl, vo=self.vo)
 
     def test_exists_mgr_false_single_pfn(self):
         """(RSE/PROTOCOLS): Check a single file on storage using PFN (Fail)"""
         pfn = list(mgr.lfns2pfns(self.rse_settings, {'name': '1_rse_not_existing.raw', 'scope': 'user.%s' % self.user}, impl=self.impl).values())[0]
-        not mgr.exists(self.rse_settings, {'name': pfn}, impl=self.impl)
+        not mgr.exists(self.rse_settings, {'name': pfn}, impl=self.impl, vo=self.vo)
 
     # MGR-Tests: RENAME
     def test_rename_mgr_ok_multi(self):
