@@ -685,43 +685,6 @@ def get_request_history_by_did(scope, name, rse_id, request_type=None, session=N
         raise RucioException(error.args)
 
 
-@read_session
-def get_request_history_by_did(scope, name, rse_id, request_type=None, session=None):
-    """
-    Retrieve a historical request by its DID for a destination RSE.
-
-    :param scope:          The scope of the data identifier.
-    :param name:           The name of the data identifier.
-    :param rse_id:         The destination RSE ID of the request.
-    :param request_type:   The type of request as rucio.db.sqla.constants.RequestType.
-    :param session:        Database session to use.
-    :returns:              Request as a dictionary.
-    """
-
-    record_counter('core.request.get_request_history_by_did')
-    try:
-        tmp = session.query(models.RequestHistory).filter_by(scope=scope, name=name)
-
-        tmp = tmp.filter_by(dest_rse_id=rse_id)
-
-        if request_type:
-            tmp = tmp.filter_by(request_type=request_type)
-
-        tmp = tmp.first()
-        if not tmp:
-            raise RequestNotFound(f'No request found for DID {scope}:{name} at RSE {rse_id}')
-        else:
-            tmp = dict(tmp)
-            tmp.pop('_sa_instance_state')
-
-            tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
-            tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
-
-            return tmp
-    except IntegrityError as error:
-        raise RucioException(error.args)
-
-
 @transactional_session
 def archive_request(request_id, session=None):
     """
