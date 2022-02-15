@@ -727,7 +727,7 @@ def perm_get_request_history_by_did(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return True
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_cancel_request(issuer, kwargs):
