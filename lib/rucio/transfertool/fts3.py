@@ -18,7 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Wen Guan <wen.guan@cern.ch>, 2014-2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2022
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Eric Vaandering <ewv@fnal.gov>, 2018
 # - dciangot <diego.ciangottini@cern.ch>, 2018
@@ -32,6 +32,7 @@
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2022
 
 from __future__ import absolute_import, division
 import datetime
@@ -91,7 +92,7 @@ QUERY_DETAILS_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query_details
                                      documentation='Number of detailed status queries', labelnames=('state', 'host'))
 
 
-ALLOW_USER_OIDC_TOKENS = config_get('conveyor', 'allow_user_oidc_tokens', False, False)
+ALLOW_USER_OIDC_TOKENS = config_get_bool('conveyor', 'allow_user_oidc_tokens', False, False)
 REQUEST_OIDC_SCOPE = config_get('conveyor', 'request_oidc_scope', False, 'fts:submit-transfer')
 REQUEST_OIDC_AUDIENCE = config_get('conveyor', 'request_oidc_audience', False, 'fts:example')
 
