@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2021
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2022
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
@@ -39,6 +39,11 @@
 # - Anil Panta <47672624+panta-123@users.noreply.github.com>, 2021
 # - Ilija Vukotic <ivukotic@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - martynia <janusz.martyniak@googlemail.com>, 2021
+# - jdierkes <joel.dierkes@cern.ch>, 2021
+# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 from __future__ import absolute_import, print_function
@@ -190,8 +195,7 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         req_scope_present = all(elem in scope for elem in required_scope)
         req_audience_present = all(elem in audience for elem in required_audience)
         return req_scope_present and req_audience_present
-    elif (isinstance(scope, string_types) and isinstance(audience, string_types)  # NOQA: W504
-          and isinstance(required_scope, string_types) and isinstance(required_audience, string_types)):
+    elif (isinstance(scope, string_types) and isinstance(audience, string_types) and isinstance(required_scope, string_types) and isinstance(required_audience, string_types)):
         scope = str(scope)
         audience = str(audience)
         required_scope = str(required_scope)
@@ -199,8 +203,7 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         req_scope_present = all(elem in scope.split(sepatator) for elem in required_scope.split(sepatator))
         req_audience_present = all(elem in audience.split(sepatator) for elem in required_audience.split(sepatator))
         return req_scope_present and req_audience_present
-    elif (isinstance(scope, list) and isinstance(audience, list)  # NOQA: W504
-          and isinstance(required_scope, string_types) and isinstance(required_audience, string_types)):
+    elif (isinstance(scope, list) and isinstance(audience, list) and isinstance(required_scope, string_types) and isinstance(required_audience, string_types)):
         scope = [str(it) for it in scope]
         audience = [str(it) for it in audience]
         required_scope = str(required_scope)
@@ -208,8 +211,7 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         req_scope_present = all(elem in scope for elem in required_scope.split(sepatator))
         req_audience_present = all(elem in audience for elem in required_audience.split(sepatator))
         return req_scope_present and req_audience_present
-    elif (isinstance(scope, string_types) and isinstance(audience, string_types)  # NOQA: W504
-          and isinstance(required_scope, list) and isinstance(required_audience, list)):
+    elif (isinstance(scope, string_types) and isinstance(audience, string_types) and isinstance(required_scope, list) and isinstance(required_audience, list)):
         scope = str(scope)
         audience = str(audience)
         required_scope = [str(it) for it in required_scope]
@@ -710,7 +712,7 @@ def clean_surls(surls):
             surl = re.sub(r'/srm/managerv1\?SFN=', '', surl)
             surl = re.sub(r'/srm/v2/server\?SFN=', '', surl)
             surl = re.sub(r'/srm/managerv2\?SFN=', '', surl)
-        if surl.startswith('https://storage.googleapis.com'):
+        if '?GoogleAccessId' in surl:
             surl = surl.split('?GoogleAccessId')[0]
         if '?X-Amz' in surl:
             surl = surl.split('?X-Amz')[0]

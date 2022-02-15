@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,9 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2022
 
 import unittest
 
@@ -103,7 +104,7 @@ class TestCredential(unittest.TestCase):
 
         pytest.raises(UnsupportedOperation, get_signed_url, self.rse1_id, 'gcs', 'read', '')
 
-        value = get_signed_url(self.rse1_id, 'gcs', 'read', 'http://storage/directory/file', lifetime=None)
+        value = get_signed_url(self.rse1_id, 'gcs', 'read', 'http://storage.googleapis.com:443/directory/file', lifetime=None)
         expected = ('https://storage.googleapis.com:443/directory/file?GoogleAccessId=rucio-test@rucio-test'
                     '.iam.gserviceaccount.com&Expires=0&Signature=u9cBWowYX22sAyApH5YySD9h0m%2FbIPLHLgY'
                     '0Db%2BQ4a0wICQ2PZzUfTuHXQF8dUbMJG04VH90U5EMzYg3qSUGyfnp6Jptnvgivf7iSHepJsYhyAYSBGs'
@@ -112,7 +113,7 @@ class TestCredential(unittest.TestCase):
                     '8pTeva5cN8ZFlMkeCz7JvNkVJb1KPhI1XHPWyfuPUa2ALHh9wAD2yFSOU3cDiORFE6A%3D%3D')
         assert value == expected
 
-        value = get_signed_url(self.rse1_id, 'gcs', 'write', 'http://storage/directory/file', lifetime=None)
+        value = get_signed_url(self.rse1_id, 'gcs', 'write', 'http://storage.googleapis.com:443/directory/file', lifetime=None)
         expected = ('https://storage.googleapis.com:443/directory/file?GoogleAccessId=rucio-test@rucio-test'
                     '.iam.gserviceaccount.com&Expires=0&Signature=Gn%2FL0%2FjGkBIdpHZ9bKw7tvqRCdslC11gt'
                     'jbLk5AG2jA4Ywd6mTvOinUB%2BZxHY2I3XzEuMfyMnFj0vfXSemN6XmmcQkiQBhl6P3zr0GrOuO4y0xjKT'
@@ -121,7 +122,7 @@ class TestCredential(unittest.TestCase):
                     '%2BnqImWDOdvmcLIZzc6x9l6b7ETOqSL2OqOCStpBHPzpQU0spgJS96IB09uGRQum1Ej2ui5g%3D%3D')
         assert value == expected
 
-        value = get_signed_url(self.rse1_id, 'gcs', 'delete', 'http://storage/directory/file', lifetime=None)
+        value = get_signed_url(self.rse1_id, 'gcs', 'delete', 'http://storage.googleapis.com:443/directory/file', lifetime=None)
         expected = ('https://storage.googleapis.com:443/directory/file?GoogleAccessId=rucio-test@rucio-test'
                     '.iam.gserviceaccount.com&Expires=0&Signature=FVDNroX1epdTCv%2BC74o%2B8uWyvJXrqiIWg'
                     'kdcedaOoryhRMjuv%2FVdKecnhViY%2BGOP%2B0CoI1uFOHBz%2B%2Bm10U9A3i%2B1v7AZRN5L6nbbS%2'
