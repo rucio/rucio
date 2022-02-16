@@ -18,7 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2019-2022
 # - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
-# - Mayank Sharma <imptodefeat@gmail.com>, 2021
+# - Mayank Sharma <imptodefeat@gmail.com>, 2021-2022
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
@@ -124,6 +124,7 @@ def __get_source(request_id, src_rse_id, scope, name, session=None):
         .first()
 
 
+@pytest.mark.skip(reason="Needs to be improved as discussed in #5190")
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter, poller and finisher; changes XRD3 usage and limits")
