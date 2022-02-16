@@ -38,7 +38,6 @@
 import datetime
 import json
 import logging
-import time
 import traceback
 from collections import namedtuple
 from configparser import NoOptionError, NoSectionError
@@ -51,7 +50,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, true
 
 from rucio.common.config import config_get_bool, config_get
-from rucio.common.constants import FTS_STATE
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
@@ -380,84 +378,6 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
                     result.append({'request_id': res.id, 'external_host': res.external_host, 'external_id': res.external_id})
 
     return result
-
-
-@read_session
-def query_request(request_id, transfertool='fts3', session=None, logger=logging.log):
-    """
-    Query the status of a request.
-
-    :param request_id:    Request-ID as a 32 character hex string.
-    :param transfertool:  Transfertool name as a string.
-    :param session:       Database session to use.
-    :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
-    :returns:             Request status information as a dictionary.
-    """
-
-    record_counter('core.request.query_request')
-
-    req = get_request(request_id, session=session)
-
-    req_status = {'request_id': request_id,
-                  'new_state': None}
-
-    if not req:
-        req_status['new_state'] = RequestState.LOST
-        return req_status
-
-    if transfertool == 'fts3':
-        try:
-            ts = time.time()
-            response = FTS3Transfertool(external_host=req['external_host']).query(transfer_ids=[req['external_id']], details=False)
-            record_timer('core.request.query_request_fts3', (time.time() - ts) * 1000)
-            req_status['details'] = response
-        except Exception:
-            raise
-
-        if response is None:
-            req_status['new_state'] = RequestState.LOST
-        else:
-            if 'job_state' not in response:
-                req_status['new_state'] = RequestState.LOST
-            elif response['job_state'] in (FTS_STATE.FAILED,
-                                           FTS_STATE.FINISHEDDIRTY,
-                                           FTS_STATE.CANCELED):
-                req_status['new_state'] = RequestState.FAILED
-            elif response['job_state'] == FTS_STATE.FINISHED:
-                req_status['new_state'] = RequestState.DONE
-    else:
-        raise NotImplementedError
-
-    return req_status
-
-
-@read_session
-def query_request_details(request_id, transfertool='fts3', session=None, logger=logging.log):
-    """
-    Query the detailed status of a request. Can also be done after the
-    external transfer has finished.
-
-    :param request_id:    Request-ID as a 32 character hex string.
-    :param transfertool:  Transfertool name as a string.
-    :param session:       Database session to use.
-    :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
-    :returns:             Detailed request status information as a dictionary.
-    """
-
-    record_counter('core.request.query_request_details')
-
-    req = get_request(request_id, session=session)
-
-    if not req:
-        return
-
-    if transfertool == 'fts3':
-        ts = time.time()
-        tmp = FTS3Transfertool(external_host=req['external_host']).query(transfer_ids=[req['external_id']], details=True)
-        record_timer('core.request.query_details_fts3', (time.time() - ts) * 1000)
-        return tmp
-
-    raise NotImplementedError
 
 
 @transactional_session
