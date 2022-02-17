@@ -78,7 +78,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import str_to_date, sizefmt, chunks
-from rucio.core import account_counter, rse_counter, request as request_core
+from rucio.core import account_counter, rse_counter, request as request_core, transfer as transfer_core
 from rucio.core.account import get_account
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.message import add_message
@@ -939,8 +939,9 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, n
         rule.delete(session=session)
 
         for transfer in transfers_to_delete:
-            request_core.cancel_request_did(scope=transfer['scope'], name=transfer['name'],
-                                            dest_rse_id=transfer['rse_id'], session=session)
+            transfers_to_cancel = request_core.cancel_request_did(scope=transfer['scope'], name=transfer['name'],
+                                                                  dest_rse_id=transfer['rse_id'], session=session)
+            transfer_core.cancel_transfers(transfers_to_cancel)
 
 
 @transactional_session
@@ -1238,7 +1239,8 @@ def update_rule(rule_id, options, session=None):
                 rule.activity = options['activity']
                 # Cancel transfers and re-submit them:
                 for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
-                    request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                    transfers_to_cancel = request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                    transfer_core.cancel_transfers(transfers_to_cancel)
                     md5, bytes_, adler32 = session.query(models.RSEFileAssociation.md5, models.RSEFileAssociation.bytes, models.RSEFileAssociation.adler32).filter(models.RSEFileAssociation.scope == lock.scope,
                                                                                                                                                                    models.RSEFileAssociation.name == lock.name,
                                                                                                                                                                    models.RSEFileAssociation.rse_id == lock.rse_id).one()
@@ -1277,7 +1279,8 @@ def update_rule(rule_id, options, session=None):
                         for lock2 in session.query(models.ReplicaLock).filter_by(scope=lock.scope, name=lock.name, rse_id=lock.rse_id, state=LockState.REPLICATING).all():
                             lock2.state = LockState.STUCK
                             rule_ids_to_stuck.add(lock2.rule_id)
-                        request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                        transfers_to_cancel = request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                        transfer_core.cancel_transfers(transfers_to_cancel)
                         replica = session.query(models.RSEFileAssociation).filter(
                             models.RSEFileAssociation.scope == lock.scope,
                             models.RSEFileAssociation.name == lock.name,
@@ -1305,7 +1308,8 @@ def update_rule(rule_id, options, session=None):
             elif key == 'priority':
                 try:
                     rule.priority = options[key]
-                    request_core.update_requests_priority(priority=options[key], filter_={'rule_id': rule_id}, session=session)
+                    transfers_to_update = request_core.update_requests_priority(priority=options[key], filter_={'rule_id': rule_id}, session=session)
+                    transfer_core.update_transfer_priority(transfers_to_update)
                 except Exception:
                     raise UnsupportedOperation('The FTS Requests are already in a final state.')
 
@@ -2487,7 +2491,8 @@ def __evaluate_did_detach(eval_did, session=None, logger=logging.log):
             account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]), bytes_=sum(account_counter_decreases[rse_id]), session=session)
 
         for transfer in transfers_to_delete:
-            request_core.cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], session=session)
+            transfers_to_cancel = request_core.cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], session=session)
+            transfer_core.cancel_transfers(transfers_to_cancel)
 
 
 @transactional_session

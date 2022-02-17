@@ -61,7 +61,6 @@ from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, ge
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
-from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.db.sqla.util import create_temp_table
 
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
@@ -917,32 +916,13 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
     except IntegrityError as error:
         raise RucioException(error.args)
 
-    transfertool_map = {}
+    transfers_to_cancel = {}
     for req in reqs:
-        # is there a transfer already in FTS3? if so, try to cancel it
+        # is there a transfer already in transfertool? if so, schedule to cancel them
         if req[1] is not None:
-            try:
-                if req[2] not in transfertool_map:
-                    transfertool_map[req[2]] = FTS3Transfertool(external_host=req[2])
-                transfertool_map[req[2]].cancel(transfer_ids=[req[1]])
-            except Exception as error:
-                logger(logging.WARNING, 'Could not cancel FTS3 transfer %s on %s: %s' % (req[1], req[2], str(error)))
+            transfers_to_cancel.setdefault(req[2], set()).add(req[1])
         archive_request(request_id=req[0], session=session)
-
-
-def cancel_request_external_id(transfertool_obj, transfer_id):
-    """
-    Cancel a request based on external transfer id.
-
-    :param transfertool_obj: Transfertool object to be used for cancellation.
-    :param transfer_id:      External-ID as a 32 character hex string.
-    """
-
-    record_counter('core.request.cancel_request_external_id')
-    try:
-        transfertool_obj.cancel(transfer_ids=[transfer_id])
-    except Exception:
-        raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, traceback.format_exc()))
+    return transfers_to_cancel
 
 
 @read_session
@@ -1367,6 +1347,7 @@ def update_requests_priority(priority, filter_, session=None, logger=logging.log
     :param priority:  The priority as an integer from 1 to 5.
     :param filter_:    Dictionary such as {'rule_id': rule_id, 'request_id': request_id, 'older_than': time_stamp, 'activities': [activities]}.
     :param logger:    Optional decorated logger that can be passed from the calling daemons or servers.
+    :return the transfers which must be updated in the transfertool
     """
     try:
         query = session.query(models.Request.id, models.Request.external_id, models.Request.external_host, models.Request.state, models.ReplicaLock.state)\
@@ -1384,7 +1365,7 @@ def update_requests_priority(priority, filter_, session=None, logger=logging.log
                 filter_['activities'] = filter_['activities'].split(',')
             query = query.filter(models.Request.activity.in_(filter_['activities']))
 
-        transfertool_map = {}
+        transfers_to_update = {}
         for item in query.all():
             try:
                 session.query(models.Request) \
@@ -1392,12 +1373,10 @@ def update_requests_priority(priority, filter_, session=None, logger=logging.log
                     .update({'priority': priority, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
                 logger(logging.DEBUG, "Updated request %s priority to %s in rucio." % (item[0], priority))
                 if item[3] == RequestState.SUBMITTED and item[4] == LockState.REPLICATING:
-                    if item[2] not in transfertool_map:
-                        transfertool_map[item[2]] = FTS3Transfertool(external_host=item[2])
-                    res = transfertool_map[item[2]].update_priority(transfer_id=item[1], priority=priority)
-                    logger(logging.DEBUG, "Updated request %s priority in transfertool to %s: %s" % (item[0], priority, res['http_message']))
+                    transfers_to_update.setdefault(item[2], {})[item[1]] = priority
             except Exception:
                 logger(logging.DEBUG, "Failed to boost request %s priority: %s" % (item[0], traceback.format_exc()))
+        return transfers_to_update
     except IntegrityError as error:
         raise RucioException(error.args)
 

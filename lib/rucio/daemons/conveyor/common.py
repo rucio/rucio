@@ -49,7 +49,7 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
                                     DuplicateFileTransferSubmission, VONotFound, UnsupportedOperation)
 from rucio.common.logging import formatted_logger
@@ -69,7 +69,9 @@ if TYPE_CHECKING:
     from typing import Callable, Dict, List, Optional, Set, Tuple, Type
     from rucio.core.request import RequestWithSources
     from rucio.core.transfer import DirectTransferDefinition
+    from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
     from sqlalchemy.orm import Session
+
 
 class HeartbeatHandler:
     """
@@ -260,7 +262,7 @@ def __assign_paths_to_transfertool_and_create_hops(
     reqs_no_host = set()
     reqs_unsupported_transfertool = set()
     paths_by_transfertool_builder = {}
-    default_tombstone_delay = config_get_bool('transfers', 'multihop_tombstone_delay', default=transfer_core.DEFAULT_MULTIHOP_TOMBSTONE_DELAY, expiration_time=600)
+    default_tombstone_delay = config_get_int('transfers', 'multihop_tombstone_delay', default=transfer_core.DEFAULT_MULTIHOP_TOMBSTONE_DELAY, expiration_time=600)
     for request_id, candidate_paths in candidate_paths_by_request_id.items():
         # Get the rws object from any candidate path. It is the same for all candidate paths. For multihop, the initial request is the last hop
         rws = candidate_paths[0][-1].rws
@@ -496,7 +498,7 @@ def _submit_transfers(transfertool_obj, transfers, job_params, submitter='submit
                 # Possibility to have a double submission during the next cycle. Try to cancel the external request.
                 try:
                     logger(logging.INFO, 'Cancel transfer %s on %s', eid, transfertool_obj)
-                    request.cancel_request_external_id(transfertool_obj, eid)
+                    transfer_core.cancel_transfer(transfertool_obj, eid)
                 except Exception:
                     logger(logging.ERROR, 'Failed to cancel transfers %s on %s with error' % (eid, transfertool_obj), exc_info=True)
 
