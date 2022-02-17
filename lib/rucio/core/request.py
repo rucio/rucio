@@ -47,10 +47,11 @@ from typing import TYPE_CHECKING
 from six import string_types
 from sqlalchemy import and_, or_, func, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql.expression import asc, true
+from sqlalchemy.sql.expression import asc, true, false
 
 from rucio.common.config import config_get_bool, config_get
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
+from rucio.common.rse_attributes import RseData
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
 from rucio.core.config import get as core_config_get
@@ -58,14 +59,14 @@ from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute
 from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg
+from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.transfertool.fts3 import FTS3Transfertool
+from rucio.db.sqla.util import create_temp_table
 
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
-    from rucio.core.transfer import RequestWithSources
     from typing import Any, Dict, Iterable, Iterator, List, Optional, Callable, Set, Union
     from sqlalchemy.orm import Session
 
@@ -78,6 +79,69 @@ if TYPE_CHECKING:
 The core request.py is specifically for handling requests.
 Requests accessed by external_id (So called transfers), are covered in the core transfer.py
 """
+
+
+class RequestSource:
+    def __init__(self, rse_data, source_ranking=None, distance_ranking=None, file_path=None, scheme=None, url=None):
+        self.rse = rse_data
+        self.distance_ranking = distance_ranking if distance_ranking is not None else 9999
+        self.source_ranking = source_ranking if source_ranking is not None else 0
+        self.file_path = file_path
+        self.scheme = scheme
+        self.url = url
+
+    def __str__(self):
+        return "src_rse={}".format(self.rse)
+
+
+class RequestWithSources:
+    def __init__(self, id_, request_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes,
+                 previous_attempt_id, dest_rse_data, account, retry_count, priority, transfertool, requested_at=None):
+
+        self.request_id = id_
+        self.request_type = request_type
+        self.rule_id = rule_id
+        self.scope = scope
+        self.name = name
+        self.md5 = md5
+        self.adler32 = adler32
+        self.byte_count = byte_count
+        self.activity = activity
+        self._dict_attributes = None
+        self._db_attributes = attributes
+        self.previous_attempt_id = previous_attempt_id
+        self.dest_rse = dest_rse_data
+        self.account = account
+        self.retry_count = retry_count or 0
+        self.priority = priority if priority is not None else 3
+        self.transfertool = transfertool
+        self.requested_at = requested_at if requested_at else datetime.datetime.utcnow()
+
+        self.sources = []
+
+    def __str__(self):
+        return "{}({}:{})".format(self.request_id, self.scope, self.name)
+
+    @property
+    def attributes(self):
+        if self._dict_attributes is None:
+            self.attributes = self._db_attributes
+        return self._dict_attributes
+
+    @attributes.setter
+    def attributes(self, db_attributes):
+        attr = {}
+        if db_attributes:
+            if isinstance(db_attributes, dict):
+                attr = json.loads(json.dumps(db_attributes))
+            else:
+                attr = json.loads(str(db_attributes))
+            # parse source expression
+            attr['source_replica_expression'] = attr["source_replica_expression"] if (attr and "source_replica_expression" in attr) else None
+            attr['allow_tape_source'] = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
+            attr['dsn'] = attr["ds_name"] if (attr and "ds_name" in attr) else None
+            attr['lifetime'] = attr.get('lifetime', -1)
+        self._dict_attributes = attr
 
 
 def should_retry_request(req, retry_protocol_mismatches):
@@ -282,6 +346,171 @@ def queue_requests(requests, session=None, logger=logging.log):
         session.bulk_insert_mappings(models.Message, messages_chunk)
 
     return new_requests
+
+
+@read_session
+def list_transfer_requests_and_source_replicas(
+        total_workers=0,
+        worker_number=0,
+        partition_hash_var=None,
+        limit=None,
+        activity=None,
+        older_than=None,
+        rses=None,
+        request_type=RequestType.TRANSFER,
+        request_state=None,
+        ignore_availability=False,
+        transfertool=None,
+        session=None,
+) -> "List[RequestWithSources]":
+    """
+    List requests with source replicas
+    :param total_workers:      Number of total workers.
+    :param worker_number:      Id of the executing worker.
+    :param partition_hash_var  The hash variable used for partitioning thread work
+    :param limit:              Integer of requests to retrieve.
+    :param activity:           Activity to be selected.
+    :param older_than:         Only select requests older than this DateTime.
+    :param rses:               List of rse_id to select requests.
+    :param request_type:       Filter on the given request type.
+    :param request_state:      Filter on the given request state
+    :param transfertool:       The transfer tool as specified in rucio.cfg.
+    :param ignore_availability Ignore blocklisted RSEs
+    :param session:            Database session to use.
+    :returns:                  List of RequestWithSources objects.
+    """
+
+    if partition_hash_var is None:
+        partition_hash_var = 'requests.id'
+
+    if request_state is None:
+        request_state = RequestState.QUEUED
+
+    sub_requests = session.query(models.Request.id,
+                                 models.Request.rule_id,
+                                 models.Request.scope,
+                                 models.Request.name,
+                                 models.Request.md5,
+                                 models.Request.adler32,
+                                 models.Request.bytes,
+                                 models.Request.activity,
+                                 models.Request.attributes,
+                                 models.Request.previous_attempt_id,
+                                 models.Request.dest_rse_id,
+                                 models.Request.retry_count,
+                                 models.Request.account,
+                                 models.Request.created_at,
+                                 models.Request.requested_at,
+                                 models.Request.priority,
+                                 models.Request.transfertool) \
+        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle') \
+        .filter(models.Request.state == request_state) \
+        .filter(models.Request.request_type == request_type) \
+        .join(models.RSE, models.RSE.id == models.Request.dest_rse_id) \
+        .filter(models.RSE.deleted == false()) \
+        .order_by(models.Request.created_at)
+
+    if not ignore_availability:
+        sub_requests = sub_requests.filter(models.RSE.availability.in_((2, 3, 6, 7)))
+
+    if isinstance(older_than, datetime.datetime):
+        sub_requests = sub_requests.filter(models.Request.requested_at < older_than)
+
+    if activity:
+        sub_requests = sub_requests.filter(models.Request.activity == activity)
+
+    # if a transfertool is specified make sure to filter for those requests and apply related index
+    if transfertool:
+        sub_requests = sub_requests.filter(models.Request.transfertool == transfertool)
+        sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_TRA_ACT_IDX)", 'oracle')
+    else:
+        sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')
+
+    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
+    if rses and use_temp_tables:
+        temp_table_cls = create_temp_table(
+            "list_transfer_requests_and_source_replicas",
+            models.Column("rse_id", models.GUID()),
+            session=session,
+        )
+
+        session.bulk_insert_mappings(temp_table_cls, [{'rse_id': rse_id} for rse_id in rses])
+
+        sub_requests = sub_requests.join(temp_table_cls, temp_table_cls.rse_id == models.RSE.id)
+
+    sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number, hash_variable=partition_hash_var)
+
+    if limit:
+        sub_requests = sub_requests.limit(limit)
+
+    sub_requests = sub_requests.subquery()
+
+    query = session.query(sub_requests.c.id,
+                          sub_requests.c.rule_id,
+                          sub_requests.c.scope,
+                          sub_requests.c.name,
+                          sub_requests.c.md5,
+                          sub_requests.c.adler32,
+                          sub_requests.c.bytes,
+                          sub_requests.c.activity,
+                          sub_requests.c.attributes,
+                          sub_requests.c.previous_attempt_id,
+                          sub_requests.c.dest_rse_id,
+                          sub_requests.c.account,
+                          sub_requests.c.retry_count,
+                          sub_requests.c.priority,
+                          sub_requests.c.transfertool,
+                          sub_requests.c.requested_at,
+                          models.RSE.id.label("source_rse_id"),
+                          models.RSE.rse,
+                          models.RSEFileAssociation.path,
+                          models.Source.ranking.label("source_ranking"),
+                          models.Source.url.label("source_url"),
+                          models.Distance.ranking.label("distance_ranking")) \
+        .order_by(sub_requests.c.created_at) \
+        .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
+                                                   sub_requests.c.name == models.RSEFileAssociation.name,
+                                                   models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                                   sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id)) \
+        .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle') \
+        .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
+                                    models.RSE.deleted == false())) \
+        .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
+                                       models.RSE.id == models.Source.rse_id)) \
+        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle') \
+        .outerjoin(models.Distance, and_(sub_requests.c.dest_rse_id == models.Distance.dest_rse_id,
+                                         models.RSEFileAssociation.rse_id == models.Distance.src_rse_id)) \
+        .with_hint(models.Distance, "+ index(distances DISTANCES_PK)", 'oracle')
+
+    # if transfertool specified, select only the requests where the source rses are set up for the transfer tool
+    if transfertool:
+        query = query.subquery()
+        query = session.query(query) \
+            .join(models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == query.c.source_rse_id) \
+            .filter(models.RSEAttrAssociation.key == 'transfertool',
+                    models.RSEAttrAssociation.value.like('%' + transfertool + '%'))
+
+    requests_by_id = {}
+    for (request_id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, dest_rse_id, account, retry_count,
+         priority, transfertool, requested_at, source_rse_id, source_rse_name, file_path, source_ranking, source_url, distance_ranking) in query:
+
+        # If we didn't pre-filter using temporary tables on database side, perform the filtering here
+        if not use_temp_tables and rses and dest_rse_id not in rses:
+            continue
+
+        request = requests_by_id.get(request_id)
+        if not request:
+            request = RequestWithSources(id_=request_id, request_type=request_type, rule_id=rule_id, scope=scope, name=name,
+                                         md5=md5, adler32=adler32, byte_count=byte_count, activity=activity, attributes=attributes,
+                                         previous_attempt_id=previous_attempt_id, dest_rse_data=RseData(id_=dest_rse_id),
+                                         account=account, retry_count=retry_count, priority=priority, transfertool=transfertool,
+                                         requested_at=requested_at)
+            requests_by_id[request_id] = request
+
+        if source_rse_id is not None:
+            request.sources.append(RequestSource(rse_data=RseData(id_=source_rse_id, name=source_rse_name), file_path=file_path,
+                                                 source_ranking=source_ranking, distance_ranking=distance_ranking, url=source_url))
+    return list(requests_by_id.values())
 
 
 @read_session
