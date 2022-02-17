@@ -109,6 +109,10 @@ jobs:
             echo "TPC failed"
             exit 1
           fi
+      - name: Print server error logs
+        shell: bash
+        run: |
+          docker exec -t dev_rucio_1 cat /var/log/rucio/httpd_error_log
       - name: Archive Upload/Download Test
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_download.py::test_download_from_archive_on_xrd
       - name: Stop containers
