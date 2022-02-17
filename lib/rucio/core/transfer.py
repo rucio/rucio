@@ -46,6 +46,7 @@ import datetime
 import logging
 import re
 import time
+import traceback
 from rucio.common.utils import PriorityQueue
 from typing import TYPE_CHECKING
 
@@ -1406,3 +1407,51 @@ def __load_rse_settings(rse_id, session=None):
                                      session=session)
         REGION_SHORT.set('rse_settings_%s' % str(rse_id), result)
     return result
+
+
+def update_transfer_priority(transfers_to_update, logger=logging.log):
+    """
+    Update transfer priority in fts
+
+    :param transfers_to_update: dict {external_host1: {transfer_id1: priority, transfer_id2: priority, ...}, ...}
+    :param logger: decorated logger instance
+    """
+
+    for external_host, priority_by_transfer_id in transfers_to_update.items():
+        transfertool_obj = FTS3Transfertool(external_host=external_host)
+        for transfer_id, priority in priority_by_transfer_id.items():
+            res = transfertool_obj.update_priority(transfer_id=transfer_id, priority=priority)
+            logger(logging.DEBUG, "Updated transfer %s priority in transfertool to %s: %s" % (transfer_id, priority, res['http_message']))
+
+
+def cancel_transfers(transfers_to_cancel, logger=logging.log):
+    """
+    Cancel transfers in fts
+
+    :param transfers_to_cancel: dict {external_host1: {transfer_id1, transfer_id2}, external_host2: [...], ...}
+    :param logger: decorated logger instance
+    """
+
+    for external_host, transfer_ids in transfers_to_cancel.items():
+        transfertool_obj = FTS3Transfertool(external_host=external_host)
+        for transfer_id in transfer_ids:
+            try:
+                transfertool_obj.cancel(transfer_ids=[transfer_id])
+                logger(logging.DEBUG, "Cancelled FTS3 transfer %s on %s" % (transfer_id, transfertool_obj))
+            except Exception as error:
+                logger(logging.WARNING, 'Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, str(error)))
+
+
+def cancel_transfer(transfertool_obj, transfer_id):
+    """
+    Cancel a transfer based on external transfer id.
+
+    :param transfertool_obj: Transfertool object to be used for cancellation.
+    :param transfer_id:      External-ID as a 32 character hex string.
+    """
+
+    record_counter('core.request.cancel_request_external_id')
+    try:
+        transfertool_obj.cancel(transfer_ids=[transfer_id])
+    except Exception:
+        raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, traceback.format_exc()))
