@@ -11,10 +11,12 @@ dists:
     allow:
       python:
         - "3.8"
+        - "3.10"
   - id: fedora33
     allow:
       python:
         - "3.9"
+        - "3.10"
 python:
   - "3.6"
   - id: "3.7"
@@ -28,6 +30,7 @@ python:
         - client
         - sqlite
   - "3.9"
+  - "3.10"
 suites:
   - id: syntax
     SYNTAX_REPORT: 1
