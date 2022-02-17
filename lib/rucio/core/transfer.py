@@ -676,7 +676,7 @@ def bulk_query_transfers(request_host, transfers_by_eid, transfertool='fts3', vo
         start_time = time.time()
         logger(logging.DEBUG, 'transfer_ids: %s' % list(transfers_by_eid))
         responses = GlobusTransferTool(external_host=None).bulk_query(transfer_ids=list(transfers_by_eid), timeout=timeout)
-        record_timer('core.request.bulk_query_transfers', (time.time() - start_time) * 1000 / len(transfers_by_eid))
+        record_timer('core.request.bulk_query_transfers_globus', (time.time() - start_time) * 1000 / len(transfers_by_eid))
 
         for k, v in responses.items():
             if v == 'FAILED':
