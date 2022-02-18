@@ -95,6 +95,7 @@ server_requirements_table = {
         'retrying',
         'redis',
         'numpy',
+        'itsdangerous',
         'flask',
         'oic',
         'prometheus_client',
