@@ -96,6 +96,7 @@ server_requirements_table = {
         'oauth2client',
         'retrying',
         'redis',
+        'itsdangerous',
         'flask',
         'oic',
         'prometheus_client',
