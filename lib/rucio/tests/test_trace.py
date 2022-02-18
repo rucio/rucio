@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,17 +17,21 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Mayank Sharma <imptodefeat@gmail.com>, 2022
 
 import datetime
 import time
 import uuid
+import logging
 import pytest
 import json
 from rucio.common.schema.generic import IPv4orIPv6
 from rucio.core.trace import SCHEMAS, validate_schema
 from rucio.common.exception import InvalidObject
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def test_submit_trace(rest_client):
@@ -87,3 +91,14 @@ def test_trace_ip():
     for obj in invalid_obj:
         with pytest.raises(InvalidObject):
             validate_schema(obj)
+
+
+def test_non_existant_event_type_validation_rejection(caplog):
+    """
+    Test if an incoming trace with a non-supported schema logs a warning
+    instead of printing entire stack-trace
+    """
+    event_type = "put_new_type"
+    obj = json.dumps({"eventType": f"{event_type}"})
+    validate_schema(obj)
+    assert f"schema for eventType {event_type} is not currently supported" in caplog.text
