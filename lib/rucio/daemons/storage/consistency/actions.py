@@ -21,50 +21,47 @@
 Storage-Consistency-Actions is a daemon to delete dark files, and re-subscribe the missing ones, identified previously in a Storage-Consistency-Scanner run.
 """
 
-import traceback
-
+import csv
+import glob
+import gzip
+import json
 import logging
 import os
+import re
 import socket
+import sys 
+import time
 import threading
+import traceback
+
 from copy import deepcopy
 from datetime import datetime, timedelta
 from random import randint
 from re import match
-import sys 
-import glob
-import json
-import time
-import gzip
-import re
-import csv
 
-
-from rucio.core.rse import list_rses, get_rse_id
-from rucio.rse.rsemanager import lfns2pfns, get_rse_info, parse_pfns
-from rucio.common.config import config_get
-
-from rucio.common.types import InternalAccount, InternalScope
-from rucio.core.replica import __exists_replicas, update_replicas_states
-from rucio.core.quarantined_replica import add_quarantined_replicas
-from rucio.core.monitor import record_gauge, record_counter, record_timer, MultiCounter
-
-
-from rucio.common.utils import daemon_sleep
 from rucio.common import exception
-from rucio.common.logging import formatted_logger, setup_logging
+from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
+from rucio.common.logging import formatted_logger, setup_logging
+from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
+from rucio.core.monitor import record_gauge, record_counter, record_timer, MultiCounter
+from rucio.core.quarantined_replica import add_quarantined_replicas
+from rucio.core.replica import __exists_replicas, update_replicas_states
+from rucio.core.rse import list_rses, get_rse_id
 from rucio.db.sqla.util import get_db_time
+from rucio.rse.rsemanager import lfns2pfns, get_rse_info, parse_pfns
 
 
 
 ##########################################################################
 ### NOTE: these are needed by local version of declare_bad_file_replicas()
-### remove after move to core/replica.py
+# TODO: remove after move to core/replica.py
 from rucio.db.sqla.session import transactional_session
 from rucio.db.sqla.constants import (ReplicaState, BadFilesStatus)
 ##########################################################################
+
 
 graceful_stop = threading.Event()
 
@@ -72,9 +69,10 @@ graceful_stop = threading.Event()
 ##########################################################################
 ### NOTE: declare_bad_file_replicas will be used directly from core/replica.py
 ### when handling of DID is added there
+# TODO: remove after move to core/replica.py
 @transactional_session
 def declare_bad_file_replicas(dids, rse_id, reason, issuer,
-     status=BadFilesStatus.BAD, scheme='srm', session=None):
+                              status=BadFilesStatus.BAD, scheme=None, session=None):
     """
     Declare a list of bad replicas.
 
@@ -88,35 +86,35 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer,
     """
     unknown_replicas = []
     replicas = []
-    if True:
-        for did in dids:
-            scope = InternalScope(did['scope'], vo=issuer.vo)
-            name = did['name']
-            __exists, scope, name, already_declared, size =\
-               __exists_replicas(rse_id, scope, name, path=None, session=session)
-            if __exists and ((str(status) == str(BadFilesStatus.BAD) and not\
-              already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
-                replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id,
-                  'state': ReplicaState.BAD})
-                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id,
-                  reason=reason, state=status, account=issuer, bytes=size)
-                new_bad_replica.save(session=session, flush=False)
-                session.query(models.Source).filter_by(scope=scope, name=name,
-                  rse_id=rse_id).delete(synchronize_session=False)
+#    if True:
+    for did in dids:
+        scope = InternalScope(did['scope'], vo=issuer.vo)
+        name = did['name']
+        __exists, scope, name, already_declared, size =\
+         __exists_replicas(rse_id, scope, name, path=None, session=session)
+        if __exists and ((str(status) == str(BadFilesStatus.BAD) and not\
+          already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
+            replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id,
+              'state': ReplicaState.BAD})
+            new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id,
+              reason=reason, state=status, account=issuer, bytes=size)
+            new_bad_replica.save(session=session, flush=False)
+            session.query(models.Source).filter_by(scope=scope, name=name,
+              rse_id=rse_id).delete(synchronize_session=False)
+        else:
+            if already_declared:
+                unknown_replicas.append('%s:%s %s' % (did['scope'], did['name'],
+                 'Already declared'))
             else:
-                if already_declared:
-                    unknown_replicas.append('%s:%s %s' % (did['scope'], did['name'],
-                     'Already declared'))
-                else:
-                    unknown_replicas.append('%s:%s %s' % (did['scope'], did['name'],
-                     'Unknown replica'))
-        if str(status) == str(BadFilesStatus.BAD):
-            # For BAD file, we modify the replica state, not for suspicious
-            try:
-                # there shouldn't be any exceptions since all replicas exist
-                update_replicas_states(replicas, session=session)
-            except exception.UnsupportedOperation:
-                raise exception.ReplicaNotFound("One or several replicas don't exist.")
+                unknown_replicas.append('%s:%s %s' % (did['scope'], did['name'],
+                 'Unknown replica'))
+    if str(status) == str(BadFilesStatus.BAD):
+        # For BAD file, we modify the replica state, not for suspicious
+        try:
+            # there shouldn't be any exceptions since all replicas exist
+            update_replicas_states(replicas, session=session)
+        except exception.UnsupportedOperation:
+            raise exception.ReplicaNotFound("One or several replicas don't exist.")
     try:
         session.flush()
     except IntegrityError as error:
@@ -180,9 +178,7 @@ def write_stats(my_stats, stats_file, stats_key=None):
 
 
 
-def cmp2dark(new_list="T2_US_Purdue_2021_06_18_02_28_D.list",
-             old_list="T2_US_Purdue_2021_06_17_02_28_D.list",
-             comm_list="out_D.list", stats_file="test_stats.json"):
+def cmp2dark(new_list, old_list, comm_list, stats_file):
 
     t0 = time.time()
     stats_key = "cmp2dark"
@@ -753,7 +749,6 @@ def run(once=False, rses=None, sleep_time=60, default_dark_min_age=28, default_d
     Starts up the Consistency-Actions.
     """
 
-# Setup logging
     setup_logging()
 
     prefix = 'storage-consistency-actions (run())'
@@ -761,11 +756,12 @@ def run(once=False, rses=None, sleep_time=60, default_dark_min_age=28, default_d
 
     logger(logging.INFO, '\n Now inside run(once...)\n')
 
+    # TODO: These variables should be sourced from the RSE config in the future.
+    # For now, they are passed as arguments, and to emphasize that fact, we are re-assigning them:
     dark_min_age = default_dark_min_age
     dark_threshold_percent = default_dark_threshold_percent
     miss_threshold_percent = default_miss_threshold_percent
     scanner_files_path = default_scanner_files_path
-    # We expect these to be sourced from the RSE config in the future.
 
     if rses == []:
         logger(logging.INFO, '\n NO RSEs passed. Will loop over all writable RSEs.')

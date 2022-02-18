@@ -21,21 +21,20 @@ def get_parser():
     Returns the argparse parser.
     """
     parser = argparse.ArgumentParser(description="The Consistency-Actions daemon is responsible for applying the corrective actions resulting from a consistency-check scan of an RSE.", epilog='''
-
 Run the daemon::
   $ rucio-storage-consistency-actions --run-once --rses T2_US_Purdue T2_US_Nebraska --dark-threshold-percent 2.0 --miss-threshold-percent 1.5 --scanner-files-path /tmp/consistency-dump --sleep-time 10
     ''')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--rses", nargs='+', default=[], type=str,
-        help='RSEs to check specified as a RSE expression, defaults to check (default: check all RSEs).')
+        help='RSEs to check, specified as a RSE expression. Defaults to check all RSEs.')
     parser.add_argument('--sleep-time', action="store", default=60, type=int,
-        help='Concurrency control: thread sleep time after each chunk of work')
+        help='Concurrency control: thread sleep time (in seconds) after each chunk of work')
     parser.add_argument('--dark-min-age', action="store", default=28, type=int,
-        help='Min. age of a file to be considered as DARK.')
+        help='Min. age (in days) of a file to be considered as DARK.')
     parser.add_argument('--dark-threshold-percent', action="store", default=1.0,
-        type=float, help='Max. percentage of dark files at RSE.')
+        type=float, help='Max. percentage of dark files at RSE, expressed as percents - e.g. 1.5 means 1.5%')
     parser.add_argument('--miss-threshold-percent', action="store", default=1.0,
-        type=float, help='Max. percentage of missing files at RSE.')
+        type=float, help='Max. percentage of missing files at RSE, expressed as percents - e.g. 1.5 means 1.5%')
     parser.add_argument('--scanner-files-path', action="store",
         default="/var/cache/consistency-dump", type=pathlib.Path,
         help='The path where the CC scanner files are mounted.')
