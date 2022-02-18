@@ -138,7 +138,7 @@ UPLOAD_SCHEMA = {
 }
 
 DOWNLOAD_SCHEMA = {
-    "description": "upload method",
+    "description": "download method",
     "type": "object",
     "properties": {
         "eventType": {"enum": ["download"]},
@@ -224,6 +224,28 @@ PUT_SCHEMA = {
                  'filename', 'dataset']
 }
 
+SPECIAL_SCHEMA = {
+    "description": "A special schema to capture most unsupported eventTypes",
+    "type": "object",
+    "properties": {
+        "eventType": {"enum": ["sfo2eos"]},
+        "clientState": CLIENT_STATE,
+        "account": {"type": "string"},
+        "scope": SCOPE,
+        "filename": {"type": "string"},
+        "datasetScope": {"type": ["string", "null"]},
+        "dataset": {"type": ["string", "null"]},
+        "traceTimeentry": TIME_ENTRY,
+        "traceTimeentryUnix": {"type": "number"},
+        "traceIp": IPv4orIPv6,
+        "traceId": UUID,
+        "localSite": {"type": "string"},
+        "remoteSite": {"type": "string"},
+        "usrdn": {"type": "string"},
+    },
+    "required": ['eventType', 'clientState', 'account', 'traceTimeentry', 'traceTimeentryUnix', 'traceIp', 'traceId']
+}
+
 SCHEMAS = {
     'touch': TOUCH_SCHEMA,
     'upload': UPLOAD_SCHEMA,
@@ -237,7 +259,8 @@ SCHEMAS = {
     'put_sm': PUT_SCHEMA,
     'put_sm_a': PUT_SCHEMA,
     'sm_put': PUT_SCHEMA,
-    'sm_put_a': PUT_SCHEMA
+    'sm_put_a': PUT_SCHEMA,
+    'sfo2eos': SPECIAL_SCHEMA
 }
 
 FORMAT_CHECKER = draft7_format_checker
@@ -329,12 +352,17 @@ def validate_schema(obj):
 
     :param obj: The object to validate.
 
-    :raises: ValidationError
+    :raises: InvalidObject
     """
     obj = json.loads(obj)
 
     try:
         if obj and 'eventType' in obj:
+            event_type = SCHEMAS.get(obj['eventType'].lower())
+            if not event_type:
+                raise TypeError(f"Trace schema for eventType {obj['eventType']} is not currently supported.")
             validate(obj, SCHEMAS.get(obj['eventType'].lower()), format_checker=FORMAT_CHECKER)
     except ValidationError as error:
         raise InvalidObject(error)
+    except TypeError as error:
+        LOGGER.error(error)
