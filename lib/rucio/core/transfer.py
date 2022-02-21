@@ -58,16 +58,15 @@ from sqlalchemy.sql.expression import false
 from rucio.common import constants
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get
-from rucio.common.constants import SUPPORTED_PROTOCOLS, FTS_STATE
+from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (InvalidRSEExpression, NoDistance,
                                     RequestNotFound, RSEProtocolNotSupported,
                                     RucioException, UnsupportedOperation)
-from rucio.common.extra import import_extras
 from rucio.common.rse_attributes import RseData
 from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
-from rucio.core.monitor import record_counter, record_timer
+from rucio.core.monitor import record_counter
 from rucio.core.request import set_request_state, RequestWithSources, RequestSource
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rses
 from rucio.core.rse_expression_parser import parse_expression
@@ -80,12 +79,6 @@ from rucio.transfertool.fts3 import FTS3Transfertool
 if TYPE_CHECKING:
     from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Union
     from sqlalchemy.orm import Session
-
-EXTRA_MODULES = import_extras(['globus_sdk'])
-
-if EXTRA_MODULES['globus_sdk']:
-    from rucio.transfertool.globus import GlobusTransferTool  # pylint: disable=import-error
-
 
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
@@ -481,143 +474,15 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
     logger(logging.DEBUG, 'Finished to register transfer state for %s' % external_id)
 
 
-def is_recoverable_fts_overwrite_error(fts_status_dict):
-    """
-    Verify the special case when FTS cannot copy a file because destination exists and overwrite is disabled,
-    but the destination file is actually correct.
-
-    This can happen when some transitory error happened during a previous submission attempt.
-    Hence, the transfer is correctly executed by FTS, but rucio doesn't know about it.
-
-    Returns true when the request must be marked as successful even if it was reported failed by FTS.
-    """
-    if 'Destination file exists and overwrite is not enabled' in (fts_status_dict.get('reason') or ''):
-        dst_file = fts_status_dict['dst_file']
-        request_id = fts_status_dict['request_id']
-        request = None
-        if request_id:
-            request = request_core.get_request(request_id)
-        if (request and dst_file
-                and dst_file.get('file_size')
-                and dst_file.get('file_size') == request.get('bytes')
-                and (dst_file.get('checksum_type', '').lower() == 'adler32' and dst_file.get('checksum_value') == request.get('adler32')
-                     or dst_file.get('checksum_type', '').lower() == 'md5' and dst_file.get('checksum_value') == request.get('md5'))):
-            if dst_file.get('file_on_tape'):
-                return True
-            elif fts_status_dict.get('dst_type') == 'DISK':
-                return True
-    return False
-
-
-def bulk_query_transfers(request_host, transfers_by_eid, transfertool='fts3', vo=None, timeout=None, logger=logging.log):
-    """
-    Query the status of a transfer.
-    :param request_host:     Name of the external host.
-    :param transfers_by_eid: Dict of the form {external_id: list_of_transfers}
-    :param transfertool:     Transfertool name as a string.
-    :param timeout:          Transfertool timeout.
-    :param logger:           Optional decorated logger that can be passed from the calling daemons or servers.
-    :returns:                Request status information as a dictionary.
-    """
-
-    record_counter('core.request.bulk_query_transfers')
-
-    if transfertool == 'fts3':
-        start_time = time.time()
-        fts_resps = FTS3Transfertool(external_host=request_host, vo=vo).bulk_query(transfer_ids=list(transfers_by_eid), timeout=timeout)
-        record_timer('core.request.bulk_query_transfers_fts3', (time.time() - start_time) * 1000 / len(transfers_by_eid))
-
-        for external_id, transfers in transfers_by_eid.items():
-            if external_id not in fts_resps:
-                fts_resps[external_id] = Exception("Transfer id %s is not returned" % external_id)
-            if fts_resps[external_id] and not isinstance(fts_resps[external_id], Exception):
-                for request_id in fts_resps[external_id]:
-                    status_dict = fts_resps[external_id][request_id]
-                    job_state = status_dict['job_state']
-                    file_state = status_dict['file_state']
-                    # https://fts3-docs.web.cern.ch/fts3-docs/docs/state_machine.html
-                    job_state_is_final = job_state in (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHED, FTS_STATE.FINISHEDDIRTY)
-                    file_state_is_final = file_state in (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHED, FTS_STATE.NOT_USED)
-                    if not file_state_is_final:
-                        continue
-
-                    if file_state == FTS_STATE.FINISHED:
-                        status_dict['new_state'] = RequestState.DONE
-                    elif job_state_is_final and file_state == FTS_STATE.FAILED and is_recoverable_fts_overwrite_error(status_dict):
-                        status_dict['new_state'] = RequestState.DONE
-                    elif job_state_is_final and file_state in (FTS_STATE.FAILED, FTS_STATE.CANCELED):
-                        status_dict['new_state'] = RequestState.FAILED
-                    elif job_state_is_final and file_state == FTS_STATE.NOT_USED:
-                        if job_state == FTS_STATE.FINISHED:
-                            # it is a multi-source transfer. This source wasn't used, but another one was successful
-                            status_dict['new_state'] = RequestState.DONE
-                        else:
-                            # failed multi-source or multi-hop (you cannot have unused sources in a successful multi-hop)
-                            status_dict['new_state'] = RequestState.FAILED
-        return fts_resps
-    elif transfertool == 'globus':
-        start_time = time.time()
-        logger(logging.DEBUG, 'transfer_ids: %s' % list(transfers_by_eid))
-        responses = GlobusTransferTool(external_host=None).bulk_query(transfer_ids=list(transfers_by_eid), timeout=timeout)
-        record_timer('core.request.bulk_query_transfers_globus', (time.time() - start_time) * 1000 / len(transfers_by_eid))
-
-        for k, v in responses.items():
-            if v == 'FAILED':
-                new_state = RequestState.FAILED
-            elif v == 'SUCCEEDED':
-                new_state = RequestState.DONE
-            else:
-                new_state = RequestState.SUBMITTED
-            responses[k] = {t['request_id']: fake_transfertool_response(t, new_state=new_state)
-                            for t in transfers_by_eid[k]}
-        return responses
-    else:
-        raise NotImplementedError
-
-
 @transactional_session
-def fake_transfertool_response(req, new_state=None, reason=None, session=None):
-    """
-    Use the request database object to return a dict in the same format as
-    returned by the FTS transfertool. Fill ass many fields as possible with
-    relevant data.
+def mark_transfer_lost(request, session=None, logger=logging.log):
+    new_state = RequestState.LOST
+    reason = "The FTS job lost"
 
-    TODO: get rid of this function
-    """
-    src_rse_id = req.get('source_rse_id', None)
-    dst_rse_id = req.get('dest_rse_id', None)
-    src_rse = None
-    dst_rse = None
-    if src_rse_id:
-        src_rse = get_rse_name(src_rse_id, session=session)
-    if dst_rse_id:
-        dst_rse = get_rse_name(dst_rse_id, session=session)
-    response = {'new_state': new_state or req.get('state', None),
-                'transfer_id': req['external_id'],
-                'job_state': new_state or req.get('state', None),
-                'src_url': None,
-                'dst_url': req['dest_url'],
-                'duration': 0,
-                'reason': reason,
-                'scope': req.get('scope', None),
-                'name': req.get('name', None),
-                'src_rse': src_rse,
-                'dst_rse': dst_rse,
-                'request_id': req.get('request_id', None),
-                'activity': req.get('activity', None),
-                'src_rse_id': req.get('source_rse_id', None),
-                'dst_rse_id': req.get('dest_rse_id', None),
-                'previous_attempt_id': req.get('previous_attempt_id', None),
-                'adler32': req.get('adler32', None),
-                'md5': req.get('md5', None),
-                'filesize': req.get('filesize', None),
-                'external_host': req.get('external_host', None),
-                'job_m_replica': None,
-                'created_at': req.get('created_at', None),
-                'submitted_at': req.get('submitted_at', None),
-                'details': None,
-                'account': req.get('account', None)}
-    return response
+    err_msg = request_core.get_transfer_error(new_state, reason)
+    set_request_state(request['id'], state=new_state, external_id=request['external_id'], err_msg=err_msg, session=session, logger=logger)
+
+    request_core.add_monitor_message(new_state=new_state, request=request, additional_fields={'reason': reason}, session=session)
 
 
 @transactional_session
@@ -1053,7 +918,7 @@ def __handle_intermediate_hop_requests(
             # This is an intermediate hop, don't consider it for submission
             if rws.requested_at < now - CONCURRENT_SUBMISSION_TOLERATION_DELAY:
                 logger(logging.WARNING, '%s: marking stalled intermediate hop as submission_failed', rws.request_id)
-                set_request_state(request_id=rws.request_id, new_state=RequestState.SUBMISSION_FAILED)
+                set_request_state(request_id=rws.request_id, state=RequestState.SUBMISSION_FAILED)
             else:
                 logger(logging.WARNING, '%s: skipping intermediate hop from being submitted on its own', rws.request_id)
         else:

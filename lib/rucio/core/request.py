@@ -54,7 +54,6 @@ from rucio.common.exception import RequestNotFound, RucioException, UnsupportedO
 from rucio.common.rse_attributes import RseData
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
-from rucio.core.config import get as core_config_get
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute
@@ -609,14 +608,14 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
 
 
 @transactional_session
-def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, staging_started_at=None,
-                      staging_finished_at=None, src_rse_id=None, err_msg=None, attributes=None, session=None, logger=logging.log):
+def set_request_state(request_id, state, external_id=None, transferred_at=None, started_at=None, staging_started_at=None,
+                      staging_finished_at=None, source_rse_id=None, err_msg=None, attributes=None, session=None, logger=logging.log):
     """
     Update the state of a request.
 
     :param request_id:           Request-ID as a 32 character hex string.
-    :param new_state:            New state as string.
-    :param transfer_id:          External transfer job id as a string.
+    :param state:                New state as string.
+    :param external_id:          External transfer job id as a string.
     :param transferred_at:       Transferred at timestamp
     :param started_at:           Started at timestamp
     :param staging_started_at:   Timestamp indicating the moment the stage beggins
@@ -631,7 +630,7 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
 
     rowcount = 0
     try:
-        update_items = {'state': new_state, 'updated_at': datetime.datetime.utcnow()}
+        update_items = {'state': state, 'updated_at': datetime.datetime.utcnow()}
         if transferred_at:
             update_items['transferred_at'] = transferred_at
         if started_at:
@@ -640,15 +639,15 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
             update_items['staging_started_at'] = staging_started_at
         if staging_finished_at:
             update_items['staging_finished_at'] = staging_finished_at
-        if src_rse_id:
-            update_items['source_rse_id'] = src_rse_id
+        if source_rse_id:
+            update_items['source_rse_id'] = source_rse_id
         if err_msg:
             update_items['err_msg'] = err_msg
         if attributes is not None:
             update_items['attributes'] = json.dumps(attributes)
 
         request = get_request(request_id, session=session)
-        if new_state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST] and (request["external_id"] != transfer_id):
+        if state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST] and (request["external_id"] != external_id):
             logger(logging.ERROR, "Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
         else:
             rowcount = session.query(models.Request).filter_by(id=request_id).update(update_items, synchronize_session=False)
@@ -1382,168 +1381,112 @@ def update_requests_priority(priority, filter_, session=None, logger=logging.log
 
 
 @transactional_session
-def update_request_state(response, session=None, logger=logging.log):
+def update_request_state(tt_status_report, session=None, logger=logging.log):
     """
     Used by poller and consumer to update the internal state of requests,
     after the response by the external transfertool.
 
-    :param response:              The transfertool response dictionary, retrieved via request.query_request().
-    :param logging_prepend_str:   String to prepend to the logging
+    :param tt_status_report:      The transfertool status update, retrieved via request.query_request().
     :param session:               The database session to use.
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     :returns commit_or_rollback:  Boolean.
     """
 
+    request_id = tt_status_report.request_id
     try:
-        if not response['new_state']:
-            __touch_request(response['request_id'], session=session)
+        fields_to_update = tt_status_report.get_db_fields_to_update(session=session, logger=logger)
+        if not fields_to_update:
+            __touch_request(request_id, session=session)
             return False
         else:
-            request = get_request(response['request_id'], session=session)
-            if request and request['external_id'] == response['transfer_id'] and request['state'] != response['new_state']:
-                response['submitted_at'] = request.get('submitted_at', None)
-                response['external_host'] = request['external_host']
-                transfer_id = response['transfer_id'] if 'transfer_id' in response else None
-                logger(logging.INFO, 'UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
+            logger(logging.INFO, 'UPDATING REQUEST %s FOR %s with changes: %s' % (str(request_id), tt_status_report, fields_to_update))
 
-                multi_sources = response.get('multi_sources', None)
-                src_url = response.get('src_url', None)
-                src_rse = response.get('src_rse', None)
-                src_rse_id = response.get('src_rse_id', None)
-                staging_started_at = response.get('staging_start', None)
-                staging_finished_at = response.get('staging_finished', None)
-                started_at = response.get('started_at', None)
-                transferred_at = response.get('transferred_at', None)
-                if multi_sources and (str(multi_sources).lower() == str('true')) and src_url:
-                    try:
-                        src_rse_name, src_rse_id = __get_source_rse(response['request_id'], src_url, session=session)
-                    except Exception:
-                        logger(logging.WARNING, 'Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
-                        src_rse_name = None
-                    if src_rse_name and src_rse_name != src_rse:
-                        response['src_rse'] = src_rse_name
-                        response['src_rse_id'] = src_rse_id
-                        logger(logging.DEBUG, 'Correct RSE: %s for source surl: %s' % (src_rse_name, src_url))
-                err_msg = get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
+            set_request_state(request_id, session=session, **fields_to_update)
 
-                attributes = None
-                if response['new_state'] == RequestState.FAILED and 'Destination file exists and overwrite is not enabled' in (response.get('reason') or ''):
-                    dst_file = response['dst_file']
-                    # if the file size is wrong or the checksum is wrong
-                    if (dst_file and (
-                            dst_file.get('file_size') is not None and dst_file['file_size'] != request.get('bytes')
-                            or dst_file.get('checksum_type', '').lower() == 'adler32' and dst_file.get('checksum_value') != request.get('adler32')
-                            or dst_file.get('checksum_type', '').lower() == 'md5' and dst_file.get('checksum_value') != request.get('md5'))):
-                        overwrite = core_config_get('transfers', 'overwrite_corrupted_files', default=False, session=session)
-                        if overwrite:
-                            attributes = request['attributes']
-                            attributes['overwrite'] = True
-
-                set_request_state(response['request_id'],
-                                  response['new_state'],
-                                  transfer_id=transfer_id,
-                                  started_at=started_at,
-                                  staging_started_at=staging_started_at,
-                                  staging_finished_at=staging_finished_at,
-                                  transferred_at=transferred_at,
-                                  src_rse_id=src_rse_id,
-                                  err_msg=err_msg,
-                                  attributes=attributes,
-                                  session=session,
-                                  logger=logger)
-
-                add_monitor_message(request, response, session=session)
-                return True
-            elif not request:
-                logger(logging.DEBUG, "Request %s doesn't exist, will not update" % (response['request_id']))
-                return False
-            elif request['external_id'] != response['transfer_id']:
-                logger(logging.WARNING, "Response %s with transfer id %s is different from the request transfer id %s, will not update" % (response['request_id'], response['transfer_id'], request['external_id']))
-                return False
-            else:
-                logger(logging.DEBUG, "Request %s is already in %s state, will not update" % (response['request_id'], response['new_state']))
-                return False
+            add_monitor_message(new_state=tt_status_report.state,
+                                request=tt_status_report.request(session),
+                                additional_fields=tt_status_report.get_monitor_msg_fields(session=session, logger=logger),
+                                session=session)
+            return True
     except UnsupportedOperation as error:
-        logger(logging.WARNING, "Request %s doesn't exist - Error: %s" % (response['request_id'], str(error).replace('\n', '')))
+        logger(logging.WARNING, "Request %s doesn't exist - Error: %s" % (request_id, str(error).replace('\n', '')))
         return False
     except Exception:
         logger(logging.CRITICAL, "Exception", exc_info=True)
 
 
 @read_session
-def add_monitor_message(request, response, session=None):
+def add_monitor_message(new_state, request, additional_fields, session=None):
     """
-    Take a request and transfer response and create a message for hermes.
+    Create a message for hermes from a request
 
-    :param request:   The request to create the message for.
-    :param response:  The transfertool response dictionary, retrieved via request.query_request().
-    :param session:   The database session to use.
+    :param new_state:         The new state of the transfer request
+    :param request:           The request to create the message for.
+    :param additional_fields: Additional custom fields to be added to the message
+    :param session:           The database session to use.
     """
 
     if request['request_type']:
-        transfer_status = '%s-%s' % (request['request_type'].name, response['new_state'].name)
+        transfer_status = '%s-%s' % (request['request_type'].name, new_state.name)
     else:
-        transfer_status = 'transfer-%s' % (response['new_state'].name)
+        transfer_status = 'transfer-%s' % new_state.name
     transfer_status = transfer_status.lower()
 
-    activity = response.get('activity', None)
-    src_type = response.get('src_type', None)
-    src_rse = response.get('src_rse', None)
-    src_url = response.get('src_url', None)
-    dst_type = response.get('dst_type', None)
-    dst_rse = response.get('dst_rse', None)
-    dst_url = response.get('dst_url', None)
-    dst_protocol = dst_url.split(':')[0] if dst_url else None
-    reason = response.get('reason', None)
-    duration = response.get('duration', -1)
-    filesize = response.get('filesize', None)
-    md5 = response.get('md5', None)
-    adler32 = response.get('adler32', None)
-    created_at = response.get('created_at', None)
-    submitted_at = response.get('submitted_at', None)
-    started_at = response.get('started_at', None)
-    transferred_at = response.get('transferred_at', None)
-    account = response.get('account', None)
-
-    if response['external_host']:
-        transfer_link = '%s/fts3/ftsmon/#/job/%s' % (response['external_host'].replace('8446', '8449'), response['transfer_id'])
-    else:
-        # for LOST request, response['external_host'] maybe is None
-        transfer_link = None
-
-    message = {'activity': activity,
-               'request-id': response['request_id'],
-               'duration': duration,
-               'checksum-adler': adler32,
-               'checksum-md5': md5,
-               'file-size': filesize,
-               'bytes': filesize,
+    # Start by filling up fields from database request or with defaults.
+    message = {'activity': request.get('activity', None),
+               'request-id': request['id'],
+               'duration': -1,
+               'checksum-adler': request.get('adler32', None),
+               'checksum-md5': request.get('md5', None),
+               'file-size': request.get('bytes', None),
+               'bytes': request.get('bytes', None),
                'guid': None,
-               'previous-request-id': response['previous_attempt_id'],
-               'protocol': dst_protocol,
-               'scope': response['scope'],
-               'name': response['name'],
-               'src-type': src_type,
-               'src-rse': src_rse,
-               'src-url': src_url,
-               'dst-type': dst_type,
-               'dst-rse': dst_rse,
-               'dst-url': dst_url,
-               'reason': reason,
-               'transfer-endpoint': response['external_host'],
-               'transfer-id': response['transfer_id'],
-               'transfer-link': transfer_link,
-               'created_at': str(created_at) if created_at else None,
-               'submitted_at': str(submitted_at) if submitted_at else None,
-               'started_at': str(started_at) if started_at else None,
-               'transferred_at': str(transferred_at) if transferred_at else None,
+               'previous-request-id': request['previous_attempt_id'],
+               'protocol': None,
+               'scope': request['scope'],
+               'name': request['name'],
+               'src-type': None,
+               'src-rse': request.get('source_rse', None),
+               'src-url': None,
+               'dst-type': None,
+               'dst-rse': request.get('dest_rse', None),
+               'dst-url': request.get('dest_url', None),
+               'reason': request.get('err_msg', None),
+               'transfer-endpoint': request['external_host'],
+               'transfer-id': request['external_id'],
+               'transfer-link': None,
+               'created_at': request.get('created_at', None),
+               'submitted_at': request.get('submitted_at', None),
+               'started_at': request.get('started_at', None),
+               'transferred_at': request.get('transferred_at', None),
                'tool-id': 'rucio-conveyor',
-               'account': account}
+               'account': request.get('account', None)}
 
-    src_id = response['src_rse_id']
-    vo = get_rse_vo(rse_id=src_id)
-    if vo != 'def':
-        message['vo'] = vo
+    # Add (or override) existing fields
+    message.update(additional_fields)
+
+    if message['started_at'] and message['transferred_at']:
+        message['duration'] = (message['transferred_at'] - message['started_at']).seconds
+    if message['dst-url']:
+        message['protocol'] = message['dst-url'].split(':')[0]
+    if not message.get('src-rse'):
+        src_rse_id = request.get('source_rse_id', None)
+        if src_rse_id:
+            src_rse = get_rse_name(src_rse_id, session=session)
+            message['src-rse'] = src_rse
+    if not message.get('dst-rse'):
+        dst_rse_id = request.get('dest_rse_id', None)
+        if dst_rse_id:
+            dst_rse = get_rse_name(dst_rse_id, session=session)
+            message['dst-rse'] = dst_rse
+    if not message.get('vo') and request.get('source_rse_id'):
+        src_id = request['source_rse_id']
+        vo = get_rse_vo(rse_id=src_id, session=session)
+        if vo != 'def':
+            message['vo'] = vo
+    for time_field in ('created_at', 'submitted_at', 'started_at', 'transferred_at'):
+        field_value = message[time_field]
+        message[time_field] = str(field_value) if field_value else None
 
     add_message(transfer_status, message, session=session)
 
@@ -1594,13 +1537,11 @@ def __touch_request(request_id, session=None):
 
 
 @read_session
-def __get_source_rse(request_id, src_url, session=None, logger=logging.log):
+def get_source_rse(request_id, src_url, session=None, logger=logging.log):
     """
-    Based on a request, scope, name and src_url extract the source rse name and id.
+    Based on a request, and src_url extract the source rse name and id.
 
     :param request_id:  The request_id of the request.
-    :param scope:       The scope of the request file.
-    :param name:        The name of the request file.
     :param src_url:     The src_url of the request.
     :param session:     The database session to use.
     :param logger:      Optional decorated logger that can be passed from the calling daemons or servers.
