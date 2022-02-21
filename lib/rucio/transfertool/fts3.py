@@ -61,13 +61,15 @@ from dogpile.cache.api import NoValue
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.constants import FTS_JOB_TYPE, FTS_STATE
+from rucio.common.constants import FTS_JOB_TYPE, FTS_STATE, FTS_COMPLETE_STATE
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
 from rucio.common.utils import APIEncoder, chunks, set_checksum_value
+from rucio.core.request import get_source_rse, get_transfer_error
 from rucio.core.rse import get_rse_supported_checksums_from_attributes
 from rucio.core.oidc import get_token_for_account_operation
 from rucio.core.monitor import record_counter, record_timer, MultiCounter
-from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
+from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
+from rucio.db.sqla.constants import RequestState
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 disable_warnings()
@@ -95,6 +97,10 @@ QUERY_DETAILS_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query_details
 ALLOW_USER_OIDC_TOKENS = config_get_bool('conveyor', 'allow_user_oidc_tokens', False, False)
 REQUEST_OIDC_SCOPE = config_get('conveyor', 'request_oidc_scope', False, 'fts:submit-transfer')
 REQUEST_OIDC_AUDIENCE = config_get('conveyor', 'request_oidc_audience', False, 'fts:example')
+
+# https://fts3-docs.web.cern.ch/fts3-docs/docs/state_machine.html
+FINAL_FTS_JOB_STATES = (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHED, FTS_STATE.FINISHEDDIRTY)
+FINAL_FTS_FILE_STATES = (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHED, FTS_STATE.NOT_USED)
 
 
 def oidc_supported(transfer_hop) -> bool:
@@ -344,6 +350,292 @@ def bulk_group_transfers(transfer_paths, policy='rule', group_bulk=200, source_s
             grouped_jobs.append({'transfers': transfer_paths, 'job_params': job_params})
 
     return grouped_jobs
+
+
+class Fts3TransferStatusReport(TransferStatusReport):
+
+    supported_db_fields = [
+        'state',
+        'external_id',
+        'started_at',
+        'transferred_at',
+        'staging_started_at',
+        'staging_finished_at',
+        'source_rse_id',
+        'err_msg',
+        'attributes',
+    ]
+
+    def __init__(self, external_host, request_id, request=None):
+        super().__init__(request_id, request=request)
+        self.external_host = external_host
+
+        # Initialized in child class constructors:
+        self._transfer_id = None
+        self._file_metadata = {}
+        self._multi_sources = None
+        self._src_url = None
+        self._dst_url = None
+        # Initialized in child class initialize():
+        self._reason = None
+        self._src_rse = None
+        # Supported db fields bellow:
+        self.state = None
+        self.external_id = None
+        self.started_at = None
+        self.transferred_at = None
+        self.staging_started_at = None
+        self.staging_finished_at = None
+        self.source_rse_id = None
+        self.err_msg = None
+        self.attributes = None
+
+    def __str__(self):
+        return f'Transfer {self._transfer_id} of {self._file_metadata["scope"]}:{self._file_metadata["name"]} ' \
+               f'{self._file_metadata["src_rse"]} --({self._file_metadata["request_id"]})-> {self._file_metadata["dst_rse"]}'
+
+    def initialize(self, session, logger=logging.log):
+        raise NotImplementedError(f"{self.__class__.__name__} is abstract and shouldn't be used directly")
+
+    def get_monitor_msg_fields(self, session, logger=logging.log):
+        self.ensure_initialized(session, logger)
+        fields = {
+            'transfer_link': self._transfer_link(),
+            'reason': self._reason,
+            'src-type': self._file_metadata.get('src_type'),
+            'src-rse': self._src_rse,
+            'src-url': self._src_url,
+            'dst-type': self._file_metadata.get('src_type'),
+            'dst-rse': self._file_metadata.get('dst_rse'),
+            'dst-url': self._dst_url,
+            'started_at': self.started_at,
+            'transferred_at': self.transferred_at,
+        }
+        return fields
+
+    def _transfer_link(self):
+        return '%s/fts3/ftsmon/#/job/%s' % (self.external_host.replace('8446', '8449'), self._transfer_id)
+
+    def _find_attribute_updates(self, request, new_state, reason, overwrite_corrupted_files):
+        attributes = None
+        if new_state == RequestState.FAILED and 'Destination file exists and overwrite is not enabled' in (reason or ''):
+            dst_file = self._file_metadata.get('dst_file', {})
+            if self._dst_file_set_and_file_corrupted(request, dst_file):
+                if overwrite_corrupted_files:
+                    attributes = request['attributes']
+                    attributes['overwrite'] = True
+        return attributes
+
+    def _find_used_source_rse(self, session, logger):
+        """
+        For multi-source transfers, FTS has a choice between multiple sources.
+        Find which of the possible sources FTS actually used for the transfer.
+        """
+        meta_rse_name = self._file_metadata.get('src_rse', None)
+        meta_rse_id = self._file_metadata.get('src_rse_id', None)
+        request_id = self._file_metadata.get('request_id', None)
+
+        if self._multi_sources and self._src_url:
+            rse_name, rse_id = get_source_rse(request_id, self._src_url, session=session)
+            if rse_name and rse_name != meta_rse_name:
+                logger(logging.DEBUG, 'Correct RSE: %s for source surl: %s' % (rse_name, self._src_url))
+                return rse_name, rse_id
+
+        return meta_rse_name, meta_rse_id
+
+    @staticmethod
+    def _dst_file_set_and_file_corrupted(request, dst_file):
+        """
+        Returns True if the `dst_file` dict returned by fts was filled and its content allows to
+        affirm that the file is corrupted.
+        """
+        if (request and dst_file and (
+                dst_file.get('file_size') is not None and dst_file['file_size'] != request.get('bytes')
+                or dst_file.get('checksum_type', '').lower() == 'adler32' and dst_file.get('checksum_value') != request.get('adler32')
+                or dst_file.get('checksum_type', '').lower() == 'md5' and dst_file.get('checksum_value') != request.get('md5'))):
+            return True
+        return False
+
+    @staticmethod
+    def _dst_file_set_and_file_correct(request, dst_file):
+        """
+        Returns True if the `dst_file` dict returned by fts was filled and its content allows to
+        affirm that the file is correct.
+        """
+        if (request and dst_file
+                and dst_file.get('file_size')
+                and dst_file.get('file_size') == request.get('bytes')
+                and (dst_file.get('checksum_type', '').lower() == 'adler32' and dst_file.get('checksum_value') == request.get('adler32')
+                     or dst_file.get('checksum_type', '').lower() == 'md5' and dst_file.get('checksum_value') == request.get('md5'))):
+            return True
+        return False
+
+    @classmethod
+    def _is_recoverable_fts_overwrite_error(cls, request, reason, file_metadata):
+        """
+        Verify the special case when FTS cannot copy a file because destination exists and overwrite is disabled,
+        but the destination file is actually correct.
+
+        This can happen when some transitory error happened during a previous submission attempt.
+        Hence, the transfer is correctly executed by FTS, but rucio doesn't know about it.
+
+        Returns true when the request must be marked as successful even if it was reported failed by FTS.
+        """
+        if not request or not file_metadata:
+            return False
+        dst_file = file_metadata.get('dst_file', {})
+        dst_type = file_metadata.get('dst_type', None)
+        if 'Destination file exists and overwrite is not enabled' in (reason or ''):
+            if cls._dst_file_set_and_file_correct(request, dst_file):
+                if dst_file.get('file_on_tape'):
+                    return True
+                elif dst_type == 'DISK':
+                    return True
+        return False
+
+
+class FTS3CompletionMessageTransferStatusReport(Fts3TransferStatusReport):
+    """
+    Parses FTS Completion messages received via the message queue
+    """
+    def __init__(self, external_host, request_id, fts_message):
+        super().__init__(external_host=external_host, request_id=request_id)
+
+        self.fts_message = fts_message
+
+        self._transfer_id = fts_message.get('tr_id').split("__")[-1]
+
+        self._file_metadata = fts_message['file_metadata']
+        self._multi_sources = str(fts_message.get('job_metadata', {}).get('multi_sources', '')).lower() == str('true')
+        self._src_url = fts_message.get('src_url', None)
+        self._dst_url = fts_message.get('dst_url', None)
+
+    def initialize(self, session, logger=logging.log):
+
+        fts_message = self.fts_message
+        request_id = self.request_id
+
+        reason = fts_message.get('t__error_message', None)
+        # job_state = fts_message.get('t_final_transfer_state', None)
+        new_state = None
+        if str(fts_message['t_final_transfer_state']) == FTS_COMPLETE_STATE.OK:  # pylint:disable=no-member
+            new_state = RequestState.DONE
+        elif str(fts_message['t_final_transfer_state']) == FTS_COMPLETE_STATE.ERROR:
+            request = self.request(session)
+            if self._is_recoverable_fts_overwrite_error(request, reason, self._file_metadata):  # pylint:disable=no-member
+                new_state = RequestState.DONE
+            else:
+                new_state = RequestState.FAILED
+
+        transfer_id = self._transfer_id
+        if new_state:
+            request = self.request(session)
+            if request['external_id'] == transfer_id and request['state'] != new_state:
+                src_rse_name, src_rse_id = self._find_used_source_rse(session, logger)
+
+                self._reason = reason
+                self._src_rse = src_rse_name
+
+                self.state = new_state
+                self.external_id = transfer_id
+                self.started_at = datetime.datetime.utcfromtimestamp(float(fts_message.get('tr_timestamp_start', 0)) / 1000)
+                self.transferred_at = datetime.datetime.utcfromtimestamp(float(fts_message.get('tr_timestamp_complete', 0)) / 1000)
+                self.staging_started_at = None
+                self.staging_finished_at = None
+                self.source_rse_id = src_rse_id
+                self.err_msg = get_transfer_error(self.state, reason)
+                self.attributes = self._find_attribute_updates(
+                    request=request,
+                    new_state=new_state,
+                    reason=reason,
+                    overwrite_corrupted_files=config_get_bool('transfers', 'overwrite_corrupted_files', default=False, session=session),
+                )
+            elif request['external_id'] != transfer_id:
+                logger(logging.WARNING, "Response %s with transfer id %s is different from the request transfer id %s, will not update" % (request_id, transfer_id, request['external_id']))
+            else:
+                logger(logging.DEBUG, "Request %s is already in %s state, will not update" % (request_id, new_state))
+        else:
+            logger(logging.DEBUG, "No state change computed for %s. Skipping request update." % request_id)
+
+
+class FTS3ApiTransferStatusReport(Fts3TransferStatusReport):
+    """
+    Parses FTS api response
+    """
+    def __init__(self, external_host, request_id, job_response, file_response, request=None):
+        super().__init__(external_host=external_host, request_id=request_id, request=request)
+
+        self.job_response = job_response
+        self.file_response = file_response
+
+        self._transfer_id = job_response.get('job_id')
+
+        self._file_metadata = file_response['file_metadata']
+        self._multi_sources = str(job_response['job_metadata'].get('multi_sources', '')).lower() == str('true')
+        self._src_url = file_response.get('source_surl', None)
+        self._dst_url = file_response.get('dest_surl', None)
+
+    def initialize(self, session, logger=logging.log):
+
+        job_response = self.job_response
+        file_response = self.file_response
+        request_id = self.request_id
+
+        file_state = file_response['file_state']
+        reason = file_response.get('reason', None)
+
+        new_state = None
+        job_state = job_response.get('job_state', None)
+        multi_hop = job_response.get('job_type') == FTS_JOB_TYPE.MULTI_HOP
+        job_state_is_final = job_state in FINAL_FTS_JOB_STATES
+        file_state_is_final = file_state in FINAL_FTS_FILE_STATES
+        if file_state_is_final:
+            if file_state == FTS_STATE.FINISHED:
+                new_state = RequestState.DONE
+            elif job_state_is_final and file_state == FTS_STATE.FAILED \
+                    and self._is_recoverable_fts_overwrite_error(self.request(session), reason, self._file_metadata):
+                new_state = RequestState.DONE
+            elif job_state_is_final and file_state in (FTS_STATE.FAILED, FTS_STATE.CANCELED):
+                new_state = RequestState.FAILED
+            elif job_state_is_final and file_state == FTS_STATE.NOT_USED:
+                if job_state == FTS_STATE.FINISHED:
+                    # it is a multi-source transfer. This source wasn't used, but another one was successful
+                    new_state = RequestState.DONE
+                else:
+                    # failed multi-source or multi-hop (you cannot have unused sources in a successful multi-hop)
+                    new_state = RequestState.FAILED
+                    if not reason and multi_hop:
+                        reason = 'Unused hop in multi-hop'
+
+        transfer_id = self._transfer_id
+        if new_state:
+            request = self.request(session)
+            if request['external_id'] == transfer_id and request['state'] != new_state:
+                src_rse_name, src_rse_id = self._find_used_source_rse(session, logger)
+
+                self._reason = reason
+                self._src_rse = src_rse_name
+
+                self.state = new_state
+                self.external_id = transfer_id
+                self.started_at = datetime.datetime.strptime(file_response['start_time'], '%Y-%m-%dT%H:%M:%S') if file_response['start_time'] else None
+                self.transferred_at = datetime.datetime.strptime(file_response['finish_time'], '%Y-%m-%dT%H:%M:%S') if file_response['finish_time'] else None
+                self.staging_started_at = datetime.datetime.strptime(file_response['staging_start'], '%Y-%m-%dT%H:%M:%S') if file_response['staging_start'] else None
+                self.staging_finished_at = datetime.datetime.strptime(file_response['staging_finished'], '%Y-%m-%dT%H:%M:%S') if file_response['staging_finished'] else None
+                self.source_rse_id = src_rse_id
+                self.err_msg = get_transfer_error(self.state, reason)
+                self.attributes = self._find_attribute_updates(
+                    request=request,
+                    new_state=new_state,
+                    reason=reason,
+                    overwrite_corrupted_files=config_get_bool('transfers', 'overwrite_corrupted_files', default=False, session=session),
+                )
+            elif request['external_id'] != transfer_id:
+                logger(logging.WARNING, "Response %s with transfer id %s is different from the request transfer id %s, will not update" % (request_id, transfer_id, request['external_id']))
+            else:
+                logger(logging.DEBUG, "Request %s is already in %s state, will not update" % (request_id, new_state))
+        else:
+            logger(logging.DEBUG, "No state change computed for %s. Skipping request update." % request_id)
 
 
 class FTS3Transfertool(Transfertool):
@@ -700,22 +992,17 @@ class FTS3Transfertool(Transfertool):
         VERSION_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc()
         raise Exception('Could not retrieve version: %s', get_result.content)
 
-    def bulk_query(self, transfer_ids, timeout=None):
+    def bulk_query(self, requests_by_eid, timeout=None):
         """
         Query the status of a bulk of transfers in FTS3 via JSON.
 
-        :param transfer_ids: FTS transfer identifiers as a list.
+        :param requests_by_eid: dictionary {external_id1: {request_id1: request1, ...}, ...} of request to be queried
         :returns: Transfer status information as a dictionary.
         """
 
-        jobs = None
-
-        if not isinstance(transfer_ids, list):
-            transfer_ids = [transfer_ids]
-
         responses = {}
         fts_session = requests.Session()
-        xfer_ids = ','.join(transfer_ids)
+        xfer_ids = ','.join(requests_by_eid)
         jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,staging_start,staging_finished,reason,source_surl,file_metadata' % (self.external_host, xfer_ids),
                                verify=self.verify,
                                cert=self.cert,
@@ -724,13 +1011,13 @@ class FTS3Transfertool(Transfertool):
 
         if jobs is None:
             record_counter('transfertool.fts3.{host}.bulk_query.failure', labels={'host': self.__extract_host(self.external_host)})
-            for transfer_id in transfer_ids:
+            for transfer_id in requests_by_eid:
                 responses[transfer_id] = Exception('Transfer information returns None: %s' % jobs)
         elif jobs.status_code in (200, 207, 404):
             try:
                 BULK_QUERY_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
                 jobs_response = jobs.json()
-                responses = self.__bulk_query_responses(jobs_response)
+                responses = self.__bulk_query_responses(jobs_response, requests_by_eid)
             except ReadTimeout as error:
                 raise TransferToolTimeout(error)
             except JSONDecodeError as error:
@@ -739,7 +1026,7 @@ class FTS3Transfertool(Transfertool):
                 raise Exception("Failed to parse the job response: %s, error: %s" % (str(jobs), str(error)))
         else:
             BULK_QUERY_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc()
-            for transfer_id in transfer_ids:
+            for transfer_id in requests_by_eid:
                 responses[transfer_id] = Exception('Could not retrieve transfer information: %s', jobs.content)
 
         return responses
@@ -960,73 +1247,7 @@ class FTS3Transfertool(Transfertool):
         jobid = uuid.uuid5(atlas, sid)
         return str(jobid)
 
-    def __format_response(self, fts_job_response, fts_files_response):
-        """
-        Format the response format of FTS3 query.
-
-        :param fts_job_response: FTSs job query response.
-        :param fts_files_response: FTS3 files query response.
-        :returns: formatted response.
-        """
-
-        resps = {}
-        multi_sources = fts_job_response['job_metadata'].get('multi_sources', False)
-        multi_hop = fts_job_response.get('job_type') == FTS_JOB_TYPE.MULTI_HOP
-        for file_resp in fts_files_response:
-            file_state = file_resp['file_state']
-            # for multiple source replicas jobs, the file_metadata(request_id) will be the same.
-            # The next used file will overwrite the current used one. Only the last used file will return.
-            if multi_sources and file_state == FTS_STATE.NOT_USED:
-                continue
-
-            if file_resp['start_time'] is None or file_resp['finish_time'] is None:
-                duration = 0
-            else:
-                duration = (datetime.datetime.strptime(file_resp['finish_time'], '%Y-%m-%dT%H:%M:%S')
-                            - datetime.datetime.strptime(file_resp['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds  # NOQA: W503
-
-            request_id = file_resp['file_metadata']['request_id']
-            reason = file_resp.get('reason', None)
-            if not reason and file_state == FTS_STATE.NOT_USED and multi_hop:
-                reason = 'Unused hop in multi-hop'
-            resps[request_id] = {'new_state': None,
-                                 'transfer_id': fts_job_response.get('job_id'),
-                                 'job_state': fts_job_response.get('job_state', None),
-                                 'priority': fts_job_response.get('priority', None),
-                                 'file_state': file_state,
-                                 'src_url': file_resp.get('source_surl', None),
-                                 'dst_url': file_resp.get('dest_surl', None),
-                                 'started_at': datetime.datetime.strptime(file_resp['start_time'], '%Y-%m-%dT%H:%M:%S') if file_resp['start_time'] else None,
-                                 'staging_start': datetime.datetime.strptime(file_resp['staging_start'], '%Y-%m-%dT%H:%M:%S') if file_resp['staging_start'] else None,
-                                 'staging_finished': datetime.datetime.strptime(file_resp['staging_finished'], '%Y-%m-%dT%H:%M:%S') if file_resp['staging_finished'] else None,
-                                 'transferred_at': datetime.datetime.strptime(file_resp['finish_time'], '%Y-%m-%dT%H:%M:%S') if file_resp['finish_time'] else None,
-                                 'duration': duration,
-                                 'reason': reason,
-                                 'scope': file_resp['file_metadata'].get('scope', None),
-                                 'name': file_resp['file_metadata'].get('name', None),
-                                 'src_type': file_resp['file_metadata'].get('src_type', None),
-                                 'dst_type': file_resp['file_metadata'].get('dst_type', None),
-                                 'src_rse': file_resp['file_metadata'].get('src_rse', None),
-                                 'dst_rse': file_resp['file_metadata'].get('dst_rse', None),
-                                 'dst_file': file_resp['file_metadata'].get('dst_file', {}),
-                                 'request_id': file_resp['file_metadata'].get('request_id', None),
-                                 'activity': file_resp['file_metadata'].get('activity', None),
-                                 'src_rse_id': file_resp['file_metadata'].get('src_rse_id', None),
-                                 'dest_rse_id': file_resp['file_metadata'].get('dest_rse_id', None),
-                                 'previous_attempt_id': file_resp['file_metadata'].get('previous_attempt_id', None),
-                                 'adler32': file_resp['file_metadata'].get('adler32', None),
-                                 'md5': file_resp['file_metadata'].get('md5', None),
-                                 'filesize': file_resp['file_metadata'].get('filesize', None),
-                                 'external_host': self.external_host,
-                                 'multi_sources': multi_sources,
-                                 'details': {'files': file_resp['file_metadata']}}
-
-            # multiple source replicas jobs and we found the successful one, it's the final state.
-            if multi_sources and file_state in [FTS_STATE.FINISHED]:
-                break
-        return resps
-
-    def __bulk_query_responses(self, jobs_response):
+    def __bulk_query_responses(self, jobs_response, requests_by_eid):
         if not isinstance(jobs_response, list):
             jobs_response = [jobs_response]
 
@@ -1044,7 +1265,23 @@ class FTS3Transfertool(Transfertool):
                     responses[transfer_id] = {}
                     continue
 
-                resps = self.__format_response(job_response, files_response)
+                resps = {}
+                for file_resp in files_response:
+                    file_state = file_resp['file_state']
+                    # for multiple source replicas jobs, the file_metadata(request_id) will be the same.
+                    # The next used file will overwrite the current used one. Only the last used file will return.
+                    if multi_sources and file_state == FTS_STATE.NOT_USED:
+                        continue
+
+                    request_id = file_resp['file_metadata']['request_id']
+                    request = requests_by_eid.get(transfer_id, {}).get(request_id)
+                    if request is not None:
+                        resps[request_id] = FTS3ApiTransferStatusReport(self.external_host, request_id=request_id, request=request,
+                                                                        job_response=job_response, file_response=file_resp)
+
+                    # multiple source replicas jobs and we found the successful one, it's the final state.
+                    if multi_sources and file_state == FTS_STATE.FINISHED:
+                        break
                 responses[transfer_id] = resps
             elif job_response['http_status'] == '404 Not Found':
                 # Lost transfer

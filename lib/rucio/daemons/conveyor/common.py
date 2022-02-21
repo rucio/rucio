@@ -407,7 +407,7 @@ def __create_missing_replicas_and_requests(
                initial_request_id, transfer_path[0].src, transfer_path[-1].dst)
         try:
             for request_id in created_requests:
-                set_request_state(request_id=request_id, new_state=RequestState.FAILED,
+                set_request_state(request_id=request_id, state=RequestState.FAILED,
                                   err_msg="Cancelled hop in multi-hop", session=session)
         except UnsupportedOperation:
             logger(logging.ERROR, '%s: Multihop : Cannot cancel all the parent requests : %s', initial_request_id, str(created_requests))
@@ -435,7 +435,7 @@ def submit_transfer(transfertool_obj, transfers, job_params, submitter='submitte
             return
         except Exception:
             logger(logging.ERROR, 'Failed to prepare requests %s state to SUBMITTING. Mark it SUBMISSION_FAILED and abort submission.' % [str(t.rws) for t in transfers], exc_info=True)
-            set_request_state(request_id=transfer.rws.request_id, new_state=RequestState.SUBMISSION_FAILED)
+            set_request_state(request_id=transfer.rws.request_id, state=RequestState.SUBMISSION_FAILED)
             return
 
     try:
