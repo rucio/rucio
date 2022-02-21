@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020-2021 CERN
+# Copyright 2020-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - martynia <janusz.martyniak@googlemail.com>, 2021
+# - Janusz Martyniak <janusz.martyniak@googlemail.com>, 2022
 
 from flask import Flask, Blueprint, request
 
@@ -56,7 +58,8 @@ class AddFiles(ErrorHandlingMethodView):
         ignore_availability = param_get(parameters, 'ignore_availability', default=False)
 
         try:
-            add_files(lfns=lfns, issuer=request.environ.get('issuer'), ignore_availability=ignore_availability)
+            add_files(lfns=lfns, issuer=request.environ.get('issuer'), ignore_availability=ignore_availability,
+                      vo=request.environ.get('vo'))
         except InvalidPath as error:
             return generate_http_error_flask(400, error)
         except AccessDenied as error:
