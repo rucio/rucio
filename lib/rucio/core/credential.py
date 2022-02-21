@@ -19,6 +19,7 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2022
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2022
 
 import base64
 import datetime
@@ -81,6 +82,8 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
             CREDS_GCS = ServiceAccountCredentials.from_json_keyfile_name(config_get('credentials', 'gcs',
                                                                                     raise_exception=False,
                                                                                     default='/opt/rucio/etc/google-cloud-storage-test.json'))
+        components = urlparse(url)
+        host = components.netloc
 
         # select the correct operation
         operations = {'read': 'GET', 'write': 'PUT', 'delete': 'DELETE'}
@@ -96,7 +99,7 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
             lifetime = int(time.mktime(lifetime.timetuple()))
 
         # sign the path only
-        path = urlparse(url).path
+        path = components.path
 
         # assemble message to sign
         to_sign = "%s\n\n\n%s\n%s" % (operation, lifetime, path)
@@ -106,10 +109,11 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
         signature = urlencode({'': base64.b64encode(CREDS_GCS.sign_blob(to_sign)[1])})[1:]
 
         # assemble final signed URL
-        signed_url = 'https://storage.googleapis.com:443%s?GoogleAccessId=%s&Expires=%s&Signature=%s' % (path,
-                                                                                                         CREDS_GCS.service_account_email,
-                                                                                                         lifetime,
-                                                                                                         signature)
+        signed_url = 'https://%s%s?GoogleAccessId=%s&Expires=%s&Signature=%s' % (host,
+                                                                                 path,
+                                                                                 CREDS_GCS.service_account_email,
+                                                                                 lifetime,
+                                                                                 signature)
 
     elif service == 's3':
         # split URL to get hostname, bucket and key
