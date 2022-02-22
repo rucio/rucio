@@ -1,4 +1,5 @@
-# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2020-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,18 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2016
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Eric Vaandering, <ewv@fnal.gov>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2021-2022
 
 import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
@@ -89,7 +81,10 @@ def has_permission(issuer, action, kwargs):
             'set_rse_usage': perm_set_rse_usage,
             'set_rse_limits': perm_set_rse_limits,
             'query_request': perm_query_request,
+            'list_requests': perm_list_requests,
+            'list_requests_history': perm_list_requests_history,
             'get_request_by_did': perm_get_request_by_did,
+            'get_request_history_by_did': perm_get_request_history_by_did,
             'cancel_request': perm_cancel_request,
             'get_next': perm_get_next,
             'set_local_account_limit': perm_set_local_account_limit,
@@ -691,6 +686,28 @@ def perm_query_request(issuer, kwargs):
     return _is_root(issuer)
 
 
+def perm_list_requests(issuer, kwargs):
+    """
+    Checks if an account can list requests.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+
+
+def perm_list_requests_history(issuer, kwargs):
+    """
+    Checks if an account can list historical requests.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+
+
 def perm_get_request_by_did(issuer, kwargs):
     """
     Checks if an account can get a request by DID.
@@ -700,6 +717,17 @@ def perm_get_request_by_did(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return True
+
+
+def perm_get_request_history_by_did(issuer, kwargs):
+    """
+    Checks if an account can get a historical request by DID.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_cancel_request(issuer, kwargs):

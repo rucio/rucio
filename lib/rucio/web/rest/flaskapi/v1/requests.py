@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2021-2022
 
 import json
 
@@ -60,6 +56,40 @@ class RequestGet(ErrorHandlingMethodView):
 
         try:
             request_data = request.get_request_by_did(
+                scope=scope,
+                name=name,
+                rse=rse,
+                issuer=flask.request.environ.get('issuer'),
+                vo=flask.request.environ.get('vo'),
+            )
+            return Response(json.dumps(request_data, cls=APIEncoder), content_type='application/json')
+        except RequestNotFound as error:
+            return generate_http_error_flask(404, error.__class__.__name__, f'No request found for DID {scope}:{name} at RSE {rse}')
+
+
+class RequestHistoryGet(ErrorHandlingMethodView):
+    """ REST API to get historical requests. """
+
+    @check_accept_header_wrapper_flask(['application/json'])
+    def get(self, scope_name, rse):
+        """
+        List request for given DID to a destination RSE.
+
+        .. :quickref: RequestHistoryGet; list requests
+
+        :param scope_name: data identifier (scope)/(name).
+        :param rse: destination RSE.
+        :reqheader Content-Type: application/json
+        :status 200: Request found.
+        :status 404: Request not found.
+        """
+        try:
+            scope, name = parse_scope_name(scope_name, flask.request.environ.get('vo'))
+        except ValueError as error:
+            return generate_http_error_flask(400, error)
+
+        try:
+            request_data = request.get_request_history_by_did(
                 scope=scope,
                 name=name,
                 rse=rse,
@@ -131,13 +161,78 @@ class RequestList(ErrorHandlingMethodView):
         return try_stream(generate(issuer=flask.request.environ.get('issuer'), vo=flask.request.environ.get('vo')))
 
 
+class RequestHistoryList(ErrorHandlingMethodView):
+    """ REST API to get requests. """
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def get(self):
+        """
+        List historical requests for a given source and destination RSE or site.
+
+        .. :quickref: RequestsGet; list requests
+
+        :reqheader Content-Type: application/x-json-stream
+        :status 200: Request found.
+        :status 404: Request not found.
+        """
+        src_rse = flask.request.args.get('src_rse', default=None)
+        dst_rse = flask.request.args.get('dst_rse', default=None)
+        src_site = flask.request.args.get('src_site', default=None)
+        dst_site = flask.request.args.get('dst_site', default=None)
+        request_states = flask.request.args.get('request_states', default=None)
+        offset = flask.request.args.get('offset', default=0)
+        limit = flask.request.args.get('limit', default=100)
+
+        if not request_states:
+            return generate_http_error_flask(400, 'MissingParameter', 'Request state is missing')
+        if src_rse and not dst_rse:
+            return generate_http_error_flask(400, 'MissingParameter', 'Destination RSE is missing')
+        elif dst_rse and not src_rse:
+            return generate_http_error_flask(400, 'MissingParameter', 'Source RSE is missing')
+        elif src_site and not dst_site:
+            return generate_http_error_flask(400, 'MissingParameter', 'Destination site is missing')
+        elif dst_site and not src_site:
+            return generate_http_error_flask(400, 'MissingParameter', 'Source site is missing')
+
+        try:
+            states = [RequestState(state) for state in request_states.split(',')]
+        except ValueError:
+            return generate_http_error_flask(400, 'Invalid', 'Request state value is invalid')
+
+        src_rses = []
+        dst_rses = []
+        if src_site:
+            src_rses = get_rses_with_attribute_value(key='site', value=src_site, lookup_key='site', vo=flask.request.environ.get('vo'))
+            if not src_rses:
+                return generate_http_error_flask(404, 'NotFound', f'Could not resolve site name {src_site} to RSE')
+            src_rses = [get_rse_name(rse['rse_id']) for rse in src_rses]
+            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, lookup_key='site', vo=flask.request.environ.get('vo'))
+            if not dst_rses:
+                return generate_http_error_flask(404, 'NotFound', f'Could not resolve site name {dst_site} to RSE')
+            dst_rses = [get_rse_name(rse['rse_id']) for rse in dst_rses]
+        else:
+            dst_rses = [dst_rse]
+            src_rses = [src_rse]
+
+        def generate(issuer, vo):
+            for result in request.list_requests_history(src_rses, dst_rses, states, issuer=issuer, vo=vo, offset=offset, limit=limit):
+                del result['_sa_instance_state']
+                yield render_json(**result) + '\n'
+
+        return try_stream(generate(issuer=flask.request.environ.get('issuer'), vo=flask.request.environ.get('vo')))
+
+
 def blueprint():
     bp = Blueprint('requests', __name__, url_prefix='/requests')
 
     request_get_view = RequestGet.as_view('request_get')
     bp.add_url_rule('/<path:scope_name>/<rse>', view_func=request_get_view, methods=['get', ])
+    request_history_get_view = RequestHistoryGet.as_view('request_history_get')
+    bp.add_url_rule('/history/<path:scope_name>/<rse>', view_func=request_history_get_view, methods=['get', ])
     request_list_view = RequestList.as_view('request_list')
     bp.add_url_rule('/list', view_func=request_list_view, methods=['get', ])
+    request_history_list_view = RequestHistoryList.as_view('request_history_list')
+    bp.add_url_rule('/history/list', view_func=request_history_list_view, methods=['get', ])
 
     bp.before_request(request_auth_env)
     bp.after_request(response_headers)
