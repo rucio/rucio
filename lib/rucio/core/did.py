@@ -39,6 +39,7 @@
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2022
+# - Igor Mandrichenko <ivm@fnal.gov>, 2022
 
 import logging
 import operator
@@ -554,7 +555,7 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
     parent_dids = list()
     for attachment in attachments:
         try:
-            cont = []
+            evaluate_parent = False
             parent_did = session.query(models.DataIdentifier).filter_by(scope=attachment['scope'], name=attachment['name']).\
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
                 one()
@@ -580,14 +581,16 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
                                               ignore_duplicate=ignore_duplicate,
                                               rse_id=attachment.get('rse_id'),
                                               session=session)
+                evaluate_parent = len(cont) > 0
 
             elif parent_did.did_type == DIDType.CONTAINER:
                 __add_collections_to_container(scope=attachment['scope'],
                                                name=attachment['name'],
                                                collections=attachment['dids'],
                                                account=account, session=session)
+                evaluate_parent = True
 
-            if cont:
+            if evaluate_parent:
                 # cont contains the parent of the files and is only filled if the files does not exist yet
                 parent_dids.append({'scope': parent_did.scope,
                                     'name': parent_did.name,
