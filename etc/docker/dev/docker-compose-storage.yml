@@ -1,6 +1,6 @@
 services:
   rucio:
-    image: docker.io/rucio/rucio-dev:py3
+    image: docker.io/rucio/rucio-dev
     extra_hosts:
       - "ruciodb:127.0.0.1"
       - "graphite:127.0.0.1"
@@ -34,9 +34,9 @@ services:
     environment:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
-      - RDBMS=postgres11
+      - RDBMS=postgres14
   ruciodb:
-    image: docker.io/postgres:11
+    image: docker.io/postgres:14
     network_mode: "service:rucio"
     environment:
       - POSTGRES_USER=rucio
@@ -50,8 +50,9 @@ services:
     image: docker.io/rucio/fts
     network_mode: "service:rucio"
   ftsdb:
-    image: docker.io/mysql:5
+    image: docker.io/mysql:8
     network_mode: "service:rucio"
+    command: --default-authentication-plugin=mysql_native_password
     environment:
       - MYSQL_USER=fts
       - MYSQL_PASSWORD=fts
