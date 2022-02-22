@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020-2022
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
@@ -218,11 +218,15 @@ class UploadClient:
                     domain = 'lan'
             logger(logging.DEBUG, '{} domain is used for the upload'.format(domain))
 
-            if not impl and not force_scheme:
-                impl = self.preferred_impl(rse_settings, domain)
+            # FIXME:
+            # Rewrite preferred_impl selection - also check test_upload.py/test_download.py and fix impl order (see FIXME there)
+            #
+            # if not impl and not force_scheme:
+            #    impl = self.preferred_impl(rse_settings, domain)
 
             if not no_register and not register_after_upload:
                 self._register_file(file, registered_dataset_dids, ignore_availability=ignore_availability)
+
             # if register_after_upload, file should be overwritten if it is not registered
             # otherwise if file already exists on RSE we're done
             if register_after_upload:
@@ -589,9 +593,9 @@ class UploadClient:
         """
         logger = self.logger
 
-        # Construct protocol for write and read operation.
+        # Construct protocol for write operation.
+        # IMPORTANT: All upload stat() checks are always done with the write_protocol
         protocol_write = self._create_protocol(rse_settings, 'write', force_scheme=force_scheme, domain=domain, impl=impl)
-        protocol_read = self._create_protocol(rse_settings, 'read', domain=domain, impl=impl)
 
         base_name = lfn.get('filename', lfn['name'])
         name = lfn.get('name', base_name)
@@ -603,34 +607,29 @@ class UploadClient:
 
         # Getting pfn
         pfn = None
-        readpfn = None
         try:
             pfn = list(protocol_write.lfns2pfns(make_valid_did(lfn)).values())[0]
-            readpfn = list(protocol_read.lfns2pfns(make_valid_did(lfn)).values())[0]
             logger(logging.DEBUG, 'The PFN created from the LFN: {}'.format(pfn))
         except Exception as error:
             logger(logging.WARNING, 'Failed to create PFN for LFN: %s' % lfn)
             logger(logging.DEBUG, str(error), exc_info=True)
         if force_pfn:
             pfn = force_pfn
-            readpfn = pfn
             logger(logging.DEBUG, 'The given PFN is used: {}'.format(pfn))
 
         # Auth. mostly for object stores
         if sign_service:
             pfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'write', pfn)       # NOQA pylint: disable=undefined-variable
-            readpfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
 
         # Create a name of tmp file if renaming operation is supported
         pfn_tmp = '%s.rucio.upload' % pfn if protocol_write.renaming else pfn
-        readpfn_tmp = '%s.rucio.upload' % readpfn if protocol_write.renaming else readpfn
 
         # Either DID eixsts or not register_after_upload
-        if protocol_write.overwrite is False and delete_existing is False and protocol_read.exists(readpfn):
+        if protocol_write.overwrite is False and delete_existing is False and protocol_write.exists(pfn):
             raise FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))  # wrong exception ?
 
         # Removing tmp from earlier attempts
-        if protocol_write.exists(readpfn_tmp):
+        if protocol_write.exists(pfn_tmp):
             logger(logging.DEBUG, 'Removing remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
@@ -692,7 +691,6 @@ class UploadClient:
             raise RucioException('Unable to rename the tmp file %s.' % pfn_tmp)
 
         protocol_write.close()
-        protocol_read.close()
 
         return pfn
 
@@ -826,7 +824,6 @@ class UploadClient:
 
             :raises RucioException(msg): general exception with msg for more details.
         """
-
         preferred_protocols = []
         supported_impl = None
 
@@ -862,7 +859,7 @@ class UploadClient:
                 self.logger(logging.DEBUG, 'Unsuitable protocol "%s": All operations are not supported' % (protocol['impl']))
                 continue
             try:
-                supported_protocol = rsemgr.create_protocol(rse_settings, 'read', domain=domain, impl=protocol['impl'], auth_token=self.auth_token, logger=self.logger)
+                supported_protocol = rsemgr.create_protocol(rse_settings, 'write', domain=domain, impl=protocol['impl'], auth_token=self.auth_token, logger=self.logger)
                 supported_protocol.connect()
             except Exception as error:
                 self.logger(logging.DEBUG, 'Failed to create protocol "%s", exception: %s' % (protocol['impl'], error))
