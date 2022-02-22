@@ -33,6 +33,7 @@
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
 # - Nick Smith <nick.smith@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2021-2022
 
 import datetime
 import json
@@ -641,6 +642,43 @@ def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
             tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
             tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
             tmp['attributes'] = json.loads(str(tmp['attributes']))
+
+            return tmp
+    except IntegrityError as error:
+        raise RucioException(error.args)
+
+
+@read_session
+def get_request_history_by_did(scope, name, rse_id, request_type=None, session=None):
+    """
+    Retrieve a historical request by its DID for a destination RSE.
+
+    :param scope:          The scope of the data identifier.
+    :param name:           The name of the data identifier.
+    :param rse_id:         The destination RSE ID of the request.
+    :param request_type:   The type of request as rucio.db.sqla.constants.RequestType.
+    :param session:        Database session to use.
+    :returns:              Request as a dictionary.
+    """
+
+    record_counter('core.request.get_request_history_by_did')
+    try:
+        tmp = session.query(models.RequestHistory).filter_by(scope=scope, name=name)
+
+        tmp = tmp.filter_by(dest_rse_id=rse_id)
+
+        if request_type:
+            tmp = tmp.filter_by(request_type=request_type)
+
+        tmp = tmp.first()
+        if not tmp:
+            raise RequestNotFound(f'No request found for DID {scope}:{name} at RSE {rse_id}')
+        else:
+            tmp = dict(tmp)
+            tmp.pop('_sa_instance_state')
+
+            tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
+            tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
 
             return tmp
     except IntegrityError as error:
@@ -1472,6 +1510,29 @@ def list_requests(src_rse_ids, dst_rse_ids, states=[RequestState.WAITING], sessi
     query = session.query(models.Request).filter(models.Request.state.in_(states),
                                                  models.Request.source_rse_id.in_(src_rse_ids),
                                                  models.Request.dest_rse_id.in_(dst_rse_ids))
+    for request in query.yield_per(500):
+        yield request
+
+
+@stream_session
+def list_requests_history(src_rse_ids, dst_rse_ids, states=[RequestState.WAITING], offset=None, limit=None, session=None):
+    """
+    List all historical requests in a specific state from a source RSE to a destination RSE.
+
+    :param src_rse_ids: source RSE ids.
+    :param dst_rse_ids: destination RSE ids.
+    :param states: list of request states.
+    :param offset: offset (for paging).
+    :param limit: limit number of results.
+    :param session: The database session in use.
+    """
+    query = session.query(models.RequestHistory).filter(models.RequestHistory.state.in_(states),
+                                                        models.RequestHistory.source_rse_id.in_(src_rse_ids),
+                                                        models.RequestHistory.dest_rse_id.in_(dst_rse_ids))
+    if offset:
+        query = query.offset(offset)
+    if limit:
+        query = query.limit(limit)
     for request in query.yield_per(500):
         yield request
 

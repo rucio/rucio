@@ -1,16 +1,25 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Rob Barnsley <rob.barnsley@skao.int>, 2021-2022
 
 """
 Interface for the requests abstraction layer
@@ -148,6 +157,29 @@ def get_request_by_did(scope, name, rse, issuer, vo='def'):
     return api_update_return_dict(req)
 
 
+def get_request_history_by_did(scope, name, rse, issuer, vo='def'):
+    """
+    Retrieve a historical request by its DID for a destination RSE.
+
+    :param scope: The scope of the data identifier as a string.
+    :param name: The name of the data identifier as a string.
+    :param rse: The destination RSE of the request as a string.
+    :param issuer: Issuing account as a string.
+    :param vo: The VO to act on.
+    :returns: Request as a dictionary.
+    """
+    rse_id = get_rse_id(rse=rse, vo=vo)
+
+    kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
+    if not permission.has_permission(issuer=issuer, vo=vo, action='get_request_history_by_did', kwargs=kwargs):
+        raise exception.AccessDenied('%(issuer)s cannot retrieve the request DID %(scope)s:%(name)s to RSE %(rse)s' % locals())
+
+    scope = InternalScope(scope, vo=vo)
+    req = request.get_request_history_by_did(scope, name, rse_id)
+
+    return api_update_return_dict(req)
+
+
 def list_requests(src_rses, dst_rses, states, issuer, vo='def'):
     """
     List all requests in a specific state from a source RSE to a destination RSE.
@@ -165,5 +197,28 @@ def list_requests(src_rses, dst_rses, states, issuer, vo='def'):
         raise exception.AccessDenied('%(issuer)s cannot list requests from RSE %(src_rse)s to RSE %(dst_rse)s' % locals())
 
     for req in request.list_requests(src_rse_ids, dst_rse_ids, states):
+        req = req.to_dict()
+        yield api_update_return_dict(req)
+
+
+def list_requests_history(src_rses, dst_rses, states, issuer, vo='def', offset=None, limit=None):
+    """
+    List all historical requests in a specific state from a source RSE to a destination RSE.
+
+    :param src_rses: source RSEs.
+    :param dst_rses: destination RSEs.
+    :param states: list of request states.
+    :param issuer: Issuing account as a string.
+    :param offset: offset (for paging).
+    :param limit: limit number of results.
+    """
+    src_rse_ids = [get_rse_id(rse=rse, vo=vo) for rse in src_rses]
+    dst_rse_ids = [get_rse_id(rse=rse, vo=vo) for rse in dst_rses]
+
+    kwargs = {'src_rse_id': src_rse_ids, 'dst_rse_id': dst_rse_ids, 'issuer': issuer}
+    if not permission.has_permission(issuer=issuer, vo=vo, action='list_requests_history', kwargs=kwargs):
+        raise exception.AccessDenied('%(issuer)s cannot list requests from RSE %(src_rse)s to RSE %(dst_rse)s' % locals())
+
+    for req in request.list_requests_history(src_rse_ids, dst_rse_ids, states, offset, limit):
         req = req.to_dict()
         yield api_update_return_dict(req)
