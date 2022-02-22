@@ -3,6 +3,7 @@ name: End to End integration tests
 on:
   - pull_request
   - push
+  - workflow_dispatch
 
 jobs:
   setup:
@@ -35,10 +36,41 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: rucio/containers
+          fetch-depth: 0
       - uses: actions/checkout@v2
         name: Checkout rucio source
         with:
           path: dev/rucio
+      - name: Fetch git history for current branch
+        run: git pull --unshallow
+      - name: Select tag for rucio containers
+        shell: bash
+        run: | 
+          # Change to cloned rucio/rucio repo
+          cd $GITHUB_WORKSPACE/dev/rucio
+          
+          # Get current branch and corresponding latest tag in rucio/rucio repo
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "On branch ${BRANCH}"
+          echo "Fetching commit history"
+          git pull --unshallow
+          
+          if [ $BRANCH == 'master' ]; then
+              GIT_REF="master"
+          else
+              GIT_REF=$(git describe --tags --abbrev=0)
+              echo "Latest tagged release on branch $BRANCH is $GIT_REF"
+          fi
+
+          cd $GITHUB_WORKSPACE
+
+          # Check if rucio/containers has a corresponding $GIT_REF 
+          if [ $(git tag -l "$GIT_REF") ]; then
+              git checkout tags/$GIT_REF
+          else
+              echo "Tag $GIT_REF not found in rucio/containers. Integration test containers will be built against the master branch instead."
+              git checkout master
+          fi
       - name: Use rucio/containers Dockerfile for integration tests
         shell: bash
         run: |
