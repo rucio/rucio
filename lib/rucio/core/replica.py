@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2022
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2021
 # - David Cameron <david.cameron@cern.ch>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
@@ -40,7 +40,8 @@
 # - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
-# - Christoph Ames <cames@cern.ch>, 2021
+# - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2022
 
 from __future__ import print_function
 
@@ -58,6 +59,7 @@ from struct import unpack
 from traceback import format_exc
 
 import requests
+from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from six import string_types
 from sqlalchemy import func, and_, or_, exists, not_, update, delete
@@ -70,7 +72,6 @@ from sqlalchemy.sql.expression import case, select, text, false, true
 import rucio.core.did
 import rucio.core.lock
 from rucio.common import exception
-from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get
 from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
@@ -87,7 +88,7 @@ from rucio.db.sqla.session import (read_session, stream_session, transactional_s
                                    DEFAULT_SCHEMA_NAME, BASE)
 from rucio.rse import rsemanager as rsemgr
 
-REGION = make_region_memcached(expiration_time=60)
+REGION = make_region().configure('dogpile.cache.memory', expiration_time=60)
 
 
 @read_session
@@ -1421,7 +1422,11 @@ def tombstone_from_delay(tombstone_delay):
     if not tombstone_delay:
         return None
 
-    tombstone_delay = timedelta(seconds=int(tombstone_delay))
+    if not isinstance(tombstone_delay, timedelta):
+        try:
+            tombstone_delay = timedelta(seconds=int(tombstone_delay))
+        except ValueError:
+            return None
 
     if not tombstone_delay:
         return None
@@ -2674,21 +2679,26 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
 
 
 @stream_session
-def list_dataset_replicas_bulk(names_by_intscope, session=None):
+def list_dataset_replicas_bulk(names_by_intscope, deep=False, session=None):
     """
     :param names_by_intscope: The dictionary of internal scopes pointing at the list of names.
     :param session: Database session to use.
+    :param deep: Lookup at the file level.
 
     :returns: A list of dictionaries containing the dataset replicas
               with associated metrics and timestamps
     """
 
-    condition = []
-    for scope in names_by_intscope:
-        condition.append(and_(models.CollectionReplica.scope == scope,
-                              models.CollectionReplica.name.in_(names_by_intscope[scope])))
+    if deep:
+        for intscope, names in names_by_intscope.items():
+            for name in names:
+                yield from list_dataset_replicas(intscope, name, deep=True, session=session)
+    else:
+        condition = []
+        for scope in names_by_intscope:
+            condition.append(and_(models.CollectionReplica.scope == scope,
+                                  models.CollectionReplica.name.in_(names_by_intscope[scope])))
 
-    try:
         # chunk size refers to the number of different scopes, see above
         for chunk in chunks(condition, 10):
             query = session.query(models.CollectionReplica.scope,
@@ -2709,8 +2719,6 @@ def list_dataset_replicas_bulk(names_by_intscope, session=None):
                 .filter(models.RSE.deleted == false())
             for row in query:
                 yield row._asdict()
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound('No Data Identifiers found')
 
 
 @stream_session
@@ -3121,11 +3129,6 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
         rep_state = BadPFNStatus[state]
     else:
         rep_state = state
-
-    if rep_state == BadPFNStatus.TEMPORARY_UNAVAILABLE and expires_at is None:
-        raise exception.InputValidationError("When adding a TEMPORARY UNAVAILABLE pfn the expires_at value should be set.")
-    elif rep_state == BadPFNStatus.BAD and expires_at is not None:
-        raise exception.InputValidationError("When adding a BAD pfn the expires_at value shouldn't be set.")
 
     pfns = clean_surls(pfns)
     for pfn in pfns:

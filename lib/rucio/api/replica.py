@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
-# - Christoph Ames <christoph.ames@cern.ch>, 2021
+# - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2022
 
 import datetime
 
@@ -322,28 +323,26 @@ def list_dataset_replicas(scope, name, deep=False, vo='def'):
         yield r
 
 
-def list_dataset_replicas_bulk(dids, vo='def'):
+def list_dataset_replicas_bulk(dids, vo='def', deep=False):
     """
     :param dids: The list of did dictionaries with scope and name.
     :param vo: The VO to act on.
+    :param deep: Lookup at the file level.
 
     :returns: A list of dict dataset replicas
     """
 
     validate_schema(name='r_dids', obj=dids, vo=vo)
-    names_by_scope = dict()
+    names_by_scope = {}
     for d in dids:
-        if d['scope'] in names_by_scope:
-            names_by_scope[d['scope']].append(d['name'])
-        else:
-            names_by_scope[d['scope']] = [d['name'], ]
+        names_by_scope.setdefault(d['scope'], []).append(d['name'])
 
-    names_by_intscope = dict()
+    names_by_intscope = {}
     for scope in names_by_scope:
         internal_scope = InternalScope(scope, vo=vo)
         names_by_intscope[internal_scope] = names_by_scope[scope]
 
-    replicas = replica.list_dataset_replicas_bulk(names_by_intscope)
+    replicas = replica.list_dataset_replicas_bulk(names_by_intscope, deep=deep)
 
     for r in replicas:
         yield api_update_return_dict(r)
