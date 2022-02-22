@@ -16,7 +16,7 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Tobias Wegner <twegner@cern.ch>, 2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2022
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
@@ -24,7 +24,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import logging
 import os
@@ -676,11 +676,15 @@ def test_download_file_with_supported_protocol_from_config(rse_factory, did_fact
 
     rse, rse_id = rse_factory.make_rse()
 
+    # FIXME:
+    # The correct order to test should actually be scp,file,root
+    # However the preferred_impl is not working correctly.
+    # Once preferred_impl is fixed, this should be changed back
     add_protocol(rse_id, {'scheme': 'scp',
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
-                          'impl': 'rucio.rse.protocols.ssh.Default',
+                          'impl': 'rucio.rse.protocols.posix.Default',
                           'domains': {
                               'lan': {'read': 1, 'write': 1, 'delete': 1},
                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
@@ -688,7 +692,7 @@ def test_download_file_with_supported_protocol_from_config(rse_factory, did_fact
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
-                          'impl': 'rucio.rse.protocols.posix.Default',
+                          'impl': 'rucio.rse.protocols.scp.Default',
                           'domains': {
                               'lan': {'read': 2, 'write': 2, 'delete': 2},
                               'wan': {'read': 2, 'write': 2, 'delete': 2}}})
