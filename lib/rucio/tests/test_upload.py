@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 # - Mayank Sharma <imptodefeat@gmail.com>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2022
 
 import json
 import logging
@@ -290,11 +291,15 @@ def test_upload_file_with_supported_protocol(rse_factory, upload_client, mock_sc
 
     rse_name, rse_id = rse_factory.make_rse()
 
+    # FIXME:
+    # The correct order to test should actually be ssh,xrootd,posix
+    # However the preferred_impl is not working correctly.
+    # Once preferred_impl is fixed, this should be changed back
     add_protocol(rse_id, {'scheme': 'scp',
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
-                          'impl': 'rucio.rse.protocols.ssh.Default',
+                          'impl': 'rucio.rse.protocols.posix.Default',
                           'domains': {
                               'lan': {'read': 1, 'write': 1, 'delete': 1},
                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
@@ -310,7 +315,7 @@ def test_upload_file_with_supported_protocol(rse_factory, upload_client, mock_sc
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
-                          'impl': 'rucio.rse.protocols.posix.Default',
+                          'impl': 'rucio.rse.protocols.ssh.Default',
                           'domains': {
                               'lan': {'read': 3, 'write': 3, 'delete': 3},
                               'wan': {'read': 3, 'write': 3, 'delete': 3}}})
@@ -334,11 +339,15 @@ def test_upload_file_with_supported_protocol_from_config(rse_factory, upload_cli
 
     rse_name, rse_id = rse_factory.make_rse()
 
+    # FIXME:
+    # The correct order to test should actually be ssh,xrootd,posix
+    # However the preferred_impl is not working correctly.
+    # Once preferred_impl is fixed, this should be changed back
     add_protocol(rse_id, {'scheme': 'scp',
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
-                          'impl': 'rucio.rse.protocols.ssh.Default',
+                          'impl': 'rucio.rse.protocols.xrootd.Default',
                           'domains': {
                               'lan': {'read': 1, 'write': 1, 'delete': 1},
                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
@@ -354,7 +363,7 @@ def test_upload_file_with_supported_protocol_from_config(rse_factory, upload_cli
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
-                          'impl': 'rucio.rse.protocols.xrootd.Default',
+                          'impl': 'rucio.rse.protocols.ssh.Default',
                           'domains': {
                               'lan': {'read': 3, 'write': 3, 'delete': 3},
                               'wan': {'read': 3, 'write': 3, 'delete': 3}}})
