@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2021
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2021
@@ -49,7 +49,7 @@ class ReplicaClient(BaseClient):
         """
         Declare a list of bad replicas.
 
-        :param pfns: The list of PFNs.
+        :param pfns: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id>}.
         :param reason: The reason of the loss.
         """
         data = {'reason': reason, 'pfns': pfns}

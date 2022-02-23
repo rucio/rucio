@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2016
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -80,17 +80,29 @@ def declare_bad_file_replicas(pfns, reason, issuer, vo='def'):
     """
     Declare a list of bad replicas.
 
-    :param pfns: The list of PFNs.
+    :param pfns: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id>}.
     :param reason: The reason of the loss.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
     """
     kwargs = {}
+    rse_map = {}
     if not permission.has_permission(issuer=issuer, vo=vo, action='declare_bad_file_replicas', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not declare bad replicas' % (issuer))
 
     issuer = InternalAccount(issuer, vo=vo)
 
+    type_ = type(pfns[0])
+    for pfn in pfns:
+        if not isinstance(pfn, type_):
+            raise exception.InvalidType('The PFNs must be either a list of string or list of dict')
+        if type_ == dict:
+            rse = pfn['rse']
+            if rse not in rse_map:
+                rse_id = get_rse_id(rse=rse, vo=vo)
+                rse_map[rse] = rse_id
+            pfn['rse_id'] = rse_map[rse]
+            pfn['scope'] = InternalScope(pfn['scope'], vo=vo)
     replicas = replica.declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=issuer, status=BadFilesStatus.BAD)
 
     for k in list(replicas):
