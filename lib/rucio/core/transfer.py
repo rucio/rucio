@@ -92,9 +92,6 @@ WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, Non
 
 DEFAULT_MULTIHOP_TOMBSTONE_DELAY = int(datetime.timedelta(hours=2).total_seconds())
 
-# For how much time to skip handling a request when a concurrent submission by multiple submitters is suspected
-CONCURRENT_SUBMISSION_TOLERATION_DELAY = datetime.timedelta(minutes=5)
-
 
 class TransferDestination:
     def __init__(self, rse_data, scheme):
@@ -360,14 +357,15 @@ def transfer_path_str(transfer_path: "List[DirectTransferDefinition]") -> str:
 
 
 @transactional_session
-def mark_submitting_and_prepare_sources_for_transfer(
+def mark_submitting(
         transfer: "DirectTransferDefinition",
         external_host: str,
         logger: "Callable",
         session: "Optional[Session]" = None,
 ):
     """
-    Prepare the sources for transfers.
+    Mark a transfer as submitting
+
     :param transfer:   A transfer object
     :param session:    Database session to use.
     """
@@ -393,24 +391,43 @@ def mark_submitting_and_prepare_sources_for_transfer(
     if rowcount == 0:
         raise RequestNotFound("Failed to prepare transfer: request %s does not exist or is not in queued state" % transfer.rws)
 
-    for src_rse, src_url, src_rse_id, rank in transfer.legacy_sources:
-        # For multi-hops, sources in database are bound to the initial request
-        source_request_id = transfer.rws.attributes.get('initial_request_id', transfer.rws.request_id)
+
+def ensure_db_sources(
+        transfer_path: "List[DirectTransferDefinition]",
+        logger: "Callable",
+        session: "Optional[Session]" = None,
+):
+    """
+    Ensure the needed DB source objects exist
+    """
+
+    desired_sources = []
+    for transfer in transfer_path:
+
+        for src_rse, src_url, src_rse_id, rank in transfer.legacy_sources:
+            common_source_attrs = {
+                "scope": transfer.rws.scope,
+                "name": transfer.rws.name,
+                "rse_id": src_rse_id,
+                "dest_rse_id": transfer.dst.rse.id,
+                "ranking": rank if rank else 0,
+                "bytes": transfer.rws.byte_count,
+                "url": src_url,
+                "is_using": True,
+            }
+
+            desired_sources.append({'request_id': transfer.rws.request_id, **common_source_attrs})
+            if len(transfer_path) > 1 and transfer is not transfer_path[-1]:
+                # For multihop transfers, each hop's source is also an initial transfer's source.
+                desired_sources.append({'request_id': transfer_path[-1].rws.request_id, **common_source_attrs})
+
+    for source in desired_sources:
         src_rowcount = session.query(models.Source)\
-                              .filter_by(request_id=source_request_id)\
-                              .filter(models.Source.rse_id == src_rse_id)\
+                              .filter_by(request_id=source['request_id'])\
+                              .filter(models.Source.rse_id == source['rse_id'])\
                               .update({'is_using': True}, synchronize_session=False)
         if src_rowcount == 0:
-            models.Source(request_id=source_request_id,
-                          scope=transfer.rws.scope,
-                          name=transfer.rws.name,
-                          rse_id=src_rse_id,
-                          dest_rse_id=transfer.dst.rse.id,
-                          ranking=rank if rank else 0,
-                          bytes=transfer.rws.byte_count,
-                          url=src_url,
-                          is_using=True).\
-                save(session=session, flush=False)
+            models.Source(**source).save(session=session, flush=False)
 
 
 @transactional_session
@@ -896,35 +913,6 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
     yield from sorted(candidate_paths, key=__transfer_order_key)
 
 
-def __handle_intermediate_hop_requests(
-        requests_with_sources: "Iterable[RequestWithSources]",
-        logger: "Callable" = logging.log,
-) -> "Generator[RequestWithSources]":
-    """
-    Intermediate request of a multihop shouldn't stay in the QUEUED state for too long.
-    They should be transited to SUBMITTED state by the submitter who created them
-    almost immediately after creation.
-
-    Due to the distributed nature of rucio, the short time window can be enough for
-    this intermediate request to be picked by another submitter which will start
-    working on it. This function takes care that this "other" submitter doesn't try
-    to submit this intermediate request. It is also responsible to cleanup such
-    intermediate requests which stays in a queued state for "too long". This probably
-    means that the initial submitter, who created them, crashed before submission.
-    """
-    now = datetime.datetime.utcnow()
-    for rws in requests_with_sources:
-        if rws.attributes.get('initial_request_id'):
-            # This is an intermediate hop, don't consider it for submission
-            if rws.requested_at < now - CONCURRENT_SUBMISSION_TOLERATION_DELAY:
-                logger(logging.WARNING, '%s: marking stalled intermediate hop as submission_failed', rws.request_id)
-                set_request_state(request_id=rws.request_id, state=RequestState.SUBMISSION_FAILED)
-            else:
-                logger(logging.WARNING, '%s: skipping intermediate hop from being submitted on its own', rws.request_id)
-        else:
-            yield rws
-
-
 @transactional_session
 def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
                        failover_schemes=None, filter_transfertool=None, request_type=RequestType.TRANSFER,
@@ -982,9 +970,6 @@ def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None
         transfertool=filter_transfertool,
         session=session,
     )
-
-    # Filter (and maybe mark as failed) intermediate hop requests
-    request_with_sources = list(__handle_intermediate_hop_requests(request_with_sources, logger))
 
     # for each source, compute the (possibly multihop) path between it and the transfer destination
     return __build_transfer_paths(

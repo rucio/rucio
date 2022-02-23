@@ -51,7 +51,7 @@ from typing import TYPE_CHECKING
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
-                                    DuplicateFileTransferSubmission, VONotFound, UnsupportedOperation)
+                                    DuplicateFileTransferSubmission, VONotFound)
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import PriorityQueue
 from rucio.core import heartbeat, request as request_core, transfer as transfer_core
@@ -61,6 +61,7 @@ from rucio.core.request import set_request_state, queue_requests
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
@@ -281,7 +282,7 @@ def __assign_paths_to_transfertool_and_create_hops(
         # intermediate hops (if it is a multihop) work correctly
         best_path = None
         builder_to_use = None
-        concurrent_submission_detected = False
+        must_skip_submission = False
         for transfer_path in candidate_paths:
             builder = None
             if transfertools_by_name:
@@ -293,23 +294,21 @@ def __assign_paths_to_transfertool_and_create_hops(
                     if builder:
                         break
             if builder or not transfertools_by_name:
-                created, concurrent_submission_detected = __create_missing_replicas_and_requests(
+                created, must_skip_submission = __create_missing_replicas_and_requests(
                     transfer_path, default_tombstone_delay, logger=logger, session=session
                 )
                 if created:
                     best_path = transfer_path
                     builder_to_use = builder
-                if created or concurrent_submission_detected:
+                if created or must_skip_submission:
                     break
-
-        if concurrent_submission_detected:
-            logger(logging.INFO, '%s: Request is being handled by another submitter. Skipping for now.' % request_id)
-            continue
 
         if not best_path:
             reqs_no_host.add(request_id)
             logger(logging.INFO, '%s: Cannot pick transfertool, or create intermediate requests' % request_id)
             continue
+
+        transfer_core.ensure_db_sources(best_path, logger=logger, session=session)
 
         if len(best_path) > 1:
             logger(logging.INFO, '%s: Best path is multihop: %s' % (rws.request_id, transfer_core.transfer_path_str(best_path)))
@@ -319,6 +318,10 @@ def __assign_paths_to_transfertool_and_create_hops(
             # - or it's a multi-source
             # in other cases, it doesn't bring any additional information to what is known from previous logs
             logger(logging.INFO, '%s: Best path is direct: %s' % (rws.request_id, transfer_core.transfer_path_str(best_path)))
+
+        if must_skip_submission:
+            logger(logging.INFO, '%s: Part of the transfer is already being handled. Skip for now.' % request_id)
+            continue
 
         paths_by_transfertool_builder.setdefault(builder_to_use, []).append(best_path)
     return paths_by_transfertool_builder, reqs_no_host, reqs_unsupported_transfertool
@@ -336,7 +339,7 @@ def __create_missing_replicas_and_requests(
     """
     initial_request_id = transfer_path[-1].rws.request_id
     creation_successful = True
-    concurrent_submission_detected = False
+    must_skip_submission = False
     created_requests = []
     # Iterate the path in reverse order. The last hop is the initial request, so
     # next_hop.rws.request_id will always be initialized when handling the current hop.
@@ -374,8 +377,7 @@ def __create_missing_replicas_and_requests(
         except Exception as error:
             logger(logging.ERROR, '%s: Problem adding replicas on %s : %s', initial_request_id, rws.dest_rse, str(error))
 
-        rws.attributes['next_hop_request_id'] = transfer_path[i + 1].rws.request_id
-        rws.attributes['initial_request_id'] = initial_request_id
+        rws.attributes['is_intermediate_hop'] = True
         rws.attributes['source_replica_expression'] = hop.src.rse.name
         new_req = queue_requests(requests=[{'dest_rse_id': rws.dest_rse.id,
                                             'scope': rws.scope,
@@ -387,32 +389,26 @@ def __create_missing_replicas_and_requests(
                                             'account': rws.account,
                                             'requested_at': datetime.datetime.now()}], session=session)
         # If a request already exists, new_req will be an empty list.
-        if not new_req:
-            creation_successful = False
+        if new_req:
+            db_req = new_req[0]
+        else:
+            db_req = request_core.get_request_by_did(rws.scope, rws.name, rws.dest_rse.id, session=session)
+            # A transfer already exists for part of the path. Just construct the remaining
+            # path, but don't submit the transfer. We must wait for the existing transfer to be
+            # completed before continuing.
+            must_skip_submission = True
 
-            existing_request = request_core.get_request_by_did(rws.scope, rws.name, rws.dest_rse.id, session=session)
-            if existing_request['requested_at'] and \
-                    datetime.datetime.utcnow() - transfer_core.CONCURRENT_SUBMISSION_TOLERATION_DELAY < existing_request['requested_at']:
-                concurrent_submission_detected = True
-
-            break
-        rws.request_id = new_req[0]['id']
+        models.TransferHop(request_id=db_req['id'],
+                           next_hop_request_id=transfer_path[i + 1].rws.request_id,
+                           initial_request_id=initial_request_id,
+                           ).save(session=session, flush=False)
+        rws.request_id = db_req['id']
+        rws.requested_at = db_req['requested_at']
         logger(logging.DEBUG, '%s: New request created for the transfer between %s and %s : %s', initial_request_id, transfer_path[0].src, transfer_path[-1].dst, rws.request_id)
         set_request_state(rws.request_id, RequestState.QUEUED, session=session, logger=logger)
         created_requests.append(rws.request_id)
 
-    if not concurrent_submission_detected and not creation_successful:
-        # Need to fail all the intermediate requests
-        logger(logging.WARNING, '%s: Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests',
-               initial_request_id, transfer_path[0].src, transfer_path[-1].dst)
-        try:
-            for request_id in created_requests:
-                set_request_state(request_id=request_id, state=RequestState.FAILED,
-                                  err_msg="Cancelled hop in multi-hop", session=session)
-        except UnsupportedOperation:
-            logger(logging.ERROR, '%s: Multihop : Cannot cancel all the parent requests : %s', initial_request_id, str(created_requests))
-
-    return creation_successful, concurrent_submission_detected
+    return creation_successful, must_skip_submission
 
 
 def submit_transfer(transfertool_obj, transfers, job_params, submitter='submitter', timeout=None, logger=logging.log):
@@ -429,7 +425,7 @@ def submit_transfer(transfertool_obj, transfers, job_params, submitter='submitte
 
     for transfer in transfers:
         try:
-            transfer_core.mark_submitting_and_prepare_sources_for_transfer(transfer, external_host=transfertool_obj.external_host, logger=logger)
+            transfer_core.mark_submitting(transfer, external_host=transfertool_obj.external_host, logger=logger)
         except RequestNotFound as error:
             logger(logging.ERROR, str(error))
             return

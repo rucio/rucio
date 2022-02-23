@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2019-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,11 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+
+echo "Creating RSEs"
 
 # Create the following topology:
 # +------+   1   +------+
@@ -76,11 +79,11 @@ rucio-admin rse set-attribute --rse XRD3 --key available_for_multihop --value Tr
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD1 XRD2
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD1 XRD3
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD2 XRD1
-rucio-admin rse add-distance --distance 1 --ranking 1 XRD2 XRD3
+rucio-admin rse add-distance --distance 2 --ranking 2 XRD2 XRD3
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD3 XRD1
-rucio-admin rse add-distance --distance 1 --ranking 1 XRD3 XRD2
-rucio-admin rse add-distance --distance 2 --ranking 2 XRD3 XRD4
-rucio-admin rse add-distance --distance 2 --ranking 2 XRD4 XRD3
+rucio-admin rse add-distance --distance 2 --ranking 2 XRD3 XRD2
+rucio-admin rse add-distance --distance 3 --ranking 3 XRD3 XRD4
+rucio-admin rse add-distance --distance 3 --ranking 3 XRD4 XRD3
 
 # Indefinite limits for root
 rucio-admin account set-limits root XRD1 -1
