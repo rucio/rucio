@@ -41,15 +41,31 @@ class Rule(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rule_id):
-        """ get rule information for given rule id.
-
-        .. :quickref: Rule; get rule info
-
-        :returns: JSON dict containing informations about the requested user.
-        :status 200: Rule found
-        :status 406: Not Acceptable
-        :status 410: Invalid Auth Token
-        :status 404: no rule found for id
+        """
+        ---
+        summary: Return a Rule
+        tags:
+          - Rule
+        parameters:
+        - name: rule_id
+          in: path
+          description: The id of the replication rule.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+          406:
+            description: Not Acceptable
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No rule found for the given id
         """
         parameters = json_parameters(optional=True)
         estimate_ttc = param_get(parameters, 'estimate_ttc', default=False)
@@ -65,14 +81,80 @@ class Rule(ErrorHandlingMethodView):
 
     def put(self, rule_id):
         """
-        Update the replication rules locked flag .
-
-        .. :quickref: Rule; update rule
-
-        :status 200: Rule found
-        :status 401: Invalid Auth Token
-        :status 404: no rule found for id
-        """
+        ---
+        summary: Update the replication rules parameters
+        tags:
+          - Rule
+        parameters:
+        - name: rule_id
+          in: path
+          description: The id of the replication rule.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          description: Parameters for the new rule.
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - options
+                properties:
+                  options:
+                    description: The parameters to change.
+                    type: object
+                    properties:
+                      lifetime:
+                        description: The time in which the rule will expire in seconds.
+                        type: integer
+                      account:
+                        description: The account of the replication rule.
+                        type: string
+                      state:
+                        description: The state of the replication rule.
+                        type: string
+                      cancel_requests:
+                        description: Cancels all requests if used together with state.
+                        type: boolean
+                      priority:
+                        description: The priority of a rule.
+                        type: integer
+                      child_rule_id:
+                        description: The child rule. Parent and child rule must be on the same dataset.
+                        type: string
+                      meta:
+                        description: The meta of a rule.
+                        type: object
+                      boost_rule:
+                        description: Boosts the processing of a rule.
+                        type: object
+                      locked:
+                        description: The locked state of the replication rule.
+                        type: boolean
+                      comment:
+                        description: The comment of the replication rule.
+                        type: string
+                      activity:
+                        description: The activity of a replication rule.
+                        type: string
+                      source_replica_expression:
+                        description: The source replica expression of a replication rule.
+                        type: string
+                      eol_at:
+                        description: The end of life of a replication rule.
+                        type: string
+                      purge_replicas:
+                        description: Purge replicas
+                        type: boolean
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No rule found for the given id
+       """
         parameters = json_parameters()
         options = param_get(parameters, 'options')
         try:
@@ -88,13 +170,24 @@ class Rule(ErrorHandlingMethodView):
 
     def delete(self, rule_id):
         """
-        Delete a new replication rule.
-
-        .. :quickref: Rule; delete rule
-
-        :status 200: DIDs found
-        :status 401: Invalid Auth Token
-        :status 404: no rule found for id
+        ---
+        summary: Delete a replication rule
+        tags:
+          - Rule
+        parameters:
+        - name: rule_id
+          in: path
+          description: The id of the replication rule.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No rule found for the given id
         """
         parameters = json_parameters()
         purge_replicas = param_get(parameters, 'purge_replicas', default=None)
@@ -114,16 +207,23 @@ class AllRule(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
-        Return all rules of a given account.
-
-        .. :quickref: AllRule; get all rules for account
-
-        :resheader Content-Type: application/x-json-stream
-        :status 200: Rule found
-        :status 401: Invalid Auth Token
-        :status 404: no rule found for id
-        :status 406: Not Acceptable
-        :query scope: The scope name.
+        ---
+        summary: Return all rules for a given account
+        tags:
+          - Rule
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No rule found for the given id
+          406:
+            description: Not Acceptable
         """
         try:
             def generate(filters, vo):
@@ -136,47 +236,111 @@ class AllRule(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Create a new replication rule.
-
-        .. :quickref: AllRule; create new rule
-
-        :<json list dids: List of data identifiers.
-        :<json string account: Account issuing the rule.
-        :<json int copies: The number of replicas.
-        :<json string rse_expression: RSE expression which gets resolved into a list of RSEs.
-        :<json string grouping: ALL -  All files will be replicated to the same RSE.
-                                       DATASET - All files in the same dataset will be replicated to the same RSE.
-                                       NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all
-        :<json int weight: Weighting scheme to be used.
-        :<json int lifetime: The lifetime of the replication rule in seconds.
-        :<json string locked: If the is locked.
-        :<json string subscription_id: The subscription_id, if the rule is created by a subscription.
-        :<json string source_replica_expression: Only use replicas as source from these RSEs.
-        :<json string activity: Activity to be passed to the conveyor.
-        :<json string notify: Notification setting of the rule ('Y', 'N', 'C'; None = 'N').
-        :<json bool purge_replicas: Purge setting if a replica should be directly deleted after the rule is deleted.
-        :<json bool ignore_availability: Option to ignore the availability of RSEs.
-        :<json string comments: Comment about the rule.
-        :<json bool ask_approval: Ask for approval for this rule.
-        :<json bool asynchronous: Create replication rule asynchronously by the judge-injector.
-        :<json int priority: Priority of the rule and the transfers which should be submitted.
-        :<json bool split_container: Should a container rule be split into individual dataset rules.
-        :<json string meta: Dictionary with metadata from the WFMS.
-        :status 201: rule created
-        :status 401: Invalid Auth Token
-        :status 404: DID not found
-        :status 409: Invalid Replication Rule
-        :status 409: Duplicate Replication Rule
-        :status 409: Insufficient Target RSEs
-        :status 409: Insufficient Account Limit
-        :status 409: Invalid RSE Expression
-        :status 409: Replication Rule Creation Temporary Failed
-        :status 409: Invalid Rule Weight
-        :status 409: Staging Area Rule Requires Lifetime
-        :status 409: Scratch Disk Lifetime Conflict
-        :status 409: Manual Rule Approval Blocked
-        :status 409: Invalid Object
-        :returns: List of ids for created rules
+        ---
+        summary: Create a new replication rule
+        tags:
+          - Rule
+        requestBody:
+          description: Parameters for the new rule.
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - dids
+                - account
+                - copies
+                - rse_expression
+                properties:
+                  dids:
+                    description: The list of data identifiers.
+                    type: array
+                    items:
+                      type: string
+                  account:
+                    descipriton: The account of the issuer.
+                    type: string
+                  copies:
+                    description: The number of replicas.
+                    type: integer
+                  rse_expression:
+                    description: The rse expression which gets resolved into a list of RSEs.
+                    type: string
+                  grouping:
+                    description: The grouping of the files to take into account. (ALL, DATASET, NONE)
+                    type: string
+                  weight:
+                     description: Weighting scheme to be used.
+                     type: number
+                  lifetime:
+                     description: The lifetime of the replication rule in seconds.
+                     type: integer
+                  locked:
+                     description: If the rule is locked.
+                     type: boolean
+                  subscription_id:
+                     description: The subscription_id, if the rule is created by a subscription.
+                     type: string
+                  sourse_replica_expression:
+                     description: Only use replicas as source from these RSEs.
+                     type: string
+                  activity:
+                     description: Activity to be passed to the conveyor.
+                     type: string
+                  notify:
+                     description: Notification setting of the rule ('Y', 'N', 'C'; None = 'N').
+                     type: string
+                  purge_replicas:
+                     description: Purge setting if a replica should be directly deleted after the rule is deleted.
+                     type: boolean
+                  ignore_availability:
+                     description: Option to ignore the availability of RSEs.
+                     type: boolean
+                  comments:
+                     description: Comment about the rule.
+                     type: string
+                  ask_approval:
+                     description: Ask for approval for this rule.
+                     type: boolean
+                  asynchronous:
+                     description: Create replication rule asynchronously by the judge-injector.
+                     type: boolean
+                  priority:
+                     description: Priority of the rule and the transfers which should be submitted.
+                     type: integer
+                  split_container:
+                     description: Should a container rule be split into individual dataset rules.
+                     type: boolean
+                  meta:
+                     description: Dictionary with metadata from the WFMS.
+                     type: string
+        responses:
+          201:
+            description: Rule created.
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: string
+                    description: Id of each created rule.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No rule found for the given id
+          409:
+            description: |
+              - Invalid Replication Rule
+              - Duplicate Replication Rule
+              - Insufficient Target RSEs
+              - Insufficient Account Limit
+              - Invalid RSE Expression
+              - Replication Rule Creation Temporary Failed,
+              - Invalid Rule Weight
+              - Staging Area Rule Requires Lifetime
+              - Scratch Disk Lifetime Conflict
+              - Manual Rule Approval Blocked
+              - Invalid Object
         """
         parameters = json_parameters()
         dids = param_get(parameters, 'dids')
@@ -234,13 +398,52 @@ class ReplicaLocks(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rule_id):
-        """ get locks for a given rule_id.
-
-        .. :quickref: ReplicaLocks; get locks by rule id
-
-        :status 200: Rule found
-        :status 406: Not Acceptable
-        :returns: JSON dict containing informations about the requested user.
+        """
+        ---
+        summary: Return all locks for a Rule
+        tags:
+          - Rule
+        parameters:
+        - name: rule_id
+          in: path
+          description: The id of the replication rule.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      scope:
+                        description: The scope of the lock.
+                        type: string
+                      name:
+                        description: The name of the lock.
+                        type: string
+                      rse_id:
+                        description: The rse_id of the lock.
+                        type: string
+                      rse:
+                        description: Information about the rse of the lock.
+                        type: object
+                      state:
+                        description: The state of the lock.
+                        type: string
+                      rule_id:
+                        description: The rule_id of the lock.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No rule found for the given id
+          406:
+            description: Not Acceptable
         """
 
         def generate(vo):
@@ -255,15 +458,44 @@ class ReduceRule(ErrorHandlingMethodView):
 
     def post(self, rule_id):
         """
-        Reduce a replication rule.
-
-        .. :quickref: ReduceRule; reduce rule
-
-        :status 200: Rule found.
-        :status 401: Invalid Auth Token.
-        :status 404: no rule found for id.
-        :status 409: Rule replace failed.
-        :returns: List of rule ids
+        ---
+        summary: Reduce a replication rule
+        tags:
+          - Rule
+        parameters:
+        - name: rule_id
+          in: path
+          description: The id of the replication rule.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - copies
+                properties:
+                  copies:
+                    description: Number of copies to keep.
+                    type: integer
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: string
+                    description: Rule id.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No rule found for the given id
+          409:
+            description: Rule replace failed.
         """
         parameters = json_parameters()
         copies = param_get(parameters, 'copies')
@@ -288,15 +520,53 @@ class MoveRule(ErrorHandlingMethodView):
 
     def post(self, rule_id):
         """
-        Move a replication rule.
-
-        .. :quickref: MoveRule; move rule
-
-        :status 200: Rule found
-        :status 401: Invalid Auth Token
-        :status 404: no rule found for id
-        :status 409: Rule replace failed.
-        :returns: List of rule ids.
+        ---
+        summary: Move a replication Rule
+        tags:
+          - Rule
+        parameters:
+        - name: rule_id
+          in: path
+          description: The id of the replication rule.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - rse_expression
+                properties:
+                  rse_expression:
+                    description: The new rse expression.
+                    type: string
+                  rule_id:
+                    description: The rule_id of the rule to moves. If specified, overrides the `rule_id` parameter.
+                    type: string
+                  activity:
+                    description: The `activity` of the moved rule.
+                    type: string
+                  source_replica_expression:
+                    description: The `source_replica_expression` of the moved rule.
+                    type: string
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: string
+                    description: Rule id.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No rule found for the given id
+          409:
+            description: Rule replace failed.
         """
         parameters = json_parameters()
         rse_expression = param_get(parameters, 'rse_expression')
@@ -323,14 +593,50 @@ class RuleHistory(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rule_id):
-        """ get history for a given rule_id.
-
-        .. :quickref: RuleHistory; get rule history by id
-
-        :resheader Content-Type: application/x-json-stream
-        :status 200: Rule found
-        :status 406: Not Acceptable
-        :returns: JSON dict containing informations about the requested user.
+        """
+        ---
+        summary: Get the history of a rule
+        tags:
+          - Rule
+        parameters:
+        - name: rule_id
+          in: path
+          description: The id of the replication rule.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    description: Rule history object.
+                    properties:
+                      updated_at:
+                        type: string
+                        description: The date of the update.
+                      state:
+                        type: string
+                        descipriton: The state of the update.
+                      locks_ok_cnt:
+                        type: integer
+                        description: The number of locks which are ok.
+                      locks_stuck_cnt:
+                        type: integer
+                        description: The number of locks which are stuck.
+                      locks_replicating_cnt:
+                        type: integer
+                        description: The number of locks which are replicating.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No rule found for the given id
+          406:
+            description: Not acceptable.
         """
         def generate(issuer, vo):
             for history in list_replication_rule_history(rule_id, issuer=issuer, vo=vo):
@@ -344,15 +650,60 @@ class RuleHistoryFull(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
-        """ get history for a given DID.
-
-        .. :quickref: RuleHistoryFull; get rule history for DID
-
-        :resheader Content-Type: application/x-json-stream
-        :param scope_name: data identifier (scope)/(name).
-        :status 200: Rule found
-        :status 406: Not Acceptable
-        :returns: JSON dict containing informations about the requested user.
+        """
+        ---
+        summary: Get the history of a DID
+        tags:
+          - Rule
+        parameters:
+        - name: scope_name
+          in: path
+          description: The data identifier of scope-name to retrieve the history from. ((scope)/(name))
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    description: Rule history object.
+                    properties:
+                      rule_id:
+                        type: string
+                        description: The id of the rule.
+                      updated_at:
+                        type: string
+                        description: The date of the update.
+                      created_at:
+                        type: string
+                        description: The date of the creation.
+                      rse_expression:
+                        type: string
+                        description: The rse expression.
+                      state:
+                        type: string
+                        descipriton: The state of the update.
+                      account:
+                        type: string
+                        descipriton: The account who initiated the change.
+                      locks_ok_cnt:
+                        type: integer
+                        description: The number of locks which are ok.
+                      locks_stuck_cnt:
+                        type: integer
+                        description: The number of locks which are stuck.
+                      locks_replicating_cnt:
+                        type: integer
+                        description: The number of locks which are replicating.
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable.
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -371,14 +722,68 @@ class RuleAnalysis(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rule_id):
-        """ get analysis for given rule.
-
-        .. :quickref: RuleAnalysis; analyse rule,
-
-        :resheader Content-Type: application/json
-        :status 200: Rule found
-        :status 406: Not Acceptable
-        :returns: JSON dict containing informations about the requested user.
+        """
+        ---
+        summary: Get the analysis of a rule
+        tags:
+          - Rule
+        parameters:
+        - name: rule_id
+          in: path
+          description: The id of the replication rule.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    rule_error:
+                      type: string
+                      description: The state of the rule.
+                    transfers:
+                      type: array
+                      description: List of all transfer errors.
+                      items:
+                        type: object
+                        properties:
+                          scope:
+                            type: string
+                            description: The scope of the transfer.
+                          name:
+                            type: string
+                            description: The name of the lock.
+                          rse_id:
+                            type: string
+                            description: The rse_id of the transfered lock.
+                          rse:
+                            type: object
+                            description: Information about the rse of the transfered lock.
+                          attempts:
+                            type: integer
+                            description: The number of attempts.
+                          last_error:
+                            type: string
+                            description: The last error that occured.
+                          last_source:
+                            type: string
+                            description: The last source.
+                          sources:
+                            type: array
+                            description: All available rse sources.
+                          last_time:
+                            type: string
+                            description: The time of the last transfer.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No rule found for the given id
+          406:
+            description: Not acceptable.
         """
         analysis = examine_replication_rule(rule_id, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         return Response(render_json(**analysis), content_type='application/json')
