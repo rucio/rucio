@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2022
 
 from __future__ import division
 
@@ -86,7 +87,7 @@ def upload(files, scope, metadata, rse, account, source_dir, dataset_lifetime, d
     try:
         success_upload = True
         for cnt in range(0, 3):
-            rows = rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir, logger=logger)
+            rows = rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir, vo=client.vo, logger=logger)
             # temporary hack
             global_status, ret = rows['success'], rows[1]
             logger(logging.INFO, 'Returned global status : %s, Returned : %s', str(global_status), str(ret))
