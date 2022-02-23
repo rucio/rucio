@@ -70,31 +70,31 @@ class SignURL(ErrorHandlingMethodView):
         tags:
           - Credentials
         parameters:
-        - rse:
+        - name: rse
           in: query
           description: The RSE to authenticate against.
           schema:
             type: string
           required: true
-        - lifetime:
+        - name: lifetime
           in: query
           description: The lifetime, default 600s.
           schema:
             type: string
           required: false
-        - svc:
+        - name: svc
           in: query
           description: The service, default gcs.
           schema:
             type: string
           required: false
-        - op:
+        - name: op
           in: query
           description: The operation.
           schema:
             type: string
           required: false
-        - url:
+        - name: url
           in: query
           description: The Url of the authentification.
           schema:
