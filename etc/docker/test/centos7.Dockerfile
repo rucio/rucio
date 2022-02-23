@@ -24,7 +24,7 @@ ENV LC_ALL=en_US.UTF-8
 
 RUN yum install -y epel-release.noarch && \
     yum -y update && \
-    yum -y install gcc httpd gmp-devel krb5-devel mod_ssl mod_auth_kerb git openssl-devel bzip2-devel gridsite which libaio memcached ffi-devel nmap-ncat && \
+    yum -y install gcc httpd gmp-devel krb5-devel mod_ssl mod_auth_kerb git openssl-devel bzip2-devel gridsite which libaio memcached ffi-devel nmap-ncat nodejs npm && \
     yum -y install https://repo.ius.io/ius-release-el7.rpm && \
     yum -y install libxml2-devel xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel python && \
     if [ "$PYTHON" == "2.7" ] ; then yum -y install python-devel python-pip python36u python36u-devel python36u-pip python36u-mod_wsgi gfal2-python3 ; fi && \
