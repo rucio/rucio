@@ -2166,27 +2166,23 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             break
 
     if rows:
-        replica_clause = [
-            and_(models.RSEFileAssociation.scope == r['scope'],
-                 models.RSEFileAssociation.name == r['name'],
-                 models.RSEFileAssociation.rse_id == rse_id)
-            for r in rows
-        ]
-        for chunk in chunks(replica_clause, 100):
-            stmt = update(
-                models.RSEFileAssociation
-            ).prefix_with(
-                "/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle'
-            ).where(
-                or_(*chunk)
-            ).execution_options(
-                synchronize_session=False
-            ).values(
-                updated_at=datetime.utcnow(),
-                state=ReplicaState.BEING_DELETED,
-                tombstone=OBSOLETE,
-            )
-            session.execute(stmt)
+        session.query(temp_table_cls).delete()
+        session.bulk_insert_mappings(temp_table_cls, [{'scope': r['scope'], 'name': r['name']} for r in rows])
+        stmt = update(
+            models.RSEFileAssociation
+        ).where(
+            exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')
+                   .where(and_(models.RSEFileAssociation.scope == temp_table_cls.scope,
+                               models.RSEFileAssociation.name == temp_table_cls.name,
+                               models.RSEFileAssociation.rse_id == rse_id)))
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            updated_at=datetime.utcnow(),
+            state=ReplicaState.BEING_DELETED,
+            tombstone=OBSOLETE,
+        )
+        session.execute(stmt)
 
     return rows
 
