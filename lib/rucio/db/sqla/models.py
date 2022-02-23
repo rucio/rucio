@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2021 CERN
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - joaquinbogado <joaquinbogado@gmail.com>, 2021
 # - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 import datetime
 import sys
@@ -1310,6 +1311,19 @@ class Request(BASE, ModelBase):
                    Index('REQUESTS_TYP_STA_TRA_ACT_IDX', 'request_type', 'state', 'transfertool', 'activity'))
 
 
+class TransferHop(BASE, ModelBase):
+    """Represents source files for transfers"""
+    __tablename__ = 'transfer_hops'
+    request_id = Column(GUID())
+    next_hop_request_id = Column(GUID())
+    initial_request_id = Column(GUID())
+    _table_args = (PrimaryKeyConstraint('request_id', 'next_hop_request_id', 'initial_request_id', name='TRANSFER_HOPS_PK'),
+                   ForeignKeyConstraint(['initial_request_id'], ['requests.id'], name='TRANSFER_HOPS_INIT_REQ_ID_FK'),
+                   ForeignKeyConstraint(['request_id'], ['requests.id'], name='TRANSFER_HOPS_REQ_ID_FK'),
+                   ForeignKeyConstraint(['next_hop_request_id'], ['requests.id'], name='TRANSFER_HOPS_NH_REQ_ID_FK'),
+                   Index('TRANSFER_HOPS_INITIAL_REQ', 'initial_request_id'))
+
+
 class RequestHistory(BASE, ModelBase):
     """Represents request history"""
     __tablename__ = 'requests_history'
@@ -1743,6 +1757,7 @@ def register_models(engine):
               ReplicationRuleHistoryRecent,
               Request,
               RequestHistory,
+              TransferHop,
               Scope,
               Source,
               SourceHistory,
@@ -1812,6 +1827,7 @@ def unregister_models(engine):
               ReplicationRuleHistoryRecent,
               Request,
               RequestHistory,
+              TransferHop,
               Scope,
               Source,
               SourceHistory,

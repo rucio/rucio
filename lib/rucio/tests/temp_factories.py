@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,15 @@
 # limitations under the License.
 #
 # Authors:
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
+# - Mayank Sharma <imptodefeat@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
 import os
 import shutil
 import tempfile
+from itertools import chain
 from pathlib import Path
 from random import choice
 from string import ascii_uppercase
@@ -83,6 +84,13 @@ class TemporaryRSEFactory:
         # Cleanup Transfers
         session.query(models.Source).filter(or_(models.Source.dest_rse_id.in_(self.created_rses),
                                                 models.Source.rse_id.in_(self.created_rses))).delete(synchronize_session=False)
+        requests = list(chain.from_iterable(
+            session.query(models.Request.id).filter(or_(models.Request.dest_rse_id.in_(self.created_rses),
+                                                        models.Request.source_rse_id.in_(self.created_rses))).distinct()
+        ))
+        session.query(models.TransferHop).filter(or_(models.TransferHop.request_id.in_(requests),
+                                                     models.TransferHop.initial_request_id.in_(requests))
+                                                 ).delete(synchronize_session=False)
         session.query(models.Request).filter(or_(models.Request.dest_rse_id.in_(self.created_rses),
                                                  models.Request.source_rse_id.in_(self.created_rses))).delete(synchronize_session=False)
 
@@ -213,6 +221,14 @@ class TemporaryDidFactory:
         session.query(models.Source).filter(or_(and_(models.Source.scope == did['scope'],
                                                      models.Source.name == did['name'])
                                                 for did in self.created_dids)).delete(synchronize_session=False)
+        requests = list(chain.from_iterable(
+            session.query(models.Request.id).filter(or_(and_(models.Request.scope == did['scope'],
+                                                             models.Request.name == did['name'])
+                                                        for did in self.created_dids)).distinct()
+        ))
+        session.query(models.TransferHop).filter(or_(models.TransferHop.request_id.in_(requests),
+                                                     models.TransferHop.initial_request_id.in_(requests))
+                                                 ).delete(synchronize_session=False)
         session.query(models.Request).filter(or_(and_(models.Request.scope == did['scope'],
                                                       models.Request.name == did['name'])
                                                  for did in self.created_dids)).delete(synchronize_session=False)
