@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2022
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2021
 # - David Cameron <david.cameron@cern.ch>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
@@ -40,7 +40,7 @@
 # - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
-# - Christoph Ames <cames@cern.ch>, 2021
+# - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
 
 import heapq
 import logging
@@ -1734,7 +1734,7 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
                 models.DataIdentifierAssociation.child_scope,
                 models.DataIdentifierAssociation.child_name,
             ).prefix_with(
-                "/*+ NO_INDEX_FFS(CONTENTS CONTENTS_PK) */",
+                "/*+ USE_CONCAT NO_INDEX_FFS(CONTENTS CONTENTS_PK) */",
                 dialect='oracle',
             ).where(
                 or_(*chunk)
