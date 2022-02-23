@@ -42,8 +42,6 @@
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 # - Christoph Ames <cames@cern.ch>, 2021
 
-from __future__ import print_function
-
 import heapq
 import logging
 import random
@@ -311,7 +309,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
     """
     Declare a list of bad replicas.
 
-    :param pfns: The list of PFNs.
+    :param pfns: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id>}.
     :param rse_id: The RSE id.
     :param reason: The reason of the loss.
     :param issuer: The issuer account.
@@ -320,94 +318,73 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
     :param session: The database session in use.
     """
     unknown_replicas = []
-    declared_replicas = []
-    rse_info = rsemgr.get_rse_info(rse_id=rse_id, session=session)
     replicas = []
-    proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
-    if rse_info['deterministic']:
-        parsed_pfn = proto.parse_pfns(pfns=pfns)
-        for pfn in parsed_pfn:
-            # WARNING : this part is ATLAS specific and must be changed
-            path = parsed_pfn[pfn]['path']
-            if path.startswith('/user') or path.startswith('/group'):
-                scope = '%s.%s' % (path.split('/')[1], path.split('/')[2])
-                name = parsed_pfn[pfn]['name']
-            elif path.startswith('/'):
-                scope = path.split('/')[1]
-                name = parsed_pfn[pfn]['name']
-            else:
-                scope = path.split('/')[0]
-                name = parsed_pfn[pfn]['name']
+    declared_replicas = []
+    type_ = type(pfns[0])
 
-            scope = InternalScope(scope, vo=issuer.vo)
-
-            __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope, name, path=None, session=session)
-            if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
-                replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
-                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
-                new_bad_replica.save(session=session, flush=False)
-                session.query(models.Source).filter_by(scope=scope, name=name, rse_id=rse_id).delete(synchronize_session=False)
-                declared_replicas.append(pfn)
-            else:
-                if already_declared:
-                    unknown_replicas.append('%s %s' % (pfn, 'Already declared'))
+    if type_ is str:
+        # If pfns is a list of PFNs, the scope and names need to be extracted from the path
+        rse_info = rsemgr.get_rse_info(rse_id=rse_id, session=session)
+        proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
+        if rse_info['deterministic']:
+            # TBD : In case of deterministic RSE, call the extract_scope_from_path method
+            parsed_pfn = proto.parse_pfns(pfns=pfns)
+            for pfn in parsed_pfn:
+                # WARNING : this part is ATLAS specific and must be changed
+                path = parsed_pfn[pfn]['path']
+                if path.startswith('/user') or path.startswith('/group'):
+                    scope = '%s.%s' % (path.split('/')[1], path.split('/')[2])
+                    name = parsed_pfn[pfn]['name']
+                elif path.startswith('/'):
+                    scope = path.split('/')[1]
+                    name = parsed_pfn[pfn]['name']
                 else:
-                    no_hidden_char = True
-                    for char in str(pfn):
-                        if not isprint(char):
-                            unknown_replicas.append('%s %s' % (pfn, 'PFN contains hidden chars'))
-                            no_hidden_char = False
-                            break
-                    if no_hidden_char:
-                        unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
-        if status == BadFilesStatus.BAD:
-            # For BAD file, we modify the replica state, not for suspicious
-            try:
-                # there shouldn't be any exceptions since all replicas exist
-                update_replicas_states(replicas, session=session)
-            except exception.UnsupportedOperation:
-                raise exception.ReplicaNotFound("One or several replicas don't exist.")
+                    scope = path.split('/')[0]
+                    name = parsed_pfn[pfn]['name']
+
+                scope = InternalScope(scope, vo=issuer.vo)
+                replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': status})
+
+        else:
+            # For non-deterministic RSEs use the path + rse_id to extract the scope
+            parsed_pfn = proto.parse_pfns(pfns=pfns)
+            for pfn in parsed_pfn:
+                path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
+                replicas.append({'scope': None, 'name': None, 'rse_id': rse_id, 'path': path, 'state': status})
+
     else:
-        path_clause = []
-        parsed_pfn = proto.parse_pfns(pfns=pfns)
-        for pfn in parsed_pfn:
-            path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
-            __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope=None, name=None, path=path, session=session)
-            if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
-                replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
-                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
-                new_bad_replica.save(session=session, flush=False)
-                session.query(models.Source).filter_by(scope=scope, name=name, rse_id=rse_id).delete(synchronize_session=False)
-                declared_replicas.append(pfn)
-                path_clause.append(models.RSEFileAssociation.path == path)
-                if path.startswith('/'):
-                    path_clause.append(models.RSEFileAssociation.path == path[1:])
-                else:
-                    path_clause.append(models.RSEFileAssociation.path == '/%s' % path)
-            else:
-                if already_declared:
-                    unknown_replicas.append('%s %s' % (pfn, 'Already declared'))
-                else:
-                    no_hidden_char = True
-                    for char in str(pfn):
-                        if not isprint(char):
-                            unknown_replicas.append('%s %s' % (pfn, 'PFN contains hidden chars'))
-                            no_hidden_char = False
-                            break
-                    if no_hidden_char:
-                        unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
+        # If pfns is a list of replicas, just use scope, name and rse_id
+        for pfn in pfns:
+            replicas.append({'scope': pfn['scope'], 'name': pfn['name'], 'rse_id': rse_id, 'state': status})
 
-        if status == BadFilesStatus.BAD and declared_replicas != []:
-            # For BAD file, we modify the replica state, not for suspicious
-            query = session.query(models.RSEFileAssociation) \
-                .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle') \
-                .filter(models.RSEFileAssociation.rse_id == rse_id) \
-                .filter(or_(*path_clause))
-            rowcount = query.update({'state': ReplicaState.BAD})
-            if rowcount != len(declared_replicas):
-                # there shouldn't be any exceptions since all replicas exist
-                print(rowcount, len(declared_replicas), declared_replicas)
-                raise exception.ReplicaNotFound("One or several replicas don't exist.")
+    for replica in replicas:
+        scope, name, rse_id, path = replica['scope'], replica['name'], replica['rse_id'], replica.get('path', None)
+        __exists, scope, name, already_declared, size = __exists_replicas(rse_id=rse_id, scope=scope, name=name, path=path, session=session)
+        if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
+            declared_replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
+            new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
+            new_bad_replica.save(session=session, flush=False)
+        else:
+            if already_declared:
+                unknown_replicas.append('%s %s' % (pfn, 'Already declared'))
+            elif path:
+                no_hidden_char = True
+                for char in str(path):
+                    if not isprint(char):
+                        unknown_replicas.append('%s %s' % (path, 'PFN contains hidden chars'))
+                        no_hidden_char = False
+                        break
+                if no_hidden_char:
+                    unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
+
+    if status == BadFilesStatus.BAD:
+        # For BAD file, we modify the replica state, not for suspicious
+        try:
+            # there shouldn't be any exceptions since all replicas exist
+            update_replicas_states(declared_replicas, session=session)
+        except exception.UnsupportedOperation:
+            raise exception.ReplicaNotFound("One or several replicas don't exist.")
+
     try:
         session.flush()
     except IntegrityError as error:
@@ -472,13 +449,27 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
     """
     Declare a list of bad replicas.
 
-    :param pfns: The list of PFNs.
+    :param pfns: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id>}.
     :param reason: The reason of the loss.
     :param issuer: The issuer account.
     :param status: The status of the file (SUSPICIOUS or BAD).
     :param session: The database session in use.
     """
-    scheme, files_to_declare, unknown_replicas = get_pfn_to_rse(pfns, vo=issuer.vo, session=session)
+    type_ = type(pfns[0])
+    unknown_replicas = {}
+    files_to_declare = {}
+    for pfn in pfns:
+        if not isinstance(pfn, type_):
+            raise exception.InvalidType('The PFNs must be either a list of string or list of dict')
+    if type_ == str:
+        scheme, files_to_declare, unknown_replicas = get_pfn_to_rse(pfns, vo=issuer.vo, session=session)
+    else:
+        scheme = None
+        for pfn in pfns:
+            rse_id = pfn['rse_id']
+            if rse_id not in files_to_declare:
+                files_to_declare[rse_id] = []
+            files_to_declare[rse_id].append(pfn)
     for rse_id in files_to_declare:
         notdeclared = __declare_bad_file_replicas(files_to_declare[rse_id], rse_id, reason, issuer, status=status, scheme=scheme, session=session)
         if notdeclared:
