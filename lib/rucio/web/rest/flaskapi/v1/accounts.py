@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,18 +14,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2019
-# - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
-# - Joaquin Bogado <joaquin.bogado@cern.ch>, 2015
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Eric Vaandering <ewv@fnal.gov>, 2020
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from datetime import datetime
 from json import dumps
@@ -50,17 +42,42 @@ class Attributes(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
-        """ list all attributes for an account.
-
-        .. :quickref: Attributes; list account attributes.
-
-        :param account: The account identifier.
-        :resheader Content-Type: application/json
-        :status 200: OK
-        :status 401: Invalid auth token.
-        :status 404: Account not found.
-        :status 406: Not Acceptable
-        :returns: JSON dict containing informations about the requested account.
+        """
+        ---
+        summary: List attributes
+        description: List all attributes for an account.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    description: An account attribute.
+                    properties:
+                      key:
+                        description: The key of the account attribute.
+                        type: string
+                      value:
+                        description: The value of the account attribute.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No account found for the given id.
+          406:
+            description: Not acceptable.
         """
         try:
             attribs = list_account_attributes(account, vo=request.environ.get('vo'))
@@ -70,21 +87,56 @@ class Attributes(ErrorHandlingMethodView):
         return jsonify(attribs)
 
     def post(self, account, key):
-        """ Add attributes to an account.
-
-        .. :quickref: Attributes; Add account attribute
-
-        :param account: Account identifier.
-        :param key: The attribute key.
-        :<json string key: The attribute key.
-        :<json string value: The attribute value.
-        :status 201: Successfully created.
-        :status 401: Invalid auth token.
-        :status 409: Attribute already exists.
-        :status 404: Account not found.
+        """
+        ---
+        summary: Create attribute
+        description: Create an attribute to an account.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        - name: key
+          in: path
+          description: The key of the account attribute.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - value
+                properties:
+                  key:
+                    description: The key of the attribute. This would override the key defined in path.
+                    type: string
+                  value:
+                    description: The value of the attribute.
+                    type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No account found for the given id.
+          409:
+            description: Attribute already exists
         """
         parameters = json_parameters()
-        key = param_get(parameters, 'key')
+        key = param_get(parameters, 'key', default=key)
         value = param_get(parameters, 'value')
         try:
             add_account_attribute(key=key, value=value, account=account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -98,15 +150,32 @@ class Attributes(ErrorHandlingMethodView):
         return 'Created', 201
 
     def delete(self, account, key):
-        """ Remove attribute from account.
-
-        .. :quickref: Attributes; Delete account attribute
-
-        :param account: Account identifier.
-        :param key: The attribute key.
-        :status 200: Successfully deleted.
-        :status 401: Invalid auth token.
-        :status 404: Account not found.
+        """
+        ---
+        summary: Delete attribute
+        description: Delete an attribute of an account.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        - name: key
+          in: path
+          description: The key of the account attribute to remove.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No account found for the given id.
         """
         try:
             del_account_attribute(account=account, key=key, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -121,18 +190,36 @@ class Attributes(ErrorHandlingMethodView):
 class Scopes(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
-        """ list all scopes for an account.
-
-        .. :quickref: Scopes; List scope for account.
-
-        :param account: The account identifier.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 404: Account not found.
-        :status 404: Scope not found.
-        :statsu 406: Not Acceptable
-        :returns: A list containing all scope names for an account.
+        """
+        ---
+        summary: List scopes
+        description: List all scopse for an account.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: All scopes for the account.
+                  type: array
+                  items:
+                    description: A scope
+                    type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No account or scope found for the given id.
+          406:
+            description: Not acceptable
         """
         try:
             scopes = get_scopes(account, vo=request.environ.get('vo'))
@@ -145,16 +232,41 @@ class Scopes(ErrorHandlingMethodView):
         return jsonify(scopes)
 
     def post(self, account, scope):
-        """ create scope with given scope name.
-
-        .. :quickref: Scope; Add to account.
-
-        :param account: The account identifier.
-        :param scope: The scope to be added.
-        :status 201: Successfully added.
-        :status 401: Invalid auth token.
-        :status 404: Account not found.
-        :status 409: Scope already exists.
+        """
+        ---
+        summary: Create scope
+        description: Creates a scopse with the given name for an account.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        - name: scope
+          in: path
+          description: The scope name.
+          schema:
+            type: string
+          style: simple
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          400:
+            description: Not acceptable
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No account found.
+          409:
+            description: Scope already exists.
         """
         try:
             add_scope(scope, account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -175,16 +287,51 @@ class AccountParameter(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
-        """ get account parameters for given account name.
-
-        .. :quickref: AccountParameter; Get account parameters.
-
-        :param account: The account identifier.
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 404: Account not found.
-        :status 406: Not Acceptable.
-        :returns: JSON dict containing informations about the requested user.
+        """
+        ---
+        summary: List account parameters
+        description: Lists all parameters for an account.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    account:
+                      description: The account identifier.
+                      type: string
+                    account_type:
+                      description: The account type.
+                      type: string
+                    status:
+                      description: The account status.
+                      type: string
+                    email:
+                      description: The email for the account.
+                      type: string
+                    suspended_at:
+                      description: Datetime if the account was suspended.
+                      type: string
+                    deleted_at:
+                      description: Datetime if the account was deleted.
+                      type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No account found.
+          406:
+            description: Not acceptable
         """
         if account == 'whoami':
             # Redirect to the account uri
@@ -211,15 +358,34 @@ class AccountParameter(ErrorHandlingMethodView):
         return Response(render_json(**accdict), content_type="application/json")
 
     def put(self, account):
-        """ update a parameter for a given account name
-
-        .. :quickref: AccountParameter; Update account information.
-
-        :param account: The account identifier.
-        :status 200: OK.
-        :status 400: Unknown status.
-        :status 401: Invalid auth token.
-        :status 404: Account not found.
+        """
+        ---
+        summary: Update
+        description: Update a parameter for an account.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                description: Json object with key-value pairs corresponding to the new values of the parameters.
+                type: object
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No account found.
+          400:
+            description: Unknown status
         """
         parameters = json_parameters()
         for key, value in parameters.items():
@@ -235,16 +401,49 @@ class AccountParameter(ErrorHandlingMethodView):
         return '', 200
 
     def post(self, account):
-        """ create account with given account name.
-
-        .. :quickref: AccountParameter; Add account.
-
-        :param account: The account identifier.
-        :<json string type: The account type.
-        :<json string email: The account email.
-        :status 201: Successfully created.
-        :status 401: Invalid auth token.
-        :status 409: Account already exists.
+        """
+        ---
+        summary: Create
+        description: Create an account.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                  - type
+                  - email
+                properties:
+                  type:
+                    description: The account type.
+                    type: string
+                    enum: ["USER", "GROUP", "SERVICE"]
+                  email:
+                    description: The email for the account.
+                    type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          409:
+            description: Account already exists
+          400:
+            description: Unknown status
         """
         parameters = json_parameters()
         type_param = param_get(parameters, 'type')
@@ -261,14 +460,26 @@ class AccountParameter(ErrorHandlingMethodView):
         return 'Created', 201
 
     def delete(self, account):
-        """ disable account with given account name.
-
-        .. :quickref: AccountParameter; Delete account information.
-
-        :param account: The account identifier.
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 404: Account not found.
+        """
+        ---
+        summary: Delete
+        description: Delete an account.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        responses:
+          201:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Account not found
         """
         try:
             del_account(account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -283,15 +494,31 @@ class AccountParameter(ErrorHandlingMethodView):
 class Account(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
-        """ list all rucio accounts.
-
-        .. :quickref: Account; List all accounts.
-
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 406: Not Acceptable
-        :returns: A list containing all account names as dict.
+        """
+        ---
+        summary: List
+        description: List all accounts.
+        tags:
+          - Account
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      account:
+                        description: The account identifier.
+                        type: string
+                      type:
+                        description: The type.
+                        type: string
+                      email:
+                        description: The email.
+                        type: string
         """
 
         def generate(_filter, vo):
@@ -304,18 +531,39 @@ class Account(ErrorHandlingMethodView):
 class LocalAccountLimits(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account, rse=None):
-        """ get the current local limits for an account on a specific RSE
-
-        .. :quickref: LocalAccountLimits; Get local account limits.
-
-        :param account: The account name.
-        :param rse: The rse name.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 404: RSE not found.
-        :status 406: Not Acceptable.
-        :returns: JSON dict containing informations about the requested user.
+        """
+        ---
+        summary: Get local limit
+        description: Get the current local limits for an account on a specific RSE.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        - name: rse
+          in: path
+          description: The rse identifier.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: Json object with rse identifiers as keys and account limits in bytes as values.
+                  type: object
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE not found
+          406:
+            description: Not Acceptable
         """
         try:
             if rse:
@@ -331,18 +579,39 @@ class LocalAccountLimits(ErrorHandlingMethodView):
 class GlobalAccountLimits(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account, rse_expression=None):
-        """ get the current global limits for an account on a specific RSE expression
-
-        .. :quickref: GlobalAccountLimits; Get global account limits.
-
-        :param account: The account name.
-        :param rse_expression: The rse expression.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 404: RSE not found.
-        :status 406: Not Acceptable.
-        :returns: JSON dict containing informations about the requested user.
+        """
+        ---
+        summary: Get gloabl limit
+        description: Get the current gloabl limits for an account on a specific RSE expression.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        - name: rse_expression
+          in: path
+          description: The rse identifier.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: Json object with rse expression as keys and limits in bytes as values.
+                  type: object
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE not found
+          406:
+            description: Not Acceptable
         """
         try:
             if rse_expression:
@@ -357,19 +626,62 @@ class GlobalAccountLimits(ErrorHandlingMethodView):
 
 class Identities(ErrorHandlingMethodView):
     def post(self, account):
-        """ Grant an identity access to an account.
-
-        .. :quickref: Identities; Add identity to account.
-
-        :param account: Account identifier.
-        :<json string identity: The identity name.
-        :<json string authtype: The auth type of the identity.
-        :<json string email: The email address.
-        :status 201: Successfully added.
-        :status 400: Parameter missing.
-        :status 401: Invalid auth token.
-        :status 409: Already exists.
-        :status 404: Account not found.
+        """
+        ---
+        summary: Create identity
+        description: Grant an account identity access to an account.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                  - identity
+                  - authtype
+                  - email
+                properties:
+                  identity:
+                    description: The identity.
+                    type: string
+                  authtype:
+                    description: The authtype.
+                    type: string
+                  email:
+                    description: The email.
+                    type: string
+                  password:
+                    description: The password.
+                    type: string
+                    default: none
+                  default:
+                    description: Should this be the default account?
+                    type: string
+                    default: false
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Account not found
+          409:
+            description: Already exists
+          400:
+            description: Parameter missing
         """
         parameters = json_parameters()
         identity = param_get(parameters, 'identity')
@@ -400,17 +712,37 @@ class Identities(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account):
         """
-        Get all identities mapped to an account.
-
-        .. :quickref: Identities; Get account idenitity mapping.
-
-        :resheader Content-Type: application/x-json-stream
-        :param account: The account identifier.
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 404: Account not found.
-        :statsu 406: Not Acceptable.
-        :returns: Line separated dicts of identities.
+        ---
+        summary: List identities
+        description: Lists all identities for an account.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  type: array
+                  items:
+                    type: array
+                    minItems: 2
+                    maxItems: 2
+                    items:
+                      type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Account not found
+          406:
+            description: Not acceptable
         """
         try:
             def generate(vo):
@@ -422,18 +754,41 @@ class Identities(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
     def delete(self, account):
-
-        """ Delete an account's identity mapping.
-
-        .. :quickref: Identities; Remove identity from account.
-
-        :param account: Account identifier.
-        :<json string identity: The identity name.
-        :<json string authtype: The authentication type.
-        :status 200: Successfully deleted.
-        :status 401: Invalid auth token.
-        :status 404: Account not found.
-        :status 404: Identity not found.
+        """
+        ---
+        summary: Delete identity
+        description: Delete an account identity.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                  - identity
+                  - authtype
+                properties:
+                  identity:
+                    description: The identity.
+                    type: string
+                  authtype:
+                    description: The authtype.
+                    type: string
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Account or identity not found
         """
         parameters = json_parameters()
         identity = param_get(parameters, 'identity')
@@ -453,17 +808,33 @@ class Rules(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account):
         """
-        Return all rules of a given account.
-
-        .. :quickref: Rules; Get rules for account.
-
-        :param account: The account name.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 404: Rule not found.
-        :status 406: Not Acceptable.
-        :returns: Line separated list of rules.
+        ---
+        summary: List rules
+        description: Lists all rules for an account.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  type: array
+                  items:
+                    type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Account or rule not found
+          406:
+            description: Not acceptable
         """
         filters = {'account': account}
         filters.update(request.args)
@@ -482,19 +853,49 @@ class UsageHistory(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account, rse):
         """
-        Return the account usage of the account.
-
-        .. :quickref: UsageHistory; Get account usage history.
-
-        :param account: The account name.
-        :param rse: The RSE.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 404: Account not found.
-        :status 406: Not Acceptable.
-        :returns: Line separated list of account usages.
-        Return the account usage of the account.
+        ---
+        summary: Get account usage history
+        description: Returns the account usage history.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        - name: rse
+          in: path
+          description: The rse identifier.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      bytes:
+                        description: The number of bytes used.
+                        type: integer
+                      files:
+                        description: The files.
+                        type: string
+                      updated_at:
+                        description: When the data was provided.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Account not found
+          406:
+            description: Not acceptable
         """
         try:
             usage = get_usage_history(account=account, rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -516,18 +917,52 @@ class LocalUsage(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account, rse=None):
         """
-        Return the local account usage of the account.
-
-        .. :quickref: LocalUsage; Get local account usage.
-
-        :param account: The account name.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 404: Account not found.
-        :status 404: RSE not found.
-        :status 406: Not Acceptable.
-        :returns: Line separated list of account usages.
+        ---
+        summary: Get local account usage
+        description: Returns the local account usage.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        - name: rse
+          in: path
+          description: The rse identifier.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      rse_id:
+                        description: The rse id.
+                        type: string
+                      bytes:
+                        description: The number of bytes used.
+                        type: integer
+                      bytes_limit:
+                        description: The maximum number of bytes.
+                        type: integer
+                      bytes_remaining:
+                        description: The remaining number of bytes.
+                        type: integer
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Account or rse not found
+          406:
+            description: Not acceptable
         """
         try:
             def generate(issuer, vo):
@@ -546,18 +981,52 @@ class GlobalUsage(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account, rse_expression=None):
         """
-        Return the global account usage of the account.
-
-        .. :quickref: GlobalUsage; Get global account usage.
-
-        :param account: The account name.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 404: Account not found.
-        :status 404: RSE not found.
-        :status 406: Not Acceptable.
-        :returns: Line separated list of account usages.
+        ---
+        summary: Get local account usage
+        description: Returns the local account usage.
+        tags:
+          - Account
+        parameters:
+        - name: account
+          in: path
+          description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        - name: rse_expression
+          in: path
+          description: The rse expression.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      rse_expression:
+                        description: The rse expression.
+                        type: string
+                      bytes:
+                        description: The number of bytes used.
+                        type: integer
+                      bytes_limit:
+                        description: The maximum number of bytes.
+                        type: integer
+                      bytes_remaining:
+                        description: The remaining number of bytes.
+                        type: integer
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Account or rse not found
+          406:
+            description: Not acceptable
         """
         try:
             def generate(vo, issuer):
