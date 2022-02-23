@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from typing import TYPE_CHECKING
 
@@ -67,15 +64,80 @@ class SignURL(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
-        Sign a URL for a limited lifetime for a particular service.
-
-        :reqheader X-Rucio-VO: VO name as a string (Multi-VO only).
-        :reqheader X-Rucio-Account: Account identifier as a string.
-        :reqheader X-Rucio-AppID: Application identifier as a string.
-        :status 200: Successfully signed URL
-        :status 400: Bad Request
-        :status 401: Unauthorized
-        :status 406: Not Acceptable
+        ---
+        summary: Sign URL
+        description: Sign a url for a limited lifetime for a particular srevice.
+        tags:
+          - Credentials
+        parameters:
+        - rse:
+          in: query
+          description: The RSE to authenticate against.
+          schema:
+            type: string
+          required: true
+        - lifetime:
+          in: query
+          description: The lifetime, default 600s.
+          schema:
+            type: string
+          required: false
+        - svc:
+          in: query
+          description: The service, default gcs.
+          schema:
+            type: string
+          required: false
+        - op:
+          in: query
+          description: The operation.
+          schema:
+            type: string
+          required: false
+        - url:
+          in: query
+          description: The Url of the authentification.
+          schema:
+            type: string
+          required: true
+        requestBody:
+          content:
+            'application/octet-stream':
+              schema:
+                type: object
+                properties:
+                  X-Rucio-Account:
+                    description: Account identifier.
+                    type: string
+                  X-Rucio-VO:
+                    description: VO name (Multi-VO only).
+                    type: string
+                  X-Rucio-AppID:
+                    description: Application identifier.
+                    type: string
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    description: An account attribute.
+                    properties:
+                      key:
+                        description: The key of the account attribute.
+                        type: string
+                      value:
+                        description: The value of the account attribute.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          400:
+            description: bad request, no rse or url found.
+          406:
+            description: Not acceptable.
         """
         headers = self.get_headers()
         vo = extract_vo(request.headers)
