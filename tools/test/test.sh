@@ -35,6 +35,11 @@ elif [ "$SUITE" == "docs" ]; then
     test -s $RUCIO_CLIENT_API_OUTPUT
     test -s $RUCIO_REST_API_OUTPUT
 
+    export REST_API_DOC_FILENAME="api_doc.yaml"
+    tools/generate_rest_api_doc.py > $REST_API_DOC_FILENAME
+    tools/test/check_rest_api_documentation.sh $REST_API_DOC_FILENAME
+
+
 elif [[ "$SUITE" =~ ^client.* ]]; then
     if [ "$SUITE" == "client" ]; then
         tools/run_tests_docker.sh -i
