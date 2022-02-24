@@ -33,12 +33,12 @@ class Export(ErrorHandlingMethodView):
     def get(self):
         """
         ---
-        SUMMARY: Export data
+        summary: Export data
         description: Export data from rucio.
         tags:
           - Export
         parameters:
-        - distance:
+        - name: distance
           in: query
           description: Should the distance be enabled?
           schema:
