@@ -46,7 +46,7 @@ import heapq
 import logging
 import math
 import random
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from copy import deepcopy
 from curses.ascii import isprint
 from datetime import datetime, timedelta
@@ -64,7 +64,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
 from sqlalchemy.sql import label
-from sqlalchemy.sql.expression import case, select, text, false, true
+from sqlalchemy.sql.expression import case, select, text, false, true, null
 
 import rucio.core.did
 import rucio.core.lock
@@ -90,6 +90,9 @@ from rucio.db.sqla.util import create_temp_table
 from rucio.rse import rsemanager as rsemgr
 
 REGION = make_region_memcached(expiration_time=60)
+
+
+ScopeName = namedtuple('ScopeName', ['scope', 'name'])
 
 
 @read_session
@@ -1655,6 +1658,17 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
                                                      'for deleting' % replica_rse.rse)
 
+    columns = [
+        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
+        Column("name", String(get_schema_value('NAME_LENGTH'))),
+    ]
+    scope_name_temp_table = create_temp_table(
+        "delete_replicas",
+        *columns,
+        primary_key=columns,
+        session=session,
+    )
+
     replica_condition, src_condition = [], []
     for file in files:
         replica_condition.append(
@@ -1692,21 +1706,22 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
     if rowcount != len(files):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
 
-    __cleanup_after_replica_deletion(rse_id=rse_id, files=files, session=session)
+    __cleanup_after_replica_deletion(scope_name_temp_table=scope_name_temp_table, rse_id=rse_id, files=files, session=session)
 
     # Decrease RSE counter
     decrease(rse_id=rse_id, files=delta, bytes_=bytes_, session=session)
 
 
 @transactional_session
-def __cleanup_after_replica_deletion(rse_id, files, session=None):
+def __cleanup_after_replica_deletion(scope_name_temp_table, rse_id, files, session=None):
     """
     Perform update of collections/archive associations/dids after the removal of their replicas
     :param rse_id: the rse id
     :param files: list of files whose replica got deleted
     :param session: The database session in use.
     """
-    parent_condition, did_condition = [], []
+    parents_to_analyze = set()
+    did_condition = []
     clt_replica_condition, dst_replica_condition = [], []
     incomplete_condition, messages, clt_is_not_archive_condition, archive_contents_condition = [], [], [], []
     for file in files:
@@ -1725,19 +1740,7 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
         # so we want to skip deleting the metadata here. Perform cleanups:
 
         # 1) schedule removal of this file from all parent datasets
-        parent_condition.append(
-            and_(models.DataIdentifierAssociation.child_scope == file['scope'],
-                 models.DataIdentifierAssociation.child_name == file['name'],
-                 ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
-                     and_(models.DataIdentifier.scope == file['scope'],
-                          models.DataIdentifier.name == file['name'],
-                          models.DataIdentifier.availability == DIDAvailability.LOST)),
-                 ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
-                     and_(models.RSEFileAssociation.scope == file['scope'],
-                          models.RSEFileAssociation.name == file['name'])),
-                 ~exists(select([1]).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(
-                     and_(models.ConstituentAssociation.child_scope == file['scope'],
-                          models.ConstituentAssociation.child_name == file['name']))))
+        parents_to_analyze.add(ScopeName(scope=file['scope'], name=file['name']))
 
         # 2) schedule removal of this file from the DID table
         did_condition.append(
@@ -1778,22 +1781,55 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
                     save(session=session, flush=False)
 
     # Delete did from the content for the last did
-    while parent_condition:
-        child_did_condition, tmp_parent_condition = [], []
-        for chunk in chunks(parent_condition, 10):
+    while parents_to_analyze:
+        child_did_condition = []
 
-            stmt = select(
-                models.DataIdentifierAssociation.scope,
-                models.DataIdentifierAssociation.name,
-                models.DataIdentifierAssociation.did_type,
-                models.DataIdentifierAssociation.child_scope,
-                models.DataIdentifierAssociation.child_name,
-            ).prefix_with(
-                "/*+ USE_CONCAT NO_INDEX_FFS(CONTENTS CONTENTS_PK) */",
-                dialect='oracle',
-            ).where(
-                or_(*chunk)
-            )
+        session.query(scope_name_temp_table).delete()
+        session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in parents_to_analyze])
+        parents_to_analyze.clear()
+
+        stmt = select(
+            models.DataIdentifierAssociation.scope,
+            models.DataIdentifierAssociation.name,
+            models.DataIdentifierAssociation.did_type,
+            models.DataIdentifierAssociation.child_scope,
+            models.DataIdentifierAssociation.child_name,
+        ).distinct(
+        ).prefix_with(
+            "/*+ USE_CONCAT NO_INDEX_FFS(CONTENTS CONTENTS_PK) */",
+            dialect='oracle',
+        ).join(
+            scope_name_temp_table,
+            and_(scope_name_temp_table.scope == models.DataIdentifierAssociation.child_scope,
+                 scope_name_temp_table.name == models.DataIdentifierAssociation.child_name)
+        ).with_hint(
+            models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
+        ).outerjoin(
+            models.DataIdentifier,
+            and_(models.DataIdentifier.availability == DIDAvailability.LOST,
+                 models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
+                 models.DataIdentifier.name == models.DataIdentifierAssociation.child_name)
+        ).where(
+            models.DataIdentifier.scope == null()
+        ).with_hint(
+            models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle'
+        ).outerjoin(
+            models.RSEFileAssociation,
+            and_(models.RSEFileAssociation.scope == models.DataIdentifierAssociation.child_scope,
+                 models.RSEFileAssociation.name == models.DataIdentifierAssociation.child_name)
+        ).where(
+            models.RSEFileAssociation.scope == null()
+        ).with_hint(
+            models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle'
+        ).outerjoin(
+            models.ConstituentAssociation,
+            and_(models.ConstituentAssociation.child_scope == models.DataIdentifierAssociation.child_scope,
+                 models.ConstituentAssociation.child_name == models.DataIdentifierAssociation.child_name)
+        ).where(
+            models.ConstituentAssociation.child_scope == null()
+        )
+
+        if True:  # Todo: de-indent the code in a separate commit
             for parent_scope, parent_name, did_type, child_scope, child_name in session.execute(stmt):
 
                 # Schedule removal of child file/dataset/container from the parent dataset/container
@@ -1831,12 +1867,7 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
                                   models.DataIdentifierAssociation.name == parent_name))))
 
                 # 2) Schedule removal of this empty collection from its own parent collections
-                tmp_parent_condition.append(
-                    and_(models.DataIdentifierAssociation.child_scope == parent_scope,
-                         models.DataIdentifierAssociation.child_name == parent_name,
-                         ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(
-                             and_(models.DataIdentifierAssociation.scope == parent_scope,
-                                  models.DataIdentifierAssociation.name == parent_name))))
+                parents_to_analyze.add(ScopeName(scope=parent_scope, name=parent_name))
 
                 # 3) Schedule removal of the entry from the DIDs table
                 remove_open_did = config_get('reaper', 'remove_open_did', default=False, session=session)
@@ -1895,8 +1926,6 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
                 session.query(models.DataIdentifierAssociation). \
                     filter(or_(*chunk)). \
                     delete(synchronize_session=False)
-
-        parent_condition = tmp_parent_condition
 
     for chunk in chunks(clt_replica_condition, 10):
         session.query(models.CollectionReplica). \
@@ -1977,7 +2006,7 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
                 session.execute(stmt)
                 constituents_to_delete_condition.clear()
 
-                __cleanup_after_replica_deletion(rse_id=rse_id, files=removed_constituents, session=session)
+                __cleanup_after_replica_deletion(scope_name_temp_table, rse_id=rse_id, files=removed_constituents, session=session)
                 removed_constituents.clear()
     if constituents_to_delete_condition:
         stmt = delete(models.ConstituentAssociation). \
@@ -1985,7 +2014,7 @@ def __cleanup_after_replica_deletion(rse_id, files, session=None):
             where(or_(*constituents_to_delete_condition)). \
             execution_options(synchronize_session=False)
         session.execute(stmt)
-        __cleanup_after_replica_deletion(rse_id=rse_id, files=removed_constituents, session=session)
+        __cleanup_after_replica_deletion(scope_name_temp_table, rse_id=rse_id, files=removed_constituents, session=session)
 
     # Remove rules in Waiting for approval or Suspended
     for chunk in chunks(deleted_rules, 100):
