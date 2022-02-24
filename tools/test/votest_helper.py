@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2021-2022 CERN
+# -*- coding: utf-8 -*-
+# Copyright 2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +15,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021-2022
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2022
 
 import sys
 import traceback

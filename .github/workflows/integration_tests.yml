@@ -1,9 +1,8 @@
 name: End to End integration tests
 
 on:
-  # - pull_request
-  # - push
-  - workflow_dispatch
+  - pull_request
+  - push
 
 jobs:
   setup:

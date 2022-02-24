@@ -1,9 +1,8 @@
 name: Run all the autotests
 
 on:
-  # - pull_request
-  # - push
-  - workflow_dispatch
+  - pull_request
+  - push
 
 jobs:
   header-lint:
