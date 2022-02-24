@@ -16,6 +16,7 @@ import signal
 
 from rucio.daemons.storage.consistency.actions import run, stop
 
+
 def get_parser():
     """
     Returns the argparse parser.
@@ -26,25 +27,24 @@ Run the daemon::
     ''')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--rses", nargs='+', default=[], type=str,
-        help='RSEs to check, specified as a RSE expression. Defaults to check all RSEs.')
+                        help='RSEs to check, specified as a RSE expression. Defaults to check all RSEs.')
     parser.add_argument('--sleep-time', action="store", default=60, type=int,
-        help='Concurrency control: thread sleep time (in seconds) after each chunk of work')
+                        help='Concurrency control: thread sleep time (in seconds) after each chunk of work')
     parser.add_argument('--dark-min-age', action="store", default=28, type=int,
-        help='Min. age (in days) of a file to be considered as DARK.')
+                        help='Min. age (in days) of a file to be considered as DARK.')
     parser.add_argument('--dark-threshold-percent', action="store", default=1.0,
-        type=float, help='Max. percentage of dark files at RSE, expressed as percents - e.g. 1.5 means 1.5%')
+                        type=float, help='Max. percentage of dark files at RSE, expressed as percents - e.g. 1.5 means 1.5%%')
     parser.add_argument('--miss-threshold-percent', action="store", default=1.0,
-        type=float, help='Max. percentage of missing files at RSE, expressed as percents - e.g. 1.5 means 1.5%')
+                        type=float, help='Max. percentage of missing files at RSE, expressed as percents - e.g. 1.5 means 1.5%%')
     parser.add_argument('--scanner-files-path', action="store",
-        default="/var/cache/consistency-dump", type=pathlib.Path,
-        help='The path where the CC scanner files are mounted.')
+                        default="/var/cache/consistency-dump", type=pathlib.Path,
+                        help='The path where the CC scanner files are mounted.')
     parser.add_argument("--threads", action="store", default=1, type=int,
-        help='Concurrency control: total number of threads on this process')
+                        help='Concurrency control: total number of threads on this process')
     parser.add_argument('-f', '--force-proceed', action="store_true", default=False,
-        help='Force CC actions, even if number of dark/missing files over thresholds')
+                        help='Force CC actions, even if number of dark/missing files over thresholds')
 
     return parser
-
 
 
 if __name__ == "__main__":
