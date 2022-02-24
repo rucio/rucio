@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - jdierkes <joel.dierkes@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 from datetime import datetime
 from enum import Enum
@@ -153,7 +154,7 @@ def update_account(account, key, value, session=None):
 
 
 @stream_session
-def list_accounts(filter_={}, session=None):
+def list_accounts(filter_=None, session=None):
     """ Returns a list of all account names.
 
     :param filter_: Dictionary of attributes by which the input data should be filtered
@@ -161,6 +162,8 @@ def list_accounts(filter_={}, session=None):
 
     returns: a list of all account names.
     """
+    if filter_ is None:
+        filter_ = {}
     query = session.query(models.Account.account, models.Account.account_type,
                           models.Account.email).filter_by(status=AccountStatus.ACTIVE)
     for filter_type in filter_:

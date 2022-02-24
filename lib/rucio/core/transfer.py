@@ -50,6 +50,7 @@ import traceback
 from rucio.common.utils import PriorityQueue
 from typing import TYPE_CHECKING
 
+from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
@@ -65,6 +66,7 @@ from rucio.common.exception import (InvalidRSEExpression, NoDistance,
 from rucio.common.rse_attributes import RseData
 from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
+from rucio.core.account import list_accounts
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter
 from rucio.core.request import set_request_state, RequestWithSources, RequestSource
@@ -77,8 +79,9 @@ from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Union
+    from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Set, Union
     from sqlalchemy.orm import Session
+    from rucio.common.types import InternalAccount
 
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
@@ -87,6 +90,7 @@ Requests accessed by request_id  are covered in the core request.py
 """
 
 REGION_SHORT = make_region_memcached(expiration_time=600)
+REGION_ACCOUNTS = make_region().configure('dogpile.cache.memory', expiration_time=600)
 
 WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
 
@@ -961,6 +965,20 @@ def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None
         except InvalidRSEExpression:
             pass
 
+    restricted_read_rses = []
+    try:
+        restricted_read_rses = {rse['id'] for rse in parse_expression('restricted_read=true')}
+    except InvalidRSEExpression:
+        pass
+
+    restricted_write_rses = []
+    try:
+        restricted_write_rses = {rse['id'] for rse in parse_expression('restricted_write=true')}
+    except InvalidRSEExpression:
+        pass
+
+    admin_accounts = __list_admin_accounts(session=session)
+
     if schemes is None:
         schemes = []
 
@@ -990,8 +1008,11 @@ def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None
     return __build_transfer_paths(
         request_with_sources,
         multihop_rses=multihop_rses,
+        restricted_read_rses=restricted_read_rses,
+        restricted_write_rses=restricted_write_rses,
         schemes=schemes,
         failover_schemes=failover_schemes,
+        admin_accounts=admin_accounts,
         ignore_availability=ignore_availability,
         logger=logger,
         session=session,
@@ -1001,8 +1022,11 @@ def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None
 def __build_transfer_paths(
         requests_with_sources: "Iterable[RequestWithSources]",
         multihop_rses: "List[str]",
+        restricted_read_rses: "Set[str]",
+        restricted_write_rses: "Set[str]",
         schemes: "List[str]",
         failover_schemes: "List[str]",
+        admin_accounts: "Set[InternalAccount]",
         ignore_availability: bool = False,
         logger: "Callable" = logging.log,
         session: "Optional[Session]" = None,
@@ -1053,6 +1077,9 @@ def __build_transfer_paths(
         if not ignore_availability and rws.dest_rse.id in unavailable_write_rse_ids:
             logger(logging.WARNING, '%s: dst RSE is blocked for write. Will skip the submission of new jobs', rws.request_id)
             continue
+        if rws.account not in admin_accounts and rws.dest_rse.id in restricted_write_rses:
+            logger(logging.WARNING, '%s: dst RSE is restricted for write. Will skip the submission', rws.request_id)
+            continue
 
         # parse source expression
         source_replica_expression = rws.attributes.get('source_replica_expression', None)
@@ -1071,6 +1098,8 @@ def __build_transfer_paths(
         if allowed_source_rses is not None:
             filtered_sources = filter(lambda s: s.rse.id in allowed_source_rses, filtered_sources)
         filtered_sources = filter(lambda s: s.rse.name is not None, filtered_sources)
+        if rws.account not in admin_accounts:
+            filtered_sources = filter(lambda s: s.rse.id not in restricted_read_rses, filtered_sources)
         # Ignore blocklisted RSEs
         if not ignore_availability:
             filtered_sources = filter(lambda s: s.rse.id not in unavailable_read_rse_ids, filtered_sources)
@@ -1271,6 +1300,19 @@ def __load_rse_settings(rse_id, session=None):
                                      vo=get_rse_vo(rse_id=rse_id, session=session),
                                      session=session)
         REGION_SHORT.set('rse_settings_%s' % str(rse_id), result)
+    return result
+
+
+@read_session
+def __list_admin_accounts(session=None):
+    """
+    List admin accounts and cache the result in memory
+    """
+
+    result = REGION_ACCOUNTS.get('transfer_admin_accounts')
+    if isinstance(result, NoValue):
+        result = [acc['account'] for acc in list_accounts(filter_={'admin': True}, session=session)]
+        REGION_ACCOUNTS.set('transfer_admin_accounts', result)
     return result
 
 
