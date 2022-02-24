@@ -406,7 +406,7 @@ class TestReplicaCore:
                               'hostname': 'http.aperture.com',
                               'port': 80,
                               'prefix': '//test/chamber/',
-                              'impl': 'rucio.rse.protocols.gfalv2.Default',
+                              'impl': 'rucio.rse.protocols.gfal.Default',
                               'domains': {
                                   'lan': {'read': 1, 'write': 1, 'delete': 1},
                                   'wan': {'read': 1, 'write': 1, 'delete': 1}}})

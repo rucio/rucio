@@ -1920,7 +1920,7 @@ def get_parser():
                                                               '    --space-token DATADISK\n'
                                                               '    --web-service-path \'/srm/managerv2?SFN=\'\n'
                                                               '    --port 8443\n'
-                                                              '    --impl \'rucio.rse.protocols.gfalv2.Default\'\n'
+                                                              '    --impl \'rucio.rse.protocols.gfal.Default\'\n'
                                                               '      (for other protocol implementation, replace gfal2 with impl. name, e.g. srm)\n'
                                                               '    --domain-json\n'
                                                               '    --extended-attributes-json example.json\n'
@@ -1934,7 +1934,7 @@ def get_parser():
     add_protocol_rse_parser.add_argument('--space-token', dest='space_token', action='store', help='Space token name (SRM-only)')
     add_protocol_rse_parser.add_argument('--web-service-path', dest='web_service_path', action='store', help='Web service URL (SRM-only)')
     add_protocol_rse_parser.add_argument('--port', dest='port', action='store', type=int, help='URL port')
-    add_protocol_rse_parser.add_argument('--impl', dest='impl', default='rucio.rse.protocols.gfalv2.Default', action='store', help='Transfer protocol implementation to use')
+    add_protocol_rse_parser.add_argument('--impl', dest='impl', default='rucio.rse.protocols.gfal.Default', action='store', help='Transfer protocol implementation to use')
     add_protocol_rse_parser.add_argument('--domain-json', dest='domain_json', action='store', type=json.loads, help='JSON describing the WAN / LAN setup')
     add_protocol_rse_parser.add_argument('--extended-attributes-json', dest='ext_attr_json', action='store', type=json.loads, help='JSON describing any extended attributes')
 
