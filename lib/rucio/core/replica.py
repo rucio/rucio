@@ -2050,41 +2050,47 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         models.RSEFileAssociation.scope == null()
     )
 
-    constituents = list(session.execute(stmt).scalars().all())
-    for chunk in chunks(constituents, 200):
-        removed_constituents = []
-        constituents_to_delete_condition = []
-        for constituent in chunk:
-            removed_constituents.append({'scope': constituent.child_scope, 'name': constituent.child_name})
-            constituents_to_delete_condition.append(
-                and_(models.ConstituentAssociation.scope == constituent.scope,
-                     models.ConstituentAssociation.name == constituent.name,
-                     models.ConstituentAssociation.child_scope == constituent.child_scope,
-                     models.ConstituentAssociation.child_name == constituent.child_name))
+    constituent_associations_to_delete = set()
+    for constituent in session.execute(stmt).scalars().all():
+        constituent_associations_to_delete.add(Association(scope=constituent.scope, name=constituent.name,
+                                                           child_scope=constituent.child_scope, child_name=constituent.child_name))
+        models.ConstituentAssociationHistory(
+            child_scope=constituent.child_scope,
+            child_name=constituent.child_name,
+            scope=constituent.scope,
+            name=constituent.name,
+            bytes=constituent.bytes,
+            adler32=constituent.adler32,
+            md5=constituent.md5,
+            guid=constituent.guid,
+            length=constituent.length,
+            updated_at=constituent.updated_at,
+            created_at=constituent.created_at,
+        ).save(session=session, flush=False)
 
-            models.ConstituentAssociationHistory(
-                child_scope=constituent.child_scope,
-                child_name=constituent.child_name,
-                scope=constituent.scope,
-                name=constituent.name,
-                bytes=constituent.bytes,
-                adler32=constituent.adler32,
-                md5=constituent.md5,
-                guid=constituent.guid,
-                length=constituent.length,
-                updated_at=constituent.updated_at,
-                created_at=constituent.created_at,
-            ).save(session=session, flush=False)
-
-        stmt = delete(models.ConstituentAssociation). \
-            prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle'). \
-            where(or_(*constituents_to_delete_condition)). \
-            execution_options(synchronize_session=False)
+    if constituent_associations_to_delete:
+        session.query(association_temp_table).delete()
+        session.bulk_insert_mappings(association_temp_table, [a._asdict() for a in constituent_associations_to_delete])
+        stmt = delete(
+            models.ConstituentAssociation
+        ).where(
+            exists(select([1])
+                   .prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')
+                   .where(and_(association_temp_table.scope == models.ConstituentAssociation.scope,
+                               association_temp_table.name == models.ConstituentAssociation.name,
+                               association_temp_table.child_scope == models.ConstituentAssociation.child_scope,
+                               association_temp_table.child_name == models.ConstituentAssociation.child_name)))
+        ).execution_options(
+            synchronize_session=False
+        )
         session.execute(stmt)
-        __cleanup_after_replica_deletion(scope_name_temp_table=scope_name_temp_table,
-                                         scope_name_temp_table2=scope_name_temp_table2,
-                                         association_temp_table=association_temp_table,
-                                         rse_id=rse_id, files=removed_constituents, session=session)
+
+        removed_constituents = {ScopeName(scope=c.child_scope, name=c.child_name) for c in constituent_associations_to_delete}
+        for chunk in chunks(removed_constituents, 200):
+            __cleanup_after_replica_deletion(scope_name_temp_table=scope_name_temp_table,
+                                             scope_name_temp_table2=scope_name_temp_table2,
+                                             association_temp_table=association_temp_table,
+                                             rse_id=rse_id, files=[sn._asdict() for sn in chunk], session=session)
 
     session.query(scope_name_temp_table).delete()
     session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in dids_to_delete])
