@@ -2146,9 +2146,10 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
     while clt_to_set_not_archive:
         session.query(scope_name_temp_table).delete()
         session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in clt_to_set_not_archive[0]])
+        session.query(scope_name_temp_table2).delete()
 
         data_identifier_alias = aliased(models.DataIdentifier, name='did_alias')
-
+        # Fetch rows to be updated
         stmt = select(
             models.DataIdentifier.scope,
             models.DataIdentifier.name,
@@ -2171,17 +2172,14 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         ).where(
             data_identifier_alias.scope == null()
         )
-
-        clt_to_update = list(session.execute(stmt))
-
-        session.query(scope_name_temp_table).delete()
-        session.bulk_insert_mappings(scope_name_temp_table, [{'scope': scope, 'name': name} for scope, name in clt_to_update])
+        session.execute(insert(scope_name_temp_table2).from_select(['scope', 'name'], stmt))
+        # update the fetched rows
         stmt = update(
             models.DataIdentifier,
         ).where(
             exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')
-                   .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
-                               models.DataIdentifier.name == scope_name_temp_table.name)))
+                   .where(and_(models.DataIdentifier.scope == scope_name_temp_table2.scope,
+                               models.DataIdentifier.name == scope_name_temp_table2.name)))
         ).execution_options(
             synchronize_session=False
         ).values(
