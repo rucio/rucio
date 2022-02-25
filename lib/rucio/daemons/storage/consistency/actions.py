@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Stefan Piperov <piperov@cern.ch>, 2021-2022   
+# - Stefan Piperov <piperov@cern.ch>, 2021-2022
 
 """
 Storage-Consistency-Actions is a daemon to delete dark files, and re-subscribe the missing ones, identified previously in a Storage-Consistency-Scanner run.
@@ -47,8 +47,11 @@ from rucio.rse.rsemanager import lfns2pfns, get_rse_info, parse_pfns
 ##########################################################################
 # NOTE: these are needed by local version of declare_bad_file_replicas()
 # TODO: remove after move to core/replica.py
+from rucio.db.sqla import models
 from rucio.db.sqla.session import transactional_session
 from rucio.db.sqla.constants import (ReplicaState, BadFilesStatus)
+from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.orm.exc import FlushError
 ##########################################################################
 
 graceful_stop = threading.Event()
@@ -57,6 +60,7 @@ graceful_stop = threading.Event()
 # NOTE: declare_bad_file_replicas will be used directly from core/replica.py
 # when handling of DID is added there
 # TODO: remove after move to core/replica.py
+
 @transactional_session
 def declare_bad_file_replicas(dids, rse_id, reason, issuer,
                               status=BadFilesStatus.BAD, scheme=None, session=None):
@@ -77,23 +81,24 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer,
         scope = InternalScope(did['scope'], vo=issuer.vo)
         name = did['name']
         __exists, scope, name, already_declared, size =\
-         __exists_replicas(rse_id, scope, name, path=None, session=session)
+        __exists_replicas(rse_id, scope, name, path=None, session=session)
         if __exists and ((str(status) == str(BadFilesStatus.BAD) and not
-          already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
+                          already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
             replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id,
-              'state': ReplicaState.BAD})
+                             'state': ReplicaState.BAD})
             new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id,
-              reason=reason, state=status, account=issuer, bytes=size)
+                                                 reason=reason, state=status, account=issuer,
+                                                 bytes=size)
             new_bad_replica.save(session=session, flush=False)
             session.query(models.Source).filter_by(scope=scope, name=name,
-              rse_id=rse_id).delete(synchronize_session=False)
+                                                   rse_id=rse_id).delete(synchronize_session=False)
         else:
             if already_declared:
                 unknown_replicas.append('%s:%s %s' % (did['scope'], did['name'],
-                 'Already declared'))
+                                        'Already declared'))
             else:
                 unknown_replicas.append('%s:%s %s' % (did['scope'], did['name'],
-                 'Unknown replica'))
+                                        'Unknown replica'))
     if str(status) == str(BadFilesStatus.BAD):
         # For BAD file, we modify the replica state, not for suspicious
         try:
@@ -322,7 +327,7 @@ def was_cc_processed(stats_file):
         return False
 
 
-def process_dark_files(path, rse, latest_run, maxdarkfraction, 
+def process_dark_files(path, rse, latest_run, maxdarkfraction,
                        max_files_at_site, oldenough_run, force_proceed):
 
     """
@@ -385,7 +390,7 @@ def process_dark_files(path, rse, latest_run, maxdarkfraction,
 
     deleted_files = 0
     if confirmed_dark_files / max_files_at_site < maxdarkfraction\
-      or force_proceed is True:
+    or force_proceed is True:
         logger(logging.INFO, '\n Can proceed with dark files deletion')
 
 # Then, do the real deletion (code from DeleteReplicas.py)
@@ -450,7 +455,7 @@ def process_dark_files(path, rse, latest_run, maxdarkfraction,
 #####################################
 
 
-def process_miss_files(path, rse, latest_run, maxmissfraction, 
+def process_miss_files(path, rse, latest_run, maxmissfraction,
                        max_files_at_site, oldenough_run, force_proceed):
 
     """
@@ -613,8 +618,8 @@ def deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
              Will skip processing.')
 
         logger(logging.INFO, '\n scanner_files: %d \n dbdump_before_files: %d\
-          \n dbdump_after_files: %d \n max_files_at_site: %d' % 
-          (scanner_files, dbdump_before_files, dbdump_after_files, max_files_at_site))
+          \n dbdump_after_files: %d \n max_files_at_site: %d' %
+               (scanner_files, dbdump_before_files, dbdump_after_files, max_files_at_site))
 
 
 # Was the latest run ever attempted to be processed?
@@ -638,7 +643,7 @@ def deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
                 logger(logging.INFO, '\n The first  %d days older run is: %s'
                        % (minagedark, oldenough_run))
 
-                process_dark_files(path, rse, latest_run, maxdarkfraction, 
+                process_dark_files(path, rse, latest_run, maxdarkfraction,
                                    max_files_at_site, oldenough_run, force_proceed)
             else:
                 logger(logging.INFO, '\n There is no other run for this RSE at least %d days older,\
@@ -649,7 +654,7 @@ def deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
 # Finally, deal with the missing replicas
 ###########################################
 
-            process_miss_files(path, rse, latest_run, maxmissfraction, 
+            process_miss_files(path, rse, latest_run, maxmissfraction,
                                max_files_at_site, oldenough_run, force_proceed)
 
         else:
@@ -690,7 +695,7 @@ def actions_loop(once, rses, sleep_time, dark_min_age, dark_threshold_percent,
     # Make an initial heartbeat
     # so that all storage-consistency-actions have the correct worker number on the next try
     prefix = 'storage-consistency-actions[%i/%i] ' %\
-              (heartbeat['assign_thread'], heartbeat['nr_threads'])
+             (heartbeat['assign_thread'], heartbeat['nr_threads'])
     logger = formatted_logger(logging.log, prefix + '%s')
     logger(logging.INFO, '\n hostname: %s  pid: %d  current_thread: %s' %
            (hostname, pid, current_thread))
@@ -779,10 +784,13 @@ def run(once=False, rses=None, sleep_time=60, default_dark_min_age=28, default_d
                      miss_threshold_percent, force_proceed, scanner_files_path)
     else:
         logging.info('Consistency Actions starting %s threads' % str(threads))
-        threads = [threading.Thread(target=actions_loop, kwargs={'once': once, 'rses': rses, 'sleep_time': sleep_time,
-                   'dark_min_age': dark_min_age, 'dark_threshold_percent': dark_threshold_percent,
-                   'miss_threshold_percent': miss_threshold_percent, 'force_proceed': force_proceed,
-                   'scanner_files_path': scanner_files_path}) for i in range(0, threads)]
+        threads = [threading.Thread(target=actions_loop, 
+                                    kwargs={'once': once, 'rses': rses, 'sleep_time': sleep_time,
+                                            'dark_min_age': dark_min_age,
+                                            'dark_threshold_percent': dark_threshold_percent,
+                                            'miss_threshold_percent': miss_threshold_percent,
+                                            'force_proceed': force_proceed,
+                                            'scanner_files_path': scanner_files_path}) for i in range(0, threads)]
         logger(logging.INFO, '\n Threads: %d' % len(threads))
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
