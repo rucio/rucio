@@ -93,6 +93,7 @@ REGION = make_region_memcached(expiration_time=60)
 
 
 ScopeName = namedtuple('ScopeName', ['scope', 'name'])
+Association = namedtuple('Association', ['scope', 'name', 'child_scope', 'child_name'])
 
 
 @read_session
@@ -1668,6 +1669,18 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
         primary_key=columns,
         session=session,
     )
+    columns = [
+        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
+        Column("name", String(get_schema_value('NAME_LENGTH'))),
+        Column("child_scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
+        Column("child_name", String(get_schema_value('NAME_LENGTH'))),
+    ]
+    association_temp_table = create_temp_table(
+        "delete_replicas_association",
+        *columns,
+        primary_key=columns,
+        session=session,
+    )
 
     replica_condition, src_condition = [], []
     for file in files:
@@ -1706,14 +1719,16 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
     if rowcount != len(files):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
 
-    __cleanup_after_replica_deletion(scope_name_temp_table=scope_name_temp_table, rse_id=rse_id, files=files, session=session)
+    __cleanup_after_replica_deletion(scope_name_temp_table=scope_name_temp_table,
+                                     association_temp_table=association_temp_table,
+                                     rse_id=rse_id, files=files, session=session)
 
     # Decrease RSE counter
     decrease(rse_id=rse_id, files=delta, bytes_=bytes_, session=session)
 
 
 @transactional_session
-def __cleanup_after_replica_deletion(scope_name_temp_table, rse_id, files, session=None):
+def __cleanup_after_replica_deletion(scope_name_temp_table, association_temp_table, rse_id, files, session=None):
     """
     Perform update of collections/archive associations/dids after the removal of their replicas
     :param rse_id: the rse id
@@ -1723,7 +1738,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, rse_id, files, sessi
     parents_to_analyze, affected_archives = set(), set()
     did_condition = []
     clt_replica_condition, dst_replica_condition = [], []
-    incomplete_condition, messages, clt_to_set_not_archive = [], [], []
+    incomplete_dids, messages, clt_to_set_not_archive = [], [], []
     for file in files:
 
         # Schedule update of all collections containing this file and having a collection replica in the RSE
@@ -1773,7 +1788,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, rse_id, files, sessi
 
     # Delete did from the content for the last did
     while parents_to_analyze:
-        child_did_condition = []
+        did_associations_to_remove = set()
 
         session.query(scope_name_temp_table).delete()
         session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in parents_to_analyze])
@@ -1825,11 +1840,8 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, rse_id, files, sessi
             for parent_scope, parent_name, did_type, child_scope, child_name in session.execute(stmt):
 
                 # Schedule removal of child file/dataset/container from the parent dataset/container
-                child_did_condition.append(
-                    and_(models.DataIdentifierAssociation.scope == parent_scope,
-                         models.DataIdentifierAssociation.name == parent_name,
-                         models.DataIdentifierAssociation.child_scope == child_scope,
-                         models.DataIdentifierAssociation.child_name == child_name))
+                did_associations_to_remove.add(Association(scope=parent_scope, name=parent_name,
+                                                           child_scope=child_scope, child_name=child_name))
 
                 # Schedule setting is_archive = False on parents which don't have any children with is_archive == True anymore
                 clt_to_set_not_archive[-1].add(ScopeName(scope=parent_scope, name=parent_name))
@@ -1875,39 +1887,52 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, rse_id, files, sessi
                                  and_(models.DataIdentifierAssociation.scope == parent_scope,
                                       models.DataIdentifierAssociation.name == parent_name))))
 
-        if child_did_condition:
+        if did_associations_to_remove:
+            session.query(association_temp_table).delete()
+            session.bulk_insert_mappings(association_temp_table, [a._asdict() for a in did_associations_to_remove])
 
             # get the list of modified parent scope, name
-            for chunk in chunks(child_did_condition, 10):
-                modifieds = session.query(models.DataIdentifierAssociation.scope,
-                                          models.DataIdentifierAssociation.name,
-                                          models.DataIdentifierAssociation.did_type). \
-                    distinct(). \
-                    with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle'). \
-                    filter(or_(*chunk)). \
-                    filter(exists(select([1]).
-                                  prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).
-                           where(and_(models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
-                                      models.DataIdentifierAssociation.name == models.DataIdentifier.name,
-                                      or_(models.DataIdentifier.complete == true(),
-                                          models.DataIdentifier.complete is None))))
-                for parent_scope, parent_name, parent_did_type in modifieds:
-                    message = {'scope': parent_scope,
-                               'name': parent_name,
-                               'did_type': parent_did_type,
-                               'event_type': 'INCOMPLETE'}
-                    if message not in messages:
-                        messages.append(message)
-                        incomplete_condition.append(
-                            and_(models.DataIdentifier.scope == parent_scope,
-                                 models.DataIdentifier.name == parent_name,
-                                 models.DataIdentifier.did_type == parent_did_type))
+            stmt = select(
+                models.DataIdentifier.scope,
+                models.DataIdentifier.name,
+                models.DataIdentifier.did_type,
+            ).distinct(
+            ).with_hint(
+                models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
+            ).join(
+                association_temp_table,
+                and_(association_temp_table.scope == models.DataIdentifier.scope,
+                     association_temp_table.name == models.DataIdentifier.name)
+            ).where(
+                or_(models.DataIdentifier.complete == true(),
+                    models.DataIdentifier.complete is None),
+            )
+            for parent_scope, parent_name, parent_did_type in session.execute(stmt):
+                message = {'scope': parent_scope,
+                           'name': parent_name,
+                           'did_type': parent_did_type,
+                           'event_type': 'INCOMPLETE'}
+                if message not in messages:
+                    messages.append(message)
+                    incomplete_dids.append(ScopeName(scope=parent_scope, name=parent_name))
 
-            for chunk in chunks(child_did_condition, 10):
-                rucio.core.did.insert_content_history(content_clause=chunk, did_created_at=None, session=session)
-                session.query(models.DataIdentifierAssociation). \
-                    filter(or_(*chunk)). \
-                    delete(synchronize_session=False)
+            content_to_delete_filter = exists(select([1])
+                                              .prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')
+                                              .where(and_(association_temp_table.scope == models.DataIdentifierAssociation.scope,
+                                                          association_temp_table.name == models.DataIdentifierAssociation.name,
+                                                          association_temp_table.child_scope == models.DataIdentifierAssociation.child_scope,
+                                                          association_temp_table.child_name == models.DataIdentifierAssociation.child_name)))
+
+            rucio.core.did.insert_content_history(filter_=content_to_delete_filter, did_created_at=None, session=session)
+
+            stmt = delete(
+                models.DataIdentifierAssociation
+            ).where(
+                content_to_delete_filter,
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
 
     for chunk in chunks(clt_replica_condition, 10):
         session.query(models.CollectionReplica). \
@@ -1915,14 +1940,22 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, rse_id, files, sessi
             delete(synchronize_session=False)
 
     # Update incomplete state
-    for chunk in chunks(incomplete_condition, 10):
-        stmt = update(models.DataIdentifier). \
-            prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle'). \
-            where(or_(*chunk)). \
-            where(models.DataIdentifier.complete != false()). \
-            execution_options(synchronize_session=False). \
-            values(complete=False)
-        session.execute(stmt)
+    session.query(scope_name_temp_table).delete()
+    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in incomplete_dids])
+    stmt = update(
+        models.DataIdentifier
+    ).where(
+        exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')
+               .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
+                           models.DataIdentifier.name == scope_name_temp_table.name)))
+    ).where(
+        models.DataIdentifier.complete != false(),
+    ).execution_options(
+        synchronize_session=False
+    ).values(
+        complete=False
+    )
+    session.execute(stmt)
 
     # delete empty dids
     messages, deleted_dids, deleted_rules, deleted_did_meta = [], [], [], []
@@ -2015,6 +2048,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, rse_id, files, sessi
             execution_options(synchronize_session=False)
         session.execute(stmt)
         __cleanup_after_replica_deletion(scope_name_temp_table=scope_name_temp_table,
+                                         association_temp_table=association_temp_table,
                                          rse_id=rse_id, files=removed_constituents, session=session)
 
     # Remove rules in Waiting for approval or Suspended
@@ -2348,7 +2382,7 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, session=N
                                  models.DataIdentifier.did_type == parent_did_type))
 
             for chunk in chunks(child_did_condition, 10):
-                rucio.core.did.insert_content_history(content_clause=chunk, did_created_at=None, session=session)
+                rucio.core.did.insert_content_history(filter_=or_(*chunk), did_created_at=None, session=session)
                 session.query(models.DataIdentifierAssociation).\
                     filter(or_(*chunk)).\
                     delete(synchronize_session=False)
