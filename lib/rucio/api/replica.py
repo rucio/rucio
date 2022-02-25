@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2022
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ilija Vukotic <ivukotic@cern.ch>, 2020-2021
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
@@ -29,8 +29,8 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
-# - Christoph Ames <christoph.ames@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
+# - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
 
 import datetime
 
@@ -92,7 +92,7 @@ def declare_bad_file_replicas(pfns, reason, issuer, vo='def'):
 
     issuer = InternalAccount(issuer, vo=vo)
 
-    type_ = type(pfns[0])
+    type_ = type(pfns[0]) if len(pfns) > 0 else None
     for pfn in pfns:
         if not isinstance(pfn, type_):
             raise exception.InvalidType('The PFNs must be either a list of string or list of dict')
