@@ -116,7 +116,7 @@ elif [ $RDBMS == "postgres9" ]; then
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_postgres9.ini /opt/rucio/etc/alembic.ini
     RESTART_HTTPD=1
 
-elif [ $RDBMS == "postgres12" ]; then
+elif [ $RDBMS == "postgres14" ]; then
     CON_POSTGRES=$(docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS -e POSTGRES_PASSWORD=secret docker.io/postgres:12 -c 'max_connections=300')
     docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS docker.io/webcenter/activemq:latest
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO sh -c 'echo 127.0.0.1 postgres12 activemq >> /etc/hosts'
