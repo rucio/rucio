@@ -61,6 +61,7 @@ graceful_stop = threading.Event()
 # when handling of DID is added there
 # TODO: remove after move to core/replica.py
 
+
 @transactional_session
 def declare_bad_file_replicas(dids, rse_id, reason, issuer,
                               status=BadFilesStatus.BAD, scheme=None, session=None):
@@ -80,8 +81,8 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer,
     for did in dids:
         scope = InternalScope(did['scope'], vo=issuer.vo)
         name = did['name']
-        __exists, scope, name, already_declared, size =\
-        __exists_replicas(rse_id, scope, name, path=None, session=session)
+        __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope, name, 
+                                                                          path=None, session=session)
         if __exists and ((str(status) == str(BadFilesStatus.BAD) and not
                           already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
             replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id,
@@ -389,8 +390,7 @@ def process_dark_files(path, rse, latest_run, maxdarkfraction,
                  confirmed_dark_files, labels=labels)
 
     deleted_files = 0
-    if confirmed_dark_files / max_files_at_site < maxdarkfraction\
-    or force_proceed is True:
+    if confirmed_dark_files / max_files_at_site < maxdarkfraction or force_proceed is True:
         logger(logging.INFO, '\n Can proceed with dark files deletion')
 
 # Then, do the real deletion (code from DeleteReplicas.py)
@@ -784,7 +784,7 @@ def run(once=False, rses=None, sleep_time=60, default_dark_min_age=28, default_d
                      miss_threshold_percent, force_proceed, scanner_files_path)
     else:
         logging.info('Consistency Actions starting %s threads' % str(threads))
-        threads = [threading.Thread(target=actions_loop, 
+        threads = [threading.Thread(target=actions_loop,
                                     kwargs={'once': once, 'rses': rses, 'sleep_time': sleep_time,
                                             'dark_min_age': dark_min_age,
                                             'dark_threshold_percent': dark_threshold_percent,
