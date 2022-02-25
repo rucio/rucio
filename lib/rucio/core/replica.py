@@ -39,7 +39,7 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Gabriele Fronzé <sucre.91@hotmail.it>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
 # - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
 
 import heapq
@@ -320,9 +320,8 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
     unknown_replicas = []
     replicas = []
     declared_replicas = []
-    type_ = type(pfns[0])
 
-    if type_ is str:
+    if len(pfns) > 0 and type(pfns[0]) is str:
         # If pfns is a list of PFNs, the scope and names need to be extracted from the path
         rse_info = rsemgr.get_rse_info(rse_id=rse_id, session=session)
         proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
@@ -455,13 +454,13 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
     :param status: The status of the file (SUSPICIOUS or BAD).
     :param session: The database session in use.
     """
-    type_ = type(pfns[0])
+    type_ = type(pfns[0]) if len(pfns) > 0 else None
     unknown_replicas = {}
     files_to_declare = {}
     for pfn in pfns:
         if not isinstance(pfn, type_):
             raise exception.InvalidType('The PFNs must be either a list of string or list of dict')
-    if type_ == str:
+    if len(pfns) > 0 and type_ == str:
         scheme, files_to_declare, unknown_replicas = get_pfn_to_rse(pfns, vo=issuer.vo, session=session)
     else:
         scheme = None
