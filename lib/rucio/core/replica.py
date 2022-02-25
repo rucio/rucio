@@ -1975,14 +1975,8 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, association_temp_tab
                                       models.ReplicationRule.name == name))
             deleted_dids.append(and_(models.DataIdentifier.scope == scope,
                                      models.DataIdentifier.name == name))
-            if session.bind.dialect.name == 'oracle':
-                oracle_version = int(session.connection().connection.version.split('.')[0])
-                if oracle_version >= 12:
-                    deleted_did_meta.append(and_(models.DidMeta.scope == scope,
-                                                 models.DidMeta.name == name))
-            else:
-                deleted_did_meta.append(and_(models.DidMeta.scope == scope,
-                                             models.DidMeta.name == name))
+            deleted_did_meta.append(and_(models.DidMeta.scope == scope,
+                                         models.DidMeta.name == name))
 
     # Remove Archive Constituents
     session.query(scope_name_temp_table).delete()
@@ -2062,10 +2056,16 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, association_temp_tab
         session.execute(stmt)
 
     # Remove DID Metadata
-    for chunk in chunks(deleted_did_meta, 100):
-        session.query(models.DidMeta). \
-            filter(or_(*chunk)). \
-            delete(synchronize_session=False)
+    must_delete_did_meta = True
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection().connection.version.split('.')[0])
+        if oracle_version < 12:
+            must_delete_did_meta = False
+    if must_delete_did_meta:
+        for chunk in chunks(deleted_did_meta, 100):
+            session.query(models.DidMeta). \
+                filter(or_(*chunk)). \
+                delete(synchronize_session=False)
 
     for chunk in chunks(messages, 100):
         session.bulk_insert_mappings(models.Message, chunk)
