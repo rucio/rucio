@@ -1958,7 +1958,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, association_temp_tab
     session.execute(stmt)
 
     # delete empty dids
-    messages, deleted_dids, deleted_rules, deleted_did_meta = [], [], [], []
+    messages, dids_to_delete = [], set()
     for chunk in chunks(did_condition, 10):
         query = session.query(models.DataIdentifier.scope,
                               models.DataIdentifier.name,
@@ -1971,12 +1971,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, association_temp_tab
                                  'payload': dumps({'scope': scope.external,
                                                    'name': name,
                                                    'account': 'root'})})
-            deleted_rules.append(and_(models.ReplicationRule.scope == scope,
-                                      models.ReplicationRule.name == name))
-            deleted_dids.append(and_(models.DataIdentifier.scope == scope,
-                                     models.DataIdentifier.name == name))
-            deleted_did_meta.append(and_(models.DidMeta.scope == scope,
-                                         models.DidMeta.name == name))
+            dids_to_delete.add(ScopeName(scope=scope, name=name))
 
     # Remove Archive Constituents
     session.query(scope_name_temp_table).delete()
@@ -2045,15 +2040,23 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, association_temp_tab
                                          association_temp_table=association_temp_table,
                                          rse_id=rse_id, files=removed_constituents, session=session)
 
+    session.query(scope_name_temp_table).delete()
+    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in dids_to_delete])
+
     # Remove rules in Waiting for approval or Suspended
-    for chunk in chunks(deleted_rules, 100):
-        stmt = delete(models.ReplicationRule). \
-            prefix_with("/*+ INDEX(RULES RULES_SCOPE_NAME_IDX) */", dialect='oracle'). \
-            where(or_(*chunk)). \
-            where(models.ReplicationRule.state.in_((RuleState.SUSPENDED,
-                                                    RuleState.WAITING_APPROVAL))). \
-            execution_options(synchronize_session=False)
-        session.execute(stmt)
+    stmt = delete(
+        models.ReplicationRule,
+    ).where(
+        exists(select([1])
+               .prefix_with("/*+ INDEX(RULES RULES_SCOPE_NAME_IDX) */", dialect='oracle')
+               .where(and_(models.ReplicationRule.scope == scope_name_temp_table.scope,
+                           models.ReplicationRule.name == scope_name_temp_table.name)))
+    ).where(
+        models.ReplicationRule.state.in_((RuleState.SUSPENDED, RuleState.WAITING_APPROVAL))
+    ).execution_options(
+        synchronize_session=False
+    )
+    session.execute(stmt)
 
     # Remove DID Metadata
     must_delete_did_meta = True
@@ -2062,23 +2065,36 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, association_temp_tab
         if oracle_version < 12:
             must_delete_did_meta = False
     if must_delete_did_meta:
-        for chunk in chunks(deleted_did_meta, 100):
-            session.query(models.DidMeta). \
-                filter(or_(*chunk)). \
-                delete(synchronize_session=False)
+        stmt = delete(
+            models.DidMeta,
+        ).where(
+            exists(select([1])
+                   .where(and_(models.DidMeta.scope == scope_name_temp_table.scope,
+                               models.DidMeta.name == scope_name_temp_table.name)))
+        ).execution_options(
+            synchronize_session=False
+        )
+        session.execute(stmt)
 
     for chunk in chunks(messages, 100):
         session.bulk_insert_mappings(models.Message, chunk)
 
-    for chunk in chunks(deleted_dids, 100):
-        stmt = delete(models.DataIdentifier). \
-            prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle'). \
-            where(or_(*chunk)). \
-            execution_options(synchronize_session=False)
-        archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
-        if archive_dids:
-            rucio.core.did.insert_deleted_dids(chunk, session=session)
-        session.execute(stmt)
+    # Delete dids
+    dids_to_delete_filter = exists(select([1])
+                                   .prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')
+                                   .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
+                                               models.DataIdentifier.name == scope_name_temp_table.name)))
+    archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
+    if archive_dids:
+        rucio.core.did.insert_deleted_dids(filter_=dids_to_delete_filter, session=session)
+    stmt = delete(
+        models.DataIdentifier,
+    ).where(
+        dids_to_delete_filter,
+    ).execution_options(
+        synchronize_session=False
+    )
+    session.execute(stmt)
 
     # Set is_archive = false on collections which don't have archive children anymore
     while clt_to_set_not_archive:
@@ -2504,7 +2520,7 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, session=N
             execution_options(synchronize_session=False)
         archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
         if archive_dids:
-            rucio.core.did.insert_deleted_dids(chunk, session=session)
+            rucio.core.did.insert_deleted_dids(filter_=or_(*chunk), session=session)
         session.execute(stmt)
 
     # Set is_archive = false on collections which don't have archive children anymore
