@@ -1682,41 +1682,46 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
         session=session,
     )
 
-    replica_condition, src_condition = [], []
-    for file in files:
-        replica_condition.append(
-            and_(models.RSEFileAssociation.scope == file['scope'],
-                 models.RSEFileAssociation.name == file['name']))
-
-        src_condition.append(
-            and_(models.Source.scope == file['scope'],
-                 models.Source.name == file['name'],
-                 models.Source.rse_id == rse_id))
-
-    delta, bytes_, rowcount = 0, 0, 0
+    session.bulk_insert_mappings(scope_name_temp_table, [{'scope': file['scope'], 'name': file['name']} for file in files])
 
     # WARNING : This should not be necessary since that would mean the replica is used as a source.
-    for chunk in chunks(src_condition, 10):
-        rowcount = session.query(models.Source). \
-            filter(or_(*chunk)). \
-            delete(synchronize_session=False)
+    stmt = delete(
+        models.Source,
+    ).where(
+        exists(select([1])
+               .where(and_(models.Source.scope == scope_name_temp_table.scope,
+                           models.Source.name == scope_name_temp_table.name,
+                           models.Source.rse_id == rse_id)))
+    ).execution_options(
+        synchronize_session=False
+    )
+    session.execute(stmt)
 
-    rowcount = 0
-    for chunk in chunks(replica_condition, 10):
-        for (scope, name, rid, replica_bytes) in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes). \
-                with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*chunk)):
-            bytes_ += replica_bytes
-            delta += 1
+    stmt = select(
+        func.count(),
+        func.sum(models.RSEFileAssociation.bytes),
+    ).join(
+        scope_name_temp_table,
+        and_(models.RSEFileAssociation.scope == scope_name_temp_table.scope,
+             models.RSEFileAssociation.name == scope_name_temp_table.name,
+             models.RSEFileAssociation.rse_id == rse_id)
+    )
+    delta, bytes_ = session.execute(stmt).one()
 
-        stmt = delete(models.RSEFileAssociation). \
-            prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle'). \
-            where(models.RSEFileAssociation.rse_id == rse_id). \
-            where(or_(*chunk)). \
-            execution_options(synchronize_session=False)
-        result = session.execute(stmt)
-        rowcount += result.rowcount
-
-    if rowcount != len(files):
+    # Delete replicas
+    stmt = delete(
+        models.RSEFileAssociation,
+    ).where(
+        exists(select([1])
+               .with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle')
+               .where(and_(models.RSEFileAssociation.scope == scope_name_temp_table.scope,
+                           models.RSEFileAssociation.name == scope_name_temp_table.name,
+                           models.RSEFileAssociation.rse_id == rse_id)))
+    ).execution_options(
+        synchronize_session=False
+    )
+    res = session.execute(stmt)
+    if res.rowcount != len(files):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
 
     __cleanup_after_replica_deletion(scope_name_temp_table=scope_name_temp_table,
