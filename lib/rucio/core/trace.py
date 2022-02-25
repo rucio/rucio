@@ -39,7 +39,7 @@ from jsonschema import validate, ValidationError, draft7_format_checker
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import InvalidObject
-from rucio.common.schema.generic import SCOPE, RSE, UUID, TIME_ENTRY, IPv4orIPv6, CLIENT_STATE
+from rucio.common.schema.generic import UUID, TIME_ENTRY, IPv4orIPv6, CLIENT_STATE
 from rucio.core.monitor import record_counter
 
 CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
@@ -89,7 +89,7 @@ TOUCH_SCHEMA = {
         "eventType": {"enum": ["touch"]},
         "clientState": CLIENT_STATE,
         "account": {"type": "string"},
-        "scope": SCOPE,
+        "scope": {"type": "string"},
         "filename": {"type": "string"},
         "datasetScope": {"type": ["string", "null"]},
         "dataset": {"type": ["string", "null"]},
@@ -97,8 +97,8 @@ TOUCH_SCHEMA = {
         "traceTimeentryUnix": {"type": "number"},
         "traceIp": IPv4orIPv6,
         "traceId": UUID,
-        "localSite": RSE,
-        "remoteSite": RSE,
+        "localSite": {"type": "string"},
+        "remoteSite": {"type": "string"},
         "usrdn": {"type": "string"},
     },
     "required": ['eventType', 'clientState', 'account', 'traceTimeentry', 'traceTimeentryUnix', 'traceIp', 'traceId']
@@ -114,10 +114,10 @@ UPLOAD_SCHEMA = {
         "clientState": CLIENT_STATE,
         "account": {"type": "string"},
         "uuid": UUID,
-        "scope": SCOPE,
+        "scope": {"type": "string"},
         "datasetScope": {"type": ["string", "null"]},
         "dataset": {"type": ["string", "null"]},
-        "remoteSite": RSE,
+        "remoteSite": {"type": "string"},
         "filesize": {"type": "number"},
         "protocol": {"type": "string"},
         "transferStart": {"type": "number"},
@@ -138,17 +138,17 @@ UPLOAD_SCHEMA = {
 }
 
 DOWNLOAD_SCHEMA = {
-    "description": "upload method",
+    "description": "download method",
     "type": "object",
     "properties": {
         "eventType": {"enum": ["download"]},
         "hostname": {"type": "string"},
         "eventVersion": {"type": "string"},
-        "localSite": RSE,
-        "remoteSite": RSE,
+        "localSite": {"type": "string"},
+        "remoteSite": {"type": "string"},
         "account": {"type": "string"},
         "uuid": UUID,
-        "scope": SCOPE,
+        "scope": {"type": "string"},
         "filename": {"type": "string"},
         "datasetScope": {"type": ["string", "null"]},
         "dataset": {"type": ["string", "null"]},
@@ -177,11 +177,11 @@ GET_SCHEMA = {
         "eventType": {"enum": ["get", "get_sm", "sm_get", "get_sm_a", "sm_get_a"]},
         "clientState": CLIENT_STATE,
         "stateReason": {"type": "string"},
-        "url": {"type": "string"},
+        "url": {"type": ["string", "null"]},
         "vo": {"type": "string"},
-        "scope": SCOPE,
+        "scope": {"type": "string"},
         "eventVersion": {"type": "string"},
-        "remoteSite": RSE,
+        "remoteSite": {"type": "string"},
         "datasetScope": {"type": "string"},
         "dataset": {"type": "string"},
         "filename": {"type": "string"},
@@ -203,11 +203,11 @@ PUT_SCHEMA = {
         "eventType": {"enum": ["put_sm", "put_sm_a"]},
         "clientState": CLIENT_STATE,
         "stateReason": {"type": "string"},
-        "url": {"type": "string"},
+        "url": {"type": ["string", "null"]},
         "vo": {"type": "string"},
-        "scope": SCOPE,
+        "scope": {"type": "string"},
         "eventVersion": {"type": "string"},
-        "remoteSite": RSE,
+        "remoteSite": {"type": "string"},
         "datasetScope": {"type": "string"},
         "dataset": {"type": "string"},
         "filename": {"type": "string"},
@@ -218,10 +218,32 @@ PUT_SCHEMA = {
         "traceId": UUID,
         "usrdn": {"type": "string"},
         "pq": {"type": "string"},
-        "localSite": RSE
+        "localSite": {"type": "string"}
     },
-    "required": ['eventType', 'localSite', 'eventVersion', 'uuid', 'scope',
+    "required": ['eventType', 'localSite', 'eventVersion', 'uuid',
                  'filename', 'dataset']
+}
+
+SPECIAL_SCHEMA = {
+    "description": "A special schema to capture most unsupported eventTypes",
+    "type": "object",
+    "properties": {
+        "eventType": {"enum": ["sfo2eos"]},
+        "clientState": CLIENT_STATE,
+        "account": {"type": "string"},
+        "scope": {"type": "string"},
+        "filename": {"type": "string"},
+        "datasetScope": {"type": ["string", "null"]},
+        "dataset": {"type": ["string", "null"]},
+        "traceTimeentry": TIME_ENTRY,
+        "traceTimeentryUnix": {"type": "number"},
+        "traceIp": IPv4orIPv6,
+        "traceId": UUID,
+        "localSite": {"type": "string"},
+        "remoteSite": {"type": "string"},
+        "usrdn": {"type": "string"},
+    },
+    "required": ['eventType', 'clientState', 'account', 'traceTimeentry', 'traceTimeentryUnix', 'traceIp', 'traceId']
 }
 
 SCHEMAS = {
@@ -237,7 +259,8 @@ SCHEMAS = {
     'put_sm': PUT_SCHEMA,
     'put_sm_a': PUT_SCHEMA,
     'sm_put': PUT_SCHEMA,
-    'sm_put_a': PUT_SCHEMA
+    'sm_put_a': PUT_SCHEMA,
+    'sfo2eos': SPECIAL_SCHEMA
 }
 
 FORMAT_CHECKER = draft7_format_checker
@@ -329,12 +352,20 @@ def validate_schema(obj):
 
     :param obj: The object to validate.
 
-    :raises: ValidationError
+    :raises: InvalidObject
     """
     obj = json.loads(obj)
 
     try:
         if obj and 'eventType' in obj:
+            event_type = SCHEMAS.get(obj['eventType'].lower())
+            if not event_type:
+                validation_error = ValidationError(message=f"Trace schema for eventType {obj['eventType']} is not currently supported.")
+                validation_error.cause = "SCHEMA_NOT_FOUND"
+                raise validation_error
             validate(obj, SCHEMAS.get(obj['eventType'].lower()), format_checker=FORMAT_CHECKER)
     except ValidationError as error:
-        raise InvalidObject(error)
+        if error.cause == "SCHEMA_NOT_FOUND":
+            LOGGER.error(error)
+        else:
+            raise InvalidObject(error)
