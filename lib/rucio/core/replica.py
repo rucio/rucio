@@ -59,7 +59,7 @@ from traceback import format_exc
 import requests
 from dogpile.cache.api import NO_VALUE
 from six import string_types
-from sqlalchemy import func, and_, or_, exists, not_, update, delete, Column
+from sqlalchemy import func, and_, or_, exists, not_, update, delete, insert, Column
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
@@ -1672,6 +1672,16 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
     columns = [
         Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
         Column("name", String(get_schema_value('NAME_LENGTH'))),
+    ]
+    scope_name_temp_table2 = create_temp_table(
+        "delete_replicas2",
+        *columns,
+        primary_key=columns,
+        session=session,
+    )
+    columns = [
+        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
+        Column("name", String(get_schema_value('NAME_LENGTH'))),
         Column("child_scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
         Column("child_name", String(get_schema_value('NAME_LENGTH'))),
     ]
@@ -1725,6 +1735,7 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
 
     __cleanup_after_replica_deletion(scope_name_temp_table=scope_name_temp_table,
+                                     scope_name_temp_table2=scope_name_temp_table2,
                                      association_temp_table=association_temp_table,
                                      rse_id=rse_id, files=files, session=session)
 
@@ -1733,16 +1744,16 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
 
 
 @transactional_session
-def __cleanup_after_replica_deletion(scope_name_temp_table, association_temp_table, rse_id, files, session=None):
+def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_table2, association_temp_table, rse_id, files, session=None):
     """
     Perform update of collections/archive associations/dids after the removal of their replicas
     :param rse_id: the rse id
     :param files: list of files whose replica got deleted
     :param session: The database session in use.
     """
-    parents_to_analyze, affected_archives = set(), set()
+    parents_to_analyze, affected_archives, clt_replicas_to_delete = set(), set(), set()
     did_condition = []
-    clt_replica_condition, dst_replica_condition = [], []
+    dst_replica_condition = []
     incomplete_dids, messages, clt_to_set_not_archive = [], [], []
     for file in files:
 
@@ -1855,15 +1866,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, association_temp_tab
                 # (it was the last children), metadata cleanup has to be done:
                 #
                 # 1) Schedule to remove the replicas of this empty collection
-                clt_replica_condition.append(
-                    and_(models.CollectionReplica.scope == parent_scope,
-                         models.CollectionReplica.name == parent_name,
-                         exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
-                             and_(models.DataIdentifier.scope == parent_scope,
-                                  models.DataIdentifier.name == parent_name)),
-                         ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(
-                             and_(models.DataIdentifierAssociation.scope == parent_scope,
-                                  models.DataIdentifierAssociation.name == parent_name))))
+                clt_replicas_to_delete.add(ScopeName(scope=parent_scope, name=parent_name))
 
                 # 2) Schedule removal of this empty collection from its own parent collections
                 parents_to_analyze.add(ScopeName(scope=parent_scope, name=parent_name))
@@ -1939,10 +1942,47 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, association_temp_tab
             )
             session.execute(stmt)
 
-    for chunk in chunks(clt_replica_condition, 10):
-        session.query(models.CollectionReplica). \
-            filter(or_(*chunk)). \
-            delete(synchronize_session=False)
+    # Get collection replicas of collections which became empty
+    session.query(scope_name_temp_table).delete()
+    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in clt_replicas_to_delete])
+    session.query(scope_name_temp_table2).delete()
+    stmt = select(
+        models.CollectionReplica.scope,
+        models.CollectionReplica.name,
+    ).distinct(
+    ).join(
+        scope_name_temp_table,
+        and_(scope_name_temp_table.scope == models.CollectionReplica.scope,
+             scope_name_temp_table.name == models.CollectionReplica.name),
+    ).with_hint(
+        models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
+    ).join(
+        models.DataIdentifier,
+        and_(models.DataIdentifier.scope == models.CollectionReplica.scope,
+             models.DataIdentifier.name == models.CollectionReplica.name)
+    ).with_hint(
+        models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle'
+    ).outerjoin(
+        models.DataIdentifierAssociation,
+        and_(models.DataIdentifierAssociation.scope == models.CollectionReplica.scope,
+             models.DataIdentifierAssociation.name == models.CollectionReplica.name)
+    ).where(
+        models.DataIdentifierAssociation.scope == null()
+    )
+    session.execute(
+        insert(scope_name_temp_table2).from_select(['scope', 'name'], stmt)
+    )
+    # Delete the retrieved collection replicas of empty collections
+    stmt = delete(
+        models.CollectionReplica,
+    ).where(
+        exists(select([1])
+               .where(and_(models.CollectionReplica.scope == scope_name_temp_table2.scope,
+                           models.CollectionReplica.name == scope_name_temp_table2.name)))
+    ).execution_options(
+        synchronize_session=False
+    )
+    session.execute(stmt)
 
     # Update incomplete state
     session.query(scope_name_temp_table).delete()
@@ -2042,6 +2082,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, association_temp_tab
             execution_options(synchronize_session=False)
         session.execute(stmt)
         __cleanup_after_replica_deletion(scope_name_temp_table=scope_name_temp_table,
+                                         scope_name_temp_table2=scope_name_temp_table2,
                                          association_temp_table=association_temp_table,
                                          rse_id=rse_id, files=removed_constituents, session=session)
 
