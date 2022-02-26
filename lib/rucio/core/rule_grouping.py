@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2014-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Nick Smith <nick.smith@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - chinmaym07 <b418020@iiit-bh.ac.in>, 2022
 
 import logging
 
@@ -45,7 +47,7 @@ from rucio.db.sqla.session import transactional_session
 
 
 @transactional_session
-def apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
+def apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=None, source_rses=None, session=None):
     """
     Apply rule grouping to files.
 
@@ -205,7 +207,7 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None
 
 
 @transactional_session
-def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
+def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=None, source_rses=None, session=None):
     """
     Apply a rule to files with NONE grouping.
 
@@ -286,7 +288,7 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
 
 
 @transactional_session
-def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
+def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=None, source_rses=None, session=None):
     """
     Apply a rule to files with ALL grouping.
 
@@ -405,7 +407,7 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
 
 
 @transactional_session
-def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
+def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=None, source_rses=None, session=None):
     """
     Apply a rule to files with ALL grouping.
 

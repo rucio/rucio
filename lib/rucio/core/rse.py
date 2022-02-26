@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
 # - Wen Guan <wen.guan@cern.ch>, 2015-2016
@@ -25,7 +25,7 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2020
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2021
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
@@ -37,11 +37,13 @@
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - chinmaym07 <b418020@iiit-bh.ac.in>, 2022
 
 import json
 from io import StringIO
 from re import match
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -349,7 +351,7 @@ def get_rse_vo(rse_id, session=None, include_deleted=True):
 
 
 @read_session
-def list_rses(filters={}, session=None):
+def list_rses(filters: Optional[Dict] = None, session=None) -> List:
     """
     Returns a list of all RSEs.
 

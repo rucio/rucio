@@ -37,11 +37,13 @@
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
+# - chinmaym07 <b418020@iiit-bh.ac.in>, 2022
 
 from __future__ import division
 
 import json
 import logging
+from typing import Dict, Iterable, List, Optional
 
 try:
     from ConfigParser import NoOptionError
@@ -728,7 +730,7 @@ def inject_rule(rule_id, session=None, logger=logging.log):
 
 
 @stream_session
-def list_rules(filters={}, session=None):
+def list_rules(filters: Optional[Dict] = None, session=None) -> Iterable[Dict]:
     """
     List replication rules.
 
@@ -736,7 +738,7 @@ def list_rules(filters={}, session=None):
     :param session: The database session in use.
     :raises:        RucioException
     """
-
+    filters = filters or {}
     query = session.query(models.ReplicationRule)
     if filters:
         for (key, value) in filters.items():
@@ -1510,7 +1512,7 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
 
 
 @read_session
-def get_updated_dids(total_workers, worker_number, limit=100, blocked_dids=[], session=None):
+def get_updated_dids(total_workers, worker_number, limit=100, blocked_dids=None, session=None) -> List[Dict]:
     """
     Get updated dids.
 
@@ -1572,7 +1574,7 @@ def get_rules_beyond_eol(date_check, worker_number, total_workers, session):
 
 
 @read_session
-def get_expired_rules(total_workers, worker_number, limit=100, blocked_rules=[], session=None):
+def get_expired_rules(total_workers, worker_number, limit=100, blocked_rules=None, session=None) -> List[Dict]:
     """
     Get expired rules.
 
@@ -1607,7 +1609,7 @@ def get_expired_rules(total_workers, worker_number, limit=100, blocked_rules=[],
 
 
 @read_session
-def get_injected_rules(total_workers, worker_number, limit=100, blocked_rules=[], session=None):
+def get_injected_rules(total_workers, worker_number, limit=100, blocked_rules=None, session=None) -> List[Dict]:
     """
     Get rules to be injected.
 
@@ -1650,7 +1652,7 @@ def get_injected_rules(total_workers, worker_number, limit=100, blocked_rules=[]
 
 
 @read_session
-def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blocked_rules=[], session=None):
+def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blocked_rules=None, session=None) -> List[Dict]:
     """
     Get stuck rules.
 
@@ -2772,7 +2774,7 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
 
 
 @transactional_session
-def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], source_rses=None, session=None):
+def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=None, source_rses=None, session=None):
     """
     Resolves a list of dids to its constituent childs and reads the locks and replicas of all the constituent files.
 
@@ -2884,7 +2886,7 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
 
 
 @transactional_session
-def __create_locks_replicas_transfers(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None, logger=logging.log):
+def __create_locks_replicas_transfers(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=None, source_rses=None, session=None, logger=logging.log) -> None:
     """
     Apply a created replication rule to a set of files
 

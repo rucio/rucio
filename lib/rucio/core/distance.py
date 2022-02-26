@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,10 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - chinmaym07 <b418020@iiit-bh.ac.in>, 2022
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
@@ -160,13 +162,14 @@ def update_distances(src_rse_id=None, dest_rse_id=None, parameters=None, session
 
 
 @read_session
-def list_distances(filter_={}, session=None):
+def list_distances(filter_: Optional[Dict] = None, session=None) -> List[Dict]:
     """
     Get distances between all the RSEs.
 
     :param filter_: dictionary to filter distances.
     :param session: The database session in use.
     """
+    filter_ = filter_ or {}
     return [distance.to_dict() for distance in session.query(Distance).all()]
 
 

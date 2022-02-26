@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,19 +14,20 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012
+# - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - chinmaym07 <b418020@iiit-bh.ac.in>, 2022
 
 from re import match
+from typing import Dict, List, Optional
 from sqlalchemy.exc import IntegrityError
 from traceback import format_exc
 
@@ -87,7 +89,7 @@ def bulk_add_scopes(scopes, account, skipExisting=False, session=None):
 
 
 @read_session
-def list_scopes(filter_={}, session=None):
+def list_scopes(filter_: Optional[Dict] = None, session=None) -> List:
     """
     Lists all scopes.
     :param filter_: Dictionary of attributes by which the input data should be filtered

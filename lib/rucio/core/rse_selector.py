@@ -23,8 +23,10 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Yutaro Iiyama <yutaro.iiyama@cern.ch>, 2022
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2022
+# - chinmaym07 <b418020@iiit-bh.ac.in>, 2022
 
 from random import uniform, shuffle
+from typing import List
 
 from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs, InvalidRuleWeight, RSEOverQuota
 from rucio.core.account import has_account_attribute, get_usage, get_all_rse_usages_per_account
@@ -141,7 +143,7 @@ class RSESelector():
         # don't consider removing rses based on the total space here - because files already on the RSE are taken into account
         # it is possible to have no space but still be able to fulfil the rule
 
-    def select_rse(self, size, preferred_rse_ids, copies=0, blocklist=[], prioritize_order_over_weight=False, existing_rse_size=None):
+    def select_rse(self, size, preferred_rse_ids, copies=0, blocklist=None, prioritize_order_over_weight=False, existing_rse_size=None) -> List:
         """
         Select n RSEs to replicate data to.
 
@@ -253,7 +255,7 @@ class RSESelector():
 
 
 @read_session
-def resolve_rse_expression(rse_expression, account, weight=None, copies=1, ignore_account_limit=False, size=0, preferred_rses=[], blocklist=[], prioritize_order_over_weight=False, existing_rse_size=None, session=None):
+def resolve_rse_expression(rse_expression, account, weight=None, copies=1, ignore_account_limit=False, size=0, preferred_rses=None, blocklist=None, prioritize_order_over_weight=False, existing_rse_size=None, session=None):
     """
     Resolve a potentially complex RSE expression into `copies` single-RSE expressions. Uses `parse_expression()`
     to decompose the expression, then `RSESelector.select_rse()` to pick the target RSEs.

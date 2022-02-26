@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,14 @@
 # limitations under the License.
 #
 # Authors:
-# - Gabriele Gaetano Fronzé <gfronze@cern.ch>, 2020
-# - Rob Barnsley <rob.barnsley@skao.int>, 2021
-#
-# PY3K COMPATIBLE
+# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
+# - chinmaym07 <b418020@iiit-bh.ac.in>, 2022
 
 import ast
 import operator
 from datetime import datetime
 from importlib import import_module
+from typing import Dict, Optional
 
 import sqlalchemy
 from rucio.common import exception
@@ -256,7 +255,7 @@ class FilterEngine:
         return list(mandatory_model_attributes)
 
     @read_session
-    def create_sqla_query(self, session=None, additional_model_attributes=[], additional_filters={}):
+    def create_sqla_query(self, session=None, additional_model_attributes=None, additional_filters: Optional[Dict] = None):
         """
         Returns the database query that fully describes the filters.
 
@@ -265,6 +264,7 @@ class FilterEngine:
         :param additional_filters: additional filters to be applied to all clauses.
         :returns: list of database queries
         """
+        additional_filters = additional_filters or {}
         all_model_attributes = set(self.mandatory_model_attributes + additional_model_attributes)
 
         # Add additional filters, applied as AND clauses to each OR group.

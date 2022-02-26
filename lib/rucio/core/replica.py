@@ -41,6 +41,7 @@
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
 # - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
+# - chinmaym07 <b418020@iiit-bh.ac.in>, 2022
 
 import heapq
 import logging
@@ -54,6 +55,7 @@ from json import dumps
 from re import match
 from struct import unpack
 from traceback import format_exc
+from typing import Dict, List
 
 import requests
 from dogpile.cache.api import NO_VALUE
@@ -1555,7 +1557,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
 
 
 @transactional_session
-def add_replica(rse_id, scope, name, bytes_, account, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=[], tombstone=None, session=None):
+def add_replica(rse_id, scope, name, bytes_, account, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=None, tombstone=None, session=None) -> List:
     """
     Add File replica.
 
@@ -3180,7 +3182,7 @@ def get_replicas_state(scope=None, name=None, session=None):
 
 
 @read_session
-def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logger=logging.log, younger_than=10, nattempts=0, session=None, exclude_states=['B', 'R', 'D'], is_suspicious=False):
+def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logger=logging.log, younger_than=10, nattempts=0, session=None, exclude_states=['B', 'R', 'D'], is_suspicious=False) -> List[Dict]:
     """
     Gets a list of replicas from bad_replicas table which are: declared more than <nattempts> times since <younger_than> date,
     present on the RSE specified by the <rse_expression> and do not have a state in <exclude_states> list.
