@@ -44,21 +44,17 @@ from rucio.core.replica import __exists_replicas, update_replicas_states
 from rucio.core.rse import list_rses, get_rse_id
 from rucio.rse.rsemanager import lfns2pfns, get_rse_info, parse_pfns
 
-##########################################################################
-# NOTE: these are needed by local version of declare_bad_file_replicas()
-# TODO: remove after move to core/replica.py
+# FIXME: these are needed by local version of declare_bad_file_replicas()
+# TODO: remove after move of this code to core/replica.py - see https://github.com/rucio/rucio/pull/5068
 from rucio.db.sqla import models
 from rucio.db.sqla.session import transactional_session
 from rucio.db.sqla.constants import (ReplicaState, BadFilesStatus)
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import FlushError
-##########################################################################
 
 graceful_stop = threading.Event()
 
-##########################################################################
-# NOTE: declare_bad_file_replicas will be used directly from core/replica.py
-# when handling of DID is added there
+# FIXME: declare_bad_file_replicas will be used directly from core/replica.py when handling of DID is added there
 # TODO: remove after move to core/replica.py
 
 
@@ -117,20 +113,15 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer,
         raise exception.RucioException(error.args)
 
     return unknown_replicas
-# NOTE: declare_bad_file_replicas will be used directly from core/replica.py
-# when handling of DID is added there
-##########################################################################
 
 
-##############################
-# This is Igor's Stats class
-# It will be factored out as a separate class in a future version of the code.
+# TODO: This is Igor's Stats class.It will be factored out as a separate class in a future version of the code.
 # - Igor Mandrichenko <ivm@fnal.gov>, 2018
 
 class Stats(object):
 
     def __init__(self, path):
-        self.Path = path
+        self.path = path
         self.Data = {}
 
     def __getitem__(self, name):
@@ -149,13 +140,13 @@ class Stats(object):
 
     def save(self):
         try:
-            with open(self.Path, "r") as f:
+            with open(self.path, "r") as f:
                 data = f.read()
         except:
             data = ""
         data = json.loads(data or "{}")
         data.update(self.Data)
-        open(self.Path, "w").write(json.dumps(data, indent=4))
+        open(self.path, "w").write(json.dumps(data, indent=4))
 
 
 def write_stats(my_stats, stats_file, stats_key=None):
@@ -169,6 +160,8 @@ def write_stats(my_stats, stats_file, stats_key=None):
         else:
             stats.update(my_stats)
         open(stats_file, "w").write(json.dumps(stats))
+# TODO: Consider throwing an error here if stats_file is not defined
+# TODO: Consider breaking the logic into two functions, following discussion in https://github.com/rucio/rucio/pull/5120#discussion_r792673599
 
 
 def cmp2dark(new_list, old_list, comm_list, stats_file):
@@ -210,14 +203,9 @@ def cmp2dark(new_list, old_list, comm_list, stats_file):
             "status": "done"
         })
         stats[stats_key] = my_stats
-###############################
-# This was Igor's Stats class
-###############################
 
 
-####################
-# from Deckard
-####################
+# TODO: Changed suggested in https://github.com/rucio/rucio/pull/5120#discussion_r792681245
 def parse_filename(fn):
     # filename looks like this:
     #
@@ -328,8 +316,8 @@ def was_cc_processed(stats_file):
         return False
 
 
-def process_dark_files(path, rse, latest_run, maxdarkfraction,
-                       max_files_at_site, oldenough_run, force_proceed):
+def process_dark_files(path, rse, latest_run, max_dark_fraction,
+                       max_files_at_site, old_enough_run, force_proceed):
 
     """
     Process the Dark Files.
@@ -349,24 +337,23 @@ def process_dark_files(path, rse, latest_run, maxdarkfraction,
         "end_time": None,
         "initial_dark_files": 0,
         "confirmed_dark_files": 0,
-        "x-check_run": oldenough_run,
+        "x-check_run": old_enough_run,
         "status": "started"
     }
     stats[stats_key] = cc_stats
 
 # Compare the two lists, and take only the dark files that are in both
     latest_dark = re.sub('_stats.json$', '_D.list', latest_run)
-    oldenough_dark = re.sub('_stats.json$', '_D.list', oldenough_run)
-    logger(logging.INFO, '\n latest_dark = %s' % latest_dark)
-    logger(logging.INFO, '\n oldenough_dark = %s' % oldenough_dark)
-    confirmed_dark = "%s_DeletionList.csv" % latest_run
+    old_enough_dark = re.sub('_stats.json$', '_D.list', old_enough_run)
+    logger(logging.INFO, 'latest_dark = %s' % latest_dark)
+    logger(logging.INFO, 'old_enough_dark = %s' % old_enough_dark)
     confirmed_dark = re.sub('_stats.json$', '_DeletionList.csv', latest_run)
-    cmp2dark(new_list=latest_dark, old_list=oldenough_dark,
+    cmp2dark(new_list=latest_dark, old_list=old_enough_dark,
              comm_list=confirmed_dark, stats_file=latest_run)
 
 ###
 #   SAFEGUARD
-#   If a large fraction (larger than 'maxdarkfraction') of the files at a site
+#   If a large fraction (larger than 'max_dark_fraction') of the files at a site
 #   are reported as 'dark', do NOT proceed with the deletion.
 #   Instead, put a warning in the _stats.json file, so that an operator can have a look.
 ###
@@ -374,12 +361,12 @@ def process_dark_files(path, rse, latest_run, maxdarkfraction,
 # Get the number of files recorded by the scanner
     dark_files = sum(1 for line in open(latest_dark))
     confirmed_dark_files = sum(1 for line in open(confirmed_dark))
-    logger(logging.INFO, '\n dark_files %d' % dark_files)
-    logger(logging.INFO, '\n confirmed_dark_files %d' % confirmed_dark_files)
-    logger(logging.INFO, '\n confirmed_dark_files/max_files_at_sit = %f'
+    logger(logging.INFO, 'dark_files %d' % dark_files)
+    logger(logging.INFO, 'confirmed_dark_files %d' % confirmed_dark_files)
+    logger(logging.INFO, 'confirmed_dark_files/max_files_at_sit = %f'
            % (confirmed_dark_files / max_files_at_site))
-    logger(logging.INFO, '\n maxdarkfraction configured for this RSE: %f'
-           % maxdarkfraction)
+    logger(logging.INFO, 'max_dark_fraction configured for this RSE: %f'
+           % max_dark_fraction)
 
 # Labels for the Prometheus counters/gauges
     labels = {'rse': rse}
@@ -390,8 +377,8 @@ def process_dark_files(path, rse, latest_run, maxdarkfraction,
                  confirmed_dark_files, labels=labels)
 
     deleted_files = 0
-    if confirmed_dark_files / max_files_at_site < maxdarkfraction or force_proceed is True:
-        logger(logging.INFO, '\n Can proceed with dark files deletion')
+    if confirmed_dark_files / max_files_at_site < max_dark_fraction or force_proceed is True:
+        logger(logging.INFO, 'Can proceed with dark files deletion')
 
 # Then, do the real deletion (code from DeleteReplicas.py)
         issuer = InternalAccount('root')
@@ -399,7 +386,7 @@ def process_dark_files(path, rse, latest_run, maxdarkfraction,
             reader = csv.reader(csvfile)
             scope = "cms"
             for name, in reader:
-                logger(logging.INFO, '\n Processing a dark file:\n RSE %s  Scope: %s  Name: %s'
+                logger(logging.INFO, 'Processing a dark file:\n RSE %s  Scope: %s  Name: %s'
                        % (rse, scope, name))
                 rse_id = get_rse_id(rse=rse)
                 Intscope = InternalScope(scope=scope, vo=issuer.vo)
@@ -450,13 +437,9 @@ def process_dark_files(path, rse, latest_run, maxdarkfraction,
         stats[stats_key] = cc_stats
         record_gauge('storage.consistency.actions_dark_files_deleted', 0, labels=labels)
 
-#####################################
-#   Done with Dark Files processing
-#####################################
 
-
-def process_miss_files(path, rse, latest_run, maxmissfraction,
-                       max_files_at_site, oldenough_run, force_proceed):
+def process_miss_files(path, rse, latest_run, max_miss_fraction,
+                       max_files_at_site, old_enough_run, force_proceed):
 
     """
     Process the Missing Replicas.
@@ -466,7 +449,7 @@ def process_miss_files(path, rse, latest_run, maxmissfraction,
     logger = formatted_logger(logging.log, prefix + '%s')
 
     latest_miss = re.sub('_stats.json$', '_M.list', latest_run)
-    logger(logging.INFO, '\n latest_missing = %s' % latest_miss)
+    logger(logging.INFO, 'latest_missing = %s' % latest_miss)
 
 # Create a cc_miss section in the stats file
 
@@ -479,28 +462,28 @@ def process_miss_files(path, rse, latest_run, maxmissfraction,
         "end_time": None,
         "initial_miss_files": 0,
         "confirmed_miss_files": 0,
-        "x-check_run": oldenough_run,
+        "x-check_run": old_enough_run,
         "status": "started"
     }
     stats[stats_key] = cc_stats
 
 ###
 #   SAFEGUARD
-#   If a large fraction (larger than 'maxmissfraction') of the files at a site are reported as
+#   If a large fraction (larger than 'max_miss_fraction') of the files at a site are reported as
 #   'missing', do NOT proceed with the invalidation.
 #   Instead, put a warning in the _stats.json file, so that an operator can have a look.
 ###
 
     miss_files = sum(1 for line in open(latest_miss))
-    logger(logging.INFO, '\n miss_files = %d' % miss_files)
-    logger(logging.INFO, '\n miss_files/max_files_at_site = %f' % (miss_files / max_files_at_site))
-    logger(logging.INFO, '\n maxmissfraction configured for this RSE (in %%): %f' % maxmissfraction)
+    logger(logging.INFO, 'miss_files = %d' % miss_files)
+    logger(logging.INFO, 'miss_files/max_files_at_site = %f' % (miss_files / max_files_at_site))
+    logger(logging.INFO, 'max_miss_fraction configured for this RSE (in %%): %f' % max_miss_fraction)
 
     labels = {'rse': rse}
     record_gauge('storage.consistency.actions_miss_files_found', miss_files, labels=labels)
 
-    if miss_files / max_files_at_site < maxmissfraction or force_proceed is True:
-        logger(logging.INFO, '\n Can proceed with missing files retransfer')
+    if miss_files / max_files_at_site < max_miss_fraction or force_proceed is True:
+        logger(logging.INFO, 'Can proceed with missing files retransfer')
 
         invalidated_files = 0
         issuer = InternalAccount('root')
@@ -509,7 +492,7 @@ def process_miss_files(path, rse, latest_run, maxmissfraction,
             scope = "cms"
             reason = "invalidating damaged/missing replica"
             for name, in reader:
-                logger(logging.INFO, '\n Processing invalid replica:\n RSE: %s Scope: %s Name: %s'
+                logger(logging.INFO, 'Processing invalid replica:\n RSE: %s Scope: %s Name: %s'
                        % (rse, scope, name))
 
                 rse_id = get_rse_id(rse=rse)
@@ -520,6 +503,8 @@ def process_miss_files(path, rse, latest_run, maxmissfraction,
                 record_counter('storage.consistency.actions_miss_files_to_retransfer_counter',
                                delta=1, labels=labels)
 
+# TODO: The stats updating can be refactored in a future version of the Stats class.
+# See: https://github.com/rucio/rucio/pull/5120#discussion_r792688019
 # Update the stats
             t1 = time.time()
 
@@ -552,10 +537,6 @@ def process_miss_files(path, rse, latest_run, maxmissfraction,
         record_gauge('storage.consistency.actions_miss_files_to_retransfer',
                      0, labels=labels)
 
-###########################################
-#   Done with Missing Replicas processing
-###########################################
-
 
 def deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
             force_proceed, scanner_files_path):
@@ -568,22 +549,18 @@ def deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
 
     prefix = 'storage-consistency-actions (running original deckard code)'
     logger = formatted_logger(logging.log, prefix + '%s')
-    logger(logging.INFO, '\n Now running the original deckard code...')
+    logger(logging.INFO, 'Now running the original deckard code...')
 
     path = scanner_files_path
     minagedark = dark_min_age
-    maxdarkfraction = dark_threshold_percent
-    maxmissfraction = miss_threshold_percent
-    logger(logging.INFO, '\n Scanner Output Path: %s \n minagedark: %d \n maxdarkfraction: %f\
-      \n maxmissfraction: %f' % (path, minagedark, maxdarkfraction, maxmissfraction))
+    max_dark_fraction = dark_threshold_percent
+    max_miss_fraction = miss_threshold_percent
+    logger(logging.INFO, 'Scanner Output Path: %s \n minagedark: %d \n max_dark_fraction: %f\
+      \n max_miss_fraction: %f' % (path, minagedark, max_dark_fraction, max_miss_fraction))
 
     scanner_files = 0
     dbdump_before_files = 0
     dbdump_after_files = 0
-
-#####################################################
-# First, check that the RSE has been scanned at all
-#####################################################
 
 # Check if we have any scans available for that RSE
     if rse in list_cc_scanned_rses(path):
@@ -591,12 +568,12 @@ def deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
         # Have any of them still not been processed?
         # (no CC_dark or CC-miss sections in _stats.json)
         np_runs = list_unprocessed_runs(path, rse)
-        logger(logging.INFO, '\n Found %d unprocessed runs for RSE: %s' % (len(np_runs), rse))
+        logger(logging.INFO, 'Found %d unprocessed runs for RSE: %s' % (len(np_runs), rse))
 
         latest_run = list_runs(path, rse, 1)[0]
 
         # Get the number of files recorded by the scanner
-        logger(logging.INFO, '\n latest_run %s' % latest_run)
+        logger(logging.INFO, 'latest_run %s' % latest_run)
         with open(latest_run, "r") as f:
             fstats = json.loads(f.read())
             if "scanner" in fstats:
@@ -617,53 +594,44 @@ def deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
             logger(logging.WARNING, '\n No files reported by scanner for this run.\
              Will skip processing.')
 
-        logger(logging.INFO, '\n scanner_files: %d \n dbdump_before_files: %d\
+        logger(logging.INFO, 'scanner_files: %d \n dbdump_before_files: %d\
           \n dbdump_after_files: %d \n max_files_at_site: %d' %
                (scanner_files, dbdump_before_files, dbdump_after_files, max_files_at_site))
 
 
 # Was the latest run ever attempted to be processed?
-        logger(logging.INFO, '\n Was the latest run %s attempted to be processed already? - %s'
+        logger(logging.INFO, 'Was the latest run %s attempted to be processed already? - %s'
                % (latest_run, was_cc_attempted(latest_run)))
         if max_files_at_site > 0 and (was_cc_attempted(latest_run) is False or force_proceed is True):
-            logger(logging.INFO, '\n Will try to process the run')
-
-################################
-# Address the Dark files first
-################################
+            logger(logging.INFO, 'Will try to process the run')
 
 # Is there another run, at least "minagedark" old, for this RSE?
-            oldenough_run = None
+            old_enough_run = None
             d = list_runs_by_age(path, rse, latest_run)
             if len([k for k in d if d[k] > minagedark]) > 0:
                 # i.e. there is another dark run with appropriate age
-                oldenough_run = [k for k in d if d[k] > minagedark][0]
-                logger(logging.INFO, '\n Found another run %d days older than the latest.\
+                old_enough_run = [k for k in d if d[k] > minagedark][0]
+                logger(logging.INFO, 'Found another run %d days older than the latest.\
                   \n Will compare the dark files in the two.' % minagedark)
-                logger(logging.INFO, '\n The first  %d days older run is: %s'
-                       % (minagedark, oldenough_run))
+                logger(logging.INFO, 'The first  %d days older run is: %s'
+                       % (minagedark, old_enough_run))
 
-                process_dark_files(path, rse, latest_run, maxdarkfraction,
-                                   max_files_at_site, oldenough_run, force_proceed)
+                process_dark_files(path, rse, latest_run, max_dark_fraction,
+                                   max_files_at_site, old_enough_run, force_proceed)
             else:
-                logger(logging.INFO, '\n There is no other run for this RSE at least %d days older,\
+                logger(logging.INFO, 'There is no other run for this RSE at least %d days older,\
                  so cannot safely proceed with dark files deleteion.' % minagedark)
 
-
-###########################################
-# Finally, deal with the missing replicas
-###########################################
-
-            process_miss_files(path, rse, latest_run, maxmissfraction,
-                               max_files_at_site, oldenough_run, force_proceed)
+            process_miss_files(path, rse, latest_run, max_miss_fraction,
+                               max_files_at_site, old_enough_run, force_proceed)
 
         else:
             # This run was already processed
-            logger(logging.INFO, '\n Nothing to do here')
+            logger(logging.INFO, 'Nothing to do here')
 
     else:
         # No scans outputs are available for this RSE
-        logger(logging.INFO, '\n No scans available for this RSE')
+        logger(logging.INFO, 'No scans available for this RSE')
 
 
 def deckard_loop(rses, dark_min_age, dark_threshold_percent, miss_threshold_percent,
@@ -671,9 +639,9 @@ def deckard_loop(rses, dark_min_age, dark_threshold_percent, miss_threshold_perc
 
     prefix = 'storage-consistency-actions (deckard_loop())'
     logger = formatted_logger(logging.log, prefix + '%s')
-    logger(logging.INFO, '\n A loop over all RSEs')
+    logger(logging.INFO, 'A loop over all RSEs')
     for rse in rses:
-        logger(logging.INFO, '\n Now processing RSE: %s' % rse)
+        logger(logging.INFO, 'Now processing RSE: %s' % rse)
         deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
                 force_proceed, scanner_files_path)
 
@@ -697,7 +665,7 @@ def actions_loop(once, rses, sleep_time, dark_min_age, dark_threshold_percent,
     prefix = 'storage-consistency-actions[%i/%i] ' %\
              (heartbeat['assign_thread'], heartbeat['nr_threads'])
     logger = formatted_logger(logging.log, prefix + '%s')
-    logger(logging.INFO, '\n hostname: %s  pid: %d  current_thread: %s' %
+    logger(logging.INFO, 'hostname: %s  pid: %d  current_thread: %s' %
            (hostname, pid, current_thread))
 
     graceful_stop.wait(1)
@@ -706,11 +674,11 @@ def actions_loop(once, rses, sleep_time, dark_min_age, dark_threshold_percent,
         try:
             heartbeat = live(executable=executable, hostname=hostname, pid=pid,
                              thread=current_thread)
-            logger(logging.INFO, '\n heartbeat? %s' % heartbeat)
+            logger(logging.INFO, 'heartbeat? %s' % heartbeat)
 
             prefix = 'storage-consistency-actions[%i/%i] ' %\
                      (heartbeat['assign_thread'], heartbeat['nr_threads'])
-            logger(logging.INFO, '\n prefix: %s' % prefix)
+            logger(logging.INFO, 'prefix: %s' % prefix)
             start = time.time()
             logger(logging.DEBUG, 'Start time: %f' % start)
 
@@ -748,8 +716,6 @@ def run(once=False, rses=None, sleep_time=60, default_dark_min_age=28, default_d
     prefix = 'storage-consistency-actions (run())'
     logger = formatted_logger(logging.log, prefix + '%s')
 
-    logger(logging.INFO, '\n Now inside run(once...)\n')
-
     # TODO: These variables should be sourced from the RSE config in the future.
     # For now, they are passed as arguments, and to emphasize that fact, we are re-assigning them:
     dark_min_age = default_dark_min_age
@@ -758,7 +724,7 @@ def run(once=False, rses=None, sleep_time=60, default_dark_min_age=28, default_d
     scanner_files_path = default_scanner_files_path
 
     if rses == []:
-        logger(logging.INFO, '\n NO RSEs passed. Will loop over all writable RSEs.')
+        logger(logging.INFO, 'NO RSEs passed. Will loop over all writable RSEs.')
 
         rses = [rse['rse'] for rse in list_rses({'availability_write': True})]
 
@@ -791,7 +757,7 @@ def run(once=False, rses=None, sleep_time=60, default_dark_min_age=28, default_d
                                             'miss_threshold_percent': miss_threshold_percent,
                                             'force_proceed': force_proceed,
                                             'scanner_files_path': scanner_files_path}) for i in range(0, threads)]
-        logger(logging.INFO, '\n Threads: %d' % len(threads))
+        logger(logging.INFO, 'Threads: %d' % len(threads))
         [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():
