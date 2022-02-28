@@ -1,4 +1,5 @@
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +14,18 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 from datetime import datetime, timedelta
 
@@ -76,10 +81,15 @@ def __add_test_rse_and_replicas(vo, scope, rse_name, names, file_size, epoch_tom
     return rse_name, rse_id, dids
 
 
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {"overrides": [('core', 'use_temp_tables', 'True')]},
+    {"overrides": [('core', 'use_temp_tables', 'False')]},
+], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION'
 ]}], indirect=True)
-def test_reaper(vo, caches_mock):
+def test_reaper(vo, caches_mock, file_config_mock):
     """ REAPER (DAEMON): Test the reaper daemon."""
     [cache_region] = caches_mock
     scope = InternalScope('data13_hip', vo=vo)
@@ -106,10 +116,15 @@ def test_reaper(vo, caches_mock):
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 200
 
 
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {"overrides": [('core', 'use_temp_tables', 'True')]},
+    {"overrides": [('core', 'use_temp_tables', 'False')]},
+], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION'
 ]}], indirect=True)
-def test_reaper_bulk_delete(vo, caches_mock):
+def test_reaper_bulk_delete(vo, caches_mock, file_config_mock):
     """ REAPER (DAEMON): Mock test the reaper daemon on async bulk delete request."""
     [cache_region] = caches_mock
     scope = InternalScope('data13_hip', vo=vo)
@@ -136,10 +151,15 @@ def test_reaper_bulk_delete(vo, caches_mock):
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 200
 
 
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {"overrides": [('core', 'use_temp_tables', 'True')]},
+    {"overrides": [('core', 'use_temp_tables', 'False')]},
+], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION'
 ]}], indirect=True)
-def test_reaper_multi_vo_via_run(vo, second_vo, scope_factory, caches_mock):
+def test_reaper_multi_vo_via_run(vo, second_vo, scope_factory, caches_mock, file_config_mock):
     """ MULTI VO (DAEMON): Test that reaper runs on the specified VO(s) """
     [cache_region] = caches_mock
     new_vo = second_vo
@@ -171,10 +191,15 @@ def test_reaper_multi_vo_via_run(vo, second_vo, scope_factory, caches_mock):
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
 
 
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {"overrides": [('core', 'use_temp_tables', 'True')]},
+    {"overrides": [('core', 'use_temp_tables', 'False')]},
+], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION'
 ]}], indirect=True)
-def test_reaper_affect_other_vo_via_run(vo, second_vo, scope_factory, caches_mock):
+def test_reaper_affect_other_vo_via_run(vo, second_vo, scope_factory, caches_mock, file_config_mock):
     """ MULTI VO (DAEMON): Test that reaper runs on the specified VO(s) and does not reap others"""
     [cache_region] = caches_mock
     new_vo = second_vo
@@ -206,10 +231,15 @@ def test_reaper_affect_other_vo_via_run(vo, second_vo, scope_factory, caches_moc
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
 
 
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {"overrides": [('core', 'use_temp_tables', 'True')]},
+    {"overrides": [('core', 'use_temp_tables', 'False')]},
+], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION'
 ]}], indirect=True)
-def test_reaper_multi_vo(vo, second_vo, scope_factory, caches_mock):
+def test_reaper_multi_vo(vo, second_vo, scope_factory, caches_mock, file_config_mock):
     """ REAPER (DAEMON): Test the reaper daemon with multiple vo."""
     [cache_region] = caches_mock
     new_vo = second_vo
@@ -236,10 +266,15 @@ def test_reaper_multi_vo(vo, second_vo, scope_factory, caches_mock):
     assert len(list(replica_core.list_replicas(dids=dids2, rse_expression=both_rses))) == 200
 
 
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {"overrides": [('core', 'use_temp_tables', 'True')]},
+    {"overrides": [('core', 'use_temp_tables', 'False')]},
+], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION'
 ]}], indirect=True)
-def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_scope, root_account, caches_mock):
+def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_scope, root_account, caches_mock, file_config_mock):
     [cache_region] = caches_mock
     rse_name, rse_id = rse_factory.make_mock_rse()
     scope = mock_scope
@@ -367,6 +402,11 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     assert __get_archive_contents_history_count(archive2) == 3
 
 
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {"overrides": [('core', 'use_temp_tables', 'True')]},
+    {"overrides": [('core', 'use_temp_tables', 'False')]},
+], indirect=True)
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
     ('deletion', 'archive_dids', True), ('deletion', 'archive_content', True)
 ]}], indirect=True)
@@ -375,7 +415,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     'rucio.core.config.REGION',
     'rucio.core.replica.REGION',
 ]}], indirect=True)
-def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock, caches_mock):
+def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock, caches_mock, file_config_mock):
     """ REAPER (DAEMON): Test that the options to keep the did and content history work."""
     [reaper_cache_region, _config_cache_region, _replica_cache_region] = caches_mock
     scope = InternalScope('data13_hip', vo=vo)
