@@ -1723,7 +1723,6 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
         models.RSEFileAssociation,
     ).where(
         exists(select([1])
-               .with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle')
                .where(and_(models.RSEFileAssociation.scope == scope_name_temp_table.scope,
                            models.RSEFileAssociation.name == scope_name_temp_table.name,
                            models.RSEFileAssociation.rse_id == rse_id)))
@@ -1792,8 +1791,6 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         scope_name_temp_table,
         and_(scope_name_temp_table.scope == models.DataIdentifierAssociation.child_scope,
              scope_name_temp_table.name == models.DataIdentifierAssociation.child_name)
-    ).prefix_with(
-        "/*+ INDEX(COLLECTION_REPLICAS COLLECTION_REPLICAS_PK) */", dialect='oracle'
     ).join(
         models.CollectionReplica,
         and_(models.CollectionReplica.scope == models.DataIdentifierAssociation.scope,
@@ -1822,15 +1819,10 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
             models.DataIdentifierAssociation.child_scope,
             models.DataIdentifierAssociation.child_name,
         ).distinct(
-        ).prefix_with(
-            "/*+ USE_CONCAT NO_INDEX_FFS(CONTENTS CONTENTS_PK) */",
-            dialect='oracle',
         ).join(
             scope_name_temp_table,
             and_(scope_name_temp_table.scope == models.DataIdentifierAssociation.child_scope,
                  scope_name_temp_table.name == models.DataIdentifierAssociation.child_name)
-        ).with_hint(
-            models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
         ).outerjoin(
             models.DataIdentifier,
             and_(models.DataIdentifier.availability == DIDAvailability.LOST,
@@ -1838,16 +1830,12 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                  models.DataIdentifier.name == models.DataIdentifierAssociation.child_name)
         ).where(
             models.DataIdentifier.scope == null()
-        ).with_hint(
-            models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle'
         ).outerjoin(
             models.RSEFileAssociation,
             and_(models.RSEFileAssociation.scope == models.DataIdentifierAssociation.child_scope,
                  models.RSEFileAssociation.name == models.DataIdentifierAssociation.child_name)
         ).where(
             models.RSEFileAssociation.scope == null()
-        ).with_hint(
-            models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle'
         ).outerjoin(
             models.ConstituentAssociation,
             and_(models.ConstituentAssociation.child_scope == models.DataIdentifierAssociation.child_scope,
@@ -1909,8 +1897,6 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                 models.DataIdentifier.name,
                 models.DataIdentifier.did_type,
             ).distinct(
-            ).with_hint(
-                models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
             ).join(
                 association_temp_table,
                 and_(association_temp_table.scope == models.DataIdentifier.scope,
@@ -1929,7 +1915,6 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                     incomplete_dids.append(ScopeName(scope=parent_scope, name=parent_name))
 
             content_to_delete_filter = exists(select([1])
-                                              .prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')
                                               .where(and_(association_temp_table.scope == models.DataIdentifierAssociation.scope,
                                                           association_temp_table.name == models.DataIdentifierAssociation.name,
                                                           association_temp_table.child_scope == models.DataIdentifierAssociation.child_scope,
@@ -1958,14 +1943,10 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         scope_name_temp_table,
         and_(scope_name_temp_table.scope == models.CollectionReplica.scope,
              scope_name_temp_table.name == models.CollectionReplica.name),
-    ).with_hint(
-        models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
     ).join(
         models.DataIdentifier,
         and_(models.DataIdentifier.scope == models.CollectionReplica.scope,
              models.DataIdentifier.name == models.CollectionReplica.name)
-    ).with_hint(
-        models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle'
     ).outerjoin(
         models.DataIdentifierAssociation,
         and_(models.DataIdentifierAssociation.scope == models.CollectionReplica.scope,
@@ -1994,7 +1975,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
     stmt = update(
         models.DataIdentifier
     ).where(
-        exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')
+        exists(select([1])
                .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
                            models.DataIdentifier.name == scope_name_temp_table.name)))
     ).where(
@@ -2029,14 +2010,10 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
     stmt = select(
         models.ConstituentAssociation
     ).distinct(
-    ).with_hint(
-        models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_CHILD_IDX)", 'oracle'
     ).join(
         scope_name_temp_table,
         and_(scope_name_temp_table.scope == models.ConstituentAssociation.scope,
              scope_name_temp_table.name == models.ConstituentAssociation.name),
-    ).with_hint(
-        models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
     ).outerjoin(
         models.DataIdentifier,
         and_(models.DataIdentifier.availability == DIDAvailability.LOST,
@@ -2044,8 +2021,6 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
              models.DataIdentifier.name == models.ConstituentAssociation.name)
     ).where(
         models.DataIdentifier.scope == null()
-    ).with_hint(
-        models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle'
     ).outerjoin(
         models.RSEFileAssociation,
         and_(models.RSEFileAssociation.scope == models.ConstituentAssociation.scope,
@@ -2079,7 +2054,6 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
             models.ConstituentAssociation
         ).where(
             exists(select([1])
-                   .prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')
                    .where(and_(association_temp_table.scope == models.ConstituentAssociation.scope,
                                association_temp_table.name == models.ConstituentAssociation.name,
                                association_temp_table.child_scope == models.ConstituentAssociation.child_scope,
@@ -2104,7 +2078,6 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         models.ReplicationRule,
     ).where(
         exists(select([1])
-               .prefix_with("/*+ INDEX(RULES RULES_SCOPE_NAME_IDX) */", dialect='oracle')
                .where(and_(models.ReplicationRule.scope == scope_name_temp_table.scope,
                            models.ReplicationRule.name == scope_name_temp_table.name)))
     ).where(
@@ -2137,7 +2110,6 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
 
     # Delete dids
     dids_to_delete_filter = exists(select([1])
-                                   .prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')
                                    .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
                                                models.DataIdentifier.name == scope_name_temp_table.name)))
     archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
@@ -2187,7 +2159,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         stmt = update(
             models.DataIdentifier,
         ).where(
-            exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')
+            exists(select([1])
                    .where(and_(models.DataIdentifier.scope == scope_name_temp_table2.scope,
                                models.DataIdentifier.name == scope_name_temp_table2.name)))
         ).execution_options(
