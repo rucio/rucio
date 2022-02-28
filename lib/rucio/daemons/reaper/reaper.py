@@ -28,6 +28,7 @@
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -65,7 +66,7 @@ from rucio.core import monitor
 from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts
 from rucio.core.message import add_message
-from rucio.core.replica import list_and_mark_unlocked_replicas, delete_replicas
+from rucio.core.replica import list_and_mark_unlocked_replicas, list_and_mark_unlocked_replicas_no_temp_table, delete_replicas
 from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, get_rse_protocols
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
@@ -564,15 +565,24 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 del_start_time = time.time()
                 only_delete_obsolete = dict_rses[(rse_name, rse_id)][1]
                 try:
+                    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
                         if only_delete_obsolete:
                             logger(logging.DEBUG, 'Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', rse_name)
-                        replicas = list_and_mark_unlocked_replicas(limit=chunk_size,
-                                                                   bytes_=needed_free_space,
-                                                                   rse_id=rse_id,
-                                                                   delay_seconds=delay_seconds,
-                                                                   only_delete_obsolete=only_delete_obsolete,
-                                                                   session=None)
+                        if use_temp_tables:
+                            replicas = list_and_mark_unlocked_replicas(limit=chunk_size,
+                                                                       bytes_=needed_free_space,
+                                                                       rse_id=rse_id,
+                                                                       delay_seconds=delay_seconds,
+                                                                       only_delete_obsolete=only_delete_obsolete,
+                                                                       session=None)
+                        else:
+                            replicas = list_and_mark_unlocked_replicas_no_temp_table(limit=chunk_size,
+                                                                                     bytes_=needed_free_space,
+                                                                                     rse_id=rse_id,
+                                                                                     delay_seconds=delay_seconds,
+                                                                                     only_delete_obsolete=only_delete_obsolete,
+                                                                                     session=None)
                     logger(logging.DEBUG, 'list_and_mark_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', rse_name, needed_free_space, time.time() - del_start_time, len(replicas))
                     if len(replicas) < chunk_size:
                         logger(logging.DEBUG, 'Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', rse_name, chunk_size, len(replicas))

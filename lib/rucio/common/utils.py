@@ -20,7 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2022
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2022
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Tobias Wegner <twegner@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -35,17 +35,16 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Anil Panta <47672624+panta-123@users.noreply.github.com>, 2021
 # - Ilija Vukotic <ivukotic@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - martynia <janusz.martyniak@googlemail.com>, 2021
+# - martynia <janusz.martyniak@googlemail.com>, 2021-2022
 # - jdierkes <joel.dierkes@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
 # - Igor Mandrichenko <ivm@fnal.gov>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
-# - Janusz Martyniak <janusz.martyniak@googlemail.com>, 2022
 
 from __future__ import absolute_import, print_function
 
@@ -500,12 +499,20 @@ def grouper(iterable, n, fillvalue=None):
     return izip_longest(*args, fillvalue=fillvalue)
 
 
-def chunks(list_, n):
+def chunks(iterable, n):
     """
     Yield successive n-sized chunks from l.
     """
-    for i in range(0, len(list_), n):
-        yield list_[i:i + n]
+    if isinstance(iterable, list):
+        for i in range(0, len(iterable), n):
+            yield iterable[i:i + n]
+    else:
+        it = iter(iterable)
+        while True:
+            chunk = list(itertools.islice(it, n))
+            if not chunk:
+                return
+            yield chunk
 
 
 def dict_chunks(dict_, n):
