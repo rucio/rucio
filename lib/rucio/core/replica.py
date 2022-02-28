@@ -1857,48 +1857,47 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         )
 
         clt_to_set_not_archive.append(set())
-        if True:  # Todo: de-indent the code in a separate commit
-            for parent_scope, parent_name, did_type, child_scope, child_name in session.execute(stmt):
+        for parent_scope, parent_name, did_type, child_scope, child_name in session.execute(stmt):
 
-                # Schedule removal of child file/dataset/container from the parent dataset/container
-                did_associations_to_remove.add(Association(scope=parent_scope, name=parent_name,
-                                                           child_scope=child_scope, child_name=child_name))
+            # Schedule removal of child file/dataset/container from the parent dataset/container
+            did_associations_to_remove.add(Association(scope=parent_scope, name=parent_name,
+                                                       child_scope=child_scope, child_name=child_name))
 
-                # Schedule setting is_archive = False on parents which don't have any children with is_archive == True anymore
-                clt_to_set_not_archive[-1].add(ScopeName(scope=parent_scope, name=parent_name))
+            # Schedule setting is_archive = False on parents which don't have any children with is_archive == True anymore
+            clt_to_set_not_archive[-1].add(ScopeName(scope=parent_scope, name=parent_name))
 
-                # If the parent dataset/container becomes empty as a result of the child removal
-                # (it was the last children), metadata cleanup has to be done:
-                #
-                # 1) Schedule to remove the replicas of this empty collection
-                clt_replicas_to_delete.add(ScopeName(scope=parent_scope, name=parent_name))
+            # If the parent dataset/container becomes empty as a result of the child removal
+            # (it was the last children), metadata cleanup has to be done:
+            #
+            # 1) Schedule to remove the replicas of this empty collection
+            clt_replicas_to_delete.add(ScopeName(scope=parent_scope, name=parent_name))
 
-                # 2) Schedule removal of this empty collection from its own parent collections
-                parents_to_analyze.add(ScopeName(scope=parent_scope, name=parent_name))
+            # 2) Schedule removal of this empty collection from its own parent collections
+            parents_to_analyze.add(ScopeName(scope=parent_scope, name=parent_name))
 
-                # 3) Schedule removal of the entry from the DIDs table
-                remove_open_did = config_get('reaper', 'remove_open_did', default=False, session=session)
-                if remove_open_did:
-                    did_condition.append(
-                        and_(models.DataIdentifier.scope == parent_scope,
-                             models.DataIdentifier.name == parent_name,
-                             ~exists([1]).where(
-                                 and_(models.DataIdentifierAssociation.child_scope == parent_scope,
-                                      models.DataIdentifierAssociation.child_name == parent_name)),
-                             ~exists([1]).where(
-                                 and_(models.DataIdentifierAssociation.scope == parent_scope,
-                                      models.DataIdentifierAssociation.name == parent_name))))
-                else:
-                    did_condition.append(
-                        and_(models.DataIdentifier.scope == parent_scope,
-                             models.DataIdentifier.name == parent_name,
-                             models.DataIdentifier.is_open == False,  # NOQA
-                             ~exists([1]).where(
-                                 and_(models.DataIdentifierAssociation.child_scope == parent_scope,
-                                      models.DataIdentifierAssociation.child_name == parent_name)),
-                             ~exists([1]).where(
-                                 and_(models.DataIdentifierAssociation.scope == parent_scope,
-                                      models.DataIdentifierAssociation.name == parent_name))))
+            # 3) Schedule removal of the entry from the DIDs table
+            remove_open_did = config_get('reaper', 'remove_open_did', default=False, session=session)
+            if remove_open_did:
+                did_condition.append(
+                    and_(models.DataIdentifier.scope == parent_scope,
+                         models.DataIdentifier.name == parent_name,
+                         ~exists([1]).where(
+                             and_(models.DataIdentifierAssociation.child_scope == parent_scope,
+                                  models.DataIdentifierAssociation.child_name == parent_name)),
+                         ~exists([1]).where(
+                             and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                  models.DataIdentifierAssociation.name == parent_name))))
+            else:
+                did_condition.append(
+                    and_(models.DataIdentifier.scope == parent_scope,
+                         models.DataIdentifier.name == parent_name,
+                         models.DataIdentifier.is_open == False,  # NOQA
+                         ~exists([1]).where(
+                             and_(models.DataIdentifierAssociation.child_scope == parent_scope,
+                                  models.DataIdentifierAssociation.child_name == parent_name)),
+                         ~exists([1]).where(
+                             and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                  models.DataIdentifierAssociation.name == parent_name))))
 
         if did_associations_to_remove:
             session.query(association_temp_table).delete()
