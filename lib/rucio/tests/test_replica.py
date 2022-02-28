@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2022
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
@@ -406,7 +406,7 @@ class TestReplicaCore:
                               'hostname': 'http.aperture.com',
                               'port': 80,
                               'prefix': '//test/chamber/',
-                              'impl': 'rucio.rse.protocols.gfalv2.Default',
+                              'impl': 'rucio.rse.protocols.gfal.Default',
                               'domains': {
                                   'lan': {'read': 1, 'write': 1, 'delete': 1},
                                   'wan': {'read': 1, 'write': 1, 'delete': 1}}})
