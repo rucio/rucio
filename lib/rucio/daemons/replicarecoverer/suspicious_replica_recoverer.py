@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019-2021 CERN
+# Copyright 2019-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,8 @@
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
-# - Christoph Ames <christoph.ames@cern.ch>, 2021
+# - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2022
 
 """
 Suspicious-Replica-Recoverer is a daemon that deals with suspicious replicas based on if they are found available on other RSEs
@@ -259,7 +260,7 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vo
                         for replica_value in recoverable_replicas[vo][rse_key].values():
                             surls_list.append(replica_value['surl'])
 
-                        add_bad_pfns(pfns=surls_list, account=InternalAccount('root', vo=vo), state='TEMPORARY_UNAVAILABLE')
+                        add_bad_pfns(pfns=surls_list, account=InternalAccount('root', vo=vo), state='TEMPORARY_UNAVAILABLE', expires_at=datetime.utcnow() + timedelta(days=3))
 
                         logger(logging.INFO, "%s is problematic (more than %s suspicious replicas). Send a Jira ticket for the RSE (to be implemented).", rse_key, limit_suspicious_files_on_rse)
                         logger(logging.INFO, "The following files on %s have been marked as TEMPORARILY UNAVAILABLE:", rse_key)
@@ -308,7 +309,8 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vo
                                         elif action == "declare bad":
                                             files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key]['surl'])
                                         else:
-                                            logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Match for the metadata 'datatype' (%s) of replica found in json file, but no match for 'action' (%s)", rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'], i["datatype"], i["action"])
+                                            logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Match for the metadata 'datatype' (%s) of replica found in json file, but no match for 'action' (%s)",
+                                                   rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'], i["datatype"], i["action"])
                                         break
                                     else:
                                         # If no policy has be set, default to ignoring the file (no action taken).
@@ -320,11 +322,13 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vo
                     logger(logging.INFO, '(%s) Remaining replica (pfns) that will be declared BAD:', rse_key)
                     for i in files_to_be_declared_bad:
                         logger(logging.INFO, '%s', i)
-                    logger(logging.INFO, 'Ready to declare %s bad replica(s) on %s (RSE id: %s).', len(files_to_be_declared_bad), rse_key, str(rse_id))
 
-                    declare_bad_file_replicas(pfns=files_to_be_declared_bad, reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), session=None)
+                    if files_to_be_declared_bad:
+                        logger(logging.INFO, 'Ready to declare %s bad replica(s) on %s (RSE id: %s).', len(files_to_be_declared_bad), rse_key, str(rse_id))
 
-                    logger(logging.INFO, 'Finished declaring bad replicas on %s.\n', rse_key)
+                        declare_bad_file_replicas(pfns=files_to_be_declared_bad, reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), session=None)
+
+                        logger(logging.INFO, 'Finished declaring bad replicas on %s.\n', rse_key)
 
                 logger(logging.INFO, 'Finished checking for problematic RSEs and declaring bad replicas. Total time: %s seconds.', time.time() - time_start_check_probl)
 
