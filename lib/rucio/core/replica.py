@@ -1751,20 +1751,13 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
     :param files: list of files whose replica got deleted
     :param session: The database session in use.
     """
-    parents_to_analyze, affected_archives, clt_replicas_to_delete = set(), set(), set()
+    clt_to_update, parents_to_analyze, affected_archives, clt_replicas_to_delete = set(), set(), set(), set()
     did_condition = []
-    dst_replica_condition = []
     incomplete_dids, messages, clt_to_set_not_archive = [], [], []
     for file in files:
 
         # Schedule update of all collections containing this file and having a collection replica in the RSE
-        dst_replica_condition.append(
-            and_(models.DataIdentifierAssociation.child_scope == file['scope'],
-                 models.DataIdentifierAssociation.child_name == file['name'],
-                 exists(select([1]).prefix_with("/*+ INDEX(COLLECTION_REPLICAS COLLECTION_REPLICAS_PK) */", dialect='oracle')).where(
-                     and_(models.CollectionReplica.scope == models.DataIdentifierAssociation.scope,
-                          models.CollectionReplica.name == models.DataIdentifierAssociation.name,
-                          models.CollectionReplica.rse_id == rse_id))))
+        clt_to_update.add(ScopeName(scope=file['scope'], name=file['name']))
 
         # If the file doesn't have any replicas anymore, we should perform cleanups of objects
         # related to this file. However, if the file is "lost", it's removal wasn't intentional,
@@ -1789,18 +1782,30 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         affected_archives.add(ScopeName(scope=file['scope'], name=file['name']))
 
     # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
-    if dst_replica_condition:
-        for chunk in chunks(dst_replica_condition, 10):
-            query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name). \
-                filter(or_(*chunk)). \
-                distinct()
-
-            for parent_scope, parent_name in query:
-                models.UpdatedCollectionReplica(scope=parent_scope,
-                                                name=parent_name,
-                                                did_type=DIDType.DATASET,
-                                                rse_id=rse_id). \
-                    save(session=session, flush=False)
+    session.query(scope_name_temp_table).delete()
+    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in clt_to_update])
+    stmt = select(
+        models.DataIdentifierAssociation.scope,
+        models.DataIdentifierAssociation.name,
+    ).distinct(
+    ).join(
+        scope_name_temp_table,
+        and_(scope_name_temp_table.scope == models.DataIdentifierAssociation.child_scope,
+             scope_name_temp_table.name == models.DataIdentifierAssociation.child_name)
+    ).prefix_with(
+        "/*+ INDEX(COLLECTION_REPLICAS COLLECTION_REPLICAS_PK) */", dialect='oracle'
+    ).join(
+        models.CollectionReplica,
+        and_(models.CollectionReplica.scope == models.DataIdentifierAssociation.scope,
+             models.CollectionReplica.name == models.DataIdentifierAssociation.name,
+             models.CollectionReplica.rse_id == rse_id)
+    )
+    for parent_scope, parent_name in session.execute(stmt):
+        models.UpdatedCollectionReplica(scope=parent_scope,
+                                        name=parent_name,
+                                        did_type=DIDType.DATASET,
+                                        rse_id=rse_id). \
+            save(session=session, flush=False)
 
     # Delete did from the content for the last did
     while parents_to_analyze:
