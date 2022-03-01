@@ -77,7 +77,8 @@ TRANSFERTOOL_CLASSES_BY_NAME = {
 
 def run_once(bulk, group_bulk, filter_transfertool, transfertool, ignore_availability, rse_ids,
              scheme, failover_scheme, partition_hash_var, timeout, transfertool_kwargs,
-             total_workers, worker_number, logger, activity):
+             heartbeat_handler, activity):
+    worker_number, total_workers, logger = heartbeat_handler.live()
 
     start_time = time.time()
     transfers = transfer_core.next_transfers_to_submit(
@@ -112,6 +113,7 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertool, ignore_availab
 
         logger(logging.DEBUG, 'Starting to submit transfers for %s (%s)', activity, transfertool_obj)
         for job in grouped_jobs:
+            worker_number, total_workers, logger = heartbeat_handler.live()
             logger(logging.DEBUG, 'submitjob: transfers=%s, job_params=%s' % ([str(t) for t in job['transfers']], job['job_params']))
             submit_transfer(transfertool_obj=transfertool_obj, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter',
                             timeout=timeout, logger=logger)
@@ -218,7 +220,6 @@ def submitter(once=False, rses=None, partition_wait_time=10,
             transfertool_kwargs=transfertool_kwargs,
         ),
         activities=activities,
-        heart_beat_older_than=3600,
     )
 
 

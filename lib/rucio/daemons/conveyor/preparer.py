@@ -38,6 +38,7 @@ from rucio.db.sqla.constants import RequestState
 if TYPE_CHECKING:
     from typing import Optional
     from sqlalchemy.orm import Session
+    from rucio.daemons.conveyor.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
 
@@ -103,11 +104,16 @@ def preparer(once, sleep_time, bulk, partition_wait_time=10):
             bulk=bulk
         ),
         activities=None,
-        heart_beat_older_than=None,
     )
 
 
-def run_once(bulk: int = 100, total_workers: int = 0, worker_number: int = 0, limit: "Optional[int]" = None, logger=logging.log, session: "Optional[Session]" = None, **kwargs) -> bool:
+def run_once(bulk: int = 100, heartbeat_handler: "Optional[HeartbeatHandler]" = None, limit: "Optional[int]" = None, session: "Optional[Session]" = None, **kwargs) -> bool:
+    if heartbeat_handler:
+        worker_number, total_workers, logger = heartbeat_handler.live()
+    else:
+        # This is used in tests
+        worker_number, total_workers, logger = 0, 0, logging.log
+
     start_time = time()
     try:
         req_sources = __list_transfer_requests_and_source_replicas(

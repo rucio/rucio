@@ -68,7 +68,6 @@ def throttler(once=False, sleep_time=600, partition_wait_time=10):
         sleep_time=sleep_time,
         run_once_fnc=run_once,
         activities=None,
-        heart_beat_older_than=3600,
     )
 
 

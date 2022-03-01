@@ -210,11 +210,11 @@ def receiver(id_, total_threads=1, full_mode=False, all_vos=False):
 
     logging.info('receiver started')
 
-    with HeartbeatHandler(executable=executable, logger_prefix=logger_prefix) as heartbeat_handler:
+    with HeartbeatHandler(executable=executable, renewal_interval=30, logger_prefix=logger_prefix) as heartbeat_handler:
 
         while not graceful_stop.is_set():
 
-            _, logger = heartbeat_handler.live()
+            _, _, logger = heartbeat_handler.live()
 
             for conn in conns:
 
