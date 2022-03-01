@@ -77,10 +77,11 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer,
     for did in dids:
         scope = InternalScope(did['scope'], vo=issuer.vo)
         name = did['name']
-        scope, name, path, exists, already_declared, size = __exist_replicas(rse_id, [(scope, name, path)], 
+        path=None
+        scope, name, path, exists, already_declared, size = __exist_replicas(rse_id, [(scope, name, path)],
                                                                              session=session)[0]
         if exists and ((str(status) == str(BadFilesStatus.BAD) and not
-                          already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
+                        already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
             replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id,
                              'state': ReplicaState.BAD})
             new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id,
