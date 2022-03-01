@@ -67,7 +67,9 @@ TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)  # NOTE: Thi
 FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)  # NOTE: TRANSFERTOOL to filter requests on
 
 
-def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, activity, total_workers, worker_number, logger):
+def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, activity, heartbeat_handler):
+    worker_number, total_workers, logger = heartbeat_handler.live()
+
     start_time = time.time()
     logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))
     transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
@@ -110,6 +112,7 @@ def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, 
                     transfertool_obj = GlobusTransferTool(external_host=None)
                 else:
                     transfertool_obj = FTS3Transfertool(external_host=external_host, vo=vo)
+                worker_number, total_workers, logger = heartbeat_handler.live()
                 poll_transfers(transfertool_obj=transfertool_obj, transfers_by_eid=chunk, timeout=timeout, logger=logger)
             except Exception:
                 logger(logging.ERROR, 'Exception', exc_info=True)
@@ -162,7 +165,6 @@ def poller(once=False, activities=None, sleep_time=60,
             timeout=timeout,
         ),
         activities=activities,
-        heart_beat_older_than=3600,
     )
 
 
