@@ -40,7 +40,7 @@ from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_gauge, record_counter
 from rucio.core.quarantined_replica import add_quarantined_replicas
-from rucio.core.replica import __exists_replicas, update_replicas_states
+from rucio.core.replica import __exist_replicas, update_replicas_states
 from rucio.core.rse import list_rses, get_rse_id
 from rucio.rse.rsemanager import lfns2pfns, get_rse_info, parse_pfns
 
@@ -77,9 +77,9 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer,
     for did in dids:
         scope = InternalScope(did['scope'], vo=issuer.vo)
         name = did['name']
-        __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope, name,
-                                                                          path=None, session=session)
-        if __exists and ((str(status) == str(BadFilesStatus.BAD) and not
+        scope, name, path, exists, already_declared, size = __exist_replicas(rse_id, [(scope, name, path)], 
+                                                                             session=session)[0]
+        if exists and ((str(status) == str(BadFilesStatus.BAD) and not
                           already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
             replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id,
                              'state': ReplicaState.BAD})
