@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from flask import Flask, Blueprint, request, jsonify
 
@@ -35,30 +35,71 @@ class Meta(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """
-        List all data identifier keys.
-
-        .. :quickref: Meta; List all keys.
-
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 406: Not Acceptable.
-        :returns: List of all DID keys.
+        ---
+        summary: List all data identifier keys.
+        tags:
+            - Meta
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: array
+                  descripton: List of all DID keys.
+                  items:
+                    type: string
+                    description: Data Itentifier key
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
         """
         return jsonify(list_keys())
 
     def post(self, key):
         """
-        Create a new allowed key (value is NULL).
-
-        .. :quickref: Meta; Create new key.
-
-        :<json dict parameter: Dictionary with 'value_type', 'value_regexp' and 'key_type'.
-        :status 201: Created.
-        :status 400: Cannot decode json parameter list.
-        :status 400: Unsupported Value Type.
-        :status 401: Invalid Auth Token.
-        :status 409: Key already exists.
+        ---
+        summary: Create key
+        description: Creates a new allowed key (value is NULL).
+        tags:
+            - Meta
+        parameters:
+        - name: key
+          in: path
+          description: The name of the key.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key_type:
+                    description: The key tpye.
+                    type: string
+                  value_type:
+                    description: The value type.
+                    type: string
+                  value_regexp:
+                    description: The value regexpression.
+                    type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          400:
+            description: Cannot decode json parameter list / Unsupported value type.
+          401:
+            description: Invalid Auth Token.
+          409:
+            description: Key already exists.
         """
         parameters = json_parameters()
 
@@ -85,31 +126,77 @@ class Values(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, key):
         """
-        List all values for a key.
-
-        .. :quickref: Values; List all key values.
-
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 406: Not Acceptable.
-        :returns: List of all key values.
+        ---
+        summary: Get value for key
+        description: List all values for a key.
+        tags:
+            - Meta
+        parameters:
+        - name: key
+          in: path
+          description: The reference key.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: List of all key values.
+                  type: array
+                  items:
+                    type: string
+                    description: A value associated with a key.
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
         """
         return jsonify(list_values(key=key))
 
     def post(self, key):
         """
-        Create a new value for a key.
-
-        .. :quickref: Values; Create new value.
-
-        :<json dict parameter: Dictionary with 'value'.
-        :status 201: Created.
-        :status 400: Cannot decode json parameter list.
-        :status 400: Invalid Value For Key.
-        :status 401: Invalid Auth Token.
-        :status 404: Key Not Found.
-        :status 409: Value already exists.
+        ---
+        summary: Create value for key
+        description: Creates a new value for a key.
+        tags:
+            - Meta
+        parameters:
+        - name: key
+          in: path
+          description: The reference key.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type:
+                required:
+                - value
+                properties:
+                  value:
+                    description: The new value associated with a key.
+                    type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          400:
+            description: Cannot decode json parameter list / Invalid value for key.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Key not found
+          409:
+            description: Value already exists.
         """
         parameters = json_parameters()
         value = param_get(parameters, 'value')
