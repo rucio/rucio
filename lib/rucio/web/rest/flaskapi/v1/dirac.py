@@ -17,8 +17,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
-# - martynia <janusz.martyniak@googlemail.com>, 2021
-# - Janusz Martyniak <janusz.martyniak@googlemail.com>, 2022
+# - martynia <martynia@users.noreply.github.com>, 2022
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from flask import Flask, Blueprint, request
 
@@ -34,24 +34,52 @@ class AddFiles(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Atomic method used by the RucioFileCatalog plugin in Dirac that :
-        - Creates files and their replicas
-        - Creates the dataset containing the files and attach the files to the dataset
-        - Creates a rule on the dataset with RSE expression ANY and grouping NONE
-        - Creates all the container hierarchy containing the dataset
-
-        ..:quickref: AddFiles; Method used by the RucioFileCatalog plugin in Dirac.
-
-        :<json list lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}.
-        :<json bool ignore_availability: A boolean to choose if unavailable sites need to be ignored.
-
-        :status 201: Created.
-        :status 400: Cannot decode json parameter list.
-        :status 401: Invalid auth token.
-        :status 404: DID not found.
-        :status 405: Unsupported Operation.
-        :status 409: Duplicate.
-        :status 503: Temporary error.
+        ---
+        summary: Add files
+        description: |
+          Atomic method used by the RucioFileCatalog plugin in Dirac that:
+          - Creates files and their replicas
+          - Creates the dataset containing the files and attach the files to the dataset
+          - Creates a rule on the dataset with RSE expression ANY and grouping NONE
+          - Creates all the container hierarchy containing the dataset
+        tags:
+          - Dirac
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - lfns
+                properties:
+                  lfns:
+                    description: "List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}."
+                    type: array
+                    items:
+                      type: object
+                  ignore_availability:
+                    description: If the availability should be ignored.
+                    type: boolean
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          400:
+            description: Cannot decode json parameter list.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: DID not found
+          405:
+            description: Unsupported Operation
+          409:
+            description: Duplicate
+          503:
+            description: Temporary error.
         """
         parameters = json_parameters(parse_response)
         lfns = param_get(parameters, 'lfns')
