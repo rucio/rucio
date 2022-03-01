@@ -77,7 +77,7 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer,
     for did in dids:
         scope = InternalScope(did['scope'], vo=issuer.vo)
         name = did['name']
-        path=None
+        path = None
         scope, name, path, exists, already_declared, size = __exist_replicas(rse_id, [(scope, name, path)],
                                                                              session=session)[0]
         if exists and ((str(status) == str(BadFilesStatus.BAD) and not
