@@ -19,6 +19,7 @@
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021-2022
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 import ast
 
@@ -45,40 +46,64 @@ class Scope(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope):
         """
-        Return all data identifiers in the given scope.
-
-        .. :quickref: Scopes; List all dids for scope
-
-        **Example request**:
-
-        .. sourcecode:: http
-
-            GET /dids/scope1/?name=container1&recursive HTTP/1.1
-            Host: rucio.cern.ch
-
-        **Example response**:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Vary: Accept
-            Content-Type: application/x-json-stream
-
-            {"scope": "scope1", "type": "CONTAINER", "name": "container1",
-             "parent": null, "level": 0}
-            {"scope": "scope1", "type": "DATASET", "name": "dataset1", "parent":
-             {"scope": "scope1", "name": "container1"}, "level": 1}
-            {"scope": "scope1", "type": "FILE", "name": "file1", "parent":
-             {"scope": "scope1", "name": "dataset1"}, "level": 2}
-
-        :query name: specify a DID name
-        :query recursive: flag to do a recursive search
-        :resheader Content-Type: application/x-json-stream
-        :status 200: DIDs found
-        :status 401: Invalid Auth Token
-        :status 404: no DIDs found in scope
-        :status 406: Not Acceptable
-        :returns: Line separated dictionaries of DIDs
+        ---
+        summary: Get Data Identifier
+        description: Return all data identifiers in the given scope.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope
+          in: path
+          description: The scope.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    description: The name of the did.
+                    type: string
+                  recursive:
+                    description: If specified, also returns the child ids recursively.
+                    type: boolean
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: Line seperated dictionary of dids.
+                  type: array
+                  items:
+                    type: object
+                    description: Data identifier
+                    properties:
+                      scope:
+                        type: string
+                        description: The scope of the did.
+                      name:
+                        type: string
+                        description: The name of the did.
+                      type:
+                        type: string
+                        description: The type of the did.
+                        enum: ['F', 'D', 'C', 'A', 'X', 'Y', 'Z']
+                      parent:
+                        type: string
+                        description: The parent of the did.
+                      level:
+                        type: integer
+                        description: The level of the did.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No Dids found
+          406:
+            description: Not acceptable
         """
         try:
             def generate(name, recursive, vo):
@@ -103,49 +128,100 @@ class Search(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope):
         """
-        List all data identifiers in a scope which match a given metadata.
-
-        .. :quickref: Search; Search DIDs in a scope with given metadata.
-
-        **Example request**:
-
-        .. sourcecode:: http
-
-            GET /dids/scope1/dids/search?type=collection&long=True&length.lt=10 HTTP/1.1
-            Host: rucio.cern.ch
-
-        **Example response**:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Vary: Accept
-            Content-Type: application/x-json-stream
-
-            {"scope": "scope1", "did_type": "CONTAINER", "name": "container1",
-             "bytes": 1234, "length": 1}
-            {"scope": "scope1", "did_type": "DATASET", "name": "dataset1",
-             "bytes": 234, "length": 3}
-
-        :query type: specify a DID type to search for
-        :query limit: The maximum number of DIDs returned.
-        :query long: set to True for long output, otherwise only name
-        :query recursive: set to True to recursively list DIDs content
-        :query created_before: Date string in RFC-1123 format where the creation date was earlier
-        :query created_after: Date string in RFC-1123 format where the creation date was later
-        :query length: Exact number of attached DIDs
-        :query length.gt: Number of attached DIDs greater than
-        :query length.lt: Number of attached DIDs less than
-        :query length.gte: Number of attached DIDs greater than or equal to
-        :query length.lte: Number of attached DIDs less than or equal to
-        :query name: Name or pattern of a DID name
-        :resheader Content-Type: application/x-json-stream
-        :status 200: DIDs found
-        :status 401: Invalid Auth Token
-        :status 404: Invalid key in filters
-        :status 406: Not Acceptable
-        :status 409: Wrong DID type
-        :returns: Line separated name of DIDs or dictionaries of DIDs for long option
+        ---
+        summary: List Data identifier
+        description: List all data identifiers in a scope which match a given metadata.
+        tags:
+          - Data Itentifiers
+        parameters:
+        - name: scope
+          in: path
+          description: The scope of the data identifiers.
+          schema:
+            type: string
+          style: simple
+        - name: type
+          in: query
+          description: The did type to search for.
+          schema:
+            type: string
+            enum: ['all', 'collection', 'container', 'dataset', 'file']
+            default: 'collection'
+        - name: limit
+          in: query
+          description: The maximum number od dids returned.
+          schema:
+            type: integer
+        - name: long
+          in: query
+          description: Provides a longer output, otherwise just prints names.
+          schema:
+            type: boolean
+            default: false
+        - name: recursive
+          in: query
+          description: Recursively list chilred.
+          schema:
+            type: boolean
+        - name: created_before
+          in: query
+          description: Date string in RFC-1123 format where the creation date was earlier.
+          schema:
+            type: string
+        - name: created_after
+          in: query
+          description: Date string in RFC-1123 format where the creation date was later.
+          schema:
+            type: string
+        - name: length
+          in: query
+          description:  Exact number of attached DIDs.
+          schema:
+            type: integer
+        - name: length.gt
+          in: query
+          description: Number of attached DIDs greater than.
+          schema:
+            type: integer
+        - name: length.lt
+          in: query
+          description: Number of attached DIDs less than.
+          schema:
+            type: integer
+        - name: length.gte
+          in: query
+          description: Number of attached DIDs greater than or equal to
+          schema:
+            type: integer
+        - name: length.lte
+          in: query
+          description: Number of attached DIDs less than or equal to.
+          schema:
+            type: integer
+        - name: name
+          in: query
+          description: Name or pattern of a did.
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: Line separated name of DIDs or dictionaries of DIDs for long option.
+                  type: array
+                  items:
+                    type: object
+                    description: the name of a DID or a dictionarie of a DID for long option.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Invalid key in filter.
+          406:
+            description: Not acceptable
+          409:
+            description: Wrong did type
         """
         filters = request.args.get('filters', default=None)
         if filters is not None:
@@ -178,50 +254,100 @@ class SearchExtended(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope):
         """
-        List all data identifiers in a scope which match a given metadata.
-        Extended Version to included meteadata from various plugins.
-
-        .. :quickref: Search; Search DIDs in a scope with given metadata.
-
-        **Example request**:
-
-        .. sourcecode:: http
-
-            GET /dids/scope1/dids/search_extended?type=collection&long=True&length.lt=10 HTTP/1.1
-            Host: rucio.cern.ch
-
-        **Example response**:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Vary: Accept
-            Content-Type: application/x-json-stream
-
-            {"scope": "scope1", "did_type": "CONTAINER", "name": "container1",
-             "bytes": 1234, "length": 1}
-            {"scope": "scope1", "did_type": "DATASET", "name": "dataset1",
-             "bytes": 234, "length": 3}
-
-        :query type: specify a DID type to search for
-        :query limit: The maximum number of DIDs returned.
-        :query long: set to True for long output, otherwise only name
-        :query recursive: set to True to recursively list DIDs content
-        :query created_before: Date string in RFC-1123 format where the creation date was earlier
-        :query created_after: Date string in RFC-1123 format where the creation date was later
-        :query length: Exact number of attached DIDs
-        :query length.gt: Number of attached DIDs greater than
-        :query length.lt: Number of attached DIDs less than
-        :query length.gte: Number of attached DIDs greater than or equal to
-        :query length.lte: Number of attached DIDs less than or equal to
-        :query name: Name or pattern of a DID name
-        :resheader Content-Type: application/x-json-stream
-        :status 200: DIDs found
-        :status 401: Invalid Auth Token
-        :status 404: Invalid key in filters
-        :status 406: Not Acceptable
-        :status 409: Wrong DID type
-        :returns: Line separated name of DIDs or dictionaries of DIDs for long option
+        ---
+        summary: List Data identifier with plugin metadata
+        description: List all data identifiers in a scope which match a given metadata. Extended Version to included meteadata from various plugins.
+        tags:
+          - Data Itentifiers
+        parameters:
+        - name: scope
+          in: path
+          description: The scope of the data identifiers.
+          schema:
+            type: string
+          style: simple
+        - name: type
+          in: query
+          description: The did type to search for.
+          schema:
+            type: string
+            enum: ['all', 'collection', 'container', 'dataset', 'file']
+            default: 'collection'
+        - name: limit
+          in: query
+          description: The maximum number od dids returned.
+          schema:
+            type: integer
+        - name: long
+          in: query
+          description: Provides a longer output, otherwise just prints names.
+          schema:
+            type: boolean
+            default: false
+        - name: recursive
+          in: query
+          description: Recursively list chilred.
+          schema:
+            type: boolean
+        - name: created_before
+          in: query
+          description: Date string in RFC-1123 format where the creation date was earlier.
+          schema:
+            type: string
+        - name: created_after
+          in: query
+          description: Date string in RFC-1123 format where the creation date was later.
+          schema:
+            type: string
+        - name: length
+          in: query
+          description:  Exact number of attached DIDs.
+          schema:
+            type: integer
+        - name: length.gt
+          in: query
+          description: Number of attached DIDs greater than.
+          schema:
+            type: integer
+        - name: length.lt
+          in: query
+          description: Number of attached DIDs less than.
+          schema:
+            type: integer
+        - name: length.gte
+          in: query
+          description: Number of attached DIDs greater than or equal to
+          schema:
+            type: integer
+        - name: length.lte
+          in: query
+          description: Number of attached DIDs less than or equal to.
+          schema:
+            type: integer
+        - name: name
+          in: query
+          description: Name or pattern of a did.
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: Line separated name of DIDs or dictionaries of DIDs for long option.
+                  type: array
+                  items:
+                    type: object
+                    description: the name of a DID or a dictionarie of a DID for long option.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Invalid key in filter.
+          406:
+            description: Not acceptable
+          409:
+            description: Wrong did type
         """
         filters = request.args.get('filters', default=None)
         if filters is not None:
@@ -254,42 +380,54 @@ class BulkDIDS(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def post(self):
         """
-        Add new DIDs in bulk.
-
-        .. :quickref: BulkDID; Bulk add DIDs.
-
-                **Example request**:
-
-        .. sourcecode:: http
-
-            POST /dids/ HTTP/1.1
-            Host: rucio.cern.ch
-
-            [
-              {"scope": "scope1", "type": "CONTAINER", "name": "container1",
-               "account": "jdoe", "length": 1},
-              {"scope": "scope1", "type": "DATASET", "name": "dataset1",
-               "account": "jdoe", "length": 3}
-            ]
-
-
-        **Example response**:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 201 Created
-            Vary: Accept
-
-        :reqheader Accept: application/json
-        :<json string scope: the new DID scope
-        :<json string name: the new DID name
-        :<json string type: the new DID type
-        :<json string account: the owner account of the new DID
-        :<json string statuses: monotonic
-        :status 201: new DIDs created
-        :status 401: Invalid Auth Token
-        :status 406: Not Acceptable
-        :status 409: DID already exists
+        ---
+        summary: Add Dids bulk
+        description: Add new Dids in bulk.
+        tags:
+          - Data Identifiers
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  description: One did to add.
+                  type: object
+                  required:
+                    - scope
+                    - name
+                    - type
+                  properties:
+                    scope:
+                      description: The did scope.
+                      type: string
+                    name:
+                      description: The did name.
+                      type: string
+                    type:
+                      description: The type of the did.
+                      type: string
+                      enum: ["F", "D", "C", "A", "X", "Y", "Z"]
+                    account:
+                      description: The account associated with the did.
+                      type: string
+                    statuses:
+                      description: The monotonic status
+                      type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
+          409:
+            description: Did already exists
         """
         dids = json_list()
         try:
@@ -307,9 +445,103 @@ class Attachments(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Attach DIDs to DIDs
-
-        .. :quickref: Attachements; Attach DIDs to DIDs.
+        ---
+        summary: Attach did to did
+        description: Attaches a did to another did
+        tags:
+          - Data Identifiers
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                oneOf:
+                  - description: An array containing all dids. Duplicates are not ignored.
+                    type: array
+                    required:
+                      - scope
+                      - name
+                      - dids
+                    properties:
+                      scope:
+                        description: The scope of the did.
+                        type: string
+                      name:
+                        description: The name of the did.
+                        type: string
+                      dids:
+                        description: The dids associated to the did.
+                        type: array
+                        items:
+                          type: object
+                          description: A did.
+                          required:
+                            - scope
+                            - name
+                          properties:
+                            scope:
+                              description: The scope of the did.
+                              type: string
+                            name:
+                              description: The name of the did.
+                              type: string
+                      rse_id:
+                        description: The rse id of the did.
+                        type: string
+                  - type: object
+                    required:
+                      - attachments
+                    properties:
+                      ignore_duplicates:
+                        description: If duplicates should be ignored.
+                        type: boolean
+                        default: false
+                      attachments:
+                        description: An array containing all dids. Duplicates are not ignored.
+                        type: array
+                        required:
+                          - scope
+                          - name
+                          - dids
+                        properties:
+                          scope:
+                            description: The scope of the did.
+                            type: string
+                          name:
+                            description: The name of the did.
+                            type: string
+                          dids:
+                            description: The dids associated to the did.
+                            type: array
+                            items:
+                              type: object
+                              description: A did.
+                              required:
+                                - scope
+                                - name
+                              properties:
+                                scope:
+                                  description: The scope of the did.
+                                  type: string
+                                name:
+                                  description: The name of the did.
+                                  type: string
+                          rse_id:
+                            description: The rse id of the did.
+                            type: string
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
         """
         parameters = json_parse((dict, list))
         if isinstance(parameters, list):
@@ -339,36 +571,94 @@ class DIDs(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, scope_name):
         """
-        Retrieve a single data identifier.
-
-        .. :quickref: DIDs; Retrieve a single DID.
-
-        **Example request**:
-
-        .. sourcecode:: http
-
-            GET /dids/scope1/dataset1?dynamic HTTP/1.1
-            Host: rucio.cern.ch
-
-        **Example response**:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Vary: Accept
-            Content-Type: application/json
-
-            {"scope": "scope1", "did_type": "DATASET", "name": "dataset1",
-             "bytes": 234, "length": 3, "account": "jdoe", "open": True,
-             "monotonic": False, "expired_at": null}
-
-        :query dynamic: Flag to dynamically calculate size for open DIDs
-        :resheader Content-Type: application/json
-        :status 200: DID found
-        :status 401: Invalid Auth Token
-        :status 404: Scope not found
-        :status 406: Not Acceptable.
-        :returns: Dictionary with DID metadata
+        ---
+        summary: Get did
+        description: Get a single data identifier.
+        tags:
+          - Data identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        - name: dynamic
+          in: query
+          description: Flag to dynamically calculate size for open DIDs.
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  oneOf:
+                  - description: A single file did.
+                    type: object
+                    properties:
+                      scope:
+                        description: The scope of the did.
+                        type: string
+                      name:
+                        description: The name of the did.
+                        type: string
+                      type:
+                        description: The type of the string.
+                        type: string
+                      account:
+                        description: The associated account.
+                        type: string
+                      bytes:
+                        description: The size in bytes.
+                        type: integer
+                      length:
+                        description: The number of files. Corresponses to 1.
+                        type: integer
+                        enum: [1]
+                      md5:
+                        description: md5 checksum.
+                        type: string
+                      adler32:
+                        description: adler32 checksum.
+                        type: string
+                  - description: A single file did.
+                    type: object
+                    properties:
+                      scope:
+                        description: The scope of the did.
+                        type: string
+                      name:
+                        description: The name of the did.
+                        type: string
+                      type:
+                        description: The type of the string.
+                        type: string
+                      account:
+                        description: The associated account.
+                        type: string
+                      open:
+                        description: If the did is write open.
+                        type: boolean
+                      monotonic:
+                        description: If the did is monotonic.
+                        type: boolean
+                      expired_at:
+                        description: When the did expired.
+                        type: string
+                      length:
+                        description: The number of associated dids.
+                        type: number
+                      bytes:
+                        description: The size in bytes.
+                        type: number
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Scope not found
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -382,36 +672,74 @@ class DIDs(ErrorHandlingMethodView):
 
     def post(self, scope_name):
         """
-        Create a new data identifier.
-
-        .. :quickref: DIDs; Create a new DID.
-
-        .. sourcecode:: http
-
-            POST /dids/scope1/container1 HTTP/1.1
-            Host: rucio.cern.ch
-
-            {"type": "CONTAINER", "lifetime": 86400},
-
-        **Example response**:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 201 Created
-            Vary: Accept
-
-        :reqheader Accept: application/json
-        :param scope_name: data identifier (scope)/(name).
-        :<json string type: the new DID type
-        :<json dict statuses: Dictionary with statuses, e.g. {'monotonic':True}
-        :<json dict meta: Dictionary with metadata, e.g. {'length':1234}
-        :<json dict rules: Replication rules associated with the did. e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ]
-        :<json int lifetime: DID's liftime in seconds.
-        :<json list dids: The content.
-        :<json string rse: The RSE name when registering replicas.
-        :status 201: new DIDs created
-        :status 401: Invalid Auth Token
-        :status 409: DID already exists
+        ---
+        summary: Create did
+        description: Create a new data identifier.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - type
+                properties:
+                  type:
+                    description: The type of the did.
+                    type: string
+                  statuses:
+                    description: The statuses of the did.
+                    type: string
+                  meta:
+                    description: The meta of the did.
+                    type: string
+                  rules:
+                    description: The rules associated with the did.
+                    type: array
+                    items:
+                      type: object
+                      description: A rule.
+                  lifetime:
+                    description: The lifetime of the did.
+                    type: string
+                  dids:
+                    description: The dids associated with the did.
+                    type: array
+                    items:
+                      type: object
+                      description: The did associated with a did.
+                      properties:
+                        scope:
+                          description: The scope of the did.
+                          type: string
+                        name:
+                          description: The name of the did.
+                          type: string
+                  rse:
+                    description: The rse associated with the did.
+                    type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did or scope not found
+          409:
+            description: Did already exists
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -448,30 +776,36 @@ class DIDs(ErrorHandlingMethodView):
 
     def put(self, scope_name):
         """
-        Update data identifier status.
-
-        .. :quickref: DIDs; Update DID status.
-
-        .. sourcecode:: http
-
-            PUT /dids/scope1/container1 HTTP/1.1
-            Host: rucio.cern.ch
-
-            {"open": False},
-
-        **Example response**:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Vary: Accept
-
-        :param scope_name: data identifier (scope)/(name).
-        :<json bool open: open or close did
-        :status 200: DIDs successfully updated
-        :status 401: Invalid Auth Token
-        :status 404: DID not found
-        :status 409: Wrong status
+        ---
+        summary: Update did
+        description: Update a did.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                properties:
+                  open:
+                    description: The open status
+                    type: boolean
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
+          409:
+            description: Wrong status
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -497,35 +831,60 @@ class Attachment(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
         """
-        Returns the contents of a data identifier.
-
-        .. :quickref: Attachement; Get DID contents.
-
-        **Example request**:
-
-        .. sourcecode:: http
-
-            GET /dids/scope1/dataset1 HTTP/1.1
-            Host: rucio.cern.ch
-
-        **Example response**:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Vary: Accept
-            Content-Type: application/json
-
-            {"scope": "scope1", "did_type": "DATASET", "name": "dataset1",
-             "bytes": 234, "length": 3, "account": "jdoe", "open": True,
-             "monotonic": False, "expired_at": null}
-
-        :resheader Content-Type: application/x-json-stream
-        :status 200: DID found
-        :status 401: Invalid Auth Token
-        :status 404: Scope not found
-        :status 406: Not Acceptable
-        :returns: Dictionary with DID metadata
+        ---
+        summary: Get did
+        description: Returns the contents of a data identifier.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: Did found
+            content:
+              application/x-json-stream:
+                schema:
+                  description: The contents of a did. Items are line seperated.
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - scope
+                      - name
+                      - type
+                      - bytes
+                      - adler32
+                      - md5
+                    properties:
+                      scope:
+                        description: The scope of the did.
+                        type: string
+                      name:
+                        description: The name of the did.
+                        type: string
+                      type:
+                        description: The type of the did.
+                        type: string
+                      bytes:
+                        description: The size of the did.
+                        type: number
+                      adler32:
+                        description: The adler32 checksum of the did.
+                        type: string
+                      md5:
+                        description: The md5 checksum of the did.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Scope not found
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -542,34 +901,61 @@ class Attachment(ErrorHandlingMethodView):
 
     def post(self, scope_name):
         """
-        Append data identifiers to data identifiers.
-
-        .. :quickref: Attachment; Append DID to DID.
-
-        **Example request**:
-
-        .. sourcecode:: http
-
-            POST /dids/scope1/datasets1/dids HTTP/1.1
-            Host: rucio.cern.ch
-
-            [{"scope": "scope1", "name": "file1"},
-             {"scope": "scope1", "name": "file2"},
-             {"scope": "scope1", "name": "file3"}]
-
-        **Example response**:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 201 Created
-            Vary: Accept
-
-        :param scope_name: data identifier (scope)/(name).
-        :<json list attachments: List of dicts of DIDs to attach.
-        :status 201: DIDs successfully attached
-        :status 401: Invalid Auth Token
-        :status 404: DID not found
-        :status 409: DIDs already attached
+        ---
+        summary: Add dids to did
+        description: Append data identifers to data identifiers.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - dids
+                properties:
+                  rse:
+                    description: The name of the rse.
+                    type: string
+                  account:
+                    description: The account which attaches the dids.
+                    type: string
+                  dids:
+                    description: The dids to attach.
+                    type: object
+                    properties:
+                      account:
+                        description: The account attaching the did.
+                        type: string
+                      scope:
+                        description: The scope of the did.
+                        type: string
+                      name:
+                        description: The name of the did.
+                        type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
+          406:
+            description: Not acceptable
+          409:
+            description: Already attached
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -593,15 +979,45 @@ class Attachment(ErrorHandlingMethodView):
 
     def delete(self, scope_name):
         """
-        Detach data identifiers from data identifiers.
-
-        .. :quickref: DIDs; Detach DID from DID.
-
-        :param scope_name: data identifier (scope)/(name).
-        :<json dicts data: Must contain key 'dids' with list of dids to detach.
-        :status 200: DIDs successfully detached
-        :status 401: Invalid Auth Token
-        :status 404: DID not found
+        ---
+        summary: Detach dids from did
+        description: Detach data identifiers from data identifiers.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - dids
+                properties:
+                  dids:
+                    description: The dids to detach.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        scope:
+                          description: The scope of the did.
+                          type: string
+                        name:
+                          description: The name of the did.
+                          type: string
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -628,17 +1044,63 @@ class AttachmentHistory(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
         """
-        Returns the contents history of a data identifier.
-
-        .. :quickref: AttachementHistory; List the content history of a DID.
-
-        :resheader Content-Type: application/x-json-stream
-        :param scope_name: data identifier (scope)/(name).
-        :status 200: DID found
-        :status 401: Invalid Auth Token
-        :status 404: DID not found
-        :status 406: Not Acceptable
-        :returns: Stream of dictionarys with DIDs
+        ---
+        summary: Get history
+        description: Returns the content history of a data identifier.
+        tags:
+          - Data Identifers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: Did found
+            content:
+              application/x-json-stream:
+                schema:
+                  description: The dids with their information and history. Elements are seperated by new line characters.
+                  type: array
+                  items:
+                    type: object
+                    description: A single did with history data.
+                    properties:
+                      scope:
+                        description: The scope of the did.
+                        type: string
+                      name:
+                        description: The name of the did.
+                        type: string
+                      type:
+                        description: The type of the did.
+                        type: string
+                      bytes:
+                        description: The size of the did in bytes.
+                        type: integer
+                      adler32:
+                        description: The abler32 sha checksum.
+                        type: string
+                      md5:
+                        description: The md5 checksum.
+                        type: string
+                      deleted_at:
+                        description: The deleted_at date time.
+                        type: string
+                      created_at:
+                        description: The created_at date time.
+                        type: string
+                      updated_at:
+                        description: The last time the did was updated.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -658,18 +1120,87 @@ class Files(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
-        """ List all replicas of a data identifier.
-
-        .. :quickref: Files; List replicas of DID.
-
-        :resheader Content-Type: application/x-json-stream
-        :param scope_name: data identifier (scope)/(name).
-        :query long: Flag to trigger long output
-        :status 200: DID found
-        :status 401: Invalid Auth Token
-        :status 404: DID not found
-        :status 406: Not Acceptable
-        :returns: A dictionary containing all replicas information.
+        """
+        ---
+        summary: Get replicas
+        description: List all replicas for a did.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        - name: long
+          in: query
+          description: Flag to trigger long output.
+          schema:
+            type: object
+          required: false
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  oneOf:
+                    - description: All replica information if `long` is defined.
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          scope:
+                            description: The scope of the did.
+                            type: string
+                          name:
+                            description: The name of the did.
+                            type: string
+                          bytes:
+                            description: The size of the did in bytes.
+                            type: integer
+                          guid:
+                            description: The guid of the did.
+                            type: string
+                          events:
+                            description: The number of events of the did.
+                            type: integer
+                          adler32:
+                            description: The adler32 checksum.
+                            type: string
+                          lumiblocknr:
+                            description: The lumi block nr. Only availabe if `long` is defined in the query.
+                            type: integer
+                    - description: All replica information.
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          scope:
+                            description: The scope of the did.
+                            type: string
+                          name:
+                            description: The name of the did.
+                            type: string
+                          bytes:
+                            description: The size of the did in bytes.
+                            type: integer
+                          guid:
+                            description: The guid of the did.
+                            type: string
+                          events:
+                            description: The number of events of the did.
+                            type: integer
+                          adler32:
+                            description: The adler32 checksum.
+                            type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
+          406:
+            description: Not acceptable
         """
         long = 'long' in request.args
 
@@ -691,17 +1222,46 @@ class Parents(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
-        """ List all parents of a data identifier.
-
-        .. :quickref: Parents; List parents of DID.
-
-        :resheader Content-Type: application/x-json-stream
-        :param scope_name: data identifier (scope)/(name).
-        :status 200: DID found
-        :status 401: Invalid Auth Token
-        :status 404: DID not found
-        :status 406: Not Acceptable.
-        :returns: A list of dictionary containing all dataset information.
+        """
+        ---
+        summary: Get Parents
+        description: Lists all parents of the did.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: The parents of the did.
+                  type: array
+                  items:
+                    type: object
+                    description: A parent of the did.
+                    properties:
+                      scope:
+                        description: The scope of the did.
+                        type: string
+                      name:
+                        description: The name of the did.
+                        type: string
+                      type:
+                        description: The type of the did.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -722,17 +1282,38 @@ class Meta(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, scope_name):
         """
-        List all meta of a data identifier.
-
-        .. :quickref: Meta; List DID metadata.
-
-        :resheader Content-Type: application/json
-        :param scope_name: data identifier (scope)/(name).
-        :status 200: DID found
-        :status 401: Invalid Auth Token
-        :status 404: DID not found
-        :status 406: Not Acceptable
-        :returns: A dictionary containing all meta.
+        ---
+        summary: Get metadata
+        description: Get the metadata of a did.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        - name: plugin
+          in: query
+          description: The plugin to use.
+          schema:
+            type: string
+          default: DID_COLUMN
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: A data identifer with all attributes.
+                  type: object
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -748,16 +1329,47 @@ class Meta(ErrorHandlingMethodView):
 
     def post(self, scope_name):
         """
-        Add metadata to a data identifier in bulk.
-
-        .. :quickref: Meta; Add DID metadata.
-
-        :param scope_name: data identifier (scope)/(name).
-        :status 201: Metadata created.
-        :status 400: Invalid input data.
-        :status 404: DID not found.
-        :status 409: Duplicate.
-        :returns: Created
+        ---
+        summary: Add metadata
+        description: Add metadata to a did.
+        tags:
+          - Data Identfiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type:
+                required:
+                - meta
+                properties:
+                  meta:
+                    description: The metadata to add. A dictionary containg the metadata name as key and the value as value.
+                    type: object
+                  recursive:
+                    description: Flag if the metadata should be applied recirsively to children.
+                    type: boolean
+                    default: false
+        responses:
+          201:
+            description: Created
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -787,16 +1399,36 @@ class Meta(ErrorHandlingMethodView):
 
     def delete(self, scope_name):
         """
-        Deletes the specified metadata from the DID
-
-        .. :quickref: Meta; Delete DID metadata.
-
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            404 KeyNotFound
+        ---
+        summary: Delete metadata
+        description: Deletes the specified metadata from the did.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        - name: key
+          in: query
+          description: The key to delete.
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+          400:
+            description: scope_name could not be parsed.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did or key not found
+          406:
+            description: Not acceptable
+          409:
+            description: Feature is not in current database.
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -821,23 +1453,53 @@ class Meta(ErrorHandlingMethodView):
 class SingleMeta(ErrorHandlingMethodView):
     def post(self, scope_name, key):
         """
-        Add metadata to a data identifier.
-
-        .. :quickref: SingleMeta; Add DID metadata.
-
-        HTTP Success:
-            201 Created
-
-        HTTP Error:
-            400 Bad Request
-            401 Unauthorized
-            404 Not Found
-            409 Conflict
-            500 Internal Error
-
-        :param scope_name: data identifier (scope)/(name).
-        :param key: the key.
-
+        ---
+        summary: Add metadata
+        description: Add metadata to a did.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        - name: key
+          in: path
+          description: The key for the metadata.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type:
+                required:
+                - value
+                properties:
+                  value:
+                    description: The value to set.
+                    type: AnyValue
+        responses:
+          201:
+            description: Created
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
+          406:
+            description: Not acceptable
+          409:
+            description: Matadata already exists
+          400:
+            description: Invalid key or value
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -871,14 +1533,51 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Set metadata on a list of data identifiers.
-
-        .. :quickref: BulkDIDsMeta; Set metadata to multiple DIDs
-
-        :status 201: Created
-        :status 400: Bad Request
-        :status 401: Unauthorized
-        :status 404: DataIdentifierNotFound
+        ---
+        summary: Add metadata bulk
+        description: Adds metadata in a bulk.
+        tags:
+          - Data Identifiers
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - dids
+                properties:
+                  dids:
+                    description: A list with all the dids and the metadata.
+                    type: array
+                    items:
+                      description: The did and associated metadata.
+                      type: object
+                      properties:
+                        scope:
+                          description: The scope of the did.
+                          type: string
+                        name:
+                          description: The name of the did.
+                          type: string
+                        meta:
+                          description: The metadata to add. A dictionary with the meta key as key and the value as value.
+                          type: object
+        responses:
+          200:
+            description: Created
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
+          406:
+            description: Not acceptable
+          409:
+            description: Unsupported Operation
         """
         parameters = json_parameters()
         dids = param_get(parameters, 'dids')
@@ -900,17 +1599,35 @@ class Rules(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
         """
-        Return all rules of a given DID.
-
-        .. :quickref: Rules; List rules of DID.
-
-        :resheader Content-Type: application/x-json-stream
-        :param scope_name: data identifier (scope)/(name).
-        :status 200: DID found
-        :status 401: Invalid Auth Token
-        :status 404: DID not found
-        :status 406: Not Acceptable
-        :returns: List of replication rules.
+        ---
+        summary: Get rules
+        description: Lists all rules of a given did.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: The rules associated with a did.
+            content:
+              application/x-json-stream:
+                schema:
+                  description: The rules associated with a did.
+                  type: array
+                  items:
+                    description: A rule.
+                    type: object
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did or rule not found
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -931,16 +1648,55 @@ class BulkMeta(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def post(self):
         """
-        List all meta of a list of data identifiers.
-
-        .. :quickref: Meta; List metadata of multiple DIDs
-
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK
-        :status 400: Bad Request
-        :status 401: Unauthorized
-        :status 404: DataIdentifierNotFound
-        :returns: A list of dictionaries containing all meta.
+        ---
+        summary: Get metadata bulk
+        description: List all metadata of a list of data identifiers.
+        tags:
+          - Data Identifiers
+        requestBody:
+          content:
+            'application/x-json-stream':
+              schema:
+                type:
+                required:
+                - dids
+                properties:
+                  dids:
+                    description: The dids.
+                    type: array
+                    items:
+                      description: A did.
+                      type: object
+                      properties:
+                        name:
+                          description: The name of the did.
+                          type: string
+                        scope:
+                          description: The scope of the did.
+                          type: string
+                  inherit:
+                    description: Concatenated the metadata of the parent if set to true.
+                    type: boolean
+                    default: false
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: A list of metadata identifiers for the dids. Seperated by new lines.
+                  type: array
+                  items:
+                    description: The metadata for one did.
+                    type: object
+          400:
+            description: Cannot decode json parameter list
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
+          406:
+            description: Not acceptable
         """
         parameters = json_parameters()
         dids = param_get(parameters, 'dids')
@@ -963,17 +1719,57 @@ class AssociatedRules(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
         """
-        Return all associated rules of a file.
-
-        .. :quickref: AssociatedRules; List associated rules of DID.
-
-        :resheader Content-Type: application/x-json-stream
-        :param scope_name: data identifier (scope)/(name).
-        :status 200: DID found
-        :status 401: Invalid Auth Token
-        :status 404: DID not found
-        :status 406: Not Acceptable
-        :returns: List of associated rules.
+        ---
+        summary: Get accociated rules
+        description: Gets all associated rules for a file.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: All associated rules for a file. Items are seperated by new line character.
+                  type: array
+                  items:
+                    description: A replication rule associated with the file. Has more fields than listed here.
+                    type: object
+                    properties:
+                      id:
+                        description: The id of the rule.
+                        type: string
+                      subscription_id:
+                        description: The subscription id of the rule.
+                        type: string
+                      account:
+                        description: The account associated with the rule.
+                        type: string
+                      scope:
+                        description: The scope associated with the rule.
+                        type: string
+                      name:
+                        description: The name of the rule.
+                        type: string
+                      state:
+                        description: The state of the rule.
+                        type: string
+                      rse_expression:
+                        description: The rse expression of the rule.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -994,17 +1790,42 @@ class GUIDLookup(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, guid):
         """
-        Return the file associated to a GUID.
-
-        .. :quickref: GUIDLookup; List file by GUID.
-
-        :resheader Content-Type: application/x-json-stream
-        :param guid: the GUID to query by.
-        :status 200: DID found
-        :status 401: Invalid Auth Token
-        :status 404: DID not found
-        :status 406: Not Acceptable
-        :returns: List of files for given GUID
+        ---
+        summary: Get dataset
+        description: Returns the dataset associated with a GUID.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: guid
+          in: path
+          description: The GUID to query buy.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: A list of all datasets associated with the guid. Items are seperated by new line character.
+                  type: array
+                  items:
+                    description: A dataset associated with a guid.
+                    type: object
+                    properties:
+                      scope:
+                        description: The scope of the dataset.
+                        type: string
+                      name:
+                        description: The name of the dataset.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
+          406:
+            description: Not acceptable
         """
         try:
             def generate(vo):
@@ -1020,25 +1841,58 @@ class Sample(ErrorHandlingMethodView):
 
     def post(self, input_scope, input_name, output_scope, output_name, nbfiles):
         """
-        Return the file associated to a GUID.
-
-        .. :quickref: Sample; Create a sample DID.
-
-        HTTP Success:
-            201 Created
-
-
-        HTTP Error:
-            401 Unauthorized
-            404 Not Found
-            409 Conflict
-            500 Internal Error
-
-        :param input_scope: The scope of the input DID.
-        :param input_name: The name of the input DID.
-        :param output_scope: The scope of the output dataset.
-        :param output_name: The name of the output dataset.
-        :param nbfiles: The number of files to register in the output dataset.
+        ---
+        summary: Create sample
+        description: Creates a sample from an input collection.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: input_scope
+          in: path
+          description: The input scope.
+          schema:
+            type: string
+          style: simple
+        - name: input_name
+          in: path
+          description: The input name.
+          schema:
+            type: string
+          style: simple
+        - name: output_scope
+          in: path
+          description: The output scope.
+          schema:
+            type: string
+          style: simple
+        - name: output_name
+          in: path
+          description: The output name.
+          schema:
+            type: string
+          style: simple
+        - name: nbfiles
+          in: path
+          description: The number of files to register in the output dataset.
+          schema:
+            type: string
+          style: simple
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
+          409:
+            description: Duplication
         """
         try:
             create_did_sample(
@@ -1065,16 +1919,43 @@ class NewDIDs(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
-        Returns list of recent identifiers.
-
-        .. :quickref: NewDIDs; List recent DIDs.
-
-        :resheader Content-Type: application/x-json-stream
-        :query type: the DID type.
-        :status 200: DIDs found
-        :status 401: Invalid Auth Token
-        :status 406: Not Acceptable
-        :returns: List recently created DIDs.
+        ---
+        summary: Get recent identifiers
+        description: Returns a list of recent identifiers.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: type
+          in: query
+          description: The type of the did.
+          schema:
+            type: string
+          required: false
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: A list of the recent dids. Items are seperated by new line characters.
+                  type: array
+                  items:
+                    description: A did.
+                    type: object
+                    properties:
+                      scope:
+                        description: The scope of the did.
+                        type: string
+                      name:
+                        description: The name of the did.
+                        type: string
+                      did_type:
+                        description: The type of the did.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
         """
         def generate(_type, vo):
             for did in list_new_dids(did_type=_type, vo=vo):
@@ -1089,20 +1970,43 @@ class Resurrect(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Resurrect DIDs.
-
-        .. :quickref: Resurrect; Resurrect DID.
-
-        HTTP Success:
-            201 Created
-
-
-        HTTP Error:
-            401 Unauthorized
-            404 Not Found
-            409 Conflict
-            500 Internal Error
-
+        ---
+        summary: Resurrect dids
+        description: Resurrect all given dids.
+        tags:
+          - Data Identifiers
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                description: List of did to resurrect.
+                type: array
+                items:
+                  description: A did to resurrect.
+                  type: object
+                  properties:
+                    scope:
+                      description: The scope of the did.
+                      type: string
+                    name:
+                      description: The name of the did
+                      type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          409:
+            description: Conflict
+          500:
+            description: Internal error
         """
         dids = json_list()
 
@@ -1122,15 +2026,41 @@ class Follow(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, scope_name):
         """
-        Return all users following a specific DID.
-
-        .. :quickref: Follow; List users following DID.
-
-        :status 200: OK
-        :status 400: ValueError
-        :status 401: Unauthorized
-        :status 404: DataIdentifierNotFound
-        :status 406: Not Acceptable
+        ---
+        summary: Get followers
+        description: Get all followers for a specific did.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: A list of all followers of a did.
+                  type: array
+                  items:
+                    description: A follower of a did.
+                    type: object
+                    properties:
+                      user:
+                        description: The user which follows the did.
+                        type: string
+          400:
+            description: Value error
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -1147,19 +2077,40 @@ class Follow(ErrorHandlingMethodView):
 
     def post(self, scope_name):
         """
-        Mark the input DID as being followed by the given account.
-
-        .. :quickref: Follow; Follow DID.
-
-        HTTP Success:
-            201 Created
-
-        HTTP Error:
-            401 Unauthorized
-            404 Not Found
-            500 Internal Error
-
-        :param scope_name: data identifier (scope)/(name).
+        ---
+        summary: Post follow
+        description: Mark the input DID as being followed by the given account.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - account
+                properties:
+                  account:
+                    description: The account to follow the did.
+                    type: string
+        responses:
+          201:
+            description: OK
+          400:
+            description: Scope or name could not be interpreted
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          500:
+            description: Internal error
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -1178,18 +2129,38 @@ class Follow(ErrorHandlingMethodView):
 
     def delete(self, scope_name):
         """
-        Mark the input DID as not followed
-
-        .. :quickref: Follow; Unfollow DID.
-
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
-        :param scope_name: data identifier (scope)/(name).
+        ---
+        summary: Delete follow
+        description: Mark the input DID as not followed
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope and the name of the did.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type:
+                required:
+                - account
+                properties:
+                  account:
+                    description: The account to unfollow the did.
+                    type: string
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          500:
+            description: Internal error
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
