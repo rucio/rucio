@@ -24,6 +24,7 @@
 # - Eric Vaandering <ericvaandering@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Carl-Fredrik Enell <carl-fredrik.enell@eiscat.se>, 2022
 #
 # PY3K COMPATIBLE
 
@@ -38,10 +39,12 @@ from xml.parsers import expat
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
+from urllib.parse import urlparse
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol
 
+#import certifi
 
 class TLSv1HttpAdapter(HTTPAdapter):
     '''
@@ -51,7 +54,11 @@ class TLSv1HttpAdapter(HTTPAdapter):
         self.poolmanager = PoolManager(num_pools=connections,
                                        maxsize=maxsize,
                                        block=block,
-                                       ssl_version=ssl.PROTOCOL_TLSv1)
+                                       cert_reqs="CERT_REQUIRED",
+                                       ca_cert_dir="/etc/grid-security/certificates",
+                                       #Or for Mozilla bundle:
+                                       #ca_certs=certifi.where()
+				)
 
 
 class UploadInChunks(object):
@@ -169,7 +176,8 @@ class Default(protocol.RSEProtocol):
             :raises RSEAccessDenied
         """
         try:
-            self.server = self.path2pfn('')
+            parse_url = urlparse(self.path2pfn(''))
+            self.server = f'{parse_url.scheme}://{parse_url.netloc}'
         except KeyError:
             raise exception.RSEAccessDenied('No specified Server')
 
@@ -486,7 +494,6 @@ class Default(protocol.RSEProtocol):
 
             :returns: a dict with two keys, filesize and adler32 of the file provided in path.
         """
-        raise NotImplementedError
         headers = {'Depth': '1'}
         dict_ = {}
         try:
@@ -496,12 +503,12 @@ class Default(protocol.RSEProtocol):
             elif result.status_code in [401, ]:
                 raise exception.RSEAccessDenied()
             if result.status_code in [400, ]:
-                raise NotImplementedError
+                raise exception.InvalidRequest()
             parser = Parser()
             parser.feed(result.text)
             for file_name in parser.sizes:
                 if '%s%s' % (self.server, file_name) == path:
-                    dict_['size'] = parser.sizes[file_name]
+                    dict_['filesize'] = parser.sizes[file_name]
             parser.close()
             return dict_
         except requests.exceptions.ConnectionError as error:
