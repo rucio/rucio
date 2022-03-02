@@ -705,7 +705,6 @@ class UploadClient:
             try:
                 self.logger(logging.DEBUG, 'stat: pfn=%s' % pfn)
                 stats = protocol.stat(pfn)
-                print(stats)
                 if int(stats['filesize']) == 0:
                     raise Exception('Filesize came back as 0. Potential storage race condition, need to retry.')
 
