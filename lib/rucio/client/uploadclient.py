@@ -707,7 +707,6 @@ class UploadClient:
                 stats = protocol.stat(pfn)
                 if int(stats['filesize']) == 0:
                     raise Exception('Filesize came back as 0. Potential storage race condition, need to retry.')
-
                 return stats
             except RSEChecksumUnavailable as error:
                 # The stat succeeded here, but the checksum failed
