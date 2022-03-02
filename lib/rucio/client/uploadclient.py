@@ -17,7 +17,7 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2022
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
@@ -41,6 +41,7 @@
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 # - Nicholas Smith <nick.smith@cern.ch>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2022
 
 import copy
 import json
@@ -594,7 +595,7 @@ class UploadClient:
         logger = self.logger
 
         # Construct protocol for write operation.
-        # IMPORTANT: All upload stat() checks are always done with the write_protocol
+        # IMPORTANT: All upload stat() checks are always done with the write_protocol EXCEPT for cloud resources (signed URL for write cannot be used for read)
         protocol_write = self._create_protocol(rse_settings, 'write', force_scheme=force_scheme, domain=domain, impl=impl)
 
         base_name = lfn.get('filename', lfn['name'])
@@ -625,8 +626,15 @@ class UploadClient:
         pfn_tmp = '%s.rucio.upload' % pfn if protocol_write.renaming else pfn
 
         # Either DID eixsts or not register_after_upload
-        if protocol_write.overwrite is False and delete_existing is False and protocol_write.exists(pfn):
-            raise FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))  # wrong exception ?
+        if protocol_write.overwrite is False and delete_existing is False:
+            if sign_service:
+                # Construct protocol for read ONLY for cloud resources and get signed URL for GET
+                protocol_read = self._create_protocol(rse_settings, 'read', domain=domain, impl=impl)
+                readpfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
+                if protocol_read.exists(readpfn):
+                    raise FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))  # wrong exception ?
+            if not sign_service and protocol_write.exists(pfn):
+                raise FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))  # wrong exception ?
 
         # Removing tmp from earlier attempts
         if protocol_write.exists(pfn_tmp):
