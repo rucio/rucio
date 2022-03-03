@@ -145,7 +145,8 @@ class TemporaryRSEFactory:
                         'read': 1,
                         'write': 1,
                         'delete': 1,
-                        'third_party_copy': 1
+                        'third_party_copy_read': 1,
+                        'third_party_copy_write': 1,
                     }
                 }
             }

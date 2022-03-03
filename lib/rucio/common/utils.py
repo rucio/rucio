@@ -484,7 +484,7 @@ def execute(cmd, blocking=True):
 
 def rse_supported_protocol_operations():
     """ Returns a list with operations supported by all RSE protocols."""
-    return ['read', 'write', 'delete', 'third_party_copy']
+    return ['read', 'write', 'delete', 'third_party_copy', 'third_party_copy_read', 'third_party_copy_write']
 
 
 def rse_supported_protocol_domains():
