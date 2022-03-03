@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +24,9 @@
 # - Tobias Wegner <twegner@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - martynia <martynia@users.noreply.github.com>, 2021
 
 """Provides functions to access the local configuration. The configuration locations are provided by get_config_dirs."""
 
@@ -44,7 +45,7 @@ from rucio.common import exception
 
 
 def config_get(section, option, raise_exception=True, default=None, clean_cached=False, check_config_table=True,
-               session=None, use_cache=True, expiration_time=3600):
+               session=None, use_cache=True, expiration_time=900):
     """
     Return the string value for a given option in a section
 
@@ -111,7 +112,7 @@ def config_add_section(section):
 
 
 def config_get_int(section, option, raise_exception=True, default=None, check_config_table=True, session=None,
-                   use_cache=True, expiration_time=3600):
+                   use_cache=True, expiration_time=900):
     """
     Return the integer value for a given option in a section
 
@@ -158,7 +159,7 @@ def config_get_int(section, option, raise_exception=True, default=None, check_co
 
 
 def config_get_float(section, option, raise_exception=True, default=None, check_config_table=True, session=None,
-                     use_cache=True, expiration_time=3600):
+                     use_cache=True, expiration_time=900):
     """
     Return the floating point value for a given option in a section
 
@@ -205,7 +206,7 @@ def config_get_float(section, option, raise_exception=True, default=None, check_
 
 
 def config_get_bool(section, option, raise_exception=True, default=None, check_config_table=True, session=None,
-                    use_cache=True, expiration_time=3600):
+                    use_cache=True, expiration_time=900):
     """
     Return the boolean value for a given option in a section
 
@@ -252,7 +253,7 @@ def config_get_bool(section, option, raise_exception=True, default=None, check_c
 
 
 def __config_get_table(section, option, raise_exception=True, default=None, clean_cached=False, session=None,
-                       use_cache=True, expiration_time=3600):
+                       use_cache=True, expiration_time=900):
     """
     Search for a section-option configuration parameter in the configuration table
 
