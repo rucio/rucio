@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,8 @@
 # limitations under the License.
 #
 # Authors:
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from flask import Flask, Blueprint, request
 
@@ -31,32 +28,105 @@ class Import(ErrorHandlingMethodView):
     """ Import data. """
 
     def post(self):
-        """ Import data into Rucio.
-
-        .. :quickref: Import data into Rucio.
-
-        **Example request**:
-
-        .. sourcecode:: http
-
-            POST /import HTTP/1.1
-            Host: rucio.cern.ch
-
-            {
-                "rses": [{"rse": "MOCK", "rse_type": "TAPE"}]
-            }
-
-        **Example response**:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 201 OK
-            Vary: Accept
-
-            Created
-        :status 200: DIDs found
-        :status 401: Invalid Auth Token
-        :returns: dictionary with rucio data
+        """
+        ---
+        summary: Import data
+        description: Import data into rucio
+        tags:
+            - Import
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                properties:
+                  rses:
+                    description: Rse data with rse name as key.
+                    type: object
+                    additionalProperties:
+                      x-additionalPropertiesName: rse name
+                      type: object
+                      properties:
+                        rse_type:
+                          description: The type of an rse.
+                          type: string
+                          enum: ['DISK', 'TAPE']
+                  distances:
+                    description: Distances data with src rse name as key.
+                    type: object
+                    additionalProperties:
+                      x-additionalPropertiesName: src rse
+                      description: Distances with dest rse as key.
+                      type: object
+                      additionalProperties:
+                        x-additionalPropertiesName: dest rse
+                        description: Distance for two rses.
+                        type: object
+                        properties:
+                          ranking:
+                            description: The distance between the rses.
+                            type: integer
+                          agis_distance:
+                            description: The agis distance between the rses.
+                            type: integer
+                          geoip_distance:
+                            description: The geoip distance between the rses.
+                            type: integer
+                          active:
+                            description: Active FTS transfer.
+                            type: integer
+                          submitted:
+                            description: Submitted FTS transfer.
+                            type: integer
+                          transfer_speed:
+                            description: FTS transfer speed.
+                            type: integer
+                          finished:
+                            description: Finished FTS transfer.
+                            type: integer
+                          failed:
+                            description: Failed fts transfer.
+                            type: integer
+                  accounts:
+                    description: Account data.
+                    type: array
+                    items:
+                      description: An account.
+                      type: object
+                      properties:
+                        account:
+                          description: The account identifier.
+                          type: string
+                        email:
+                          description: The email of an account.
+                          type: string
+                        identities:
+                          description: The identiies accociated with an account. Deletes old identites and adds the newly defined ones.
+                          type: array
+                          items:
+                            description: One identity associated with an account.
+                            type: object
+                            properties:
+                              type:
+                                description: The type of the identity.
+                                type: string
+                                enum: ['X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC']
+                              identity:
+                                description: Identifier of the identity.
+                                type: string
+                              password:
+                                description: The password if the type is USERPASS.
+                                type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          401:
+            description: Invalid Auth Token
         """
         data = json_parameters(parse_response)
         import_data(data=data, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
