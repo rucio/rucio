@@ -88,7 +88,7 @@ if rsemanager.CLIENT_MODE:   # pylint:disable=no-member
     # Preparing region for dogpile.cache
     RSE_REGION = make_region(function_key_generator=rse_key_generator).configure(
         'dogpile.cache.memory',
-        expiration_time=3600)
+        expiration_time=900)
     setattr(rsemanager, 'RSE_REGION', RSE_REGION)
 
 
@@ -107,5 +107,5 @@ if rsemanager.SERVER_MODE:   # pylint:disable=no-member
 
     setattr(rsemanager, '__request_rse_info', tmp_rse_info)
     setattr(rsemanager, '__get_signed_url', get_signed_url_server)
-    RSE_REGION = make_region_memcached(expiration_time=3600)
+    RSE_REGION = make_region_memcached(expiration_time=900)
     setattr(rsemanager, 'RSE_REGION', RSE_REGION)
