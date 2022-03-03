@@ -570,7 +570,7 @@ def get_hops(source_rse_id, dest_rse_id, multihop_rses=None, limit_dest_schemes=
         multihop_rses = []
 
     shortest_paths = __search_shortest_paths(source_rse_ids=[source_rse_id], dest_rse_id=dest_rse_id,
-                                             operation_src='third_party_copy', operation_dest='third_party_copy',
+                                             operation_src='third_party_copy_read', operation_dest='third_party_copy_write',
                                              domain='wan', multihop_rses=multihop_rses,
                                              limit_dest_schemes=limit_dest_schemes, session=session)
 
@@ -1120,8 +1120,8 @@ def __build_transfer_paths(
                                                   sources=filtered_sources,
                                                   multihop_rses=multihop_rses,
                                                   limit_dest_schemes=[],
-                                                  operation_src='third_party_copy',
-                                                  operation_dest='third_party_copy',
+                                                  operation_src='third_party_copy_read',
+                                                  operation_dest='third_party_copy_write',
                                                   domain='wan',
                                                   protocol_factory=protocol_factory,
                                                   session=session)

@@ -22,4 +22,4 @@
 # - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2022
 
-ALEMBIC_REVISION = '0f1adb7a599a'  # the current alembic head revision
+ALEMBIC_REVISION = 'fe1a65b176c9'  # the current alembic head revision

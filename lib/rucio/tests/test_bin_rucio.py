@@ -1104,7 +1104,7 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
         cmd = 'rucio-admin rse add-protocol --hostname blocklistreplica --scheme file --prefix /rucio --port 0 --impl rucio.rse.protocols.posix.Default ' \
-              '--domain-json \'{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}}\' %s' % tmp_rse
+              '--domain-json \'{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}}\' %s' % tmp_rse
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
