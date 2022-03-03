@@ -94,7 +94,7 @@ from rucio.db.sqla.constants import (LockState, ReplicaState, RuleState, RuleGro
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 
-REGION = make_region_memcached(expiration_time=3600)
+REGION = make_region_memcached(expiration_time=900)
 
 
 @transactional_session

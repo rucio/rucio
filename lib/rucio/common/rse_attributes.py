@@ -34,7 +34,7 @@ from dogpile.cache.api import NoValue
 from rucio.core import rse as rse_core
 from rucio.common.cache import make_region_memcached
 
-REGION = make_region_memcached(expiration_time=3600)
+REGION = make_region_memcached(expiration_time=900)
 
 
 def get_rse_attributes(rse_id, session=None):
