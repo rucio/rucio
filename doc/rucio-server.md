@@ -9,7 +9,7 @@ get it up and running. This server is a WSGI application written in
 Python and has to run on a WSGI capable web server such as Apache. The
 server provides a REST API and interacts with a database. The actual
 tasks are then performed by intermediate-level daemons. These read the
-database and can interact with low level components includingx
+database and can interact with low level components including
 storage.
 
 This architecture gives big flexibility in choices of authentication,
@@ -23,12 +23,12 @@ Rucio server and necessary daemons from source. Another reason is that
 the provided containers and instructions for use are all built on
 CentOS, which may be incompatible with more up to date host operating
 systems. In the following we describe how to deploy a Rucio
-server on an Ubuntu 20.04 LTS server system.
+server on an Ubuntu 20.04 LTS or 21.10 server system.
 
 # Prerequisites
 
 In order to install Rucio from source you must have a system with
-Python and the usual setup and compilation tools. We assume this to be
+Python, and the usual setup and compilation tools (build-essential, etc). We assume this to be
 available. Installing in a Python virtual environment may be
 preferrable for compatibility of dependencies. In the test setup
 described here, we instead started a fresh LXD container and installed
@@ -55,7 +55,7 @@ Repeat this step for other required modules:
 
     authn, cache_disk, headers, proxy, rewrite, ssl, zgridsite
 
-(CHECKME which required modules are not enabled by default?)
+(CHECKME which required modules are not installed and/or not enabled by default?)
 
 
 ## Install required Python packages
@@ -106,8 +106,8 @@ intermediate certificates) and unencrypted private key in for example
 	 
 (Checkme: file permissions?)
 
-For certificate based authentication, also get a personal certificate
-(or export the one you have) and make sure it is saved as
+For certificate-based authentication, also get a personal certificate
+(or export the one you have) and make sure it is saved on the system where the client will run as
     
 	 $HOME/.globus/usercert.pem and
 	 $HOME/.globus/userkey.pem
@@ -124,7 +124,7 @@ securely to the server.
 
 Next it is time to download and install the Rucio server and daemons.
 
-This is a normal source install procedure
+This is a normal source install procedure:
 
     $git clone https://github.com/rucio/rucio.git
     $cd rucio
@@ -142,8 +142,8 @@ where VERSION is the Python version number e.g. 3.8.
 Rucio will look for its configuration files in **/opt/rucio/etc**. So make a link from **/opt** to **/usr/local/rucio**:
       
     $sudo -s
-	#cd /opt
-	#ln -s /usr/local/rucio .
+    #cd /opt
+    #ln -s /usr/local/rucio .
 
 Make sure that there is a directory **/opt/rucio/etc/mail_templates**.
 Then at a minimum the following two files have to be created and edited:
@@ -155,10 +155,10 @@ Templates are provided and examples can also be found in the appendix.
  
 # Set up the database
 
-Next the database has to be configured and populated with the right records including root user credentials.
+Next the database has to be configured and populated with the correct initial records including root user credentials.
 
 ## Create a PostgreSQL database
-As mentioned we will use PostgreSQL so by default you have to perform the following operations as the Postgres superuser:
+As mentioned we will use PostgreSQL, so by default you have to perform the following operations as the Postgres superuser:
 
     $sudo -u posgres -s
 	
@@ -173,14 +173,13 @@ Then add a user, also named **rucio**:
 Follow the instruction prompts that appear:
 
     Enter name of role to add: rucio
-	Enter password for new role: secret
+    Enter password for new role: secret
     Enter it again: secret
     Shall the new role be a superuser? y
-	Shall the new role be allowed to create databases? n
+    Shall the new role be allowed to create databases? n
     Shall the new role be allowed to create more new roles? n
 
-(Checkme: required permissions+)
-
+(Checkme: required permissions?)
 
 Next enter the PostgreSQL CLI and make sure that you can connect to the database:
 
@@ -191,20 +190,19 @@ Set permissions for user **rucio**:
 
     #GRANT ALL PRIVILEGES ON DATABASE rucio TO rucio;
 	
-Add a schema, also named **rucio**:
+Add a schema to the database (make sure it is active so dont't forget the *\c rucio* above). I should also be named **rucio**:
     
-	#CREATE SCHEMA rucio; 
+    #CREATE SCHEMA rucio; 
     #GRANT ALL PRIVILEGES ON SCHEMA rucio TO rucio;
 
 Then, exit the CLI.
 
-Also make sure that local users can log in with password on the TCP port of the PostgreSQL server. This is configured in the file
+Next, make sure that local users can log in with password on the TCP port of the PostgreSQL server. This is configured in the file
 
-   
     /etc/postgresql/VERSION/main/pg_hba.conf (Postgres Host based authentication)
 
 VERSION here is the version number of the running PostgreSQL server; note that
-there may be several versions installed in parallel so make sure that
+there may be several versions installed in parallel, so make sure that
 it matches the server used for Rucio.
 
 There should be a line like the following
@@ -212,7 +210,7 @@ There should be a line like the following
     # IPv4 local connections:
     host    all             all             127.0.0.1/32            md5
 
-With this properly configured local login should work (note that the
+With this properly configured, local login should work (note that the
 **-h localhost** argument may be necessary to connect on the TCP
 port instead of the UNIX socket):
     
@@ -224,8 +222,8 @@ The database configuration has to be set in **alembic.ini** (used to create the 
 In **alembic.ini**, set 
 
     [alembic]
-	...
-	sqlalchemy.url=postgresql://rucio:secret@localhost:5432/rucio
+    ...
+    sqlalchemy.url=postgresql://rucio:secret@localhost:5432/rucio
     version_table_schema=rucio
 	
 In **rucio.cfg** set
@@ -235,7 +233,7 @@ In **rucio.cfg** set
 
      default = postgresql://rucio:secret@localhost/rucio
 
-* section [bootstrap]: This section is used to populate the database when its contents are created. It is used to set the credentials of the root user to access the server and tools. Note, all items from the template should exist or the bootstrap script will fail a try/except clause and insert hardcoded default values, which will not be useful to users outside CERN!
+* section [bootstrap]: This section is used to populate the database when its contents are created. It is used to set the credentials of the root user to access the server and tools. Note, all items in the [bootstrap] template must be uncommented and defined, or else the bootstrap script will fail a try/except clause and insert hardcoded default values in the database instead, which will not be useful to users outside CERN!
 
 See the template and example in the appendix.
 
@@ -246,9 +244,9 @@ Finally populate the database by running the following script in the distributio
 
 # Configure Apache
 
-This final step is usually the most complicated one in getting a WSGI
+This final step is usually the most complicated one: how to get the WSGI
 service up and running.  As Debian and Ubuntu also separate the Apache
-configuration files into subdirectories and use includes heavily,
+configuration files into subdirectories and use *include* statements heavily,
 the templates from the CentOS dockers will have to be split and adapted a bit.
 
 
@@ -269,11 +267,11 @@ was changed to
 
     Listen 0.0.0.0:<PORTNO>
 
-Explicitly specifying an IPv4 address such as this "wildcard" one disables IPv6.
+Explicitly specifying an IPv4 address such as this "wildcard" one will disable IPv6.
 
 ## Apache security
 
-Check  **/etc/apache2/conf-available/security.conf**: some entries should maybe be added or modified
+Check  **/etc/apache2/conf-available/security.conf**: some entries should maybe be added or modified (Checkme??)
 
 
 ## Apache options and WSGI settings
@@ -347,14 +345,14 @@ Rucio developers can be contacted by email or on Slack.
 
 # Connect to storage
 
-In order to upload files, you now have to define a Rucio storage element (RSE). All uploads are handled **client-side** --- the server only tells the client the details about location and upload protocol of the server.
+In order to be able to upload files, you now have to define a Rucio storage element (RSE). Note that all uploads are handled **client-side** --- the server only tells the client the details about location and upload protocol of the RSE.
 
 ## Define an RSE
 The first step is to create the RSE with **rucio-admin**
 
 	$rucio-admin -v -u root rse add MY_STORE
 	
-This tells the server that there is a storage element named "MY_STORE" and sets some default properties of it, including upload quota. Note however that no location or file transfer protocol is defined in this stage! But the server knows that the RSE exists:
+This tells the server that there is a storage element named "MY_STORE" and sets some default properties of it, including upload quota etc. Note however that no location or file transfer protocol is defined in this stage! But the server knows that the RSE exists:
 
     $rucio list-rses
     MY_STORE
@@ -369,15 +367,13 @@ For testing it may also be necessary to remove the default per-user quota of **r
 
 ## Add a protocol to the RSE
 
-In order to associate the defined RSE with actual physical storage, at least one **protocol** has to be added to the empty protocol section of the RSE configuration.
-
-Many different file transfer implementations are supported and the one recommended by the developers is **gfal**, the multi-protocol Grid File Access Library. Gfal is however very CentOS-centric and I had no luck with the Debian packages nor installing from source. So in this example the WebDAV implementation is shown instead. The WebDAV access module was debugged by the author and allows uploading to a WebDAV-enabled dCache server with X509 authentication.
+In order to associate the defined RSE with actual physical storage, at least one **protocol** has to be added to the empty protocol section of the RSE configuration. Many different file transfer implementations are supported and the one recommended by the developers is **gfal**, the multi-protocol Grid File Access Library. Gfal is however very CentOS-centric and I had no luck with the Debian packages nor installing from source. So in this example the WebDAV implementation is shown instead. The WebDAV access module was debugged by the author and allows uploading to a WebDAV-enabled dCache server with X509 authentication.
 
 The **rucio-admin add-protocol** command is used. Required arguments include hostname, scheme and port of the storage server, Python implementation (module name) to use for file transfer, etc. 
 
 The following configuration corresponds to a WebDAV server accessible at
     
-	https://my.storage.server:8443/my/storage/user
+    https://my.storage.server:8443/my/storage/user
 
     $rucio-admin -v -u root rse add-protocol --hostname my.storage.server --scheme https --impl rucio.rse.protocols.webdav.Default --prefix '/my/storage/user' --port 8443 --domain-json '{"lan": {"read": 0, "write": 0, "delete": 0}, "wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}}'
 
@@ -386,13 +382,13 @@ An "ugly" part of this is that the RSE must be configured as **writable from the
 ## Test the RSE
 Create a Rucio scope for your user and data:
 
-	 $rucio-admin -u root -v scope add --account root --scope TEST
+    $rucio-admin -u root -v scope add --account root --scope TEST
 	 
 Check that the scope exists:
 
-	 $rucio-admin scope list
+    $rucio-admin scope list
 
-Also add a dataset in the scope:
+Also add a dataset to the scope:
 
      $rucio add-dataset TEST:MYDATA
 
@@ -400,11 +396,11 @@ With a properly configured client:
 
     $rucio -v -u root upload --rse MY_STORE --scope TEST my-file.dat
 	
-Finally attache the file to the dataset:
+Finally attach the uploaded file to the dataset:
     
 	$rucio attach TEST:MYDATA TEST:my-file.dat
 	
-Now the file should be visible in the dataset:
+Now the file should be visible in the dataset: (Checkme: run required daemons first?)
  
     $rucio ls TEST:*
 	
@@ -412,17 +408,14 @@ You should also be able to download the dataset:
 
     $rucio download -u root -v TEST:MYDATA
 	
-This should create a subdirectory MYDATA with the file my-file.dat
+If everything works this will create a subdirectory MYDATA with the file my-file.dat
 	
 From here on, follow the documentation about how to create containers and datasets, add files to them, and add metadata.
 
 
-
 # Appendix: Rucio configuration examples
 
-
 ## alembic.ini
-
 
 	[alembic]
 
@@ -437,7 +430,7 @@ From here on, follow the documentation about how to create containers and datase
 ## rucio.cfg
 Note: **auth** should be added to [api] endpoints config
 
-    [common]
+        [common]
 	logdir = /var/log/rucio/log
 	loglevel = DEBUG 
 	logformat = %%(asctime)s\t%%(process)d\t%%(levelname)s\t%%(message)s
@@ -451,14 +444,6 @@ Note: **auth** should be added to [api] endpoints config
 	# client_x509_proxy = /tmp/x509up_u1000
 	# account = root
 
-	[upload]
-	transfer_timeout = 3600
-	preferred_impl = WebDAV
-
-	[download]
-	transfer_timeout = 3600
-	preferred_impl = WebDav
-
 	[database]
 	default = postgresql://rucio:secret@localhost/rucio
 	pool_recycle=3600
@@ -470,11 +455,6 @@ Note: **auth** should be added to [api] endpoints config
 
 	[api]
 	endpoints = accountlimits, accounts, auth, config, credentials, dids, export, heartbeats, identities, import, lifetime_exceptions, locks, meta, ping, redirect, replicas, requests, rses, rules, scopes, subscriptions
-
-	[conveyor]
-	scheme = https,davs
-	transfertool = fts3
-	ftshosts = https://dcache.my.domain:2880
 
 	[bootstrap]
 	userpass_identity = root
