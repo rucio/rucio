@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from json import dumps
 
@@ -40,15 +36,61 @@ class LifetimeException(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
-        Retrieve all exceptions.
-
-        .. :quickref: LifetimeException; Get all exceptions.
-
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: Lifetime Exception Not Found.
-        :status 406: Not Acceptable.
+        ---
+        summary: List Exceptions
+        description: Retrieves all exceptions.
+        tags:
+            - Lifetime Exceptions
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: One exception per line.
+                  type: array
+                  items:
+                    description: A lifetime exception
+                    type: object
+                    properties:
+                      id:
+                        description: The id of the lifetime exception.
+                        type: string
+                      scope:
+                        description: The scope associated with the lifetime exception.
+                        type: string
+                      name:
+                        description: The name of the lifetime exception.
+                        type: string
+                      did_type:
+                        description: The type of the did.
+                        type: string
+                        enum: ['F', 'D', 'C', 'A', 'X', 'Y', 'Z']
+                      account:
+                        description: The account accociated with the lifetime exception.
+                        type: string
+                      pattern:
+                        description: The patter of the lifetime exception.
+                        type: string
+                      comments:
+                        description: The comments of the lifetime exception.
+                        type: string
+                      state:
+                        description: The state of the lifetime exception.
+                        type: string
+                        enum: ['A', 'R', 'W']
+                      created_at:
+                        description: The datetime the lifetime exception was created.
+                        type: string
+                      expires_at:
+                        description: The datetime the lifetime exception expires.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Lifetime exception not found
+          406:
+            description: Not acceptable
         """
         try:
             def generate(vo):
@@ -61,20 +103,50 @@ class LifetimeException(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Create a new Lifetime Model exception.
-
-        .. :quickref: LifetimeException; Create new exception.
-
-        :<json string dids: The list of dids.
-        :<json string pattern: The pattern.
-        :<json string comments: The comment for the exception.
-        :<json string expires_at: The expiration date for the exception.
-        :resheader Content-Type: application/json
-        :status 201: Created.
-        :status 400: Cannot decode json parameter list.
-        :status 401: Invalid Auth Token.
-        :status 409: Lifetime Exception already exists.
-        :returns: The id for the newly created execption.
+        ---
+        summary: Create Exception
+        description: Creates a Lifetime Exception.
+        tags:
+            - Lifetime Exceptions
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dids:
+                    description: List of dids associated with the lifetime exception.
+                    type: array
+                    items:
+                      description: A did
+                      type: object
+                      properties:
+                        name:
+                          description: The name of the did.
+                          type: string
+                  pattern:
+                    description: The pattern of the lifetime exception.
+                    type: string
+                  comments:
+                    description: The comment for the lifetime exception.
+                    type: string
+                  expires_at:
+                    description: The expiration date for the lifetime exception.
+                    type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: The exception id.
+                  type: string
+          401:
+            description: Invalid Auth Token
+          400:
+            description: Cannot decode json parameter list.
+          409:
+            description: Lifetime exception already exists.
         """
         parameters = json_parameters()
         try:
@@ -102,17 +174,68 @@ class LifetimeExceptionId(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, exception_id):
         """
-        Retrieve an exception.
-
-        .. :quickref: LifetimeExceptionId; Get an exceptions.
-
-        :param exception_id: The exception identifier.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: Lifetime Exception Not Found.
-        :status 406: Not Acceptable.
-        :returns: List of exceptions.
+        ---
+        summary: Get Exception
+        description: Get a single Lifetime Exception.
+        tags:
+            - Lifetime Exceptions
+        parameters:
+        - name: exception_id
+          in: path
+          description: The id of the lifetime exception.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: List of lifetime exceptions associated with the id.
+                  type: array
+                  items:
+                    description: A lifetime exception
+                    type: object
+                    properties:
+                      id:
+                        description: The id of the lifetime exception.
+                        type: string
+                      scope:
+                        description: The scope associated with the lifetime exception.
+                        type: string
+                      name:
+                        description: The name of the lifetime exception.
+                        type: string
+                      did_type:
+                        description: The type of the did.
+                        type: string
+                        enum: ['F', 'D', 'C', 'A', 'X', 'Y', 'Z']
+                      account:
+                        description: The account associated with the lifetime exception.
+                        type: string
+                      pattern:
+                        description: The patter of the lifetime exception.
+                        type: string
+                      comments:
+                        description: The comments of the lifetime exception.
+                        type: string
+                      state:
+                        description: The state of the lifetime exception.
+                        type: string
+                        enum: ['A', 'R', 'W']
+                      created_at:
+                        description: The datetime the lifetime exception was created.
+                        type: string
+                      expires_at:
+                        description: The datetime the lifetime exception expires.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Lifetime exception not found
+          406:
+            description: Not acceptable
         """
         try:
             def generate(vo):
@@ -125,16 +248,42 @@ class LifetimeExceptionId(ErrorHandlingMethodView):
 
     def put(self, exception_id):
         """
-        Approve/Reject an execption.
-
-        .. :quickref: LifetimeExceptionId; Approve/reject exception.
-
-        :param exception_id: The exception identifier.
-        :<json string state: the new state (APPROVED/REJECTED)
-        :status 201: Created.
-        :status 400: Cannot decode json parameter list.
-        :status 401: Invalid Auth Token.
-        :status 404: Lifetime Exception Not Found.
+        ---
+        summary: Approve/Reject exception
+        description: Approve/Reject a Lifetime Exception.
+        tags:
+            - Lifetime Exceptions
+        parameters:
+        - name: exception_id
+          in: path
+          description: The id of the Lifetime Exception.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  state:
+                    description: The new state for the Lifetime Exception.
+                    type: string
+                    enum: ['A', 'R']
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Lifetime Exception not found
+          400:
+            description: Cannot decode json parameter list.
         """
         parameters = json_parameters()
         state = param_get(parameters, 'state', default=None)
