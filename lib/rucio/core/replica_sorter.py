@@ -47,7 +47,7 @@ from rucio.core.rse_expression_parser import parse_expression
 if TYPE_CHECKING:
     from typing import Dict, List, Optional
 
-REGION = make_region_memcached(expiration_time=1800, function_key_generator=utils.my_key_generator)
+REGION = make_region_memcached(expiration_time=900, function_key_generator=utils.my_key_generator)
 
 # This product uses GeoLite data created by MaxMind,
 # available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>

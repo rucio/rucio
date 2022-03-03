@@ -32,7 +32,7 @@ def make_region_memcached(expiration_time, function_key_generator=None):
 
     region.configure(
         'dogpile.cache.memcached',
-        expiration_time=3600,
+        expiration_time=expiration_time,
         arguments={
             'url': config_get('cache', 'url', False, '127.0.0.1:11211', check_config_table=False),
             'distributed_lock': True,

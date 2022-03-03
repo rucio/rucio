@@ -95,7 +95,7 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 from rucio.extensions.forecast import T3CModel
 
 
-REGION = make_region_memcached(expiration_time=3600)
+REGION = make_region_memcached(expiration_time=900)
 
 
 @transactional_session

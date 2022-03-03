@@ -72,7 +72,7 @@ from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 disable_warnings()
 
-REGION_SHORT = make_region_memcached(expiration_time=1800)
+REGION_SHORT = make_region_memcached(expiration_time=900)
 
 SUBMISSION_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_submission', statsd='transfertool.fts3.{host}.submission.{state}',
                                   documentation='Number of transfers submitted', labelnames=('state', 'host'))

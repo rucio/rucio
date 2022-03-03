@@ -14,10 +14,13 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-# - Brandon White, <bjwhite@fnal.gov>, 2019
-# - Martin Barisits, <martin.barisits@cern.ch>, 2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 from __future__ import print_function
@@ -34,7 +37,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import KeyType
 from rucio.db.sqla.session import read_session, transactional_session
 
-REGION = make_region_memcached(expiration_time=3600)
+REGION = make_region_memcached(expiration_time=900)
 
 
 @transactional_session
