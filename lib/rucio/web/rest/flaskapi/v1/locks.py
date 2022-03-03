@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2014
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from flask import Flask, Blueprint, request
 
@@ -37,15 +33,83 @@ class LockByRSE(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rse):
-        """ get locks for a given rse.
-
-        :param rse: The RSE name.
-        :query did_type: The type used to filter, e.g., DATASET, CONTAINER.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 406: Not Acceptable.
-        :returns: Line separated list of dictionaries with lock information.
+        """
+        ---
+        summary: Get locks by rse
+        description: Get all dataset locks for an associated rse.
+        tags:
+          - Lock
+        parameters:
+        - name: rse
+          in: path
+          description: The rse name.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  did_type:
+                    description: The did type to filter for.
+                    type: string
+                    enum: ['dataset']
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: Locks associated with the rse.
+                  type: array
+                  items:
+                    description: A lock
+                    type: object
+                    properties:
+                      rse_id:
+                        description: The id of the associated rse.
+                        type: string
+                      rse:
+                        description: The name of the associated rse.
+                        type: string
+                      scope:
+                        description: The scope of the associated rse.
+                        type: string
+                      name:
+                        description: The name of the rule.
+                        type: string
+                      rule_id:
+                        description: The id of the rule.
+                        type: string
+                      account:
+                        description: The associated account.
+                        type: string
+                      state:
+                        description: The state of the rule.
+                        type: string
+                        enum: ['R', 'O', 'S']
+                      length:
+                        description: The length of the rule.
+                        type: integer
+                      bytes:
+                        description: The bytes limit for the lock.
+                        type: integere
+                      accessed_at:
+                        description: The last time is was accessed.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          500:
+            description: Wrong did type
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['wrong did_type specified']
+          406:
+            description: Not acceptable
         """
         did_type = request.args.get('did_type', default=None)
         if did_type != 'dataset':
@@ -66,14 +130,83 @@ class LocksByScopeName(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
-        """ get locks for a given scope, name.
-        :param scope_name: data identifier (scope)/(name).
-        :query did_type: The type used to filter, e.g., DATASET, CONTAINER.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 406: Not Acceptable.
-        :returns: Line separated list of dictionary with lock information.
+        """
+        ---
+        summary: Get locks by scope
+        description: Get all dataset locks for an associated rse.
+        tags:
+          - Lock
+        parameters:
+        - name: scope_name
+          in: path
+          description: The scope name.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  did_type:
+                    description: The did type to filter for.
+                    type: string
+                    enum: ['dataset']
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: Locks associated with the rse.
+                  type: array
+                  items:
+                    description: A lock
+                    type: object
+                    properties:
+                      rse_id:
+                        description: The id of the associated rse.
+                        type: string
+                      rse:
+                        description: The name of the associated rse.
+                        type: string
+                      scope:
+                        description: The scope of the associated rse.
+                        type: string
+                      name:
+                        description: The name of the rule.
+                        type: string
+                      rule_id:
+                        description: The id of the rule.
+                        type: string
+                      account:
+                        description: The associated account.
+                        type: string
+                      state:
+                        description: The state of the rule.
+                        type: string
+                        enum: ['R', 'O', 'S']
+                      length:
+                        description: The length of the rule.
+                        type: integer
+                      bytes:
+                        description: The bytes limit for the lock.
+                        type: integere
+                      accessed_at:
+                        description: The last time is was accessed.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          500:
+            description: Wrong did type
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['wrong did_type specified']
+          406:
+            description: Not acceptable
         """
         did_type = request.args.get('did_type', default=None)
         if did_type != 'dataset':
@@ -102,6 +235,92 @@ class DatasetLocksForDids(ErrorHandlingMethodView):
         :status 200: OK.
         :status 400: Wrong DID type.
         :returns: Line separated list of dictionary with lock information.
+        ---
+        summary: Get locks by dids
+        description: Get all dataset locks for the associated dids.
+        tags:
+          - Lock
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dids:
+                    description: The dids associated with the locks.
+                    type: array
+                    items:
+                      type: object
+                      description: A did
+                      required:
+                        - scope
+                        - name
+                      properties:
+                        scope:
+                          description: The scope of the did.
+                          type: string
+                        name:
+                          description: The name of the did.
+                          type: string
+                        type:
+                          description: The type of the did.
+                          type: string
+                          enum: ['dataset', 'container']
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: Locks associated with the rse.
+                  type: array
+                  items:
+                    description: A lock
+                    type: object
+                    properties:
+                      rse_id:
+                        description: The id of the associated rse.
+                        type: string
+                      rse:
+                        description: The name of the associated rse.
+                        type: string
+                      scope:
+                        description: The scope of the associated rse.
+                        type: string
+                      name:
+                        description: The name of the rule.
+                        type: string
+                      rule_id:
+                        description: The id of the rule.
+                        type: string
+                      account:
+                        description: The associated account.
+                        type: string
+                      state:
+                        description: The state of the rule.
+                        type: string
+                        enum: ['R', 'O', 'S']
+                      length:
+                        description: The length of the rule.
+                        type: integer
+                      bytes:
+                        description: The bytes limit for the lock.
+                        type: integere
+                      accessed_at:
+                        description: The last time is was accessed.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          400:
+            description: Wrong did type
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Can not find the list of DIDs in the data. Use "dids" keyword.']
+          406:
+            description: Not acceptable
+
         """
 
         data = json_parse(types=(dict,))
