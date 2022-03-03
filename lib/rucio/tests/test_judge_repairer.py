@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2014-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - Nick Smith <nick.smith@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 import itertools
 import unittest
@@ -312,7 +314,7 @@ class TestJudgeRepairer(unittest.TestCase):
 
         region = make_region().configure(
             'dogpile.cache.memcached',
-            expiration_time=3600,
+            expiration_time=900,
             arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True}
         )
 

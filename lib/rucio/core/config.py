@@ -19,8 +19,9 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from dogpile.cache.api import NoValue
 from sqlalchemy import func
@@ -31,7 +32,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
 
 
-REGION = make_region_memcached(expiration_time=3600)
+REGION = make_region_memcached(expiration_time=900)
 
 SECTIONS_CACHE_KEY = 'sections'
 
@@ -57,7 +58,7 @@ def _value_cache_key(section, option):
 
 
 @read_session
-def sections(use_cache=True, expiration_time=3600, session=None):
+def sections(use_cache=True, expiration_time=900, session=None):
     """
     Return a list of the sections available.
 
@@ -90,7 +91,7 @@ def add_section(section, session=None):
 
 
 @read_session
-def has_section(section, use_cache=True, expiration_time=3600, session=None):
+def has_section(section, use_cache=True, expiration_time=900, session=None):
     """
     Indicates whether the named section is present in the configuration.
 
@@ -112,7 +113,7 @@ def has_section(section, use_cache=True, expiration_time=3600, session=None):
 
 
 @read_session
-def options(section, use_cache=True, expiration_time=3600, session=None):
+def options(section, use_cache=True, expiration_time=900, session=None):
     """
     Returns a list of options available in the specified section.
 
@@ -134,7 +135,7 @@ def options(section, use_cache=True, expiration_time=3600, session=None):
 
 
 @read_session
-def has_option(section, option, use_cache=True, expiration_time=3600, session=None):
+def has_option(section, option, use_cache=True, expiration_time=900, session=None):
     """
     Check if the given section exists and contains the given option.
 
@@ -157,7 +158,7 @@ def has_option(section, option, use_cache=True, expiration_time=3600, session=No
 
 
 @read_session
-def get(section, option, default=None, use_cache=True, expiration_time=3600, session=None):
+def get(section, option, default=None, use_cache=True, expiration_time=900, session=None):
     """
     Get an option value for the named section. Value can be auto-coerced to string, int, float, bool, None.
 
@@ -192,7 +193,7 @@ def get(section, option, default=None, use_cache=True, expiration_time=3600, ses
 
 
 @read_session
-def items(section, use_cache=True, expiration_time=3600, session=None):
+def items(section, use_cache=True, expiration_time=900, session=None):
     """
     Return a list of (option, value) pairs for each option in the given section. Values are auto-coerced as in get().
 
@@ -324,7 +325,7 @@ def __convert_type(value):
     return value
 
 
-def read_from_cache(key, expiration_time=3600):
+def read_from_cache(key, expiration_time=900):
     """
     Try to read a value from a cache.
 

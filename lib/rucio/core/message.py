@@ -41,7 +41,7 @@ from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
 
-REGION = make_region_memcached(expiration_time=3600)
+REGION = make_region_memcached(expiration_time=900)
 
 
 @transactional_session
