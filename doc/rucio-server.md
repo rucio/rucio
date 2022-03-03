@@ -416,7 +416,7 @@ This should create a subdirectory MYDATA with the file my-file.dat
 	
 From here on, follow the documentation about how to create containers and datasets, add files to them, and add metadata.
 
-\clearpage
+
 
 # Appendix: Rucio configuration examples
 
@@ -433,7 +433,7 @@ From here on, follow the documentation about how to create containers and datase
     ...
 
 
-\clearpage
+
 ## rucio.cfg
 Note: **auth** should be added to [api] endpoints config
 
@@ -487,7 +487,7 @@ Note: **auth** should be added to [api] endpoints config
 	ssh_identity = ssh-rsa ... my SSH key ...
 	ssh_email =  myname@my.domain
 
-\clearpage
+
 # Appendix: Apache configuration examples
 
 ## **/etc/apache2/conf-available/rucio.conf** (remember **sudo a2enconf rucio**)
@@ -510,7 +510,7 @@ Note: **auth** should be added to [api] endpoints config
 	WSGIApplicationGroup rucio
 
 
-\clearpage
+
 ## **/etc/apache2/sites-available/rucio.conf** (remember **sudo a2ensite rucio**)
 (Checkme: is everything necessary? How enable Web UI properly?)
 
