@@ -63,6 +63,45 @@ def _sorted_with_priorities(replicas, sorted_pfns, limit=None):
             yield pfn, replica
 
 
+def _generate_one_metalink_file(rfile, policy_schema, detailed_url=True):
+    yield ' <file name="' + rfile['name'] + '">\n'
+
+    if 'parents' in rfile and rfile['parents']:
+        yield '  <parents>\n'
+        for parent in rfile['parents']:
+            yield '   <did>' + parent + '</did>\n'
+        yield '  </parents>\n'
+
+    yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
+    if rfile['adler32'] is not None:
+        yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
+    if rfile['md5'] is not None:
+        yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
+
+    yield '  <size>' + str(rfile['bytes']) + '</size>\n'
+
+    yield f'  <glfn name="/{policy_schema}/rucio/{rfile["scope"]}:{rfile["name"]}"></glfn>\n'
+
+    for pfn, replica in rfile['pfns'].items():
+        if detailed_url:
+            yield (
+                '  '
+                f'<url location="{replica["rse"]}"'
+                f' domain="{replica["domain"]}"'
+                f' priority="{replica["priority"]}"'
+                f' client_extract="{str(replica["client_extract"]).lower()}"'
+                f'>{escape(pfn)}</url>\n'
+            )
+        else:
+            yield (
+                '  '
+                f'<url location="{replica["rse"]}"'
+                f' priority="{replica["priority"]}"'
+                f'>{escape(pfn)}</url>\n'
+            )
+    yield ' </file>\n'
+
+
 class Replicas(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream', 'application/metalink4+xml'])
@@ -133,29 +172,12 @@ class Replicas(ErrorHandlingMethodView):
                             dictreplica[replica] = rse
 
                     replicas = sort_replicas(dictreplica, client_location, selection=select)
+                    rfile['pfns'] = dict(_sorted_with_priorities(rfile['pfns'], replicas, limit=limit))
 
                     if not metalink:
-                        rfile['pfns'] = dict(_sorted_with_priorities(rfile['pfns'], replicas))
                         yield dumps(rfile) + '\n'
                     else:
-                        yield ' <file name="' + rfile['name'] + '">\n'
-                        yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
-
-                        if rfile['adler32'] is not None:
-                            yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
-                        if rfile['md5'] is not None:
-                            yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
-
-                        yield '  <size>' + str(rfile['bytes']) + '</size>\n'
-
-                        yield f'  <glfn name="/atlas/rucio/{rfile["scope"]}:{rfile["name"]}">'
-                        yield '</glfn>\n'
-
-                        for idx, replica in enumerate(replicas, start=1):
-                            yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx) + '">' + escape(replica) + '</url>\n'
-                            if limit and limit == idx:
-                                break
-                        yield ' </file>\n'
+                        yield from _generate_one_metalink_file(rfile, policy_schema='atlas')
 
                 if metalink:
                     if first:
@@ -398,31 +420,8 @@ class ListReplicas(ErrorHandlingMethodView):
                         if first:
                             yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
                         first = False
-                        yield ' <file name="' + rfile['name'] + '">\n'
-
-                        if 'parents' in rfile and rfile['parents']:
-                            yield '  <parents>\n'
-                            for parent in rfile['parents']:
-                                yield '   <did>' + parent + '</did>\n'
-                            yield '  </parents>\n'
-
-                        yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
-                        if rfile['adler32'] is not None:
-                            yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
-                        if rfile['md5'] is not None:
-                            yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
-                        yield '  <size>' + str(rfile['bytes']) + '</size>\n'
-
                         policy_schema = config_get('policy', 'schema', raise_exception=False, default='generic')
-                        yield f'  <glfn name="/{policy_schema}/rucio/{rfile["scope"]}:{rfile["name"]}"></glfn>\n'
-
-                        for pfn, replica in rfile['pfns'].items():
-                            yield '  <url location="' + str(replica['rse']) \
-                                + '" domain="' + str(replica['domain']) \
-                                + '" priority="' + str(replica['priority']) \
-                                + '" client_extract="' + str(replica['client_extract']).lower() \
-                                + '">' + escape(pfn) + '</url>\n'
-                        yield ' </file>\n'
+                        yield from _generate_one_metalink_file(rfile, policy_schema)
 
                 if metalink:
                     if first:
