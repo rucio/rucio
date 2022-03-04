@@ -20,7 +20,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2022
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2022
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
@@ -76,8 +76,7 @@ class TestBinRucio(unittest.TestCase):
                 # Client-only test, only use config with no DB config
                 self.vo = {'vo': get_long_vo()}
             try:
-                remove(get_tmp_dir()
-                       + '/.rucio_root@%s/auth_token_for_account_root' % self.vo['vo'])
+                remove(get_tmp_dir() + '/.rucio_root@%s/auth_token_for_account_root' % self.vo['vo'])
             except OSError as error:
                 if error.args[0] != 2:
                     raise error
@@ -2180,3 +2179,39 @@ class TestBinRucio(unittest.TestCase):
         print(out)
         assert exitcode != 0
         assert "The number of copies for a replication rule should be greater than 0." in err
+
+    def test_add_lifetime_exception(self):
+        """ CLIENT(USER): Rucio submission of lifetime exception """
+        container = 'container_%s' % generate_uuid()
+        dataset = 'dataset_%s' % generate_uuid()
+        self.did_client.add_container(scope=self.user, name=container)
+        self.did_client.add_dataset(scope=self.user, name=dataset)
+        filename = get_tmp_dir() + 'lifetime_exception.txt'
+        with open(filename, 'w') as file_:
+            file_.write('%s:%s\n' % (self.user, dataset))
+
+        # Try adding an exception
+        cmd = 'rucio add-lifetime-exception --inputfile %s --reason "%s" --expiration %s' % (filename, 'Needed for analysis', '2015-10-30')
+        print(cmd)
+        exitcode, out, err = execute(cmd)
+        print(exitcode, out, err)
+        assert exitcode == 0
+        assert "Nothing to submit" in err
+
+        with open(filename, 'w') as file_:
+            file_.write('%s:%s\n' % (self.user, dataset))
+            file_.write('%s:%s' % (self.user, container))
+
+        # Try adding an exception
+        cmd = 'rucio add-lifetime-exception --inputfile %s --reason "%s" --expiration %s' % (filename, 'Needed for analysis', '2015-10-30')
+        print(cmd)
+        exitcode, out, err = execute(cmd)
+        print(exitcode, out, err)
+        assert exitcode == 1
+        assert "One or more DIDs are containers" in err
+
+        try:
+            remove(filename)
+        except OSError as e:
+            if e.args[0] != 2:
+                raise e

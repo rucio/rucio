@@ -20,7 +20,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2012-2022
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Yun-Pin Sun <winter0128@gmail.com>, 2012-2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2022
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - David Cameron <david.cameron@cern.ch>, 2014-2021
 # - Tomáš Kouba <tomas.kouba@cern.ch>, 2014
@@ -1836,6 +1836,91 @@ def list_datasets_rse(args):
     return SUCCESS
 
 
+@exception_handler
+def add_lifetime_exception(args):
+    """
+    %(prog)s add_lifetime_exception [options] <field1=value1 field2=value2 ...>
+
+    Declare a lifetime model exception.
+
+    """
+    client = get_client(args)
+    if not args.reason:
+        logger.error('reason for the extension is mandatory')
+        return FAILURE
+    reason = args.reason
+    if not args.expiration:
+        logger.error('expiration is mandatory')
+        return FAILURE
+    try:
+        expiration = datetime.strptime(args.expiration, "%Y-%m-%d")
+    except Exception as err:
+        logger.error(err)
+        return FAILURE
+
+    if not args.inputfile:
+        logger.error('inputfile is mandatory')
+        return FAILURE
+    with open(args.inputfile) as infile:
+        dids = list(filter(None, [line.strip() for line in infile]))
+
+    dids_list = []
+    containers = []
+    datasets = []
+    error_types = ['Total DIDs', 'DID not submitted because it is a file', 'DID not submitted because it is a container', 'DID not submitted because it is not part of the lifetime campaign', 'DID successfully submitted']
+    for did in dids:
+        scope, name = get_scope(did, client)
+        dids_list.append({'scope': scope, 'name': name})
+    summary = {0: len(dids_list), 1: 0, 2: 0, 3: 0, 4: 0}
+    for meta in client.get_metadata_bulk(dids_list):
+        scope, name = meta['scope'], meta['name']
+        dids_list.remove({'scope': scope, 'name': name})
+        if meta['did_type'] == 'FILE':
+            logger.warning('%s:%s is a file. Will be ignored' % (scope, name))
+            summary[1] += 1
+        elif meta['did_type'] == 'CONTAINER':
+            logger.warning('%s:%s is a container. It needs to be resolved' % (scope, name))
+            containers.append({'scope': scope, 'name': name})
+            summary[2] += 1
+        elif not meta['eol_at']:
+            logger.warning('%s:%s is not affected by the lifetime model' % (scope, name))
+            summary[3] += 1
+        else:
+            logger.info('%s:%s will be declared' % (scope, name))
+            datasets.append({'scope': scope, 'name': name})
+            summary[4] += 1
+
+    for did in dids_list:
+        scope = did['scope']
+        name = did['name']
+        logger.warning('%s:%s does not exist' % (scope, name))
+
+    if containers:
+        logger.error('One or more DIDs are containers. They must be resolved into a list of datasets to request exception. Full list below')
+        for container in containers:
+            logger.error('%s:%s' % (container['scope'], container['name']))
+        logger.error('Please take action. Submission aborted')
+        return FAILURE
+
+    if not datasets:
+        logger.error('Nothing to submit')
+        return SUCCESS
+    try:
+        client.add_exception(dids=datasets, account=client.account, pattern='', comments=reason, expires_at=expiration)
+    except UnsupportedOperation as err:
+        logger.error(err)
+        return FAILURE
+    except Exception:
+        logger.error('Failure to submit exception. Please retry')
+        logger.debug(traceback.format_exc())
+        return FAILURE
+
+    logger.info('Exception successfully submitted. Summary below')
+    for cnt, error in enumerate(error_types):
+        print('{0:100} {1:6d}'.format(error, len(summary[cnt])))
+    return SUCCESS
+
+
 def test_server(args):
     """"
     %(prog)s test-server [options] <field1=value1 field2=value2 ...>
@@ -2526,6 +2611,21 @@ can be found in ' + Color.BOLD + 'http://rucio.cern.ch/documentation/rse_express
     touch_parser.set_defaults(function=touch)
     touch_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
     touch_parser.add_argument('--rse', dest='rse', action='store', help="The RSE of the DIDs that are touched.").completer = rse_completer
+
+    # The add-lifetime-exception command
+    add_lifetime_exception_parser = subparsers.add_parser('add-lifetime-exception', help='Add an exception to the lifetime model.',
+                                                          formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Usage example
+"""""""""""""
+::
+
+    $ rucio add-lifetime-exception --inputfile myfile.txt --reason "Needed for my analysis" --expiration 2015-10-30
+
+    ''')
+
+    add_lifetime_exception_parser.set_defaults(function=add_lifetime_exception)
+    add_lifetime_exception_parser.add_argument('--inputfile', action='store', help='File where the list of datasets requested to be extended are located.', required=True)
+    add_lifetime_exception_parser.add_argument('--reason', action='store', help='The reason for the extension.', required=True)
+    add_lifetime_exception_parser.add_argument('--expiration', action='store', help='The expiration date format YYYY-MM-DD', required=True)
 
     return oparser
 
