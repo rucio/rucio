@@ -40,8 +40,8 @@ from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_gauge, record_counter
 from rucio.core.quarantined_replica import add_quarantined_replicas
-from rucio.core.replica import __exist_replicas, update_replicas_states
-from rucio.core.rse import list_rses, get_rse_id
+from rucio.core.replica import __exists_replicas, update_replicas_states
+from rucio.core.rse import list_rses, get_rse_id, get_rse_vo
 from rucio.rse.rsemanager import lfns2pfns, get_rse_info, parse_pfns
 
 # FIXME: these are needed by local version of declare_bad_file_replicas()
@@ -77,11 +77,10 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer,
     for did in dids:
         scope = InternalScope(did['scope'], vo=issuer.vo)
         name = did['name']
-        path = None
-        scope, name, path, exists, already_declared, size = __exist_replicas(rse_id, [(scope, name, path)],
-                                                                             session=session)[0]
-        if exists and ((str(status) == str(BadFilesStatus.BAD) and not
-                        already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
+        __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope, name,
+                                                                          path=None, session=session)
+        if __exists and ((str(status) == str(BadFilesStatus.BAD) and not
+                          already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
             replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id,
                              'state': ReplicaState.BAD})
             new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id,
@@ -206,7 +205,7 @@ def cmp2dark(new_list, old_list, comm_list, stats_file):
         stats[stats_key] = my_stats
 
 
-# TODO: Changed suggested in https://github.com/rucio/rucio/pull/5120#discussion_r792681245
+# TODO: Changes suggested in https://github.com/rucio/rucio/pull/5120#discussion_r792681245
 def parse_filename(fn):
     # filename looks like this:
     #
@@ -317,7 +316,7 @@ def was_cc_processed(stats_file):
         return False
 
 
-def process_dark_files(path, rse, latest_run, max_dark_fraction,
+def process_dark_files(path, scope, rse, latest_run, max_dark_fraction,
                        max_files_at_site, old_enough_run, force_proceed):
 
     """
@@ -385,7 +384,6 @@ def process_dark_files(path, rse, latest_run, max_dark_fraction,
         issuer = InternalAccount('root')
         with open(confirmed_dark, 'r') as csvfile:
             reader = csv.reader(csvfile)
-            scope = "cms"
             for name, in reader:
                 logger(logging.INFO, 'Processing a dark file:\n RSE %s  Scope: %s  Name: %s'
                        % (rse, scope, name))
@@ -439,7 +437,7 @@ def process_dark_files(path, rse, latest_run, max_dark_fraction,
         record_gauge('storage.consistency.actions_dark_files_deleted', 0, labels=labels)
 
 
-def process_miss_files(path, rse, latest_run, max_miss_fraction,
+def process_miss_files(path, scope, rse, latest_run, max_miss_fraction,
                        max_files_at_site, old_enough_run, force_proceed):
 
     """
@@ -490,7 +488,6 @@ def process_miss_files(path, rse, latest_run, max_miss_fraction,
         issuer = InternalAccount('root')
         with open(latest_miss, 'r') as csvfile:
             reader = csv.reader(csvfile)
-            scope = "cms"
             reason = "invalidating damaged/missing replica"
             for name, in reader:
                 logger(logging.INFO, 'Processing invalid replica:\n RSE: %s Scope: %s Name: %s'
@@ -539,7 +536,7 @@ def process_miss_files(path, rse, latest_run, max_miss_fraction,
                      0, labels=labels)
 
 
-def deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
+def deckard(scope, rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
             force_proceed, scanner_files_path):
 
     """
@@ -617,13 +614,13 @@ def deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
                 logger(logging.INFO, 'The first  %d days older run is: %s'
                        % (minagedark, old_enough_run))
 
-                process_dark_files(path, rse, latest_run, max_dark_fraction,
+                process_dark_files(path, scope, rse, latest_run, max_dark_fraction,
                                    max_files_at_site, old_enough_run, force_proceed)
             else:
                 logger(logging.INFO, 'There is no other run for this RSE at least %d days older,\
                  so cannot safely proceed with dark files deleteion.' % minagedark)
 
-            process_miss_files(path, rse, latest_run, max_miss_fraction,
+            process_miss_files(path, scope, rse, latest_run, max_miss_fraction,
                                max_files_at_site, old_enough_run, force_proceed)
 
         else:
@@ -635,7 +632,7 @@ def deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
         logger(logging.INFO, 'No scans available for this RSE')
 
 
-def deckard_loop(rses, dark_min_age, dark_threshold_percent, miss_threshold_percent,
+def deckard_loop(scope, rses, dark_min_age, dark_threshold_percent, miss_threshold_percent,
                  force_proceed, scanner_files_path):
 
     prefix = 'storage-consistency-actions (deckard_loop())'
@@ -643,11 +640,11 @@ def deckard_loop(rses, dark_min_age, dark_threshold_percent, miss_threshold_perc
     logger(logging.INFO, 'A loop over all RSEs')
     for rse in rses:
         logger(logging.INFO, 'Now processing RSE: %s' % rse)
-        deckard(rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
+        deckard(scope, rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
                 force_proceed, scanner_files_path)
 
 
-def actions_loop(once, rses, sleep_time, dark_min_age, dark_threshold_percent,
+def actions_loop(once, scope, rses, sleep_time, dark_min_age, dark_threshold_percent,
                  miss_threshold_percent, force_proceed, scanner_files_path):
 
     """
@@ -683,7 +680,7 @@ def actions_loop(once, rses, sleep_time, dark_min_age, dark_threshold_percent,
             start = time.time()
             logger(logging.DEBUG, 'Start time: %f' % start)
 
-            deckard_loop(rses, dark_min_age, dark_threshold_percent, miss_threshold_percent,
+            deckard_loop(scope, rses, dark_min_age, dark_threshold_percent, miss_threshold_percent,
                          force_proceed, scanner_files_path)
             daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop,
                          logger=logger)
@@ -705,7 +702,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, rses=None, sleep_time=60, default_dark_min_age=28, default_dark_threshold_percent=1.0,
+def run(once=False, scope=None, rses=None, sleep_time=60, default_dark_min_age=28, default_dark_threshold_percent=1.0,
         default_miss_threshold_percent=1.0, force_proceed=False, default_scanner_files_path="/var/cache/consistency-dump",
         threads=1):
     """
@@ -743,16 +740,16 @@ def run(once=False, rses=None, sleep_time=60, default_dark_min_age=28, default_d
     sanity_check(executable=executable, hostname=hostname)
 
 # It was decided that for the time being this daemon is best executed in a single thread
-# If this decicion is reversed in the future, the following line should be removed.
+# TODO: If this decicion is reversed in the future, the following line should be removed.
     threads = 1
 
     if once:
-        actions_loop(once, rses, sleep_time, dark_min_age, dark_threshold_percent,
+        actions_loop(once, scope, rses, sleep_time, dark_min_age, dark_threshold_percent,
                      miss_threshold_percent, force_proceed, scanner_files_path)
     else:
         logging.info('Consistency Actions starting %s threads' % str(threads))
         threads = [threading.Thread(target=actions_loop,
-                                    kwargs={'once': once, 'rses': rses, 'sleep_time': sleep_time,
+                                    kwargs={'once': once, 'scope': scope, 'rses': rses, 'sleep_time': sleep_time,
                                             'dark_min_age': dark_min_age,
                                             'dark_threshold_percent': dark_threshold_percent,
                                             'miss_threshold_percent': miss_threshold_percent,
