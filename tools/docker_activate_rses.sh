@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2022
 # - Mayank Sharma <mayank.sharma@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021

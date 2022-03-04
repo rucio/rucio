@@ -52,6 +52,7 @@ services:
     image: docker.io/gvenzl/oracle-xe:21-slim
     network_mode: "service:rucio"
     environment:
+      - ORACLE_PASSWORD=rucio
       - ORACLE_ALLOW_REMOTE=true
       - ORACLE_DISABLE_ASYNCH_IO=true
       - processes=1000
