@@ -190,14 +190,14 @@ Set permissions for user **rucio**:
 
     #GRANT ALL PRIVILEGES ON DATABASE rucio TO rucio;
 	
-Add a schema to the database (make sure it is active so dont't forget the *\c rucio* above). I should also be named **rucio**:
+Add a schema to the database (make sure it is active so dont't forget the *\c rucio* above). The schema should also be named **rucio**:
     
     #CREATE SCHEMA rucio; 
     #GRANT ALL PRIVILEGES ON SCHEMA rucio TO rucio;
 
 Then, exit the CLI.
 
-Next, make sure that local users can log in with password on the TCP port of the PostgreSQL server. This is configured in the file
+Next, make sure that local users can log in with name and password on the TCP port of the PostgreSQL server. This is configured in the file
 
     /etc/postgresql/VERSION/main/pg_hba.conf (Postgres Host based authentication)
 
@@ -233,7 +233,7 @@ In **rucio.cfg** set
 
      default = postgresql://rucio:secret@localhost/rucio
 
-* section [bootstrap]: This section is used to populate the database when its contents are created. It is used to set the credentials of the root user to access the server and tools. Note, all items in the [bootstrap] template must be uncommented and defined, or else the bootstrap script will fail a try/except clause and insert hardcoded default values in the database instead, which will not be useful to users outside CERN!
+* section [bootstrap]: This section is used to populate the database when its contents are created. It is used to set the credentials of the root user to access the server and tools. **Note: all items** in the [bootstrap] template must be uncommented and defined, or else the bootstrap script will fail a try/except clause and insert hardcoded default values in the database instead. These will not be useful to users outside CERN.
 
 See the template and example in the appendix.
 
