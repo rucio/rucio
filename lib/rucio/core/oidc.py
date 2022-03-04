@@ -329,7 +329,11 @@ def get_auth_oidc(account, session=None, **kwargs):
         # If user selected authentication via web browser, a redirection
         # URL is returned instead of the direct URL pointing to the IdP.
         if not auto:
+<<<<<<< HEAD
             # the following takes into account deployments where the base url of the rucio server is
+=======
+            # the following takes into account deployments where the base url of the rucio server is 
+>>>>>>> 5994f19f0d1ba610cb68ea547fb165597832387c
             # not equivalent to the network location, e.g. if the server is proxied
             auth_server = urlparse(redirect_url)
             auth_url = build_url('https://' + auth_server.netloc, path='{}auth/oidc_redirect'.format(
