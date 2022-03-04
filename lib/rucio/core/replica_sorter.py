@@ -54,7 +54,9 @@ REGION = make_region(function_key_generator=utils.my_key_generator).configure(
 
 
 def __download_geoip_db(directory, filename):
-    licence_key = config_get('core', 'geoip_licence_key', raise_exception=False, default='NOLICENCE')
+    licence_key = config_get('core', 'geoip_licence_key', raise_exception=False, default=None)
+    if not licence_key:
+        raise Exception('Cannot download GeoIP database: licence key not provided')
     path = 'https://download.maxmind.com/app/geoip_download?edition_id=%s&license_key=%s&suffix=tar.gz' % (filename, licence_key)
     try:
         os.unlink('%s/%s.tar.gz' % (directory, filename))
