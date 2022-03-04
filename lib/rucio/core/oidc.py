@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019-2021 CERN
+# Copyright 2019-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,29 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2022
+
+# -*- coding: utf-8 -*-
+# Copyright 2019-2022 CERN
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2022
 
 import json
 import random
@@ -306,9 +329,11 @@ def get_auth_oidc(account, session=None, **kwargs):
         # If user selected authentication via web browser, a redirection
         # URL is returned instead of the direct URL pointing to the IdP.
         if not auto:
+            # the following takes into account deployments where the base url of the rucio server is
+            # not equivalent to the network location, e.g. if the server is proxied
             auth_server = urlparse(redirect_url)
-            auth_url = build_url('https://' + auth_server.netloc,
-                                 path='auth/oidc_redirect', params=access_msg)
+            auth_url = build_url('https://' + auth_server.netloc, path='{}auth/oidc_redirect'.format(
+                auth_server.path.split('auth/')[0].lstrip('/')), params=access_msg)
 
         record_timer(name='IdP_authentication.request', time=time.time() - start)
         return auth_url
