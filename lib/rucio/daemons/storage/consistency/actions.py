@@ -41,7 +41,7 @@ from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_gauge, record_counter
 from rucio.core.quarantined_replica import add_quarantined_replicas
 from rucio.core.replica import __exist_replicas, update_replicas_states
-from rucio.core.rse import list_rses, get_rse_id, get_rse_vo
+from rucio.core.rse import list_rses, get_rse_id
 from rucio.rse.rsemanager import lfns2pfns, get_rse_info, parse_pfns
 
 # FIXME: these are needed by local version of declare_bad_file_replicas()
