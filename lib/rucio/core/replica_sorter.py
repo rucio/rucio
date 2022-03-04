@@ -75,7 +75,9 @@ def __download_geoip_db(destination):
     download_url = config_get('core', 'geoip_download_url', raise_exception=False, default=None)
     verify_tls = config_get_bool('core', 'geoip_download_verify_tls', raise_exception=False, default=True)
     if not download_url:
-        licence_key = config_get('core', 'geoip_licence_key', raise_exception=False, default='NOLICENCE')
+        licence_key = config_get('core', 'geoip_licence_key', raise_exception=False, default=None)
+        if not licence_key:
+            raise Exception('Cannot download GeoIP database: licence key not provided')
         download_url = 'https://download.maxmind.com/app/geoip_download?edition_id=%s&license_key=%s&suffix=tar.gz' % (edition_id, licence_key)
 
     result = requests.get(download_url, stream=True, verify=verify_tls)
