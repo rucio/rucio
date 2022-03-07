@@ -16,6 +16,7 @@
 # Authors:
 # - Mayank Sharma <imptodefeat@gmail.com>, 2021-2022
 # - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2022
 
 import time
 import datetime
