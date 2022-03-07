@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2019-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,23 +15,11 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021-2022
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
-# Create the following topology:
-# +------+   1   +------+
-# |      |<----->|      |
-# | XRD1 |       | XRD2 |
-# |      |   +-->|      |
-# +------+   |   +------+
-#    ^       |
-#    | 1     | 1
-#    v       |
-# +------+   |   +------+
-# |      |<--+   |      |
-# | XRD3 |       | XRD4 |
-# |      |<----->|      |
-# +------+   2   +------+
+xrdgsiproxy init -bits 2048 -valid 9999:00 -cert /opt/rucio/etc/usercert.pem  -key /opt/rucio/etc/userkey.pem
 
 # First, create the RSEs
 rucio-admin rse add XRD1
@@ -92,9 +80,6 @@ rucio-admin account set-limits root SSH1 -1
 # Create a default scope for testing
 rucio-admin scope add --account root --scope test
 
-# Delegate credentials to FTS
-/usr/bin/python2.7 /usr/bin/fts-rest-delegate -vf -s https://fts:8446 -H 9999
-
 # Create initial transfer testing data
 dd if=/dev/urandom of=file1 bs=10M count=1
 dd if=/dev/urandom of=file2 bs=10M count=1
@@ -120,3 +105,9 @@ rucio add-rule test:container 1 XRD3
 # Create complication
 rucio add-dataset test:dataset3
 rucio attach test:dataset3 test:file4
+
+# FTS Check
+fts-rest-whoami -v -s https://fts:8446
+
+# Delegate credentials to FTS
+fts-rest-delegate -vf -s https://fts:8446 -H 9999
