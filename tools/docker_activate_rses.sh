@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2019-2022 CERN
+# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +15,25 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021-2022
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 
+# Create the following topology:
+# +------+   1   +------+
+# |      |<----->|      |
+# | XRD1 |       | XRD2 |
+# |      |   +-->|      |
+# +------+   |   +------+
+#    ^       |
+#    | 1     | 1
+#    v       |
+# +------+   |   +------+
+# |      |<--+   |      |
+# | XRD3 |       | XRD4 |
+# |      |<----->|      |
+# +------+   2   +------+
+
+# Step zero, get a compliant proxy
 xrdgsiproxy init -bits 2048 -valid 9999:00 -cert /opt/rucio/etc/usercert.pem  -key /opt/rucio/etc/userkey.pem
 
 # First, create the RSEs
