@@ -31,6 +31,7 @@
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
 # - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2022
 
 import datetime
 
@@ -80,29 +81,17 @@ def declare_bad_file_replicas(pfns, reason, issuer, vo='def'):
     """
     Declare a list of bad replicas.
 
-    :param pfns: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id>}.
+    :param pfns: The list of PFNs.
     :param reason: The reason of the loss.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
     """
     kwargs = {}
-    rse_map = {}
     if not permission.has_permission(issuer=issuer, vo=vo, action='declare_bad_file_replicas', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not declare bad replicas' % (issuer))
 
     issuer = InternalAccount(issuer, vo=vo)
 
-    type_ = type(pfns[0]) if len(pfns) > 0 else None
-    for pfn in pfns:
-        if not isinstance(pfn, type_):
-            raise exception.InvalidType('The PFNs must be either a list of string or list of dict')
-        if type_ == dict:
-            rse = pfn['rse']
-            if rse not in rse_map:
-                rse_id = get_rse_id(rse=rse, vo=vo)
-                rse_map[rse] = rse_id
-            pfn['rse_id'] = rse_map[rse]
-            pfn['scope'] = InternalScope(pfn['scope'], vo=vo)
     replicas = replica.declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=issuer, status=BadFilesStatus.BAD)
 
     for k in list(replicas):
@@ -334,28 +323,26 @@ def list_dataset_replicas(scope, name, deep=False, vo='def'):
         yield r
 
 
-def list_dataset_replicas_bulk(dids, vo='def'):
+def list_dataset_replicas_bulk(dids, vo='def', deep=False):
     """
     :param dids: The list of did dictionaries with scope and name.
     :param vo: The VO to act on.
+    :param deep: Lookup at the file level.
 
     :returns: A list of dict dataset replicas
     """
 
     validate_schema(name='r_dids', obj=dids, vo=vo)
-    names_by_scope = dict()
+    names_by_scope = {}
     for d in dids:
-        if d['scope'] in names_by_scope:
-            names_by_scope[d['scope']].append(d['name'])
-        else:
-            names_by_scope[d['scope']] = [d['name'], ]
+        names_by_scope.setdefault(d['scope'], []).append(d['name'])
 
-    names_by_intscope = dict()
+    names_by_intscope = {}
     for scope in names_by_scope:
         internal_scope = InternalScope(scope, vo=vo)
         names_by_intscope[internal_scope] = names_by_scope[scope]
 
-    replicas = replica.list_dataset_replicas_bulk(names_by_intscope)
+    replicas = replica.list_dataset_replicas_bulk(names_by_intscope, deep=deep)
 
     for r in replicas:
         yield api_update_return_dict(r)

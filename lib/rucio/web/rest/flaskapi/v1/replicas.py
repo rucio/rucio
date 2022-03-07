@@ -21,6 +21,7 @@
 # - Ilija Vukotic <ivukotic@cern.ch>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2022
 
 from datetime import datetime
 from itertools import chain
@@ -46,21 +47,18 @@ from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask,
     request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
 
 
-def _sorted_with_priorities(replicas, sorted_pfns, limit=None):
+def _sort_pfns_by_priority(pfns, sorted_pfns):
     """
-    Pick up to "limit" replicas from "replicas" in the order given by sorted_pfns.
-    Sets the corresponding priority in returned replicas.
+    Sets the corresponding priority values for the given list of pfns and yields
+    the index of the element as well as the element.
 
-    :param replicas: Dictionary {pfn: replica_definition}.
+    :param pfns: List with the pfns which priorities should be set.
     :param sorted_pfns: Sorted list of pfns.
-    :param limit: only return this many replicas
     :yields: index and corresponding pfn
     """
     for idx, pfn in enumerate(sorted_pfns, start=1):
-        if limit is None or idx <= limit:
-            replica = replicas[pfn]
-            replica['priority'] = idx
-            yield pfn, replica
+        pfns[pfn]['priority'] = idx
+        yield idx, pfn
 
 
 class Replicas(ErrorHandlingMethodView):
@@ -135,7 +133,7 @@ class Replicas(ErrorHandlingMethodView):
                     replicas = sort_replicas(dictreplica, client_location, selection=select)
 
                     if not metalink:
-                        rfile['pfns'] = dict(_sorted_with_priorities(rfile['pfns'], replicas))
+                        _ = list(_sort_pfns_by_priority(rfile['pfns'], replicas))
                         yield dumps(rfile) + '\n'
                     else:
                         yield ' <file name="' + rfile['name'] + '">\n'
@@ -384,12 +382,12 @@ class ListReplicas(ErrorHandlingMethodView):
                             lanreplicas[pfn] = replica_tuple
                         else:
                             wanreplicas[pfn] = replica_tuple
-
-                    rfile['pfns'] = dict(_sorted_with_priorities(replicas=rfile['pfns'],
-                                                                 # Lan replicas sorted by priority; followed by wan replicas sorted by selection criteria
-                                                                 sorted_pfns=chain(sorted(lanreplicas.keys(), key=lambda pfn: lanreplicas[pfn][1]),
-                                                                                   sort_replicas(wanreplicas, client_location, selection=select)),
-                                                                 limit=limit))
+                    # Lan replicas sorted by priority; followed by wan replicas sorted by selection criteria
+                    for idx, pfn in _sort_pfns_by_priority(rfile['pfns'],
+                                                           chain(sorted(lanreplicas.keys(), key=lambda pfn: lanreplicas[pfn][1]),
+                                                                 sort_replicas(wanreplicas, client_location, selection=select))):
+                        if limit and limit == idx:
+                            break
 
                     if not metalink:
                         yield dumps(rfile, cls=APIEncoder) + '\n'
@@ -706,15 +704,16 @@ class DatasetReplicasBulk(ErrorHandlingMethodView):
         """
         parameters = json_parameters(parse_response)
         dids = param_get(parameters, 'dids')
+        deep = parameters.get("deep", False)
         if len(dids) == 0:
             return generate_http_error_flask(400, ValueError.__name__, 'List of DIDs is empty')
 
         try:
-            def generate(vo):
-                for row in list_dataset_replicas_bulk(dids=dids, vo=vo):
+            def generate(vo, deep):
+                for row in list_dataset_replicas_bulk(dids=dids, vo=vo, deep=deep):
                     yield dumps(row, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(request.environ.get('vo'), deep))
         except InvalidObject as error:
             return generate_http_error_flask(400, error, f'Cannot validate DIDs: {error}')
 

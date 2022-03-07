@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2013-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,12 +22,14 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
-# - Ilija Vukotic <ivukotic@cern.ch>, 2020
+# - Ilija Vukotic <ivukotic@cern.ch>, 2020-2021
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Igor Mandrichenko <ivm@fnal.gov>, 2021-2022
 
 from datetime import datetime
 from json import dumps, loads
@@ -49,7 +51,7 @@ class ReplicaClient(BaseClient):
         """
         Declare a list of bad replicas.
 
-        :param pfns: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id>}.
+        :param pfns: The list of PFNs.
         :param reason: The reason of the loss.
         """
         data = {'reason': reason, 'pfns': pfns}
@@ -333,15 +335,16 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_dataset_replicas_bulk(self, dids):
+    def list_dataset_replicas_bulk(self, dids, deep=False):
         """
         List dataset replicas for a did (scope:name).
 
         :param dids: The list of DIDs of the datasets.
+        :param deep: Lookup at the file level.
 
         :returns: A list of dict dataset replicas.
         """
-        payload = {'dids': list(dids)}
+        payload = {'dids': list(dids), "deep": deep}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'datasets_bulk']))
         r = self._send_request(url, type_='POST', data=dumps(payload))
         if r.status_code == codes.ok:
