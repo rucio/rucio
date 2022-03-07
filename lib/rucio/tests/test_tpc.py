@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mayank Sharma <imptodefeat@gmail.com>, 2021
+# - Mayank Sharma <imptodefeat@gmail.com>, 2021-2022
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import time
@@ -60,7 +60,7 @@ def check_url(pfn, hostname, path):
 
 
 def poll_fts_transfer_status(request_id, timeout=30):
-    rcode, out = run_cmd_process(f"/usr/bin/python2 /usr/bin/fts-rest-transfer-status -v -s https://fts:8446 {request_id}", timeout=timeout)
+    rcode, out = run_cmd_process(f"fts-rest-transfer-status -v -s https://fts:8446 {request_id}", timeout=timeout)
     transfer_status = None
     if rcode == 0:
         transfer_status = re.search("Status: (.*)", out).group(1)
