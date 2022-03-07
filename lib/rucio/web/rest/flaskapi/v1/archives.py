@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2017-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from json import dumps
 
@@ -36,15 +33,47 @@ class Archive(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
         """
-        List archive content keys.
-
-        .. :quickref: Archive; list archive content keys.
-
-        :param scope_name: data identifier (scope)/(name).
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 400: Invalid value.
-        :status 406: Not Acceptable.
+        ---
+        summary: List
+        description: List archive contents.
+        tags:
+          - Archive
+        parameters:
+        - name: scope_name
+          in: path
+          description: The data identifier of the scope.
+          schema:
+            type: string
+          style: simple
+        responses:
+          201:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      scope:
+                        description: The scope of the did.
+                        type: str
+                      name:
+                        description: The name of the did.
+                        type: str
+                      bytes:
+                        description: The number of bytes.
+                        type: int
+                      adler32:
+                        description: The adler32 checksum.
+                        type: str
+                      md5:
+                        description: The md5 checksum.
+                        type: str
+          400:
+            description: Invalid value
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
