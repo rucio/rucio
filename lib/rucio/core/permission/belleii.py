@@ -1,4 +1,5 @@
-# Copyright 2016-2020 CERN
+# -*- coding: utf-8 -*-
+# Copyright 2020-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,16 +14,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2016
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Eric Vaandering, <ewv@fnal.gov>, 2020
-#
-# PY3K COMPATIBLE
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 from rucio.common.types import InternalScope
 from rucio.core.lifetime_exception import list_exceptions
@@ -86,7 +82,6 @@ def has_permission(issuer, action, kwargs):
             'queue_requests': perm_queue_requests,
             'set_rse_usage': perm_set_rse_usage,
             'set_rse_limits': perm_set_rse_limits,
-            'query_request': perm_query_request,
             'get_request_by_did': perm_get_request_by_did,
             'cancel_request': perm_cancel_request,
             'get_next': perm_get_next,

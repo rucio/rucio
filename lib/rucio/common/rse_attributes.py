@@ -33,8 +33,62 @@ from dogpile.cache.api import NoValue
 
 from rucio.core import rse as rse_core
 from rucio.common.cache import make_region_memcached
+from rucio.db.sqla.constants import RSEType
+from rucio.db.sqla.session import read_session
+from rucio.rse import rsemanager as rsemgr
 
 REGION = make_region_memcached(expiration_time=900)
+
+
+class RseData:
+    """
+    Helper data class storing rse data grouped in one place.
+    """
+    def __init__(self, id_, name=None, attributes=None, info=None):
+        self.id = id_
+        self.name = name
+        self.attributes = attributes
+        self.info = info
+
+    def __str__(self):
+        if self.name is not None:
+            return self.name
+        return self.id
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return self.id == other.id
+
+    def is_tape(self):
+        if self.info['rse_type'] == RSEType.TAPE or self.info['rse_type'] == 'TAPE':
+            return True
+        return False
+
+    def is_tape_or_staging_required(self):
+        if self.is_tape() or self.attributes.get('staging_required', False):
+            return True
+        return False
+
+    @read_session
+    def load_name(self, session=None):
+        if self.name is None:
+            self.name = rse_core.get_rse_name(rse_id=self.id, session=session)
+        return self.name
+
+    @read_session
+    def load_attributes(self, session=None):
+        if self.attributes is None:
+            self.attributes = get_rse_attributes(self.id, session=session)
+        return self.attributes
+
+    @read_session
+    def load_info(self, session=None):
+        if self.info is None:
+            self.info = rsemgr.get_rse_info(rse=self.load_name(session=session),
+                                            vo=rse_core.get_rse_vo(rse_id=self.id, session=session),
+                                            session=session)
+        return self.info
 
 
 def get_rse_attributes(rse_id, session=None):

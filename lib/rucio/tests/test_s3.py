@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020-2021 CERN
+# Copyright 2020-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 import unittest
 
@@ -30,7 +30,7 @@ from rucio.core.distance import add_distance
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_rse, del_rse, add_protocol, add_rse_attribute
 from rucio.core.rule import add_rule
-from rucio.core.transfer import next_transfers_to_submit
+from rucio.daemons.conveyor.common import next_transfers_to_submit
 from rucio.tests.common import rse_name_generator
 from rucio.tests.common_server import get_vo
 
