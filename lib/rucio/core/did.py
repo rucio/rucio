@@ -35,7 +35,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2020
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2022
@@ -650,8 +650,8 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
             # Archive content
         archive_content = config_core.get('deletion', 'archive_content', default=False, session=session)
         if archive_content:
-            insert_content_history(content_clause=[and_(models.DataIdentifierAssociation.scope == did['scope'],
-                                                        models.DataIdentifierAssociation.name == did['name'])],
+            insert_content_history(filter_=[and_(models.DataIdentifierAssociation.scope == did['scope'],
+                                                 models.DataIdentifierAssociation.name == did['name'])],
                                    did_created_at=did.get('created_at'),
                                    session=session)
 
@@ -761,7 +761,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
                 filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
                 delete(synchronize_session=False)
             if archive_dids:
-                insert_deleted_dids(did_clause, session=session)
+                insert_deleted_dids(filter_=or_(*did_clause), session=session)
 
     if did_followed_clause:
         with record_timer_block('undertaker.dids'):
@@ -1993,11 +1993,11 @@ def create_reports(total_workers, worker_number, session=None):
 
 
 @transactional_session
-def insert_content_history(content_clause, did_created_at, session=None):
+def insert_content_history(filter_, did_created_at, session=None):
     """
     Insert into content history a list of did
 
-    :param content_clause: Content clause of the files to archive
+    :param filter_: Content clause of the files to archive
     :param did_created_at: Creation date of the did
     :param session: The database session in use.
     """
@@ -2016,7 +2016,7 @@ def insert_content_history(content_clause, did_created_at, session=None):
                           models.DataIdentifierAssociation.rule_evaluation,
                           models.DataIdentifierAssociation.created_at,
                           models.DataIdentifierAssociation.updated_at).\
-        filter(or_(*content_clause))
+        filter(filter_)
 
     for cont in query.all():
         if not did_created_at:
@@ -2042,11 +2042,11 @@ def insert_content_history(content_clause, did_created_at, session=None):
 
 
 @transactional_session
-def insert_deleted_dids(did_clause, session=None):
+def insert_deleted_dids(filter_, session=None):
     """
     Insert into deleted_dids a list of did
 
-    :param did_clause: DID clause of the files to archive
+    :param filter_: The database filter to retrieve dids for archival
     :param session: The database session in use.
     """
     query = session.query(models.DataIdentifier.scope,
@@ -2089,7 +2089,7 @@ def insert_deleted_dids(did_clause, session=None):
                           models.DataIdentifier.is_archive,
                           models.DataIdentifier.constituent,
                           models.DataIdentifier.access_cnt).\
-        filter(or_(*did_clause))
+        filter(filter_)
 
     for did in query.all():
         models.DeletedDataIdentifier(
