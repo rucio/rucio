@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,14 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 import logging
 
 from abc import ABCMeta, abstractmethod
 from six import add_metaclass
+
+from rucio.core.request import get_request
 
 
 class TransferToolBuilder(object):
@@ -46,6 +48,67 @@ class TransferToolBuilder(object):
         all_kwargs = dict(self.fixed_kwargs)
         all_kwargs.update(additional_kwargs)
         return self.transfertool_class(**all_kwargs)
+
+
+@add_metaclass(ABCMeta)
+class TransferStatusReport(object):
+    """
+    Allows to compute the changes which have to be applied to the database
+    to reflect the current status reported by the external transfertool into
+    the database.
+    """
+
+    supported_db_fields = [
+        'state',
+    ]
+
+    def __init__(self, request_id, request=None):
+        self.request_id = request_id
+        self.__request = request  # Optional: DB request. If provided, saves us a database call to fetch it by request_id
+        self.__initialized = False
+
+        # Supported db fields bellow
+        self.state = None
+
+    @abstractmethod
+    def initialize(self, session, logger=logging.log):
+        """
+        Initialize all fields from self.supported_update_fields
+        """
+        pass
+
+    @abstractmethod
+    def get_monitor_msg_fields(self, session, logger=logging.log):
+        """
+        Return the fields which will be included in the message sent to hermes.
+        """
+        pass
+
+    def ensure_initialized(self, session, logger=logging.log):
+        if not self.__initialized:
+            self.initialize(session, logger)
+            self.__initialized = True
+
+    def request(self, session):
+        """
+        Fetch the request by request_id if needed.
+        """
+        if not self.__request:
+            self.__request = get_request(self.request_id, session=session)
+        return self.__request
+
+    def get_db_fields_to_update(self, session, logger=logging.log):
+        """
+        Returns the fields which have to be updated in the request
+        """
+        self.ensure_initialized(session, logger)
+
+        updates = {}
+        for field in self.supported_db_fields:
+            field_value = getattr(self, field)
+            if field_value:
+                updates[field] = field_value
+        return updates
 
 
 @add_metaclass(ABCMeta)

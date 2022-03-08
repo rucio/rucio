@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Mayank Sharma <imptodefeat@gmail.com>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 import time
 import datetime
@@ -25,10 +25,10 @@ import re
 
 from rucio.core.request import get_request_by_did
 from rucio.core.rule import add_rule
-from rucio.core.transfer import next_transfers_to_submit
 from rucio.common.utils import generate_uuid
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.conveyor import submitter, poller, finisher
+from rucio.daemons.conveyor.common import next_transfers_to_submit
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.utils import run_cmd_process

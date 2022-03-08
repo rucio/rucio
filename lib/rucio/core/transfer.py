@@ -43,52 +43,42 @@ from __future__ import division
 
 import copy
 import datetime
-import json
 import logging
 import re
 import time
+import traceback
 from rucio.common.utils import PriorityQueue
 from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NoValue
-from sqlalchemy import and_, update
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import false
 
 from rucio.common import constants
 from rucio.common.cache import make_region_memcached
-from rucio.common.config import config_get, config_get_bool
-from rucio.common.constants import SUPPORTED_PROTOCOLS, FTS_STATE
+from rucio.common.config import config_get
+from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (InvalidRSEExpression, NoDistance,
                                     RequestNotFound, RSEProtocolNotSupported,
                                     RucioException, UnsupportedOperation)
-from rucio.common.extra import import_extras
-from rucio.common.rse_attributes import get_rse_attributes
+from rucio.common.rse_attributes import RseData
 from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
-from rucio.core.monitor import record_counter, record_timer
-from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
-from rucio.core.request import get_request_by_did, queue_requests, set_request_state
+from rucio.core.monitor import record_counter
+from rucio.core.request import set_request_state, RequestWithSources, RequestSource
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rses
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import DIDType, RequestState, RSEType, RequestType, ReplicaState
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import DIDType, RequestState, RequestType
 from rucio.db.sqla.session import read_session, transactional_session
-from rucio.db.sqla.util import create_temp_table
 from rucio.rse import rsemanager as rsemgr
-from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
 from rucio.transfertool.fts3 import FTS3Transfertool
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Set, Tuple, Type, Union
+    from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Union
     from sqlalchemy.orm import Session
-
-EXTRA_MODULES = import_extras(['globus_sdk'])
-
-if EXTRA_MODULES['globus_sdk']:
-    from rucio.transfertool.globus import GlobusTransferTool  # pylint: disable=import-error
-
 
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
@@ -106,70 +96,6 @@ DEFAULT_MULTIHOP_TOMBSTONE_DELAY = int(datetime.timedelta(hours=2).total_seconds
 CONCURRENT_SUBMISSION_TOLERATION_DELAY = datetime.timedelta(minutes=5)
 
 
-class RseData:
-    """
-    Helper data class storing rse data grouped in one place.
-    """
-    def __init__(self, id_, name=None, attributes=None, info=None):
-        self.id = id_
-        self.name = name
-        self.attributes = attributes
-        self.info = info
-
-    def __str__(self):
-        if self.name is not None:
-            return self.name
-        return self.id
-
-    def __eq__(self, other):
-        if other is None:
-            return False
-        return self.id == other.id
-
-    def is_tape(self):
-        if self.info['rse_type'] == RSEType.TAPE or self.info['rse_type'] == 'TAPE':
-            return True
-        return False
-
-    def is_tape_or_staging_required(self):
-        if self.is_tape() or self.attributes.get('staging_required', False):
-            return True
-        return False
-
-    @read_session
-    def load_name(self, session=None):
-        if self.name is None:
-            self.name = get_rse_name(rse_id=self.id, session=session)
-        return self.name
-
-    @read_session
-    def load_attributes(self, session=None):
-        if self.attributes is None:
-            self.attributes = get_rse_attributes(self.id, session=session)
-        return self.attributes
-
-    @read_session
-    def load_info(self, session=None):
-        if self.info is None:
-            self.info = rsemgr.get_rse_info(rse=self.load_name(session=session),
-                                            vo=get_rse_vo(rse_id=self.id, session=session),
-                                            session=session)
-        return self.info
-
-
-class TransferSource:
-    def __init__(self, rse_data, source_ranking=None, distance_ranking=None, file_path=None, scheme=None, url=None):
-        self.rse = rse_data
-        self.distance_ranking = distance_ranking if distance_ranking is not None else 9999
-        self.source_ranking = source_ranking if source_ranking is not None else 0
-        self.file_path = file_path
-        self.scheme = scheme
-        self.url = url
-
-    def __str__(self):
-        return "src_rse={}".format(self.rse)
-
-
 class TransferDestination:
     def __init__(self, rse_data, scheme):
         self.rse = rse_data
@@ -177,56 +103,6 @@ class TransferDestination:
 
     def __str__(self):
         return "dst_rse={}".format(self.rse)
-
-
-class RequestWithSources:
-    def __init__(self, id_, request_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes,
-                 previous_attempt_id, dest_rse_data, account, retry_count, priority, transfertool, requested_at=None):
-
-        self.request_id = id_
-        self.request_type = request_type
-        self.rule_id = rule_id
-        self.scope = scope
-        self.name = name
-        self.md5 = md5
-        self.adler32 = adler32
-        self.byte_count = byte_count
-        self.activity = activity
-        self._dict_attributes = None
-        self._db_attributes = attributes
-        self.previous_attempt_id = previous_attempt_id
-        self.dest_rse = dest_rse_data
-        self.account = account
-        self.retry_count = retry_count or 0
-        self.priority = priority if priority is not None else 3
-        self.transfertool = transfertool
-        self.requested_at = requested_at if requested_at else datetime.datetime.utcnow()
-
-        self.sources = []
-
-    def __str__(self):
-        return "{}({}:{})".format(self.request_id, self.scope, self.name)
-
-    @property
-    def attributes(self):
-        if self._dict_attributes is None:
-            self.attributes = self._db_attributes
-        return self._dict_attributes
-
-    @attributes.setter
-    def attributes(self, db_attributes):
-        attr = {}
-        if db_attributes:
-            if isinstance(db_attributes, dict):
-                attr = json.loads(json.dumps(db_attributes))
-            else:
-                attr = json.loads(str(db_attributes))
-            # parse source expression
-            attr['source_replica_expression'] = attr["source_replica_expression"] if (attr and "source_replica_expression" in attr) else None
-            attr['allow_tape_source'] = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
-            attr['dsn'] = attr["ds_name"] if (attr and "ds_name" in attr) else None
-            attr['lifetime'] = attr.get('lifetime', -1)
-        self._dict_attributes = attr
 
 
 class _RseLoaderContext:
@@ -281,7 +157,7 @@ class DirectTransferDefinition:
     The class wraps the legacy dict-based transfer definition to maintain compatibility with existing code
     during the migration.
     """
-    def __init__(self, source: TransferSource, destination: TransferDestination, rws: RequestWithSources,
+    def __init__(self, source: RequestSource, destination: TransferDestination, rws: RequestWithSources,
                  protocol_factory: ProtocolFactory, operation_src: str, operation_dest: str):
         self.sources = [source]
         self.destination = destination
@@ -391,7 +267,7 @@ class DirectTransferDefinition:
         return dest_url
 
     @classmethod
-    def _generate_source_url(cls, src: TransferSource, dst: TransferDestination, rws: RequestWithSources, protocol_factory: ProtocolFactory, operation: str):
+    def _generate_source_url(cls, src: RequestSource, dst: TransferDestination, rws: RequestWithSources, protocol_factory: ProtocolFactory, operation: str):
         """
         Generate the source url which will be used as origin to copy the file from request rws towards the given dst endpoint
         """
@@ -598,143 +474,15 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
     logger(logging.DEBUG, 'Finished to register transfer state for %s' % external_id)
 
 
-def is_recoverable_fts_overwrite_error(fts_status_dict):
-    """
-    Verify the special case when FTS cannot copy a file because destination exists and overwrite is disabled,
-    but the destination file is actually correct.
-
-    This can happen when some transitory error happened during a previous submission attempt.
-    Hence, the transfer is correctly executed by FTS, but rucio doesn't know about it.
-
-    Returns true when the request must be marked as successful even if it was reported failed by FTS.
-    """
-    if 'Destination file exists and overwrite is not enabled' in (fts_status_dict.get('reason') or ''):
-        dst_file = fts_status_dict['dst_file']
-        request_id = fts_status_dict['request_id']
-        request = None
-        if request_id:
-            request = request_core.get_request(request_id)
-        if (request and dst_file
-                and dst_file.get('file_size')
-                and dst_file.get('file_size') == request.get('bytes')
-                and (dst_file.get('checksum_type', '').lower() == 'adler32' and dst_file.get('checksum_value') == request.get('adler32')
-                     or dst_file.get('checksum_type', '').lower() == 'md5' and dst_file.get('checksum_value') == request.get('md5'))):
-            if dst_file.get('file_on_tape'):
-                return True
-            elif fts_status_dict.get('dst_type') == 'DISK':
-                return True
-    return False
-
-
-def bulk_query_transfers(request_host, transfers_by_eid, transfertool='fts3', vo=None, timeout=None, logger=logging.log):
-    """
-    Query the status of a transfer.
-    :param request_host:     Name of the external host.
-    :param transfers_by_eid: Dict of the form {external_id: list_of_transfers}
-    :param transfertool:     Transfertool name as a string.
-    :param timeout:          Transfertool timeout.
-    :param logger:           Optional decorated logger that can be passed from the calling daemons or servers.
-    :returns:                Request status information as a dictionary.
-    """
-
-    record_counter('core.request.bulk_query_transfers')
-
-    if transfertool == 'fts3':
-        start_time = time.time()
-        fts_resps = FTS3Transfertool(external_host=request_host, vo=vo).bulk_query(transfer_ids=list(transfers_by_eid), timeout=timeout)
-        record_timer('core.request.bulk_query_transfers_fts3', (time.time() - start_time) * 1000 / len(transfers_by_eid))
-
-        for external_id, transfers in transfers_by_eid.items():
-            if external_id not in fts_resps:
-                fts_resps[external_id] = Exception("Transfer id %s is not returned" % external_id)
-            if fts_resps[external_id] and not isinstance(fts_resps[external_id], Exception):
-                for request_id in fts_resps[external_id]:
-                    status_dict = fts_resps[external_id][request_id]
-                    job_state = status_dict['job_state']
-                    file_state = status_dict['file_state']
-                    # https://fts3-docs.web.cern.ch/fts3-docs/docs/state_machine.html
-                    job_state_is_final = job_state in (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHED, FTS_STATE.FINISHEDDIRTY)
-                    file_state_is_final = file_state in (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHED, FTS_STATE.NOT_USED)
-                    if not file_state_is_final:
-                        continue
-
-                    if file_state == FTS_STATE.FINISHED:
-                        status_dict['new_state'] = RequestState.DONE
-                    elif job_state_is_final and file_state == FTS_STATE.FAILED and is_recoverable_fts_overwrite_error(status_dict):
-                        status_dict['new_state'] = RequestState.DONE
-                    elif job_state_is_final and file_state in (FTS_STATE.FAILED, FTS_STATE.CANCELED):
-                        status_dict['new_state'] = RequestState.FAILED
-                    elif job_state_is_final and file_state == FTS_STATE.NOT_USED:
-                        if job_state == FTS_STATE.FINISHED:
-                            # it is a multi-source transfer. This source wasn't used, but another one was successful
-                            status_dict['new_state'] = RequestState.DONE
-                        else:
-                            # failed multi-source or multi-hop (you cannot have unused sources in a successful multi-hop)
-                            status_dict['new_state'] = RequestState.FAILED
-        return fts_resps
-    elif transfertool == 'globus':
-        start_time = time.time()
-        logger(logging.DEBUG, 'transfer_ids: %s' % list(transfers_by_eid))
-        responses = GlobusTransferTool(external_host=None).bulk_query(transfer_ids=list(transfers_by_eid), timeout=timeout)
-        record_timer('core.request.bulk_query_transfers_globus', (time.time() - start_time) * 1000 / len(transfers_by_eid))
-
-        for k, v in responses.items():
-            if v == 'FAILED':
-                new_state = RequestState.FAILED
-            elif v == 'SUCCEEDED':
-                new_state = RequestState.DONE
-            else:
-                new_state = RequestState.SUBMITTED
-            responses[k] = {t['request_id']: fake_transfertool_response(t, new_state=new_state)
-                            for t in transfers_by_eid[k]}
-        return responses
-    else:
-        raise NotImplementedError
-
-
 @transactional_session
-def fake_transfertool_response(req, new_state=None, reason=None, session=None):
-    """
-    Use the request database object to return a dict in the same format as
-    returned by the FTS transfertool. Fill ass many fields as possible with
-    relevant data.
+def mark_transfer_lost(request, session=None, logger=logging.log):
+    new_state = RequestState.LOST
+    reason = "The FTS job lost"
 
-    TODO: get rid of this function
-    """
-    src_rse_id = req.get('source_rse_id', None)
-    dst_rse_id = req.get('dest_rse_id', None)
-    src_rse = None
-    dst_rse = None
-    if src_rse_id:
-        src_rse = get_rse_name(src_rse_id, session=session)
-    if dst_rse_id:
-        dst_rse = get_rse_name(dst_rse_id, session=session)
-    response = {'new_state': new_state or req.get('state', None),
-                'transfer_id': req['external_id'],
-                'job_state': new_state or req.get('state', None),
-                'src_url': None,
-                'dst_url': req['dest_url'],
-                'duration': 0,
-                'reason': reason,
-                'scope': req.get('scope', None),
-                'name': req.get('name', None),
-                'src_rse': src_rse,
-                'dst_rse': dst_rse,
-                'request_id': req.get('request_id', None),
-                'activity': req.get('activity', None),
-                'src_rse_id': req.get('source_rse_id', None),
-                'dst_rse_id': req.get('dest_rse_id', None),
-                'previous_attempt_id': req.get('previous_attempt_id', None),
-                'adler32': req.get('adler32', None),
-                'md5': req.get('md5', None),
-                'filesize': req.get('filesize', None),
-                'external_host': req.get('external_host', None),
-                'job_m_replica': None,
-                'created_at': req.get('created_at', None),
-                'submitted_at': req.get('submitted_at', None),
-                'details': None,
-                'account': req.get('account', None)}
-    return response
+    err_msg = request_core.get_transfer_error(new_state, reason)
+    set_request_state(request['id'], state=new_state, external_id=request['external_id'], err_msg=err_msg, session=session, logger=logger)
+
+    request_core.add_monitor_message(new_state=new_state, request=request, additional_fields={'reason': reason}, session=session)
 
 
 @transactional_session
@@ -925,7 +673,7 @@ def __create_transfer_definitions(
         ctx: _RseLoaderContext,
         protocol_factory: ProtocolFactory,
         rws: RequestWithSources,
-        sources: "List[TransferSource]",
+        sources: "List[RequestSource]",
         multihop_rses: "List[str]",
         limit_dest_schemes: "List[str]",
         operation_src: str,
@@ -951,7 +699,7 @@ def __create_transfer_definitions(
         for hop in list_hops:
             hop_src_rse = ctx.rse_data(hop['source_rse_id'])
             hop_dst_rse = ctx.rse_data(hop['dest_rse_id'])
-            src = TransferSource(
+            src = RequestSource(
                 rse_data=hop_src_rse,
                 file_path=source.file_path if hop_src_rse == source.rse else None,
                 source_ranking=source.source_ranking if hop_src_rse == source.rse else 0,
@@ -1039,7 +787,7 @@ def __create_transfer_definitions(
                     continue
 
                 transfer_path[0].sources.append(
-                    TransferSource(
+                    RequestSource(
                         rse_data=source.rse,
                         file_path=source.file_path,
                         source_ranking=source.source_ranking,
@@ -1053,7 +801,7 @@ def __create_transfer_definitions(
 
 def __create_stagein_definitions(
         rws: RequestWithSources,
-        sources: "List[TransferSource]",
+        sources: "List[RequestSource]",
         limit_dest_schemes: "List[str]",
         operation_src: str,
         operation_dest: str,
@@ -1065,7 +813,7 @@ def __create_stagein_definitions(
     transfers_by_source = {
         source.rse.id: [
             StageinTransferDefinition(
-                source=TransferSource(
+                source=RequestSource(
                     rse_data=source.rse,
                     file_path=source.file_path,
                     url=source.url,
@@ -1108,7 +856,7 @@ def __filter_multihops_with_intermediate_tape(candidate_paths: "Iterable[List[Di
 
 def __compress_multihops(
         candidate_paths: "Iterable[List[DirectTransferDefinition]]",
-        sources: "Iterable[TransferSource]",
+        sources: "Iterable[RequestSource]",
 ) -> "Generator[List[DirectTransferDefinition]]":
     # Compress multihop transfers which contain other sources as part of itself.
     # For example: multihop A->B->C and B is a source, compress A->B->C into B->C
@@ -1170,7 +918,7 @@ def __handle_intermediate_hop_requests(
             # This is an intermediate hop, don't consider it for submission
             if rws.requested_at < now - CONCURRENT_SUBMISSION_TOLERATION_DELAY:
                 logger(logging.WARNING, '%s: marking stalled intermediate hop as submission_failed', rws.request_id)
-                set_request_state(request_id=rws.request_id, new_state=RequestState.SUBMISSION_FAILED)
+                set_request_state(request_id=rws.request_id, state=RequestState.SUBMISSION_FAILED)
             else:
                 logger(logging.WARNING, '%s: skipping intermediate hop from being submitted on its own', rws.request_id)
         else:
@@ -1178,9 +926,9 @@ def __handle_intermediate_hop_requests(
 
 
 @transactional_session
-def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                             failover_schemes=None, filter_transfertool=None, transfertools_by_name=None, request_type=RequestType.TRANSFER,
-                             ignore_availability=False, logger=logging.log, session=None):
+def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
+                       failover_schemes=None, filter_transfertool=None, request_type=RequestType.TRANSFER,
+                       ignore_availability=False, logger=logging.log, session=None):
     """
     Get next transfers to be submitted; grouped by transfertool which can submit them
     :param total_workers:         Number of total workers.
@@ -1192,7 +940,6 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
     :param rses:                  Include RSES.
     :param schemes:               Include schemes.
     :param failover_schemes:      Failover schemes.
-    :param transfertools_by_name: Dict: {transfertool_name_str: transfertool class}
     :param filter_transfertool:   The transfer tool to filter requests on.
     :param request_type           The type of requests to retrieve (Transfer/Stagein)
     :param ignore_availability:   Ignore blocklisted RSEs
@@ -1221,7 +968,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
         failover_schemes = []
 
     # retrieve (from the database) the transfer requests with their possible source replicas
-    request_with_sources = __list_transfer_requests_and_source_replicas(
+    request_with_sources = request_core.list_transfer_requests_and_source_replicas(
         total_workers=total_workers,
         worker_number=worker_number,
         partition_hash_var=partition_hash_var,
@@ -1240,7 +987,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
     request_with_sources = list(__handle_intermediate_hop_requests(request_with_sources, logger))
 
     # for each source, compute the (possibly multihop) path between it and the transfer destination
-    candidate_paths, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source = __build_transfer_paths(
+    return __build_transfer_paths(
         request_with_sources,
         multihop_rses=multihop_rses,
         schemes=schemes,
@@ -1249,30 +996,6 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
         logger=logger,
         session=session,
     )
-
-    # Assign paths to be executed by transfertools
-    # if the chosen best path is a multihop, create intermediate replicas and the intermediate transfer requests
-    paths_by_transfertool_builder, reqs_no_host, reqs_unsupported_transfertool = __assign_paths_to_transfertool_and_create_hops(
-        candidate_paths,
-        transfertools_by_name=transfertools_by_name,
-        logger=logger,
-        session=session,
-    )
-
-    if reqs_unsupported_transfertool:
-        logger(logging.INFO, "Ignoring request because of unsupported transfertool: %s", reqs_unsupported_transfertool)
-    reqs_no_source.update(reqs_no_host)
-    if reqs_no_source:
-        logger(logging.INFO, "Marking requests as no-sources: %s", reqs_no_source)
-        request_core.set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger, session=session)
-    if reqs_only_tape_source:
-        logger(logging.INFO, "Marking requests as only-tape-sources: %s", reqs_only_tape_source)
-        request_core.set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger, session=session)
-    if reqs_scheme_mismatch:
-        logger(logging.INFO, "Marking requests as scheme-mismatch: %s", reqs_scheme_mismatch)
-        request_core.set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger, session=session)
-
-    return paths_by_transfertool_builder
 
 
 def __build_transfer_paths(
@@ -1439,354 +1162,6 @@ def __build_transfer_paths(
     return candidate_paths_by_request_id, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
 
 
-def __parse_request_transfertools(
-        rws: "RequestWithSources",
-        logger: "Callable" = logging.log,
-):
-    """
-    Parse a set of desired transfertool names from the database field request.transfertool
-    """
-    request_transfertools = set()
-    try:
-        if rws.transfertool:
-            request_transfertools = {tt.strip() for tt in rws.transfertool.split(',')}
-    except Exception:
-        logger(logging.WARN, "Unable to parse requested transfertools: {}".format(request_transfertools))
-        request_transfertools = None
-    return request_transfertools
-
-
-def __assign_paths_to_transfertool_and_create_hops(
-        candidate_paths_by_request_id: "Dict[str: List[DirectTransferDefinition]]",
-        transfertools_by_name: "Optional[Dict[str, Type[Transfertool]]]" = None,
-        logger: "Callable" = logging.log,
-        session: "Optional[Session]" = None,
-) -> "Tuple[Dict[TransferToolBuilder, List[DirectTransferDefinition]], Set[str], Set[str]]":
-    """
-    for each request, pick the first path which can be submitted by one of the transfertools.
-    If the chosen path is multihop, create all missing intermediate requests and replicas.
-    """
-    reqs_no_host = set()
-    reqs_unsupported_transfertool = set()
-    paths_by_transfertool_builder = {}
-    default_tombstone_delay = core_config_get('transfers', 'multihop_tombstone_delay', default=DEFAULT_MULTIHOP_TOMBSTONE_DELAY, expiration_time=600)
-    for request_id, candidate_paths in candidate_paths_by_request_id.items():
-        # Get the rws object from any candidate path. It is the same for all candidate paths. For multihop, the initial request is the last hop
-        rws = candidate_paths[0][-1].rws
-
-        request_transfertools = __parse_request_transfertools(rws, logger)
-        if request_transfertools is None:
-            # Parsing failed
-            reqs_no_host.add(request_id)
-            continue
-        if request_transfertools and transfertools_by_name and not request_transfertools.intersection(transfertools_by_name):
-            # The request explicitly asks for a transfertool which this submitter doesn't support
-            reqs_unsupported_transfertool.add(request_id)
-            continue
-
-        # Selects the first path which can be submitted by a supported transfertool and for which the creation of
-        # intermediate hops (if it is a multihop) work correctly
-        best_path = None
-        builder_to_use = None
-        concurrent_submission_detected = False
-        for transfer_path in candidate_paths:
-            builder = None
-            if transfertools_by_name:
-                transfertools_to_try = set(transfertools_by_name)
-                if request_transfertools:
-                    transfertools_to_try = transfertools_to_try.intersection(request_transfertools)
-                for transfertool in transfertools_to_try:
-                    builder = transfertools_by_name[transfertool].submission_builder_for_path(transfer_path, logger=logger)
-                    if builder:
-                        break
-            if builder or not transfertools_by_name:
-                created, concurrent_submission_detected = create_missing_replicas_and_requests(
-                    transfer_path, default_tombstone_delay, logger=logger, session=session
-                )
-                if created:
-                    best_path = transfer_path
-                    builder_to_use = builder
-                if created or concurrent_submission_detected:
-                    break
-
-        if concurrent_submission_detected:
-            logger(logging.INFO, '%s: Request is being handled by another submitter. Skipping for now.' % request_id)
-            continue
-
-        if not best_path:
-            reqs_no_host.add(request_id)
-            logger(logging.INFO, '%s: Cannot pick transfertool, or create intermediate requests' % request_id)
-            continue
-
-        if len(best_path) > 1:
-            logger(logging.INFO, '%s: Best path is multihop: %s' % (rws.request_id, transfer_path_str(best_path)))
-        elif best_path is not candidate_paths[0] or len(best_path[0].sources) > 1:
-            # Only print singlehop if it brings additional information:
-            # - either it's not the first candidate path
-            # - or it's a multi-source
-            # in other cases, it doesn't bring any additional information to what is known from previous logs
-            logger(logging.INFO, '%s: Best path is direct: %s' % (rws.request_id, transfer_path_str(best_path)))
-
-        paths_by_transfertool_builder.setdefault(builder_to_use, []).append(best_path)
-    return paths_by_transfertool_builder, reqs_no_host, reqs_unsupported_transfertool
-
-
-@transactional_session
-def create_missing_replicas_and_requests(
-        transfer_path: "List[DirectTransferDefinition]",
-        default_tombstone_delay: int,
-        logger: "Callable",
-        session: "Optional[Session]" = None
-) -> "Tuple[bool, bool]":
-    """
-    Create replicas and requests in the database for the intermediate hops
-    """
-    initial_request_id = transfer_path[-1].rws.request_id
-    creation_successful = True
-    concurrent_submission_detected = False
-    created_requests = []
-    # Iterate the path in reverse order. The last hop is the initial request, so
-    # next_hop.rws.request_id will always be initialized when handling the current hop.
-    for i in reversed(range(len(transfer_path))):
-        hop = transfer_path[i]
-        rws = hop.rws
-        if rws.request_id:
-            continue
-
-        tombstone_delay = rws.dest_rse.attributes.get('multihop_tombstone_delay', default_tombstone_delay)
-        try:
-            tombstone = tombstone_from_delay(tombstone_delay)
-        except ValueError:
-            logger(logging.ERROR, "%s: Cannot parse multihop tombstone delay %s", initial_request_id, tombstone_delay)
-            creation_successful = False
-            break
-
-        files = [{'scope': rws.scope,
-                  'name': rws.name,
-                  'bytes': rws.byte_count,
-                  'adler32': rws.adler32,
-                  'md5': rws.md5,
-                  'tombstone': tombstone,
-                  'state': 'C'}]
-        try:
-            add_replicas(rse_id=rws.dest_rse.id,
-                         files=files,
-                         account=rws.account,
-                         ignore_availability=False,
-                         dataset_meta=None,
-                         session=session)
-            # Set replica state to Copying in case replica already existed in another state.
-            # Can happen when a multihop transfer failed previously, and we are re-scheduling it now.
-            update_replica_state(rse_id=rws.dest_rse.id, scope=rws.scope, name=rws.name, state=ReplicaState.COPYING, session=session)
-        except Exception as error:
-            logger(logging.ERROR, '%s: Problem adding replicas on %s : %s', initial_request_id, rws.dest_rse, str(error))
-
-        rws.attributes['next_hop_request_id'] = transfer_path[i + 1].rws.request_id
-        rws.attributes['initial_request_id'] = initial_request_id
-        rws.attributes['source_replica_expression'] = hop.src.rse.name
-        new_req = queue_requests(requests=[{'dest_rse_id': rws.dest_rse.id,
-                                            'scope': rws.scope,
-                                            'name': rws.name,
-                                            'rule_id': '00000000000000000000000000000000',  # Dummy Rule ID used for multihop. TODO: Replace with actual rule_id once we can flag intermediate requests
-                                            'attributes': rws.attributes,
-                                            'request_type': rws.request_type,
-                                            'retry_count': rws.retry_count,
-                                            'account': rws.account,
-                                            'requested_at': datetime.datetime.now()}], session=session)
-        # If a request already exists, new_req will be an empty list.
-        if not new_req:
-            creation_successful = False
-
-            existing_request = get_request_by_did(rws.scope, rws.name, rws.dest_rse.id, session=session)
-            if existing_request['requested_at'] and \
-                    datetime.datetime.utcnow() - CONCURRENT_SUBMISSION_TOLERATION_DELAY < existing_request['requested_at']:
-                concurrent_submission_detected = True
-
-            break
-        rws.request_id = new_req[0]['id']
-        logger(logging.DEBUG, '%s: New request created for the transfer between %s and %s : %s', initial_request_id, transfer_path[0].src, transfer_path[-1].dst, rws.request_id)
-        set_request_state(rws.request_id, RequestState.QUEUED, session=session, logger=logger)
-        created_requests.append(rws.request_id)
-
-    if not concurrent_submission_detected and not creation_successful:
-        # Need to fail all the intermediate requests
-        logger(logging.WARNING, '%s: Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests',
-               initial_request_id, transfer_path[0].src, transfer_path[-1].dst)
-        try:
-            for request_id in created_requests:
-                set_request_state(request_id=request_id, new_state=RequestState.FAILED,
-                                  err_msg="Cancelled hop in multi-hop", session=session)
-        except UnsupportedOperation:
-            logger(logging.ERROR, '%s: Multihop : Cannot cancel all the parent requests : %s', initial_request_id, str(created_requests))
-
-    return creation_successful, concurrent_submission_detected
-
-
-@read_session
-def __list_transfer_requests_and_source_replicas(
-    total_workers=0,
-    worker_number=0,
-    partition_hash_var=None,
-    limit=None,
-    activity=None,
-    older_than=None,
-    rses=None,
-    request_type=RequestType.TRANSFER,
-    request_state=None,
-    ignore_availability=False,
-    transfertool=None,
-    session=None,
-) -> "List[RequestWithSources]":
-    """
-    List requests with source replicas
-    :param total_workers:      Number of total workers.
-    :param worker_number:      Id of the executing worker.
-    :param partition_hash_var  The hash variable used for partitioning thread work
-    :param limit:              Integer of requests to retrieve.
-    :param activity:           Activity to be selected.
-    :param older_than:         Only select requests older than this DateTime.
-    :param rses:               List of rse_id to select requests.
-    :param request_type:       Filter on the given request type.
-    :param request_state:      Filter on the given request state
-    :param transfertool:       The transfer tool as specified in rucio.cfg.
-    :param ignore_availability Ignore blocklisted RSEs
-    :param session:            Database session to use.
-    :returns:                  List of RequestWithSources objects.
-    """
-
-    if partition_hash_var is None:
-        partition_hash_var = 'requests.id'
-
-    if request_state is None:
-        request_state = RequestState.QUEUED
-
-    sub_requests = session.query(models.Request.id,
-                                 models.Request.rule_id,
-                                 models.Request.scope,
-                                 models.Request.name,
-                                 models.Request.md5,
-                                 models.Request.adler32,
-                                 models.Request.bytes,
-                                 models.Request.activity,
-                                 models.Request.attributes,
-                                 models.Request.previous_attempt_id,
-                                 models.Request.dest_rse_id,
-                                 models.Request.retry_count,
-                                 models.Request.account,
-                                 models.Request.created_at,
-                                 models.Request.requested_at,
-                                 models.Request.priority,
-                                 models.Request.transfertool) \
-        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle') \
-        .filter(models.Request.state == request_state) \
-        .filter(models.Request.request_type == request_type) \
-        .join(models.RSE, models.RSE.id == models.Request.dest_rse_id) \
-        .filter(models.RSE.deleted == false()) \
-        .order_by(models.Request.created_at)
-
-    if not ignore_availability:
-        sub_requests = sub_requests.filter(models.RSE.availability.in_((2, 3, 6, 7)))
-
-    if isinstance(older_than, datetime.datetime):
-        sub_requests = sub_requests.filter(models.Request.requested_at < older_than)
-
-    if activity:
-        sub_requests = sub_requests.filter(models.Request.activity == activity)
-
-    # if a transfertool is specified make sure to filter for those requests and apply related index
-    if transfertool:
-        sub_requests = sub_requests.filter(models.Request.transfertool == transfertool)
-        sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_TRA_ACT_IDX)", 'oracle')
-    else:
-        sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')
-
-    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
-    if rses and use_temp_tables:
-        temp_table_cls = create_temp_table(
-            "list_transfer_requests_and_source_replicas",
-            models.Column("rse_id", models.GUID()),
-            session=session,
-        )
-
-        session.bulk_insert_mappings(temp_table_cls, [{'rse_id': rse_id} for rse_id in rses])
-
-        sub_requests = sub_requests.join(temp_table_cls, temp_table_cls.rse_id == models.RSE.id)
-
-    sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number, hash_variable=partition_hash_var)
-
-    if limit:
-        sub_requests = sub_requests.limit(limit)
-
-    sub_requests = sub_requests.subquery()
-
-    query = session.query(sub_requests.c.id,
-                          sub_requests.c.rule_id,
-                          sub_requests.c.scope,
-                          sub_requests.c.name,
-                          sub_requests.c.md5,
-                          sub_requests.c.adler32,
-                          sub_requests.c.bytes,
-                          sub_requests.c.activity,
-                          sub_requests.c.attributes,
-                          sub_requests.c.previous_attempt_id,
-                          sub_requests.c.dest_rse_id,
-                          sub_requests.c.account,
-                          sub_requests.c.retry_count,
-                          sub_requests.c.priority,
-                          sub_requests.c.transfertool,
-                          sub_requests.c.requested_at,
-                          models.RSE.id.label("source_rse_id"),
-                          models.RSE.rse,
-                          models.RSEFileAssociation.path,
-                          models.Source.ranking.label("source_ranking"),
-                          models.Source.url.label("source_url"),
-                          models.Distance.ranking.label("distance_ranking")) \
-        .order_by(sub_requests.c.created_at) \
-        .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
-                                                   sub_requests.c.name == models.RSEFileAssociation.name,
-                                                   models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                                   sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id)) \
-        .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle') \
-        .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
-                                    models.RSE.deleted == false())) \
-        .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
-                                       models.RSE.id == models.Source.rse_id)) \
-        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle') \
-        .outerjoin(models.Distance, and_(sub_requests.c.dest_rse_id == models.Distance.dest_rse_id,
-                                         models.RSEFileAssociation.rse_id == models.Distance.src_rse_id)) \
-        .with_hint(models.Distance, "+ index(distances DISTANCES_PK)", 'oracle')
-
-    # if transfertool specified, select only the requests where the source rses are set up for the transfer tool
-    if transfertool:
-        query = query.subquery()
-        query = session.query(query) \
-            .join(models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == query.c.source_rse_id) \
-            .filter(models.RSEAttrAssociation.key == 'transfertool',
-                    models.RSEAttrAssociation.value.like('%' + transfertool + '%'))
-
-    requests_by_id = {}
-    for (request_id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, dest_rse_id, account, retry_count,
-         priority, transfertool, requested_at, source_rse_id, source_rse_name, file_path, source_ranking, source_url, distance_ranking) in query:
-
-        # If we didn't pre-filter using temporary tables on database side, perform the filtering here
-        if not use_temp_tables and rses and dest_rse_id not in rses:
-            continue
-
-        request = requests_by_id.get(request_id)
-        if not request:
-            request = RequestWithSources(id_=request_id, request_type=request_type, rule_id=rule_id, scope=scope, name=name,
-                                         md5=md5, adler32=adler32, byte_count=byte_count, activity=activity, attributes=attributes,
-                                         previous_attempt_id=previous_attempt_id, dest_rse_data=RseData(id_=dest_rse_id),
-                                         account=account, retry_count=retry_count, priority=priority, transfertool=transfertool,
-                                         requested_at=requested_at)
-            requests_by_id[request_id] = request
-
-        if source_rse_id is not None:
-            request.sources.append(TransferSource(rse_data=RseData(id_=source_rse_id, name=source_rse_name), file_path=file_path,
-                                                  source_ranking=source_ranking, distance_ranking=distance_ranking, url=source_url))
-    return list(requests_by_id.values())
-
-
 @read_session
 def __get_unavailable_rse_ids(operation, session=None, logger=logging.log):
     """
@@ -1897,3 +1272,51 @@ def __load_rse_settings(rse_id, session=None):
                                      session=session)
         REGION_SHORT.set('rse_settings_%s' % str(rse_id), result)
     return result
+
+
+def update_transfer_priority(transfers_to_update, logger=logging.log):
+    """
+    Update transfer priority in fts
+
+    :param transfers_to_update: dict {external_host1: {transfer_id1: priority, transfer_id2: priority, ...}, ...}
+    :param logger: decorated logger instance
+    """
+
+    for external_host, priority_by_transfer_id in transfers_to_update.items():
+        transfertool_obj = FTS3Transfertool(external_host=external_host)
+        for transfer_id, priority in priority_by_transfer_id.items():
+            res = transfertool_obj.update_priority(transfer_id=transfer_id, priority=priority)
+            logger(logging.DEBUG, "Updated transfer %s priority in transfertool to %s: %s" % (transfer_id, priority, res['http_message']))
+
+
+def cancel_transfers(transfers_to_cancel, logger=logging.log):
+    """
+    Cancel transfers in fts
+
+    :param transfers_to_cancel: dict {external_host1: {transfer_id1, transfer_id2}, external_host2: [...], ...}
+    :param logger: decorated logger instance
+    """
+
+    for external_host, transfer_ids in transfers_to_cancel.items():
+        transfertool_obj = FTS3Transfertool(external_host=external_host)
+        for transfer_id in transfer_ids:
+            try:
+                transfertool_obj.cancel(transfer_ids=[transfer_id])
+                logger(logging.DEBUG, "Cancelled FTS3 transfer %s on %s" % (transfer_id, transfertool_obj))
+            except Exception as error:
+                logger(logging.WARNING, 'Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, str(error)))
+
+
+def cancel_transfer(transfertool_obj, transfer_id):
+    """
+    Cancel a transfer based on external transfer id.
+
+    :param transfertool_obj: Transfertool object to be used for cancellation.
+    :param transfer_id:      External-ID as a 32 character hex string.
+    """
+
+    record_counter('core.request.cancel_request_external_id')
+    try:
+        transfertool_obj.cancel(transfer_ids=[transfer_id])
+    except Exception:
+        raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, traceback.format_exc()))
