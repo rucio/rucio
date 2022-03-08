@@ -47,20 +47,30 @@ import os
 import socket
 import threading
 import time
+from typing import TYPE_CHECKING
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
-                                    DuplicateFileTransferSubmission, VONotFound)
+                                    DuplicateFileTransferSubmission, VONotFound, UnsupportedOperation)
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import PriorityQueue
-from rucio.core import heartbeat, request, transfer as transfer_core
+from rucio.core import heartbeat, request as request_core, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.request import set_request_state
+from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
+from rucio.core.request import set_request_state, queue_requests
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
-from rucio.db.sqla.constants import RequestState
+from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState
+from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
+
+if TYPE_CHECKING:
+    from typing import Callable, Dict, List, Optional, Set, Tuple, Type
+    from rucio.core.request import RequestWithSources
+    from rucio.core.transfer import DirectTransferDefinition
+    from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
+    from sqlalchemy.orm import Session
 
 
 class HeartbeatHandler:
@@ -157,6 +167,254 @@ def run_conveyor_daemon(once, graceful_stop, executable, logger_prefix, partitio
                     activity_next_exe_time[activity] = time.time() + 1
 
 
+@transactional_session
+def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
+                             failover_schemes=None, filter_transfertool=None, transfertools_by_name=None, request_type=RequestType.TRANSFER,
+                             ignore_availability=False, logger=logging.log, session=None):
+    """
+    Get next transfers to be submitted; grouped by transfertool which can submit them
+    :param total_workers:         Number of total workers.
+    :param worker_number:         Id of the executing worker.
+    :param partition_hash_var     The hash variable used for partitioning thread work
+    :param limit:                 Maximum number of requests to retrieve from database.
+    :param activity:              Activity.
+    :param older_than:            Get transfers older than.
+    :param rses:                  Include RSES.
+    :param schemes:               Include schemes.
+    :param failover_schemes:      Failover schemes.
+    :param transfertools_by_name: Dict: {transfertool_name_str: transfertool class}
+    :param filter_transfertool:   The transfer tool to filter requests on.
+    :param request_type           The type of requests to retrieve (Transfer/Stagein)
+    :param ignore_availability:   Ignore blocklisted RSEs
+    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
+    :param session:               The database session in use.
+    :returns:                     Dict: {TransferToolBuilder: <list of transfer paths (possibly multihop) to be submitted>}
+    """
+    candidate_paths, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source = transfer_core.get_transfer_paths(
+        total_workers=total_workers,
+        worker_number=worker_number,
+        partition_hash_var=partition_hash_var,
+        limit=limit,
+        activity=activity,
+        older_than=older_than,
+        rses=rses,
+        schemes=schemes,
+        failover_schemes=failover_schemes,
+        filter_transfertool=filter_transfertool,
+        ignore_availability=ignore_availability,
+        request_type=request_type,
+        logger=logger,
+        session=session,
+    )
+
+    # Assign paths to be executed by transfertools
+    # if the chosen best path is a multihop, create intermediate replicas and the intermediate transfer requests
+    paths_by_transfertool_builder, reqs_no_host, reqs_unsupported_transfertool = __assign_paths_to_transfertool_and_create_hops(
+        candidate_paths,
+        transfertools_by_name=transfertools_by_name,
+        logger=logger,
+        session=session,
+    )
+
+    if reqs_unsupported_transfertool:
+        logger(logging.INFO, "Ignoring request because of unsupported transfertool: %s", reqs_unsupported_transfertool)
+    reqs_no_source.update(reqs_no_host)
+    if reqs_no_source:
+        logger(logging.INFO, "Marking requests as no-sources: %s", reqs_no_source)
+        request_core.set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger, session=session)
+    if reqs_only_tape_source:
+        logger(logging.INFO, "Marking requests as only-tape-sources: %s", reqs_only_tape_source)
+        request_core.set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger, session=session)
+    if reqs_scheme_mismatch:
+        logger(logging.INFO, "Marking requests as scheme-mismatch: %s", reqs_scheme_mismatch)
+        request_core.set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger, session=session)
+
+    return paths_by_transfertool_builder
+
+
+def __parse_request_transfertools(
+        rws: "RequestWithSources",
+        logger: "Callable" = logging.log,
+):
+    """
+    Parse a set of desired transfertool names from the database field request.transfertool
+    """
+    request_transfertools = set()
+    try:
+        if rws.transfertool:
+            request_transfertools = {tt.strip() for tt in rws.transfertool.split(',')}
+    except Exception:
+        logger(logging.WARN, "Unable to parse requested transfertools: {}".format(request_transfertools))
+        request_transfertools = None
+    return request_transfertools
+
+
+def __assign_paths_to_transfertool_and_create_hops(
+        candidate_paths_by_request_id: "Dict[str: List[DirectTransferDefinition]]",
+        transfertools_by_name: "Optional[Dict[str, Type[Transfertool]]]" = None,
+        logger: "Callable" = logging.log,
+        session: "Optional[Session]" = None,
+) -> "Tuple[Dict[TransferToolBuilder, List[DirectTransferDefinition]], Set[str], Set[str]]":
+    """
+    for each request, pick the first path which can be submitted by one of the transfertools.
+    If the chosen path is multihop, create all missing intermediate requests and replicas.
+    """
+    reqs_no_host = set()
+    reqs_unsupported_transfertool = set()
+    paths_by_transfertool_builder = {}
+    default_tombstone_delay = config_get_int('transfers', 'multihop_tombstone_delay', default=transfer_core.DEFAULT_MULTIHOP_TOMBSTONE_DELAY, expiration_time=600)
+    for request_id, candidate_paths in candidate_paths_by_request_id.items():
+        # Get the rws object from any candidate path. It is the same for all candidate paths. For multihop, the initial request is the last hop
+        rws = candidate_paths[0][-1].rws
+
+        request_transfertools = __parse_request_transfertools(rws, logger)
+        if request_transfertools is None:
+            # Parsing failed
+            reqs_no_host.add(request_id)
+            continue
+        if request_transfertools and transfertools_by_name and not request_transfertools.intersection(transfertools_by_name):
+            # The request explicitly asks for a transfertool which this submitter doesn't support
+            reqs_unsupported_transfertool.add(request_id)
+            continue
+
+        # Selects the first path which can be submitted by a supported transfertool and for which the creation of
+        # intermediate hops (if it is a multihop) work correctly
+        best_path = None
+        builder_to_use = None
+        concurrent_submission_detected = False
+        for transfer_path in candidate_paths:
+            builder = None
+            if transfertools_by_name:
+                transfertools_to_try = set(transfertools_by_name)
+                if request_transfertools:
+                    transfertools_to_try = transfertools_to_try.intersection(request_transfertools)
+                for transfertool in transfertools_to_try:
+                    builder = transfertools_by_name[transfertool].submission_builder_for_path(transfer_path, logger=logger)
+                    if builder:
+                        break
+            if builder or not transfertools_by_name:
+                created, concurrent_submission_detected = __create_missing_replicas_and_requests(
+                    transfer_path, default_tombstone_delay, logger=logger, session=session
+                )
+                if created:
+                    best_path = transfer_path
+                    builder_to_use = builder
+                if created or concurrent_submission_detected:
+                    break
+
+        if concurrent_submission_detected:
+            logger(logging.INFO, '%s: Request is being handled by another submitter. Skipping for now.' % request_id)
+            continue
+
+        if not best_path:
+            reqs_no_host.add(request_id)
+            logger(logging.INFO, '%s: Cannot pick transfertool, or create intermediate requests' % request_id)
+            continue
+
+        if len(best_path) > 1:
+            logger(logging.INFO, '%s: Best path is multihop: %s' % (rws.request_id, transfer_core.transfer_path_str(best_path)))
+        elif best_path is not candidate_paths[0] or len(best_path[0].sources) > 1:
+            # Only print singlehop if it brings additional information:
+            # - either it's not the first candidate path
+            # - or it's a multi-source
+            # in other cases, it doesn't bring any additional information to what is known from previous logs
+            logger(logging.INFO, '%s: Best path is direct: %s' % (rws.request_id, transfer_core.transfer_path_str(best_path)))
+
+        paths_by_transfertool_builder.setdefault(builder_to_use, []).append(best_path)
+    return paths_by_transfertool_builder, reqs_no_host, reqs_unsupported_transfertool
+
+
+@transactional_session
+def __create_missing_replicas_and_requests(
+        transfer_path: "List[DirectTransferDefinition]",
+        default_tombstone_delay: int,
+        logger: "Callable",
+        session: "Optional[Session]" = None
+) -> "Tuple[bool, bool]":
+    """
+    Create replicas and requests in the database for the intermediate hops
+    """
+    initial_request_id = transfer_path[-1].rws.request_id
+    creation_successful = True
+    concurrent_submission_detected = False
+    created_requests = []
+    # Iterate the path in reverse order. The last hop is the initial request, so
+    # next_hop.rws.request_id will always be initialized when handling the current hop.
+    for i in reversed(range(len(transfer_path))):
+        hop = transfer_path[i]
+        rws = hop.rws
+        if rws.request_id:
+            continue
+
+        tombstone_delay = rws.dest_rse.attributes.get('multihop_tombstone_delay', default_tombstone_delay)
+        try:
+            tombstone = tombstone_from_delay(tombstone_delay)
+        except ValueError:
+            logger(logging.ERROR, "%s: Cannot parse multihop tombstone delay %s", initial_request_id, tombstone_delay)
+            creation_successful = False
+            break
+
+        files = [{'scope': rws.scope,
+                  'name': rws.name,
+                  'bytes': rws.byte_count,
+                  'adler32': rws.adler32,
+                  'md5': rws.md5,
+                  'tombstone': tombstone,
+                  'state': 'C'}]
+        try:
+            add_replicas(rse_id=rws.dest_rse.id,
+                         files=files,
+                         account=rws.account,
+                         ignore_availability=False,
+                         dataset_meta=None,
+                         session=session)
+            # Set replica state to Copying in case replica already existed in another state.
+            # Can happen when a multihop transfer failed previously, and we are re-scheduling it now.
+            update_replica_state(rse_id=rws.dest_rse.id, scope=rws.scope, name=rws.name, state=ReplicaState.COPYING, session=session)
+        except Exception as error:
+            logger(logging.ERROR, '%s: Problem adding replicas on %s : %s', initial_request_id, rws.dest_rse, str(error))
+
+        rws.attributes['next_hop_request_id'] = transfer_path[i + 1].rws.request_id
+        rws.attributes['initial_request_id'] = initial_request_id
+        rws.attributes['source_replica_expression'] = hop.src.rse.name
+        new_req = queue_requests(requests=[{'dest_rse_id': rws.dest_rse.id,
+                                            'scope': rws.scope,
+                                            'name': rws.name,
+                                            'rule_id': '00000000000000000000000000000000',  # Dummy Rule ID used for multihop. TODO: Replace with actual rule_id once we can flag intermediate requests
+                                            'attributes': rws.attributes,
+                                            'request_type': rws.request_type,
+                                            'retry_count': rws.retry_count,
+                                            'account': rws.account,
+                                            'requested_at': datetime.datetime.now()}], session=session)
+        # If a request already exists, new_req will be an empty list.
+        if not new_req:
+            creation_successful = False
+
+            existing_request = request_core.get_request_by_did(rws.scope, rws.name, rws.dest_rse.id, session=session)
+            if existing_request['requested_at'] and \
+                    datetime.datetime.utcnow() - transfer_core.CONCURRENT_SUBMISSION_TOLERATION_DELAY < existing_request['requested_at']:
+                concurrent_submission_detected = True
+
+            break
+        rws.request_id = new_req[0]['id']
+        logger(logging.DEBUG, '%s: New request created for the transfer between %s and %s : %s', initial_request_id, transfer_path[0].src, transfer_path[-1].dst, rws.request_id)
+        set_request_state(rws.request_id, RequestState.QUEUED, session=session, logger=logger)
+        created_requests.append(rws.request_id)
+
+    if not concurrent_submission_detected and not creation_successful:
+        # Need to fail all the intermediate requests
+        logger(logging.WARNING, '%s: Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests',
+               initial_request_id, transfer_path[0].src, transfer_path[-1].dst)
+        try:
+            for request_id in created_requests:
+                set_request_state(request_id=request_id, state=RequestState.FAILED,
+                                  err_msg="Cancelled hop in multi-hop", session=session)
+        except UnsupportedOperation:
+            logger(logging.ERROR, '%s: Multihop : Cannot cancel all the parent requests : %s', initial_request_id, str(created_requests))
+
+    return creation_successful, concurrent_submission_detected
+
+
 def submit_transfer(transfertool_obj, transfers, job_params, submitter='submitter', timeout=None, logger=logging.log):
     """
     Submit a transfer or staging request
@@ -177,7 +435,7 @@ def submit_transfer(transfertool_obj, transfers, job_params, submitter='submitte
             return
         except Exception:
             logger(logging.ERROR, 'Failed to prepare requests %s state to SUBMITTING. Mark it SUBMISSION_FAILED and abort submission.' % [str(t.rws) for t in transfers], exc_info=True)
-            set_request_state(request_id=transfer.rws.request_id, new_state=RequestState.SUBMISSION_FAILED)
+            set_request_state(request_id=transfer.rws.request_id, state=RequestState.SUBMISSION_FAILED)
             return
 
     try:
@@ -240,7 +498,7 @@ def _submit_transfers(transfertool_obj, transfers, job_params, submitter='submit
                 # Possibility to have a double submission during the next cycle. Try to cancel the external request.
                 try:
                     logger(logging.INFO, 'Cancel transfer %s on %s', eid, transfertool_obj)
-                    request.cancel_request_external_id(transfertool_obj, eid)
+                    transfer_core.cancel_transfer(transfertool_obj, eid)
                 except Exception:
                     logger(logging.ERROR, 'Failed to cancel transfers %s on %s with error' % (eid, transfertool_obj), exc_info=True)
 

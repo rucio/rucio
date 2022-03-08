@@ -28,6 +28,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Rob Barnsley <rob.barnsley@skao.int>, 2021-2022
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
@@ -92,7 +93,6 @@ def has_permission(issuer, action, kwargs):
             'queue_requests': perm_queue_requests,
             'set_rse_usage': perm_set_rse_usage,
             'set_rse_limits': perm_set_rse_limits,
-            'query_request': perm_query_request,
             'list_requests': perm_list_requests,
             'list_requests_history': perm_list_requests_history,
             'get_request_by_did': perm_get_request_by_did,
@@ -697,17 +697,6 @@ def perm_update_replicas_states(issuer, kwargs):
 def perm_queue_requests(issuer, kwargs):
     """
     Checks if an account can submit transfer or deletion requests on destination RSEs for data identifiers.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed, otherwise False
-    """
-    return _is_root(issuer)
-
-
-def perm_query_request(issuer, kwargs):
-    """
-    Checks if an account can query a request.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
