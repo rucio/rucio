@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2021 CERN
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 import unittest
 
@@ -256,6 +258,7 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
 
         # Delete one file replica -> dataset replica should be unavailable
         delete_replicas(rse_id=self.rse_id, files=[files[0]], session=self.db_session)
+        self.db_session.commit()
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter_by(rse_id=self.rse_id, scope=self.scope, name=dataset_name).one()  # pylint: disable=no-member
         update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name).one()  # pylint: disable=no-member
@@ -281,6 +284,7 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
         # Old behaviour, open empty datasets are not deleted
         # Delete all file replicas -> dataset replica should be deleted
         delete_replicas(rse_id=self.rse_id, files=files, session=self.db_session)
+        self.db_session.commit()
         with pytest.raises(NoResultFound):
             update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
 
@@ -306,6 +310,7 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
 
         # Delete first replica on first RSE -> replica on first RSE should be unavailable, replica on second RSE should be still available
         delete_replicas(rse_id=self.rse_id, files=[files[0]], session=self.db_session)
+        self.db_session.commit()
         models.UpdatedCollectionReplica(scope=self.scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=self.db_session)
         # delete_replica creates also update object but with rse_id -> extra filter for rse_id is NULL
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.scope == self.scope, models.UpdatedCollectionReplica.name == dataset_name,  # pylint: disable=no-member
@@ -346,6 +351,7 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
 
         # Delete first replica on second RSE -> file is not longer part of dataset -> both replicas should be available
         delete_replicas(rse_id=self.rse2_id, files=[files[0]], session=self.db_session)
+        self.db_session.commit()
         models.UpdatedCollectionReplica(scope=self.scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=self.db_session)
         update_request = self.db_session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.scope == self.scope, models.UpdatedCollectionReplica.name == dataset_name,  # pylint: disable=no-member
                                                                                        models.UpdatedCollectionReplica.rse_id.is_(None)).one()  # pylint: disable=no-member
