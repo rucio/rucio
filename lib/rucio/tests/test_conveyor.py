@@ -93,8 +93,8 @@ def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MA
 def __wait_for_fts_state(request, expected_state, max_wait_seconds=MAX_POLL_WAIT_SECONDS):
     job_state = ''
     for _ in range(max_wait_seconds):
-        fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query(request['external_id'])
-        job_state = fts_response[request['external_id']][request['id']]['job_state']
+        fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query({request['external_id']: {request['id']: request}})
+        job_state = fts_response[request['external_id']][request['id']].job_response['job_state']
         if job_state == expected_state:
             break
         time.sleep(1)
@@ -551,8 +551,8 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config
         request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.DONE, run_poller=False, **did)
         assert request['state'] == RequestState.DONE
 
-        fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query(request['external_id'])
-        assert fts_response[request['external_id']][request['id']]['priority'] == rule_priority
+        fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query({request['external_id']: {request['id']: request}})
+        assert fts_response[request['external_id']][request['id']].job_response['priority'] == rule_priority
 
         # Two hops; both handled by receiver
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 2
@@ -805,8 +805,8 @@ def test_cancel_rule(rse_factory, did_factory, root_account):
     with pytest.raises(RequestNotFound):
         request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
-    fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query(request['external_id'])
-    assert fts_response[request['external_id']][request['id']]['job_state'] == 'CANCELED'
+    fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query({request['external_id']: {request['id']: request}})
+    assert fts_response[request['external_id']][request['id']].job_response['job_state'] == 'CANCELED'
 
 
 class FTSWrapper(FTS3Transfertool):
@@ -832,9 +832,9 @@ class FTSWrapper(FTS3Transfertool):
         cls.on_submit(file)
         return file
 
-    def _FTS3Transfertool__bulk_query_responses(self, jobs_response):
+    def _FTS3Transfertool__bulk_query_responses(self, jobs_response, requests_by_eid):
         self.on_receive(jobs_response)
-        return super()._FTS3Transfertool__bulk_query_responses(jobs_response)
+        return super()._FTS3Transfertool__bulk_query_responses(jobs_response, requests_by_eid)
 
 
 @pytest.fixture
@@ -962,7 +962,7 @@ def test_file_exists_handled(overwrite_on_tape_topology, core_config_mock, cache
                         file['file_metadata']['dst_file']['file_on_tape'] = True
             return job_params
 
-    with patch('rucio.core.transfer.FTS3Transfertool', _FTSWrapper):
+    with patch('rucio.daemons.conveyor.poller.FTS3Transfertool', _FTSWrapper):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
         request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.DONE, **did1)
@@ -1005,7 +1005,7 @@ def test_overwrite_corrupted_files(overwrite_on_tape_topology, core_config_mock,
                         file['file_metadata']['dst_file']['file_on_tape'] = True
             return job_params
 
-    with patch('rucio.core.transfer.FTS3Transfertool', _FTSWrapper):
+    with patch('rucio.daemons.conveyor.poller.FTS3Transfertool', _FTSWrapper):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
         # Both transfers must be marked as failed because the file size is incorrect
         request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did1)
@@ -1084,7 +1084,7 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
             certs_used_by_submitter.append(self.cert[0])
             return generate_uuid()
 
-        def bulk_query(self, transfer_ids, timeout=None):
+        def bulk_query(self, requests_by_eid, timeout=None):
             certs_used_by_poller.append(self.cert[0])
             return {}
 
@@ -1093,6 +1093,6 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
         assert sorted(certs_used_by_submitter) == ['DEFAULT_DUMMY_CERT', 'NEW_VO_DUMMY_CERT']
 
-    with patch('rucio.core.transfer.FTS3Transfertool', _FTSWrapper):
+    with patch('rucio.daemons.conveyor.poller.FTS3Transfertool', _FTSWrapper):
         poller(once=True, older_than=0, partition_wait_time=None)
         assert sorted(certs_used_by_poller) == ['DEFAULT_DUMMY_CERT', 'NEW_VO_DUMMY_CERT']

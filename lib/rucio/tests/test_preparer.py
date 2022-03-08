@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020-2021 CERN
+# Copyright 2020-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from typing import TYPE_CHECKING
 
@@ -26,9 +28,8 @@ from rucio.core import config as rucio_config
 from rucio.core.did import add_did, delete_dids
 from rucio.core.distance import get_distances, add_distance
 from rucio.core.replica import add_replicas, delete_replicas
-from rucio.core.request import sort_requests_minimum_distance, get_transfertool_filter, get_supported_transfertools
+from rucio.core.request import sort_requests_minimum_distance, get_transfertool_filter, get_supported_transfertools, list_transfer_requests_and_source_replicas
 from rucio.core.rse import set_rse_transfer_limits, add_rse, del_rse, add_rse_attribute
-from rucio.core.transfer import __list_transfer_requests_and_source_replicas
 from rucio.daemons.conveyor import preparer
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, DIDType
@@ -203,7 +204,7 @@ def dest_throttler(db_session, mock_request):
 
 
 def test_listing_preparing_transfers(db_session, mock_request):
-    req_sources = __list_transfer_requests_and_source_replicas(request_state=RequestState.PREPARING, session=db_session)
+    req_sources = list_transfer_requests_and_source_replicas(request_state=RequestState.PREPARING, session=db_session)
 
     assert len(req_sources) != 0
     found_requests = list(filter(lambda rws: rws.request_id == mock_request.id, req_sources))

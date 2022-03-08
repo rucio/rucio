@@ -56,6 +56,8 @@ from rucio.core import transfer as transfer_core, request as request_core
 from rucio.core.monitor import record_timer, record_counter
 from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.daemons.conveyor.common import run_conveyor_daemon
+from rucio.transfertool.fts3 import FTS3Transfertool
+from rucio.transfertool.globus import GlobusTransferTool
 
 graceful_stop = threading.Event()
 
@@ -74,7 +76,8 @@ def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, 
                                     older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
                                     total_workers=total_workers,
                                     worker_number=worker_number,
-                                    mode_all=True, hash_variable='id',
+                                    mode_all=True,
+                                    hash_variable='id',
                                     activity=activity,
                                     activity_shares=activity_shares,
                                     transfertool=FILTER_TRANSFERTOOL)
@@ -99,11 +102,15 @@ def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, 
                                                                                    t['scope'].vo if multi_vo else None)):
         transfers_by_eid = {}
         for external_id, xfers in groupby(transfers_for_host, key=lambda t: t['external_id']):
-            transfers_by_eid[external_id] = list(xfers)
+            transfers_by_eid[external_id] = {t['request_id']: t for t in xfers}
 
         for chunk in dict_chunks(transfers_by_eid, fts_bulk):
             try:
-                poll_transfers(external_host=external_host, transfers_by_eid=chunk, vo=vo, timeout=timeout, logger=logger)
+                if TRANSFER_TOOL == 'globus':
+                    transfertool_obj = GlobusTransferTool(external_host=None)
+                else:
+                    transfertool_obj = FTS3Transfertool(external_host=external_host, vo=vo)
+                poll_transfers(transfertool_obj=transfertool_obj, transfers_by_eid=chunk, timeout=timeout, logger=logger)
             except Exception:
                 logger(logging.ERROR, 'Exception', exc_info=True)
 
@@ -220,11 +227,11 @@ def run(once=False, sleep_time=60, activities=None,
             threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
 
 
-def poll_transfers(external_host, transfers_by_eid, vo=None, timeout=None, logger=logging.log):
+def poll_transfers(transfertool_obj, transfers_by_eid, timeout=None, logger=logging.log):
     """
     Poll a list of transfers from an FTS server
 
-    :param external_host:    The FTS server to query from.
+    :param transfertool_obj: The Transfertool to use for query
     :param transfers_by_eid: Dict of the form {external_id: list_of_transfers}
     :param timeout:          Timeout.
     :param logger:           Optional decorated logger that can be passed from the calling daemons or servers.
@@ -232,29 +239,29 @@ def poll_transfers(external_host, transfers_by_eid, vo=None, timeout=None, logge
 
     poll_individual_transfers = False
     try:
-        _poll_transfers(external_host, transfers_by_eid, vo, timeout, logger)
+        _poll_transfers(transfertool_obj, transfers_by_eid, timeout, logger)
     except TransferToolWrongAnswer:
         poll_individual_transfers = True
 
     if poll_individual_transfers:
-        logger(logging.ERROR, 'Problem querying %s on %s. All jobs are being checked individually' % (list(transfers_by_eid), external_host))
+        logger(logging.ERROR, 'Problem querying %s on %s. All jobs are being checked individually' % (list(transfers_by_eid), transfertool_obj))
         for external_id, transfers in transfers_by_eid.items():
-            logger(logging.DEBUG, 'Checking %s on %s' % (external_id, external_host))
+            logger(logging.DEBUG, 'Checking %s on %s' % (external_id, transfertool_obj))
             try:
-                _poll_transfers(external_host, {external_id: transfers}, vo, timeout, logger)
+                _poll_transfers(transfertool_obj, {external_id: transfers}, timeout, logger)
             except Exception as err:
-                logger(logging.ERROR, 'Problem querying %s on %s . Error returned : %s' % (external_id, external_host, str(err)))
+                logger(logging.ERROR, 'Problem querying %s on %s . Error returned : %s' % (external_id, transfertool_obj, str(err)))
 
 
-def _poll_transfers(external_host, transfers_by_eid, vo, timeout, logger):
+def _poll_transfers(transfertool_obj, transfers_by_eid, timeout, logger):
     """
     Helper function for poll_transfers which performs the actual polling and database update.
     """
     is_bulk = len(transfers_by_eid) > 1
     try:
         tss = time.time()
-        logger(logging.INFO, 'Polling %i transfers against %s with timeout %s' % (len(transfers_by_eid), external_host, timeout))
-        resps = transfer_core.bulk_query_transfers(external_host, transfers_by_eid, TRANSFER_TOOL, vo, timeout, logger)
+        logger(logging.INFO, 'Polling %i transfers against %s with timeout %s' % (len(transfers_by_eid), transfertool_obj, timeout))
+        resps = transfertool_obj.bulk_query(requests_by_eid=transfers_by_eid, timeout=timeout)
         duration = time.time() - tss
         record_timer('daemons.conveyor.poller.bulk_query_transfers', duration * 1000 / len(transfers_by_eid))
         logger(logging.DEBUG, 'Polled %s transfer requests status in %s seconds' % (len(transfers_by_eid), duration))
@@ -278,7 +285,7 @@ def _poll_transfers(external_host, transfers_by_eid, vo, timeout, logger):
     logger(logging.DEBUG, 'Updating %s transfer requests status' % (len(transfers_by_eid)))
     cnt = 0
 
-    request_ids = {t['request_id'] for t in itertools.chain.from_iterable(transfers_by_eid.values())}
+    request_ids = set(itertools.chain.from_iterable(transfers_by_eid.values()))
     for transfer_id in resps:
         try:
             transf_resp = resps[transfer_id]
@@ -287,12 +294,11 @@ def _poll_transfers(external_host, transfers_by_eid, vo, timeout, logger):
             #             is {}: No terminated jobs.
             #             is {request_id: {file_status}}: terminated jobs.
             if transf_resp is None:
-                for transfer in transfers_by_eid[transfer_id]:
-                    resp = transfer_core.fake_transfertool_response(transfer, new_state=RequestState.LOST, reason="The FTS job lost")
-                    request_core.update_request_state(resp, logger=logger)
+                for request_id, request in transfers_by_eid[transfer_id].items():
+                    transfer_core.mark_transfer_lost(request, logger=logger)
                 record_counter('daemons.conveyor.poller.transfer_lost')
             elif isinstance(transf_resp, Exception):
-                logger(logging.WARNING, "Failed to poll FTS(%s) job (%s): %s" % (external_host, transfer_id, transf_resp))
+                logger(logging.WARNING, "Failed to poll FTS(%s) job (%s): %s" % (transfertool_obj, transfer_id, transf_resp))
                 record_counter('daemons.conveyor.poller.query_transfer_exception')
             else:
                 for request_id in request_ids.intersection(transf_resp):
@@ -304,7 +310,7 @@ def _poll_transfers(external_host, transfers_by_eid, vo, timeout, logger):
 
             # should touch transfers.
             # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
-            transfer_core.touch_transfer(external_host, transfer_id)
+            transfer_core.touch_transfer(transfertool_obj.external_host, transfer_id)
         except (DatabaseException, DatabaseError) as error:
             if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
                 logger(logging.WARNING, "Lock detected when handling request %s - skipping" % transfer_id)
