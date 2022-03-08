@@ -408,10 +408,9 @@ class BaseClient(object):
 
         if headers is not None:
             hds.update(headers)
-
         if verify is None:
-            verify = self.ca_cert
-
+            verify = self.ca_cert or False #Maybe unnecessary but make sure to convert "" -> False
+            
         self.logger.debug("HTTP request: %s %s" % (type_, url))
         for h, v in hds.items():
             if h == 'X-Rucio-Auth-Token':
