@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,17 +14,17 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 import itertools
 from typing import TYPE_CHECKING
@@ -56,18 +56,69 @@ class MetaLinkRedirector(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/metalink4+xml'])
     def get(self, scope_name):
         """
-        Metalink redirect
-
-        .. :quickref: MetaLinkRedirector; Metalink redirect.
-
-        :param scope_name: data identifier (scope)/(name).
-        :resheader Content-Type: application/metalink4+xml'.
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
-        :status 404: DID Not Found.
-        :status 406: Not Acceptable.
-        :returns: Metalink file
+        ---
+        summary: Metalink redirect
+        description: Get Metalink redirect.
+        tags:
+          - Redirect
+        parameters:
+        - name: scope_name
+          in: path
+          description: The data identifier (scope)/(name).
+          schema:
+            type: string
+          style: simple
+        - name: ip
+          in: query
+          description: The client ip.
+          schema:
+            type: string
+          style: simple
+          required: false
+        - name: fqdn
+          in: query
+          schema:
+            type: string
+          style: simple
+          required: false
+        - name: site
+          in: query
+          schema:
+            type: string
+          style: simple
+          required: false
+        - name: schemes
+          in: query
+          schema:
+            type: array
+          style: simple
+          required: false
+        - name: select
+          in: query
+          schema:
+            type: string
+          style: simple
+          required: false
+        - name: sort
+          in: query
+          schema:
+            type: string
+          style: simple
+          required: false
+        responses:
+          200:
+            description: OK
+            content:
+              application/metalink4+xml:
+                schema:
+                  description: The metalink file.
+                  type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse or did not found
+          406:
+            description: Not acceptable
         """
         headers = self.get_headers()
 
@@ -157,16 +208,73 @@ class HeaderRedirector(ErrorHandlingMethodView):
 
     def get(self, scope_name):
         """
-        Header Redirect
-
-        .. :quickref: HeaderRedirector; Header redirect.
-
-        :param scope_name: data identifier (scope)/(name).
-        :resheader Content-Type: application/metalink+xml'.
-        :status 303: Redirect.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
-        :status 404: DID Not Found.
+        ---
+        summary: Header redirect
+        description: Get the header redirect.
+        tags:
+          - Redirect
+        parameters:
+        - name: scope_name
+          in: path
+          description: The data identifier (scope)/(name).
+          schema:
+            type: string
+          style: simple
+        - name: ip
+          in: query
+          description: The client ip.
+          schema:
+            type: string
+          style: simple
+          required: false
+        - name: fqdn
+          in: query
+          schema:
+            type: string
+          style: simple
+          required: false
+        - name: site
+          in: query
+          schema:
+            type: string
+          style: simple
+          required: false
+        - name: schemes
+          in: query
+          schema:
+            type: array
+          style: simple
+          required: false
+        - name: select
+          in: query
+          schema:
+            type: string
+          style: simple
+          required: false
+        - name: sort
+          in: query
+          schema:
+            type: string
+          style: simple
+          required: false
+        - name: rse
+          in: query
+          schema:
+            type: string
+          style: simple
+          required: false
+        responses:
+          303:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: The redirect url.
+                  type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse or did not found
         """
         headers = self.get_headers()
 
