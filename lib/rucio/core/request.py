@@ -38,7 +38,6 @@
 import datetime
 import json
 import logging
-import time
 import traceback
 from collections import namedtuple
 from configparser import NoOptionError, NoSectionError
@@ -48,26 +47,24 @@ from typing import TYPE_CHECKING
 from six import string_types
 from sqlalchemy import and_, or_, func, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql.expression import asc, true
+from sqlalchemy.sql.expression import asc, true, false
 
 from rucio.common.config import config_get_bool, config_get
-from rucio.common.constants import FTS_STATE
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
+from rucio.common.rse_attributes import RseData
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
-from rucio.core.config import get as core_config_get
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute
 from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg
+from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
-from rucio.transfertool.fts3 import FTS3Transfertool
+from rucio.db.sqla.util import create_temp_table
 
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
-    from rucio.core.transfer import RequestWithSources
     from typing import Any, Dict, Iterable, Iterator, List, Optional, Callable, Set, Union
     from sqlalchemy.orm import Session
 
@@ -80,6 +77,69 @@ if TYPE_CHECKING:
 The core request.py is specifically for handling requests.
 Requests accessed by external_id (So called transfers), are covered in the core transfer.py
 """
+
+
+class RequestSource:
+    def __init__(self, rse_data, source_ranking=None, distance_ranking=None, file_path=None, scheme=None, url=None):
+        self.rse = rse_data
+        self.distance_ranking = distance_ranking if distance_ranking is not None else 9999
+        self.source_ranking = source_ranking if source_ranking is not None else 0
+        self.file_path = file_path
+        self.scheme = scheme
+        self.url = url
+
+    def __str__(self):
+        return "src_rse={}".format(self.rse)
+
+
+class RequestWithSources:
+    def __init__(self, id_, request_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes,
+                 previous_attempt_id, dest_rse_data, account, retry_count, priority, transfertool, requested_at=None):
+
+        self.request_id = id_
+        self.request_type = request_type
+        self.rule_id = rule_id
+        self.scope = scope
+        self.name = name
+        self.md5 = md5
+        self.adler32 = adler32
+        self.byte_count = byte_count
+        self.activity = activity
+        self._dict_attributes = None
+        self._db_attributes = attributes
+        self.previous_attempt_id = previous_attempt_id
+        self.dest_rse = dest_rse_data
+        self.account = account
+        self.retry_count = retry_count or 0
+        self.priority = priority if priority is not None else 3
+        self.transfertool = transfertool
+        self.requested_at = requested_at if requested_at else datetime.datetime.utcnow()
+
+        self.sources = []
+
+    def __str__(self):
+        return "{}({}:{})".format(self.request_id, self.scope, self.name)
+
+    @property
+    def attributes(self):
+        if self._dict_attributes is None:
+            self.attributes = self._db_attributes
+        return self._dict_attributes
+
+    @attributes.setter
+    def attributes(self, db_attributes):
+        attr = {}
+        if db_attributes:
+            if isinstance(db_attributes, dict):
+                attr = json.loads(json.dumps(db_attributes))
+            else:
+                attr = json.loads(str(db_attributes))
+            # parse source expression
+            attr['source_replica_expression'] = attr["source_replica_expression"] if (attr and "source_replica_expression" in attr) else None
+            attr['allow_tape_source'] = attr["allow_tape_source"] if (attr and "allow_tape_source" in attr) else True
+            attr['dsn'] = attr["ds_name"] if (attr and "ds_name" in attr) else None
+            attr['lifetime'] = attr.get('lifetime', -1)
+        self._dict_attributes = attr
 
 
 def should_retry_request(req, retry_protocol_mismatches):
@@ -287,6 +347,171 @@ def queue_requests(requests, session=None, logger=logging.log):
 
 
 @read_session
+def list_transfer_requests_and_source_replicas(
+        total_workers=0,
+        worker_number=0,
+        partition_hash_var=None,
+        limit=None,
+        activity=None,
+        older_than=None,
+        rses=None,
+        request_type=RequestType.TRANSFER,
+        request_state=None,
+        ignore_availability=False,
+        transfertool=None,
+        session=None,
+) -> "List[RequestWithSources]":
+    """
+    List requests with source replicas
+    :param total_workers:      Number of total workers.
+    :param worker_number:      Id of the executing worker.
+    :param partition_hash_var  The hash variable used for partitioning thread work
+    :param limit:              Integer of requests to retrieve.
+    :param activity:           Activity to be selected.
+    :param older_than:         Only select requests older than this DateTime.
+    :param rses:               List of rse_id to select requests.
+    :param request_type:       Filter on the given request type.
+    :param request_state:      Filter on the given request state
+    :param transfertool:       The transfer tool as specified in rucio.cfg.
+    :param ignore_availability Ignore blocklisted RSEs
+    :param session:            Database session to use.
+    :returns:                  List of RequestWithSources objects.
+    """
+
+    if partition_hash_var is None:
+        partition_hash_var = 'requests.id'
+
+    if request_state is None:
+        request_state = RequestState.QUEUED
+
+    sub_requests = session.query(models.Request.id,
+                                 models.Request.rule_id,
+                                 models.Request.scope,
+                                 models.Request.name,
+                                 models.Request.md5,
+                                 models.Request.adler32,
+                                 models.Request.bytes,
+                                 models.Request.activity,
+                                 models.Request.attributes,
+                                 models.Request.previous_attempt_id,
+                                 models.Request.dest_rse_id,
+                                 models.Request.retry_count,
+                                 models.Request.account,
+                                 models.Request.created_at,
+                                 models.Request.requested_at,
+                                 models.Request.priority,
+                                 models.Request.transfertool) \
+        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle') \
+        .filter(models.Request.state == request_state) \
+        .filter(models.Request.request_type == request_type) \
+        .join(models.RSE, models.RSE.id == models.Request.dest_rse_id) \
+        .filter(models.RSE.deleted == false()) \
+        .order_by(models.Request.created_at)
+
+    if not ignore_availability:
+        sub_requests = sub_requests.filter(models.RSE.availability.in_((2, 3, 6, 7)))
+
+    if isinstance(older_than, datetime.datetime):
+        sub_requests = sub_requests.filter(models.Request.requested_at < older_than)
+
+    if activity:
+        sub_requests = sub_requests.filter(models.Request.activity == activity)
+
+    # if a transfertool is specified make sure to filter for those requests and apply related index
+    if transfertool:
+        sub_requests = sub_requests.filter(models.Request.transfertool == transfertool)
+        sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_TRA_ACT_IDX)", 'oracle')
+    else:
+        sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')
+
+    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
+    if rses and use_temp_tables:
+        temp_table_cls = create_temp_table(
+            "list_transfer_requests_and_source_replicas",
+            models.Column("rse_id", models.GUID()),
+            session=session,
+        )
+
+        session.bulk_insert_mappings(temp_table_cls, [{'rse_id': rse_id} for rse_id in rses])
+
+        sub_requests = sub_requests.join(temp_table_cls, temp_table_cls.rse_id == models.RSE.id)
+
+    sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number, hash_variable=partition_hash_var)
+
+    if limit:
+        sub_requests = sub_requests.limit(limit)
+
+    sub_requests = sub_requests.subquery()
+
+    query = session.query(sub_requests.c.id,
+                          sub_requests.c.rule_id,
+                          sub_requests.c.scope,
+                          sub_requests.c.name,
+                          sub_requests.c.md5,
+                          sub_requests.c.adler32,
+                          sub_requests.c.bytes,
+                          sub_requests.c.activity,
+                          sub_requests.c.attributes,
+                          sub_requests.c.previous_attempt_id,
+                          sub_requests.c.dest_rse_id,
+                          sub_requests.c.account,
+                          sub_requests.c.retry_count,
+                          sub_requests.c.priority,
+                          sub_requests.c.transfertool,
+                          sub_requests.c.requested_at,
+                          models.RSE.id.label("source_rse_id"),
+                          models.RSE.rse,
+                          models.RSEFileAssociation.path,
+                          models.Source.ranking.label("source_ranking"),
+                          models.Source.url.label("source_url"),
+                          models.Distance.ranking.label("distance_ranking")) \
+        .order_by(sub_requests.c.created_at) \
+        .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
+                                                   sub_requests.c.name == models.RSEFileAssociation.name,
+                                                   models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                                   sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id)) \
+        .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle') \
+        .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
+                                    models.RSE.deleted == false())) \
+        .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
+                                       models.RSE.id == models.Source.rse_id)) \
+        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle') \
+        .outerjoin(models.Distance, and_(sub_requests.c.dest_rse_id == models.Distance.dest_rse_id,
+                                         models.RSEFileAssociation.rse_id == models.Distance.src_rse_id)) \
+        .with_hint(models.Distance, "+ index(distances DISTANCES_PK)", 'oracle')
+
+    # if transfertool specified, select only the requests where the source rses are set up for the transfer tool
+    if transfertool:
+        query = query.subquery()
+        query = session.query(query) \
+            .join(models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == query.c.source_rse_id) \
+            .filter(models.RSEAttrAssociation.key == 'transfertool',
+                    models.RSEAttrAssociation.value.like('%' + transfertool + '%'))
+
+    requests_by_id = {}
+    for (request_id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, dest_rse_id, account, retry_count,
+         priority, transfertool, requested_at, source_rse_id, source_rse_name, file_path, source_ranking, source_url, distance_ranking) in query:
+
+        # If we didn't pre-filter using temporary tables on database side, perform the filtering here
+        if not use_temp_tables and rses and dest_rse_id not in rses:
+            continue
+
+        request = requests_by_id.get(request_id)
+        if not request:
+            request = RequestWithSources(id_=request_id, request_type=request_type, rule_id=rule_id, scope=scope, name=name,
+                                         md5=md5, adler32=adler32, byte_count=byte_count, activity=activity, attributes=attributes,
+                                         previous_attempt_id=previous_attempt_id, dest_rse_data=RseData(id_=dest_rse_id),
+                                         account=account, retry_count=retry_count, priority=priority, transfertool=transfertool,
+                                         requested_at=requested_at)
+            requests_by_id[request_id] = request
+
+        if source_rse_id is not None:
+            request.sources.append(RequestSource(rse_data=RseData(id_=source_rse_id, name=source_rse_name), file_path=file_path,
+                                                 source_ranking=source_ranking, distance_ranking=distance_ranking, url=source_url))
+    return list(requests_by_id.values())
+
+
+@read_session
 def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activity=None,
              total_workers=0, worker_number=0, mode_all=False, hash_variable='id',
              activity_shares=None, transfertool=None, session=None):
@@ -382,93 +607,15 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     return result
 
 
-@read_session
-def query_request(request_id, transfertool='fts3', session=None, logger=logging.log):
-    """
-    Query the status of a request.
-
-    :param request_id:    Request-ID as a 32 character hex string.
-    :param transfertool:  Transfertool name as a string.
-    :param session:       Database session to use.
-    :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
-    :returns:             Request status information as a dictionary.
-    """
-
-    record_counter('core.request.query_request')
-
-    req = get_request(request_id, session=session)
-
-    req_status = {'request_id': request_id,
-                  'new_state': None}
-
-    if not req:
-        req_status['new_state'] = RequestState.LOST
-        return req_status
-
-    if transfertool == 'fts3':
-        try:
-            ts = time.time()
-            response = FTS3Transfertool(external_host=req['external_host']).query(transfer_ids=[req['external_id']], details=False)
-            record_timer('core.request.query_request_fts3', (time.time() - ts) * 1000)
-            req_status['details'] = response
-        except Exception:
-            raise
-
-        if response is None:
-            req_status['new_state'] = RequestState.LOST
-        else:
-            if 'job_state' not in response:
-                req_status['new_state'] = RequestState.LOST
-            elif response['job_state'] in (FTS_STATE.FAILED,
-                                           FTS_STATE.FINISHEDDIRTY,
-                                           FTS_STATE.CANCELED):
-                req_status['new_state'] = RequestState.FAILED
-            elif response['job_state'] == FTS_STATE.FINISHED:
-                req_status['new_state'] = RequestState.DONE
-    else:
-        raise NotImplementedError
-
-    return req_status
-
-
-@read_session
-def query_request_details(request_id, transfertool='fts3', session=None, logger=logging.log):
-    """
-    Query the detailed status of a request. Can also be done after the
-    external transfer has finished.
-
-    :param request_id:    Request-ID as a 32 character hex string.
-    :param transfertool:  Transfertool name as a string.
-    :param session:       Database session to use.
-    :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
-    :returns:             Detailed request status information as a dictionary.
-    """
-
-    record_counter('core.request.query_request_details')
-
-    req = get_request(request_id, session=session)
-
-    if not req:
-        return
-
-    if transfertool == 'fts3':
-        ts = time.time()
-        tmp = FTS3Transfertool(external_host=req['external_host']).query(transfer_ids=[req['external_id']], details=True)
-        record_timer('core.request.query_details_fts3', (time.time() - ts) * 1000)
-        return tmp
-
-    raise NotImplementedError
-
-
 @transactional_session
-def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, staging_started_at=None,
-                      staging_finished_at=None, src_rse_id=None, err_msg=None, attributes=None, session=None, logger=logging.log):
+def set_request_state(request_id, state, external_id=None, transferred_at=None, started_at=None, staging_started_at=None,
+                      staging_finished_at=None, source_rse_id=None, err_msg=None, attributes=None, session=None, logger=logging.log):
     """
     Update the state of a request.
 
     :param request_id:           Request-ID as a 32 character hex string.
-    :param new_state:            New state as string.
-    :param transfer_id:          External transfer job id as a string.
+    :param state:                New state as string.
+    :param external_id:          External transfer job id as a string.
     :param transferred_at:       Transferred at timestamp
     :param started_at:           Started at timestamp
     :param staging_started_at:   Timestamp indicating the moment the stage beggins
@@ -483,7 +630,7 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
 
     rowcount = 0
     try:
-        update_items = {'state': new_state, 'updated_at': datetime.datetime.utcnow()}
+        update_items = {'state': state, 'updated_at': datetime.datetime.utcnow()}
         if transferred_at:
             update_items['transferred_at'] = transferred_at
         if started_at:
@@ -492,15 +639,15 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
             update_items['staging_started_at'] = staging_started_at
         if staging_finished_at:
             update_items['staging_finished_at'] = staging_finished_at
-        if src_rse_id:
-            update_items['source_rse_id'] = src_rse_id
+        if source_rse_id:
+            update_items['source_rse_id'] = source_rse_id
         if err_msg:
             update_items['err_msg'] = err_msg
         if attributes is not None:
             update_items['attributes'] = json.dumps(attributes)
 
         request = get_request(request_id, session=session)
-        if new_state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST] and (request["external_id"] != transfer_id):
+        if state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST] and (request["external_id"] != external_id):
             logger(logging.ERROR, "Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
         else:
             rowcount = session.query(models.Request).filter_by(id=request_id).update(update_items, synchronize_session=False)
@@ -768,32 +915,13 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
     except IntegrityError as error:
         raise RucioException(error.args)
 
-    transfertool_map = {}
+    transfers_to_cancel = {}
     for req in reqs:
-        # is there a transfer already in FTS3? if so, try to cancel it
+        # is there a transfer already in transfertool? if so, schedule to cancel them
         if req[1] is not None:
-            try:
-                if req[2] not in transfertool_map:
-                    transfertool_map[req[2]] = FTS3Transfertool(external_host=req[2])
-                transfertool_map[req[2]].cancel(transfer_ids=[req[1]])
-            except Exception as error:
-                logger(logging.WARNING, 'Could not cancel FTS3 transfer %s on %s: %s' % (req[1], req[2], str(error)))
+            transfers_to_cancel.setdefault(req[2], set()).add(req[1])
         archive_request(request_id=req[0], session=session)
-
-
-def cancel_request_external_id(transfertool_obj, transfer_id):
-    """
-    Cancel a request based on external transfer id.
-
-    :param transfertool_obj: Transfertool object to be used for cancellation.
-    :param transfer_id:      External-ID as a 32 character hex string.
-    """
-
-    record_counter('core.request.cancel_request_external_id')
-    try:
-        transfertool_obj.cancel(transfer_ids=[transfer_id])
-    except Exception:
-        raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, traceback.format_exc()))
+    return transfers_to_cancel
 
 
 @read_session
@@ -1218,6 +1346,7 @@ def update_requests_priority(priority, filter_, session=None, logger=logging.log
     :param priority:  The priority as an integer from 1 to 5.
     :param filter_:    Dictionary such as {'rule_id': rule_id, 'request_id': request_id, 'older_than': time_stamp, 'activities': [activities]}.
     :param logger:    Optional decorated logger that can be passed from the calling daemons or servers.
+    :return the transfers which must be updated in the transfertool
     """
     try:
         query = session.query(models.Request.id, models.Request.external_id, models.Request.external_host, models.Request.state, models.ReplicaLock.state)\
@@ -1235,7 +1364,7 @@ def update_requests_priority(priority, filter_, session=None, logger=logging.log
                 filter_['activities'] = filter_['activities'].split(',')
             query = query.filter(models.Request.activity.in_(filter_['activities']))
 
-        transfertool_map = {}
+        transfers_to_update = {}
         for item in query.all():
             try:
                 session.query(models.Request) \
@@ -1243,179 +1372,121 @@ def update_requests_priority(priority, filter_, session=None, logger=logging.log
                     .update({'priority': priority, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
                 logger(logging.DEBUG, "Updated request %s priority to %s in rucio." % (item[0], priority))
                 if item[3] == RequestState.SUBMITTED and item[4] == LockState.REPLICATING:
-                    if item[2] not in transfertool_map:
-                        transfertool_map[item[2]] = FTS3Transfertool(external_host=item[2])
-                    res = transfertool_map[item[2]].update_priority(transfer_id=item[1], priority=priority)
-                    logger(logging.DEBUG, "Updated request %s priority in transfertool to %s: %s" % (item[0], priority, res['http_message']))
+                    transfers_to_update.setdefault(item[2], {})[item[1]] = priority
             except Exception:
                 logger(logging.DEBUG, "Failed to boost request %s priority: %s" % (item[0], traceback.format_exc()))
+        return transfers_to_update
     except IntegrityError as error:
         raise RucioException(error.args)
 
 
 @transactional_session
-def update_request_state(response, session=None, logger=logging.log):
+def update_request_state(tt_status_report, session=None, logger=logging.log):
     """
     Used by poller and consumer to update the internal state of requests,
     after the response by the external transfertool.
 
-    :param response:              The transfertool response dictionary, retrieved via request.query_request().
-    :param logging_prepend_str:   String to prepend to the logging
+    :param tt_status_report:      The transfertool status update, retrieved via request.query_request().
     :param session:               The database session to use.
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     :returns commit_or_rollback:  Boolean.
     """
 
+    request_id = tt_status_report.request_id
     try:
-        if not response['new_state']:
-            __touch_request(response['request_id'], session=session)
+        fields_to_update = tt_status_report.get_db_fields_to_update(session=session, logger=logger)
+        if not fields_to_update:
+            __touch_request(request_id, session=session)
             return False
         else:
-            request = get_request(response['request_id'], session=session)
-            if request and request['external_id'] == response['transfer_id'] and request['state'] != response['new_state']:
-                response['submitted_at'] = request.get('submitted_at', None)
-                response['external_host'] = request['external_host']
-                transfer_id = response['transfer_id'] if 'transfer_id' in response else None
-                logger(logging.INFO, 'UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
+            logger(logging.INFO, 'UPDATING REQUEST %s FOR %s with changes: %s' % (str(request_id), tt_status_report, fields_to_update))
 
-                multi_sources = response.get('multi_sources', None)
-                src_url = response.get('src_url', None)
-                src_rse = response.get('src_rse', None)
-                src_rse_id = response.get('src_rse_id', None)
-                staging_started_at = response.get('staging_start', None)
-                staging_finished_at = response.get('staging_finished', None)
-                started_at = response.get('started_at', None)
-                transferred_at = response.get('transferred_at', None)
-                if multi_sources and (str(multi_sources).lower() == str('true')) and src_url:
-                    try:
-                        src_rse_name, src_rse_id = __get_source_rse(response['request_id'], src_url, session=session)
-                    except Exception:
-                        logger(logging.WARNING, 'Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
-                        src_rse_name = None
-                    if src_rse_name and src_rse_name != src_rse:
-                        response['src_rse'] = src_rse_name
-                        response['src_rse_id'] = src_rse_id
-                        logger(logging.DEBUG, 'Correct RSE: %s for source surl: %s' % (src_rse_name, src_url))
-                err_msg = get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
+            set_request_state(request_id, session=session, **fields_to_update)
 
-                attributes = None
-                if response['new_state'] == RequestState.FAILED and 'Destination file exists and overwrite is not enabled' in (response.get('reason') or ''):
-                    dst_file = response['dst_file']
-                    # if the file size is wrong or the checksum is wrong
-                    if (dst_file and (
-                            dst_file.get('file_size') is not None and dst_file['file_size'] != request.get('bytes')
-                            or dst_file.get('checksum_type', '').lower() == 'adler32' and dst_file.get('checksum_value') != request.get('adler32')
-                            or dst_file.get('checksum_type', '').lower() == 'md5' and dst_file.get('checksum_value') != request.get('md5'))):
-                        overwrite = core_config_get('transfers', 'overwrite_corrupted_files', default=False, session=session)
-                        if overwrite:
-                            attributes = request['attributes']
-                            attributes['overwrite'] = True
-
-                set_request_state(response['request_id'],
-                                  response['new_state'],
-                                  transfer_id=transfer_id,
-                                  started_at=started_at,
-                                  staging_started_at=staging_started_at,
-                                  staging_finished_at=staging_finished_at,
-                                  transferred_at=transferred_at,
-                                  src_rse_id=src_rse_id,
-                                  err_msg=err_msg,
-                                  attributes=attributes,
-                                  session=session,
-                                  logger=logger)
-
-                add_monitor_message(request, response, session=session)
-                return True
-            elif not request:
-                logger(logging.DEBUG, "Request %s doesn't exist, will not update" % (response['request_id']))
-                return False
-            elif request['external_id'] != response['transfer_id']:
-                logger(logging.WARNING, "Response %s with transfer id %s is different from the request transfer id %s, will not update" % (response['request_id'], response['transfer_id'], request['external_id']))
-                return False
-            else:
-                logger(logging.DEBUG, "Request %s is already in %s state, will not update" % (response['request_id'], response['new_state']))
-                return False
+            add_monitor_message(new_state=tt_status_report.state,
+                                request=tt_status_report.request(session),
+                                additional_fields=tt_status_report.get_monitor_msg_fields(session=session, logger=logger),
+                                session=session)
+            return True
     except UnsupportedOperation as error:
-        logger(logging.WARNING, "Request %s doesn't exist - Error: %s" % (response['request_id'], str(error).replace('\n', '')))
+        logger(logging.WARNING, "Request %s doesn't exist - Error: %s" % (request_id, str(error).replace('\n', '')))
         return False
     except Exception:
         logger(logging.CRITICAL, "Exception", exc_info=True)
 
 
 @read_session
-def add_monitor_message(request, response, session=None):
+def add_monitor_message(new_state, request, additional_fields, session=None):
     """
-    Take a request and transfer response and create a message for hermes.
+    Create a message for hermes from a request
 
-    :param request:   The request to create the message for.
-    :param response:  The transfertool response dictionary, retrieved via request.query_request().
-    :param session:   The database session to use.
+    :param new_state:         The new state of the transfer request
+    :param request:           The request to create the message for.
+    :param additional_fields: Additional custom fields to be added to the message
+    :param session:           The database session to use.
     """
 
     if request['request_type']:
-        transfer_status = '%s-%s' % (request['request_type'].name, response['new_state'].name)
+        transfer_status = '%s-%s' % (request['request_type'].name, new_state.name)
     else:
-        transfer_status = 'transfer-%s' % (response['new_state'].name)
+        transfer_status = 'transfer-%s' % new_state.name
     transfer_status = transfer_status.lower()
 
-    activity = response.get('activity', None)
-    src_type = response.get('src_type', None)
-    src_rse = response.get('src_rse', None)
-    src_url = response.get('src_url', None)
-    dst_type = response.get('dst_type', None)
-    dst_rse = response.get('dst_rse', None)
-    dst_url = response.get('dst_url', None)
-    dst_protocol = dst_url.split(':')[0] if dst_url else None
-    reason = response.get('reason', None)
-    duration = response.get('duration', -1)
-    filesize = response.get('filesize', None)
-    md5 = response.get('md5', None)
-    adler32 = response.get('adler32', None)
-    created_at = response.get('created_at', None)
-    submitted_at = response.get('submitted_at', None)
-    started_at = response.get('started_at', None)
-    transferred_at = response.get('transferred_at', None)
-    account = response.get('account', None)
-
-    if response['external_host']:
-        transfer_link = '%s/fts3/ftsmon/#/job/%s' % (response['external_host'].replace('8446', '8449'), response['transfer_id'])
-    else:
-        # for LOST request, response['external_host'] maybe is None
-        transfer_link = None
-
-    message = {'activity': activity,
-               'request-id': response['request_id'],
-               'duration': duration,
-               'checksum-adler': adler32,
-               'checksum-md5': md5,
-               'file-size': filesize,
-               'bytes': filesize,
+    # Start by filling up fields from database request or with defaults.
+    message = {'activity': request.get('activity', None),
+               'request-id': request['id'],
+               'duration': -1,
+               'checksum-adler': request.get('adler32', None),
+               'checksum-md5': request.get('md5', None),
+               'file-size': request.get('bytes', None),
+               'bytes': request.get('bytes', None),
                'guid': None,
-               'previous-request-id': response['previous_attempt_id'],
-               'protocol': dst_protocol,
-               'scope': response['scope'],
-               'name': response['name'],
-               'src-type': src_type,
-               'src-rse': src_rse,
-               'src-url': src_url,
-               'dst-type': dst_type,
-               'dst-rse': dst_rse,
-               'dst-url': dst_url,
-               'reason': reason,
-               'transfer-endpoint': response['external_host'],
-               'transfer-id': response['transfer_id'],
-               'transfer-link': transfer_link,
-               'created_at': str(created_at) if created_at else None,
-               'submitted_at': str(submitted_at) if submitted_at else None,
-               'started_at': str(started_at) if started_at else None,
-               'transferred_at': str(transferred_at) if transferred_at else None,
+               'previous-request-id': request['previous_attempt_id'],
+               'protocol': None,
+               'scope': request['scope'],
+               'name': request['name'],
+               'src-type': None,
+               'src-rse': request.get('source_rse', None),
+               'src-url': None,
+               'dst-type': None,
+               'dst-rse': request.get('dest_rse', None),
+               'dst-url': request.get('dest_url', None),
+               'reason': request.get('err_msg', None),
+               'transfer-endpoint': request['external_host'],
+               'transfer-id': request['external_id'],
+               'transfer-link': None,
+               'created_at': request.get('created_at', None),
+               'submitted_at': request.get('submitted_at', None),
+               'started_at': request.get('started_at', None),
+               'transferred_at': request.get('transferred_at', None),
                'tool-id': 'rucio-conveyor',
-               'account': account}
+               'account': request.get('account', None)}
 
-    src_id = response['src_rse_id']
-    vo = get_rse_vo(rse_id=src_id)
-    if vo != 'def':
-        message['vo'] = vo
+    # Add (or override) existing fields
+    message.update(additional_fields)
+
+    if message['started_at'] and message['transferred_at']:
+        message['duration'] = (message['transferred_at'] - message['started_at']).seconds
+    if message['dst-url']:
+        message['protocol'] = message['dst-url'].split(':')[0]
+    if not message.get('src-rse'):
+        src_rse_id = request.get('source_rse_id', None)
+        if src_rse_id:
+            src_rse = get_rse_name(src_rse_id, session=session)
+            message['src-rse'] = src_rse
+    if not message.get('dst-rse'):
+        dst_rse_id = request.get('dest_rse_id', None)
+        if dst_rse_id:
+            dst_rse = get_rse_name(dst_rse_id, session=session)
+            message['dst-rse'] = dst_rse
+    if not message.get('vo') and request.get('source_rse_id'):
+        src_id = request['source_rse_id']
+        vo = get_rse_vo(rse_id=src_id, session=session)
+        if vo != 'def':
+            message['vo'] = vo
+    for time_field in ('created_at', 'submitted_at', 'started_at', 'transferred_at'):
+        field_value = message[time_field]
+        message[time_field] = str(field_value) if field_value else None
 
     add_message(transfer_status, message, session=session)
 
@@ -1466,13 +1537,11 @@ def __touch_request(request_id, session=None):
 
 
 @read_session
-def __get_source_rse(request_id, src_url, session=None, logger=logging.log):
+def get_source_rse(request_id, src_url, session=None, logger=logging.log):
     """
-    Based on a request, scope, name and src_url extract the source rse name and id.
+    Based on a request, and src_url extract the source rse name and id.
 
     :param request_id:  The request_id of the request.
-    :param scope:       The scope of the request file.
-    :param name:        The name of the request file.
     :param src_url:     The src_url of the request.
     :param session:     The database session to use.
     :param logger:      Optional decorated logger that can be passed from the calling daemons or servers.

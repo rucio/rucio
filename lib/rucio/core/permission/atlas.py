@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2021 CERN
+# Copyright 2016-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,8 @@
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
-# - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
+# - Ilija Vukotic <ivukotic@uchicago.edu>, 2022
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 from typing import TYPE_CHECKING
 
@@ -99,7 +100,6 @@ def has_permission(issuer, action, kwargs):
             'queue_requests': perm_queue_requests,
             'set_rse_usage': perm_set_rse_usage,
             'set_rse_limits': perm_set_rse_limits,
-            'query_request': perm_query_request,
             'get_request_by_did': perm_get_request_by_did,
             'cancel_request': perm_cancel_request,
             'get_next': perm_get_next,
@@ -877,17 +877,6 @@ def perm_update_replicas_states(issuer, kwargs):
 def perm_queue_requests(issuer, kwargs):
     """
     Checks if an account can submit transfer or deletion requests on destination RSEs for data identifiers.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed, otherwise False
-    """
-    return _is_root(issuer)
-
-
-def perm_query_request(issuer, kwargs):
-    """
-    Checks if an account can query a request.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
