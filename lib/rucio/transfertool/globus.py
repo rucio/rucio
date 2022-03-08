@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019-2021 CERN
+# Copyright 2019-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,15 +15,16 @@
 #
 # Authors:
 # - Matt Snyder <msnyder@bnl.gov>, 2019-2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import logging
 
 from rucio.common.utils import chunks
-from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
+from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
+from rucio.db.sqla.constants import RequestState
 from .globus_library import bulk_submit_xfer, submit_xfer, bulk_check_xfers
 
 
@@ -51,6 +52,31 @@ def bulk_group_transfers(transfer_paths, policy='single', group_bulk=200):
         })
 
     return grouped_jobs
+
+
+class GlobusTransferStatusReport(TransferStatusReport):
+
+    supported_db_fields = [
+        'state'
+    ]
+
+    def __init__(self, request_id, globus_response):
+        super().__init__(request_id)
+
+        if globus_response == 'FAILED':
+            new_state = RequestState.FAILED
+        elif globus_response == 'SUCCEEDED':
+            new_state = RequestState.DONE
+        else:
+            new_state = RequestState.SUBMITTED
+
+        self.state = new_state
+
+    def initialize(self, session, logger=logging.log):
+        pass
+
+    def get_monitor_msg_fields(self, session, logger=logging.log):
+        return {}
 
 
 class GlobusTransferTool(Transfertool):
@@ -152,19 +178,21 @@ class GlobusTransferTool(Transfertool):
 
         return task_id
 
-    def bulk_query(self, transfer_ids, timeout=None):
+    def bulk_query(self, requests_by_eid, timeout=None):
         """
         Query the status of a bulk of transfers in globus API
 
-        :param transfer_ids: Globus task identifiers as a list.
+        :param requests_by_eid: dictionary {external_id1: {request_id1: request1, ...}, ...}
         :returns: Transfer status information as a dictionary.
         """
-        if not isinstance(transfer_ids, list):
-            transfer_ids = [transfer_ids]
 
-        job_responses = bulk_check_xfers(transfer_ids, logger=self.logger)
+        job_responses = bulk_check_xfers(requests_by_eid, logger=self.logger)
 
-        return job_responses
+        response = {}
+        for transfer_id, requests in requests_by_eid.items():
+            for request_id in requests:
+                response.setdefault(transfer_id, {})[request_id] = GlobusTransferStatusReport(request_id, job_responses[transfer_id])
+        return response
 
     def bulk_update(self, resps, request_ids):
         """

@@ -1,23 +1,32 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2017-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2020
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2020
-# - Eric Vaandering, <ewv@fnal.gov>, 2018-2020
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Eric Vaandering <ewv@fnal.gov>, 2018-2021
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 import rucio.core.scope
 from rucio.core.account import has_account_attribute
@@ -90,7 +99,6 @@ def has_permission(issuer, action, kwargs):
             'queue_requests': perm_queue_requests,
             'set_rse_usage': perm_set_rse_usage,
             'set_rse_limits': perm_set_rse_limits,
-            'query_request': perm_query_request,
             'get_request_by_did': perm_get_request_by_did,
             'cancel_request': perm_cancel_request,
             'get_next': perm_get_next,
@@ -744,17 +752,6 @@ def perm_update_replicas_states(issuer, kwargs):
 def perm_queue_requests(issuer, kwargs):
     """
     Checks if an account can submit transfer or deletion requests on destination RSEs for data identifiers.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed, otherwise False
-    """
-    return _is_root(issuer)
-
-
-def perm_query_request(issuer, kwargs):
-    """
-    Checks if an account can query a request.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
