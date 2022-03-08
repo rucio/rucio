@@ -88,7 +88,8 @@ def print_issues(issues, section_title):
     features = sorted(features, key=lambda k: "%s %d" % (k['component'], k['number']))
 
     if not option_doc:
-        print('\n#', section_title, '\n')
+        print('\n#', section_title)
+        print()
         if features:
             print('## Features\n')
             for issue in features:
@@ -104,7 +105,8 @@ def print_issues(issues, section_title):
             for issue in bugs:
                 print(format_issue(issue))
     else:
-        print('\n##', section_title, '\n')
+        print('\n##', section_title)
+        print()      
         if features:
             print('### Features\n')
             for issue in features:

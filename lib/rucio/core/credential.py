@@ -41,7 +41,7 @@ from rucio.core.monitor import record_timer_block
 
 CREDS_GCS = None
 
-REGION = make_region_memcached(expiration_time=3600)
+REGION = make_region_memcached(expiration_time=900)
 
 
 def get_signed_url(rse_id, service, operation, url, lifetime=600):
