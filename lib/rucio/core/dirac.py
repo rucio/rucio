@@ -14,25 +14,30 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2020-2022
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - martynia <janusz.martyniak@googlemail.com>, 2021
-# - Janusz Martyniak <janusz.martyniak@googlemail.com>, 2022
+# - martynia <martynia@users.noreply.github.com>, 2022
 
 from __future__ import print_function
+import re
+
+from json import loads
+from json.decoder import JSONDecodeError
+
 from sqlalchemy.orm.exc import NoResultFound
 from rucio.db.sqla import models
 from rucio.db.sqla.session import transactional_session, read_session
 from rucio.db.sqla.constants import DIDType
-from rucio.common.exception import InvalidType, UnsupportedOperation
+from rucio.common.exception import InvalidType, UnsupportedOperation, ConfigNotFound, RucioException
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import extract_scope
+from rucio.core.config import get as config_get
 from rucio.core.did import add_did, attach_dids_to_dids
 from rucio.core.replica import add_replicas
-from rucio.core.rule import add_rule
+from rucio.core.rule import add_rule, list_rules, update_rule
 from rucio.core.scope import list_scopes
 
 
@@ -67,12 +72,23 @@ def add_files(lfns, account, ignore_availability, vo='def', session=None):
     :param vo: The VO to act on
     :param session: The session used
     """
+    rule_extension_list = []
     attachments = []
     # The list of scopes is necessary for the extract_scope
     filter_ = {'scope': InternalScope(scope='*', vo=vo)}
     scopes = list_scopes(filter_=filter_, session=session)
     scopes = [scope.external for scope in scopes]
     exist_lfn = []
+    try:
+        lifetime_dict = config_get(section='dirac', option='lifetime', session=session)
+        lifetime_dict = loads(lifetime_dict)
+    except ConfigNotFound:
+        lifetime_dict = {}
+    except JSONDecodeError as err:
+        raise InvalidType('Problem parsing lifetime option in dirac section : %s' % str(err))
+    except Exception as err:
+        raise RucioException(str(err))
+
     for lfn in lfns:
         # First check if the file exists
         filename = lfn['lfn']
@@ -93,6 +109,17 @@ def add_files(lfns, account, ignore_availability, vo='def', session=None):
         dsn_name = lpns[0]
         dsn_scope, _ = extract_scope(dsn_name, scopes)
         dsn_scope = InternalScope(dsn_scope, vo=vo)
+
+        # Compute lifetime
+        lifetime = None
+        if dsn_scope in lifetime_dict:
+            lifetime = lifetime_dict[dsn_scope]
+        else:
+            for pattern in lifetime_dict:
+                if re.match(pattern, dsn_scope):
+                    lifetime = lifetime_dict[pattern]
+                    break
+
         exists, did_type = _exists(dsn_scope, dsn_name)
         if exists and did_type == DIDType.CONTAINER:
             raise UnsupportedOperation('Cannot create %s as dataset' % dsn_name)
@@ -115,6 +142,13 @@ def add_files(lfns, account, ignore_availability, vo='def', session=None):
             parent_scope, _ = extract_scope(parent_name, scopes)
             parent_scope = InternalScope(parent_scope, vo=vo)
             attachments.append({'scope': parent_scope, 'name': parent_name, 'dids': [{'scope': dsn_scope, 'name': dsn_name}]})
+            rule_extension_list.append((dsn_scope, dsn_name))
+        if lifetime and (dsn_scope, dsn_name) not in rule_extension_list:
+            # Reset the lifetime of the rule to the configured value
+            rule = [rul for rul in list_rules({'scope': dsn_scope, 'name': dsn_name, 'account': InternalAccount(account, vo=vo)}, session=session) if rul['rse_expression'] == 'ANY=true']
+            if rule:
+                update_rule(rule[0]['id'], options={'lifetime': lifetime}, session=session)
+            rule_extension_list.append((dsn_scope, dsn_name))
 
         # Register the file
         rse_id = lfn.get('rse_id', None)
