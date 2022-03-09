@@ -33,6 +33,9 @@
 # |      |<----->|      |
 # +------+   2   +------+
 
+# Step zero, get a compliant proxy
+xrdgsiproxy init -bits 2048 -valid 9999:00 -cert /opt/rucio/etc/usercert.pem  -key /opt/rucio/etc/userkey.pem
+
 # First, create the RSEs
 rucio-admin rse add XRD1
 rucio-admin rse add XRD2
@@ -92,9 +95,6 @@ rucio-admin account set-limits root SSH1 -1
 # Create a default scope for testing
 rucio-admin scope add --account root --scope test
 
-# Delegate credentials to FTS
-/usr/bin/python2.7 /usr/bin/fts-rest-delegate -vf -s https://fts:8446 -H 9999
-
 # Create initial transfer testing data
 dd if=/dev/urandom of=file1 bs=10M count=1
 dd if=/dev/urandom of=file2 bs=10M count=1
@@ -120,3 +120,9 @@ rucio add-rule test:container 1 XRD3
 # Create complication
 rucio add-dataset test:dataset3
 rucio attach test:dataset3 test:file4
+
+# FTS Check
+fts-rest-whoami -v -s https://fts:8446
+
+# Delegate credentials to FTS
+fts-rest-delegate -vf -s https://fts:8446 -H 9999
