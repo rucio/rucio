@@ -160,6 +160,7 @@ jobs:
             exit 1
           fi
       - name: Print server error logs
+        if: ${{ success() || failure() }}
         shell: bash
         run: |
           docker exec -t dev_rucio_1 cat /var/log/rucio/httpd_error_log
