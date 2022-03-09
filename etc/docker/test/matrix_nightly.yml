@@ -20,6 +20,8 @@ python:
         - client
         - client_syntax
   - "3.6"
+  - "3.7"
+  - "3.8"
   - "3.9"
 suites:
   - id: syntax
@@ -38,9 +40,9 @@ suites:
       - oracle
       - mysql8
       - postgres9
-      - postgres14
+      - postgres12
       - sqlite
   - id: multi_vo
-    RDBMS: postgres14
+    RDBMS: postgres12
 image_identifier:
   - autotest
