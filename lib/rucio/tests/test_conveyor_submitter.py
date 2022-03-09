@@ -174,16 +174,17 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
         assert request_core.get_request_by_did(rse_id=rse_id, **did)
 
     @read_session
-    def __ensure_source_exists(rse_id, scope, name, session=None):
+    def __number_sources(rse_id, scope, name, session=None):
         return session.query(Source). \
             filter(Source.rse_id == rse_id). \
             filter(Source.scope == scope). \
             filter(Source.name == name). \
-            one()
+            count()
 
     # Ensure that sources where created for transfers
-    for rse_id in jump_rses + [src_rse_id]:
-        __ensure_source_exists(rse_id, **did)
+    for rse_id in [src_rse_id, jump_rse1_id, jump_rse2_id]:
+        assert __number_sources(rse_id, **did) == 2
+    assert __number_sources(jump_rse3_id, **did) == 1
 
     # Ensure the tombstone is correctly set on intermediate replicas
     expected_tombstone = datetime.utcnow() + timedelta(seconds=rse_multihop_tombstone_delay)

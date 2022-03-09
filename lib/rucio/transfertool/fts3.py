@@ -301,7 +301,7 @@ def bulk_group_transfers(transfer_paths, policy='rule', group_bulk=200, source_s
                     job_params['bring_online'] = hop_params['bring_online']
 
             group_key = 'multihop_%s' % transfer_path[-1].rws.request_id
-            grouped_transfers[group_key] = {'transfers': transfer_path, 'job_params': job_params}
+            grouped_transfers[group_key] = {'transfers': transfer_path[0:group_bulk], 'job_params': job_params}
         elif len(transfer_path[0].legacy_sources) > 1:
             # for multi-source transfers, no bulk submission.
             transfer = transfer_path[0]
