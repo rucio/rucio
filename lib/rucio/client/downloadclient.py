@@ -243,7 +243,7 @@ class DownloadClient:
             item['name'] = did_name
             item['sources'] = [{'pfn': pfn, 'rse': rse}]
             did_path_name = did_name
-            if self.extract_scope_convention and self.extract_scope_convention == 'belleii' and did_name.startswith('/'):
+            if did_name.startswith('/'):
                 did_path_name = did_name[1:]
             dest_file_path = os.path.join(dest_dir_path, did_path_name)
             item['dest_file_paths'] = [dest_file_path]
@@ -1319,7 +1319,7 @@ class DownloadClient:
                         path = os.path.join(self._prepare_dest_dir(base_dir, input_did.name, no_subdir), file_did_path)
                     else:
                         # if no datasets were given only prepare the given destination paths
-                        if self.extract_scope_convention == 'belleii' and file_did_path.startswith('/'):
+                        if file_did_path.startswith('/'):
                             file_did_path = file_did_path[1:]
                         path = os.path.join(self._prepare_dest_dir(base_dir, file_did.scope, no_subdir), file_did_path)
 
@@ -1539,7 +1539,7 @@ class DownloadClient:
         :returns: the absolut path of the destination directory
         """
         # append dest_dir_name, if subdir should be used
-        if self.extract_scope_convention == 'belleii' and dest_dir_name.startswith('/'):
+        if dest_dir_name.startswith('/'):
             dest_dir_name = dest_dir_name[1:]
         dest_dir_path = os.path.join(os.path.abspath(base_dir), '' if no_subdir else dest_dir_name)
 
