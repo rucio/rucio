@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2022
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2022
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
@@ -67,7 +67,7 @@ from rucio.core.monitor import record_timer_block, record_counter
 from rucio.core.naming_convention import validate_name
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState
+from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState, BadFilesStatus
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 
@@ -622,6 +622,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     did_followed_clause = []
     metadata_to_delete = []
     file_content_clause = []
+    bad_replicas_clause = []
 
     archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
 
@@ -629,6 +630,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
         logger(logging.INFO, 'Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
         if did['did_type'] == DIDType.FILE:
             file_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
+            bad_replicas_clause.append(and_(models.BadReplicas.scope == did['scope'], models.BadReplicas.name == did['name']))
         else:
             did_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
             content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
@@ -748,6 +750,13 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
             with record_timer_block('undertaker.did_meta'):
                 rowcount = session.query(models.DidMeta).filter(or_(*metadata_to_delete)).\
                     delete(synchronize_session=False)
+
+    # Update bad_replicas if exist
+    if bad_replicas_clause:
+        rowcount = session.query(models.BadReplicas).\
+            filter(or_(bad_replicas_clause)).\
+            filter(models.BadReplicas.state == BadFilesStatus.BAD).\
+            update({'state': BadFilesStatus.DELETED, 'updated_at': datetime.utcnow()})
 
     # remove data identifier
     if existing_parent_dids:

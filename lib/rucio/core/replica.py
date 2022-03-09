@@ -268,7 +268,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
 
 
 @read_session
-def list_bad_replicas_history(limit=10000, thread=None, total_threads=None, session=None):
+def list_bad_replicas_history(limit=10000, thread=None, total_threads=None, session=None):   # Deprecated method. To be removed
     """
     List the bad file replicas history. Method only used by necromancer
 
@@ -292,7 +292,7 @@ def list_bad_replicas_history(limit=10000, thread=None, total_threads=None, sess
 
 
 @transactional_session
-def update_bad_replicas_history(dids, rse_id, session=None):
+def update_bad_replicas_history(dids, rse_id, session=None):   # Deprecated method. To be removed
     """
     Update the bad file replicas history. Method only used by necromancer
 
@@ -2188,7 +2188,7 @@ def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=Tru
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
                                                      'for deleting' % replica_rse.rse)
 
-    replica_condition, src_condition = [], []
+    replica_condition, src_condition, bad_replica_condition = [], [], []
     for file in files:
         replica_condition.append(
             and_(models.RSEFileAssociation.scope == file['scope'],
@@ -2198,6 +2198,10 @@ def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=Tru
             and_(models.Source.scope == file['scope'],
                  models.Source.name == file['name'],
                  models.Source.rse_id == rse_id))
+
+        bad_replica_condition.append(
+            and_(models.BadReplicas.scope == file['scope'],
+                 models.BadReplicas.name == file['name']))
 
     delta, bytes_, rowcount = 0, 0, 0
 
@@ -2221,6 +2225,19 @@ def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=Tru
             execution_options(synchronize_session=False)
         result = session.execute(stmt)
         rowcount += result.rowcount
+
+    for chunk in chunks(bad_replica_condition, 10):
+        update(models.BadReplicas).\
+            where(models.BadReplicas.rse_id == rse_id). \
+            where(or_(*chunk)). \
+            where(models.BadReplicas.state == BadFilesStatus.BAD) .\
+            execution_options(synchronize_session=False).\
+            values(
+                state=BadFilesStatus.DELETED,
+                updated_at=datetime.utcnow()
+        )
+
+        result = session.execute(stmt)
 
     if rowcount != len(files):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
@@ -2866,6 +2883,9 @@ def update_replicas_states(replicas, nowait=False, session=None):
             values['tombstone'] = OBSOLETE
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
+            query1 = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
+            if query1.count():
+                query1.update({'state': BadFilesStatus.RECOVERED, 'updated_at': datetime.utcnow()}, synchronize_session=False)
         elif replica['state'] == ReplicaState.UNAVAILABLE:
             rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'],
                                             error_message=replica.get('error_message', None),

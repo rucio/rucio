@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2022
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2022
 # - David Cameron <david.cameron@cern.ch>, 2014
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
@@ -90,7 +90,7 @@ from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict, apply_rule
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import (LockState, ReplicaState, RuleState, RuleGrouping,
-                                     DIDAvailability, DIDReEvaluation, DIDType,
+                                     DIDAvailability, DIDReEvaluation, DIDType, BadFilesStatus,
                                      RequestType, RuleNotification, OBSOLETE, RSEType)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
@@ -1793,6 +1793,7 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
     replica.tombstone = OBSOLETE
     replica.state = ReplicaState.UNAVAILABLE
     session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'availability': DIDAvailability.LOST})
+    session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=scope, name=name).update({'state': BadFilesStatus.LOST, 'updated_at': datetime.utcnow()})
     for dts in datasets:
         logger(logging.INFO, 'File %s:%s bad at site %s is completely lost from dataset %s:%s. Will be marked as LOST and detached', scope, name, rse, dts['scope'], dts['name'])
         rucio.core.did.detach_dids(scope=dts['scope'], name=dts['name'], dids=[{'scope': scope, 'name': name}], session=session)

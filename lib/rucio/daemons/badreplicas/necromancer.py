@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2022
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
@@ -30,7 +30,6 @@ import socket
 import threading
 import time
 from datetime import datetime, timedelta
-from math import ceil
 from sys import exc_info
 from traceback import format_exception
 
@@ -44,11 +43,10 @@ from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import formatted_logger, setup_logging
-from rucio.common.utils import chunks, daemon_sleep
 from rucio.core import monitor, heartbeat
-from rucio.core.replica import (list_bad_replicas, get_replicas_state, list_bad_replicas_history,
-                                update_bad_replicas_history, get_bad_replicas_backlog)
-from rucio.core.rule import update_rules_for_lost_replica, update_rules_for_bad_replica, get_evaluation_backlog
+from rucio.core.replica import list_bad_replicas, get_replicas_state, get_bad_replicas_backlog
+from rucio.core.rule import (update_rules_for_lost_replica, update_rules_for_bad_replica,
+                             get_evaluation_backlog)
 from rucio.db.sqla.constants import ReplicaState
 
 GRACEFUL_STOP = threading.Event()
@@ -64,9 +62,6 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
     :param once: Run only once.
     :param sleep_time: Thread sleep time after each chunk of work.
     """
-
-    update_history_threshold = 3600
-    update_history_time = time.time()
 
     executable = 'necromancer'
     hostname = socket.getfqdn()
@@ -92,21 +87,21 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
         except (NoOptionError, NoSectionError, RuntimeError, ValueError):
             max_evaluator_backlog_duration = None
         if max_evaluator_backlog_count or max_evaluator_backlog_duration:
-            backlog = get_evaluation_backlog(expiration_time=sleep_time)
+            evaluator_backlog_count, evaluator_backlog_duration = get_evaluation_backlog(expiration_time=sleep_time)
             if max_evaluator_backlog_count and \
-               backlog[0] and \
+               evaluator_backlog_count and \
                max_evaluator_backlog_duration and \
-               backlog[1] and \
-               backlog[0] > max_evaluator_backlog_count and \
-               backlog[1] < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration):
+               evaluator_backlog_duration and \
+               evaluator_backlog_count > max_evaluator_backlog_count and \
+               evaluator_backlog_duration < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration):
                 logger(logging.ERROR, 'Necromancer: Judge evaluator backlog count and duration hit, stopping operation')
                 GRACEFUL_STOP.wait(30)
                 continue
-            elif max_evaluator_backlog_count and backlog[0] and backlog[0] > max_evaluator_backlog_count:
+            elif max_evaluator_backlog_count and evaluator_backlog_count and evaluator_backlog_count > max_evaluator_backlog_count:
                 logger(logging.ERROR, 'Necromancer: Judge evaluator backlog count hit, stopping operation')
                 GRACEFUL_STOP.wait(30)
                 continue
-            elif max_evaluator_backlog_duration and backlog[1] and backlog[1] < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration):
+            elif max_evaluator_backlog_duration and evaluator_backlog_duration and evaluator_backlog_duration < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration):
                 logger(logging.ERROR, 'Necromancer: Judge evaluator backlog duration hit, stopping operation')
                 GRACEFUL_STOP.wait(30)
                 continue
@@ -137,6 +132,7 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
 
         stime = time.time()
         replicas = []
+        tot_processed = 0
         try:
             for rses in list_of_rses:
                 replicas = list_bad_replicas(limit=bulk, thread=heart_beat['assign_thread'], total_threads=heart_beat['nr_threads'], rses=rses)
@@ -164,6 +160,7 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
                         except DatabaseException as error:
                             logger(logging.WARNING, str(error))
 
+                tot_processed += len(replicas)
                 logger(logging.INFO, 'It took %s seconds to process %s replicas' % (str(time.time() - stime), str(len(replicas))))
         except Exception:
             exc_type, exc_value, exc_traceback = exc_info()
@@ -171,29 +168,6 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
 
         if once:
             break
-        else:
-            now = time.time()
-            if (now - update_history_time) > update_history_threshold:
-                logger(logging.INFO, 'Last update of history table %s seconds ago. Running update.' % (now - update_history_time))
-                bad_replicas = list_bad_replicas_history(limit=1000000,
-                                                         thread=heart_beat['assign_thread'],
-                                                         total_threads=heart_beat['nr_threads'])
-                for rse_id in bad_replicas:
-                    chunk_size = 1000
-                    nchunk = int(ceil(len(bad_replicas[rse_id]) / chunk_size))
-                    logger(logging.DEBUG, 'Update history for rse_id %s' % (rse_id))
-                    cnt = 0
-                    for chunk in chunks(bad_replicas[rse_id], chunk_size):
-                        logger(logging.DEBUG, ' History for rse_id %s : chunk %i/%i' % (rse_id, cnt, nchunk))
-                        cnt += 1
-                        update_bad_replicas_history(chunk, rse_id)
-                logger(logging.INFO, 'History table updated in %s seconds' % (time.time() - now))
-                update_history_time = time.time()
-
-            if len(replicas) == bulk:
-                logger(logging.INFO, 'Processed maximum number of replicas according to the bulk size. Restart immediately next cycle')
-            else:
-                daemon_sleep(start_time=stime, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
     logger(logging.INFO, 'Graceful stop requested')
     heartbeat.die(executable, hostname, pid, hb_thread)
