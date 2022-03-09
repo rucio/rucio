@@ -138,7 +138,7 @@ def __get_distance(se1, client_location, ignore_error):
     # does not cache ignore_error, str.lower on hostnames/ips is fine
     canonical_parties = list(map(lambda x: str(x).lower(), [se1, client_location['ip'], client_location.get('latitude', ''), client_location.get('longitude', '')]))
     canonical_parties.sort()
-    cache_key = f'replica_sorter:__get_distance|site_distance|{"".join(canonical_parties)}'
+    cache_key = f'replica_sorter:__get_distance|site_distance|{"".join(canonical_parties)}'.replace(' ', '.')
     cache_val = REGION.get(cache_key)
     if cache_val is NO_VALUE:
         try:
