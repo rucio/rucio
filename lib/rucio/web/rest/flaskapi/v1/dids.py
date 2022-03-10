@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,17 +14,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2021
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
-# - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
-# - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
+# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021-2022
+
 import ast
 
 from json import dumps
@@ -228,20 +223,25 @@ class SearchExtended(ErrorHandlingMethodView):
         :status 409: Wrong DID type
         :returns: Line separated name of DIDs or dictionaries of DIDs for long option
         """
-        filters = request.args.copy()
-        for param in ['type', 'limit', 'long', 'recursive']:
-            if param in filters:
-                del filters[param]
+        filters = request.args.get('filters', default=None)
+        if filters is not None:
+            filters = ast.literal_eval(filters)
+        else:
+            # backwards compatability for created*, length* and name filters passed through as request args
+            filters = {}
+            for arg, value in request.args.copy().items():
+                if arg not in ['type', 'limit', 'long', 'recursive']:
+                    filters[arg] = value
+            filters = [filters]
 
-        type_param = request.args.get('type', default=None)
+        did_type = request.args.get('type', default=None)
         limit = request.args.get('limit', default=None)
         long = request.args.get('long', type=['True', '1'].__contains__, default=False)
         recursive = request.args.get('recursive', type='True'.__eq__, default=False)
         try:
             def generate(vo):
-                for did in list_dids_extended(scope=scope, filters=filters, did_type=type_param, limit=limit, long=long, recursive=recursive, vo=vo):
+                for did in list_dids_extended(scope=scope, filters=filters, did_type=did_type, limit=limit, long=long, recursive=recursive, vo=vo):
                     yield dumps(did) + '\n'
-
             return try_stream(generate(vo=request.environ.get('vo')))
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, error)

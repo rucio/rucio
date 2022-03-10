@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2020-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,34 +14,23 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
-# - Yun-Pin Sun <winter0128@gmail.com>, 2013
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
-# - Wen Guan <wguan.icedew@gmail.com>, 2015
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Tobias Wegner <twegner@cern.ch>, 2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Rizart Dona <rizart.dona@cern.ch>, 2021
+# - Rizart Dona <rizart.dona@gmail.com>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2022
 
 import json as json_lib
+import operator
 
-from six import iteritems
-from sqlalchemy import String, cast, type_coerce, JSON
+from sqlalchemy.exc import DataError
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.sql.expression import text
 
 from rucio.common import exception
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
+from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models
+from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.db.sqla.util import json_implemented
 
@@ -75,10 +64,10 @@ class JSONDidMeta(DidMetaPlugin):
             raise exception.DataIdentifierNotFound("No generic metadata found for '%(scope)s:%(name)s'" % locals())
 
     def set_metadata(self, scope, name, key, value, recursive=False, session=None):
-        self.set_metadata_bulk(scope=scope, name=name, meta={key: value}, recursive=recursive, session=session)
+        self.set_metadata_bulk(scope=scope, name=name, metadata={key: value}, recursive=recursive, session=session)
 
     @transactional_session
-    def set_metadata_bulk(self, scope, name, meta, recursive=False, session=None):
+    def set_metadata_bulk(self, scope, name, metadata, recursive=False, session=None):
         if not json_implemented(session=session):
             raise NotImplementedError
 
@@ -100,7 +89,7 @@ class JSONDidMeta(DidMetaPlugin):
         if session.bind.dialect.name in ['oracle', 'sqlite'] and existing_meta:
             existing_meta = json_lib.loads(existing_meta)
 
-        for key, value in meta.items():
+        for key, value in metadata.items():
             existing_meta[key] = value
 
         row_did_meta.meta = None
@@ -150,33 +139,69 @@ class JSONDidMeta(DidMetaPlugin):
 
     @stream_session
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
-                  offset=None, long=False, recursive=False, session=None):
-        # Currently for sqlite only add, get and delete is implemented.
+                  offset=None, long=False, recursive=False, ignore_dids=None, session=None):
         if not json_implemented(session=session):
             raise NotImplementedError
 
-        query = session.query(models.DidMeta)
-        if scope is not None:
-            query = query.filter(models.DidMeta.scope == scope)
-        filters.pop('name', None)
-        for k, v in iteritems(filters):
-            if session.bind.dialect.name == 'oracle':
-                query = query.filter(text("json_exists(meta,'$?(@.{} == \"{}\")')".format(k, v)))
-            else:
-                query = query.filter(cast(models.DidMeta.meta[k], String) == type_coerce(v, JSON))
+        if not ignore_dids:
+            ignore_dids = set()
 
-        if long:
-            for row in query.yield_per(5):
-                yield {
-                    'scope': row.scope,
-                    'name': row.name,
-                    'did_type': 'Info not available in JSON Plugin',
-                    'bytes': 'Info not available in JSON Plugin',
-                    'length': 'Info not available in JSON Plugin'
-                }
-        else:
-            for row in query.yield_per(5):
-                yield row.name
+        # backwards compatability for filters as single {}.
+        if isinstance(filters, dict):
+            filters = [filters]
+
+        # instantiate fe and create sqla query, note that coercion to a model keyword
+        # is not appropriate here as the filter words are stored in a single json column.
+        fe = FilterEngine(filters, model_class=models.DidMeta, strict_coerce=False)
+        query = fe.create_sqla_query(
+            additional_model_attributes=[
+                models.DidMeta.scope,
+                models.DidMeta.name
+            ], additional_filters=[
+                (models.DidMeta.scope, operator.eq, scope)
+            ],
+            json_column=models.DidMeta.meta
+        )
+
+        if limit:
+            query = query.limit(limit)
+        if recursive:
+            from rucio.core.did import list_content
+
+            # Get attached DIDs and save in list because query has to be finished before starting a new one in the recursion
+            collections_content = []
+            for did in query.yield_per(100):
+                if (did.did_type == DIDType.CONTAINER or did.did_type == DIDType.DATASET):
+                    collections_content += [d for d in list_content(scope=did.scope, name=did.name)]
+
+            # Replace any name filtering with recursed DID names.
+            for did in collections_content:
+                for or_group in filters:
+                    or_group['name'] = did['name']
+                for result in self.list_dids(scope=did['scope'], filters=filters, recursive=True, did_type=did_type, limit=limit, offset=offset,
+                                             long=long, ignore_dids=ignore_dids, session=session):
+                    yield result
+
+        try:
+            for did in query.yield_per(5):                  # don't unpack this as it makes it dependent on query return order!
+                if long:
+                    did_full = "{}:{}".format(did.scope, did.name)
+                    if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
+                        ignore_dids.add(did_full)
+                        yield {
+                            'scope': did.scope,
+                            'name': did.name,
+                            'did_type': None,               # not available with JSON plugin
+                            'bytes': None,                  # not available with JSON plugin
+                            'length': None                  # not available with JSON plugin
+                        }
+                else:
+                    did_full = "{}:{}".format(did.scope, did.name)
+                    if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
+                        ignore_dids.add(did_full)
+                        yield did.name
+        except DataError as e:
+            raise exception.InvalidMetadata("Database query failed: {}. This can be raised when the datatype of a key is inconsistent between dids.".format(e))
 
     @read_session
     def manages_key(self, key, session=None):
@@ -184,7 +209,7 @@ class JSONDidMeta(DidMetaPlugin):
 
     def get_plugin_name(self):
         """
-        Returns Plugins Name.
-        This can then be used when listing the metadata of did to only provide dids from this plugin.
+        Returns a unique identifier for this plugin. This can be later used for filtering down results to this plugin only.
+        :returns: The name of the plugin.
         """
         return self.plugin_name

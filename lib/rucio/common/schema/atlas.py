@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2017-2021 CERN
+# Copyright 2017-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Rob Barnsley <rob.barnsley@skao.int>, 2022
 
 from jsonschema import validate, ValidationError
 
@@ -244,10 +245,8 @@ DID = {"description": "Data Identifier(DID)",
        "required": ["scope", "name"],
        "additionalProperties": False}
 
-DID_FILTERS = {"description": "Filters dictionary to list DIDs",
-               "type": "object",
-               "properties": {"created_before": DATE,
-                              "created_afted": DATE},
+DID_FILTERS = {"description": "Array to filter DIDs by metadata",
+               "type": "array",
                "additionalProperties": True}
 
 R_DID = {"description": "Data Identifier(DID)",

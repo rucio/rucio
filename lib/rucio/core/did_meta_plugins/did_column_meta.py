@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright 2020-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,97 +14,35 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
-# - Yun-Pin Sun <winter0128@gmail.com>, 2013
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
-# - Wen Guan <wguan.icedew@gmail.com>, 2015
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Tobias Wegner <twegner@cern.ch>, 2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Rob Barnsley <rob.barnsley@skao.int>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
+# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021-2022
 
 from datetime import datetime, timedelta
+import operator
 
-from six import string_types
-from sqlalchemy import or_, update
+from sqlalchemy import update, inspect
 from sqlalchemy.exc import CompileError, InvalidRequestError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import true
 
 from rucio.common import exception
-from rucio.common.utils import str_to_date
 from rucio.core import account_counter, rse_counter
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
+from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import stream_session, read_session, transactional_session
 
-HARDCODED_KEYS = [
-    # specials (keys not backed by the did table)
-    "lifetime",
-    # fields on the did table
-    "hidden",
-    "is_new",
-    "events",
-    "guid",
-    "purge_replicas",
-    "project",
-    "datatype",
-    "run_number",
-    "stream_name",
-    "prod_step",
-    "version",
-    "campaign",
-    "task_id",
-    "panda_id",
-    "lumiblocknr",
-    "provenance",
-    "phys_group",
-    "transient",
-    "accessed_at",
-    "closed_at",
-    "eol_at",
-    "is_archive",
-    "constituent",
-    "access_cnt",
-    # all keys in constants.RESERVED_KEYS should be read-only from the API,
-    # but could be used in internal calls to set_metadata_*
-    # fields in did table and constants.RESERVED_KEYS
-    "name",
-    "length",
-    "md5",
-    "expired_at",
-    "deleted_at",
-    # fields in did table and constants.RESERVED_KEYS, but special handling
-    "bytes",
-    "adler32",
-
-    # Keys used while listing dids
-    "created_before",
-    "created_after",
-    "length.gt",
-    "length.lt",
-    "length.gte",
-    "length.lte",
-]
-
 
 class DidColumnMeta(DidMetaPlugin):
     """
-    A plugin that stores DID metadata on the DiD table using hardcoded keys as columns.
+    A metadata plugin to interact with the base did table metadata.
     """
-
     def __init__(self):
         super(DidColumnMeta, self).__init__()
         self.plugin_name = "DID_COLUMN"
@@ -112,7 +50,8 @@ class DidColumnMeta(DidMetaPlugin):
     @read_session
     def get_metadata(self, scope, name, session=None):
         """
-        Get data identifier metadata
+        Get data identifier metadata.
+
         :param scope: The scope name.
         :param name: The data identifier name.
         :param session: The database session in use.
@@ -128,16 +67,16 @@ class DidColumnMeta(DidMetaPlugin):
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
     def set_metadata(self, scope, name, key, value, recursive=False, session=None):
-        self.set_metadata_bulk(scope=scope, name=name, meta={key: value}, recursive=recursive, session=session)
+        self.set_metadata_bulk(scope=scope, name=name, metadata={key: value}, recursive=recursive, session=session)
 
     @transactional_session
-    def set_metadata_bulk(self, scope, name, meta, recursive=False, session=None):
+    def set_metadata_bulk(self, scope, name, metadata, recursive=False, session=None):
         did_query = session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter_by(scope=scope, name=name)
         if did_query.one_or_none() is None:
             raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
 
         remainder = {}
-        for key, value in meta.items():
+        for key, value in metadata.items():
             if key == 'lifetime':
                 try:
                     expired_at = None
@@ -160,7 +99,6 @@ class DidColumnMeta(DidMetaPlugin):
                     for parent_scope, parent_name in session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=scope, child_name=name):
                         events = session.query(func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=parent_scope, name=parent_name).one()[0]
                         session.query(models.DataIdentifier).filter_by(scope=parent_scope, name=parent_name).update({'events': events}, synchronize_session=False)
-
             elif key == 'adler32':
                 rowcount = did_query.filter_by(did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
                 if not rowcount:
@@ -229,9 +167,10 @@ class DidColumnMeta(DidMetaPlugin):
 
     @stream_session
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
-                  offset=None, long=False, recursive=False, session=None):
+                  offset=None, long=False, recursive=False, ignore_dids=None, session=None):
         """
-        Search data identifiers
+        Search data identifiers.
+
         :param scope: the scope name.
         :param filters: dictionary of attributes by which the results should be filtered.
         :param did_type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
@@ -241,115 +180,96 @@ class DidColumnMeta(DidMetaPlugin):
         :param long: Long format option to display more information for each DID.
         :param session: The database session in use.
         :param recursive: Recursively list DIDs content.
+        :param ignore_dids: List of DIDs to refrain from yielding.
         """
-        types = ['all', 'collection', 'container', 'dataset', 'file']
-        if did_type not in types:
-            raise exception.UnsupportedOperation("Valid type are: %(types)s" % locals())
+        if not ignore_dids:
+            ignore_dids = set()
 
-        query = session.query(models.DataIdentifier.scope,
-                              models.DataIdentifier.name,
-                              models.DataIdentifier.did_type,
-                              models.DataIdentifier.bytes,
-                              models.DataIdentifier.length).\
-            filter(models.DataIdentifier.scope == scope)
+        # mapping for semantic <type> to a (set of) recognised DIDType(s).
+        type_to_did_type_mapping = {
+            'all': [DIDType.CONTAINER, DIDType.DATASET, DIDType.FILE],
+            'collection': [DIDType.CONTAINER, DIDType.DATASET],
+            'container': [DIDType.CONTAINER],
+            'dataset': [DIDType.DATASET],
+            'file': [DIDType.FILE]
+        }
 
-        # Exclude suppressed dids
-        query = query.filter(models.DataIdentifier.suppressed != true())
+        # backwards compatability for filters as single {}.
+        if isinstance(filters, dict):
+            filters = [filters]
 
-        if did_type == 'all':
-            query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
-                                     models.DataIdentifier.did_type == DIDType.DATASET,
-                                     models.DataIdentifier.did_type == DIDType.FILE))
-        elif did_type.lower() == 'collection':
-            query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
-                                     models.DataIdentifier.did_type == DIDType.DATASET))
-        elif did_type.lower() == 'container':
-            query = query.filter(models.DataIdentifier.did_type == DIDType.CONTAINER)
-        elif did_type.lower() == 'dataset':
-            query = query.filter(models.DataIdentifier.did_type == DIDType.DATASET)
-        elif did_type.lower() == 'file':
-            query = query.filter(models.DataIdentifier.did_type == DIDType.FILE)
-
-        for (k, v) in filters.items():
-
-            if k not in ['created_before', 'created_after', 'length.gt', 'length.lt', 'length.lte', 'length.gte', 'length'] \
-                    and not hasattr(models.DataIdentifier, k):
-                raise exception.KeyNotFound(k)
-
-            if isinstance(v, string_types) and ('*' in v or '%' in v):
-                if v in ('*', '%', u'*', u'%'):
-                    continue
-                if session.bind.dialect.name == 'postgresql':
-                    query = query.filter(getattr(models.DataIdentifier, k).
-                                         like(v.replace('*', '%').replace('_', r'\_'),
-                                              escape='\\'))
-                else:
-                    query = query.filter(getattr(models.DataIdentifier, k).
-                                         like(v.replace('*', '%').replace('_', r'\_'), escape='\\'))
-            elif k == 'created_before':
-                created_before = str_to_date(v)
-                query = query.filter(models.DataIdentifier.created_at <= created_before)
-            elif k == 'created_after':
-                created_after = str_to_date(v)
-                query = query.filter(models.DataIdentifier.created_at >= created_after)
-            elif k == 'guid':
-                query = query.filter_by(guid=v).\
-                    with_hint(models.ReplicaLock, "INDEX(DIDS_GUIDS_IDX)", 'oracle')
-            elif k == 'length.gt':
-                query = query.filter(models.DataIdentifier.length > v)
-            elif k == 'length.lt':
-                query = query.filter(models.DataIdentifier.length < v)
-            elif k == 'length.gte':
-                query = query.filter(models.DataIdentifier.length >= v)
-            elif k == 'length.lte':
-                query = query.filter(models.DataIdentifier.length <= v)
-            elif k == 'length':
-                query = query.filter(models.DataIdentifier.length == v)
+        # for each or_group, make sure there is a mapped "did_type" filter.
+        # if type maps to many DIDTypes, the corresponding or_group will be copied the required number of times to satisfy all the logical possibilities.
+        filters_tmp = []
+        for or_group in filters:
+            if 'type' not in or_group:
+                or_group_type = did_type.lower()
             else:
-                query = query.filter(getattr(models.DataIdentifier, k) == v)
+                or_group_type = or_group.pop('type').lower()
+            if or_group_type not in type_to_did_type_mapping.keys():
+                raise exception.UnsupportedOperation('{} is not a valid type. Valid types are {}'.format(or_group_type, type_to_did_type_mapping.keys()))
 
-        if 'name' in filters:
-            if '*' in filters['name']:
-                query = query.\
-                    with_hint(models.DataIdentifier, "NO_INDEX(dids(SCOPE,NAME))", 'oracle')
-            else:
-                query = query.\
-                    with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')
+            for mapped_did_type in type_to_did_type_mapping[or_group_type]:
+                or_group['did_type'] = mapped_did_type
+                filters_tmp.append(or_group.copy())
+        filters = filters_tmp
+
+        # instantiate fe and create sqla query
+        fe = FilterEngine(filters, model_class=models.DataIdentifier)
+        query = fe.create_sqla_query(
+            additional_model_attributes=[
+                models.DataIdentifier.scope,
+                models.DataIdentifier.name,
+                models.DataIdentifier.did_type,
+                models.DataIdentifier.bytes,
+                models.DataIdentifier.length
+            ], additional_filters=[
+                (models.DataIdentifier.scope, operator.eq, scope),
+                (models.DataIdentifier.suppressed, operator.ne, true())
+            ]
+        )
 
         if limit:
             query = query.limit(limit)
-
         if recursive:
-            # Get attachted DIDs and save in list because query has to be finished before starting a new one in the recursion
-            collections_content = []
-            parent_scope = scope
-
             from rucio.core.did import list_content
 
-            for scope, name, did_type, bytes_, length in query.yield_per(100):
-                if (did_type == DIDType.CONTAINER or did_type == DIDType.DATASET):
-                    collections_content += [did for did in list_content(scope=scope, name=name)]
+            # Get attached DIDs and save in list because query has to be finished before starting a new one in the recursion
+            collections_content = []
+            for did in query.yield_per(100):
+                if (did.did_type == DIDType.CONTAINER or did.did_type == DIDType.DATASET):
+                    collections_content += [d for d in list_content(scope=did.scope, name=did.name)]
 
-            # List DIDs again to use filter
+            # Replace any name filtering with recursed DID names.
             for did in collections_content:
-                filters['name'] = did['name']
-                for result in self.list_dids(scope=did['scope'], filters=filters, recursive=True, did_type=did_type, limit=limit, offset=offset, long=long, session=session):
+                for or_group in filters:
+                    or_group['name'] = did['name']
+                for result in self.list_dids(scope=did['scope'], filters=filters, recursive=True, did_type=did_type, limit=limit, offset=offset,
+                                             long=long, ignore_dids=ignore_dids, session=session):
                     yield result
 
-        if long:
-            for scope, name, type_, bytes_, length in query.yield_per(5):
-                yield {'scope': scope,
-                       'name': name,
-                       'did_type': str(type_),
-                       'bytes': bytes_,
-                       'length': length}
-        else:
-            for scope, name, type_, bytes_, length in query.yield_per(5):
-                yield name
+        for did in query.yield_per(5):                  # don't unpack this as it makes it dependent on query return order!
+            if long:
+                did_full = "{}:{}".format(did.scope, did.name)
+                if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
+                    ignore_dids.add(did_full)
+                    yield {
+                        'scope': did.scope,
+                        'name': did.name,
+                        'did_type': str(did.did_type),
+                        'bytes': did.bytes,
+                        'length': did.length
+                    }
+            else:
+                did_full = "{}:{}".format(did.scope, did.name)
+                if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
+                    ignore_dids.add(did_full)
+                    yield did.name
 
     def delete_metadata(self, scope, name, key, session=None):
         """
         Deletes the metadata stored for the given key.
+
         :param scope: The scope of the did.
         :param name: The name of the did.
         :param key: Key of the metadata.
@@ -357,12 +277,44 @@ class DidColumnMeta(DidMetaPlugin):
         raise NotImplementedError('The DidColumnMeta plugin does not currently support deleting metadata.')
 
     def manages_key(self, key, session=None):
-        return key in HARDCODED_KEYS  # alternatively hasattr(models.DataIdentifier, key)
+        # Build list of which keys are managed by this plugin.
+        #
+        all_did_table_columns = []
+        for column in inspect(models.DataIdentifier).attrs:
+            all_did_table_columns.append(column.key)
+
+        exclude_did_table_columns = [
+            'account',
+            'availability',
+            'complete',
+            'created_at',
+            'did_type',
+            'is_open',
+            'monotonic',
+            'obsolete',
+            'scope',
+            'suppressed',
+            'updated_at'
+        ]
+
+        additional_keys = [
+            'lifetime',
+            'created_before',
+            'created_after',
+            'length.gt',
+            'length.lt',
+            'length.gte',
+            'length.lte',
+            'type'
+        ]
+
+        hardcoded_keys = list(set(all_did_table_columns) - set(exclude_did_table_columns)) + additional_keys
+
+        return key in hardcoded_keys
 
     def get_plugin_name(self):
         """
-        Returns a unique identifier for the Plugin.
-        This can be later used for filtering down results to this plugin only."
-        :returns: (STRING) The name of the plugin
+        Returns a unique identifier for this plugin. This can be later used for filtering down results to this plugin only.
+        :returns: The name of the plugin.
         """
         return self.plugin_name

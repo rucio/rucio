@@ -37,7 +37,7 @@
 # - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
+# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021-2022
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 import logging
@@ -1512,7 +1512,7 @@ def set_status(scope, name, session=None, **kwargs):
 def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=None,
               offset=None, long=False, recursive=False, ignore_dids=None, session=None):
     """
-    Search data identifiers
+    Search data identifiers.
 
     :param scope: the scope name.
     :param filters: dictionary of attributes by which the results should be filtered.
@@ -1521,9 +1521,9 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
     :param limit: limit number.
     :param offset: offset number.
     :param long: Long format option to display more information for each DID.
-    :param session: The database session in use.
     :param recursive: Recursively list DIDs content.
     :param ignore_dids: List of DIDs to refrain from yielding.
+    :param session: The database session in use.
     """
     if not ignore_dids:
         ignore_dids = set()
@@ -1606,9 +1606,9 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
 
 @read_session
 def list_dids_extended(scope, filters, did_type='collection', ignore_case=False, limit=None,
-                       offset=None, long=False, recursive=False, session=None):
+                       offset=None, long=False, recursive=False, ignore_dids=None, session=None):
     """
-    Search data identifiers
+    Search data identifiers.
 
     :param scope: the scope name.
     :param filters: dictionary of attributes by which the results should be filtered.
@@ -1617,10 +1617,11 @@ def list_dids_extended(scope, filters, did_type='collection', ignore_case=False,
     :param limit: limit number.
     :param offset: offset number.
     :param long: Long format option to display more information for each DID.
-    :param session: The database session in use.
     :param recursive: Recursively list DIDs content.
+    :param ignore_dids: List of DIDs to refrain from yielding.
+    :param session: The database session in use.
     """
-    return did_meta_plugins.list_dids(scope, filters, did_type, ignore_case, limit, offset, long, recursive, session=session)
+    return did_meta_plugins.list_dids(scope, filters, did_type, ignore_case, limit, offset, long, recursive, ignore_dids, session=session)
 
 
 @read_session
