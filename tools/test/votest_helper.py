@@ -33,6 +33,9 @@ logger = logging.getLogger(__name__)
 
 
 def validate(func):
+    """
+    A decorator to validate vo-specific sections contained in matrix_policy_package_testss.yaml
+    """
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         if 'data' not in kwargs:
@@ -160,18 +163,18 @@ if __name__ == "__main__":
                         help='the path to rucio.cfg',
                         )
     parser.add_argument('--vo', type=str, default='all', required=False)
-    parser.add_argument('-v', action='store_true',
+    parser.add_argument('--verbose', '-v', action='store_true',
                         required=False,
                         help="Verbose mode to show logged errors")
     output_type = parser.add_mutually_exclusive_group(required=False)
-    output_type.add_argument('-i', required=False,
+    output_type.add_argument('--installation-command', '-i', required=False,
                              action='store_true',
                              help="return the policy package installation command for given vo."
                              )
-    output_type.add_argument('-c', required=False,
+    output_type.add_argument('--get-vo-config', '-c', required=False,
                              action='store_true',
                              help="return the rucio config section for the given vo.")
-    output_type.add_argument('-t', required=False,
+    output_type.add_argument('--get-vo-tests', '-t', required=False,
                              action='store_true',
                              help="return the tests that will be run for the given vo.")
 

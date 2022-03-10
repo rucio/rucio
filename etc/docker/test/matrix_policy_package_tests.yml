@@ -83,7 +83,7 @@ atlas:
 
       
   rdbms: 
-    - postgres12
+    - postgres14
   python:
     - "3.6"
   dists:
