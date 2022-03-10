@@ -17,6 +17,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021-2022
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2022
+# - Fabio Luchetti <fabio.luchetti@cern.ch>, 2022
 
 from __future__ import print_function
 
@@ -51,7 +52,6 @@ clients_requirements_table = {
     'sftp': ['pysftp'],
     # 'gfal2': ['gfal2-python'],
     'dumper': [
-        'bz2file',
         # 'gfal2-python',
         'python-magic',
     ],
@@ -81,7 +81,6 @@ server_requirements_table = {
     'install_requires': clients_requirements_table['install_requires'] + [
         'argcomplete',
         'boto',
-        'bz2file',
         'python-magic',
         'paramiko',
         'boto3',

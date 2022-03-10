@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Fabio Luchetti <fabio.luchetti@cern.ch>, 2022
 
 import json
 import os
@@ -28,7 +27,7 @@ import sys
 import tempfile
 from datetime import datetime
 
-import bz2file
+import bz2
 import pytest
 import requests
 
@@ -105,11 +104,11 @@ def test_smart_open_for_text_file():
 
 def test_smart_open_for_bz2_file():
     fd, path = tempfile.mkstemp()
-    comp = bz2file.BZ2Compressor()
+    comp = bz2.BZ2Compressor()
     with os.fdopen(fd, 'wb') as f:
         f.write(comp.compress('abcdef'.encode()))
         f.write(comp.flush())
-    assert not isinstance(dumper.smart_open(path), bz2file.BZ2File)
+    assert not isinstance(dumper.smart_open(path), bz2.BZ2File)
     os.unlink(path)
 
 
