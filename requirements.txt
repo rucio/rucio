@@ -18,9 +18,8 @@ python-swiftclient~=3.13.1                                  # swift_extras
 argcomplete~=1.12.3                                         # argcomplete_extras; Bash tab completion for argparse
 boto>=2.49.0,<2.50.0                                        # s3_extras; S3 boto protocol
 pysftp>=0.2.9,<0.3                                          # sftp_extras; Used by sftp protocol
-bz2file>=0.98,<0.99                                         # dumper_extras; Read and write bzip2-compressed files.
 python-magic~=0.4.25                                        # dumper_extras; File type identification using libmagic
-#gfal2-python                                                # dumper_extras and gfal2_extras ~~ BROKEN in pypi
+#gfal2-python                                               # dumper_extras and gfal2_extras ~~ BROKEN in pypi
 
 # All dependencies needed to run rucio server/daemons should be defined here
 SQLAlchemy==1.4.31                                          # DB backend
