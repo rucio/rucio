@@ -8,7 +8,7 @@ on:
 
 jobs:
   header-lint:
-    if: ${{ 'github.event_name == ''pull_request''' || 'github.event_name == ''schedule''' }}
+    if: 'github.event_name == ''pull_request'''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

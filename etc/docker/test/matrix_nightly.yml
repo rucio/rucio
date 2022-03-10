@@ -39,10 +39,9 @@ suites:
     RDBMS:
       - oracle
       - mysql8
-      - postgres9
-      - postgres12
+      - postgres14
       - sqlite
   - id: multi_vo
-    RDBMS: postgres12
+    RDBMS: postgres14
 image_identifier:
   - autotest
