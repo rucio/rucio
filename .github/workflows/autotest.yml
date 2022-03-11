@@ -1,8 +1,10 @@
 name: Run all the autotests
 
 on:
-  - pull_request
-  - push
+  pull_request:
+  push:
+  schedule:
+    - cron: '0 3 * * *'
 
 jobs:
   header-lint:
@@ -41,7 +43,13 @@ jobs:
         run: python3 -c 'from os import environ as env; print("::set-output name=branch::" + (env.get("GITHUB_BASE_REF", None) if env.get("GITHUB_BASE_REF", None) else env.get("GITHUB_REF", "master")))'
       - name: Identify Matrix
         id: matrix
-        run: echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)"
+        run: |
+          EVENT="${{ github.event_name }}"
+          if [ $EVENT != 'schedule' ]; then
+            echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)"
+          else
+            echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix_nightly.yml)"
+          fi
     outputs:
       branch: ${{ steps.branch.outputs.branch }}
       matrix: ${{ steps.matrix.outputs.matrix }}

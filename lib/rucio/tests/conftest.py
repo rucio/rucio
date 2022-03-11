@@ -21,6 +21,8 @@
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021-2022
+
 
 from __future__ import print_function
 
@@ -137,6 +139,13 @@ def root_account(vo):
     from rucio.common.types import InternalAccount
 
     return InternalAccount('root', vo=vo)
+
+
+@pytest.fixture(scope='module')
+def jdoe_account(vo):
+    from rucio.common.types import InternalAccount
+
+    return InternalAccount('jdoe', vo=vo)
 
 
 @pytest.fixture(scope="module")
