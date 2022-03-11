@@ -608,6 +608,7 @@ class UploadClient:
 
         # Getting pfn
         pfn = None
+        readpfn = None
         try:
             pfn = list(protocol_write.lfns2pfns(make_valid_did(lfn)).values())[0]
             logger(logging.DEBUG, 'The PFN created from the LFN: {}'.format(pfn))
@@ -621,23 +622,24 @@ class UploadClient:
         # Auth. mostly for object stores
         if sign_service:
             pfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'write', pfn)       # NOQA pylint: disable=undefined-variable
+            protocol_read = self._create_protocol(rse_settings, 'read', domain=domain, impl=impl)
+            readpfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
 
         # Create a name of tmp file if renaming operation is supported
         pfn_tmp = '%s.rucio.upload' % pfn if protocol_write.renaming else pfn
+        readpfn_tmp = '%s.rucio.upload' % readpfn if protocol_write.renaming else readpfn
 
-        # Either DID eixsts or not register_after_upload
+        # Either DID exists or not register_after_upload
         if protocol_write.overwrite is False and delete_existing is False:
             if sign_service:
                 # Construct protocol for read ONLY for cloud resources and get signed URL for GET
-                protocol_read = self._create_protocol(rse_settings, 'read', domain=domain, impl=impl)
-                readpfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
                 if protocol_read.exists(readpfn):
                     raise FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))  # wrong exception ?
-            if not sign_service and protocol_write.exists(pfn):
+            elif protocol_write.exists(pfn):
                 raise FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))  # wrong exception ?
 
         # Removing tmp from earlier attempts
-        if protocol_write.exists(pfn_tmp):
+        if (not sign_service and protocol_write.exists(pfn_tmp)) or (sign_service and protocol_read.exists(readpfn_tmp)):
             logger(logging.DEBUG, 'Removing remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
