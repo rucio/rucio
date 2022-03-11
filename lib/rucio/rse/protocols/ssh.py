@@ -100,7 +100,6 @@ class Default(protocol.RSEProtocol):
 
         try:
             # ssh stat for getting filesize
-            print(f"path={path}")
             cmd = 'ssh -p {0} {1}{2} stat --printf="%s" {3}'.format(self.port, self.sshuser, self.hostname, path)
             self.logger(logging.DEBUG, 'ssh.stat: filesize cmd: {}'.format(cmd))
             status_stat, out, err = execute(cmd)
