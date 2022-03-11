@@ -17,6 +17,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2022
 
 set -eo pipefail
 
@@ -94,26 +95,6 @@ elif [ $RDBMS == "mysql8" ]; then
     fi
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_mysql8.cfg /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_mysql8.ini /opt/rucio/etc/alembic.ini
-    RESTART_HTTPD=1
-
-elif [ $RDBMS == "postgres9" ]; then
-    CON_POSTGRES=$(docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS -e POSTGRES_PASSWORD=secret docker.io/postgres:9 -c 'max_connections=300')
-    docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS docker.io/webcenter/activemq:latest
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO sh -c 'echo 127.0.0.1 postgres9 activemq >> /etc/hosts'
-
-    date
-    for i in {1..30}; do
-        sleep 1
-        cont=$(bash -c 'docker '"$CONTAINER_RUNTIME_ARGS"' exec '"$CON_POSTGRES"' pg_isready 1>&2; echo $?')
-        [ "$cont" -eq "0" ] && break
-    done
-    date
-    if [ "$cont" -ne "0" ]; then
-        echo Could not connect to Postgres in time.
-        exit 1
-    fi
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_postgres9.cfg /opt/rucio/etc/rucio.cfg
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_postgres9.ini /opt/rucio/etc/alembic.ini
     RESTART_HTTPD=1
 
 elif [ $RDBMS == "postgres14" ]; then
