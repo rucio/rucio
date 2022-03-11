@@ -2631,7 +2631,8 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
         models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle'
     ).where(
         models.RSEFileAssociation.lock_cnt == 0,
-        models.RSEFileAssociation.rse_id == rse_id,
+        # The following CASE is to mimic the Oracle's functional "tombstone" index. Otherwise the optimiser doesn't use the index.
+        case([(models.RSEFileAssociation.tombstone != null(), models.RSEFileAssociation.rse_id), ]) == rse_id,
         models.RSEFileAssociation.tombstone == OBSOLETE if only_delete_obsolete else models.RSEFileAssociation.tombstone < datetime.utcnow(),
     ).where(
         or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
