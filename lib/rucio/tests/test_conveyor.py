@@ -73,7 +73,7 @@ def __wait_for_replica_transfer(dst_rse_id, scope, name, state=ReplicaState.AVAI
     return replica
 
 
-def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MAX_POLL_WAIT_SECONDS, run_poller=True, run_finisher=False):
+def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MAX_POLL_WAIT_SECONDS, run_poller=True):
     """
     Wait for the request state to be updated to the given expected state as a result of a pending transfer
     """
@@ -81,8 +81,6 @@ def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MA
     for _ in range(max_wait_seconds):
         if run_poller:
             poller(once=True, older_than=0, partition_wait_time=None)
-        if run_finisher:
-            finisher(once=True, partition_wait_time=None)
         request = request_core.get_request_by_did(rse_id=dst_rse_id, scope=scope, name=name)
         if request['state'] == state:
             break
@@ -93,8 +91,8 @@ def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MA
 def __wait_for_fts_state(request, expected_state, max_wait_seconds=MAX_POLL_WAIT_SECONDS):
     job_state = ''
     for _ in range(max_wait_seconds):
-        fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query(request['external_id'])
-        job_state = fts_response[request['external_id']][request['id']]['job_state']
+        fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query({request['external_id']: {request['id']: request}})
+        job_state = fts_response[request['external_id']][request['id']].job_response['job_state']
         if job_state == expected_state:
             break
         time.sleep(1)
@@ -124,7 +122,6 @@ def __get_source(request_id, src_rse_id, scope, name, session=None):
         .first()
 
 
-@pytest.mark.skip(reason="Needs to be improved as discussed in #5190")
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter, poller and finisher; changes XRD3 usage and limits")
@@ -189,6 +186,25 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         assert replica['tombstone'] == datetime(year=1970, month=1, day=1)
         assert replica['state'] == ReplicaState.COPYING
 
+        request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+        # Fake an existing unused source with raking of 0 for the second source.
+        # The ranking of this source should remain at 0 till the end.
+
+        @transactional_session
+        def __fake_source_ranking(session=None):
+            models.Source(request_id=request['id'],
+                          scope=request['scope'],
+                          name=request['name'],
+                          rse_id=src_rse2_id,
+                          dest_rse_id=request['dest_rse_id'],
+                          ranking=0,
+                          bytes=request['bytes'],
+                          url=None,
+                          is_using=False). \
+                save(session=session, flush=False)
+
+        __fake_source_ranking()
+
         # The intermediate replica is protected by its state (Copying)
         rucio.daemons.reaper.reaper.REGION.invalidate()
         reaper(once=True, rses=[], include_rses=jump_rse_name, exclude_rses=None)
@@ -199,12 +215,16 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         replica = __wait_for_replica_transfer(dst_rse_id=jump_rse_id, **did)
         assert replica['state'] == ReplicaState.AVAILABLE
 
-        # FTS can fail the second transfer
+        # ensure tha the ranking was correct for all sources and intermediate rses
+        assert __get_source(request_id=request['id'], src_rse_id=src_rse1_id, **did).ranking == 0
+        assert __get_source(request_id=request['id'], src_rse_id=jump_rse_id, **did).ranking == 0
+        assert __get_source(request_id=request['id'], src_rse_id=src_rse2_id, **did).ranking == 0
+        # Only group_bulk=1 part of the path was submitted.
         # run submitter again to copy from jump rse to destination rse
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
         # Wait for the destination replica to become ready
-        replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, **did, max_wait_seconds=120)
+        replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, **did)
         assert replica['state'] == ReplicaState.AVAILABLE
 
         rucio.daemons.reaper.reaper.REGION.invalidate()
@@ -213,10 +233,10 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         with pytest.raises(ReplicaNotFound):
             replica_core.get_replica(rse_id=jump_rse_id, **did)
 
-        # 4 request: copy to second source + 1 multihop with two hops (but second hop fails) + re-scheduled second hop
+        # 3 request: copy to second source + 2 hops (each separately)
         # Use inequalities, because there can be left-overs from other tests
-        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 4
-        assert metrics_mock.get_sample_value('rucio_core_request_submit_transfer_total') >= 4
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 3
+        assert metrics_mock.get_sample_value('rucio_core_request_submit_transfer_total') >= 3
         # at least the failed hop
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_finisher_handle_requests_total') > 0
     finally:
@@ -489,16 +509,11 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
 
         request = __wait_for_request_state(dst_rse_id=jump_rse_id, state=RequestState.FAILED, run_poller=False, **did)
         assert request['state'] == RequestState.FAILED
-        # We use FTS "Completion" messages in receiver. In case of multi-hops transfer failures, FTS doesn't start
-        # next transfers; so it never sends a "completion" message for some hops. Rely on poller in such cases.
-        # TODO: set the run_poller argument to False if we ever manage to make the receiver correctly handle multi-hop failures.
-        request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, run_poller=True, **did)
+        request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, run_poller=False, **did)
         assert request['state'] == RequestState.FAILED
         assert 'Unused hop in multi-hop' in request['err_msg']
 
-        # First hop will be handled by receiver; second hop by poller
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 1
-        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 1
 
         finisher(once=True, partition_wait_time=None)
         # The intermediate request must not be re-scheduled by finisher
@@ -551,8 +566,8 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config
         request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.DONE, run_poller=False, **did)
         assert request['state'] == RequestState.DONE
 
-        fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query(request['external_id'])
-        assert fts_response[request['external_id']][request['id']]['priority'] == rule_priority
+        fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query({request['external_id']: {request['id']: request}})
+        assert fts_response[request['external_id']][request['id']].job_response['priority'] == rule_priority
 
         # Two hops; both handled by receiver
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 2
@@ -805,8 +820,8 @@ def test_cancel_rule(rse_factory, did_factory, root_account):
     with pytest.raises(RequestNotFound):
         request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
-    fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query(request['external_id'])
-    assert fts_response[request['external_id']][request['id']]['job_state'] == 'CANCELED'
+    fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query({request['external_id']: {request['id']: request}})
+    assert fts_response[request['external_id']][request['id']].job_response['job_state'] == 'CANCELED'
 
 
 class FTSWrapper(FTS3Transfertool):
@@ -832,9 +847,9 @@ class FTSWrapper(FTS3Transfertool):
         cls.on_submit(file)
         return file
 
-    def _FTS3Transfertool__bulk_query_responses(self, jobs_response):
+    def _FTS3Transfertool__bulk_query_responses(self, jobs_response, requests_by_eid):
         self.on_receive(jobs_response)
-        return super()._FTS3Transfertool__bulk_query_responses(jobs_response)
+        return super()._FTS3Transfertool__bulk_query_responses(jobs_response, requests_by_eid)
 
 
 @pytest.fixture
@@ -962,7 +977,7 @@ def test_file_exists_handled(overwrite_on_tape_topology, core_config_mock, cache
                         file['file_metadata']['dst_file']['file_on_tape'] = True
             return job_params
 
-    with patch('rucio.core.transfer.FTS3Transfertool', _FTSWrapper):
+    with patch('rucio.daemons.conveyor.poller.FTS3Transfertool', _FTSWrapper):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
         request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.DONE, **did1)
@@ -1005,7 +1020,7 @@ def test_overwrite_corrupted_files(overwrite_on_tape_topology, core_config_mock,
                         file['file_metadata']['dst_file']['file_on_tape'] = True
             return job_params
 
-    with patch('rucio.core.transfer.FTS3Transfertool', _FTSWrapper):
+    with patch('rucio.daemons.conveyor.poller.FTS3Transfertool', _FTSWrapper):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
         # Both transfers must be marked as failed because the file size is incorrect
         request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did1)
@@ -1084,7 +1099,7 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
             certs_used_by_submitter.append(self.cert[0])
             return generate_uuid()
 
-        def bulk_query(self, transfer_ids, timeout=None):
+        def bulk_query(self, requests_by_eid, timeout=None):
             certs_used_by_poller.append(self.cert[0])
             return {}
 
@@ -1093,6 +1108,121 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
         assert sorted(certs_used_by_submitter) == ['DEFAULT_DUMMY_CERT', 'NEW_VO_DUMMY_CERT']
 
-    with patch('rucio.core.transfer.FTS3Transfertool', _FTSWrapper):
+    with patch('rucio.daemons.conveyor.poller.FTS3Transfertool', _FTSWrapper):
         poller(once=True, older_than=0, partition_wait_time=None)
         assert sorted(certs_used_by_poller) == ['DEFAULT_DUMMY_CERT', 'NEW_VO_DUMMY_CERT']
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+@pytest.mark.parametrize("core_config_mock", [
+    {"table_content": [
+        ('transfers', 'use_multihop', True),
+        ('transfers', 'multihop_tombstone_delay', -1),  # Set OBSOLETE tombstone for intermediate replicas
+    ]},
+], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
+    'rucio.core.config.REGION',
+    'rucio.daemons.reaper.reaper.REGION',
+]}], indirect=True)
+def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
+    """
+    Handle correctly two multihop transfers having to both jump via the same intermediate hops
+    """
+    # +------+    +------+    +------+    +------+    +------+
+    # |      |    |      |    |      |    |      |    |      |
+    # | RSE1 +--->| RSE2 +--->| RSE3 +--->| RSE4 +--->| RSE5 |
+    # |      |    |      |    |      |    |      |    |      |
+    # +------+    +------+    +---+--+    +------+    +------+
+    #                             |
+    #                             |       +------+    +------+
+    #                             |       |      |    |      |
+    #                             +------>| RSE6 +--->| RSE7 |
+    #                                     |      |    |      |
+    #                                     +------+    +------+
+    _, _, reaper_cache_region = caches_mock
+    rse1, rse1_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    rse2, rse2_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    rse3, rse3_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    rse4, rse4_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    rse5, rse5_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    rse6, rse6_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    rse7, rse7_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    all_rses = [rse1_id, rse2_id, rse3_id, rse4_id, rse5_id, rse6_id, rse7_id]
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+        rse_core.add_rse_attribute(rse_id, 'available_for_multihop', True)
+        rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=1)
+        rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=1, free=0)
+    distance_core.add_distance(rse1_id, rse2_id, ranking=10)
+    distance_core.add_distance(rse2_id, rse3_id, ranking=10)
+    distance_core.add_distance(rse3_id, rse4_id, ranking=10)
+    distance_core.add_distance(rse4_id, rse5_id, ranking=10)
+    distance_core.add_distance(rse3_id, rse6_id, ranking=10)
+    distance_core.add_distance(rse6_id, rse7_id, ranking=10)
+
+    did = did_factory.upload_test_file(rse1)
+    rule_core.add_rule(dids=[did], account=root_account, copies=2, rse_expression=f'{rse5}|{rse7}', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    class _FTSWrapper(FTSWrapper):
+        @staticmethod
+        def on_submit(file):
+            # Simulate using the mock gfal plugin a transfer failure
+            file['sources'] = [set_query_parameters(s_url, {'errno': 2}) for s_url in file['sources']]
+
+    # Submit the first time, but force a failure to verify that retries are correctly handled
+    with patch('rucio.daemons.conveyor.submitter.TRANSFERTOOL_CLASSES_BY_NAME') as tt_mock:
+        tt_mock.__getitem__.return_value = _FTSWrapper
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+    request = __wait_for_request_state(dst_rse_id=rse2_id, state=RequestState.FAILED, **did)
+    assert request['state'] == RequestState.FAILED
+
+    # Re-submit the transfer without simulating a failure. Everything should go as normal starting now.
+    finisher(once=True, partition_wait_time=None)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+    # one request must be submitted, but the second will only be queued
+    if request_core.get_request_by_did(rse_id=rse5_id, **did)['state'] == RequestState.QUEUED:
+        rse_id_second_to_last_queued, rse_id_queued = rse4_id, rse5_id
+        rse_id_second_to_last_submit, rse_id_submitted = rse6_id, rse7_id
+    else:
+        rse_id_second_to_last_queued, rse_id_queued = rse6_id, rse7_id
+        rse_id_second_to_last_submit, rse_id_submitted = rse4_id, rse5_id
+    request = request_core.get_request_by_did(rse_id=rse_id_queued, **did)
+    assert request['state'] == RequestState.QUEUED
+    request = request_core.get_request_by_did(rse_id=rse_id_submitted, **did)
+    assert request['state'] == RequestState.SUBMITTED
+
+    # Calling submitter again will not unblock the queued requests
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+    replica = __wait_for_replica_transfer(dst_rse_id=rse_id_submitted, **did)
+    assert replica['state'] == ReplicaState.AVAILABLE
+    request = request_core.get_request_by_did(rse_id=rse_id_queued, **did)
+    assert request['state'] == RequestState.QUEUED
+
+    # Once the submitted transfer is done, the submission will continue for second request (one hop at a time)
+    # First of the remaining two hops submitted
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+    replica = __wait_for_replica_transfer(dst_rse_id=rse_id_second_to_last_queued, **did)
+    assert replica['state'] == ReplicaState.AVAILABLE
+
+    # One of the intermediate replicas is eligible for deletion. Others are blocked by entries in source table
+    reaper_cache_region.invalidate()
+    reaper(once=True, rses=[], include_rses='|'.join([rse2, rse3, rse4, rse6]), exclude_rses=None)
+    with pytest.raises(ReplicaNotFound):
+        replica_core.get_replica(rse_id=rse_id_second_to_last_submit, **did)
+    for rse_id in [rse2_id, rse3_id, rse_id_second_to_last_queued]:
+        replica_core.get_replica(rse_id=rse_id, **did)
+
+    # Final hop
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+    replica = __wait_for_replica_transfer(dst_rse_id=rse_id_queued, **did)
+    assert replica['state'] == ReplicaState.AVAILABLE
+
+    # All intermediate replicas can be deleted
+    reaper_cache_region.invalidate()
+    reaper(once=True, rses=[], include_rses='|'.join([rse2, rse3, rse4, rse6]), exclude_rses=None)
+    for rse_id in [rse2_id, rse3_id, rse4_id, rse6_id]:
+        with pytest.raises(ReplicaNotFound):
+            replica_core.get_replica(rse_id=rse_id, **did)

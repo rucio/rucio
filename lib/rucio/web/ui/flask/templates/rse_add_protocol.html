@@ -9,6 +9,7 @@
  Authors:
  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2020
+ - Radu Carpa <radu.carpa@cern.ch>, 2022
 -->
 
 {% extends 'base.html' %}
@@ -72,10 +73,18 @@
                     </div>
                     <div class="row collapse">
                         <div class="large-1 columns">
-                            <label for="wan_third_party_copy" class="left inline">Third party copy</label>
+                            <label for="wan_third_party_copy_read" class="left inline">Third party copy read</label>
                         </div>
                         <div class="large-10 columns">
-                            <input type="number" id="wan_third_party_copy" placeholder="">
+                            <input type="number" id="wan_third_party_copy_read" placeholder="">
+                        </div>
+                    </div>
+                    <div class="row collapse">
+                        <div class="large-1 columns">
+                            <label for="wan_third_party_copy_write" class="left inline">Third party copy write</label>
+                        </div>
+                        <div class="large-10 columns">
+                            <input type="number" id="wan_third_party_copy_write" placeholder="">
                         </div>
                     </div>
                     <div class="row collapse">

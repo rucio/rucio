@@ -20,6 +20,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Rob Barnsley <rob.barnsley@skao.int>, 2021-2022
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 """
 Interface for the requests abstraction layer
@@ -54,24 +55,6 @@ def queue_requests(requests, issuer, vo='def'):
 
     new_requests = request.queue_requests(requests)
     return [api_update_return_dict(r) for r in new_requests]
-
-
-def query_request(request_id, issuer, account, vo='def'):
-    """
-    Query the status of a request.
-
-    :param request_id: Request-ID as a 32 character hex string.
-    :param issuer: Issuing account as a string.
-    :param account: Account identifier as a string.
-    :param vo: The VO to act on.
-    :returns: Request status information as a dictionary.
-    """
-
-    kwargs = {'account': account, 'issuer': issuer, 'request_id': request_id}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='query_request', kwargs=kwargs):
-        raise exception.AccessDenied('%s cannot query request %s' % (account, request_id))
-
-    return request.query_request(request_id)
 
 
 def cancel_request(request_id, issuer, account, vo='def'):

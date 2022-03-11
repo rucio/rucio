@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Mayank Sharma <imptodefeat@gmail.com>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Mayank Sharma <imptodefeat@gmail.com>, 2021-2022
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2022
 
 import time
 import datetime
@@ -25,10 +26,10 @@ import re
 
 from rucio.core.request import get_request_by_did
 from rucio.core.rule import add_rule
-from rucio.core.transfer import next_transfers_to_submit
 from rucio.common.utils import generate_uuid
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.conveyor import submitter, poller, finisher
+from rucio.daemons.conveyor.common import next_transfers_to_submit
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.utils import run_cmd_process
@@ -60,7 +61,7 @@ def check_url(pfn, hostname, path):
 
 
 def poll_fts_transfer_status(request_id, timeout=30):
-    rcode, out = run_cmd_process(f"/usr/bin/python2 /usr/bin/fts-rest-transfer-status -v -s https://fts:8446 {request_id}", timeout=timeout)
+    rcode, out = run_cmd_process(f"fts-rest-transfer-status -v -s https://fts:8446 {request_id}", timeout=timeout)
     transfer_status = None
     if rcode == 0:
         transfer_status = re.search("Status: (.*)", out).group(1)

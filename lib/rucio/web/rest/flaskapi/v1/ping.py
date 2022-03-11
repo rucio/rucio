@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2018-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from typing import TYPE_CHECKING
 
@@ -51,31 +51,24 @@ class Ping(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """
-        Ping the server and retrieve the server version.
-
-        .. :quickref: Ping; Ping the server.
-
-        **Example request**:
-
-        .. sourcecode:: http
-
-            GET /ping HTTP/1.1
-            Host: rucio-server.com
-            Accept: application/json
-
-        **Example response**:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Vary: Accept
-            Content-Type: application/json
-
-            {"version": "1.15.0"}
-
-        :status 200: OK.
-        :status 406: Not Acceptable.
-        :returns: JSON dictionary with the version.
+        ---
+        summary: Ping
+        description: Ping the server and get data about it.
+        tags:
+          - Ping
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    version:
+                      descripption: The server version.
+                      type: string
+          406:
+            description: Not acceptable
         """
         headers = self.get_headers()
         response = jsonify(version=version.version_string())

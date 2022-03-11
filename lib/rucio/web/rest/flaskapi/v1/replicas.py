@@ -63,6 +63,68 @@ def _sorted_with_priorities(replicas, sorted_pfns, limit=None):
             yield pfn, replica
 
 
+def _generate_one_metalink_file(rfile, policy_schema, detailed_url=True):
+    yield ' <file name="' + rfile['name'] + '">\n'
+
+    if 'parents' in rfile and rfile['parents']:
+        yield '  <parents>\n'
+        for parent in rfile['parents']:
+            yield '   <did>' + parent + '</did>\n'
+        yield '  </parents>\n'
+
+    yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
+    if rfile['adler32'] is not None:
+        yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
+    if rfile['md5'] is not None:
+        yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
+
+    yield '  <size>' + str(rfile['bytes']) + '</size>\n'
+
+    yield f'  <glfn name="/{policy_schema}/rucio/{rfile["scope"]}:{rfile["name"]}"></glfn>\n'
+
+    for pfn, replica in rfile['pfns'].items():
+        if detailed_url:
+            yield (
+                '  '
+                f'<url location="{replica["rse"]}"'
+                f' domain="{replica["domain"]}"'
+                f' priority="{replica["priority"]}"'
+                f' client_extract="{str(replica["client_extract"]).lower()}"'
+                f'>{escape(pfn)}</url>\n'
+            )
+        else:
+            yield (
+                '  '
+                f'<url location="{replica["rse"]}"'
+                f' priority="{replica["priority"]}"'
+                f'>{escape(pfn)}</url>\n'
+            )
+    yield ' </file>\n'
+
+
+def _generate_metalink_response(rfiles, policy_schema, detailed_url=True):
+    first = True
+    for rfile in rfiles:
+        if first:
+            # first, set the appropriate content type, and stream the header
+            yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
+            first = False
+
+        yield from _generate_one_metalink_file(rfile, policy_schema=policy_schema, detailed_url=detailed_url)
+
+    if first:
+        # if still first output, i.e. there were no replicas
+        yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n</metalink>\n'
+    else:
+        # don't forget to send the metalink footer
+        yield '</metalink>\n'
+
+
+def _generate_json_response(rfiles):
+    for rfile in rfiles:
+        yield dumps(rfile) + '\n'
+
+
 class Replicas(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream', 'application/metalink4+xml'])
@@ -113,18 +175,10 @@ class Replicas(ErrorHandlingMethodView):
             schemes = SUPPORTED_PROTOCOLS
 
         try:
-            def generate(vo):
+            def _list_and_sort_replicas(vo):
                 # we need to call list_replicas before starting to reply
                 # otherwise the exceptions won't be propagated correctly
-                first = metalink
-
-                # then, stream the replica information
                 for rfile in list_replicas(dids=dids, schemes=schemes, vo=vo):
-                    if first and metalink:
-                        # first, set the appropriate content type, and stream the header
-                        yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
-                        first = False
-
                     replicas = []
                     dictreplica = {}
                     for rse in rfile['rses']:
@@ -133,39 +187,15 @@ class Replicas(ErrorHandlingMethodView):
                             dictreplica[replica] = rse
 
                     replicas = sort_replicas(dictreplica, client_location, selection=select)
+                    rfile['pfns'] = dict(_sorted_with_priorities(rfile['pfns'], replicas, limit=limit))
+                    yield rfile
 
-                    if not metalink:
-                        rfile['pfns'] = dict(_sorted_with_priorities(rfile['pfns'], replicas))
-                        yield dumps(rfile) + '\n'
-                    else:
-                        yield ' <file name="' + rfile['name'] + '">\n'
-                        yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
-
-                        if rfile['adler32'] is not None:
-                            yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
-                        if rfile['md5'] is not None:
-                            yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
-
-                        yield '  <size>' + str(rfile['bytes']) + '</size>\n'
-
-                        yield f'  <glfn name="/atlas/rucio/{rfile["scope"]}:{rfile["name"]}">'
-                        yield '</glfn>\n'
-
-                        for idx, replica in enumerate(replicas, start=1):
-                            yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx) + '">' + escape(replica) + '</url>\n'
-                            if limit and limit == idx:
-                                break
-                        yield ' </file>\n'
-
-                if metalink:
-                    if first:
-                        # if still first output, i.e. there were no replicas
-                        yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n</metalink>\n'
-                    else:
-                        # don't forget to send the metalink footer
-                        yield '</metalink>\n'
-
-            return try_stream(generate(vo=request.environ.get('vo')), content_type=content_type)
+            rfiles = _list_and_sort_replicas(vo=request.environ.get('vo'))
+            if metalink:
+                response_generator = _generate_metalink_response(rfiles, 'atlas', detailed_url=False)
+            else:
+                response_generator = _generate_json_response(rfiles)
+            return try_stream(response_generator, content_type=content_type)
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -355,11 +385,9 @@ class ListReplicas(ErrorHandlingMethodView):
         content_type = 'application/metalink4+xml' if metalink else 'application/x-json-stream'
 
         try:
-            def generate(request_id, issuer, vo):
+            def _list_and_sort_replicas(request_id, issuer, vo):
                 # we need to call list_replicas before starting to reply
                 # otherwise the exceptions won't be propagated correctly
-                first = True
-
                 for rfile in list_replicas(dids=dids, schemes=schemes,
                                            unavailable=unavailable,
                                            request_id=request_id,
@@ -390,52 +418,17 @@ class ListReplicas(ErrorHandlingMethodView):
                                                                  sorted_pfns=chain(sorted(lanreplicas.keys(), key=lambda pfn: lanreplicas[pfn][1]),
                                                                                    sort_replicas(wanreplicas, client_location, selection=select)),
                                                                  limit=limit))
+                    yield rfile
 
-                    if not metalink:
-                        yield dumps(rfile, cls=APIEncoder) + '\n'
-                    else:
-                        # in first round, set the appropriate content type, and stream the header
-                        if first:
-                            yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
-                        first = False
-                        yield ' <file name="' + rfile['name'] + '">\n'
-
-                        if 'parents' in rfile and rfile['parents']:
-                            yield '  <parents>\n'
-                            for parent in rfile['parents']:
-                                yield '   <did>' + parent + '</did>\n'
-                            yield '  </parents>\n'
-
-                        yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
-                        if rfile['adler32'] is not None:
-                            yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
-                        if rfile['md5'] is not None:
-                            yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
-                        yield '  <size>' + str(rfile['bytes']) + '</size>\n'
-
-                        policy_schema = config_get('policy', 'schema', raise_exception=False, default='generic')
-                        yield f'  <glfn name="/{policy_schema}/rucio/{rfile["scope"]}:{rfile["name"]}"></glfn>\n'
-
-                        for pfn, replica in rfile['pfns'].items():
-                            yield '  <url location="' + str(replica['rse']) \
-                                + '" domain="' + str(replica['domain']) \
-                                + '" priority="' + str(replica['priority']) \
-                                + '" client_extract="' + str(replica['client_extract']).lower() \
-                                + '">' + escape(pfn) + '</url>\n'
-                        yield ' </file>\n'
-
-                if metalink:
-                    if first:
-                        # if still first output, i.e. there were no replicas
-                        yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n</metalink>\n'
-                    else:
-                        # don't forget to send the metalink footer
-                        yield '</metalink>\n'
-
-            return try_stream(generate(request_id=request.environ.get('request_id'),
-                                       issuer=request.environ.get('issuer'),
-                                       vo=request.environ.get('vo')),
-                              content_type=content_type)
+            rfiles = _list_and_sort_replicas(request_id=request.environ.get('request_id'),
+                                             issuer=request.environ.get('issuer'),
+                                             vo=request.environ.get('vo'))
+            if metalink:
+                policy_schema = config_get('policy', 'schema', raise_exception=False, default='generic')
+                response_generator = _generate_metalink_response(rfiles, policy_schema)
+            else:
+                response_generator = _generate_json_response(rfiles)
+            return try_stream(response_generator, content_type=content_type)
         except InvalidObject as error:
             return generate_http_error_flask(400, error)
         except DataIdentifierNotFound as error:

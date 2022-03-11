@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from rucio.common.exception import NoDistance
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replicas
-from rucio.core.transfer import get_hops, next_transfers_to_submit
+from rucio.core.transfer import get_hops
 from rucio.core import rule as rule_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
@@ -31,6 +31,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType, RequestState
 from rucio.db.sqla.session import transactional_session
 from rucio.common.utils import generate_uuid
+from rucio.daemons.conveyor.common import next_transfers_to_submit
 
 
 def test_get_hops(rse_factory):
@@ -278,8 +279,7 @@ def test_multihop_concurrent_submitters(rse_factory, did_factory, root_account, 
     dst_request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
     assert jmp_request['state'] == dst_request['state'] == RequestState.QUEUED
     assert jmp_request['attributes']['source_replica_expression'] == src_rse
-    assert jmp_request['attributes']['initial_request_id'] == dst_request['id']
-    assert jmp_request['attributes']['next_hop_request_id'] == dst_request['id']
+    assert jmp_request['attributes']['is_intermediate_hop']
 
 
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [

@@ -47,7 +47,7 @@ from rucio.core.rse_expression_parser import parse_expression
 if TYPE_CHECKING:
     from typing import Dict, List, Optional
 
-REGION = make_region_memcached(expiration_time=1800, function_key_generator=utils.my_key_generator)
+REGION = make_region_memcached(expiration_time=900, function_key_generator=utils.my_key_generator)
 
 # This product uses GeoLite data created by MaxMind,
 # available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>
@@ -75,7 +75,9 @@ def __download_geoip_db(destination):
     download_url = config_get('core', 'geoip_download_url', raise_exception=False, default=None)
     verify_tls = config_get_bool('core', 'geoip_download_verify_tls', raise_exception=False, default=True)
     if not download_url:
-        licence_key = config_get('core', 'geoip_licence_key', raise_exception=False, default='NOLICENCE')
+        licence_key = config_get('core', 'geoip_licence_key', raise_exception=False, default=None)
+        if not licence_key:
+            raise Exception('Cannot download GeoIP database: licence key not provided')
         download_url = 'https://download.maxmind.com/app/geoip_download?edition_id=%s&license_key=%s&suffix=tar.gz' % (edition_id, licence_key)
 
     result = requests.get(download_url, stream=True, verify=verify_tls)
@@ -136,7 +138,7 @@ def __get_distance(se1, client_location, ignore_error):
     # does not cache ignore_error, str.lower on hostnames/ips is fine
     canonical_parties = list(map(lambda x: str(x).lower(), [se1, client_location['ip'], client_location.get('latitude', ''), client_location.get('longitude', '')]))
     canonical_parties.sort()
-    cache_key = f'replica_sorter:__get_distance|site_distance|{"".join(canonical_parties)}'
+    cache_key = f'replica_sorter:__get_distance|site_distance|{"".join(canonical_parties)}'.replace(' ', '.')
     cache_val = REGION.get(cache_key)
     if cache_val is NO_VALUE:
         try:

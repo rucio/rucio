@@ -22,6 +22,8 @@
 #
 # PY3K COMPATIBLE
 
+from os import environ
+
 try:
     from ConfigParser import NoOptionError, NoSectionError
 except ImportError:
@@ -57,7 +59,10 @@ if not multivo:
 
     if config.config_has_section('policy'):
         try:
-            POLICY = config.config_get('policy', 'package', check_config_table=False) + ".permission"
+            if 'RUCIO_POLICY_PACKAGE' in environ:
+                POLICY = environ['RUCIO_POLICY_PACKAGE'] + ".permission"
+            else:
+                POLICY = config.config_get('policy', 'package', check_config_table=False) + ".permission"
         except (NoOptionError, NoSectionError):
             # fall back to old system for now
             POLICY = 'rucio.core.permission.' + FALLBACK_POLICY.lower()
@@ -76,7 +81,11 @@ def load_permission_for_vo(vo):
     GENERIC_FALLBACK = 'generic_multi_vo'
     if config.config_has_section('policy'):
         try:
-            POLICY = config.config_get('policy', 'package-' + vo) + ".permission"
+            env_name = 'RUCIO_POLICY_PACKAGE_' + vo.upper()
+            if env_name in environ:
+                POLICY = environ[env_name] + ".permission"
+            else:
+                POLICY = config.config_get('policy', 'package-' + vo) + ".permission"
         except (NoOptionError, NoSectionError):
             # fall back to old system for now
             try:

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020-2021
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
-# - Joaquin Bogado <joaquinbogado@gmail.com>, 2021
+# - joaquinbogado <joaquinbogado@gmail.com>, 2021
 # - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
-ALEMBIC_REVISION = '9a45bc4ea66d'  # the current alembic head revision
+ALEMBIC_REVISION = 'fe1a65b176c9'  # the current alembic head revision

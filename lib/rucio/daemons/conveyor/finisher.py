@@ -69,7 +69,7 @@ except ImportError:
 
 graceful_stop = threading.Event()
 
-region = make_region_memcached(expiration_time=3600)
+region = make_region_memcached(expiration_time=900)
 
 
 def run_once(bulk, db_bulk, suspicious_patterns, retry_protocol_mismatches, total_workers, worker_number, logger, activity):

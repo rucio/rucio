@@ -23,6 +23,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2022
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 import unittest
 
@@ -60,7 +61,7 @@ class TestCredential(unittest.TestCase):
                                     'impl': 'rucio.rse.protocols.gfal.Default',
                                     'domains': {
                                         'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                        'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy': 1}}})
+                                        'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy_read': 1, 'third_party_copy_write': 1}}})
 
         add_protocol(self.rse2_id, {'scheme': 'https',
                                     'hostname': 'storage.googleapis.com',
@@ -69,7 +70,7 @@ class TestCredential(unittest.TestCase):
                                     'impl': 'rucio.rse.protocols.gfal.Default',
                                     'domains': {
                                         'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                        'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy': 1}}})
+                                        'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy_read': 1, 'third_party_copy_write': 1}}})
 
         # register some files there
         self.files = [{'scope': InternalScope('mock', **self.vo),

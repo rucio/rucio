@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2021-2022 CERN
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Stefan Piperov <piperov@cern.ch>, 2021-2022
+
+"""
+Storage-Consistency-Actions is a daemon to trigger the
+deletion of dark files and re-transfer missing files at
+sites, as identified by the Storage-Consistency-Scanner.
+"""
+
+import argparse
+import pathlib
+import signal
+
+from rucio.daemons.storage.consistency.actions import run, stop
+
+
+def get_parser():
+    """
+    Returns the argparse parser.
+    """
+    parser = argparse.ArgumentParser(description="The Consistency-Actions daemon is responsible for applying the corrective actions resulting from a consistency-check scan of an RSE.", epilog='''
+Run the daemon::
+  $ rucio-storage-consistency-actions --run-once --scope cms --rses T2_US_Purdue T2_US_Nebraska --dark-threshold-percent 2.0 --miss-threshold-percent 1.5 --scanner-files-path /tmp/consistency-dump --sleep-time 10
+    ''')
+    parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
+    parser.add_argument("--scope", action="store", default=False, type=str,
+                        help='Scope of the input files produced by theiCC scanner - e.g.: "cms" ')
+    parser.add_argument("--rses", nargs='+', default=[], type=str,
+                        help='RSEs to check, specified as a RSE expression. Defaults to check all RSEs.')
+    parser.add_argument('--sleep-time', action="store", default=60, type=int,
+                        help='Concurrency control: thread sleep time (in seconds) after each chunk of work')
+    parser.add_argument('--dark-min-age', action="store", default=28, type=int,
+                        help='Min. age (in days) of a file to be considered as DARK.')
+    parser.add_argument('--dark-threshold-percent', action="store", default=1.0,
+                        type=float, help='Max. percentage of dark files at RSE, expressed as percents - e.g. 1.5 means 1.5%%')
+    parser.add_argument('--miss-threshold-percent', action="store", default=1.0,
+                        type=float, help='Max. percentage of missing files at RSE, expressed as percents - e.g. 1.5 means 1.5%%')
+    parser.add_argument('--scanner-files-path', action="store",
+                        default="/var/cache/consistency-dump", type=pathlib.Path,
+                        help='The path where the CC scanner files are mounted.')
+    parser.add_argument("--threads", action="store", default=1, type=int,
+                        help='Concurrency control: total number of threads on this process')
+    parser.add_argument('-f', '--force-proceed', action="store_true", default=False,
+                        help='Force CC actions, even if number of dark/missing files over thresholds')
+
+    return parser
+
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, stop)
+    parser = get_parser()
+    args = parser.parse_args()
+    try:
+        run(once=args.run_once, scope=args.scope, rses=args.rses, sleep_time=args.sleep_time,
+            default_dark_min_age=args.dark_min_age,
+            default_dark_threshold_percent=args.dark_threshold_percent,
+            default_miss_threshold_percent=args.miss_threshold_percent,
+            force_proceed=args.force_proceed,
+            default_scanner_files_path=args.scanner_files_path,
+            threads=args.threads)
+    except KeyboardInterrupt:
+        stop()

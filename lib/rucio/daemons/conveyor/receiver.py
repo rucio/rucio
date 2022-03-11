@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2021 CERN
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,8 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -46,14 +47,14 @@ import stomp
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
-from rucio.common.constants import FTS_COMPLETE_STATE
 from rucio.common.logging import setup_logging
 from rucio.common.policy import get_policy
-from rucio.core import request
+from rucio.core import request as request_core
 from rucio.core.monitor import record_counter
-from rucio.core.transfer import set_transfer_update_time, is_recoverable_fts_overwrite_error
+from rucio.core.transfer import set_transfer_update_time
 from rucio.daemons.conveyor.common import HeartbeatHandler
-from rucio.db.sqla.constants import RequestState
+from rucio.db.sqla.session import transactional_session
+from rucio.transfertool.fts3 import FTS3CompletionMessageTransferStatusReport
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
@@ -90,65 +91,31 @@ class Receiver(object):
             if 'job_state' in msg.keys() and (
                     str(msg['job_state']) != str('ACTIVE')
                     or str(msg['job_state']) == str('ACTIVE') and 'job_m_replica' in msg.keys() and (str(msg['job_m_replica']).lower() == str('true'))):
-
-                response = {'new_state': None,
-                            'transfer_id': msg.get('tr_id').split("__")[-1],
-                            'job_state': msg.get('t_final_transfer_state', None),
-                            'src_url': msg.get('src_url', None),
-                            'dst_url': msg.get('dst_url', None),
-                            'started_at': datetime.datetime.utcfromtimestamp(float(msg.get('tr_timestamp_start', 0)) / 1000),
-                            'transferred_at': datetime.datetime.utcfromtimestamp(float(msg.get('tr_timestamp_complete', 0)) / 1000),
-                            'duration': (float(msg.get('tr_timestamp_complete', 0)) - float(msg.get('tr_timestamp_start', 0))) / 1000,
-                            'reason': msg.get('t__error_message', None),
-                            'scope': msg['file_metadata'].get('scope', None),
-                            'name': msg['file_metadata'].get('name', None),
-                            'src_type': msg['file_metadata'].get('src_type', None),
-                            'dst_type': msg['file_metadata'].get('dst_type', None),
-                            'src_rse': msg['file_metadata'].get('src_rse', None),
-                            'dst_rse': msg['file_metadata'].get('dst_rse', None),
-                            'dst_file': msg['file_metadata'].get('dst_file', {}),
-                            'request_id': msg['file_metadata'].get('request_id', None),
-                            'activity': msg['file_metadata'].get('activity', None),
-                            'src_rse_id': msg['file_metadata'].get('src_rse_id', None),
-                            'dest_rse_id': msg['file_metadata'].get('dest_rse_id', None),
-                            'previous_attempt_id': msg['file_metadata'].get('previous_attempt_id', None),
-                            'adler32': msg['file_metadata'].get('adler32', None),
-                            'md5': msg['file_metadata'].get('md5', None),
-                            'filesize': msg['file_metadata'].get('filesize', None),
-                            'external_host': msg.get('endpnt', None),
-                            'multi_sources': msg.get('job_metadata', {}).get('multi_sources', None),
-                            'details': {'files': msg['file_metadata']}}
-
                 record_counter('daemons.conveyor.receiver.message_rucio')
-                if str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.OK:  # pylint:disable=no-member
-                    response['new_state'] = RequestState.DONE
-                elif str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.ERROR and is_recoverable_fts_overwrite_error(response):  # pylint:disable=no-member
-                    response['new_state'] = RequestState.DONE
-                elif str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.ERROR:  # pylint:disable=no-member
-                    response['new_state'] = RequestState.FAILED
 
-                try:
-                    if response['new_state']:
-                        logging.info('RECEIVED DID %s:%s FROM %s TO %s REQUEST %s TRANSFER_ID %s STATE %s' % (response['scope'],
-                                                                                                              response['name'],
-                                                                                                              response['src_rse'],
-                                                                                                              response['dst_rse'],
-                                                                                                              response['request_id'],
-                                                                                                              response['transfer_id'],
-                                                                                                              response['new_state']))
+                self._perform_request_update(msg)
 
-                        if self.__full_mode:
-                            ret = request.update_request_state(response)
-                            record_counter('daemons.conveyor.receiver.update_request_state.{updated}', labels={'updated': ret})
-                        else:
-                            try:
-                                logging.debug("Update request %s update time" % response['request_id'])
-                                set_transfer_update_time(response['external_host'], response['transfer_id'], datetime.datetime.utcnow() - datetime.timedelta(hours=24))
-                                record_counter('daemons.conveyor.receiver.set_transfer_update_time')
-                            except Exception as error:
-                                logging.debug("Failed to update transfer's update time: %s" % str(error))
-                except Exception:
-                    logging.critical(traceback.format_exc())
+    @transactional_session
+    def _perform_request_update(self, msg, session=None, logger=logging.log):
+        external_host = msg.get('endpnt', None)
+        request_id = msg['file_metadata'].get('request_id', None)
+        try:
+            tt_status_report = FTS3CompletionMessageTransferStatusReport(external_host, request_id=request_id, fts_message=msg)
+            if tt_status_report.get_db_fields_to_update(session=session, logger=logger):
+                logging.info('RECEIVED %s', tt_status_report)
+
+                if self.__full_mode:
+                    ret = request_core.update_request_state(tt_status_report, session=session, logger=logger)
+                    record_counter('daemons.conveyor.receiver.update_request_state.{updated}', labels={'updated': ret})
+                else:
+                    try:
+                        logging.debug("Update request %s update time" % request_id)
+                        set_transfer_update_time(external_host, tt_status_report.external_id, datetime.datetime.utcnow() - datetime.timedelta(hours=24), session=session)
+                        record_counter('daemons.conveyor.receiver.set_transfer_update_time')
+                    except Exception as error:
+                        logging.debug("Failed to update transfer's update time: %s" % str(error))
+        except Exception:
+            logging.critical(traceback.format_exc())
 
 
 def receiver(id_, total_threads=1, full_mode=False, all_vos=False):
