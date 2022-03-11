@@ -96,11 +96,11 @@ class Default(protocol.RSEProtocol):
         self.logger(logging.DEBUG, 'ssh.stat: path: {}'.format(path))
         ret = {}
         chsum = None
-        if path.startswith('scp://'):
-            path = self.pfn2path(path)
+        path = self.pfn2path(path)
 
         try:
             # ssh stat for getting filesize
+            print(f"path={path}")
             cmd = 'ssh -p {0} {1}{2} stat --printf="%s" {3}'.format(self.port, self.sshuser, self.hostname, path)
             self.logger(logging.DEBUG, 'ssh.stat: filesize cmd: {}'.format(cmd))
             status_stat, out, err = execute(cmd)
@@ -310,8 +310,7 @@ class Rsync(Default):
         self.logger(logging.DEBUG, 'rsync.stat: path: {}'.format(path))
         ret = {}
         chsum = None
-        if path.startswith('rsync://'):
-            path = self.pfn2path(path)
+        path = self.pfn2path(path)
 
         try:
             # rsync stat for getting filesize
