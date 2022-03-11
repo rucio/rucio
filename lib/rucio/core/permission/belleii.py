@@ -30,7 +30,7 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.constants import IdentityType
 
 
-def has_permission(issuer, action, kwargs):
+def has_permission(issuer, action, kwargs, session=None):
     """
     Checks if an account has the specified permission to
     execute an action with parameters.
@@ -38,6 +38,7 @@ def has_permission(issuer, action, kwargs):
     :param issuer: Account identifier which issues the command..
     :param action:  The action(API call) called by the account.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     perm = {'add_account': perm_add_account,
@@ -114,866 +115,934 @@ def has_permission(issuer, action, kwargs):
             'remove_did_from_followed': perm_remove_did_from_followed,
             'remove_dids_from_followed': perm_remove_dids_from_followed}
 
-    return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
+    return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs, session=session)
 
 
 def _is_root(issuer):
     return issuer.external == 'root'
 
 
-def perm_default(issuer, kwargs):
+def perm_default(issuer, kwargs, session=None):
     """
     Default permission.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_add_rse(issuer, kwargs):
+def perm_add_rse(issuer, kwargs, session=None):
     """
     Checks if an account can add a RSE.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_update_rse(issuer, kwargs):
+def perm_update_rse(issuer, kwargs, session=None):
     """
     Checks if an account can update a RSE.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_add_rule(issuer, kwargs):
+def perm_add_rule(issuer, kwargs, session=None):
     """
     Checks if an account can add a replication rule.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     if kwargs['account'] == issuer and not kwargs['locked']:
         return True
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     return False
 
 
-def perm_add_subscription(issuer, kwargs):
+def perm_add_subscription(issuer, kwargs, session=None):
     """
     Checks if an account can add a subscription.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     return False
 
 
-def perm_add_rse_attribute(issuer, kwargs):
+def perm_add_rse_attribute(issuer, kwargs, session=None):
     """
     Checks if an account can add a RSE attribute.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     return False
 
 
-def perm_del_rse_attribute(issuer, kwargs):
+def perm_del_rse_attribute(issuer, kwargs, session=None):
     """
     Checks if an account can delete a RSE attribute.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     return False
 
 
-def perm_del_rse(issuer, kwargs):
+def perm_del_rse(issuer, kwargs, session=None):
     """
     Checks if an account can delete a RSE.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_add_account(issuer, kwargs):
+def perm_add_account(issuer, kwargs, session=None):
     """
     Checks if an account can add an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_del_account(issuer, kwargs):
+def perm_del_account(issuer, kwargs, session=None):
     """
     Checks if an account can del an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_update_account(issuer, kwargs):
+def perm_update_account(issuer, kwargs, session=None):
     """
     Checks if an account can update an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_add_scope(issuer, kwargs):
+def perm_add_scope(issuer, kwargs, session=None):
     """
     Checks if an account can add a scope to an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_get_auth_token_user_pass(issuer, kwargs):
+def perm_get_auth_token_user_pass(issuer, kwargs, session=None):
     """
     Checks if a user can request a token with user_pass for an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if exist_identity_account(identity=kwargs['username'], type_=IdentityType.USERPASS, account=kwargs['account']):
+    if exist_identity_account(identity=kwargs['username'], type_=IdentityType.USERPASS, account=kwargs['account'], session=session):
         return True
     return False
 
 
-def perm_get_auth_token_gss(issuer, kwargs):
+def perm_get_auth_token_gss(issuer, kwargs, session=None):
     """
     Checks if a user can request a token with user_pass for an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if exist_identity_account(identity=kwargs['gsscred'], type_=IdentityType.GSS, account=kwargs['account']):
+    if exist_identity_account(identity=kwargs['gsscred'], type_=IdentityType.GSS, account=kwargs['account'], session=session):
         return True
     return False
 
 
-def perm_get_auth_token_x509(issuer, kwargs):
+def perm_get_auth_token_x509(issuer, kwargs, session=None):
     """
     Checks if a user can request a token with user_pass for an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if exist_identity_account(identity=kwargs['dn'], type_=IdentityType.X509, account=kwargs['account']):
+    if exist_identity_account(identity=kwargs['dn'], type_=IdentityType.X509, account=kwargs['account'], session=session):
         return True
     return False
 
 
-def perm_get_auth_token_saml(issuer, kwargs):
+def perm_get_auth_token_saml(issuer, kwargs, session=None):
     """
     Checks if a user can request a token with user_pass for an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if exist_identity_account(identity=kwargs['saml_nameid'], type_=IdentityType.SAML, account=kwargs['account']):
+    if exist_identity_account(identity=kwargs['saml_nameid'], type_=IdentityType.SAML, account=kwargs['account'], session=session):
         return True
     return False
 
 
-def perm_add_account_identity(issuer, kwargs):
+def perm_add_account_identity(issuer, kwargs, session=None):
     """
     Checks if an account can add an identity to an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_del_account_identity(issuer, kwargs):
+def perm_del_account_identity(issuer, kwargs, session=None):
     """
     Checks if an account can delete an identity to an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_del_identity(issuer, kwargs):
+def perm_del_identity(issuer, kwargs, session=None):
     """
     Checks if an account can delete an identity.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_add_did(issuer, kwargs):
+def perm_add_did(issuer, kwargs, session=None):
     """
     Checks if an account can add an data identifier to a scope.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     # Check the accounts of the issued rules
-    if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
+    if issuer != 'root' and not has_account_attribute(account=issuer, key='admin', session=session):
         for rule in kwargs.get('rules', []):
             if rule['account'] != issuer:
                 return False
 
     return _is_root(issuer)\
-        or has_account_attribute(account=issuer, key='admin')\
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+        or has_account_attribute(account=issuer, key='admin', session=session)\
+        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
 
 
-def perm_add_dids(issuer, kwargs):
+def perm_add_dids(issuer, kwargs, session=None):
     """
     Checks if an account can bulk add data identifiers.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     # Check the accounts of the issued rules
-    if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
+    if issuer != 'root' and not has_account_attribute(account=issuer, key='admin', session=session):
         for did in kwargs['dids']:
-            if not rucio.core.scope.is_scope_owner(scope=InternalScope(did['scope']), account=issuer):
+            if not rucio.core.scope.is_scope_owner(scope=InternalScope(did['scope']), account=issuer, session=session):
                 return False
             for rule in did.get('rules', []):
                 if rule['account'] != issuer:
                     return False
         return True
 
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_attach_dids(issuer, kwargs):
+def perm_attach_dids(issuer, kwargs, session=None):
     """
     Checks if an account can append an data identifier to the other data identifier.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     return _is_root(issuer)\
-        or has_account_attribute(account=issuer, key='admin')\
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+        or has_account_attribute(account=issuer, key='admin', session=session)\
+        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
 
 
-def perm_attach_dids_to_dids(issuer, kwargs):
+def perm_attach_dids_to_dids(issuer, kwargs, session=None):
     """
     Checks if an account can append an data identifier to the other data identifier.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     else:
         attachments = kwargs['attachments']
         scopes = [did['scope'] for did in attachments]
         scopes = list(set(scopes))
         for scope in scopes:
-            if not rucio.core.scope.is_scope_owner(scope, issuer):
+            if not rucio.core.scope.is_scope_owner(scope, issuer, session=session):
                 return False
         return True
 
 
-def perm_create_did_sample(issuer, kwargs):
+def perm_create_did_sample(issuer, kwargs, session=None):
     """
     Checks if an account can create a sample of a data identifier collection.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     return _is_root(issuer)\
-        or has_account_attribute(account=issuer, key='admin')\
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+        or has_account_attribute(account=issuer, key='admin', session=session)\
+        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
 
 
-def perm_del_rule(issuer, kwargs):
+def perm_del_rule(issuer, kwargs, session=None):
     """
     Checks if an issuer can delete a replication rule.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     return False
 
 
-def perm_update_rule(issuer, kwargs):
+def perm_update_rule(issuer, kwargs, session=None):
     """
     Checks if an issuer can update a replication rule.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     return False
 
 
-def perm_approve_rule(issuer, kwargs):
+def perm_approve_rule(issuer, kwargs, session=None):
     """
     Checks if an issuer can approve a replication rule.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     return False
 
 
-def perm_reduce_rule(issuer, kwargs):
+def perm_reduce_rule(issuer, kwargs, session=None):
     """
     Checks if an issuer can reduce a replication rule.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     return False
 
 
-def perm_move_rule(issuer, kwargs):
+def perm_move_rule(issuer, kwargs, session=None):
     """
     Checks if an issuer can move a replication rule.
 
     :param issuer:   Account identifier which issues the command.
     :param kwargs:   List of arguments for the action.
+    :param session: The DB session to use
     :returns:        True if account is allowed to call the API call, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     return False
 
 
-def perm_update_subscription(issuer, kwargs):
+def perm_update_subscription(issuer, kwargs, session=None):
     """
     Checks if an account can update a subscription.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
 
     return False
 
 
-def perm_detach_dids(issuer, kwargs):
+def perm_detach_dids(issuer, kwargs, session=None):
     """
     Checks if an account can detach an data identifier from the other data identifier.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return perm_attach_dids(issuer, kwargs)
+    return perm_attach_dids(issuer, kwargs, session=session)
 
 
-def perm_set_metadata(issuer, kwargs):
+def perm_set_metadata(issuer, kwargs, session=None):
     """
     Checks if an account can set a metadata on a data identifier.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin') or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session) or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
 
 
-def perm_set_status(issuer, kwargs):
+def perm_set_status(issuer, kwargs, session=None):
     """
     Checks if an account can set status on an data identifier.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     if kwargs.get('open', False):
-        if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
+        if issuer != 'root' and not has_account_attribute(account=issuer, key='admin', session=session):
             return False
 
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin') or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session) or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
 
 
-def perm_add_protocol(issuer, kwargs):
+def perm_add_protocol(issuer, kwargs, session=None):
     """
     Checks if an account can add a protocol to an RSE.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_del_protocol(issuer, kwargs):
+def perm_del_protocol(issuer, kwargs, session=None):
     """
     Checks if an account can delete protocols from an RSE.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_update_protocol(issuer, kwargs):
+def perm_update_protocol(issuer, kwargs, session=None):
     """
     Checks if an account can update protocols of an RSE.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_declare_bad_file_replicas(issuer, kwargs):
+def perm_declare_bad_file_replicas(issuer, kwargs, session=None):
     """
     Checks if an account can declare bad file replicas.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     return _is_root(issuer)
 
 
-def perm_declare_suspicious_file_replicas(issuer, kwargs):
+def perm_declare_suspicious_file_replicas(issuer, kwargs, session=None):
     """
     Checks if an account can declare suspicious file replicas.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     return True
 
 
-def perm_add_replicas(issuer, kwargs):
+def perm_add_replicas(issuer, kwargs, session=None):
     """
     Checks if an account can add replicas.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     return str(kwargs.get('rse', '')).endswith('TMP-SE')\
         or _is_root(issuer)\
-        or has_account_attribute(account=issuer, key='admin')
+        or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_skip_availability_check(issuer, kwargs):
+def perm_skip_availability_check(issuer, kwargs, session=None):
     """
     Checks if an account can skip the availabity check to add/delete file replicas.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_delete_replicas(issuer, kwargs):
+def perm_delete_replicas(issuer, kwargs, session=None):
     """
     Checks if an account can delete replicas.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     return False
 
 
-def perm_update_replicas_states(issuer, kwargs):
+def perm_update_replicas_states(issuer, kwargs, session=None):
     """
     Checks if an account can delete replicas.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_queue_requests(issuer, kwargs):
+def perm_queue_requests(issuer, kwargs, session=None):
     """
     Checks if an account can submit transfer or deletion requests on destination RSEs for data identifiers.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     return _is_root(issuer)
 
 
-def perm_query_request(issuer, kwargs):
+def perm_query_request(issuer, kwargs, session=None):
     """
     Checks if an account can query a request.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     return _is_root(issuer)
 
 
-def perm_get_request_by_did(issuer, kwargs):
+def perm_get_request_by_did(issuer, kwargs, session=None):
     """
     Checks if an account can get a request by DID.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     return True
 
 
-def perm_cancel_request(issuer, kwargs):
+def perm_cancel_request(issuer, kwargs, session=None):
     """
     Checks if an account can cancel a request.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     return _is_root(issuer)
 
 
-def perm_get_next(issuer, kwargs):
+def perm_get_next(issuer, kwargs, session=None):
     """
     Checks if an account can retrieve the next request matching the request type and state.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     return _is_root(issuer)
 
 
-def perm_set_rse_usage(issuer, kwargs):
+def perm_set_rse_usage(issuer, kwargs, session=None):
     """
     Checks if an account can set RSE usage information.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_set_rse_limits(issuer, kwargs):
+def perm_set_rse_limits(issuer, kwargs, session=None):
     """
     Checks if an account can set RSE limits.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_set_local_account_limit(issuer, kwargs):
+def perm_set_local_account_limit(issuer, kwargs, session=None):
     """
     Checks if an account can set an account limit.
 
     :param account: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     # Check if user is a country admin
     admin_in_country = []
-    for kv in list_account_attributes(account=issuer):
+    for kv in list_account_attributes(account=issuer, session=session):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.append(kv['key'].partition('-')[2])
-    if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
+    if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get('country') in admin_in_country:
         return True
     return False
 
 
-def perm_set_global_account_limit(issuer, kwargs):
+def perm_set_global_account_limit(issuer, kwargs, session=None):
     """
     Checks if an account can set a global account limit.
 
     :param account: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     # Check if user is a country admin
     admin_in_country = set()
-    for kv in list_account_attributes(account=issuer):
+    for kv in list_account_attributes(account=issuer, session=session):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
-    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_expression'], filter_={'vo': issuer.vo})}
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get('country')
+                              for rse in parse_expression(kwargs['rse_expression'], filter_={'vo': issuer.vo}, session=session)}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
     return False
 
 
-def perm_delete_local_account_limit(issuer, kwargs):
+def perm_delete_local_account_limit(issuer, kwargs, session=None):
     """
     Checks if an account can delete an account limit.
 
     :param account: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     # Check if user is a country admin
     admin_in_country = []
-    for kv in list_account_attributes(account=issuer):
+    for kv in list_account_attributes(account=issuer, session=session):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.append(kv['key'].partition('-')[2])
-    if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
+    if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get('country') in admin_in_country:
         return True
     return False
 
 
-def perm_delete_global_account_limit(issuer, kwargs):
+def perm_delete_global_account_limit(issuer, kwargs, session=None):
     """
     Checks if an account can delete a global account limit.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     # Check if user is a country admin
     admin_in_country = set()
-    for kv in list_account_attributes(account=issuer):
+    for kv in list_account_attributes(account=issuer, session=session):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
     if admin_in_country:
-        resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_expression'], filter_={'vo': issuer.vo})}
+        resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get('country')
+                                  for rse in parse_expression(kwargs['rse_expression'], filter_={'vo': issuer.vo}, session=session)}
         if resolved_rse_countries.issubset(admin_in_country):
             return True
     return False
 
 
-def perm_config(issuer, kwargs):
+def perm_config(issuer, kwargs, session=None):
     """
     Checks if an account can read/write the configuration.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_get_local_account_usage(issuer, kwargs):
+def perm_get_local_account_usage(issuer, kwargs, session=None):
     """
     Checks if an account can get the account usage of an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin') or kwargs.get('account') == issuer:
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session) or kwargs.get('account') == issuer:
         return True
     # Check if user is a country admin
-    for kv in list_account_attributes(account=issuer):
+    for kv in list_account_attributes(account=issuer, session=session):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             return True
     return False
 
 
-def perm_get_global_account_usage(issuer, kwargs):
+def perm_get_global_account_usage(issuer, kwargs, session=None):
     """
     Checks if an account can get the account usage of an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin') or kwargs.get('account') == issuer:
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session) or kwargs.get('account') == issuer:
         return True
 
     # Check if user is a country admin for all involved countries
     admin_in_country = set()
-    for kv in list_account_attributes(account=issuer):
+    for kv in list_account_attributes(account=issuer, session=session):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
-    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                              for rse in parse_expression(kwargs['rse_exp'], filter_={'vo': issuer.vo})}
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get('country')
+                              for rse in parse_expression(kwargs['rse_exp'], filter_={'vo': issuer.vo}, session=session)}
 
     if resolved_rse_countries.issubset(admin_in_country):
         return True
     return False
 
 
-def perm_add_account_attribute(issuer, kwargs):
+def perm_add_account_attribute(issuer, kwargs, session=None):
     """
     Checks if an account can add attributes to accounts.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_del_account_attribute(issuer, kwargs):
+def perm_del_account_attribute(issuer, kwargs, session=None):
     """
     Checks if an account can add attributes to accounts.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return perm_add_account_attribute(issuer, kwargs)
+    return perm_add_account_attribute(issuer, kwargs, session=session)
 
 
-def perm_list_heartbeats(issuer, kwargs):
+def perm_list_heartbeats(issuer, kwargs, session=None):
     """
     Checks if an account can list heartbeats.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_resurrect(issuer, kwargs):
+def perm_resurrect(issuer, kwargs, session=None):
     """
     Checks if an account can resurrect DIDS.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_update_lifetime_exceptions(issuer, kwargs):
+def perm_update_lifetime_exceptions(issuer, kwargs, session=None):
     """
     Checks if an account can approve/reject Lifetime Model exceptions.
 
     :param issuer: Account identifier which issues the command.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
     if kwargs['vo'] is not None:
-        exceptions = next(list_exceptions(exception_id=kwargs['exception_id'], states=False))
+        exceptions = next(list_exceptions(exception_id=kwargs['exception_id'], states=False, session=session))
         if exceptions['scope'].vo != kwargs['vo']:
             return False
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_get_ssh_challenge_token(issuer, kwargs):
+def perm_get_ssh_challenge_token(issuer, kwargs, session=None):
     """
     Checks if an account can request a challenge token.
 
     :param issuer: Account identifier which issues the command.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return True
 
 
-def perm_get_signed_url(issuer, kwargs):
+def perm_get_signed_url(issuer, kwargs, session=None):
     """
     Checks if an account can request a signed URL.
 
     :param issuer: Account identifier which issues the command.
+    :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return _is_root(issuer)
 
 
-def perm_add_bad_pfns(issuer, kwargs):
+def perm_add_bad_pfns(issuer, kwargs, session=None):
     """
     Checks if an account can declare bad PFNs.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_remove_did_from_followed(issuer, kwargs):
+def perm_remove_did_from_followed(issuer, kwargs, session=None):
     """
     Checks if an account can remove did from followed table.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
     return _is_root(issuer)\
-        or has_account_attribute(account=issuer, key='admin')\
+        or has_account_attribute(account=issuer, key='admin', session=session)\
         or kwargs['account'] == issuer
 
 
-def perm_remove_dids_from_followed(issuer, kwargs):
+def perm_remove_dids_from_followed(issuer, kwargs, session=None):
     """
     Checks if an account can bulk remove dids from followed table.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
     if not kwargs['account'] == issuer:
         return False
