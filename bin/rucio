@@ -56,6 +56,7 @@
 # - Igor Mandrichenko <ivm@fnal.gov>, 2021
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
 # - Carlosbg <bogomcar@gmail.com>, 2021
+# - KarthikSundar2002 <karthiksundar30092002@gmail.com>, 2022
 
 from __future__ import print_function
 
@@ -1403,10 +1404,13 @@ def update_rule(args):
     if args.lifetime:
         options['lifetime'] = None if args.lifetime.lower() == "none" else int(args.lifetime)
     if args.locked:
-        if args.locked == "True":
+        if args.locked.title() == "True":
             options['locked'] = True
-        elif args.locked == "False":
+        elif args.locked.title() == "False":
             options['locked'] = False
+        else:
+            logger.error('Locked must be True or False')
+            return FAILURE
     if args.comment:
         options['comment'] = args.comment
     if args.rule_account:
