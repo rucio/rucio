@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2021-2022
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from __future__ import print_function
@@ -96,7 +96,6 @@ server_requirements_table = {
         'oauth2client',
         'retrying',
         'redis',
-        'itsdangerous',
         'flask',
         'oic',
         'prometheus_client',

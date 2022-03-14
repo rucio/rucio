@@ -33,6 +33,7 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021-2022
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 from __future__ import print_function
 
@@ -47,9 +48,11 @@ from rucio.common.utils import api_update_return_dict
 from rucio.core import did, naming_convention, meta as meta_core
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 
-def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def'):
+@stream_session
+def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def', session=None):
     """
     List dids in a scope.
 
@@ -62,6 +65,7 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
     :param long: Long format option to display more information for each DID.
     :param recursive: Recursively list DIDs content.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
     scope = InternalScope(scope, vo=vo)
 
@@ -73,13 +77,14 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
             or_group['account'] = InternalScope(or_group['scope'], vo=vo)
 
     result = did.list_dids(scope=scope, filters=filters, did_type=did_type, ignore_case=ignore_case,
-                           limit=limit, offset=offset, long=long, recursive=recursive)
+                           limit=limit, offset=offset, long=long, recursive=recursive, session=session)
 
     for d in result:
-        yield api_update_return_dict(d)
+        yield api_update_return_dict(d, session=session)
 
 
-def list_dids_extended(scope, filters, did_type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def'):
+@stream_session
+def list_dids_extended(scope, filters, did_type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def', session=None):
     """
     List dids in a scope.
 
@@ -91,6 +96,7 @@ def list_dids_extended(scope, filters, did_type='collection', ignore_case=False,
     :param offset: Offset number.
     :param long: Long format option to display more information for each DID.
     :param recursive: Recursively list DIDs content.
+    :param session: The database session in use.
     """
     validate_schema(name='did_filters', obj=filters, vo=vo)
     scope = InternalScope(scope, vo=vo)
@@ -103,13 +109,14 @@ def list_dids_extended(scope, filters, did_type='collection', ignore_case=False,
             or_group['account'] = InternalScope(or_group['scope'], vo=vo)
 
     result = did.list_dids_extended(scope=scope, filters=filters, did_type=did_type, ignore_case=ignore_case,
-                                    limit=limit, offset=offset, long=long, recursive=recursive)
+                                    limit=limit, offset=offset, long=long, recursive=recursive, session=session)
 
     for d in result:
-        yield api_update_return_dict(d)
+        yield api_update_return_dict(d, session=session)
 
 
-def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None, vo='def'):
+@transactional_session
+def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None, vo='def', session=None):
     """
     Add data did.
 
@@ -125,13 +132,14 @@ def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, r
     :param dids: The content.
     :param rse: The RSE name when registering replicas.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
     v_did = {'name': name, 'type': did_type.upper(), 'scope': scope}
     validate_schema(name='did', obj=v_did, vo=vo)
     validate_schema(name='dids', obj=dids, vo=vo)
     validate_schema(name='rse', obj=rse, vo=vo)
     kwargs = {'scope': scope, 'name': name, 'type': did_type, 'issuer': issuer, 'account': account, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_did', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_did', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
 
     if account is not None:
@@ -145,11 +153,11 @@ def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, r
 
     rse_id = None
     if rse is not None:
-        rse_id = get_rse_id(rse=rse, vo=vo)
+        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
 
     if did_type == 'DATASET':
         # naming_convention validation
-        extra_meta = naming_convention.validate_name(scope=scope, name=name, did_type='D')
+        extra_meta = naming_convention.validate_name(scope=scope, name=name, did_type='D', session=session)
 
         # merge extra_meta with meta
         for k in extra_meta or {}:
@@ -160,30 +168,32 @@ def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, r
                 raise rucio.common.exception.InvalidObject("Provided metadata %s doesn't match the naming convention: %s != %s" % (k, meta[k], extra_meta[k]))
 
         # Validate metadata
-        meta_core.validate_meta(meta=meta, did_type=DIDType[did_type.upper()])
+        meta_core.validate_meta(meta=meta, did_type=DIDType[did_type.upper()], session=session)
 
     return did.add_did(scope=scope, name=name, did_type=DIDType[did_type.upper()], account=account or issuer,
                        statuses=statuses, meta=meta, rules=rules, lifetime=lifetime,
-                       dids=dids, rse_id=rse_id)
+                       dids=dids, rse_id=rse_id, session=session)
 
 
-def add_dids(dids, issuer, vo='def'):
+@transactional_session
+def add_dids(dids, issuer, vo='def', session=None):
     """
     Bulk Add did.
 
     :param dids: A list of dids.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
     for d in dids:
         if 'rse' in d:
             rse_id = None
             if d['rse'] is not None:
-                rse_id = get_rse_id(rse=d['rse'], vo=vo)
+                rse_id = get_rse_id(rse=d['rse'], vo=vo, session=session)
             d['rse_id'] = rse_id
 
     kwargs = {'issuer': issuer, 'dids': dids}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_dids', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_dids', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk add data identifier' % (issuer))
 
     issuer = InternalAccount(issuer, vo=vo)
@@ -194,27 +204,29 @@ def add_dids(dids, issuer, vo='def'):
         if 'dids' in d.keys():
             for child in d['dids']:
                 child['scope'] = InternalScope(child['scope'], vo=vo)
-    return did.add_dids(dids, account=issuer)
+    return did.add_dids(dids, account=issuer, session=session)
 
 
-def attach_dids(scope, name, attachment, issuer, vo='def'):
+@transactional_session
+def attach_dids(scope, name, attachment, issuer, vo='def', session=None):
     """
     Append content to data did.
 
     :param attachment: The attachment.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
     validate_schema(name='attachment', obj=attachment, vo=vo)
 
     rse_id = None
     if 'rse' in attachment:
         if attachment['rse'] is not None:
-            rse_id = get_rse_id(rse=attachment['rse'], vo=vo)
+            rse_id = get_rse_id(rse=attachment['rse'], vo=vo, session=session)
         attachment['rse_id'] = rse_id
 
     kwargs = {'scope': scope, 'name': name, 'attachment': attachment}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='attach_dids', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='attach_dids', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers to %s:%s' % (issuer, scope, name))
 
     scope = InternalScope(scope, vo=vo)
@@ -228,15 +240,16 @@ def attach_dids(scope, name, attachment, issuer, vo='def'):
 
     if rse_id is not None:
         dids = did.attach_dids(scope=scope, name=name, dids=attachment['dids'],
-                               account=attachment.get('account', issuer), rse_id=rse_id)
+                               account=attachment.get('account', issuer), rse_id=rse_id, session=session)
     else:
         dids = did.attach_dids(scope=scope, name=name, dids=attachment['dids'],
-                               account=attachment.get('account', issuer))
+                               account=attachment.get('account', issuer), session=session)
 
     return dids
 
 
-def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def'):
+@transactional_session
+def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def', session=None):
     """
     Append content to dids.
 
@@ -244,6 +257,7 @@ def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def'):
     :param issuer: The issuer account.
     :param ignore_duplicate: If True, ignore duplicate entries.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
     validate_schema(name='attachments', obj=attachments, vo=vo)
 
@@ -251,10 +265,10 @@ def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def'):
         if 'rse' in a:
             rse_id = None
             if a['rse'] is not None:
-                rse_id = get_rse_id(rse=a['rse'], vo=vo)
+                rse_id = get_rse_id(rse=a['rse'], vo=vo, session=session)
             a['rse_id'] = rse_id
 
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='attach_dids_to_dids', kwargs={'attachments': attachments}):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='attach_dids_to_dids', kwargs={'attachments': attachments}, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers' % (issuer))
 
     issuer = InternalAccount(issuer, vo=vo)
@@ -266,10 +280,11 @@ def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def'):
                 d['account'] = InternalAccount(d['account'], vo=vo)
 
     return did.attach_dids_to_dids(attachments=attachments, account=issuer,
-                                   ignore_duplicate=ignore_duplicate)
+                                   ignore_duplicate=ignore_duplicate, session=session)
 
 
-def detach_dids(scope, name, dids, issuer, vo='def'):
+@transactional_session
+def detach_dids(scope, name, dids, issuer, vo='def', session=None):
     """
     Detach data identifier
 
@@ -278,19 +293,21 @@ def detach_dids(scope, name, dids, issuer, vo='def'):
     :param dids: The content.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
     kwargs = {'scope': scope, 'name': name, 'dids': dids, 'issuer': issuer}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='detach_dids', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='detach_dids', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not detach data identifiers from %s:%s' % (issuer, scope, name))
 
     scope = InternalScope(scope, vo=vo)
     for d in dids:
         d['scope'] = InternalScope(d['scope'], vo=vo)
 
-    return did.detach_dids(scope=scope, name=name, dids=dids)
+    return did.detach_dids(scope=scope, name=name, dids=dids, session=session)
 
 
-def list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=1000, vo='def'):
+@stream_session
+def list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=1000, vo='def', session=None):
     """
     List recent identifiers.
 
@@ -299,14 +316,16 @@ def list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100
     :param total_threads: The total number of threads of all necromancers.
     :param chunk_size: Number of requests to return per yield.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
-    dids = did.list_new_dids(did_type=did_type and DIDType[did_type.upper()], thread=thread, total_threads=total_threads, chunk_size=chunk_size)
+    dids = did.list_new_dids(did_type=did_type and DIDType[did_type.upper()], thread=thread, total_threads=total_threads, chunk_size=chunk_size, session=session)
     for d in dids:
         if d['scope'].vo == vo:
-            yield api_update_return_dict(d)
+            yield api_update_return_dict(d, session=session)
 
 
-def set_new_dids(dids, new_flag=True, vo='def'):
+@transactional_session
+def set_new_dids(dids, new_flag=True, vo='def', session=None):
     """
     Set/reset the flag new
 
@@ -314,47 +333,53 @@ def set_new_dids(dids, new_flag=True, vo='def'):
     :param name: The data identifier name.
     :param new_flag: A boolean to flag new DIDs.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
     for d in dids:
         d['scope'] = InternalScope(d['scope'], vo=vo)
 
-    return did.set_new_dids(dids, new_flag)
+    return did.set_new_dids(dids, new_flag, session=session)
 
 
-def list_content(scope, name, vo='def'):
+@stream_session
+def list_content(scope, name, vo='def', session=None):
     """
     List data identifier contents.
 
     :param scope: The scope name.
     :param name: The data identifier name.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
 
     scope = InternalScope(scope, vo=vo)
 
-    dids = did.list_content(scope=scope, name=name)
+    dids = did.list_content(scope=scope, name=name, session=session)
     for d in dids:
-        yield api_update_return_dict(d)
+        yield api_update_return_dict(d, session=session)
 
 
-def list_content_history(scope, name, vo='def'):
+@stream_session
+def list_content_history(scope, name, vo='def', session=None):
     """
     List data identifier contents history.
 
     :param scope: The scope name.
     :param name: The data identifier name.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
 
     scope = InternalScope(scope, vo=vo)
 
-    dids = did.list_content_history(scope=scope, name=name)
+    dids = did.list_content_history(scope=scope, name=name, session=session)
 
     for d in dids:
-        yield api_update_return_dict(d)
+        yield api_update_return_dict(d, session=session)
 
 
-def list_files(scope, name, long, vo='def'):
+@stream_session
+def list_files(scope, name, long, vo='def', session=None):
     """
     List data identifier file contents.
 
@@ -362,17 +387,19 @@ def list_files(scope, name, long, vo='def'):
     :param name: The data identifier name.
     :param long:       A boolean to choose if GUID is returned or not.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
 
     scope = InternalScope(scope, vo=vo)
 
-    dids = did.list_files(scope=scope, name=name, long=long)
+    dids = did.list_files(scope=scope, name=name, long=long, session=session)
 
     for d in dids:
-        yield api_update_return_dict(d)
+        yield api_update_return_dict(d, session=session)
 
 
-def scope_list(scope, name=None, recursive=False, vo='def'):
+@stream_session
+def scope_list(scope, name=None, recursive=False, vo='def', session=None):
     """
     List data identifiers in a scope.
 
@@ -380,11 +407,12 @@ def scope_list(scope, name=None, recursive=False, vo='def'):
     :param name: The data identifier name.
     :param recursive: boolean, True or False.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
 
     scope = InternalScope(scope, vo=vo)
 
-    dids = did.scope_list(scope, name=name, recursive=recursive)
+    dids = did.scope_list(scope, name=name, recursive=recursive, session=session)
 
     for d in dids:
         ret_did = deepcopy(d)
@@ -394,7 +422,8 @@ def scope_list(scope, name=None, recursive=False, vo='def'):
         yield ret_did
 
 
-def get_did(scope, name, dynamic=False, vo='def'):
+@read_session
+def get_did(scope, name, dynamic=False, vo='def', session=None):
     """
     Retrieve a single data did.
 
@@ -403,15 +432,17 @@ def get_did(scope, name, dynamic=False, vo='def'):
     :param dynamic:  Dynamically resolve the bytes and length of the did
     :param vo: The VO to act on.
     :return did: Dictionary containing {'name', 'scope', 'type'}, Exception otherwise
+    :param session: The database session in use.
     """
 
     scope = InternalScope(scope, vo=vo)
 
-    d = did.get_did(scope=scope, name=name, dynamic=dynamic)
-    return api_update_return_dict(d)
+    d = did.get_did(scope=scope, name=name, dynamic=dynamic, session=session)
+    return api_update_return_dict(d, session=session)
 
 
-def set_metadata(scope, name, key, value, issuer, recursive=False, vo='def'):
+@transactional_session
+def set_metadata(scope, name, key, value, issuer, recursive=False, vo='def', session=None):
     """
     Add metadata to data did.
 
@@ -422,20 +453,22 @@ def set_metadata(scope, name, key, value, issuer, recursive=False, vo='def'):
     :param issuer: The issuer account.
     :param recursive: Option to propagate the metadata update to content.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
     kwargs = {'scope': scope, 'name': name, 'key': key, 'value': value, 'issuer': issuer}
 
     if key in RESERVED_KEYS:
         raise rucio.common.exception.AccessDenied('Account %s can not change this metadata value to data identifier %s:%s' % (issuer, scope, name))
 
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add metadata to data identifier %s:%s' % (issuer, scope, name))
 
     scope = InternalScope(scope, vo=vo)
-    return did.set_metadata(scope=scope, name=name, key=key, value=value, recursive=recursive)
+    return did.set_metadata(scope=scope, name=name, key=key, value=value, recursive=recursive, session=session)
 
 
-def set_metadata_bulk(scope, name, meta, issuer, recursive=False, vo='def'):
+@transactional_session
+def set_metadata_bulk(scope, name, meta, issuer, recursive=False, vo='def', session=None):
     """
     Add metadata to data did.
 
@@ -445,6 +478,7 @@ def set_metadata_bulk(scope, name, meta, issuer, recursive=False, vo='def'):
     :param issuer: The issuer account.
     :param recursive: Option to propagate the metadata update to content.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
     kwargs = {'scope': scope, 'name': name, 'meta': meta, 'issuer': issuer}
 
@@ -452,14 +486,15 @@ def set_metadata_bulk(scope, name, meta, issuer, recursive=False, vo='def'):
         if key in RESERVED_KEYS:
             raise rucio.common.exception.AccessDenied('Account %s can not change the value of the metadata key %s to data identifier %s:%s' % (issuer, key, scope, name))
 
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata_bulk', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata_bulk', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add metadata to data identifier %s:%s' % (issuer, scope, name))
 
     scope = InternalScope(scope, vo=vo)
-    return did.set_metadata_bulk(scope=scope, name=name, meta=meta, recursive=recursive)
+    return did.set_metadata_bulk(scope=scope, name=name, meta=meta, recursive=recursive, session=session)
 
 
-def set_dids_metadata_bulk(dids, issuer, recursive=False, vo='def'):
+@transactional_session
+def set_dids_metadata_bulk(dids, issuer, recursive=False, vo='def', session=None):
     """
     Add metadata to a list of data identifiers.
 
@@ -467,11 +502,12 @@ def set_dids_metadata_bulk(dids, issuer, recursive=False, vo='def'):
     :param dids: A list of dids including metadata.
     :param recursive: Option to propagate the metadata update to content.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
 
     for entry in dids:
         kwargs = {'scope': entry['scope'], 'name': entry['name'], 'meta': entry['meta'], 'issuer': issuer}
-        if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata_bulk', kwargs=kwargs):
+        if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata_bulk', kwargs=kwargs, session=session):
             raise rucio.common.exception.AccessDenied('Account %s can not add metadata to data identifier %s:%s' % (issuer, entry['scope'], entry['name']))
         entry['scope'] = InternalScope(entry['scope'], vo=vo)
         meta = entry['meta']
@@ -479,41 +515,46 @@ def set_dids_metadata_bulk(dids, issuer, recursive=False, vo='def'):
             if key in RESERVED_KEYS:
                 raise rucio.common.exception.AccessDenied('Account %s can not change the value of the metadata key %s to data identifier %s:%s' % (issuer, key, entry['scope'], entry['name']))
 
-    return did.set_dids_metadata_bulk(dids=dids, recursive=recursive)
+    return did.set_dids_metadata_bulk(dids=dids, recursive=recursive, session=session)
 
 
-def get_metadata(scope, name, plugin='DID_COLUMN', vo='def'):
+@read_session
+def get_metadata(scope, name, plugin='DID_COLUMN', vo='def', session=None):
     """
     Get data identifier metadata
 
     :param scope: The scope name.
     :param name: The data identifier name.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
 
     scope = InternalScope(scope, vo=vo)
 
-    d = did.get_metadata(scope=scope, name=name, plugin=plugin)
-    return api_update_return_dict(d)
+    d = did.get_metadata(scope=scope, name=name, plugin=plugin, session=session)
+    return api_update_return_dict(d, session=session)
 
 
-def get_metadata_bulk(dids, inherit=False, vo='def'):
+@stream_session
+def get_metadata_bulk(dids, inherit=False, vo='def', session=None):
     """
     Get metadata for a list of dids
     :param dids:               A list of dids.
     :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
     :param vo:                 The VO to act on.
+    :param session: The database session in use.
     """
 
     validate_schema(name='dids', obj=dids, vo=vo)
     for entry in dids:
         entry['scope'] = InternalScope(entry['scope'], vo=vo)
-    meta = did.get_metadata_bulk(dids, inherit=inherit)
+    meta = did.get_metadata_bulk(dids, inherit=inherit, session=session)
     for met in meta:
-        yield api_update_return_dict(met)
+        yield api_update_return_dict(met, session=session)
 
 
-def delete_metadata(scope, name, key, vo='def'):
+@transactional_session
+def delete_metadata(scope, name, key, vo='def', session=None):
     """
     Delete a key from the metadata column
 
@@ -521,13 +562,15 @@ def delete_metadata(scope, name, key, vo='def'):
     :param name: the name of the did
     :param key: the key to be deleted
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
 
     scope = InternalScope(scope, vo=vo)
-    return did.delete_metadata(scope=scope, name=name, key=key)
+    return did.delete_metadata(scope=scope, name=name, key=key, session=session)
 
 
-def set_status(scope, name, issuer, vo='def', **kwargs):
+@transactional_session
+def set_status(scope, name, issuer, vo='def', session=None, **kwargs):
     """
     Set data identifier status
 
@@ -536,50 +579,56 @@ def set_status(scope, name, issuer, vo='def', **kwargs):
     :param issuer: The issuer account.
     :param kwargs:  Keyword arguments of the form status_name=value.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
 
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_status', kwargs={'scope': scope, 'name': name, 'issuer': issuer}):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_status', kwargs={'scope': scope, 'name': name, 'issuer': issuer}, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not set status on data identifier %s:%s' % (issuer, scope, name))
 
     scope = InternalScope(scope, vo=vo)
 
-    return did.set_status(scope=scope, name=name, **kwargs)
+    return did.set_status(scope=scope, name=name, session=session, **kwargs)
 
 
-def get_dataset_by_guid(guid, vo='def'):
+@stream_session
+def get_dataset_by_guid(guid, vo='def', session=None):
     """
     Get the parent datasets for a given GUID.
     :param guid: The GUID.
     :param vo: The VO to act on.
+    :param session: The database session in use.
 
     :returns: A did
     """
-    dids = did.get_dataset_by_guid(guid=guid)
+    dids = did.get_dataset_by_guid(guid=guid, session=session)
 
     for d in dids:
         if d['scope'].vo != vo:
             raise RucioException('GUID unavailable on VO {}'.format(vo))
-        yield api_update_return_dict(d)
+        yield api_update_return_dict(d, session=session)
 
 
-def list_parent_dids(scope, name, vo='def'):
+@stream_session
+def list_parent_dids(scope, name, vo='def', session=None):
     """
     List parent datasets and containers of a did.
 
     :param scope:   The scope.
     :param name:    The name.
     :param vo:      The VO to act on.
+    :param session: The database session in use.
     """
 
     scope = InternalScope(scope, vo=vo)
 
-    dids = did.list_parent_dids(scope=scope, name=name)
+    dids = did.list_parent_dids(scope=scope, name=name, session=session)
 
     for d in dids:
-        yield api_update_return_dict(d)
+        yield api_update_return_dict(d, session=session)
 
 
-def create_did_sample(input_scope, input_name, output_scope, output_name, issuer, nbfiles, vo='def'):
+@transactional_session
+def create_did_sample(input_scope, input_name, output_scope, output_name, issuer, nbfiles, vo='def', session=None):
     """
     Create a sample from an input collection.
 
@@ -591,9 +640,10 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, issuer
     :param nbfiles: The number of files to register in the output dataset.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
     kwargs = {'issuer': issuer, 'scope': output_scope}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='create_did_sample', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='create_did_sample', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk add data identifier' % (issuer))
 
     input_scope = InternalScope(input_scope, vo=vo)
@@ -601,44 +651,50 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, issuer
 
     issuer = InternalAccount(issuer, vo=vo)
 
-    return did.create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name, account=issuer, nbfiles=nbfiles)
+    return did.create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name,
+                                 account=issuer, nbfiles=nbfiles, session=session)
 
 
-def resurrect(dids, issuer, vo='def'):
+@transactional_session
+def resurrect(dids, issuer, vo='def', session=None):
     """
     Resurrect DIDs.
 
     :param dids: A list of dids.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
     kwargs = {'issuer': issuer}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='resurrect', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='resurrect', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not resurrect data identifiers' % (issuer))
     validate_schema(name='dids', obj=dids, vo=vo)
 
     for d in dids:
         d['scope'] = InternalScope(d['scope'], vo=vo)
 
-    return did.resurrect(dids=dids)
+    return did.resurrect(dids=dids, session=session)
 
 
-def list_archive_content(scope, name, vo='def'):
+@stream_session
+def list_archive_content(scope, name, vo='def', session=None):
     """
     List archive contents.
 
     :param scope: The archive scope name.
     :param name: The archive data identifier name.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
 
     scope = InternalScope(scope, vo=vo)
 
-    dids = did.list_archive_content(scope=scope, name=name)
+    dids = did.list_archive_content(scope=scope, name=name, session=session)
     for d in dids:
-        yield api_update_return_dict(d)
+        yield api_update_return_dict(d, session=session)
 
 
+@transactional_session
 def add_did_to_followed(scope, name, account, session=None, vo='def'):
     """
     Mark a did as followed by the given account
@@ -653,6 +709,7 @@ def add_did_to_followed(scope, name, account, session=None, vo='def'):
     return did.add_did_to_followed(scope=scope, name=name, account=account, session=session)
 
 
+@transactional_session
 def add_dids_to_followed(dids, account, session=None, vo='def'):
     """
     Bulk mark datasets as followed
@@ -665,6 +722,7 @@ def add_dids_to_followed(dids, account, session=None, vo='def'):
     return did.add_dids_to_followed(dids=dids, account=account, session=session)
 
 
+@stream_session
 def get_users_following_did(name, scope, session=None, vo='def'):
     """
     Return list of users following a did
@@ -680,6 +738,7 @@ def get_users_following_did(name, scope, session=None, vo='def'):
         yield user
 
 
+@transactional_session
 def remove_did_from_followed(scope, name, account, issuer, session=None, vo='def'):
     """
     Mark a did as not followed
@@ -691,7 +750,7 @@ def remove_did_from_followed(scope, name, account, issuer, session=None, vo='def
     :param issuer: The issuer account
     """
     kwargs = {'scope': scope, 'issuer': issuer}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='remove_did_from_followed', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='remove_did_from_followed', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not remove data identifiers from followed table' % (issuer))
 
     scope = InternalScope(scope, vo=vo)
@@ -699,6 +758,7 @@ def remove_did_from_followed(scope, name, account, issuer, session=None, vo='def
     return did.remove_did_from_followed(scope=scope, name=name, account=account, session=session)
 
 
+@transactional_session
 def remove_dids_from_followed(dids, account, issuer, session=None, vo='def'):
     """
     Bulk mark datasets as not followed
@@ -708,7 +768,7 @@ def remove_dids_from_followed(dids, account, issuer, session=None, vo='def'):
     :param session: The database session in use.
     """
     kwargs = {'dids': dids, 'issuer': issuer}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='remove_dids_from_followed', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='remove_dids_from_followed', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk remove data identifiers from followed table' % (issuer))
 
     account = InternalAccount(account, vo=vo)
