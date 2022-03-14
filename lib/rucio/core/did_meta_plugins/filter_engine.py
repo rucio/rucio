@@ -17,6 +17,7 @@
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021-2022
 
 import ast
+import fnmatch
 import operator
 from datetime import datetime, timedelta, date
 from importlib import import_module
@@ -39,7 +40,6 @@ OPERATORS_CONVERSION_LUT = {
     "ne": operator.ne,
     "": operator.eq
 }
-OPERATORS_CONVERSION_LUT_INV = {op2: op1 for op1, op2 in OPERATORS_CONVERSION_LUT.items()}
 
 # understood date formats.
 VALID_DATE_FORMATS = (
@@ -177,8 +177,8 @@ class FilterEngine:
 
         Typecasting of values is also attempted.
 
-        :params: model_class: The SQL model class.
-        :params: strict_coerce: Enforce that keywords must be coercable to a model attribute.
+        :param model_class: The SQL model class.
+        :param strict_coerce: Enforce that keywords must be coercable to a model attribute.
         :returns: The set of mandatory model attributes to be used in the filter query.
         :raises: MissingModuleException, DIDFilterSyntaxError
         """
@@ -247,6 +247,63 @@ class FilterEngine:
         except (ValueError, SyntaxError):
             pass
         return value
+
+    def create_mongo_query(self, additional_filters={}):
+        """
+        Returns a single mongo query describing the filters expression.
+
+        :param additional_filters: additional filters to be applied to all clauses.
+        :returns: a mongo query string describing the filters expression.
+        """
+        # Add additional filters, applied as AND clauses to each OR group.
+        for or_group in self._filters:
+            for filter in additional_filters:
+                or_group.append(list(filter))
+
+        or_expressions = []
+        for or_group in self._filters:
+            and_expressions = []
+            for and_group in or_group:
+                key, oper, value = and_group
+                if isinstance(value, str) and any([char in value for char in ['*', '%']]):   # wildcards
+                    if value in ('*', '%', u'*', u'%'):                                      # match wildcard exactly == no filtering on key
+                        continue
+                    else:                                                                    # partial match with wildcard == like || notlike
+                        if oper == operator.eq:
+                            expression = {
+                                key: {
+                                    '$regex': fnmatch.translate(value)                       # translate partial wildcard expression to regex
+                                }
+                            }
+                        elif oper == operator.ne:
+                            expression = {
+                                key: {
+                                    {
+                                        '$not': {
+                                            '$regex': fnmatch.translate(value)              # translate partial wildcard expression to regex
+                                        }
+                                    }
+                                }
+                            }
+                else:
+                    # mongodb operator keywords follow the same function names as operator package but prefixed with $
+                    expression = {
+                        key: {
+                            '${}'.format(oper.__name__): value
+                        }
+                    }
+
+                and_expressions.append(expression)
+            if len(and_expressions) > 1:                            # $and key must have array as value...
+                or_expressions.append({'$and': and_expressions})
+            else:
+                or_expressions.append(and_expressions[0])           # ...otherwise just use the first, and only, entry.
+        if len(or_expressions) > 1:
+            query_str = {'$or': or_expressions}                     # $or key must have array as value...
+        else:
+            query_str = or_expressions[0]                           # ...otherwise just use the first, and only, entry.
+
+        return query_str
 
     @read_session
     def create_sqla_query(self, session=None, additional_model_attributes=[], additional_filters={}, json_column=None):
@@ -350,16 +407,18 @@ class FilterEngine:
         """
         A (more) human readable format of <filters>.
         """
+        operators_conversion_LUT_inv = {op2: op1 for op1, op2 in OPERATORS_CONVERSION_LUT.items()}
+
         filters = '\n'
         for or_group in self._filters:
             for and_group in or_group:
                 key, oper, value = and_group
                 if isinstance(key, sqlalchemy.orm.attributes.InstrumentedAttribute):
                     key = and_group[0].key
-                if OPERATORS_CONVERSION_LUT[oper] == "":
+                if operators_conversion_LUT_inv[oper] == "":
                     oper = "eq"
                 else:
-                    oper = OPERATORS_CONVERSION_LUT[oper]
+                    oper = operators_conversion_LUT_inv[oper]
                 if isinstance(value, sqlalchemy.orm.attributes.InstrumentedAttribute):
                     value = and_group[2].key
                 elif isinstance(value, DIDType):
