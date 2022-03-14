@@ -79,8 +79,16 @@ class HeartbeatHandler:
     Simple contextmanager which sets a heartbeat and associated logger on entry and cleans up the heartbeat on exit.
     """
 
-    def __init__(self, executable, logger_prefix=None):
+    def __init__(self, executable, renewal_interval, logger_prefix=None):
+        """
+        :param executable: the executable name which will be set in heartbeats
+        :param renewal_interval: the interval at which the heartbeat will be renewed in the database.
+        Calls to live() in-between intervals will re-use the locally cached heartbeat.
+        :param logger_prefix: the prefix to be prepended to all log messages
+        """
         self.executable = executable
+        self.renewal_interval = renewal_interval
+        self.older_than = renewal_interval * 10 if renewal_interval and renewal_interval > 0 else None  # 10 was chosen without any particular reason
         self.logger_prefix = logger_prefix or executable
 
         self.hostname = socket.getfqdn()
@@ -89,6 +97,7 @@ class HeartbeatHandler:
 
         self.logger = None
         self.last_heart_beat = None
+        self.last_time = None
 
     def __enter__(self):
         heartbeat.sanity_check(executable=self.executable, hostname=self.hostname)
@@ -101,26 +110,31 @@ class HeartbeatHandler:
             if self.logger:
                 self.logger(logging.INFO, 'Heartbeat cleaned up')
 
-    def live(self, older_than=None):
-        if older_than:
-            self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread, older_than=older_than)
-        else:
-            self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread)
+    def live(self):
+        """
+        :return: a tuple: <the number of the current worker>, <total number of workers>, <decorated logger>
+        """
+        if not self.last_time or self.last_time < datetime.datetime.now() - datetime.timedelta(seconds=self.renewal_interval):
+            if self.older_than:
+                self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread, older_than=self.older_than)
+            else:
+                self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread)
 
-        prefix = '%s[%i/%i]: ' % (self.logger_prefix, self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'])
-        self.logger = formatted_logger(logging.log, prefix + '%s')
+            prefix = '%s[%i/%i]: ' % (self.logger_prefix, self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'])
+            self.logger = formatted_logger(logging.log, prefix + '%s')
 
-        if not self.last_heart_beat:
-            self.logger(logging.DEBUG, 'First heartbeat set')
-        else:
-            self.logger(logging.DEBUG, 'Heartbeat renewed')
+            if not self.last_time:
+                self.logger(logging.DEBUG, 'First heartbeat set')
+            else:
+                self.logger(logging.DEBUG, 'Heartbeat renewed')
+            self.last_time = datetime.datetime.now()
 
-        return self.last_heart_beat, self.logger
+        return self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'], self.logger
 
 
-def run_conveyor_daemon(once, graceful_stop, executable, logger_prefix, partition_wait_time, sleep_time, run_once_fnc, activities=None, heart_beat_older_than=None):
+def run_conveyor_daemon(once, graceful_stop, executable, logger_prefix, partition_wait_time, sleep_time, run_once_fnc, activities=None):
 
-    with HeartbeatHandler(executable=executable, logger_prefix=logger_prefix) as heartbeat_handler:
+    with HeartbeatHandler(executable=executable, renewal_interval=sleep_time - 1, logger_prefix=logger_prefix) as heartbeat_handler:
         logger = heartbeat_handler.logger
         logger(logging.INFO, 'started')
 
@@ -151,11 +165,11 @@ def run_conveyor_daemon(once, graceful_stop, executable, logger_prefix, partitio
                 else:
                     logger(logging.DEBUG, 'Starting next iteration')
 
-            heart_beat, logger = heartbeat_handler.live(older_than=heart_beat_older_than)
+            _, _, logger = heartbeat_handler.live()
 
             must_sleep = True
             try:
-                must_sleep = run_once_fnc(activity=activity, total_workers=heart_beat['nr_threads'], worker_number=heart_beat['assign_thread'], logger=logger)
+                must_sleep = run_once_fnc(activity=activity, heartbeat_handler=heartbeat_handler)
             except Exception:
                 logger(logging.CRITICAL, "Exception", exc_info=True)
                 if once:
