@@ -1028,7 +1028,7 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
     x_caches = REGION.get('CacheSites')
     if x_caches is NO_VALUE:
         try:
-            response = requests.get('{}/serverRanges'.format(vp_endpoint), verify=False)
+            response = requests.get('{}/serverRanges'.format(vp_endpoint), timeout=1, verify=False)
             if response.ok:
                 x_caches = response.json()
                 REGION.set('CacheSites', x_caches)
