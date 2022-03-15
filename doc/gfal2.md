@@ -1,3 +1,4 @@
+=======================
 Install gfal2 on Debian
 =======================
 
@@ -14,7 +15,7 @@ Python bindings however, and those have to be installed from source
 with pip.
 
 
-# Install gfal2 library
+## Install gfal2 library
 
 It turned out that only the unstable version is compatible with the
 most recent Python binding sources. At first I installed the stable
@@ -23,10 +24,10 @@ about undefined types or missing headers. Thus, install the packages
 like this from the *sid* repository.
 
 
-    apt -t sid install gfal2 libgfal2-dev
+    sudo apt -t sid install gfal2 libgfal2-dev
 
 
-# Install gfal2 Python bindings
+## Install gfal2 Python bindings
 
 There are several dependencies that must be installed in order to
 compile the Python bindings. Install dev packages as necessary; see
@@ -54,7 +55,7 @@ fail to find the *gfal2* library. Otherwise install system-wide as
 root/sudo.
 
 	
-# Install gfal2 CLIs
+## Install gfal2 CLIs
 
 The *gfal2* Python library installed as above should be enough in order
 to use the Rucio *gfal.py* transfer plugin. However, you may want the
@@ -69,7 +70,7 @@ library.  Install them in the same way:
     pip3 install .
    
    
-# Testing your GridFTP server
+## Testing your GridFTP server
    
 If this install is successful you will be able to use the *gfal2*
 tools from the command line. Some examples (remember to create a proxy
