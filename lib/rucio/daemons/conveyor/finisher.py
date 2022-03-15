@@ -72,7 +72,9 @@ graceful_stop = threading.Event()
 region = make_region_memcached(expiration_time=900)
 
 
-def run_once(bulk, db_bulk, suspicious_patterns, retry_protocol_mismatches, total_workers, worker_number, logger, activity):
+def run_once(bulk, db_bulk, suspicious_patterns, retry_protocol_mismatches, heartbeat_handler, activity):
+    worker_number, total_workers, logger = heartbeat_handler.live()
+
     try:
         logger(logging.DEBUG, 'Working on activity %s', activity)
         time1 = time.time()
@@ -94,6 +96,7 @@ def run_once(bulk, db_bulk, suspicious_patterns, retry_protocol_mismatches, tota
 
         for chunk in chunks(reqs, bulk):
             try:
+                worker_number, total_workers, logger = heartbeat_handler.live()
                 time3 = time.time()
                 __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
                 record_timer('daemons.conveyor.finisher.handle_requests_time', (time.time() - time3) * 1000 / (len(chunk) if chunk else 1))
@@ -151,7 +154,6 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
             retry_protocol_mismatches=retry_protocol_mismatches,
         ),
         activities=activities,
-        heart_beat_older_than=3600,
     )
 
 
