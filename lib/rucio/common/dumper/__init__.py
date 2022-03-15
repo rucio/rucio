@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +14,16 @@
 # limitations under the License.
 #
 # Authors:
-# - Fernando Lopez <felopez@cern.ch>, 2015
+# - Fernando López <felopez@cern.ch>, 2015-2016
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2020
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Fabio Luchetti <fabio.luchetti@cern.ch>, 2022
 
 import contextlib
 import datetime
@@ -34,12 +38,7 @@ import tempfile
 import gfal2
 import magic
 import requests
-
-# bz2 module doesn't support multi-stream files in Python < 3.3
-# https://bugs.python.org/issue1625
-# using bz2file (a backport from the lastest CPython bz2 implementation)
-# fixes this problem
-import bz2file
+import bz2
 
 from rucio.common import config
 
@@ -151,7 +150,7 @@ def smart_open(filename):
         if file_type.find('gzip') > -1:
             f = gzip.GzipFile(filename, 'rt')
         elif file_type.find('bzip2') > -1:
-            f = bz2file.open(filename, 'rt')
+            f = bz2.open(filename, 'rt')
         else:
             pass  # Not supported format
     return f
