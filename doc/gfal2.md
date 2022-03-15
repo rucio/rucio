@@ -68,6 +68,9 @@ library.  Install them in the same way:
    
     pip3 install .
    
+   
+# Testing your GridFTP server
+   
 If this install is successful you will be able to use the *gfal2*
 tools from the command line. Some examples (remember to create a proxy
 certificate first or set the path to your client certificate):
@@ -75,3 +78,11 @@ certificate first or set the path to your client certificate):
     gfal-ls gsiftp://my.gridftp.server/home/user/ 
 	
 	gfal-copy somefile.dat gsiftp://my.gridftp.server/home/user/somefile.dat
+
+
+Note for GEANT Sectigo certificate users: It is important that the
+host certificate of the GridFTP server is of the *IGTF* grid
+certificate type, which has a different intermediate CA chain than for
+example the OV certifiates. If not, connection will fail with error
+messages about CAs missing from the signing policies, etc.
+
