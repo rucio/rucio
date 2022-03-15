@@ -1,0 +1,123 @@
+version: "3.5"
+services:
+  rucio:
+    image: docker.io/rucio/rucio-dev:py3
+    extra_hosts:
+      - "ruciodb:127.0.0.1"
+      - "graphite:127.0.0.1"
+      - "fts:127.0.0.1"
+      - "ftsdb:127.0.0.1"
+      - "xrd1:127.0.0.1"
+      - "xrd2:127.0.0.1"
+      - "xrd3:127.0.0.1"
+      - "xrd4:127.0.0.1"
+      - "minio:127.0.0.1"
+      - "activemq:127.0.0.1"
+      - "ssh1:127.0.0.1"
+      - "mongo:127.0.0.1"
+    ports:
+      - "127.0.0.1:8443:443"
+      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:8080:80"
+      - "127.0.0.1:8446:8446"
+      - "127.0.0.1:8449:8449"
+      - "127.0.0.1:3306:3306"
+      - "127.0.0.1:1094:1094"
+      - "127.0.0.1:1095:1095"
+      - "127.0.0.1:1096:1096"
+      - "127.0.0.1:1097:1097"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:61613:61613"
+      - "127.0.0.1:2222:22"
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - ../../../tools:/opt/rucio/tools:Z
+      - ../../../bin:/opt/rucio/bin:Z
+      - ../../../lib:/opt/rucio/lib:Z
+    environment:
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+      - RDBMS=postgres11
+  ruciodb:
+    image: docker.io/postgres:11
+    network_mode: "service:rucio"
+    environment:
+      - POSTGRES_USER=rucio
+      - POSTGRES_DB=rucio
+      - POSTGRES_PASSWORD=secret
+    command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
+  graphite:
+    image: docker.io/graphiteapp/graphite-statsd
+    network_mode: "service:rucio"
+  fts:
+    image: docker.io/rucio/fts
+    network_mode: "service:rucio"
+  ftsdb:
+    image: docker.io/mysql:5
+    network_mode: "service:rucio"
+    environment:
+      - MYSQL_USER=fts
+      - MYSQL_PASSWORD=fts
+      - MYSQL_ROOT_PASSWORD=fts
+      - MYSQL_DATABASE=fts
+  xrd1:
+    image: docker.io/rucio/xrootd
+    network_mode: "service:rucio"
+    environment:
+      - XRDPORT=1094
+    volumes:
+      - ../../certs/hostcert_xrd1.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd1.key.pem:/tmp/xrdkey.pem:Z
+  xrd2:
+    image: docker.io/rucio/xrootd
+    network_mode: "service:rucio"
+    environment:
+      - XRDPORT=1095
+    volumes:
+      - ../../certs/hostcert_xrd2.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd2.key.pem:/tmp/xrdkey.pem:Z
+  xrd3:
+    image: docker.io/rucio/xrootd
+    network_mode: "service:rucio"
+    environment:
+      - XRDPORT=1096
+    volumes:
+      - ../../certs/hostcert_xrd3.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd3.key.pem:/tmp/xrdkey.pem:Z
+  xrd4:
+    image: docker.io/rucio/xrootd
+    network_mode: "service:rucio"
+    environment:
+      - XRDPORT=1097
+    volumes:
+      - ../../certs/hostcert_xrd4.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd4.key.pem:/tmp/xrdkey.pem:Z
+  minio:
+    image: docker.io/minio/minio
+    network_mode: "service:rucio"
+    environment:
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=password
+    volumes:
+      - ../../certs/hostcert_minio.pem:/root/.minio/certs/public.crt:Z
+      - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key:Z
+    command: ["server", "/data"]
+  activemq:
+    image: docker.io/webcenter/activemq:latest
+    network_mode: "service:rucio"
+    environment:
+      - ACTIVEMQ_CONFIG_NAME=activemq
+      - ACTIVEMQ_CONFIG_DEFAULTACCOUNT=false
+      - ACTIVEMQ_USERS_fts=supersecret
+      - ACTIVEMQ_GROUPS_writes=fts
+      - ACTIVEMQ_USERS_receiver=supersecret
+      - ACTIVEMQ_GROUPS_reads=receiver
+      - ACTIVEMQ_CONFIG_SCHEDULERENABLED=true
+  ssh1:
+    image: docker.io/rucio/ssh
+    network_mode: "service:rucio"
+    volumes:
+      - ../../certs/ssh/ruciouser_sshkey.pub:/tmp/sshkey.pub:Z
+  mongo:
+    image: docker.io/mongo:5.0
+    network_mode: "service:rucio"
