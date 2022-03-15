@@ -84,5 +84,5 @@ Note for GEANT Sectigo certificate users: It is important that the
 host certificate of the GridFTP server is of the *IGTF* grid
 certificate type, which has a different intermediate CA chain than for
 example the OV certifiates. If not, connection will fail with error
-messages about CAs missing from the signing policies, etc.
+messages about DNs of CAs missing from the signing policies, etc.
 
