@@ -8,7 +8,7 @@ a modular multi-protocol library which provides plugins for the most
 common transfer protocols, including WebDAV, GridFTP (also known as
 gsiftp), SRM, and others.
 
-The gfal2 Library and plugin are available in the Debian
+The*gfal2*library and plugina are available in the Debian
 repositories. Rucio and the command line utilities use the Python
 bindings however, and those have to be installed from source with pip.
 
@@ -17,7 +17,7 @@ bindings however, and those have to be installed from source with pip.
 
 It turned out that only the unstable version is compatible with the
 most recent Python binding sources. At first I installed the stable
-version, and then compilation as below failed with error messages
+version, whereafter compilation as below failed with error messages
 about undefined types or missing headers. Thus, install the packages
 like this from the *sid* repository.
 
@@ -27,8 +27,10 @@ like this from the *sid* repository.
 
 # Install gfal2 Python bindings
 
-There may be lots of other dependencies in order to compile the Python
-bindings. Install dev packages as necessary. It may also be necessary to run
+There are several dependencies that must be installed in order to
+compile the Python bindings. Install dev packages as necessary; see
+documentationin the gfal2-python source distribution.  It may also be
+necessary to run:
 
     pip3 install wheel
 
@@ -38,21 +40,26 @@ Otherwise the procedure is the usual one:
 	
 	cd gfal2-python
 	
-	[sudo] pip3 install .
+Check the README and any other documentation regarding the
+dependencies you have to install.
 	
+	[sudo] pip3 install .
+
+This should complete without errors.
+
 Note: if you are running the Rucio client from a Python virtual
 environment, run this install in the same environment or Python may
-fail to find the gfal2 library. Otherwise install system-wide as
+fail to find the *gfal2* library. Otherwise install system-wide as
 root/sudo.
 
 	
 # Install gfal2 CLIs
 
-The gfal2 Python library should be enough in order to use the Rucio
-*gfal.py* transfer plugin. However, you may want the *gfal-\** command
-line utilities to test that access to storage works. These commands
-are simply Python scripts wrapping the gfal2 library.  Install them in
-the same way:
+The *gfal2* Python library installed as above should be enough in order
+to use the Rucio *gfal.py* transfer plugin. However, you may want the
+*gfal-\** command line utilities to test that access to storage
+works. These commands are simply Python scripts wrapping the *gfal2*
+library.  Install them in the same way:
 
     git clone git@github.com:cern-fts/gfal2-util
    
@@ -60,3 +67,9 @@ the same way:
    
     pip3 install .
    
+If this install is successful you will be able to use the *gfal2* tools from
+the command line. Some examples:
+
+    gfal-ls gsiftp://my.gridftp.server/home/user/ 
+	
+	gfal-copy somefile.dat gsiftp://my.gridftp.server/home/user/somefile.dat
