@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2022
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2021
 # - David Cameron <david.cameron@cern.ch>, 2014
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
@@ -52,6 +52,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from re import match
 from string import Template
+from typing import Dict, Any, Optional
 
 from dogpile.cache.api import NO_VALUE
 from six import string_types
@@ -1418,17 +1419,18 @@ def reduce_rule(rule_id, copies, exclude_expression=None, session=None):
 
 
 @transactional_session
-def move_rule(rule_id, rse_expression, activity=None, source_replica_expression=None, session=None):
+def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, Any]] = None, session=None):
     """
     Move a replication rule to another RSE and, once done, delete the original one.
 
     :param rule_id:                    Rule to be moved.
     :param rse_expression:             RSE expression of the new rule.
-    :param activity:                   Activity of the new rule.
-    :param source_replica_expression:  Source-Replica-Expression of the new rule.
+    :param override:                   Configurations to update for the new rule.
     :param session:                    The DB Session.
     :raises:                           RuleNotFound, RuleReplaceFailed, InvalidRSEExpression
     """
+    override = override or {}
+
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
 
@@ -1444,22 +1446,34 @@ def move_rule(rule_id, rse_expression, activity=None, source_replica_expression=
 
         notify = {RuleNotification.YES: 'Y', RuleNotification.CLOSE: 'C', RuleNotification.PROGRESS: 'P'}.get(rule.notification, 'N')
 
-        new_rule_id = add_rule(dids=[{'scope': rule.scope, 'name': rule.name}],
-                               account=rule.account,
-                               copies=rule.copies,
-                               rse_expression=rse_expression,
-                               grouping=grouping,
-                               weight=rule.weight,
-                               lifetime=lifetime,
-                               locked=rule.locked,
-                               subscription_id=rule.subscription_id,
-                               source_replica_expression=source_replica_expression if source_replica_expression else rule.source_replica_expression,
-                               activity=activity if activity else rule.activity,
-                               notify=notify,
-                               purge_replicas=rule.purge_replicas,
-                               ignore_availability=rule.ignore_availability,
-                               comment=rule.comments,
-                               session=session)
+        options = {
+            'dids': [{'scope': rule.scope, 'name': rule.name}],
+            'account': rule.account,
+            'copies': rule.copies,
+            'rse_expression': rse_expression,
+            'grouping': grouping,
+            'weight': rule.weight,
+            'lifetime': lifetime,
+            'locked': rule.locked,
+            'subscription_id': rule.subscription_id,
+            'source_replica_expression': rule.source_replica_expression,
+            'activity': rule.activity,
+            'notify': notify,
+            'purge_replicas': rule.purge_replicas,
+            'ignore_availability': rule.ignore_availability,
+            'comment': rule.comments,
+            'session': session,
+        }
+
+        for key in override:
+            if key in ['dids', 'session']:
+                raise UnsupportedOperation('Not allowed to override option %s' % key)
+            elif key not in options:
+                raise UnsupportedOperation('Non-valid override option %s' % key)
+            else:
+                options[key] = override[key]
+
+        new_rule_id = add_rule(**options)
 
         session.flush()
 

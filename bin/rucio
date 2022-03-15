@@ -1443,10 +1443,16 @@ def move_rule(args):
     Update a rule.
     """
     client = get_client(args)
+
+    override = {}
+    if args.activity:
+        override['activity'] = args.activity
+    if args.source_replica_expression:
+        override['source_replica_expression'] = None if args.source_replica_expression.lower() == "none" else args.source_replica_expression
+
     print(client.move_replication_rule(rule_id=args.rule_id,
                                        rse_expression=args.rse_expression,
-                                       activity=args.activity,
-                                       source_replica_expression=args.source_replica_expression))
+                                       override=override))
     return SUCCESS
 
 
@@ -2524,8 +2530,8 @@ You can filter by account::
     move_rule_parser.set_defaults(function=move_rule)
     move_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
     move_rule_parser.add_argument(dest='rse_expression', action='store', help='RSE expression of new rule')
-    move_rule_parser.add_argument('--activity', dest='activity', action='store', help='Update activity for moved rule')
-    move_rule_parser.add_argument('--source-replica-expression', dest='source_replica_expression', action='store', help='Update source-replica-expression for moved rule')
+    move_rule_parser.add_argument('--activity', dest='activity', action='store', help='Update activity for moved rule.')
+    move_rule_parser.add_argument('--source-replica-expression', dest='source_replica_expression', action='store', help='Update source-replica-expression for moved rule. Use "None" to remove the old value.')
 
     # The list-rses command
     list_rses_parser = subparsers.add_parser('list-rses', help='Show the list of all the registered Rucio Storage Elements (RSEs).')

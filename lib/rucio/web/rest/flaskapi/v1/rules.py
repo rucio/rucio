@@ -18,6 +18,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
+# - Martin Barisits <martin.barisits@cern.ch>, 2022
 
 from json import dumps
 
@@ -571,13 +572,20 @@ class MoveRule(ErrorHandlingMethodView):
         parameters = json_parameters()
         rse_expression = param_get(parameters, 'rse_expression')
         rule_id = param_get(parameters, 'rule_id', default=rule_id)
+        override = param_get(parameters, 'override', default={})
+
+        # For backwards-compatibility, deprecate in the future.
         activity = param_get(parameters, 'activity', default=None)
+        if activity and 'activity' not in override:
+            override['activity'] = activity
         source_replica_expression = param_get(parameters, 'source_replica_expression', default=None)
+        if source_replica_expression and 'source_replica_expression' not in override:
+            override['source_replica_expression'] = source_replica_expression
+
         try:
             rule_ids = move_replication_rule(rule_id=rule_id,
                                              rse_expression=rse_expression,
-                                             activity=activity,
-                                             source_replica_expression=source_replica_expression,
+                                             override=override,
                                              issuer=request.environ.get('issuer'),
                                              vo=request.environ.get('vo'))
         except RuleReplaceFailed as error:
