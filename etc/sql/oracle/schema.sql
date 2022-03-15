@@ -1904,3 +1904,20 @@ CREATE TABLE VIRTUAL_PLACEMENTS (
 	CONSTRAINT VP_PK PRIMARY KEY (scope, name),
 	CONSTRAINT VP_FK FOREIGN KEY (scope, name) REFERENCES dids (scope, name) 
 );
+
+-- 69 ) ================ TRANSFER HOPS table  ================
+
+CREATE TABLE TRANSFER_HOPS (
+    request_id RAW(16),
+    next_hop_request_id RAW(16),
+    initial_request_id RAW(16),
+    created_at DATE,
+    updated_at DATE,
+    CONSTRAINT TRANSFER_HOPS_CREATED_NN CHECK (created_at IS NOT NULL),
+    CONSTRAINT TRANSFER_HOPS_UPDATED_NN CHECK (updated_at IS NOT NULL),
+    CONSTRAINT TRANSFER_HOPS_PK PRIMARY KEY (request_id, next_hop_request_id, initial_request_id),
+    CONSTRAINT TRANSFER_HOPS_INIT_REQ_ID_FK FOREIGN KEY (initial_request_id) REFERENCES REQUESTS(id),
+    CONSTRAINT TRANSFER_HOPS_NH_REQ_ID_FK FOREIGN KEY (next_hop_request_id) REFERENCES REQUESTS(id),
+);
+
+CREATE INDEX TRANSFER_HOPS_INITIAL_REQ ON TRANSFER_HOPS (initial_request_id);

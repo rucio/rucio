@@ -57,7 +57,7 @@ class TestS3(unittest.TestCase):
                                      'impl': 'rucio.rse.protocols.gfal.NoRename',
                                      'domains': {
                                          'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                         'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy': 1}}})
+                                         'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy_read': 1, 'third_party_copy_write': 1}}})
         add_rse_attribute(rse_id=self.rses3_id, key='sign_url', value='s3')
         add_rse_attribute(rse_id=self.rses3_id, key='fts', value='localhost')
         self.files3 = [{'scope': InternalScope('mock', **self.vo), 'name': 'file-on-aws',
@@ -74,7 +74,7 @@ class TestS3(unittest.TestCase):
                                         'impl': 'rucio.rse.protocols.gfal.Default',
                                         'domains': {
                                             'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                            'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy': 1}}})
+                                            'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy_read': 1, 'third_party_copy_write': 1}}})
         add_rse_attribute(rse_id=self.rsenons3_id, key='fts', value='localhost')
         self.filenons3 = [{'scope': InternalScope('mock', **self.vo), 'name': 'file-on-storage',
                            'bytes': 1234, 'adler32': 'deadbeef', 'meta': {'events': 321}}]

@@ -279,8 +279,7 @@ def test_multihop_concurrent_submitters(rse_factory, did_factory, root_account, 
     dst_request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
     assert jmp_request['state'] == dst_request['state'] == RequestState.QUEUED
     assert jmp_request['attributes']['source_replica_expression'] == src_rse
-    assert jmp_request['attributes']['initial_request_id'] == dst_request['id']
-    assert jmp_request['attributes']['next_hop_request_id'] == dst_request['id']
+    assert jmp_request['attributes']['is_intermediate_hop']
 
 
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [

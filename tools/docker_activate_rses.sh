@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2019-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2022
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+
+echo "Creating RSEs"
 
 # Create the following topology:
 # +------+   1   +------+
@@ -33,6 +36,9 @@
 # |      |<----->|      |
 # +------+   2   +------+
 
+# Step zero, get a compliant proxy
+xrdgsiproxy init -bits 2048 -valid 9999:00 -cert /opt/rucio/etc/usercert.pem  -key /opt/rucio/etc/userkey.pem
+
 # First, create the RSEs
 rucio-admin rse add XRD1
 rucio-admin rse add XRD2
@@ -43,11 +49,11 @@ rucio-admin rse add SSH1
 # Add the protocol definitions for the storage servers
 rucio-admin rse add-protocol --hostname xrd1 --scheme root --prefix //rucio --port 1094 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD1
 rucio-admin rse add-protocol --hostname xrd2 --scheme root --prefix //rucio --port 1095 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD2
-rucio-admin rse add-protocol --hostname xrd3 --scheme root --prefix //rucio --port 1096 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD3
-rucio-admin rse add-protocol --hostname xrd4 --scheme root --prefix //rucio --port 1097 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD4
-rucio-admin rse add-protocol --hostname ssh1 --scheme scp --prefix /rucio --port 22 --impl rucio.rse.protocols.ssh.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' SSH1
-rucio-admin rse add-protocol --hostname ssh1 --scheme rsync --prefix /rucio --port 22 --impl rucio.rse.protocols.ssh.Rsync --domain-json '{"wan": {"read": 2, "write": 2, "delete": 2, "third_party_copy": 2}, "lan": {"read": 2, "write": 2, "delete": 2}}' SSH1
-rucio-admin rse add-protocol --hostname ssh1 --scheme rclone --prefix /rucio --port 22 --impl rucio.rse.protocols.rclone.Default --domain-json '{"wan": {"read": 3, "write": 3, "delete": 3, "third_party_copy": 3}, "lan": {"read": 3, "write": 3, "delete": 3}}' SSH1
+rucio-admin rse add-protocol --hostname xrd3 --scheme root --prefix //rucio --port 1096 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD3
+rucio-admin rse add-protocol --hostname xrd4 --scheme root --prefix //rucio --port 1097 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD4
+rucio-admin rse add-protocol --hostname ssh1 --scheme scp --prefix /rucio --port 22 --impl rucio.rse.protocols.ssh.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' SSH1
+rucio-admin rse add-protocol --hostname ssh1 --scheme rsync --prefix /rucio --port 22 --impl rucio.rse.protocols.ssh.Rsync --domain-json '{"wan": {"read": 2, "write": 2, "delete": 2, "third_party_copy_read": 2, "third_party_copy_write": 2}, "lan": {"read": 2, "write": 2, "delete": 2}}' SSH1
+rucio-admin rse add-protocol --hostname ssh1 --scheme rclone --prefix /rucio --port 22 --impl rucio.rse.protocols.rclone.Default --domain-json '{"wan": {"read": 3, "write": 3, "delete": 3, "third_party_copy_read": 3, "third_party_copy_write": 3}, "lan": {"read": 3, "write": 3, "delete": 3}}' SSH1
 
 # Set test_container_xrd attribute for xrd containers
 rucio-admin rse set-attribute --rse XRD1 --key test_container_xrd --value True
@@ -76,11 +82,11 @@ rucio-admin rse set-attribute --rse XRD3 --key available_for_multihop --value Tr
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD1 XRD2
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD1 XRD3
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD2 XRD1
-rucio-admin rse add-distance --distance 1 --ranking 1 XRD2 XRD3
+rucio-admin rse add-distance --distance 2 --ranking 2 XRD2 XRD3
 rucio-admin rse add-distance --distance 1 --ranking 1 XRD3 XRD1
-rucio-admin rse add-distance --distance 1 --ranking 1 XRD3 XRD2
-rucio-admin rse add-distance --distance 2 --ranking 2 XRD3 XRD4
-rucio-admin rse add-distance --distance 2 --ranking 2 XRD4 XRD3
+rucio-admin rse add-distance --distance 2 --ranking 2 XRD3 XRD2
+rucio-admin rse add-distance --distance 3 --ranking 3 XRD3 XRD4
+rucio-admin rse add-distance --distance 3 --ranking 3 XRD4 XRD3
 
 # Indefinite limits for root
 rucio-admin account set-limits root XRD1 -1
@@ -91,9 +97,6 @@ rucio-admin account set-limits root SSH1 -1
 
 # Create a default scope for testing
 rucio-admin scope add --account root --scope test
-
-# Delegate credentials to FTS
-/usr/bin/python2.7 /usr/bin/fts-rest-delegate -vf -s https://fts:8446 -H 9999
 
 # Create initial transfer testing data
 dd if=/dev/urandom of=file1 bs=10M count=1
@@ -120,3 +123,9 @@ rucio add-rule test:container 1 XRD3
 # Create complication
 rucio add-dataset test:dataset3
 rucio attach test:dataset3 test:file4
+
+# FTS Check
+fts-rest-whoami -v -s https://fts:8446
+
+# Delegate credentials to FTS
+fts-rest-delegate -vf -s https://fts:8446 -H 9999

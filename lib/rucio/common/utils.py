@@ -484,7 +484,7 @@ def execute(cmd, blocking=True):
 
 def rse_supported_protocol_operations():
     """ Returns a list with operations supported by all RSE protocols."""
-    return ['read', 'write', 'delete', 'third_party_copy']
+    return ['read', 'write', 'delete', 'third_party_copy', 'third_party_copy_read', 'third_party_copy_write']
 
 
 def rse_supported_protocol_domains():
@@ -628,47 +628,11 @@ register_surl_algorithm(construct_surl_DQ2, 'DQ2')
 register_surl_algorithm(construct_surl_BelleII, 'BelleII')
 
 
-def _register_policy_package_surl_algorithms():
-    def try_importing_policy(vo=None):
-        import importlib
-        try:
-            package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo['vo']))
-            module = importlib.import_module(package)
-            if hasattr(module, 'get_surl_algorithms'):
-                surl_algorithms = module.get_surl_algorithms()
-                if not vo:
-                    _SURL_ALGORITHMS.update(surl_algorithms)
-                else:
-                    # check that the names are correctly prefixed
-                    for k in surl_algorithms.keys():
-                        if k.lower().startswith(vo['vo'].lower()):
-                            _SURL_ALGORITHMS[k] = surl_algorithms[k]
-                        else:
-                            raise InvalidAlgorithmName(k, vo['vo'])
-        except (NoOptionError, NoSectionError, ImportError):
-            pass
-
-    from rucio.common import config
-    from rucio.core.vo import list_vos
-    try:
-        multivo = config.config_get_bool('common', 'multi_vo')
-    except (NoOptionError, NoSectionError):
-        multivo = False
-    if not multivo:
-        # single policy package
-        try_importing_policy()
-    else:
-        # policy package per VO
-        vos = list_vos()
-        for vo in vos:
-            try_importing_policy(vo)
-
-
 def construct_surl(dsn, filename, naming_convention=None):
     global _loaded_policy_modules
     if not _loaded_policy_modules:
         # on first call, register any SURL functions from the policy packages
-        _register_policy_package_surl_algorithms()
+        register_policy_package_algorithms('surl', _SURL_ALGORITHMS)
         _loaded_policy_modules = True
 
     if naming_convention is None or naming_convention not in _SURL_ALGORITHMS:
@@ -731,6 +695,7 @@ def clean_surls(surls):
 
 _EXTRACT_SCOPE_ALGORITHMS = {}
 _DEFAULT_EXTRACT = 'atlas'
+_loaded_policy_package_scope_algorithms = False
 
 
 def extract_scope_atlas(did, scopes):
@@ -847,6 +812,10 @@ register_extract_scope_algorithm(extract_scope_dirac, 'dirac')
 
 
 def extract_scope(did, scopes=None, default_extract=_DEFAULT_EXTRACT):
+    global _loaded_policy_package_scope_algorithms
+    if not _loaded_policy_package_scope_algorithms:
+        register_policy_package_algorithms('scope', _EXTRACT_SCOPE_ALGORITHMS)
+        _loaded_policy_package_scope_algorithms = True
     extract_scope_convention = config_get('common', 'extract_scope', False, None)
     if extract_scope_convention is None or extract_scope_convention not in _EXTRACT_SCOPE_ALGORITHMS:
         extract_scope_convention = default_extract
@@ -1823,3 +1792,72 @@ class PriorityQueue:
 
         self.container[self.heap[pos]].pos = pos
         return heap_changed
+
+
+def register_policy_package_algorithms(algorithm_type, dictionary):
+    '''
+    Loads all the algorithms of a given type from the policy package(s) and registers them
+    :param algorithm_type: the type of algorithm to register (e.g. 'surl', 'lfn2pfn')
+    :param dictionary: the dictionary to register them in
+    :param vo: the name of the relevant VO (None for single VO)
+    '''
+    def try_importing_policy(algorithm_type, dictionary, vo=None):
+        import importlib
+        try:
+            env_name = 'RUCIO_POLICY_PACKAGE' + ('' if not vo else '_' + vo.upper())
+            if env_name in os.environ:
+                package = os.environ[env_name]
+            else:
+                package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo))
+            module = importlib.import_module(package)
+            if hasattr(module, 'get_algorithms'):
+                all_algorithms = module.get_algorithms()
+                if algorithm_type in all_algorithms:
+                    algorithms = all_algorithms[algorithm_type]
+                    if not vo:
+                        dictionary.update(algorithms)
+                    else:
+                        # check that the names are correctly prefixed
+                        for k in algorithms.keys():
+                            if k.lower().startswith(vo.lower()):
+                                dictionary[k] = algorithms[k]
+                            else:
+                                raise InvalidAlgorithmName(k, vo)
+        except (NoOptionError, NoSectionError, ImportError):
+            pass
+
+    from rucio.common import config
+    try:
+        multivo = config.config_get_bool('common', 'multi_vo')
+    except (NoOptionError, NoSectionError):
+        multivo = False
+    if not multivo:
+        # single policy package
+        try_importing_policy(algorithm_type, dictionary)
+    else:
+        # determine whether on client or server
+        client = False
+        if 'RUCIO_CLIENT_MODE' not in os.environ:
+            if not config.config_has_section('database') and config.config_has_section('client'):
+                client = True
+        else:
+            if os.environ['RUCIO_CLIENT_MODE']:
+                client = True
+
+        # on client, only register algorithms for selected VO
+        if client:
+            if 'RUCIO_VO' in os.environ:
+                vo = os.environ['RUCIO_VO']
+            else:
+                try:
+                    vo = config.config_get('client', 'vo')
+                except (NoOptionError, NoSectionError):
+                    vo = 'def'
+            try_importing_policy(algorithm_type, dictionary, vo)
+        # on server, list all VOs and register their algorithms
+        else:
+            from rucio.core.vo import list_vos
+            # policy package per VO
+            vos = list_vos()
+            for vo in vos:
+                try_importing_policy(algorithm_type, dictionary, vo['vo'])

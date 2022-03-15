@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2015-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 import time
 from typing import TYPE_CHECKING
@@ -46,13 +45,30 @@ class XAODTrace(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Trace endpoint used by the XAOD framework to post data access information.
-
-        .. :quickref: XAODTrace; Send XAOD trace.
-
-        :<json dict payload: Dictionary contain the trace information.
-        :status 201: Created.
-        :status 400: Cannot decode json data.
+        ---
+        summary: Trace endpoints
+        description: Trace endpoint used by the XAOD framework to post data access information.
+        tags:
+          - Nongrid traces
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payload:
+                    description: Dictionary containing the trace information.
+                    type: object
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          400:
+            description: Cannot decode json data.
         """
         headers = self.get_headers()
 

@@ -919,11 +919,18 @@ def add_protocol(rse_id, parameter, session=None):
             for op in parameter['domains'][s]:
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
-                op_name = op if op == 'third_party_copy' else ''.join([op, '_', s]).lower()
+                op_name = op if op.startswith('third_party_copy') else ''.join([op, '_', s]).lower()
                 if parameter['domains'][s][op] < 0:
                     raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (parameter['domains'][s][op], op, s))
                 parameter[op_name] = parameter['domains'][s][op]
         del parameter['domains']
+
+    # If third_party_copy is set, but not the third_party_copy_read/write,
+    # set the _read/_write by copying the value from the third_party_copy
+    # This is done to maintain compatibility with old scripts.
+    if parameter.get('third_party_copy') is not None and parameter.get('third_party_copy_read') is None and parameter.get('third_party_copy_write') is None:
+        parameter['third_party_copy_read'] = parameter['third_party_copy']
+        parameter['third_party_copy_write'] = parameter['third_party_copy']
 
     if ('extended_attributes' in parameter) and parameter['extended_attributes']:
         try:
@@ -1034,6 +1041,8 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
                           models.RSEProtocols.write_wan,
                           models.RSEProtocols.delete_wan,
                           models.RSEProtocols.third_party_copy,
+                          models.RSEProtocols.third_party_copy_read,
+                          models.RSEProtocols.third_party_copy_write,
                           models.RSEProtocols.extended_attributes).filter(*terms)
 
     for row in query:
@@ -1049,7 +1058,9 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
                  'wan': {'read': row.read_wan,
                          'write': row.write_wan,
                          'delete': row.delete_wan,
-                         'third_party_copy': row.third_party_copy}
+                         'third_party_copy': row.third_party_copy,
+                         'third_party_copy_read': row.third_party_copy_read,
+                         'third_party_copy_write': row.third_party_copy_write}
              },
              'extended_attributes': row.extended_attributes}
 
@@ -1097,7 +1108,7 @@ def update_protocols(rse_id, scheme, data, hostname, port, session=None):
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
                 op_name = op
-                if op != 'third_party_copy':
+                if not op.startswith('third_party_copy'):
                     op_name = ''.join([op, '_', s])
                 no = session.query(models.RSEProtocols).\
                     filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rse_id,
@@ -1134,7 +1145,7 @@ def update_protocols(rse_id, scheme, data, hostname, port, session=None):
         for domain in utils.rse_supported_protocol_domains():
             for op in utils.rse_supported_protocol_operations():
                 op_name = op
-                if op != 'third_party_copy':
+                if not op.startswith('third_party_copy'):
                     op_name = ''.join([op, '_', domain])
                 if op_name in data:
                     prots = []

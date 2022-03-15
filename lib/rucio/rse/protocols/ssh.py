@@ -96,8 +96,7 @@ class Default(protocol.RSEProtocol):
         self.logger(logging.DEBUG, 'ssh.stat: path: {}'.format(path))
         ret = {}
         chsum = None
-        if path.startswith('scp://'):
-            path = self.pfn2path(path)
+        path = self.pfn2path(path)
 
         try:
             # ssh stat for getting filesize
@@ -310,8 +309,7 @@ class Rsync(Default):
         self.logger(logging.DEBUG, 'rsync.stat: path: {}'.format(path))
         ret = {}
         chsum = None
-        if path.startswith('rsync://'):
-            path = self.pfn2path(path)
+        path = self.pfn2path(path)
 
         try:
             # rsync stat for getting filesize

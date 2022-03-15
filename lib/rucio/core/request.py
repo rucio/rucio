@@ -45,9 +45,10 @@ from itertools import filterfalse
 from typing import TYPE_CHECKING
 
 from six import string_types
-from sqlalchemy import and_, or_, func, update
+from sqlalchemy import and_, or_, func, update, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql.expression import asc, true, false
+from sqlalchemy.orm import aliased
+from sqlalchemy.sql.expression import asc, true, false, null
 
 from rucio.common.config import config_get_bool, config_get
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
@@ -150,7 +151,7 @@ def should_retry_request(req, retry_protocol_mismatches):
     :param retry_protocol_mismatches:    Boolean to retry the transfer in case of protocol mismatch.
     :returns:                            True if should retry it; False if no more retry.
     """
-    if req['attributes'] and req['attributes'].get('next_hop_request_id'):
+    if is_intermediate_hop(req):
         # This is an intermediate request in a multi-hop transfer. It must not be re-scheduled on its own.
         # If needed, it will be re-scheduled via the creation of a new multi-hop transfer.
         return False
@@ -406,6 +407,8 @@ def list_transfer_requests_and_source_replicas(
         .filter(models.Request.request_type == request_type) \
         .join(models.RSE, models.RSE.id == models.Request.dest_rse_id) \
         .filter(models.RSE.deleted == false()) \
+        .outerjoin(models.TransferHop, models.TransferHop.next_hop_request_id == models.Request.id) \
+        .filter(models.TransferHop.next_hop_request_id == null()) \
         .order_by(models.Request.created_at)
 
     if not ignore_availability:
@@ -509,6 +512,41 @@ def list_transfer_requests_and_source_replicas(
             request.sources.append(RequestSource(rse_data=RseData(id_=source_rse_id, name=source_rse_name), file_path=file_path,
                                                  source_ranking=source_ranking, distance_ranking=distance_ranking, url=source_url))
     return list(requests_by_id.values())
+
+
+@read_session
+def fetch_paths(request_id, session=None):
+    """
+    Find the paths for which the provided request is a constituent hop.
+
+    Returns a dict: {initial_request_id1: path1, ...}. Each path is an ordered list of request_ids.
+    """
+    transfer_hop_alias = aliased(models.TransferHop)
+    stmt = select(
+        models.TransferHop,
+    ).join(
+        transfer_hop_alias,
+        and_(
+            transfer_hop_alias.initial_request_id == models.TransferHop.initial_request_id,
+            or_(transfer_hop_alias.request_id == request_id,
+                transfer_hop_alias.initial_request_id == request_id),
+        )
+    )
+
+    parents_by_initial_request = {}
+    for hop, in session.execute(stmt):
+        parents_by_initial_request.setdefault(hop.initial_request_id, {})[hop.next_hop_request_id] = hop.request_id
+
+    paths = {}
+    for initial_request_id, parents in parents_by_initial_request.items():
+        path = []
+        cur_request = initial_request_id
+        path.append(cur_request)
+        while parents.get(cur_request):
+            cur_request = parents[cur_request]
+            path.append(cur_request)
+        paths[initial_request_id] = list(reversed(path))
+    return paths
 
 
 @read_session
@@ -832,6 +870,50 @@ def get_request_history_by_did(scope, name, rse_id, request_type=None, session=N
         raise RucioException(error.args)
 
 
+def is_intermediate_hop(request):
+    """
+    Check if the request is an intermediate hop in a multi-hop transfer.
+    """
+    if (request['attributes'] or {}).get('next_hop_request_id'):
+        # This is only needed during the migration. When pre- 1.28 requests still exist
+        # in the database and we have to handle them correctly.
+        # TODO: remove this if
+        return True
+    if (request['attributes'] or {}).get('is_intermediate_hop'):
+        return True
+    return False
+
+
+@transactional_session
+def handle_failed_intermediate_hop(request, session=None):
+    """
+    Perform housekeeping behind a failed intermediate hop
+    """
+    # mark all hops following this one (in any multihop path) as Failed
+    new_state = RequestState.FAILED
+    reason = 'Unused hop in multi-hop'
+
+    paths = fetch_paths(request['id'], session=session)
+    dependent_requests = []
+    for path in paths.values():
+        idx = path.index(request['id'])
+        dependent_requests.extend(path[idx + 1:])
+
+    if dependent_requests:
+        stmt = update(
+            models.Request
+        ).where(
+            models.Request.id.in_(dependent_requests),
+            models.Request.state.in_([RequestState.QUEUED, RequestState.SUBMITTED]),
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            state=new_state,
+            err_msg=get_transfer_error(new_state, reason=reason),
+        )
+        session.execute(stmt)
+
+
 @transactional_session
 def archive_request(request_id, session=None):
     """
@@ -882,6 +964,9 @@ def archive_request(request_id, session=None):
             time_diff_s = time_diff.seconds + time_diff.days * 24 * 3600
             record_timer('core.request.archive_request.{activity}', time_diff_s, labels={'activity': req['activity'].replace(' ', '_')})
             session.query(models.Source).filter_by(request_id=request_id).delete()
+            session.query(models.TransferHop).filter(or_(models.TransferHop.request_id == request_id,
+                                                         models.TransferHop.next_hop_request_id == request_id,
+                                                         models.TransferHop.initial_request_id == request_id)).delete()
             session.query(models.Request).filter_by(id=request_id).delete()
         except IntegrityError as error:
             raise RucioException(error.args)
@@ -1402,9 +1487,14 @@ def update_request_state(tt_status_report, session=None, logger=logging.log):
             logger(logging.INFO, 'UPDATING REQUEST %s FOR %s with changes: %s' % (str(request_id), tt_status_report, fields_to_update))
 
             set_request_state(request_id, session=session, **fields_to_update)
+            request = tt_status_report.request(session)
+
+            if tt_status_report.state == RequestState.FAILED:
+                if is_intermediate_hop(request):
+                    handle_failed_intermediate_hop(request, session=session)
 
             add_monitor_message(new_state=tt_status_report.state,
-                                request=tt_status_report.request(session),
+                                request=request,
                                 additional_fields=tt_status_report.get_monitor_msg_fields(session=session, logger=logger),
                                 session=session)
             return True
