@@ -8,9 +8,10 @@ a modular multi-protocol library which provides plugins for the most
 common transfer protocols, including WebDAV, GridFTP (also known as
 gsiftp), SRM, and others.
 
-The*gfal2*library and plugina are available in the Debian
-repositories. Rucio and the command line utilities use the Python
-bindings however, and those have to be installed from source with pip.
+The *gfal2* library and transfer protocol plugins are available in the
+Debian repositories. Rucio and the command line utilities use the
+Python bindings however, and those have to be installed from source
+with pip.
 
 
 # Install gfal2 library
@@ -29,7 +30,7 @@ like this from the *sid* repository.
 
 There are several dependencies that must be installed in order to
 compile the Python bindings. Install dev packages as necessary; see
-documentationin the gfal2-python source distribution.  It may also be
+documentation in the *gfal2-python* source distribution.  It may also be
 necessary to run:
 
     pip3 install wheel
@@ -67,8 +68,9 @@ library.  Install them in the same way:
    
     pip3 install .
    
-If this install is successful you will be able to use the *gfal2* tools from
-the command line. Some examples:
+If this install is successful you will be able to use the *gfal2*
+tools from the command line. Some examples (remember to create a proxy
+certificate first or set the path to your client certificate):
 
     gfal-ls gsiftp://my.gridftp.server/home/user/ 
 	
