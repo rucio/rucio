@@ -171,15 +171,15 @@ if __name__ == "__main__":
                              action='store_true',
                              help="return the policy package installation command for given vo."
                              )
-    output_type.add_argument('--get-vo-config', '-c', required=False,
+    output_type.add_argument('--vo-config', '-c', required=False,
                              action='store_true',
                              help="return the rucio config section for the given vo.")
-    output_type.add_argument('--get-vo-tests', '-t', required=False,
+    output_type.add_argument('--tests', '-t', required=False,
                              action='store_true',
                              help="return the tests that will be run for the given vo.")
 
     args = parser.parse_args()
-    if args.v:
+    if args.verbose:
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.ERROR)
@@ -187,21 +187,21 @@ if __name__ == "__main__":
     vo = args.vo
     input_conf = load_config_file(file)
     if vo != 'all':
-        if args.i:
+        if args.installation_command:
             print(get_installation_cmd(input_conf, vo))
-        elif args.c:
+        elif args.vo_config:
             rucio_cfg = args.rucio_cfg
             print(persist_config_overrides(input_conf, vo, rucio_cfg))
-        elif args.t:
+        elif args.tests:
             print(collect_tests(input_conf, vo))
     else:
-        if args.i:
+        if args.installation_command:
             logger.warning("Please specify a single vo using the --vo option. The -i flag requires a single VO to be specified.")
             sys.exit(1)
-        elif args.c:
+        elif args.vo_config:
             logger.warning("Please specify a single vo using the --vo option. The -c flag requires a single VO to be specified.")
             sys.exit(1)
-        elif args.t:
+        elif args.tests:
             logger.warning("Please specify a single vo using the --vo option. The -t flag requires a single VO to be specified.")
             sys.exit(1)
         else:
