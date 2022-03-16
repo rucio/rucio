@@ -98,7 +98,7 @@ jobs:
         shell: bash
         run: |
           docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-          docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml pull
+          docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage-externalmetadata.yml pull
           i=0; until [ "$i" -ge 3 ]; do
             IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | $GITHUB_WORKSPACE/dev/rucio/tools/test/build_images.py --output list \
                 --cache-repo ghcr.io/${{ github.repository }} --branch "${{ needs.setup.outputs.branch }}" \
@@ -117,9 +117,9 @@ jobs:
         run: |
           docker image ls
           sed -i 's;image: docker.io/rucio/rucio-dev.*;image: ${{ fromJSON(steps.images.outputs.images)[0] }};' \
-              $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml
+              $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage-externalmetadata.yml
       - name: Start containers
-        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml up -d
+        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage-externalmetadata.yml up -d
       - name: Initialize tests
         shell: bash
         run: |
@@ -167,4 +167,4 @@ jobs:
       - name: Archive Upload/Download Test
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_download.py::test_download_from_archive_on_xrd
       - name: Stop containers
-        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml down
+        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage-externalmetadata.yml down
