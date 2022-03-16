@@ -27,6 +27,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Carl-Fredrik Enell <carl-fredrik.enell@eiscat.se>, 2022
 
 from __future__ import print_function, division
 import os
