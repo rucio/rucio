@@ -27,7 +27,6 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Carl-Fredrik Enell <carl-fredrik.enell@eiscat.se>, 2022
 
 from __future__ import print_function, division
 import os
@@ -44,7 +43,6 @@ from urllib.parse import urlparse
 from rucio.common import exception
 from rucio.rse.protocols import protocol
 
-#import certifi
 
 class TLSv1HttpAdapter(HTTPAdapter):
     '''
@@ -55,10 +53,7 @@ class TLSv1HttpAdapter(HTTPAdapter):
                                        maxsize=maxsize,
                                        block=block,
                                        cert_reqs="CERT_REQUIRED",
-                                       ca_cert_dir="/etc/grid-security/certificates",
-                                       #Or for Mozilla bundle:
-                                       #ca_certs=certifi.where()
-				)
+                                       ca_cert_dir="/etc/grid-security/certificates")
 
 
 class UploadInChunks(object):
