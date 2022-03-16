@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2020-2021 CERN
+# Copyright 2020-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2021-2022
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 import argparse
@@ -53,7 +53,7 @@ def build_images(matrix, script_args):
                                 lambda argdict: {arg: val for arg, val in argdict.items() if arg in BUILD_ARG_KEYS})
     make_buildargs = partial(map, lambda argdict: BuildArgs(**argdict))
     distribution_buildargs = {dist: (set(make_buildargs(filter_build_args(args)))) for dist, args in
-                              itertools.groupby(matrix, lambda d: d[DIST_KEY])}
+                              itertools.groupby(sorted(matrix, key=lambda d: d[DIST_KEY]), lambda d: d[DIST_KEY])}
     use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
     images = dict()
     for dist, buildargs_list in distribution_buildargs.items():
@@ -95,7 +95,8 @@ def build_images(matrix, script_args):
                         *itertools.chain(*map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), filtered_buildargs.items())),
                         f'{script_args.buildfiles_dir}',
                     )
-            elif buildargs.IMAGE_IDENTIFIER == 'autotest':
+            else:
+                # build images for autotest or votest
                 buildfile = pathlib.Path(script_args.buildfiles_dir) / f'{dist}.Dockerfile'
                 args = (
                     'docker',

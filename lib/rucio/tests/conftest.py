@@ -16,11 +16,13 @@
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
-# - Mayank Sharma <imptodefeat@gmail.com>, 2021
+# - Mayank Sharma <imptodefeat@gmail.com>, 2021-2022
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021-2022
+
 
 from __future__ import print_function
 
@@ -179,6 +181,18 @@ def rse_factory(vo):
 
     with TemporaryRSEFactory(vo=vo) as factory:
         yield factory
+
+
+@pytest.fixture(scope="class")
+def rse_factory_unittest(request, vo):
+    """
+    unittest classes can get access to rse_factory fixture via this fixture
+    """
+    from rucio.tests.temp_factories import TemporaryRSEFactory
+    with TemporaryRSEFactory(vo=vo) as factory:
+        request.cls.rse_factory = factory
+        yield factory
+        factory.cleanup()
 
 
 @pytest.fixture

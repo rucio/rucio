@@ -19,6 +19,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2022
 
 set -eo pipefail
 
@@ -32,4 +33,13 @@ if [ "$SUITE" == "client" -o "$SUITE" == "client_syntax" ]; then
 elif [ "$SUITE" == "syntax" -o "$SUITE" == "docs" ]; then
     cd /usr/local/src/rucio
     cp etc/docker/test/extra/rucio_syntax.cfg etc/rucio.cfg
+
+elif [ "$SUITE" == "votest" ]; then
+    RUCIO_HOME=/opt/rucio
+    VOTEST_HELPER=$RUCIO_HOME/tools/test/votest_helper.py
+    VOTEST_CONFIG_FILE=$RUCIO_HOME/etc/docker/test/matrix_policy_package_tests.yml
+    echo "VOTEST: Overriding policy section in rucio.cfg"
+    python $VOTEST_HELPER --vo $POLICY --get-vo-config --file $VOTEST_CONFIG_FILE
+    echo "VOTEST: Restarting httpd to load config"
+    httpd -k restart
 fi
