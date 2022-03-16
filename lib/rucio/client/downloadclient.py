@@ -241,7 +241,8 @@ class DownloadClient:
 
         return self._check_output(output_items, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
-    def download_dids(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None, deactivate_file_download_exceptions=False):
+    def download_dids(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None,
+                      deactivate_file_download_exceptions=False, sort=None):
         """
         Download items with given DIDs. This function can also download datasets and wildcarded DIDs.
 
@@ -264,6 +265,10 @@ class DownloadClient:
         :param trace_custom_fields: Custom key value pairs to send with the traces.
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
         :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
+        :param sort: Select best replica by replica sorting algorithm. Available algorithms:
+            ``geoip``       - based on src/dst IP topographical distance
+            ``closeness``   - based on src/dst closeness
+            ``dynamic``     - Rucio Dynamic Smart Sort (tm)
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -276,7 +281,7 @@ class DownloadClient:
         trace_custom_fields['uuid'] = generate_uuid()
 
         logger(logging.INFO, 'Processing %d item(s) for input' % len(items))
-        did_to_input_items, file_items_with_sources = self._resolve_and_merge_input_items(copy.deepcopy(items))
+        did_to_input_items, file_items_with_sources = self._resolve_and_merge_input_items(copy.deepcopy(items), sort=sort)
         self.logger(logging.DEBUG, 'num_unmerged_items=%d; num_dids=%d; num_file_items=%d' % (len(items), len(did_to_input_items), len(file_items_with_sources)))
 
         input_items = self._prepare_items_for_download(did_to_input_items, file_items_with_sources)
@@ -714,7 +719,7 @@ class DownloadClient:
 
         return item
 
-    def download_aria2c(self, items, trace_custom_fields={}, filters={}, deactivate_file_download_exceptions=False):
+    def download_aria2c(self, items, trace_custom_fields={}, filters={}, deactivate_file_download_exceptions=False, sort=None):
         """
         Uses aria2c to download the items with given DIDs. This function can also download datasets and wildcarded DIDs.
         It only can download files that are available via https/davs.
@@ -732,6 +737,10 @@ class DownloadClient:
         :param trace_custom_fields: Custom key value pairs to send with the traces
         :param filters: dictionary containing filter options
         :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
+        :param sort: Select best replica by replica sorting algorithm. Available algorithms:
+            ``geoip``       - based on src/dst IP topographical distance
+            ``closeness``   - based on src/dst closeness
+            ``dynamic``     - Rucio Dynamic Smart Sort (tm)
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -752,7 +761,7 @@ class DownloadClient:
             item['no_resolve_archives'] = True
 
         logger(logging.INFO, 'Processing %d item(s) for input' % len(items))
-        did_to_input_items, file_items_with_sources = self._resolve_and_merge_input_items(copy.deepcopy(items))
+        did_to_input_items, file_items_with_sources = self._resolve_and_merge_input_items(copy.deepcopy(items), sort=sort)
         self.logger(logging.DEBUG, 'num_unmerged_items=%d; num_dids=%d; num_file_items=%d' % (len(items), len(did_to_input_items), len(file_items_with_sources)))
 
         input_items = self._prepare_items_for_download(did_to_input_items, file_items_with_sources)
@@ -1027,7 +1036,7 @@ class DownloadClient:
             if not any_did_resolved and '*' not in did_name:
                 yield {'scope': scope, 'name': did_name}
 
-    def _resolve_and_merge_input_items(self, input_items):
+    def _resolve_and_merge_input_items(self, input_items, sort=None):
         """
         This function takes the input items given to download_dids etc.
         and resolves the sources.
@@ -1154,6 +1163,7 @@ class DownloadClient:
                                                      ignore_availability=False,
                                                      rse_expression=rse_expression,
                                                      client_location=self.client_location,
+                                                     sort=sort,
                                                      resolve_archives=not item.get('no_resolve_archives'),
                                                      resolve_parents=True,
                                                      nrandom=nrandom,
