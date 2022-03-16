@@ -1125,7 +1125,7 @@ def download(args):
         elif args.metalink_file:
             result = download_client.download_from_metalink_file(items[0], args.metalink_file, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
         else:
-            result = download_client.download_dids(items, args.ndownloader, trace_pattern, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
+            result = download_client.download_dids(items, args.ndownloader, trace_pattern, deactivate_file_download_exceptions=deactivate_file_download_exceptions, sort=args.replica_sort)
     else:
         if args.aria:
             logger.warning('Ignoring --aria option because --pfn option given')
@@ -2365,6 +2365,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--scope', dest='scope', action='store', help='Scope if you are using the filter option and no full DID.')
         selected_parser.add_argument('--metalink', dest='metalink_file', action='store', help='Path to a metalink file.')
         selected_parser.add_argument('--deactivate-file-download-exceptions', dest='deactivate_file_download_exceptions', action='store_true', help='Does not raise NoFilesDownloaded, NotAllFilesDownloaded or incorrect number of output queue files Exception.')  # NOQA: E501
+        selected_parser.add_argument('--replica-sort', action='store', help='Select best replica by replica sorting algorithm.')
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
