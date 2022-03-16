@@ -43,9 +43,11 @@ from statsd import StatsClient
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
 
+PROMETHEUS_MULTIPROC_DIR = os.environ.get('PROMETHEUS_MULTIPROC_DIR', os.environ.get('prometheus_multiproc_dir', None))
+
 
 def cleanup_prometheus_files_at_exit():
-    if os.environ.get('prometheus_multiproc_dir'):
+    if PROMETHEUS_MULTIPROC_DIR:
         multiprocess.mark_process_dead(os.getpid())
 
 
@@ -73,8 +75,8 @@ class MultiprocessMutexValue(values.MultiProcessValue()):
             return super().get()
 
 
-if 'prometheus_multiproc_dir' in os.environ:
-    os.makedirs(os.environ['prometheus_multiproc_dir'], exist_ok=True)
+if PROMETHEUS_MULTIPROC_DIR:
+    os.makedirs(PROMETHEUS_MULTIPROC_DIR, exist_ok=True)
     values.ValueClass = MultiprocessMutexValue
 
     atexit.register(cleanup_prometheus_files_at_exit)
@@ -115,7 +117,7 @@ def _cleanup_old_prometheus_files(path, file_pattern, cleanup_delay, logger):
 
 
 def cleanup_old_prometheus_files(logger=logging.log):
-    path = os.environ.get('prometheus_multiproc_dir')
+    path = PROMETHEUS_MULTIPROC_DIR
     if path:
         _cleanup_old_prometheus_files(path, file_pattern='gauge_live*.db', cleanup_delay=timedelta(hours=1).total_seconds(), logger=logger)
         _cleanup_old_prometheus_files(path, file_pattern='*.db', cleanup_delay=timedelta(days=7).total_seconds(), logger=logger)
@@ -143,7 +145,7 @@ class MultiMetric:
     If the prometheus metric string is not provided, it is derived from the statsd one.
     """
 
-    def __init__(self, statsd, prom=None, documentation=None, labelnames=(), labelvalues=None, registry=None):
+    def __init__(self, statsd, prom=None, documentation=None, labelnames=(), registry=None):
         """
         :param statsd: a string, eventually with keyword placeholders for the str.format(**labels) call
         :param prom: a string or a prometheus metric object
@@ -158,23 +160,21 @@ class MultiMetric:
             stats_without_labels = ''.join(tup[0].rstrip('.') for tup in string.Formatter().parse(self._statsd))
             prom = 'rucio_{}'.format(stats_without_labels).replace('.', '_')
         if isinstance(prom, str):
-            self._prom = self.init_prometheus_metric(prom, self._documentation, labelnames=labelnames, labelvalues=labelvalues)
+            self._prom = self.init_prometheus_metric(prom, self._documentation, labelnames=labelnames)
         else:
             self._prom = prom
         self._labelnames = labelnames
-        self._labelvalues = labelvalues
 
     @abstractmethod
-    def init_prometheus_metric(self, name, documentation, labelnames=(), labelvalues=None):
+    def init_prometheus_metric(self, name, documentation, labelnames=()):
         pass
 
-    def labels(self, **labelvalues):
+    def labels(self, **labelkwargs):
         return self.__class__(
-            prom=self._prom.labels(**labelvalues),
-            statsd=self._statsd.format(**labelvalues),
+            prom=self._prom.labels(**labelkwargs),
+            statsd=self._statsd.format(**labelkwargs),
             documentation=self._documentation,
             labelnames=self._labelnames,
-            labelvalues=labelvalues,
             registry=self._registry,
         )
 
@@ -185,8 +185,8 @@ class MultiCounter(MultiMetric):
         self._prom.inc(delta)
         CLIENT.incr(self._statsd, delta)
 
-    def init_prometheus_metric(self, name, documentation, labelnames=(), labelvalues=None):
-        return Counter(name, documentation, labelnames=labelnames, labelvalues=labelvalues, registry=self._registry)
+    def init_prometheus_metric(self, name, documentation, labelnames=()):
+        return Counter(name, documentation, labelnames=labelnames, registry=self._registry)
 
 
 class MultiGauge(MultiMetric):
@@ -195,8 +195,8 @@ class MultiGauge(MultiMetric):
         self._prom.set(value)
         CLIENT.gauge(self._statsd, value)
 
-    def init_prometheus_metric(self, name, documentation, labelnames=(), labelvalues=None):
-        return Gauge(name, documentation, labelnames=labelnames, labelvalues=labelvalues, registry=self._registry)
+    def init_prometheus_metric(self, name, documentation, labelnames=()):
+        return Gauge(name, documentation, labelnames=labelnames, registry=self._registry)
 
 
 class MultiTiming(MultiMetric):
@@ -205,8 +205,8 @@ class MultiTiming(MultiMetric):
         self._prom.observe(value)
         CLIENT.timing(self._statsd, value)
 
-    def init_prometheus_metric(self, name, documentation, labelnames=(), labelvalues=None):
-        return Histogram(name, documentation, labelnames=labelnames, labelvalues=labelvalues, registry=self._registry)
+    def init_prometheus_metric(self, name, documentation, labelnames=()):
+        return Histogram(name, documentation, labelnames=labelnames, registry=self._registry)
 
 
 def record_counter(name, delta=1, labels=None):

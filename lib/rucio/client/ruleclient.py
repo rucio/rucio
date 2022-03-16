@@ -157,14 +157,13 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def move_replication_rule(self, rule_id, rse_expression, activity, source_replica_expression):
+    def move_replication_rule(self, rule_id, rse_expression, override):
         """
         Move a replication rule to another RSE and, once done, delete the original one.
 
         :param rule_id:                    Rule to be moved.
         :param rse_expression:             RSE expression of the new rule.
-        :param activity:                   Activity of the new rule.
-        :param source_replica_expression:  Source-Replica-Expression of the new rule.
+        :param override:                   Configurations to update for the new rule.
         :raises:                           RuleNotFound, RuleReplaceFailed
         """
 
@@ -173,8 +172,7 @@ class RuleClient(BaseClient):
         data = dumps({
             'rule_id': rule_id,
             'rse_expression': rse_expression,
-            'activity': activity,
-            'source_replica_expression': source_replica_expression
+            'override': override,
         })
         r = self._send_request(url, type_='POST', data=data)
         if r.status_code == codes.created:

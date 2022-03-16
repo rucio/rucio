@@ -56,6 +56,7 @@ docs/
 lib/rucio/vcsversion.py
 rucio.egg-info
 pylint.out
+*.pdf
 
 # Mac OS X Finder
 .DS_Store

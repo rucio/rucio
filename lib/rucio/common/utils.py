@@ -1420,11 +1420,12 @@ def run_cmd_process(cmd, timeout=3600):
     return returncode, stdout
 
 
-def api_update_return_dict(dictionary):
+def api_update_return_dict(dictionary, session=None):
     """
     Ensure that rse is in a dictionary returned from core
 
     :param dictionary: The dictionary to edit
+    :param session: The DB session to use
     :returns dictionary: The edited dictionary
     """
     if not isinstance(dictionary, dict):
@@ -1440,7 +1441,7 @@ def api_update_return_dict(dictionary):
                     dictionary = dictionary.copy()
                     copied = True
                 import rucio.core.rse
-                dictionary[rse_str] = rucio.core.rse.get_rse_name(rse_id=dictionary[rse_id_str])
+                dictionary[rse_str] = rucio.core.rse.get_rse_name(rse_id=dictionary[rse_id_str], session=session)
 
     if 'account' in dictionary.keys() and dictionary['account'] is not None:
         if not copied:
