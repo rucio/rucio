@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,19 +19,18 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - David Cameron <david.cameron@cern.ch>, 2014
 # - Sylvain Blunier <sylvain.blunier@cern.ch>, 2016
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Eric Vaandering <ericvaandering@gmail.com>, 2019
+# - Eric Vaandering <ewv@fnal.gov>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Carl-Fredrik Enell <carl-fredrik.enell@eiscat.se>, 2022
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function, division
 import os
-import ssl
 import sys
 
 import xml.etree.ElementTree as ET
