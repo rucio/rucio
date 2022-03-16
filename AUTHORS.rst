@@ -61,6 +61,7 @@ Individual contributors to the source code
 - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
 - Fabio Luchetti <fabio.luchetti@cern.ch>, 2021
 - Stefan Piperov <stefan.piperov@cern.ch>, 2021
+- Jensen Zhang <hack@jensen-zhang.site>, 2022
 
 Organisations employing contributors
 ------------------------------------
