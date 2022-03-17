@@ -54,7 +54,7 @@
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
 # - jdierkes <joel.dierkes@cern.ch>, 2021
 # - Igor Mandrichenko <ivm@fnal.gov>, 2021
-# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021
+# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021-2022
 # - Carlosbg <bogomcar@gmail.com>, 2021
 
 from __future__ import print_function
@@ -619,7 +619,7 @@ def list_dids(args):
         table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
 
     if args.short:
-        for did, dummy in table:
+        for did, _ in table:
             print(did)
     else:
         print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
@@ -638,18 +638,6 @@ def list_dids_extended(args):
     filters = {}
     type_ = 'collection'
     table = []
-    if args.filter:
-        try:
-            filters, type_ = parse_did_filter_from_string(args.filter)
-        except InvalidType as error:
-            logger.error(error)
-            return FAILURE
-        except ValueError as error:
-            logger.error(error)
-            return FAILURE
-        except Exception:
-            logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
-            return FAILURE
 
     try:
         scope, name = get_scope(args.did[0], client)
@@ -658,6 +646,7 @@ def list_dids_extended(args):
     except InvalidObject:
         scope = args.did[0]
         name = '*'
+
     if scope not in client.list_scopes():
         logger.error('Scope not found')
         return FAILURE
@@ -665,19 +654,39 @@ def list_dids_extended(args):
     if args.recursive and '*' in name:
         logger.error('Option recursive cannot be used with wildcards')
         return FAILURE
-    elif ('name' in filters) and (name != '*'):
-        logger.error('You cannot use a wildcard query and a filter by name')
+    else:
+        if filters:
+            if ('name' in filters) and (name != '*'):
+                logger.error('Must have a wildcard in did name if filtering by name')
+                return FAILURE
+
+    try:
+        filters, type_ = parse_did_filter_from_string_fe(args.filter, name)
+    except InvalidType as error:
+        logger.error(error)
         return FAILURE
-    filters['name'] = name
+    except DuplicateCriteriaInDIDFilter as error:
+        logger.error(error)
+        return FAILURE
+    except DIDFilterSyntaxError as error:
+        logger.error(error)
+        return FAILURE
+    except ValueError as error:
+        logger.error(error)
+        return FAILURE
+    except Exception as e:
+        logger.error(e)
+        return FAILURE
 
     for did in client.list_dids_extended(scope, filters=filters, did_type=type_, long=True, recursive=args.recursive):
         table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
 
     if args.short:
-        for did, dummy in table:
+        for did, _ in table:
             print(did)
     else:
         print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+
     return SUCCESS
 
 
@@ -2239,7 +2248,7 @@ You can filter by key/value, e.g.::
 
     list_extended_parser.set_defaults(function=list_dids_extended)
     list_extended_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
-    list_extended_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key>=next_value`. Valid keys are type and length. Use `type` to specify a DID type to search for. Valid values are `ALL`, `COLLECTION`, `CONTAINER`, `DATASET`, `FILE`. Use `length` to filter for an amount of corresponding Data IDentifiers. Valid operators are `=`, `>`, `>=`, `<`, `<=`.')  # noqa: E501
+    list_extended_parser.add_argument('--filter', dest='filter', action='store', help='Single or logically combined filtering expression(s) either in the form <key><operator><value> or <value1><operator1><key><operator2><value2> (compound inequality). Operators must belong to the set of (<=, >=, ==, !=, >, <). The following conventions for combining expressions are used: ";" represents the logical OR operator; "," represents the logical AND operator.')  # noqa: E501
     list_extended_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
     list_extended_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern')
 

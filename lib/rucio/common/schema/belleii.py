@@ -1,4 +1,5 @@
-# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +14,14 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020-2021
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
-#
-# PY3K COMPATIBLE
+# - Rob Barnsley <rob.barnsley@skao.int>, 2022
 
 from jsonschema import validate, ValidationError
 
@@ -240,10 +241,8 @@ DID = {"description": "Data Identifier(DID)",
        "required": ["scope", "name"],
        "additionalProperties": False}
 
-DID_FILTERS = {"description": "Filters dictionary to list DIDs",
-               "type": "object",
-               "properties": {"created_before": DATE,
-                              "created_afted": DATE},
+DID_FILTERS = {"description": "Array to filter DIDs by metadata",
+               "type": "array",
                "additionalProperties": True}
 
 R_DID = {"description": "Data Identifier(DID)",

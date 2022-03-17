@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Gabriele Gaetano Fronzé <gfronze@cern.ch>, 2020
-# - Rob Barnsley <rob.barnsley@skao.int>, 2021
-#
-# PY3K COMPATIBLE
+# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021-2022
 
 import operator
 from datetime import datetime, timedelta
@@ -31,6 +28,7 @@ from rucio.core.did import add_did
 from rucio.core.did_meta_plugins import set_metadata
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session
+from rucio.db.sqla.util import json_implemented
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.tests.common_server import get_vo
 
@@ -129,6 +127,26 @@ class TestFilterEngineDummy(unittest.TestCase):
             filters = FilterEngine(input_length_expression, strict_coerce=False).filters
             self.assertEqual(filters, filters_expected)
 
+    def test_typecastString(self):
+        test_expressions = {
+            'testkeyint1 = 0': int,
+            'testkeyfloat1 = 0.5': float,
+            'testkeystr1 = test': str,
+            'testbool1 = false': bool,
+            'testbool2 = False': bool,
+            'testbool3 = FALSE': bool,
+            'testbool4 = true': bool,
+            'testbool5 = True': bool,
+            'testbool6 = TRUE': bool,
+            'testkeydate1 = 1900-01-01 00:00:00': datetime,
+            'testkeydate2 = 1900-01-01 00:00:00.000Z': datetime,
+            'testkeydate3 = 1900-01-01T00:00:00': datetime,
+            'testkeydate4 = 1900-01-01T00:00:00.000Z': datetime
+        }
+        for input_length_expression, type_expected in test_expressions.items():
+            filters = FilterEngine(input_length_expression, strict_coerce=False).filters
+            self.assertIsInstance(filters[0][0][2], type_expected)
+
 
 class TestFilterEngineReal(unittest.TestCase):
     def setUp(self):
@@ -146,6 +164,8 @@ class TestFilterEngineReal(unittest.TestCase):
 
     @read_session
     def test_OperatorsEqualNotEqual(self, session=None):
+        # Plugin: DID
+        #
         did_name1 = self._create_tmp_DID()
         did_name2 = self._create_tmp_DID()
         did_name3 = self._create_tmp_DID()
@@ -166,8 +186,43 @@ class TestFilterEngineReal(unittest.TestCase):
         dids = set(dids)
         self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 2)     # 1, 3 (NULL counted in not equals)
 
+        # Plugin: JSON
+        #
+        if json_implemented(session=session):
+            did_name1 = self._create_tmp_DID()
+            did_name2 = self._create_tmp_DID()
+            did_name3 = self._create_tmp_DID()
+            set_metadata(scope=self.tmp_scope, name=did_name1, key='testkeyint1', value=1)
+            set_metadata(scope=self.tmp_scope, name=did_name2, key='testkeyint2', value=2)
+            set_metadata(scope=self.tmp_scope, name=did_name3, key='testkeyint3', value=2)
+
+            dids = []
+            q = FilterEngine('testkeyint1=1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 1)
+
+        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+            dids = []
+            q = FilterEngine('testkeyint1!=1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 2)
+
     @read_session
     def test_OneSidedInequality(self, session=None):
+        # Plugin: DID
+        #
         did_name = self._create_tmp_DID()
         set_metadata(scope=self.tmp_scope, name=did_name, key='run_number', value=1)
 
@@ -199,8 +254,60 @@ class TestFilterEngineReal(unittest.TestCase):
         dids = set(dids)
         self.assertNotEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
 
+        # Plugin: JSON
+        #
+        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+            did_name = self._create_tmp_DID()
+            set_metadata(scope=self.tmp_scope, name=did_name, key='testkeyint1', value=1)
+
+            dids = []
+            q = FilterEngine('testkeyint1 > 0', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
+
+            dids = []
+            q = FilterEngine('testkeyint1 < 2', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
+
+            dids = []
+            q = FilterEngine('testkeyint1 < 0', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertNotEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
+
+            dids = []
+            q = FilterEngine('testkeyint1 > 2', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertNotEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
+
     @read_session
     def test_CompoundInequality(self, session=None):
+        # Plugin: DID
+        #
         did_name = self._create_tmp_DID()
         set_metadata(scope=self.tmp_scope, name=did_name, key='run_number', value=1)
 
@@ -225,8 +332,49 @@ class TestFilterEngineReal(unittest.TestCase):
         dids = set(dids)
         self.assertNotEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
 
+        # Plugin: JSON
+        #
+        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+            did_name = self._create_tmp_DID()
+            set_metadata(scope=self.tmp_scope, name=did_name, key='testkeyint1', value=1)
+
+            dids = []
+            q = FilterEngine('0 < testkeyint1 < 2', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
+
+            dids = []
+            q = FilterEngine('0 < testkeyint1 <= 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
+
+            dids = []
+            q = FilterEngine('0 <= testkeyint1 < 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertNotEqual(list(map(lambda did: did.name == did_name, dids)).count(True), 1)
+
     @read_session
     def test_AndGroups(self, session=None):
+        # Plugin: DID
+        #
         did_name1 = self._create_tmp_DID()
         did_name2 = self._create_tmp_DID()
         did_name3 = self._create_tmp_DID()
@@ -249,8 +397,43 @@ class TestFilterEngineReal(unittest.TestCase):
         dids = set(dids)
         self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 1)     # 1
 
+        # Plugin: JSON
+        #
+        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+            did_name1 = self._create_tmp_DID()
+            did_name2 = self._create_tmp_DID()
+            did_name3 = self._create_tmp_DID()
+            set_metadata(scope=self.tmp_scope, name=did_name1, key='testkeyint1', value='1')
+            set_metadata(scope=self.tmp_scope, name=did_name2, key='testkeystr1', value="test")
+            set_metadata(scope=self.tmp_scope, name=did_name3, key='testkeyint1', value='1')
+            set_metadata(scope=self.tmp_scope, name=did_name3, key='testkeystr1', value="test")
+
+            dids = []
+            q = FilterEngine('testkeyint1 = 1, testkeystr1 = test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 1)     # 3
+
+            dids = []
+            q = FilterEngine('testkeyint1 = 1, testkeystr1 != test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 1)     # 1
+
     @read_session
     def test_OrGroups(self, session=None):
+        # Plugin: DID
+        #
         did_name1 = self._create_tmp_DID()
         did_name2 = self._create_tmp_DID()
         did_name3 = self._create_tmp_DID()
@@ -294,8 +477,76 @@ class TestFilterEngineReal(unittest.TestCase):
         dids = set(dids)
         self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 3)     # 1, 2, 3
 
+        # Plugin: JSON
+        #
+        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+            did_name1 = self._create_tmp_DID()
+            did_name2 = self._create_tmp_DID()
+            did_name3 = self._create_tmp_DID()
+            set_metadata(scope=self.tmp_scope, name=did_name1, key='testkeyint1', value='1')
+            set_metadata(scope=self.tmp_scope, name=did_name2, key='testkeystr1', value="test")
+            set_metadata(scope=self.tmp_scope, name=did_name3, key='testkeyint1', value='1')
+            set_metadata(scope=self.tmp_scope, name=did_name3, key='testkeystr1', value="test")
+
+            dids = []
+            q = FilterEngine('testkeyint1 = 1; testkeystr1 = test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 3)     # 1, 2, 3
+
+            dids = []
+            q = FilterEngine('testkeyint1 = 1; testkeystr1 != test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 2)     # 1, 3
+
+            dids = []
+            q = FilterEngine('testkeyint1 = 0; testkeyint1 = 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 2)     # 1, 3
+
+            dids = []
+            q = FilterEngine('testkeyint1 = 0; testkeyint1 = 3', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 0)     #
+
+            dids = []
+            q = FilterEngine('name = {}; name = {}; name = {}'.format(did_name1, did_name2, did_name3), model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 3)     # 1, 2, 3
+
     @read_session
     def test_AndOrGroups(self, session=None):
+        # Plugin: DID
+        #
         did_name1 = self._create_tmp_DID()
         did_name2 = self._create_tmp_DID()
         did_name3 = self._create_tmp_DID()
@@ -315,6 +566,39 @@ class TestFilterEngineReal(unittest.TestCase):
         dids += [did for did in q.yield_per(5)]
         dids = set(dids)
         self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 2)     # 2, 3
+
+        # Plugin: JSON
+        #
+        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+            did_name1 = self._create_tmp_DID()
+            did_name2 = self._create_tmp_DID()
+            did_name3 = self._create_tmp_DID()
+            set_metadata(scope=self.tmp_scope, name=did_name1, key='testkeyint1', value='1')
+            set_metadata(scope=self.tmp_scope, name=did_name2, key='testkeystr1', value="test")
+            set_metadata(scope=self.tmp_scope, name=did_name3, key='testkeyint1', value='1')
+            set_metadata(scope=self.tmp_scope, name=did_name3, key='testkeystr1', value="test")
+
+            dids = []
+            q = FilterEngine('testkeyint1 = 1, testkeystr1 != test; testkeystr1 = test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 3)     # 1, 2, 3
+
+            dids = []
+            q = FilterEngine('testkeyint1 = 1, testkeystr1 = test; testkeyint1 != 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 2)     # 2, 3
 
     @read_session
     def test_BackwardsCompatibilityCreatedAfter(self, session=None):
@@ -369,6 +653,8 @@ class TestFilterEngineReal(unittest.TestCase):
 
     @read_session
     def test_Wildcards(self, session=None):
+        # Plugin: DID
+        #
         did_name1 = self._create_tmp_DID()
         did_name2 = self._create_tmp_DID()
         did_name3 = self._create_tmp_DID()
@@ -402,6 +688,63 @@ class TestFilterEngineReal(unittest.TestCase):
         dids += [did for did in q.yield_per(5)]
         dids = set(dids)
         self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True), 1)  # 5 (NULL counted in not equals)
+
+        # Plugin: JSON
+        #
+        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+            did_name1 = self._create_tmp_DID()
+            did_name2 = self._create_tmp_DID()
+            did_name3 = self._create_tmp_DID()
+            did_name4 = self._create_tmp_DID()
+            did_name5 = self._create_tmp_DID()
+            set_metadata(scope=self.tmp_scope, name=did_name1, key='testkeystr1', value="test1")
+            set_metadata(scope=self.tmp_scope, name=did_name2, key='testkeystr1', value="test2")
+            set_metadata(scope=self.tmp_scope, name=did_name3, key='testkeystr1', value="anothertest1")
+            set_metadata(scope=self.tmp_scope, name=did_name4, key='testkeystr1', value="anothertest2")
+
+            dids = []
+            q = FilterEngine('testkeystr1 = test*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True), 2)  # 1, 2
+
+            dids = []
+            q = FilterEngine('testkeystr1 = *test*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True), 4)  # 1, 2, 3, 4
+
+            dids = []
+            q = FilterEngine('testkeystr1 != *anothertest*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True), 2)  # 3, 4
+
+            dids = []
+            q = FilterEngine('testkeystr1 != *test*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                additional_model_attributes=[
+                    models.DidMeta.scope,
+                    models.DidMeta.name
+                ],
+                json_column=models.DidMeta.meta)
+            dids += [did for did in q.yield_per(5)]
+            dids = set(dids)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True), 0)
 
 
 if __name__ == '__main__':
