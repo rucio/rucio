@@ -41,7 +41,9 @@
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 # - Nicholas Smith <nick.smith@cern.ch>, 2021
+# - Carl-Fredrik Enell <carl-fredrik.enell@eiscat.se>, 2022
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2022
+# - dev <dev@rbbf.eiscat.irf.se>, 2022
 
 import copy
 import json
