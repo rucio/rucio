@@ -41,7 +41,6 @@
 # - martynia <martynia@users.noreply.github.com>, 2021
 # - Igor Mandrichenko <ivm@fnal.gov>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2022
-# - dev <dev@rbbf.eiscat.irf.se>, 2022
 # - Carl-Fredrik Enell <carl-fredrik.enell@eiscat.se>, 2022
 
 '''
