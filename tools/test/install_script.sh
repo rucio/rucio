@@ -39,7 +39,7 @@ elif [ "$SUITE" == "votest" ]; then
     VOTEST_HELPER=$RUCIO_HOME/tools/test/votest_helper.py
     VOTEST_CONFIG_FILE=$RUCIO_HOME/etc/docker/test/matrix_policy_package_tests.yml
     echo "VOTEST: Overriding policy section in rucio.cfg"
-    python $VOTEST_HELPER --vo $POLICY --get-vo-config --file $VOTEST_CONFIG_FILE
+    python $VOTEST_HELPER --vo $POLICY --vo-config --file $VOTEST_CONFIG_FILE
     echo "VOTEST: Restarting httpd to load config"
     httpd -k restart
 fi
