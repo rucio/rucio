@@ -30,7 +30,7 @@ from hashlib import sha1
 import boto3
 from botocore.client import Config
 from dogpile.cache.api import NO_VALUE
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 from six import integer_types
 from six.moves.urllib.parse import urlparse, urlencode
 
@@ -79,9 +79,9 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
     signed_url = None
     if service == 'gcs':
         if not CREDS_GCS:
-            CREDS_GCS = ServiceAccountCredentials.from_json_keyfile_name(config_get('credentials', 'gcs',
-                                                                                    raise_exception=False,
-                                                                                    default='/opt/rucio/etc/google-cloud-storage-test.json'))
+            CREDS_GCS = Credentials.from_service_account_file(config_get('credentials', 'gcs',
+                                                                         raise_exception=False,
+                                                                         default='/opt/rucio/etc/google-cloud-storage-test.json'))
         components = urlparse(url)
         host = components.netloc
 
@@ -106,7 +106,7 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
 
         # create URL-capable signature
         # first character is always a '=', remove it
-        signature = urlencode({'': base64.b64encode(CREDS_GCS.sign_blob(to_sign)[1])})[1:]
+        signature = urlencode({'': base64.b64encode(CREDS_GCS.sign_bytes(to_sign))})[1:]
 
         # assemble final signed URL
         signed_url = 'https://%s%s?GoogleAccessId=%s&Expires=%s&Signature=%s' % (host,
