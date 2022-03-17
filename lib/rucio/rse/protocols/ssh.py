@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Carl-Fredrik Enell <carl-fredrik.enell@eiscat.se>, 2022
 
 import logging
 import os
