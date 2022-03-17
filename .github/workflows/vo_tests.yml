@@ -1,0 +1,40 @@
+name: VO-specific tests
+
+on:
+  - pull_request
+  - push
+  - workflow_dispatch
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Update pip
+        run: python3 -m pip install -U pip setuptools
+      - name: Install python requirements for matrix_parser.py
+        run: python3 -m pip install -U PyYAML
+      - name: Identify branch
+        id: branch
+        run: python3 -c 'from os import environ as env; print("::set-output name=branch::" + (env.get("GITHUB_BASE_REF", None) if env.get("GITHUB_BASE_REF", None) else env.get("GITHUB_REF", "master")))'
+      - name: Identify Matrix
+        id: matrix
+        run: echo "::set-output name=matrix::$(./tools/test/votest_helper.py)"
+    outputs:
+      branch: ${{ steps.branch.outputs.branch }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+  test:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build Images and Run Tests
+        uses: ./.github/actions/build-images-and-run-tests
+        with:
+          cfg: ${{ toJson(matrix.cfg) }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ needs.setup.outputs.branch }}

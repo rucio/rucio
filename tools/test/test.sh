@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2022
 
 set -eo pipefail
 
@@ -61,4 +62,11 @@ elif [ "$SUITE" == "all" ]; then
 
 elif [ "$SUITE" == "multi_vo" ]; then
     tools/run_multi_vo_tests_docker.sh
+
+elif [ "$SUITE" == "votest" ]; then
+    RUCIO_HOME=/opt/rucio
+    VOTEST_HELPER=$RUCIO_HOME/tools/test/votest_helper.py
+    VOTEST_CONFIG_FILE=$RUCIO_HOME/etc/docker/test/matrix_policy_package_tests.yml    
+    TESTS=$(python $VOTEST_HELPER --vo $POLICY --get-vo-tests --file $VOTEST_CONFIG_FILE)
+    tools/run_tests_docker.sh -p $TESTS
 fi

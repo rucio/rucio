@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2021 CERN
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@
 # - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 # - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Mayank Sharma <mayank.sharma@cern.ch>, 2022
 
 from __future__ import print_function
 
@@ -364,6 +365,7 @@ def test_delete_rse(vo, rest_client, auth_token):
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE, fails when run in parallel')
+@pytest.mark.usefixtures("rse_factory_unittest")
 class TestRSEClient(unittest.TestCase):
 
     def setUp(self):
@@ -1346,17 +1348,20 @@ class TestRSEClient(unittest.TestCase):
         for usage in usages:
             assert 'account_usages' not in usage
 
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
+    @pytest.mark.dirty("creates a new RSE")
     def test_set_rse_usage(self):
         """ RSE (CLIENTS): Test the update of RSE usage."""
-        assert self.client.set_rse_usage(rse='MOCK', source='srm', used=999200, free=800)
-        usages = self.client.get_rse_usage(rse='MOCK')
+        assert hasattr(self, "rse_factory")
+        rse_factory = self.rse_factory
+        rse, _ = rse_factory.make_posix_rse()
+        assert self.client.set_rse_usage(rse=rse, source='srm', used=999200, free=800)
+        usages = self.client.get_rse_usage(rse=rse)
         for usage in usages:
             if usage['source'] == 'srm':
                 assert usage['files'] is None
                 assert usage['total'] == 1000000
-        assert self.client.set_rse_usage(rse='MOCK', source='srm', used=999920, free=80, files=50)
-        for usage in self.client.list_rse_usage_history(rse='MOCK'):
+        assert self.client.set_rse_usage(rse=rse, source='srm', used=999920, free=80, files=50)
+        for usage in self.client.list_rse_usage_history(rse=rse):
             assert usage['free'] == 80
             assert usage['files'] == 50
             break
