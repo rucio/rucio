@@ -20,6 +20,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2022
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2022
+# - Rizart Dona <rizart.dona@cern.ch>, 2022
 
 import base64
 import datetime
