@@ -44,6 +44,7 @@ PyMySQL==1.0.2                                              # mysql_extras
 PyYAML==5.4.1                                               # globus_extras and used for reading test configuration files
 globus-sdk==3.5.0                                           # globus_extras
 python3-saml==1.14.0                                         # saml_extras
+pymongo==4.0.1                                              # pymongo (metadata plugin)
 
 # All dependencies needed to develop/test rucio should be defined here
 pytest==4.6.11; python_version < '3.6'                      # Used for running tests
@@ -67,4 +68,4 @@ pydoc-markdown~=3.13.0; python_version >= '3.5'             # Used for generatin
 sh~=1.14.2                                                  # Convenience library for running subprocesses in Python
 apispec==5.1.1                                              # Generate OpenApi definition out of pydoc comments
 apispec-webframeworks==0.5.2                                # Integration of apispec in Flask
-pymongo==4.0.1                                              # pymongo (metadata plugin)
+

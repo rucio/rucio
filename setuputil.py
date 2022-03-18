@@ -18,6 +18,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2021-2022
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 # - Fabio Luchetti <fabio.luchetti@cern.ch>, 2022
+# - Rob Barnsley <rob.barnsley@skao.int>, 2022
 
 from __future__ import print_function
 
@@ -100,6 +101,7 @@ server_requirements_table = {
         'prometheus_client',
     ],
     'oracle': ['cx_oracle'],
+    'mongo': ['pymongo'],
     'postgresql': ['psycopg2-binary'],
     'mysql': ['PyMySQL'],
     'kerberos': [
