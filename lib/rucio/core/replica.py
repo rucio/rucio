@@ -267,85 +267,6 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
     return result
 
 
-@read_session
-def list_bad_replicas_history(limit=10000, thread=None, total_threads=None, session=None):
-    """
-    List the bad file replicas history. Method only used by necromancer
-
-    :param limit: The maximum number of replicas returned.
-    :param thread: The assigned thread for this necromancer.
-    :param total_threads: The total number of threads of all necromancers.
-    :param session: The database session in use.
-    """
-
-    query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id).\
-        filter(models.BadReplicas.state == BadFilesStatus.BAD)
-    query = filter_thread_work(session=session, query=query, total_threads=total_threads, thread_id=thread, hash_variable='name')
-    query = query.limit(limit)
-
-    bad_replicas = {}
-    for scope, name, rse_id in query.yield_per(1000):
-        if rse_id not in bad_replicas:
-            bad_replicas[rse_id] = []
-        bad_replicas[rse_id].append({'scope': scope, 'name': name})
-    return bad_replicas
-
-
-@transactional_session
-def update_bad_replicas_history(dids, rse_id, session=None):
-    """
-    Update the bad file replicas history. Method only used by necromancer
-
-    :param dids: The list of DIDs.
-    :param rse_id: The rse_id.
-    :param session: The database session in use.
-    """
-
-    for did in dids:
-        # Check if the replica is still there
-        try:
-            result = session.query(models.RSEFileAssociation.state).filter_by(rse_id=rse_id, scope=did['scope'], name=did['name']).one()
-            state = result.state
-            if state == ReplicaState.AVAILABLE:
-                # If yes, and replica state is AVAILABLE, update BadReplicas
-                query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
-                query.update({'state': BadFilesStatus.RECOVERED, 'updated_at': datetime.utcnow()}, synchronize_session=False)
-            elif state != ReplicaState.BAD:
-                # If the replica state is not AVAILABLE check if other replicas for the same file are still there.
-                try:
-                    session.query(models.RSEFileAssociation.state).filter_by(rse_id=rse_id, scope=did['scope'], name=did['name'], state=ReplicaState.AVAILABLE).one()
-                except NoResultFound:
-                    # No replicas are available for this file. Reset the replica state to BAD
-                    update_replicas_states([{'scope': did['scope'], 'name': did['name'], 'rse_id': rse_id, 'state': ReplicaState.BAD}], session=session)
-                    session.query(models.Source).filter_by(scope=did['scope'], name=did['name'], rse_id=rse_id).delete(synchronize_session=False)
-            else:
-                # Here that means that the file has not been processed by the necro. Just pass
-                pass
-        except NoResultFound:
-            # We end-up here if the replica is not registered anymore on the RSE
-            try:
-                result = session.query(models.DataIdentifier.availability).filter_by(scope=did['scope'], name=did['name'], did_type=DIDType.FILE).one()
-                # If yes, the final state depends on DIDAvailability
-                state = result.availability
-                final_state = None
-                if state == DIDAvailability.LOST:
-                    final_state = BadFilesStatus.LOST
-                elif state == DIDAvailability.DELETED:
-                    final_state = BadFilesStatus.DELETED
-                elif state == DIDAvailability.AVAILABLE:
-                    final_state = BadFilesStatus.DELETED
-                else:
-                    # For completness, it shouldn't happen.
-                    print('Houston we have a problem.')
-                    final_state = BadFilesStatus.DELETED
-                query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
-                query.update({'state': final_state, 'updated_at': datetime.utcnow()}, synchronize_session=False)
-            except NoResultFound:
-                # If no, the replica is marked as LOST in BadFilesStatus
-                query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
-                query.update({'state': BadFilesStatus.LOST, 'updated_at': datetime.utcnow()}, synchronize_session=False)
-
-
 @transactional_session
 def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', session=None):
     """
@@ -1733,6 +1654,24 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
     if res.rowcount != len(files):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
 
+    # Update bad replicas
+    stmt = update(
+        models.BadReplicas,
+    ).where(
+        exists(select([1])
+               .where(and_(models.BadReplicas.scope == scope_name_temp_table.scope,
+                           models.BadReplicas.name == scope_name_temp_table.name,
+                           models.BadReplicas.rse_id == rse_id)))
+    ).where(
+        models.BadReplicas.state == BadFilesStatus.BAD
+    ).execution_options(
+        synchronize_session=False
+    ).values(
+        state=BadFilesStatus.DELETED,
+        updated_at=datetime.utcnow()
+    )
+    res = session.execute(stmt)
+
     __cleanup_after_replica_deletion(scope_name_temp_table=scope_name_temp_table,
                                      scope_name_temp_table2=scope_name_temp_table2,
                                      association_temp_table=association_temp_table,
@@ -2188,7 +2127,7 @@ def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=Tru
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
                                                      'for deleting' % replica_rse.rse)
 
-    replica_condition, src_condition = [], []
+    replica_condition, src_condition, bad_replica_condition = [], [], []
     for file in files:
         replica_condition.append(
             and_(models.RSEFileAssociation.scope == file['scope'],
@@ -2198,6 +2137,10 @@ def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=Tru
             and_(models.Source.scope == file['scope'],
                  models.Source.name == file['name'],
                  models.Source.rse_id == rse_id))
+
+        bad_replica_condition.append(
+            and_(models.BadReplicas.scope == file['scope'],
+                 models.BadReplicas.name == file['name']))
 
     delta, bytes_, rowcount = 0, 0, 0
 
@@ -2221,6 +2164,19 @@ def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=Tru
             execution_options(synchronize_session=False)
         result = session.execute(stmt)
         rowcount += result.rowcount
+
+    for chunk in chunks(bad_replica_condition, 10):
+        update(models.BadReplicas).\
+            where(models.BadReplicas.rse_id == rse_id). \
+            where(or_(*chunk)). \
+            where(models.BadReplicas.state == BadFilesStatus.BAD) .\
+            execution_options(synchronize_session=False).\
+            values(
+                state=BadFilesStatus.DELETED,
+                updated_at=datetime.utcnow()
+        )
+
+        result = session.execute(stmt)
 
     if rowcount != len(files):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
@@ -2866,6 +2822,9 @@ def update_replicas_states(replicas, nowait=False, session=None):
             values['tombstone'] = OBSOLETE
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
+            query1 = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
+            if query1.count():
+                query1.update({'state': BadFilesStatus.RECOVERED, 'updated_at': datetime.utcnow()}, synchronize_session=False)
         elif replica['state'] == ReplicaState.UNAVAILABLE:
             rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'],
                                             error_message=replica.get('error_message', None),
