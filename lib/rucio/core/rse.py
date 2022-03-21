@@ -925,6 +925,11 @@ def add_protocol(rse_id, parameter, session=None):
                 parameter[op_name] = parameter['domains'][s][op]
         del parameter['domains']
 
+    # This is needed for forward-compatibility with the 1.28 version, which relies on _read/_write columns
+    if parameter.get('third_party_copy') is not None and parameter.get('third_party_copy_read') is None and parameter.get('third_party_copy_write') is None:
+        parameter['third_party_copy_read'] = parameter['third_party_copy']
+        parameter['third_party_copy_write'] = parameter['third_party_copy']
+
     if ('extended_attributes' in parameter) and parameter['extended_attributes']:
         try:
             parameter['extended_attributes'] = json.dumps(parameter['extended_attributes'], separators=(',', ':'))

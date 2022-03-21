@@ -408,7 +408,7 @@ def __update_bulk_replicas(replicas, session=None, logger=logging.log):
 
     for replica in replicas:
         if not replica['archived']:
-            request_core.archive_request(replica['request_id'], session=session)
+            request_core.archive_request(replica['request_id'], session=session, logger=logger)
         logger(logging.INFO, "HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
     return True
 
@@ -427,7 +427,7 @@ def __update_replica(replica, session=None, logger=logging.log):
     try:
         replica_core.update_replicas_states([replica], nowait=True, session=session)
         if not replica['archived']:
-            request_core.archive_request(replica['request_id'], session=session)
+            request_core.archive_request(replica['request_id'], session=session, logger=logger)
         logger(logging.INFO, "HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
     except (UnsupportedOperation, ReplicaNotFound) as error:
         logger(logging.WARNING, "ERROR WHEN HANDLING REQUEST %s DID %s:%s AT RSE %s STATE %s: %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']), str(error))
@@ -445,7 +445,7 @@ def __update_replica(replica, session=None, logger=logging.log):
                                          tombstone=datetime.datetime.utcnow(),
                                          session=session)
             if not replica['archived']:
-                request_core.archive_request(replica['request_id'], session=session)
+                request_core.archive_request(replica['request_id'], session=session, logger=logger)
             logger(logging.INFO, "HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
         except Exception as error:
             logger(logging.ERROR, 'Cannot register replica for DID %s:%s at RSE %s - potential dark data - %s', replica['scope'], replica['name'], replica['rse_id'], str(error))

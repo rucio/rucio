@@ -44,11 +44,15 @@ from configparser import NoOptionError, NoSectionError
 from itertools import filterfalse
 from typing import TYPE_CHECKING
 
+from dogpile.cache.api import NoValue
 from six import string_types
-from sqlalchemy import and_, or_, func, update
+from sqlalchemy import and_, or_, func, update, inspect
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql.expression import asc, true
+from sqlalchemy.schema import Table, Column
 
+from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get_bool, config_get
 from rucio.common.constants import FTS_STATE
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
@@ -60,7 +64,8 @@ from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg
-from rucio.db.sqla.session import read_session, transactional_session, stream_session
+from rucio.db.sqla.session import read_session, transactional_session, stream_session, DEFAULT_SCHEMA_NAME
+from rucio.db.sqla.types import GUID
 from rucio.transfertool.fts3 import FTS3Transfertool
 
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
@@ -79,6 +84,54 @@ if TYPE_CHECKING:
 The core request.py is specifically for handling requests.
 Requests accessed by external_id (So called transfers), are covered in the core transfer.py
 """
+
+REGION = make_region_memcached(expiration_time=120)
+TRANSFERS_HOP_TABLE = None
+
+
+def __delete_from_transfers_hops_table_if_it_exists(request_id, session, logger):
+    """
+    This function implements forward compatibility of the current 1.27 rucio release line
+    with the 1.28 rucio release which introduces a new table.
+    The goal is to allow parallel execution of 1.27 and 1.28 during the migration phase.
+    """
+    global TRANSFERS_HOP_TABLE
+
+    if not TRANSFERS_HOP_TABLE:
+        table_name = 'transfer_hops'
+
+        cache_key = 'hast_transfers_hop_table'
+        db_has_table = REGION.get(cache_key)
+        if isinstance(db_has_table, NoValue):
+            db_has_table = inspect(session.bind).has_table(table_name, schema=DEFAULT_SCHEMA_NAME)
+            REGION.set(cache_key, db_has_table)
+
+        if db_has_table:
+            base = declarative_base()
+            columns = [
+                Column('request_id', GUID()),
+                Column('next_hop_request_id', GUID()),
+                Column('initial_request_id', GUID()),
+            ]
+            table = Table(
+                table_name,
+                base.metadata,
+                *columns,
+                schema=DEFAULT_SCHEMA_NAME,
+            )
+
+            class DeclarativeObj(base):
+                __table__ = table
+                __mapper_args__ = {
+                    "primary_key": columns,
+                }
+            TRANSFERS_HOP_TABLE = DeclarativeObj
+
+    if TRANSFERS_HOP_TABLE:
+        logger(logging.DEBUG, "Deleting from transfer_hops table for request %s", request_id)
+        session.query(TRANSFERS_HOP_TABLE).filter(or_(TRANSFERS_HOP_TABLE.request_id == request_id,
+                                                      TRANSFERS_HOP_TABLE.next_hop_request_id == request_id,
+                                                      TRANSFERS_HOP_TABLE.initial_request_id == request_id)).delete()
 
 
 def should_retry_request(req, retry_protocol_mismatches):
@@ -124,7 +177,7 @@ def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mism
 
     if new_req:
         new_req['sources'] = get_sources(request_id, session=session)
-        archive_request(request_id, session=session)
+        archive_request(request_id, session=session, logger=logger)
 
         if should_retry_request(new_req, retry_protocol_mismatches):
             new_req['request_id'] = generate_uuid()
@@ -648,11 +701,12 @@ def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
 
 
 @transactional_session
-def archive_request(request_id, session=None):
+def archive_request(request_id, session=None, logger=logging.log):
     """
     Move a request to the history table.
 
     :param request_id:  Request-ID as a 32 character hex string.
+    :param logger:      decorated logger instance
     :param session:     Database session to use.
     """
 
@@ -697,6 +751,7 @@ def archive_request(request_id, session=None):
             time_diff_s = time_diff.seconds + time_diff.days * 24 * 3600
             record_timer('core.request.archive_request.{activity}', time_diff_s, labels={'activity': req['activity'].replace(' ', '_')})
             session.query(models.Source).filter_by(request_id=request_id).delete()
+            __delete_from_transfers_hops_table_if_it_exists(request_id=request_id, session=session, logger=logger)
             session.query(models.Request).filter_by(id=request_id).delete()
         except IntegrityError as error:
             raise RucioException(error.args)
@@ -740,7 +795,7 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
                 transfertool_map[req[2]].cancel(transfer_ids=[req[1]])
             except Exception as error:
                 logger(logging.WARNING, 'Could not cancel FTS3 transfer %s on %s: %s' % (req[1], req[2], str(error)))
-        archive_request(request_id=req[0], session=session)
+        archive_request(request_id=req[0], session=session, logger=logger)
 
 
 def cancel_request_external_id(transfertool_obj, transfer_id):
