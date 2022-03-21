@@ -42,7 +42,6 @@ clients_requirements_table = {
     ],
     'swift': ['python-swiftclient'],
     'argcomplete': ['argcomplete'],
-    's3': ['boto'],
     'sftp': ['pysftp'],
     # 'gfal2': ['gfal2-python'],
     'dumper': [
@@ -64,7 +63,6 @@ dev_requirements = [
     'subprocess32',
     'pycodestyle',
     'mock',
-    's3cmd',
     'pydoc-markdown',
     'docspec_python',
     'sh',
