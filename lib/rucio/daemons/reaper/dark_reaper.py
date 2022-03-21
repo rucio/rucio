@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2021 CERN
+# Copyright 2016-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -65,19 +65,16 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 GRACEFUL_STOP = threading.Event()
 
 
-def reaper(rses, worker_number=0, total_workers=1, chunk_size=100, once=False, scheme=None, sleep_time=300):
+def reaper(rses, chunk_size=100, once=False, scheme=None, sleep_time=300):
     """
     Main loop to select and delete files.
 
     :param rses: List of RSEs the reaper should work against.
-    :param worker_number: The worker number.
-    :param total_workers:  The total number of workers.
     :param chunk_size: the size of chunk for deletion.
     :param once: If True, only runs one iteration of the main loop.
     :param scheme: Force the reaper to use a particular protocol, e.g., mock.
     :param sleep_time: Thread sleep time after each chunk of work.
     """
-    logging.info('Starting Dark Reaper %s-%s: Will work on RSEs: %s', worker_number, total_workers, ', '.join(rses))
 
     pid = os.getpid()
     thread = threading.current_thread()
@@ -86,12 +83,22 @@ def reaper(rses, worker_number=0, total_workers=1, chunk_size=100, once=False, s
     hash_executable = hashlib.sha256((sys.argv[0] + ''.join(rses)).encode()).hexdigest()
     sanity_check(executable=None, hostname=hostname)
 
+    # heartbeat
+    heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread,
+                     hash_executable=hash_executable)
+    prepend_str = 'dark-reaper [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
+    logger = formatted_logger(logging.log, prepend_str + '%s')
+    logger(logging.INFO, 'Starting Dark Reaper on RSEs: %s', ', '.join(rses))
+
+    if not once:
+        logger(logging.INFO, 'Waiting for heartbeat synchonization')
+        GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
+
     while not GRACEFUL_STOP.is_set():
         try:
-            # heartbeat
             heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread,
                              hash_executable=hash_executable)
-            prepend_str = 'dark-reapter [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
+            prepend_str = 'dark-reaper [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
             logger = formatted_logger(logging.log, prepend_str + '%s')
             logger(logging.INFO, 'Live gives {0[heartbeat]}'.format(locals()))
             nothing_to_do = True
@@ -103,12 +110,18 @@ def reaper(rses, worker_number=0, total_workers=1, chunk_size=100, once=False, s
                 # The following query returns the list of real replicas (deleted_replicas) and list of dark replicas (dark_replicas)
                 # Real replicas can be directly removed from the quarantine table
                 deleted_replicas, dark_replicas = list_quarantined_replicas(rse_id=rse_id,
-                                                                            limit=chunk_size, worker_number=worker_number,
-                                                                            total_workers=total_workers)
+                                                                            limit=chunk_size,
+                                                                            worker_number=heartbeat['assign_thread'],
+                                                                            total_workers=heartbeat['nr_threads'])
 
                 rse_info = rsemgr.get_rse_info(rse_id=rse_id)
                 rse = rse_info['rse']
                 prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
+
+                heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread,
+                                 hash_executable=hash_executable)
+                prepend_str = 'dark-reaper [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
+                logger = formatted_logger(logging.log, prepend_str + '%s')
                 try:
                     prot.connect()
                     for replica in dark_replicas:
@@ -265,9 +278,7 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
 
     threads = []
     for worker in range(total_workers):
-        kwargs = {'worker_number': worker,
-                  'total_workers': total_workers,
-                  'rses': rses,
+        kwargs = {'rses': rses,
                   'once': once,
                   'chunk_size': chunk_size,
                   'scheme': scheme,
