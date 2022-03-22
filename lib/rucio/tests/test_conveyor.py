@@ -288,6 +288,8 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
     # Each hop is a separate transfer, which will be handled by the poller and marked as failed
     assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 2
 
+    # Finisher will handle transfers of the same multihop one hop at a time
+    finisher(once=True, partition_wait_time=None)
     finisher(once=True, partition_wait_time=None)
     # The intermediate request must not be re-scheduled by finisher
     with pytest.raises(RequestNotFound):
@@ -515,6 +517,8 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
 
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 1
 
+        # Finisher will handle transfers of the same multihop one hop at a time
+        finisher(once=True, partition_wait_time=None)
         finisher(once=True, partition_wait_time=None)
         # The intermediate request must not be re-scheduled by finisher
         with pytest.raises(RequestNotFound):
@@ -1029,6 +1033,8 @@ def test_overwrite_corrupted_files(overwrite_on_tape_topology, core_config_mock,
         assert request['state'] == RequestState.FAILED
 
         # Re-submit the failed requests. They must fail again, because overwrite_corrupted_files is False
+        # 2 runs: for multihop, finisher works one hop at a time
+        finisher(once=True, partition_wait_time=None)
         finisher(once=True, partition_wait_time=None)
         request = request_core.get_request_by_did(rse_id=rse3_id, **did1)
         assert request['state'] == RequestState.QUEUED
@@ -1043,6 +1049,7 @@ def test_overwrite_corrupted_files(overwrite_on_tape_topology, core_config_mock,
         assert request['state'] == RequestState.FAILED
 
         # Re-submit one more time. Now the destination file must be overwritten
+        finisher(once=True, partition_wait_time=None)
         finisher(once=True, partition_wait_time=None)
         request = request_core.get_request_by_did(rse_id=rse3_id, **did1)
         assert request['state'] == RequestState.QUEUED
@@ -1180,7 +1187,9 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
     assert request['state'] == RequestState.FAILED
 
     # Re-submit the transfer without simulating a failure. Everything should go as normal starting now.
-    finisher(once=True, partition_wait_time=None)
+    for _ in range(4):
+        # for multihop, finisher works one hop at a time. 4 is the maximum number of hops in this test graph
+        finisher(once=True, partition_wait_time=None)
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
     # one request must be submitted, but the second will only be queued
     if request_core.get_request_by_did(rse_id=rse5_id, **did)['state'] == RequestState.QUEUED:

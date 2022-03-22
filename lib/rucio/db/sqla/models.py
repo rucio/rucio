@@ -1321,7 +1321,8 @@ class TransferHop(BASE, ModelBase):
                    ForeignKeyConstraint(['initial_request_id'], ['requests.id'], name='TRANSFER_HOPS_INIT_REQ_ID_FK'),
                    ForeignKeyConstraint(['request_id'], ['requests.id'], name='TRANSFER_HOPS_REQ_ID_FK'),
                    ForeignKeyConstraint(['next_hop_request_id'], ['requests.id'], name='TRANSFER_HOPS_NH_REQ_ID_FK'),
-                   Index('TRANSFER_HOPS_INITIAL_REQ', 'initial_request_id'))
+                   Index('TRANSFER_HOPS_INITIAL_REQ', 'initial_request_id'),
+                   Index('TRANSFER_HOPS_NH_REQ_IDX', 'next_hop_request_id'))
 
 
 class RequestHistory(BASE, ModelBase):
