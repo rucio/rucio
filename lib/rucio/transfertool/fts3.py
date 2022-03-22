@@ -634,8 +634,6 @@ class FTS3ApiTransferStatusReport(Fts3TransferStatusReport):
                 logger(logging.WARNING, "Response %s with transfer id %s is different from the request transfer id %s, will not update" % (request_id, transfer_id, request['external_id']))
             else:
                 logger(logging.DEBUG, "Request %s is already in %s state, will not update" % (request_id, new_state))
-        else:
-            logger(logging.DEBUG, "No state change computed for %s. Skipping request update." % request_id)
 
 
 class FTS3Transfertool(Transfertool):
