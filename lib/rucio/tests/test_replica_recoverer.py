@@ -201,7 +201,7 @@ class TestReplicaRecoverer(unittest.TestCase):
 
         # Run replica recoverer once
         try:
-            run(once=True, younger_than=1, nattempts=2, limit_suspicious_files_on_rse=5, sleep_time=0, passive_mode=False)
+            run(once=True, younger_than=1, nattempts=2, limit_suspicious_files_on_rse=5, sleep_time=0, active_mode=True)
         except KeyboardInterrupt:
             stop()
 
