@@ -53,7 +53,7 @@ from typing import TYPE_CHECKING
 from dogpile.cache.api import NoValue
 from sqlalchemy import and_, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql.expression import false
+from sqlalchemy.sql.expression import false, null
 
 from rucio.common import constants
 from rucio.common.cache import make_region_memcached
@@ -69,7 +69,7 @@ from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
-from rucio.core.request import get_request_by_did, queue_requests, set_request_state
+from rucio.core.request import get_request_by_did, queue_requests, set_request_state, get_transfer_hops_table
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
@@ -1683,6 +1683,11 @@ def __list_transfer_requests_and_source_replicas(
         .join(models.RSE, models.RSE.id == models.Request.dest_rse_id) \
         .filter(models.RSE.deleted == false()) \
         .order_by(models.Request.created_at)
+
+    transfers_hop_table = get_transfer_hops_table(session)
+    if transfers_hop_table:
+        sub_requests = sub_requests.outerjoin(transfers_hop_table, transfers_hop_table.next_hop_request_id == models.Request.id) \
+            .filter(transfers_hop_table.next_hop_request_id == null())
 
     if not ignore_availability:
         sub_requests = sub_requests.filter(models.RSE.availability.in_((2, 3, 6, 7)))

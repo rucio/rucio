@@ -88,6 +88,7 @@ def run_once(bulk, db_bulk, suspicious_patterns, retry_protocol_mismatches, hear
                                      total_workers=total_workers,
                                      worker_number=worker_number,
                                      mode_all=True,
+                                     include_dependent=False,
                                      hash_variable='rule_id')
         record_timer('daemons.conveyor.finisher.get_next', (time.time() - time1) * 1000)
         time2 = time.time()

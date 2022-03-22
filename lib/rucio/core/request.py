@@ -49,7 +49,7 @@ from six import string_types
 from sqlalchemy import and_, or_, func, update, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql.expression import asc, true
+from sqlalchemy.sql.expression import asc, true, null
 from sqlalchemy.schema import Table, Column
 
 from rucio.common.cache import make_region_memcached
@@ -89,12 +89,12 @@ REGION = make_region_memcached(expiration_time=120)
 TRANSFERS_HOP_TABLE = None
 
 
-def __delete_from_transfers_hops_table_if_it_exists(request_id, session, logger):
+def get_transfer_hops_table(session):
     """
-    This function implements forward compatibility of the current 1.27 rucio release line
-    with the 1.28 rucio release which introduces a new table.
-    The goal is to allow parallel execution of 1.27 and 1.28 during the migration phase.
+    Retrieve the transfers_hop table, which doesn't exist in 1.27, but exists in 1.28 rucio.
+    This is to enable forward compatibility for running rucio 1.27 and 1.28 together on the same database.
     """
+
     global TRANSFERS_HOP_TABLE
 
     if not TRANSFERS_HOP_TABLE:
@@ -126,12 +126,21 @@ def __delete_from_transfers_hops_table_if_it_exists(request_id, session, logger)
                     "primary_key": columns,
                 }
             TRANSFERS_HOP_TABLE = DeclarativeObj
+    return TRANSFERS_HOP_TABLE
 
-    if TRANSFERS_HOP_TABLE:
+
+def __delete_from_transfers_hops_table_if_it_exists(request_id, session, logger):
+    """
+    This function implements forward compatibility of the current 1.27 rucio release line
+    with the 1.28 rucio release which introduces a new table.
+    The goal is to allow parallel execution of 1.27 and 1.28 during the migration phase.
+    """
+    transfers_hop_table = get_transfer_hops_table(session)
+    if transfers_hop_table:
         logger(logging.DEBUG, "Deleting from transfer_hops table for request %s", request_id)
-        session.query(TRANSFERS_HOP_TABLE).filter(or_(TRANSFERS_HOP_TABLE.request_id == request_id,
-                                                      TRANSFERS_HOP_TABLE.next_hop_request_id == request_id,
-                                                      TRANSFERS_HOP_TABLE.initial_request_id == request_id)).delete()
+        session.query(transfers_hop_table).filter(or_(transfers_hop_table.request_id == request_id,
+                                                      transfers_hop_table.next_hop_request_id == request_id,
+                                                      transfers_hop_table.initial_request_id == request_id)).delete()
 
 
 def should_retry_request(req, retry_protocol_mismatches):
@@ -341,7 +350,7 @@ def queue_requests(requests, session=None, logger=logging.log):
 @read_session
 def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activity=None,
              total_workers=0, worker_number=0, mode_all=False, hash_variable='id',
-             activity_shares=None, transfertool=None, session=None):
+             activity_shares=None, include_dependent=True, transfertool=None, session=None):
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -357,6 +366,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     :param mode_all:          If set to True the function returns everything, if set to False returns list of dictionaries  {'request_id': x, 'external_host': y, 'external_id': z}.
     :param hash_variable:     The variable to use to perform the partitioning. By default it uses the request id.
     :param activity_shares:   Activity shares dictionary, with number of requests
+    :param include_dependent: If true, includes transfers which have a previous hop dependency on other transfers
     :param transfertool:      The transfer tool as specified in rucio.cfg.
     :param session:           Database session to use.
     :returns:                 Request as a dictionary.
@@ -393,6 +403,16 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
                                                  .filter(models.Request.state.in_(state))\
                                                  .filter(models.Request.request_type.in_(request_type))\
                                                  .order_by(asc(models.Request.updated_at))
+
+        if not include_dependent:
+            # filter out transfers which depend on some other "previous hop" requests.
+            # In particular, this is used to avoid multiple finishers trying to archive different
+            # transfers from the same path and thus having concurrent deletion of same rows from
+            # the transfer_hop table.
+            transfers_hop_table = get_transfer_hops_table(session)
+            if transfers_hop_table:
+                query = query.outerjoin(transfers_hop_table, transfers_hop_table.next_hop_request_id == models.Request.id) \
+                    .filter(transfers_hop_table.next_hop_request_id == null())
 
         if isinstance(older_than, datetime.datetime):
             query = query.filter(models.Request.updated_at < older_than)
