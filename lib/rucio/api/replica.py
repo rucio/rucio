@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2016
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2022
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -32,6 +32,7 @@
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
 # - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
 
+import uuid
 import datetime
 
 from rucio.api import permission
@@ -112,12 +113,16 @@ def declare_bad_file_replicas(pfns, reason, issuer, vo='def', session=None):
             pfn['scope'] = InternalScope(pfn['scope'], vo=vo)
     replicas = replica.declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=issuer, status=BadFilesStatus.BAD, session=session)
 
-    for k in list(replicas):
+    for rse_id in list(replicas):
         try:
-            rse = get_rse_name(rse_id=k, session=session)
-            replicas[rse] = replicas.pop(k)
+            uuid.UUID(rse_id)
+            rse = get_rse_name(rse_id=rse_id, session=session)
+            replicas[rse] = replicas.pop(rse_id)
         except exception.RSENotFound:
             pass
+        except ValueError:
+            if rse_id == 'unknown':
+                replicas['unknown'] = replicas.pop(rse_id)
     return replicas
 
 
