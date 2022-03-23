@@ -459,23 +459,30 @@ def get_pfn_to_rse(pfns, vo='def', session=None):
     protocols = {}
 
     for rse_id, protocol, hostname, port, prefix in query.yield_per(10000):
-        protocols[rse_id] = ('%s://%s%s' % (protocol, hostname, prefix), '%s://%s:%s%s' % (protocol, hostname, port, prefix))
+        if rse_id not in protocols:
+            protocols[rse_id] = []
+        protocols[rse_id].append('%s://%s:%s%s' % (protocol, hostname, port, prefix))
+        if '%s://%s%s' % (protocol, hostname, prefix) not in protocols[rse_id]:
+            protocols[rse_id].append('%s://%s%s' % (protocol, hostname, prefix))
     hint = None
     for surl in surls:
-        if hint and (surl.find(protocols[hint][0]) > -1 or surl.find(protocols[hint][1]) > -1):
-            dict_rse[hint].append(surl)
+        if hint:
+            for pattern in protocols[hint]:
+                if surl.find(pattern) > -1:
+                    dict_rse[hint].append(surl)
         else:
             mult_rse_match = 0
             for rse_id in protocols:
-                if (surl.find(protocols[rse_id][0]) > -1 or surl.find(protocols[rse_id][1]) > -1) and get_rse_vo(rse_id=rse_id, session=session) == vo:
-                    mult_rse_match += 1
-                    if mult_rse_match > 1:
-                        print('ERROR, multiple matches : %s at %s' % (surl, rse_id))
-                        raise exception.RucioException('ERROR, multiple matches : %s at %s' % (surl, get_rse_name(rse_id=rse_id, session=session)))
-                    hint = rse_id
-                    if hint not in dict_rse:
-                        dict_rse[hint] = []
-                    dict_rse[hint].append(surl)
+                for pattern in protocols[rse_id]:
+                    if surl.find(pattern) > -1 and get_rse_vo(rse_id=rse_id, session=session) == vo:
+                        mult_rse_match += 1
+                        if mult_rse_match > 1:
+                            print('ERROR, multiple matches : %s at %s' % (surl, rse_id))
+                            raise exception.RucioException('ERROR, multiple matches : %s at %s' % (surl, get_rse_name(rse_id=rse_id, session=session)))
+                        hint = rse_id
+                        if hint not in dict_rse:
+                            dict_rse[hint] = []
+                        dict_rse[hint].append(surl)
             if mult_rse_match == 0:
                 if 'unknown' not in unknown_replicas:
                     unknown_replicas['unknown'] = []
