@@ -53,7 +53,7 @@ def upgrade():
         create_foreign_key('TRANSFER_HOPS_NH_REQ_ID_FK', 'transfer_hops', 'requests', ['next_hop_request_id'], ['id'])
         create_check_constraint('TRANSFER_HOPS_CREATED_NN', 'transfer_hops', 'created_at is not null')
         create_check_constraint('TRANSFER_HOPS_UPDATED_NN', 'transfer_hops', 'updated_at is not null')
-        create_index('TRANSFER_HOPS_INITIAL_REQ', 'transfer_hops', ['initial_request_id'])
+        create_index('TRANSFER_HOPS_INITIAL_REQ_IDX', 'transfer_hops', ['initial_request_id'])
         create_index('TRANSFER_HOPS_NH_REQ_IDX', 'transfer_hops', ['next_hop_request_id'])
 
 
