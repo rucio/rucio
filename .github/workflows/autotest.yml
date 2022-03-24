@@ -22,10 +22,12 @@ jobs:
       - name: Check headers
         shell: bash
         run: |
+          TARGET_BRANCH=remotes/origin/$GITHUB_BASE_REF
           echo "Current git rev $(git rev-parse HEAD)"
-          echo "Common ancestor git rev $(git merge-base HEAD remotes/origin/master)"
+          echo "Target branch: $TARGET_BRANCH"
+          echo "Common ancestor git rev $(git merge-base HEAD $TARGET_BRANCH)"
           echo "If a file header needs to be changed run 'tools/add_header -i FILE' from the rucio project directory."
-          FILES=$(git diff --name-status HEAD $(git merge-base HEAD remotes/origin/master) | grep -v '^A' | cut -f 2 | grep -E '\.py$|^bin/') || echo "No Files found"
+          FILES=$(git diff --name-status HEAD $(git merge-base HEAD $TARGET_BRANCH) | grep -v '^A' | cut -f 2 | grep -E '\.py$|^bin/') || echo "No Files found"
           if [[ -n $FILES ]]; then
             echo "Files to check: $FILES"
             tools/add_header --disable-add-me -cd $FILES
