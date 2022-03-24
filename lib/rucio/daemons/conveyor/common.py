@@ -354,7 +354,6 @@ def __create_missing_replicas_and_requests(
     initial_request_id = transfer_path[-1].rws.request_id
     creation_successful = True
     must_skip_submission = False
-    created_requests = []
     # Iterate the path in reverse order. The last hop is the initial request, so
     # next_hop.rws.request_id will always be initialized when handling the current hop.
     for i in reversed(range(len(transfer_path))):
@@ -392,6 +391,11 @@ def __create_missing_replicas_and_requests(
             logger(logging.ERROR, '%s: Problem adding replicas on %s : %s', initial_request_id, rws.dest_rse, str(error))
 
         rws.attributes['is_intermediate_hop'] = True
+        # next_hop_request_id and initial_request_id are not used anymore in rucio >=1.28, but are needed
+        # for running at the same time 1.27 and 1.28 on the same database.
+        # TODO: remove following two rows
+        rws.attributes['next_hop_request_id'] = transfer_path[i + 1].rws.request_id
+        rws.attributes['initial_request_id'] = initial_request_id
         rws.attributes['source_replica_expression'] = hop.src.rse.name
         new_req = queue_requests(requests=[{'dest_rse_id': rws.dest_rse.id,
                                             'scope': rws.scope,
@@ -405,12 +409,17 @@ def __create_missing_replicas_and_requests(
         # If a request already exists, new_req will be an empty list.
         if new_req:
             db_req = new_req[0]
+            # queue_request may put it in PREPARING state; we don't want that.
+            # TODO: maybe better to not relly on queue_request here?
+            set_request_state(db_req['id'], RequestState.QUEUED, session=session, logger=logger)
+            logger(logging.DEBUG, '%s: New request created for the transfer between %s and %s : %s', initial_request_id, transfer_path[0].src, transfer_path[-1].dst, db_req['id'])
         else:
             db_req = request_core.get_request_by_did(rws.scope, rws.name, rws.dest_rse.id, session=session)
             # A transfer already exists for part of the path. Just construct the remaining
             # path, but don't submit the transfer. We must wait for the existing transfer to be
             # completed before continuing.
             must_skip_submission = True
+            logger(logging.DEBUG, '%s: Reusing intermediate hop between %s and %s : %s', initial_request_id, transfer_path[0].src, transfer_path[-1].dst, db_req['id'])
 
         models.TransferHop(request_id=db_req['id'],
                            next_hop_request_id=transfer_path[i + 1].rws.request_id,
@@ -418,9 +427,6 @@ def __create_missing_replicas_and_requests(
                            ).save(session=session, flush=False)
         rws.request_id = db_req['id']
         rws.requested_at = db_req['requested_at']
-        logger(logging.DEBUG, '%s: New request created for the transfer between %s and %s : %s', initial_request_id, transfer_path[0].src, transfer_path[-1].dst, rws.request_id)
-        set_request_state(rws.request_id, RequestState.QUEUED, session=session, logger=logger)
-        created_requests.append(rws.request_id)
 
     return creation_successful, must_skip_submission
 
