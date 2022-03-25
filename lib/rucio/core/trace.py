@@ -39,7 +39,7 @@ from jsonschema import validate, ValidationError, draft7_format_checker
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import InvalidObject
-from rucio.common.schema.generic import UUID, TIME_ENTRY, IPv4orIPv6, CLIENT_STATE
+from rucio.common.schema.generic import UUID, TIME_ENTRY, IPv4orIPv6
 from rucio.core.monitor import record_counter
 
 CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
@@ -87,7 +87,7 @@ TOUCH_SCHEMA = {
     "type": "object",
     "properties": {
         "eventType": {"enum": ["touch"]},
-        "clientState": CLIENT_STATE,
+        "clientState": {"type": "string"},
         "account": {"type": "string"},
         "scope": {"type": "string"},
         "filename": {"type": "string"},
@@ -111,7 +111,7 @@ UPLOAD_SCHEMA = {
         "eventType": {"enum": ["upload"]},
         "hostname": {"type": "string"},
         "eventVersion": {"type": "string"},
-        "clientState": CLIENT_STATE,
+        "clientState": {"type": "string"},
         "account": {"type": "string"},
         "uuid": UUID,
         "scope": {"type": "string"},
@@ -153,7 +153,7 @@ DOWNLOAD_SCHEMA = {
         "datasetScope": {"type": ["string", "null"]},
         "dataset": {"type": ["string", "null"]},
         "filesize": {"type": ["number", "null"]},
-        "clientState": CLIENT_STATE,
+        "clientState": {"type": "string"},
         "stateReason": {"type": "string"},
         "protocol": {"type": "string"},
         "transferStart": {"type": "number"},
@@ -175,7 +175,7 @@ GET_SCHEMA = {
     "type": "object",
     "properties": {
         "eventType": {"enum": ["get", "get_sm", "sm_get", "get_sm_a", "sm_get_a"]},
-        "clientState": CLIENT_STATE,
+        "clientState": {"type": "string"},
         "stateReason": {"type": "string"},
         "url": {"type": ["string", "null"]},
         "vo": {"type": "string"},
@@ -201,7 +201,7 @@ PUT_SCHEMA = {
     "type": "object",
     "properties": {
         "eventType": {"enum": ["put_sm", "put_sm_a"]},
-        "clientState": CLIENT_STATE,
+        "clientState": {"type": "string"},
         "stateReason": {"type": "string"},
         "url": {"type": ["string", "null"]},
         "vo": {"type": "string"},
@@ -229,7 +229,7 @@ SPECIAL_SCHEMA = {
     "type": "object",
     "properties": {
         "eventType": {"enum": ["sfo2eos"]},
-        "clientState": CLIENT_STATE,
+        "clientState": {"type": "string"},
         "account": {"type": "string"},
         "scope": {"type": "string"},
         "filename": {"type": "string"},
