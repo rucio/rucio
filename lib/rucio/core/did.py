@@ -725,6 +725,10 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
                     filter(models.RSEFileAssociation.tombstone != none_value).\
                     update({'tombstone': datetime(1970, 1, 1)}, synchronize_session=False)
 
+    # Get bad files from dataset content
+    if file_content_clause:
+        bad_replicas_clause.extend([and_(models.BadReplicas.scope == cont['child_scope'], models.BadReplicas.name == cont['child_name']) for cont in session.query(models.DataIdentifierAssociation).filter(or_(*file_content_clause))])
+
     # Remove content
     if content_clause:
         with record_timer_block('undertaker.content'):
@@ -754,7 +758,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     # Update bad_replicas if exist
     if bad_replicas_clause:
         rowcount = session.query(models.BadReplicas).\
-            filter(or_(bad_replicas_clause)).\
+            filter(or_(*bad_replicas_clause)).\
             filter(models.BadReplicas.state == BadFilesStatus.BAD).\
             update({'state': BadFilesStatus.DELETED, 'updated_at': datetime.utcnow()})
 
