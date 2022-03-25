@@ -25,11 +25,12 @@ import pytest
 
 from rucio.common.exception import RucioException, UnsupportedOperation, InvalidType
 from rucio.common.utils import generate_uuid, clean_surls
-from rucio.core.replica import add_replicas, get_replicas_state, list_replicas, declare_bad_file_replicas, list_bad_replicas, get_bad_pfns, get_bad_replicas_backlog
+from rucio.core.did import delete_dids
+from rucio.core.replica import add_replicas, get_replicas_state, list_replicas, declare_bad_file_replicas, list_bad_replicas, get_bad_pfns, get_bad_replicas_backlog, list_bad_replicas_status
 from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
 from rucio.daemons.badreplicas.necromancer import run as necromancer_run
-from rucio.db.sqla.constants import DIDType, ReplicaState, BadPFNStatus
+from rucio.db.sqla.constants import DIDType, ReplicaState, BadPFNStatus, BadFilesStatus
 from rucio.tests.common import headers, auth
 
 
@@ -422,3 +423,36 @@ def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_
     for did in files:
         rep = get_replicas_state(scope=mock_scope, name=did['name'])
         assert list(rep.keys())[0] == ReplicaState.AVAILABLE
+
+
+def test_add_and_delete_bad_replicas(rse_factory, mock_scope, root_account, did_client, vo):
+    """ REPLICA (CORE): Add bad replicas and delete them"""
+    # Adding replicas to deterministic RSE
+    nbfiles = 5
+    rse1, rse1_id = rse_factory.make_srm_rse(deterministic=True, vo=vo)
+    files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    client_files = [{'scope': file_['scope'].external, 'name': file_['name']} for file_ in files]
+    add_replicas(rse_id=rse1_id, files=files, account=root_account, ignore_availability=True)
+    tmp_dsn = 'dataset_%s' % generate_uuid()
+    did_client.add_dataset(scope=mock_scope.external, name=tmp_dsn)
+    did_client.add_files_to_dataset(mock_scope.external, name=tmp_dsn, files=client_files, rse=rse1)
+
+    # Declare replica bad
+    replicas = []
+    for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
+        replicas.extend(replica['rses'][rse1_id])
+    r = declare_bad_file_replicas(replicas, 'This is a good reason', root_account)
+    assert r == {}
+
+    # Check state of bad replicas
+    list_bad_rep = [{'scope': rep['scope'].external, 'name': rep['name']} for rep in list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=rse1_id, vo=vo)]
+    for rep in client_files:
+        assert rep in list_bad_rep
+    assert [rep for rep in list_bad_replicas_status(state=BadFilesStatus.DELETED, rse_id=rse1_id, vo=vo)] == []
+
+    # Now delete the dataset
+    delete_dids([{'scope': mock_scope, 'name': tmp_dsn, 'did_type': DIDType.DATASET, 'purge_replicas': True}], account=root_account)
+    assert [rep for rep in list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=rse1_id, vo=vo)] == []
+    list_deleted_rep = [{'scope': rep['scope'].external, 'name': rep['name']} for rep in list_bad_replicas_status(state=BadFilesStatus.DELETED, rse_id=rse1_id, vo=vo)]
+    for rep in client_files:
+        assert rep in list_deleted_rep
