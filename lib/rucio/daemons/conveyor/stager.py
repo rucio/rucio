@@ -62,7 +62,7 @@ def run_once(bulk, group_bulk, rse_ids, scheme, failover_scheme, transfertool_kw
         activity=activity,
         rses=rse_ids,
         schemes=scheme,
-        transfertools_by_name={'fts3': FTS3Transfertool},
+        transfertool_classes=[FTS3Transfertool],
         older_than=None,
         request_type=RequestType.STAGEIN,
         logger=logger,

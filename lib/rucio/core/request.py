@@ -204,6 +204,7 @@ def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mism
                         else:
                             new_req['sources'][i]['ranking'] -= 1
                         new_req['sources'][i]['is_using'] = False
+            new_req.pop('state', None)
             queue_requests([new_req], session=session, logger=logger)
             return new_req
     else:
@@ -273,7 +274,8 @@ def queue_requests(requests, session=None, logger=logging.log):
                 return obj.internal
             raise TypeError('Could not serialise object %r' % obj)
 
-        request['state'] = RequestState.PREPARING if preparer_enabled else RequestState.QUEUED
+        if 'state' not in request:
+            request['state'] = RequestState.PREPARING if preparer_enabled else RequestState.QUEUED
 
         new_request = {'request_type': request['request_type'],
                        'scope': request['scope'],
@@ -291,6 +293,8 @@ def queue_requests(requests, session=None, logger=logging.log):
                        'priority': request['attributes'].get('priority', None),
                        'requested_at': request.get('requested_at', None),
                        'retry_count': request['retry_count']}
+        if 'transfertool' in request:
+            new_request['transfertool'] = request['transfertool']
         if 'previous_attempt_id' in request and 'retry_count' in request:
             new_request['previous_attempt_id'] = request['previous_attempt_id']
             new_request['id'] = request['request_id']
@@ -356,6 +360,7 @@ def list_transfer_requests_and_source_replicas(
         activity=None,
         older_than=None,
         rses=None,
+        multihop_rses=None,
         request_type=RequestType.TRANSFER,
         request_state=None,
         ignore_availability=False,
@@ -371,6 +376,7 @@ def list_transfer_requests_and_source_replicas(
     :param activity:           Activity to be selected.
     :param older_than:         Only select requests older than this DateTime.
     :param rses:               List of rse_id to select requests.
+    :param multihop_rses:               List of rse_id allowed to be used for multihop
     :param request_type:       Filter on the given request type.
     :param request_state:      Filter on the given request state
     :param transfertool:       The transfer tool as specified in rucio.cfg.
@@ -484,7 +490,7 @@ def list_transfer_requests_and_source_replicas(
         .with_hint(models.Distance, "+ index(distances DISTANCES_PK)", 'oracle')
 
     # if transfertool specified, select only the requests where the source rses are set up for the transfer tool
-    if transfertool:
+    if transfertool and not multihop_rses:
         query = query.subquery()
         query = session.query(query) \
             .join(models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == query.c.source_rse_id) \

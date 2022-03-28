@@ -52,6 +52,7 @@ from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
 from rucio.core.monitor import MultiCounter, record_timer
+from rucio.core.transfer import transfer_path_str
 from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, run_conveyor_daemon, next_transfers_to_submit
 from rucio.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -68,13 +69,13 @@ GET_TRANSFERS_COUNTER = MultiCounter(prom='rucio_daemons_conveyor_submitter_get_
                                      documentation='Number of transfers retrieved')
 
 TRANSFERTOOL_CLASSES_BY_NAME = {
-    'fts3': FTS3Transfertool,
-    'globus': GlobusTransferTool,
-    'mock': MockTransfertool,
+    FTS3Transfertool.external_name: FTS3Transfertool,
+    GlobusTransferTool.external_name: GlobusTransferTool,
+    MockTransfertool.external_name: MockTransfertool,
 }
 
 
-def run_once(bulk, group_bulk, filter_transfertool, transfertool, ignore_availability, rse_ids,
+def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availability, rse_ids,
              scheme, failover_scheme, partition_hash_var, timeout, transfertool_kwargs,
              heartbeat_handler, activity):
     worker_number, total_workers, logger = heartbeat_handler.live()
@@ -90,7 +91,7 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertool, ignore_availab
         rses=rse_ids,
         schemes=scheme,
         filter_transfertool=filter_transfertool,
-        transfertools_by_name={transfertool: TRANSFERTOOL_CLASSES_BY_NAME[transfertool]},
+        transfertool_classes=[TRANSFERTOOL_CLASSES_BY_NAME[transfertool] for transfertool in transfertools],
         older_than=None,
         request_type=RequestType.TRANSFER,
         ignore_availability=ignore_availability,
@@ -104,6 +105,19 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertool, ignore_availab
     logger(logging.INFO, 'Got %s transfers for %s in %s seconds', total_transfers, activity, time.time() - start_time)
 
     for builder, transfer_paths in transfers.items():
+        # Globus Transfertool is not yet production-ready, but we need to partially activate it
+        # in all submitters if we want to enable native multi-hopping between transfertools.
+        # This "if" can be triggered in a FTS submitter if it tries to multi-hop from
+        # a globus-only RSE via a dual-stack RSE towards an FTS-only RSE.
+        #
+        # Just ignore this transfer and keep it in a queued state, so that it's picked up
+        # latter by that special submitter instance dedicated to globus transfers.
+        #
+        # TODO: remove this "if"
+        if transfertools[0] != GlobusTransferTool.external_name and builder.transfertool_class == GlobusTransferTool:
+            logger(logging.INFO, 'Skipping submission of following transfers: %s', [transfer_path_str(p) for p in transfer_paths])
+            continue
+
         transfertool_obj = builder.make_transfertool(logger=logger, **transfertool_kwargs.get(builder.transfertool_class, {}))
         start_time = time.time()
         logger(logging.DEBUG, 'Starting to group transfers for %s (%s)', activity, transfertool_obj)
@@ -181,6 +195,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
     else:
         rse_ids = None
 
+    transfertools = transfertool.split(',')
     transfertool_kwargs = {
         FTS3Transfertool: {
             'group_policy': group_policy,
@@ -209,7 +224,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
             bulk=bulk,
             group_bulk=group_bulk,
             filter_transfertool=filter_transfertool,
-            transfertool=transfertool,
+            transfertools=transfertools,
             ignore_availability=ignore_availability,
             scheme=scheme,
             failover_scheme=failover_scheme,
