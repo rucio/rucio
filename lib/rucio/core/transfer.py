@@ -351,12 +351,21 @@ def transfer_path_str(transfer_path: "List[DirectTransferDefinition]") -> str:
     if not transfer_path:
         return 'empty transfer path'
 
+    multi_tt = False
+    if len({hop.rws.transfertool for hop in transfer_path if hop.rws.transfertool}) > 1:
+        # The path relies on more than one transfertool
+        multi_tt = True
+
     if len(transfer_path) == 1:
         return str(transfer_path[0])
 
     path_str = str(transfer_path[0].src.rse)
     for hop in transfer_path:
-        path_str += '--{request_id}->{destination}'.format(request_id=hop.rws.request_id or '', destination=hop.dst.rse)
+        path_str += '--{request_id}{transfertool}->{destination}'.format(
+            request_id=hop.rws.request_id or '',
+            transfertool=':{}'.format(hop.rws.transfertool) if multi_tt else '',
+            destination=hop.dst.rse,
+        )
     return path_str
 
 
@@ -948,9 +957,7 @@ def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None
     Workflow:
     """
 
-    include_multihop = False
-    if filter_transfertool in ['fts3', None]:
-        include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
+    include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
 
     multihop_rses = []
     if include_multihop:
@@ -988,6 +995,7 @@ def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None
         activity=activity,
         older_than=older_than,
         rses=rses,
+        multihop_rses=multihop_rses,
         request_type=request_type,
         request_state=RequestState.QUEUED,
         ignore_availability=ignore_availability,
