@@ -57,10 +57,11 @@ def bulk_group_transfers(transfer_paths, policy='single', group_bulk=200):
 class GlobusTransferStatusReport(TransferStatusReport):
 
     supported_db_fields = [
-        'state'
+        'state',
+        'external_id',
     ]
 
-    def __init__(self, request_id, globus_response):
+    def __init__(self, request_id, external_id, globus_response):
         super().__init__(request_id)
 
         if globus_response == 'FAILED':
@@ -71,6 +72,9 @@ class GlobusTransferStatusReport(TransferStatusReport):
             new_state = RequestState.SUBMITTED
 
         self.state = new_state
+        self.external_id = None
+        if new_state in [RequestState.FAILED, RequestState.DONE]:
+            self.external_id = external_id
 
     def initialize(self, session, logger=logging.log):
         pass
@@ -89,6 +93,8 @@ class GlobusTransferTool(Transfertool):
 
         :param external_host:   The external host where the transfertool API is running
         """
+        if not external_host:
+            external_host = 'Globus Online Transfertool'
         super().__init__(external_host, logger)
         self.group_bulk = group_bulk
         self.group_policy = group_policy
@@ -191,7 +197,7 @@ class GlobusTransferTool(Transfertool):
         response = {}
         for transfer_id, requests in requests_by_eid.items():
             for request_id in requests:
-                response.setdefault(transfer_id, {})[request_id] = GlobusTransferStatusReport(request_id, job_responses[transfer_id])
+                response.setdefault(transfer_id, {})[request_id] = GlobusTransferStatusReport(request_id, transfer_id, job_responses[transfer_id])
         return response
 
     def bulk_update(self, resps, request_ids):
