@@ -38,6 +38,9 @@ class TransferToolBuilder(object):
         self.transfertool_class = transfertool_class
         self.fixed_kwargs = frozenset(kwargs.items())
 
+    def __str__(self):
+        return self.transfertool_class.__name__
+
     def __hash__(self):
         return hash(frozenset(self.__dict__.items()))
 
@@ -139,7 +142,8 @@ class Transfertool(object):
         particular submission.
         :param transfer_path:  List of DirectTransferDefinitions
         :param logger: logger instance
-        :return: a TransfertoolBuilder instance or None
+        :return: a tuple: a sub-path starting at the first node from transfer_path, and a TransfertoolBuilder instance
+        capable to submit this sub-path. Returns ([], None) if submission is impossible.
         """
         pass
 

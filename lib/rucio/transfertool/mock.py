@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020-2021 CERN
+# Copyright 2020-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,8 @@
 #
 # Authors:
 # - Nick Smith <nick.smith@cern.ch>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
+
 import itertools
 import logging
 
@@ -30,12 +31,14 @@ class MockTransfertool(Transfertool):
     This is not actually used anywhere at the moment
     """
 
+    external_name = 'mock'
+
     def __init__(self, external_host, logger=logging.log):
         super(MockTransfertool, self).__init__(external_host, logger)
 
     @classmethod
     def submission_builder_for_path(cls, transfer_path, logger=logging.log):
-        return TransferToolBuilder(cls, external_host='Mock Transfertool')
+        return transfer_path, TransferToolBuilder(cls, external_host='Mock Transfertool')
 
     def group_into_submit_jobs(self, transfers):
         return [{'transfers': list(itertools.chain.from_iterable(transfers)), 'job_params': {}}]
