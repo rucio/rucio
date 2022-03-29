@@ -58,7 +58,7 @@ from sqlalchemy.sql.expression import false
 
 from rucio.common import constants
 from rucio.common.cache import make_region_memcached
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_int
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (InvalidRSEExpression, NoDistance,
                                     RequestNotFound, RSEProtocolNotSupported,
@@ -70,7 +70,7 @@ from rucio.core.account import list_accounts
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter
 from rucio.core.request import set_request_state, RequestWithSources, RequestSource
-from rucio.core.rse import get_rse_name, get_rse_vo, list_rses
+from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, RequestType
@@ -569,7 +569,8 @@ def get_hops(source_rse_id, dest_rse_id, multihop_rses=None, limit_dest_schemes=
     if not multihop_rses:
         multihop_rses = []
 
-    shortest_paths = __search_shortest_paths(source_rse_ids=[source_rse_id], dest_rse_id=dest_rse_id,
+    ctx = _RseLoaderContext(session)
+    shortest_paths = __search_shortest_paths(ctx=ctx, source_rse_ids=[source_rse_id], dest_rse_id=dest_rse_id,
                                              operation_src='third_party_copy_read', operation_dest='third_party_copy_write',
                                              domain='wan', multihop_rses=multihop_rses,
                                              limit_dest_schemes=limit_dest_schemes, session=session)
@@ -590,6 +591,7 @@ def get_hops(source_rse_id, dest_rse_id, multihop_rses=None, limit_dest_schemes=
 
 
 def __search_shortest_paths(
+        ctx: _RseLoaderContext,
         source_rse_ids: "List[str]",
         dest_rse_id: "List[str]",
         operation_src: str,
@@ -609,7 +611,7 @@ def __search_shortest_paths(
     The inbound links retrieved from the database can be accumulated into the inbound_links_by_node, passed
     from the calling context. To be able to reuse them.
     """
-    HOP_PENALTY = config_get('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
+    HOP_PENALTY = config_get_int('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
 
     if multihop_rses:
         # Filter out island source RSEs
@@ -643,14 +645,18 @@ def __search_shortest_paths(
             if adjacent_node not in remaining_sources and adjacent_node not in multihop_rses:
                 continue
 
-            new_adjacent_distance = current_distance + link_distance + HOP_PENALTY
+            try:
+                hop_penalty = int(ctx.rse_data(adjacent_node).attributes.get('hop_penalty', HOP_PENALTY))
+            except ValueError:
+                hop_penalty = HOP_PENALTY
+            new_adjacent_distance = current_distance + link_distance + hop_penalty
             if next_hop.get(adjacent_node, {}).get('cumulated_distance', 9999) <= new_adjacent_distance:
                 continue
 
             try:
                 matching_scheme = rsemgr.find_matching_scheme(
-                    rse_settings_src=__load_rse_settings(rse_id=adjacent_node, session=session),
-                    rse_settings_dest=__load_rse_settings(rse_id=current_node, session=session),
+                    rse_settings_src=ctx.rse_data(adjacent_node).info,
+                    rse_settings_dest=ctx.rse_data(current_node).info,
                     operation_src=operation_src,
                     operation_dest=operation_dest,
                     domain=domain,
@@ -707,7 +713,7 @@ def __create_transfer_definitions(
     Create the transfer definitions for each point-to-point transfer (multi-source, when possible)
     """
     inbound_links_by_node = {}
-    shortest_paths = __search_shortest_paths(source_rse_ids=[s.rse.id for s in sources], dest_rse_id=rws.dest_rse.id,
+    shortest_paths = __search_shortest_paths(ctx=ctx, source_rse_ids=[s.rse.id for s in sources], dest_rse_id=rws.dest_rse.id,
                                              operation_src=operation_src, operation_dest=operation_dest, domain=domain,
                                              multihop_rses=multihop_rses, limit_dest_schemes=limit_dest_schemes,
                                              inbound_links_by_node=inbound_links_by_node, session=session)
@@ -1267,24 +1273,6 @@ def __load_outgoing_distances_node(rse_id, session=None):
             outgoing_edges[distance.dest_rse_id] = ranking
         REGION_SHORT.set('outgoing_edges_%s' % str(rse_id), outgoing_edges)
         result = outgoing_edges
-    return result
-
-
-@transactional_session
-def __load_rse_settings(rse_id, session=None):
-    """
-    Loads the RSE settings from cache.
-    :param rse_id:    RSE id to load the settings from.
-    :param session:   The DB Session to use.
-    :returns:         Dict of RSE Settings
-    """
-
-    result = REGION_SHORT.get('rse_settings_%s' % str(rse_id))
-    if isinstance(result, NoValue):
-        result = rsemgr.get_rse_info(rse=get_rse_name(rse_id=rse_id, session=session),
-                                     vo=get_rse_vo(rse_id=rse_id, session=session),
-                                     session=session)
-        REGION_SHORT.set('rse_settings_%s' % str(rse_id), result)
     return result
 
 
