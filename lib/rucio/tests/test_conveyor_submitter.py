@@ -24,6 +24,7 @@ from random import randint
 from unittest.mock import patch
 from sqlalchemy import delete
 
+from rucio.common.exception import RequestNotFound
 from rucio.core import distance as distance_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
@@ -209,11 +210,12 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.config.REGION',
     'rucio.daemons.reaper.reaper.REGION',
+    'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
 ]}], indirect=True)
-def test_source_avoid_deletion(vo, caches_mock, core_config_mock, rse_factory, did_factory, root_account, file_factory):
+def test_source_avoid_deletion(caches_mock, core_config_mock, rse_factory, did_factory, root_account):
     """ Test that sources on a file block it from deletion """
 
-    _, reaper_region = caches_mock
+    _, reaper_region, _ = caches_mock
     src_rse1, src_rse1_id = rse_factory.make_mock_rse()
     src_rse2, src_rse2_id = rse_factory.make_mock_rse()
     dst_rse, dst_rse_id = rse_factory.make_mock_rse()
@@ -377,3 +379,59 @@ def test_globus(rse_factory, did_factory, root_account):
     assert request['state'] == RequestState.SUBMITTED
     request = request_core.get_request_by_did(rse_id=rse4_id, **did2)
     assert request['state'] == RequestState.SUBMITTED
+
+
+@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
+@pytest.mark.parametrize("file_config_mock", [{"overrides": [
+    ('transfers', 'hop_penalty', '5'),
+]}], indirect=True)
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', True),
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.config.REGION',
+    'rucio.daemons.reaper.reaper.REGION',
+    'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
+]}], indirect=True)
+def test_hop_penalty(rse_factory, did_factory, root_account, file_config_mock, core_config_mock, caches_mock):
+    """
+    Test that both global hop_penalty and the per-rse one are correctly taken into consideration
+    """
+    # +------+    +------+    +------+
+    # |      |    |  5   |    |      |
+    # | RSE1 +--->| RSE2 +--->| RSE3 |
+    # |      |    |      |    |      |
+    # +------+    +------+    +--^---+
+    #                            |
+    # +------+    +------+       |
+    # |      |    |  20  |       |
+    # | RSE4 +--->| RSE5 +-------+
+    # |      |    |      |
+    # +------+    +------+
+    rse1, rse1_id = rse_factory.make_posix_rse()
+    rse2, rse2_id = rse_factory.make_posix_rse()
+    rse3, rse3_id = rse_factory.make_posix_rse()
+    rse4, rse4_id = rse_factory.make_posix_rse()
+    rse5, rse5_id = rse_factory.make_posix_rse()
+    all_rses = [rse1_id, rse2_id, rse3_id, rse4_id, rse5_id]
+
+    distance_core.add_distance(rse1_id, rse2_id, ranking=10)
+    distance_core.add_distance(rse2_id, rse3_id, ranking=10)
+    distance_core.add_distance(rse4_id, rse5_id, ranking=10)
+    distance_core.add_distance(rse5_id, rse3_id, ranking=10)
+
+    rse_core.add_rse_attribute(rse2_id, 'available_for_multihop', True)
+    rse_core.add_rse_attribute(rse5_id, 'available_for_multihop', True)
+    rse_core.add_rse_attribute(rse5_id, 'hop_penalty', 20)
+
+    did = did_factory.random_did()
+    replica_core.add_replica(rse_id=rse1_id, account=root_account, bytes_=1, **did)
+    replica_core.add_replica(rse_id=rse4_id, account=root_account, bytes_=1, **did)
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertool='mock', transfertype='single', ignore_availability=True)
+
+    # Ensure the path was created through the correct middle hop
+    request_core.get_request_by_did(rse_id=rse2_id, **did)
+    with pytest.raises(RequestNotFound):
+        request_core.get_request_by_did(rse_id=rse5_id, **did)
