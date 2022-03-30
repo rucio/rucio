@@ -191,7 +191,7 @@ def __exist_replicas(rse_id, replicas, session=None):
                                       func.max(case([(models.BadReplicas.state == BadFilesStatus.SUSPICIOUS, 0),
                                                      (models.BadReplicas.state == BadFilesStatus.BAD, 1)],
                                                     else_=0))).\
-                    with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
+                    with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PATH_IDX", 'oracle').\
                     outerjoin(models.BadReplicas,
                               and_(models.RSEFileAssociation.scope == models.BadReplicas.scope,
                                    models.RSEFileAssociation.name == models.BadReplicas.name,
@@ -528,7 +528,7 @@ def get_bad_replicas_backlog(force_refresh=False, session=None):
         if session.bind.dialect.name == 'oracle':
             # The filter(text...)) is needed otherwise, SQLA uses bind variables and the index is not used.
             query = session.query(func.count(models.RSEFileAssociation.rse_id), models.RSEFileAssociation.rse_id).\
-                with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_STATE_IDX)", 'oracle').\
+                with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_STATE_IDX)", 'oracle').\
                 filter(text("CASE WHEN (%sreplicas.state != 'A') THEN %sreplicas.rse_id END IS NOT NULL" % (schema_dot,
                                                                                                             schema_dot))). \
                 filter(models.RSEFileAssociation.state == ReplicaState.BAD)
@@ -567,7 +567,7 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, rses=None, s
         query = session.query(models.RSEFileAssociation.scope,
                               models.RSEFileAssociation.name,
                               models.RSEFileAssociation.rse_id).\
-            with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_STATE_IDX)", 'oracle').\
+            with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_STATE_IDX)", 'oracle').\
             filter(text("CASE WHEN (%sreplicas.state != 'A') THEN %sreplicas.rse_id END IS NOT NULL" % (schema_dot,
                                                                                                         schema_dot))). \
             filter(models.RSEFileAssociation.state == ReplicaState.BAD)
