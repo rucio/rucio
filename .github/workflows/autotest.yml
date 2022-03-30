@@ -7,29 +7,6 @@ on:
     - cron: '0 3 * * *'
 
 jobs:
-  header-lint:
-    if: 'github.event_name == ''pull_request'''
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-          # Check out pull request's HEAD commit instead of the merge commit to
-          # work-around an issue where wrong a commit is being checked out.
-          # For more details, see:
-          # https://github.com/actions/checkout/issues/299.
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Check headers
-        shell: bash
-        run: |
-          echo "Current git rev $(git rev-parse HEAD)"
-          echo "Common ancestor git rev $(git merge-base HEAD remotes/origin/master)"
-          echo "If a file header needs to be changed run 'tools/add_header -i FILE' from the rucio project directory."
-          FILES=$(git diff --name-status HEAD $(git merge-base HEAD remotes/origin/master) | grep -v '^A' | cut -f 2 | grep -E '\.py$|^bin/') || echo "No Files found"
-          if [[ -n $FILES ]]; then
-            echo "Files to check: $FILES"
-            tools/add_header --disable-add-me -cd $FILES
-          fi
   setup:
     runs-on: ubuntu-latest
     steps:
