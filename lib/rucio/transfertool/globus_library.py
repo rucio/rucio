@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 # Authors:
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 import datetime
 import logging
@@ -83,7 +84,8 @@ def submit_xfer(source_endpoint_id, destination_endpoint_id, source_path, dest_p
     # a file is transferred, Globus will compute checksums on the source and destination files to verify that the file was transferred
     # correctly.  If the checksums do not match, it will redo the transfer of that file.
     # tdata = TransferData(tc, source_endpoint_id, destination_endpoint_id, label=job_label, sync_level="checksum", verify_checksum=True)
-    tdata = TransferData(tc, source_endpoint_id, destination_endpoint_id, label=job_label, sync_level="checksum")
+    tdata = TransferData(tc, source_endpoint_id, destination_endpoint_id, label=job_label,
+                         sync_level="checksum", notify_on_succeeded=False, notify_on_failed=False)
     tdata.add_item(source_path, dest_path, recursive=recursive)
 
     # logging.info('submitting transfer...')
