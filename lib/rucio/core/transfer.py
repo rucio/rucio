@@ -459,7 +459,7 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
                                       synchronize_session=False)
 
             if rowcount == 0:
-                raise RucioException("Failed to set requests %s tansfer %s: request doesn't exist or is not in SUBMITTING state" % rws)
+                raise RucioException("%s: failed to set transfer state: request doesn't exist or is not in SUBMITTING state" % rws)
 
             msg = {'request-id': rws.request_id,
                    'request-type': rws.request_type,
