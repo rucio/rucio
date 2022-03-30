@@ -97,6 +97,7 @@ server_requirements_table = {
         'redis',
         'numpy',
         'itsdangerous',
+        'werkzeug'
         'jinja2',
         'flask',
         'oic',
