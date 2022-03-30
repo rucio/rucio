@@ -471,7 +471,7 @@ def _submit_transfers(transfertool_obj, transfers, job_params, submitter='submit
     is propagated to the caller context, which is then responsible for calling this function again for each
     of the transfers separately.
     """
-    logger(logging.INFO, 'About to submit job to %s with timeout %s' % (transfertool_obj, timeout))
+    logger(logging.DEBUG, 'About to submit job to %s with timeout %s' % (transfertool_obj, timeout))
     # A eid is returned if the job is properly submitted otherwise an exception is raised
     is_bulk = len(transfers) > 1
     eid = None
@@ -498,7 +498,7 @@ def _submit_transfers(transfertool_obj, transfers, job_params, submitter='submit
 
     if eid is not None:
         duration = time.time() - start_time
-        logger(logging.INFO, 'Submit job %s to %s in %s seconds' % (eid, transfertool_obj, duration))
+        logger(logging.DEBUG, 'Submit job %s to %s in %s seconds' % (eid, transfertool_obj, duration))
         record_timer('daemons.conveyor.{submitter}.submit_bulk_transfer.per_file', (time.time() - start_time) * 1000 / len(transfers) or 1, labels={'submitter': submitter})
         record_counter('daemons.conveyor.{submitter}.submit_bulk_transfer', delta=len(transfers), labels={'submitter': submitter})
         record_timer('daemons.conveyor.{submitter}.submit_bulk_transfer.files', len(transfers), labels={'submitter': submitter})

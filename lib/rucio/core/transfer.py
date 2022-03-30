@@ -381,7 +381,7 @@ def mark_submitting(
                                                                                                           transfer.legacy_sources,
                                                                                                           transfer.dest_url,
                                                                                                           external_host)
-    logger(logging.INFO, "%s", log_str)
+    logger(logging.DEBUG, "%s", log_str)
 
     rowcount = session.query(models.Request)\
                       .filter_by(id=transfer.rws.request_id)\
@@ -1051,12 +1051,17 @@ def __build_transfer_paths(
         if rws.previous_attempt_id and failover_schemes:
             transfer_schemes = failover_schemes
 
-        logger(logging.INFO, '%s: Found %d sources', rws, len(rws.sources))
-
         # Assume request doesn't have any sources. Will be removed later if sources are found.
         reqs_no_source.add(rws.request_id)
         if not rws.sources:
+            logger(logging.INFO, '%s: has no sources. Skipping.', rws)
             continue
+
+        logger(logging.DEBUG, '%s: Found %d sources: %s%s',
+               rws,
+               len(rws.sources),
+               ','.join('{}:{}:{}'.format(src.rse, src.source_ranking, src.distance_ranking) for src in rws.sources[:num_sources_in_logs]),
+               '... and %d others' % (len(rws.sources) - num_sources_in_logs) if len(rws.sources) > num_sources_in_logs else '')
 
         # Check if destination is blocked
         if not ignore_availability and rws.dest_rse.id in unavailable_write_rse_ids:
@@ -1098,12 +1103,13 @@ def __build_transfer_paths(
             filtered_sources = filter(lambda s: not s.rse.is_tape_or_staging_required(), filtered_sources)
 
         filtered_sources = list(filtered_sources)
+        filtered_rses_log = ''
         if len(rws.sources) != len(filtered_sources):
-            dropped_rses = list(set(s.rse.name for s in rws.sources).difference(s.rse.name for s in filtered_sources))
-            dropped_rses_log = ','.join(dropped_rses[:num_sources_in_logs])
-            if len(dropped_rses) > num_sources_in_logs:
-                dropped_rses_log += '... and %d others' % (len(dropped_rses) - num_sources_in_logs)
-            logger(logging.INFO, '%s: %d/%d sources left after filtering. Dropped: %s', rws.request_id, len(filtered_sources), len(rws.sources), dropped_rses_log)
+            filtered_rses = list(set(s.rse.name for s in rws.sources).difference(s.rse.name for s in filtered_sources))
+            filtered_rses_log = '; %d dropped by filter: ' % (len(rws.sources) - len(filtered_sources))
+            filtered_rses_log += ','.join(filtered_rses[:num_sources_in_logs])
+            if len(filtered_rses) > num_sources_in_logs:
+                filtered_rses_log += '... and %d others' % (len(filtered_rses) - num_sources_in_logs)
         any_source_had_scheme_mismatch = False
         candidate_paths = []
 
@@ -1126,14 +1132,17 @@ def __build_transfer_paths(
                                                   protocol_factory=protocol_factory,
                                                   session=session)
 
+        sources_without_path = []
         for source in filtered_sources:
             transfer_path = paths.get(source.rse.id)
             if transfer_path is None:
                 logger(logging.WARNING, "%s: no path from %s to %s", rws.request_id, source.rse, rws.dest_rse)
+                sources_without_path.append(source.rse.name)
                 continue
             if not transfer_path:
                 any_source_had_scheme_mismatch = True
                 logger(logging.WARNING, "%s: no matching protocol between %s and %s", rws.request_id, source.rse, rws.dest_rse)
+                sources_without_path.append(source.rse.name)
                 continue
 
             if len(transfer_path) > 1:
@@ -1144,15 +1153,24 @@ def __build_transfer_paths(
         if len(filtered_sources) != len(candidate_paths):
             logger(logging.DEBUG, '%s: Sources after path computation: %s', rws.request_id, [str(path[0].src.rse) for path in candidate_paths])
 
+        sources_without_path_log = ''
+        if sources_without_path:
+            sources_without_path_log = '; %d dropped due to missing path: ' % len(sources_without_path)
+            sources_without_path_log += ','.join(sources_without_path[:num_sources_in_logs])
+            if len(sources_without_path) > num_sources_in_logs:
+                sources_without_path_log += '... and %d others' % (len(sources_without_path) - num_sources_in_logs)
+
         candidate_paths = __filter_multihops_with_intermediate_tape(candidate_paths)
         candidate_paths = __compress_multihops(candidate_paths, rws.sources)
         candidate_paths = list(__sort_paths(candidate_paths))
 
-        logger(logging.INFO, '%s: Ordered sources: %s%s',
-               rws,
-               ','.join(('multihop: ' if len(path) > 1 else '') + '{}:{}:{}'.format(path[0].src.rse, path[0].src.source_ranking, path[0].src.distance_ranking)
-                        for path in candidate_paths[:num_sources_in_logs]),
-               '... and %d others' % (len(candidate_paths) - num_sources_in_logs) if len(candidate_paths) > num_sources_in_logs else '')
+        ordered_sources_log = ','.join(('multihop: ' if len(path) > 1 else '') + '{}:{}:{}'.format(path[0].src.rse, path[0].src.source_ranking, path[0].src.distance_ranking)
+                                       for path in candidate_paths[:num_sources_in_logs])
+        if len(candidate_paths) > num_sources_in_logs:
+            ordered_sources_log += '... and %d others' % (len(candidate_paths) - num_sources_in_logs)
+
+        logger(logging.INFO, '%s: %d ordered sources: %s%s%s', rws, len(candidate_paths),
+               ordered_sources_log, filtered_rses_log, sources_without_path_log)
 
         if not candidate_paths:
             # It can happen that some sources are skipped because they are TAPE, and others because
