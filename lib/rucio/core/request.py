@@ -473,15 +473,15 @@ def list_transfer_requests_and_source_replicas(
                                                    sub_requests.c.name == models.RSEFileAssociation.name,
                                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
                                                    sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id)) \
-        .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle') \
+        .with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle') \
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
                                     models.RSE.deleted == false())) \
         .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
                                        models.RSE.id == models.Source.rse_id)) \
-        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle') \
+        .with_hint(models.Source, "INDEX(SOURCES SOURCES_PK)", 'oracle') \
         .outerjoin(models.Distance, and_(sub_requests.c.dest_rse_id == models.Distance.dest_rse_id,
                                          models.RSEFileAssociation.rse_id == models.Distance.src_rse_id)) \
-        .with_hint(models.Distance, "+ index(distances DISTANCES_PK)", 'oracle')
+        .with_hint(models.Distance, "INDEX(DISTANCES DISTANCES_PK)", 'oracle')
 
     # if transfertool specified, select only the requests where the source rses are set up for the transfer tool
     if transfertool:
