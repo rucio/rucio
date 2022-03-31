@@ -544,6 +544,8 @@ class FTS3CompletionMessageTransferStatusReport(Fts3TransferStatusReport):
                 self.staging_finished_at = None
                 self.source_rse_id = src_rse_id
                 self.err_msg = get_transfer_error(self.state, reason)
+                if self.err_msg and self._file_metadata.get('src_type') == "TAPE":
+                    self.err_msg = '[TAPE SOURCE] ' + self.err_msg
                 self.attributes = self._find_attribute_updates(
                     request=request,
                     new_state=new_state,
@@ -624,6 +626,8 @@ class FTS3ApiTransferStatusReport(Fts3TransferStatusReport):
                 self.staging_finished_at = datetime.datetime.strptime(file_response['staging_finished'], '%Y-%m-%dT%H:%M:%S') if file_response['staging_finished'] else None
                 self.source_rse_id = src_rse_id
                 self.err_msg = get_transfer_error(self.state, reason)
+                if self.err_msg and self._file_metadata.get('src_type') == "TAPE":
+                    self.err_msg = '[TAPE SOURCE] ' + self.err_msg
                 self.attributes = self._find_attribute_updates(
                     request=request,
                     new_state=new_state,
