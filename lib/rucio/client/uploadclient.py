@@ -608,6 +608,7 @@ class UploadClient:
 
         # Getting pfn
         pfn = None
+        signed_read_pfn = None
         try:
             pfn = list(protocol_write.lfns2pfns(make_valid_did(lfn)).values())[0]
             logger(logging.DEBUG, 'The PFN created from the LFN: {}'.format(pfn))
@@ -620,32 +621,36 @@ class UploadClient:
 
         # Auth. mostly for object stores
         if sign_service:
+            protocol_read = self._create_protocol(rse_settings, 'read', domain=domain, impl=impl)
+            signed_read_pfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
             pfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'write', pfn)       # NOQA pylint: disable=undefined-variable
 
         # Create a name of tmp file if renaming operation is supported
         pfn_tmp = '%s.rucio.upload' % pfn if protocol_write.renaming else pfn
+        signed_read_pfn_tmp = '%s.rucio.upload' % signed_read_pfn if protocol_write.renaming else signed_read_pfn
 
-        # Either DID eixsts or not register_after_upload
+        # Either DID exists or not register_after_upload
         if protocol_write.overwrite is False and delete_existing is False:
             if sign_service:
                 # Construct protocol for read ONLY for cloud resources and get signed URL for GET
-                protocol_read = self._create_protocol(rse_settings, 'read', domain=domain, impl=impl)
-                readpfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
-                if protocol_read.exists(readpfn):
+                if protocol_read.exists(signed_read_pfn):
                     raise FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))  # wrong exception ?
-            if not sign_service and protocol_write.exists(pfn):
+            elif protocol_write.exists(pfn):
                 raise FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))  # wrong exception ?
 
         # Removing tmp from earlier attempts
-        if protocol_write.exists(pfn_tmp):
+        if (not sign_service and protocol_write.exists(pfn_tmp)) or (sign_service and protocol_read.exists(signed_read_pfn_tmp)):
             logger(logging.DEBUG, 'Removing remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
                 protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain, impl=impl)
-                protocol_delete.delete('%s.rucio.upload' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
+                delete_pfn = '%s.rucio.upload' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0]
+                if sign_service:
+                    delete_pfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'delete', delete_pfn)
+                protocol_delete.delete(delete_pfn)
                 protocol_delete.close()
-            except Exception as e:
-                raise RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
+            except Exception as error:
+                raise RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(error)))
 
         # Removing not registered files from earlier attempts
         if delete_existing:
@@ -653,7 +658,10 @@ class UploadClient:
             try:
                 # Construct protocol for delete operation.
                 protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain, impl=impl)
-                protocol_delete.delete('%s' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
+                delete_pfn = '%s' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0]
+                if sign_service:
+                    delete_pfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'delete', delete_pfn)
+                protocol_delete.delete(delete_pfn)
                 protocol_delete.close()
             except Exception as error:
                 raise RSEOperationNotSupported('Unable to remove file %s: %s' % (pfn, str(error)))
