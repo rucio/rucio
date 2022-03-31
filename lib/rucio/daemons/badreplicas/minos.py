@@ -143,7 +143,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                             for chunk in chunks(pfns, chunk_size):
                                 nchunk += 1
                                 logger(logging.DEBUG, 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
-                                unknown_replicas = declare_bad_file_replicas(pfns=chunk, reason=reason, issuer=account, status=state, session=session)
+                                unknown_replicas = declare_bad_file_replicas(chunk, reason=reason, issuer=account, status=state, session=session)
                                 if unknown_replicas:
                                     logger(logging.DEBUG, 'Unknown replicas : %s' % (str(unknown_replicas)))
                                 bulk_delete_bad_pfns(pfns=chunk, session=session)

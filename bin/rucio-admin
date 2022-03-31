@@ -28,6 +28,7 @@ import signal
 import sys
 import time
 import traceback
+from textwrap import dedent
 from functools import wraps
 
 from six.moves.configparser import NoOptionError, NoSectionError
@@ -1013,14 +1014,82 @@ def delete_account_attribute(args):
 
 
 @exception_handler
-def declare_bad_file_replicas(args):
+def quarantine_replicas(args):
     """
-    %(prog)s show [options] <field1=value1 field2=value2 ...>
-
-    Declare a list of bad replicas.
-
+    %(prog)s quarantine --rse <rse> (--paths <file with replica paths>|<path> ...)
+    Quarantine replicas
     """
     client = get_client(args)
+    chunk = []
+
+    # send requests in chunks
+    chunk_size = 1000
+
+    rse = args.rse
+    if args.paths_list:
+        replicas_list = args.paths_list
+    else:
+        replicas_list = open(args.paths_file, "r")     # will iterate over file lines
+
+    for line in replicas_list:
+        path = line.strip()
+        if path:                                        # skip blank lines
+            chunk.append(dict(path=path))
+            if len(chunk) >= chunk_size:
+                client.quarantine_replicas(chunk, rse=rse)
+                chunk = []
+    if chunk:
+        client.quarantine_replicas(chunk, rse=rse)
+    return SUCCESS
+
+
+def __declare_bad_file_replicas_by_lfns(args: object) -> object:
+    """
+    Declare a list of bad replicas using RSE name, scope and list of LFNs.
+    """
+    if not args.scope or not args.rse:
+        print("--lfns requires using --rse and --scope")
+        return FAILURE
+    reason = args.reason
+    scope = args.scope
+    rse = args.rse
+    client = get_client(args)
+    replicas = []
+
+    # send requests in chunks
+    chunk_size = 10000
+
+    def do_declare(client, lst, reason):
+        non_declared = client.declare_bad_file_replicas(lst, reason)
+        for rse, undeclared in non_declared.items():
+            for r in undeclared:
+                print(f'{rse} : replica cannot be declared: {r}')
+
+    for line in open(args.lfns, "r"):
+        lfn = line.strip()
+        if lfn:
+            replicas.append({"scope": scope, "rse": rse, "name": lfn})
+            if len(replicas) >= chunk_size:
+                do_declare(client, replicas, reason)
+                replicas = []
+    if replicas:
+        do_declare(client, replicas, reason)
+    return SUCCESS
+
+
+@exception_handler
+def declare_bad_file_replicas(args):
+    """
+
+    Declare replicas as bad.
+
+    """
+
+    if args.lfns:
+        return __declare_bad_file_replicas_by_lfns(args)
+
+    client = get_client(args)
+
     if args.inputfile:
         with open(args.inputfile) as infile:
             bad_files = list(filter(None, [line.strip() for line in infile]))
@@ -1048,7 +1117,7 @@ def declare_bad_file_replicas(args):
 
     if len(bad_files_pfns) < 100:
         # Using the old API to declare
-        non_declared = client.declare_bad_file_replicas(pfns=bad_files_pfns, reason=args.reason)
+        non_declared = client.declare_bad_file_replicas(bad_files_pfns, args.reason)
         for rse in non_declared:
             for pfn in non_declared[rse]:
                 print('%s : PFN %s cannot be declared.' % (rse, pfn))
@@ -2201,6 +2270,25 @@ def get_parser():
     rep_parser = subparsers.add_parser('replicas', help='Replica methods')
     rep_subparser = rep_parser.add_subparsers(dest='replicas_subcommand', **required_arg)
 
+    # The add-quarantined command
+    quarantine_parser = rep_subparser.add_parser('quarantine', help="Add quarantined replicas",
+                                                 formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                 epilog=dedent("""\
+                                                         Usage example
+                                                         =============
+                                                         ::
+                                                             $ cat replica_list.txt
+                                                             /path/to/file_1.data
+                                                             /path/to/another/file.data
+                                                             $ rucio admin replicas quarantine --rse STORAGE --paths replica_list.txt
+
+                                                             $ rucio admin replicas quarantine --rse STORAGE /path/to/a/data_file /path/to/some/other/file
+                                                     """))
+    quarantine_parser.set_defaults(which='quarantine_replicas')
+    quarantine_parser.add_argument("--paths", dest="paths_file", action="store", help="A file with replica paths, one path per line")
+    quarantine_parser.add_argument("--rse", dest="rse", action="store", help="RSE name")
+    quarantine_parser.add_argument(dest='paths_list', action='store', nargs='*', help='List of replica paths')
+
     # The declare-bad command
     declare_bad_file_replicas_parser = rep_subparser.add_parser('declare-bad',
                                                                 help='Declare bad file replicas',
@@ -2221,6 +2309,10 @@ def get_parser():
     declare_bad_file_replicas_parser.add_argument('--reason', dest='reason', required=True, action='store', help='Reason')
     declare_bad_file_replicas_parser.add_argument('--inputfile', dest='inputfile', nargs='?', action='store', help='File containing list of bad items')
     declare_bad_file_replicas_parser.add_argument('--allow-collection', dest='allow_collection', action='store_true', help='Allow passing a collection DID as bad item')
+
+    declare_bad_file_replicas_parser.add_argument('--lfns', dest='lfns', nargs='?', action='store', help='File cotaining list of LFNs for bad replicas. Requires --rse and --scope')
+    declare_bad_file_replicas_parser.add_argument('--scope', dest='scope', nargs='?', action='store', help='Common scope for bad replicas secified with LFN list, ignored wthout --lfns')
+    declare_bad_file_replicas_parser.add_argument('--rse', dest='rse', nargs='?', action='store', help='Common RSE for bad replicas secified with LFN list, ignored wthout --lfns')
 
     # The declare-temporary-unavailable command
     declare_temporary_unavailable_replicas_parser = rep_subparser.add_parser('declare-temporary-unavailable',
@@ -2330,6 +2422,7 @@ if __name__ == '__main__':
                 'update_subscription': update_subscription,
                 'reevaluate_did_for_subscription': reevaluate_did_for_subscription,
                 'declare_bad_file_replicas': declare_bad_file_replicas,
+                'quarantine_replicas': quarantine_replicas,
                 'declare_temporary_unavailable_replicas': declare_temporary_unavailable_replicas,
                 'list_pfns': list_pfns,
                 'import': import_data,

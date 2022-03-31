@@ -26,9 +26,10 @@ from rucio.api.replica import add_replicas, list_replicas, list_dataset_replicas
     delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas, add_bad_dids, add_bad_pfns, \
     get_suspicious_files, declare_suspicious_file_replicas, list_bad_replicas_status, get_bad_replicas_summary, \
     list_datasets_per_rse, set_tombstone, list_dataset_replicas_vp
+from rucio.api.quarantined_replica import quarantine_file_replicas
 from rucio.common.config import config_get
 from rucio.common.constants import SUPPORTED_PROTOCOLS
-from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, InvalidType, DataIdentifierNotFound, \
+from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, InvalidType, DataIdentifierNotFound, InputValidationError, \
     Duplicate, InvalidPath, ResourceTemporaryUnavailable, RSENotFound, ReplicaNotFound, InvalidObject, ScopeNotFound, ReplicaIsLocked
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
 from rucio.core.replica_sorter import sort_replicas
@@ -466,7 +467,7 @@ class BadReplicas(ErrorHandlingMethodView):
 
         .. :quickref: BadReplicasStates; Declare bad replicas.
 
-        :<json string pfns: The list of PFNs.
+        :<json list replicas: The list of PFNs or replica info dicts {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or "rse": <rse_name>}.
         :<json string reason: The reason of the loss.
         :resheader Content-Type: application/json
         :status 201: Created.
@@ -477,11 +478,11 @@ class BadReplicas(ErrorHandlingMethodView):
         :returns: A list of not successfully declared files.
         """
         parameters = json_parameters()
-        pfns = param_get(parameters, 'pfns', default=[])
+        replicas = param_get(parameters, 'replicas', default=[])
         reason = param_get(parameters, 'reason', default=None)
 
         try:
-            not_declared_files = declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            not_declared_files = declare_bad_file_replicas(replicas, reason=reason, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
             return not_declared_files, 201
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
@@ -883,6 +884,80 @@ class Tombstone(ErrorHandlingMethodView):
         return 'Created', 201
 
 
+class QuarantineReplicas(ErrorHandlingMethodView):
+
+    def post(self):
+        """
+        ---
+        summary: Quarantine replicas
+        description: Quarantine replicas
+        tags:
+          - Replicas
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rse
+                  - rse_id
+                  - replicas
+                properties:
+                  rse:
+                    description: The name of the rse.
+                    type: string
+                  rse_id:
+                    description: The id of the rse.
+                    type: string
+                  replicas:
+                    description: The replicas to quarantine.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        scope:
+                          description: The scope of the replica.
+                          type: string
+                        name:
+                          description: The name of the replica.
+                          type: string
+                        path:
+                          description: The path to the replica.
+                          type: string        responses:
+          201:
+            description: Quarantined
+          400:
+            description: InputValidationError
+          401:
+            description: AccessDenied
+          404:
+            description: RSENotFound
+          503:
+            description: ResourceTemporaryUnavailable
+        """
+        parameters = json_parameters()
+        rse = param_get(parameters, 'rse')
+        rse_id = param_get(parameters, 'rse_id')
+        replicas = param_get(parameters, 'replicas')
+
+        try:
+            quarantine_file_replicas(replicas, request.environ.get('issuer'),
+                                     rse=rse, rse_id=rse_id,
+                                     vo=request.environ.get('vo')
+                                     )
+
+        except InputValidationError as error:
+            return generate_http_error_flask(400, error)
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error)
+        except RSENotFound as error:
+            return generate_http_error_flask(404, error)
+        except ResourceTemporaryUnavailable as error:
+            return generate_http_error_flask(503, error)
+
+        return 'Quarantined', 201
+
+
 def blueprint(no_doc=True):
     bp = Blueprint('replicas', __name__, url_prefix='/replicas')
 
@@ -917,6 +992,8 @@ def blueprint(no_doc=True):
     bp.add_url_rule('/<path:scope_name>', view_func=replicas_view, methods=['get', ])
     set_tombstone_view = Tombstone.as_view('set_tombstone')
     bp.add_url_rule('/tombstone', view_func=set_tombstone_view, methods=['post', ])
+    add_quarantined_replicas_view = QuarantineReplicas.as_view("quarantine_replicas")
+    bp.add_url_rule('/quarantine', view_func=add_quarantined_replicas_view, methods=['post'])
 
     if no_doc:
         bp.add_url_rule('/list/', view_func=list_replicas_view, methods=['post', ])
