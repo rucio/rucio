@@ -56,7 +56,7 @@ if os.path.exists('lib/rucio_clients.egg-info/'):
 if os.path.exists('lib/rucio.egg-info/'):
     shutil.rmtree('lib/rucio.egg-info/')
 
-SSH_EXTRAS = ['paramiko==1.18.4']
+SSH_EXTRAS = ['paramiko~=2.10.3']
 KERBEROS_EXTRAS = ['kerberos>=1.2.5', 'pykerberos>=1.1.14', 'requests-kerberos>=0.11.0']
 SWIFT_EXTRAS = ['python-swiftclient>=3.5.0', ]
 EXTRAS_REQUIRES = dict(ssh=SSH_EXTRAS,
