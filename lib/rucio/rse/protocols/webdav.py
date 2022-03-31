@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,18 +19,18 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - David Cameron <david.cameron@cern.ch>, 2014
 # - Sylvain Blunier <sylvain.blunier@cern.ch>, 2016
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Eric Vaandering <ericvaandering@gmail.com>, 2019
+# - Eric Vaandering <ewv@fnal.gov>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2021
+# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
+# - Carl-Fredrik Enell <carl-fredrik.enell@eiscat.se>, 2022
 
 from __future__ import print_function, division
 import os
-import ssl
 import sys
 
 import xml.etree.ElementTree as ET
@@ -38,6 +39,7 @@ from xml.parsers import expat
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
+from urllib.parse import urlparse
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol
@@ -51,7 +53,8 @@ class TLSv1HttpAdapter(HTTPAdapter):
         self.poolmanager = PoolManager(num_pools=connections,
                                        maxsize=maxsize,
                                        block=block,
-                                       ssl_version=ssl.PROTOCOL_TLSv1)
+                                       cert_reqs="CERT_REQUIRED",
+                                       ca_cert_dir="/etc/grid-security/certificates")
 
 
 class UploadInChunks(object):
@@ -169,7 +172,8 @@ class Default(protocol.RSEProtocol):
             :raises RSEAccessDenied
         """
         try:
-            self.server = self.path2pfn('')
+            parse_url = urlparse(self.path2pfn(''))
+            self.server = f'{parse_url.scheme}://{parse_url.netloc}'
         except KeyError:
             raise exception.RSEAccessDenied('No specified Server')
 
@@ -486,7 +490,6 @@ class Default(protocol.RSEProtocol):
 
             :returns: a dict with two keys, filesize and adler32 of the file provided in path.
         """
-        raise NotImplementedError
         headers = {'Depth': '1'}
         dict_ = {}
         try:
@@ -496,12 +499,12 @@ class Default(protocol.RSEProtocol):
             elif result.status_code in [401, ]:
                 raise exception.RSEAccessDenied()
             if result.status_code in [400, ]:
-                raise NotImplementedError
+                raise exception.InvalidRequest()
             parser = Parser()
             parser.feed(result.text)
             for file_name in parser.sizes:
                 if '%s%s' % (self.server, file_name) == path:
-                    dict_['size'] = parser.sizes[file_name]
+                    dict_['filesize'] = parser.sizes[file_name]
             parser.close()
             return dict_
         except requests.exceptions.ConnectionError as error:
