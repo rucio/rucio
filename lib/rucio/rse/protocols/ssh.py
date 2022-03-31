@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2021-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
+# - Carl-Fredrik Enell <carl-fredrik.enell@eiscat.se>, 2022
 
 import logging
 import os
@@ -96,8 +97,7 @@ class Default(protocol.RSEProtocol):
         self.logger(logging.DEBUG, 'ssh.stat: path: {}'.format(path))
         ret = {}
         chsum = None
-        if path.startswith('scp://'):
-            path = self.pfn2path(path)
+        path = self.pfn2path(path)
 
         try:
             # ssh stat for getting filesize
@@ -310,8 +310,7 @@ class Rsync(Default):
         self.logger(logging.DEBUG, 'rsync.stat: path: {}'.format(path))
         ret = {}
         chsum = None
-        if path.startswith('rsync://'):
-            path = self.pfn2path(path)
+        path = self.pfn2path(path)
 
         try:
             # rsync stat for getting filesize
