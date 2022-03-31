@@ -208,8 +208,11 @@ def run_case(caseenv, image, use_podman, use_namespace, copy_rucio_logs, logs_di
             run('docker', *namespace_args, 'exec', cid, 'cat', '/var/log/httpd/error_log', check=False)
             raise
 
-        # Running test.sh
-        run('docker', *namespace_args, 'exec', cid, './tools/test/test.sh')
+        try:
+            run('docker', *namespace_args, 'exec', cid, './tools/test/test.sh')
+        except Exception as e:
+            run('docker', *namespace_args, 'exec', cid, 'cat', '/var/log/httpd/error_log', check=False)
+            raise e
 
         # if everything went through without an exception, mark this case as a success
         success = True
