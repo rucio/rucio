@@ -17,6 +17,7 @@ functools32==3.2.3.post2; python_version == '2.7' # explicitly needed on CC7
 redis==3.4.1                                      # Python client for Redis key-value store
 numpy==1.14.2; python_version <= '3.5'            # Numpy for forecasting T3C (1.17.0 is Py3 only)
 numpy==1.19.0; python_version >= '3.6'            # Numpy for forecasting T3C
+Jinja2<3.1.0                                      # Flask dependency, broken support since jinja2 3.1.0 https://github.com/pallets/jinja/issues/1626
 paramiko~=2.10.3                                  # SSH2 protocol library
 itsdangerous<2.1.0                                # Flask dependency, broken support since 2.1.0 https://github.com/pallets/flask/issues/4455
 werkzeug<2.1.0                                    # Flask dependency, broker support since 2.1.0 https://github.com/pallets/flask/issues/4494#issuecomment-1082701754
