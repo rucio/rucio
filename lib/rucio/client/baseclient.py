@@ -41,6 +41,7 @@
 # - martynia <martynia@users.noreply.github.com>, 2021
 # - Igor Mandrichenko <ivm@fnal.gov>, 2021
 # - Joel Dierkes <joel.dierkes@cern.ch>, 2022
+# - Carl-Fredrik Enell <carl-fredrik.enell@eiscat.se>, 2022
 
 '''
  Client class for callers of the Rucio system
@@ -408,9 +409,8 @@ class BaseClient(object):
 
         if headers is not None:
             hds.update(headers)
-
         if verify is None:
-            verify = self.ca_cert
+            verify = self.ca_cert or False  # Maybe unnecessary but make sure to convert "" -> False
 
         self.logger.debug("HTTP request: %s %s" % (type_, url))
         for h, v in hds.items():
