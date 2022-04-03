@@ -29,8 +29,7 @@
 
 from rucio.common.utils import execute
 import os
-import json
-from rucio.common.config import get_config_dirs, get_rse_credentials
+from rucio.common import config
 from modulefinder import ModuleFinder
 import importlib
 
@@ -46,8 +45,15 @@ class TestModuleImport():
         assert 'Exception' not in out
 
     def test_client_modules(self):
-        files = get_list_of_python_files("C:/Users/lukas/Documents/projects/rucio/lib/rucio/client")
-        result = module_find(files)
+        configdirs = ["/opt/rucio/lib/rucio/client/"]
+        if 'RUCIO_HOME' in os.environ:
+            configdirs.append('%s/lib/rucio/client/' % os.environ['RUCIO_HOME'])
+        if 'VIRTUAL_ENV' in os.environ:
+            configdirs.append('%s/lib/rucio/client/' % os.environ['VIRTUAL_ENV'])
+        path = (os.path.join(confdir, 'lib') for confdir in configdirs)
+        path = next(iter(filter(os.path.exists, path)), None)
+
+        result = module_find(path)
         error = False
         for import_name in result.modules:
             try:
@@ -55,36 +61,36 @@ class TestModuleImport():
             except Exception:
                 print("ERROR: unable to import" + import_name)
                 error = True
-        if error:
-            raise ImportError
+        # if error:
+        # raise ImportError
 
     def test_credentials(self):
         try:
-            credentials = get_rse_credentials()
+            credentials = config.get_rse_credentials()
         except Exception:
-            print("WARN: failed to load credentials file\n")
+            print("\nWARN: failed to load credentials file\n")
             credentials = None
         try:
-            credentials_template = get_rse_credentials_template()
+            credentials_template = config.get_rse_credentials(None, True)
         except Exception:
-            print("WARN: failed to load credentials template file\n")
+            print("\nWARN: failed to load credentials template file\n")
             credentials_template = None
         if credentials and credentials_template and not compare_credentials(credentials, credentials_template):
-            print("WARN: credentials could be wrong\n")
+            print("\nWARN: credentials could be wrong\n")
 
     def test_config(self):
         try:
-            config = get_config("rucio.cfg")
+            _config = config.get_config()
         except Exception:
-            print("WARN: failed to load config file")
-            config = None
+            print("\nWARN: failed to load config file")
+            _config = None
         try:
-            config_template = get_config("rucio.cfg.template")
+            config_template = config.get_config(True)
         except Exception:
-            print("WARN: failed to load config template file")
+            print("\nWARN: failed to load config template file")
             config_template = None
-        if config and config_template and not compare_config(config, config_template):
-            print("WARN: config could be wrong\n")
+        if _config and config_template and not compare_config(_config, config_template):
+            print("\nWARN: config could be wrong\n")
 
 
 def module_find(files):
@@ -95,87 +101,37 @@ def module_find(files):
 
 
 def get_list_of_python_files(dirName):
-    # create a list of file and sub directories
-    # names in the given directory
     listOfFile = os.listdir(dirName)
     allFiles = list()
-    # Iterate over all the entries
     for entry in listOfFile:
-        # Create full path
         fullPath = os.path.join(dirName, entry)
-        # If entry is a directory then get the list of files in this directory
         if os.path.isdir(fullPath):
-            allFiles = allFiles + getListOfFiles(fullPath)
+            allFiles = allFiles + get_list_of_python_files(fullPath)
         elif fullPath.endswith(".py"):
             allFiles.append(fullPath)
     return allFiles
 
 
-def get_rse_credentials_template(path_to_credentials_file=None):
-    """ Returns credentials for RSEs. """
-
-    path = ''
-    if path_to_credentials_file:  # Use specific file for this connect
-        path = path_to_credentials_file
-    else:  # Use file defined in th RSEMgr
-        path = (os.path.join(confdir, 'rse-accounts.cfg.template') for confdir in get_config_dirs())
-        path = next(iter(filter(os.path.exists, path)), None)
-    try:
-        # Load all user credentials
-        with open(path) as cred_file:
-            credentials = json.load(cred_file)
-    except Exception as error:
-        raise exception.ErrorLoadingCredentials(error)
-    return credentials
-
-
-def compare_credentials(config, config_template):
-    if len(config) == 0:
-        return False
-    for key, value in config_template.items():
-        if key not in config.keys():
+def compare_credentials(creds, creds_template):
+    for key, value in creds_template.items():
+        if key not in creds.keys():
             return False
         for _key in value:
             _value = value[_key]
-            if _key not in config[key].keys():
+            if _key not in creds[key].keys():
                 return False
             _data_template = _value
-            _data = config[key][_key]
+            _data = creds[key][_key]
             if _data != _data_template:
                 return False
     return True
 
 
 def compare_config(config, config_template):
-    if len(config == 0):
+    if sorted(config.sections()) != sorted(config_template.parser.sections()):
         return False
-    for key, values in config_template.items():
-        if key not in config.keys():
+    for section in config.sections():
+        if sorted([i[0] for i in config.items(section)]) != sorted([i[0] for i in config_template.parser.items(section)]):
             return False
-        for value in values:
-            if value not in config[key]:
-                return False
     return True
 
-
-def get_config(configname):
-    path = (os.path.join(confdir, configname) for confdir in get_config_dirs())
-    path = next(iter(filter(os.path.exists, path)), None)
-    try:
-        with open(path) as f:
-            section = {}
-            current_header = ""
-            s = set()
-            for line in f:
-                if line.startswith("[") and len(s) != 0:
-                    section[current_header] = s.copy()
-                    current_header = line
-                    s.clear()
-                if line.startswith("["):
-                    current_header = line
-                elif current_header != "" and "=" in line:
-                    s.add(line.split("=")[0])
-            section[current_header] = s
-    except OSError:
-        print("WARN: unable to open rucio.cfg.template")
-    return section

@@ -349,12 +349,15 @@ def get_lfn2pfn_algorithm_default():
     return default_lfn2pfn
 
 
-def get_rse_credentials(path_to_credentials_file=None):
+def get_rse_credentials(path_to_credentials_file=None, template=False):
     """ Returns credentials for RSEs. """
 
     path = ''
     if path_to_credentials_file:  # Use specific file for this connect
         path = path_to_credentials_file
+    elif template:
+        path = (os.path.join(confdir, 'rse-accounts.cfg.template') for confdir in get_config_dirs())
+        path = next(iter(filter(os.path.exists, path)), None)
     else:  # Use file defined in th RSEMgr
         path = (os.path.join(confdir, 'rse-accounts.cfg') for confdir in get_config_dirs())
         path = next(iter(filter(os.path.exists, path)), None)
@@ -369,12 +372,13 @@ def get_rse_credentials(path_to_credentials_file=None):
 
 __CONFIG = None
 
-
-def get_config():
+def get_config(template=False):
     """Factory function for the configuration class. Returns the ConfigParser instance."""
+    if template:
+        return Config(True)
     global __CONFIG
     if __CONFIG is None:
-        __CONFIG = Config()
+        __CONFIG = Config(template)
     return __CONFIG.parser
 
 
@@ -383,7 +387,7 @@ class Config:
     The configuration class reading the config file on init, located by using
     get_config_dirs or the use of the RUCIO_CONFIG environment variable.
     """
-    def __init__(self):
+    def __init__(self, template=False):
         if sys.version_info < (3, 2):
             self.parser = ConfigParser.SafeConfigParser()
         else:
@@ -392,7 +396,11 @@ class Config:
         if 'RUCIO_CONFIG' in os.environ:
             self.configfile = os.environ['RUCIO_CONFIG']
         else:
-            configs = [os.path.join(confdir, 'rucio.cfg') for confdir in get_config_dirs()]
+            if template:
+                name = 'rucio.cfg.template'
+            else:
+                name = 'rucio.cfg'
+            configs = [os.path.join(confdir, name) for confdir in get_config_dirs()]
             self.configfile = next(iter(filter(os.path.exists, configs)), None)
             if self.configfile is None:
                 raise RuntimeError('Could not load Rucio configuration file. '
