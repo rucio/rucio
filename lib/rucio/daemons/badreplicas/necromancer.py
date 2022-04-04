@@ -38,9 +38,12 @@ try:
 except ImportError:
     from configparser import NoOptionError, NoSectionError
 
+from dogpile.cache.api import NO_VALUE
+
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get
+from rucio.common.cache import make_region_memcached
+from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.core import monitor, heartbeat
@@ -50,6 +53,7 @@ from rucio.core.rule import (update_rules_for_lost_replica, update_rules_for_bad
 from rucio.db.sqla.constants import ReplicaState
 
 GRACEFUL_STOP = threading.Event()
+REGION = make_region_memcached(expiration_time=config_get_int('necromancer', 'cache_time', False, 600))
 
 
 def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
@@ -112,7 +116,10 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
             max_bad_replicas_backlog_count = int(max_bad_replicas_backlog_count)
         except (NoOptionError, NoSectionError, RuntimeError, ValueError):
             max_bad_replicas_backlog_count = None
-        bad_replicas_backlog = get_bad_replicas_backlog()
+        bad_replicas_backlog = REGION.get('bad_replicas_backlog')
+        if bad_replicas_backlog is NO_VALUE:
+            bad_replicas_backlog = get_bad_replicas_backlog()
+            REGION.set('bad_replicas_backlog', bad_replicas_backlog)
         tot_bad_files = sum([bad_replicas_backlog[key] for key in bad_replicas_backlog])
         list_of_rses = list()
         # If too many replica, call list_bad_replicas with a list of RSEs
