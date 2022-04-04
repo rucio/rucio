@@ -1,4 +1,5 @@
-# Copyright 2015-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +14,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Fernando López <felopez@cern.ch>, 2015
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Fabio Luchetti <fabio.luchetti@cern.ch>, 2022
 
 import datetime
 import logging
@@ -56,11 +56,7 @@ class Consistency(data_models.DataModel):
         else:
             assert subcommand == 'consistency-manual'
 
-        prefix = path_parsing.prefix(
-            dumper.agis_endpoints_data(),
-            ddm_endpoint,
-        )
-        prefix_components = path_parsing.components(prefix)
+        prefix_components = path_parsing.components(dumper.ddmendpoint_url(ddm_endpoint))
 
         def parser(line):
             '''

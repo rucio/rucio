@@ -53,17 +53,17 @@ else:
 DATE_SECONDS = "2015-03-10 14:00:35"
 DATE_TENTHS = "2015-03-10T14:00:35.5"
 DATE_MILLISECONDS = "2015-03-10T14:00:35.5"
-AGISDATA = [{
-    'arprotocols': {
-        'read_wan': [
-            {
-                'endpoint': 'srm://example.com',
-                'path': '/atlasdatadisk/rucio/'
-            }
-        ]
+RSEPROTOCOL = {
+    "hostname": "example.com",
+    "scheme": "root",
+    "port": 1094,
+    "prefix": "//atlasdatadisk/rucio/",
+    "domains": {
+        "wan": {
+            "read": 1,
+        }
     },
-    'name': 'SOMEENDPOINT',
-}]
+}
 
 
 class MockResponse:
@@ -163,21 +163,15 @@ def test_to_date_format():
     assert isinstance(dumper.to_datetime(DATE_MILLISECONDS), datetime)
 
 
-@mock.patch('requests.get')
-def test_agis_endpoints_data_parses_proper_json(mock_get):
-    mock_get.return_value = MockResponse(AGISDATA, 200)
-    assert dumper.agis_endpoints_data(cache=False) == AGISDATA
+@mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
+def test_ddmendpoint_url_builds_url_from_ddmendpoint_preferred_protocol(mock_get):
+    mock_get.return_value = RSEPROTOCOL
+    assert dumper.ddmendpoint_url('SOMEENDPOINT') == 'root://example.com:1094//atlasdatadisk/'
 
 
-@mock.patch('rucio.common.dumper.agis_endpoints_data')
-def test_ddmendpoint_url_builds_url_from_agis_records(mock_get):
-    mock_get.return_value = AGISDATA
-    assert dumper.ddmendpoint_url('SOMEENDPOINT') == 'srm://example.com/atlasdatadisk/'
-
-
-@mock.patch('rucio.common.dumper.agis_endpoints_data')
+@mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
 def test_ddmendpoint_url_fails_on_unexistent_entry(mock_get):
-    mock_get.return_value = []
+    mock_get.side_effect = StopIteration()
     with pytest.raises(StopIteration):
         dumper.ddmendpoint_url('SOMEENDPOINT')
 
