@@ -106,7 +106,7 @@ def preparer(once, sleep_time, bulk, partition_wait_time=10):
     )
 
 
-def run_once(bulk: int = 100, heartbeat_handler: "Optional[HeartbeatHandler]" = None, limit: "Optional[int]" = None, session: "Optional[Session]" = None, **kwargs) -> bool:
+def run_once(bulk: int = 100, heartbeat_handler: "Optional[HeartbeatHandler]" = None, session: "Optional[Session]" = None, **kwargs) -> bool:
     if heartbeat_handler:
         worker_number, total_workers, logger = heartbeat_handler.live()
     else:
@@ -118,7 +118,7 @@ def run_once(bulk: int = 100, heartbeat_handler: "Optional[HeartbeatHandler]" = 
         req_sources = list_transfer_requests_and_source_replicas(
             total_workers=total_workers,
             worker_number=worker_number,
-            limit=limit,
+            limit=bulk,
             request_state=RequestState.PREPARING,
             session=session
         )
@@ -129,7 +129,7 @@ def run_once(bulk: int = 100, heartbeat_handler: "Optional[HeartbeatHandler]" = 
             transfertool_filter = get_transfertool_filter(lambda rse_id: get_supported_transfertools(rse_id=rse_id, session=session))
             requests = reduce_requests(req_sources, [rse_lookup_filter, sort_requests_minimum_distance, transfertool_filter], logger=logger)
             count = preparer_update_requests(requests, session=session)
-            updated_msg = f'updated {count}/{limit} requests'
+            updated_msg = f'updated {count}/{bulk} requests'
     except RucioException:
         logger(logging.ERROR, 'errored with a RucioException, retrying later', exc_info=True)
         count = 0
