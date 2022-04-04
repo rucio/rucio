@@ -1894,7 +1894,7 @@ def add_lifetime_exception(args):
 
     logger.info('Exception successfully submitted. Summary below')
     for cnt, error in enumerate(error_types):
-        print('{0:100} {1:6d}'.format(error, len(summary[cnt])))
+        print('{0:100} {1:6d}'.format(error, summary[cnt]))
     return SUCCESS
 
 
