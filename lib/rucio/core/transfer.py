@@ -351,12 +351,21 @@ def transfer_path_str(transfer_path: "List[DirectTransferDefinition]") -> str:
     if not transfer_path:
         return 'empty transfer path'
 
+    multi_tt = False
+    if len({hop.rws.transfertool for hop in transfer_path if hop.rws.transfertool}) > 1:
+        # The path relies on more than one transfertool
+        multi_tt = True
+
     if len(transfer_path) == 1:
         return str(transfer_path[0])
 
     path_str = str(transfer_path[0].src.rse)
     for hop in transfer_path:
-        path_str += '--{request_id}->{destination}'.format(request_id=hop.rws.request_id or '', destination=hop.dst.rse)
+        path_str += '--{request_id}{transfertool}->{destination}'.format(
+            request_id=hop.rws.request_id or '',
+            transfertool=':{}'.format(hop.rws.transfertool) if multi_tt else '',
+            destination=hop.dst.rse,
+        )
     return path_str
 
 
@@ -925,7 +934,7 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
 
 @transactional_session
 def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                       failover_schemes=None, filter_transfertool=None, request_type=RequestType.TRANSFER,
+                       failover_schemes=None, active_transfertools=None, filter_transfertool=None, request_type=RequestType.TRANSFER,
                        ignore_availability=False, logger=logging.log, session=None):
     """
     Get next transfers to be submitted; grouped by transfertool which can submit them
@@ -939,6 +948,7 @@ def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None
     :param schemes:               Include schemes.
     :param failover_schemes:      Failover schemes.
     :param filter_transfertool:   The transfer tool to filter requests on.
+    :param active_transfertools:  The transfer tool names which are supported by the calling context.
     :param request_type           The type of requests to retrieve (Transfer/Stagein)
     :param ignore_availability:   Ignore blocklisted RSEs
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
@@ -948,9 +958,7 @@ def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None
     Workflow:
     """
 
-    include_multihop = False
-    if filter_transfertool in ['fts3', None]:
-        include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
+    include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
 
     multihop_rses = []
     if include_multihop:
@@ -988,6 +996,7 @@ def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None
         activity=activity,
         older_than=older_than,
         rses=rses,
+        multihop_rses=multihop_rses,
         request_type=request_type,
         request_state=RequestState.QUEUED,
         ignore_availability=ignore_availability,
@@ -1005,9 +1014,27 @@ def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None
         failover_schemes=failover_schemes,
         admin_accounts=admin_accounts,
         ignore_availability=ignore_availability,
+        active_transfertools=active_transfertools,
         logger=logger,
         session=session,
     )
+
+
+def __parse_request_transfertools(
+        rws: "RequestWithSources",
+        logger: "Callable" = logging.log,
+):
+    """
+    Parse a set of desired transfertool names from the database field request.transfertool
+    """
+    request_transfertools = set()
+    try:
+        if rws.transfertool:
+            request_transfertools = {tt.strip() for tt in rws.transfertool.split(',')}
+    except Exception:
+        logger(logging.WARN, "Unable to parse requested transfertools: {}".format(request_transfertools))
+        request_transfertools = None
+    return request_transfertools
 
 
 def __build_transfer_paths(
@@ -1018,6 +1045,7 @@ def __build_transfer_paths(
         schemes: "List[str]",
         failover_schemes: "List[str]",
         admin_accounts: "Set[InternalAccount]",
+        active_transfertools: "Set[str]" = None,
         ignore_availability: bool = False,
         logger: "Callable" = logging.log,
         session: "Optional[Session]" = None,
@@ -1047,6 +1075,7 @@ def __build_transfer_paths(
         multihop_rses = list(set(multihop_rses).difference(unavailable_write_rse_ids).difference(unavailable_read_rse_ids))
 
     candidate_paths_by_request_id, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, set(), set(), set()
+    reqs_unsupported_transfertool = set()
     for rws in requests_with_sources:
 
         ctx.ensure_fully_loaded(rws.dest_rse)
@@ -1075,6 +1104,17 @@ def __build_transfer_paths(
             continue
         if rws.account not in admin_accounts and rws.dest_rse.id in restricted_write_rses:
             logger(logging.WARNING, '%s: dst RSE is restricted for write. Will skip the submission', rws.request_id)
+            continue
+
+        request_transfertool = __parse_request_transfertools(rws, logger)
+        if request_transfertool is None:
+            logger(logging.WARNING, '%s: failed to parse transfertool from request', rws.request_id)
+            continue
+        if request_transfertool and active_transfertools and not request_transfertool.intersection(active_transfertools):
+            # The request explicitly asks for a transfertool which this submitter doesn't support
+            logger(logging.INFO, '%s: unsupported transfertool. Skipping.', rws.request_id)
+            reqs_unsupported_transfertool.add(rws.request_id)
+            reqs_no_source.remove(rws.request_id)
             continue
 
         # parse source expression
@@ -1197,7 +1237,7 @@ def __build_transfer_paths(
         candidate_paths_by_request_id[rws.request_id] = candidate_paths
         reqs_no_source.remove(rws.request_id)
 
-    return candidate_paths_by_request_id, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
+    return candidate_paths_by_request_id, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source, reqs_unsupported_transfertool
 
 
 @read_session

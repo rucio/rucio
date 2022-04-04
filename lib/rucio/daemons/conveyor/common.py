@@ -68,7 +68,6 @@ from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
     from typing import Callable, Dict, List, Optional, Set, Tuple, Type
-    from rucio.core.request import RequestWithSources
     from rucio.core.transfer import DirectTransferDefinition
     from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
     from sqlalchemy.orm import Session
@@ -184,7 +183,7 @@ def run_conveyor_daemon(once, graceful_stop, executable, logger_prefix, partitio
 
 @transactional_session
 def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                             failover_schemes=None, filter_transfertool=None, transfertools_by_name=None, request_type=RequestType.TRANSFER,
+                             failover_schemes=None, filter_transfertool=None, transfertool_classes=None, request_type=RequestType.TRANSFER,
                              ignore_availability=False, logger=logging.log, session=None):
     """
     Get next transfers to be submitted; grouped by transfertool which can submit them
@@ -197,7 +196,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
     :param rses:                  Include RSES.
     :param schemes:               Include schemes.
     :param failover_schemes:      Failover schemes.
-    :param transfertools_by_name: Dict: {transfertool_name_str: transfertool class}
+    :param transfertool_classes:  List of transfertool classes which can be used by this submitter
     :param filter_transfertool:   The transfer tool to filter requests on.
     :param request_type           The type of requests to retrieve (Transfer/Stagein)
     :param ignore_availability:   Ignore blocklisted RSEs
@@ -205,7 +204,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
     :param session:               The database session in use.
     :returns:                     Dict: {TransferToolBuilder: <list of transfer paths (possibly multihop) to be submitted>}
     """
-    candidate_paths, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source = transfer_core.get_transfer_paths(
+    candidate_paths, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source, reqs_unsupported_transfertool = transfer_core.get_transfer_paths(
         total_workers=total_workers,
         worker_number=worker_number,
         partition_hash_var=partition_hash_var,
@@ -216,6 +215,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
         schemes=schemes,
         failover_schemes=failover_schemes,
         filter_transfertool=filter_transfertool,
+        active_transfertools={t.external_name for t in transfertool_classes} if transfertool_classes is not None else None,
         ignore_availability=ignore_availability,
         request_type=request_type,
         logger=logger,
@@ -224,9 +224,9 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
 
     # Assign paths to be executed by transfertools
     # if the chosen best path is a multihop, create intermediate replicas and the intermediate transfer requests
-    paths_by_transfertool_builder, reqs_no_host, reqs_unsupported_transfertool = __assign_paths_to_transfertool_and_create_hops(
+    paths_by_transfertool_builder, reqs_no_host = __assign_paths_to_transfertool_and_create_hops(
         candidate_paths,
-        transfertools_by_name=transfertools_by_name,
+        transfertool_classes=transfertool_classes,
         logger=logger,
         session=session,
     )
@@ -247,75 +247,91 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
     return paths_by_transfertool_builder
 
 
-def __parse_request_transfertools(
-        rws: "RequestWithSources",
-        logger: "Callable" = logging.log,
-):
+def __assign_to_transfertool(
+        transfer_path: "List[DirectTransferDefinition]",
+        transfertool_classes: "List[Type[Transfertool]]",
+        logger: "Callable",
+) -> "List[Tuple[List[DirectTransferDefinition], Optional[TransferToolBuilder]]]":
     """
-    Parse a set of desired transfertool names from the database field request.transfertool
+    Iterate over a multihop path and assign sub-paths to transfertools in chucks from left to right.
+
+    Assignment is done in a greedy way. At each step, the first transfertool which can submit any non-empty prefix
+    is selected. No backtracking is done to find better alternatives.
+
+    For example, for a path A->B->C->D->E, A->B->C may be assigned to transfertool1; while C->D->E to transfertool2.
+    This even if transfertool2 could submit the full path in one step without splitting it.
     """
-    request_transfertools = set()
-    try:
-        if rws.transfertool:
-            request_transfertools = {tt.strip() for tt in rws.transfertool.split(',')}
-    except Exception:
-        logger(logging.WARN, "Unable to parse requested transfertools: {}".format(request_transfertools))
-        request_transfertools = None
-    return request_transfertools
+    if transfertool_classes is None:
+        return [(transfer_path, None)]
+
+    remaining_hops = transfer_path
+    tt_builder_for_hops = []
+    while remaining_hops:
+        tt_builder = None
+        assigned_hops = []
+        for transfertool_cls in transfertool_classes:
+            assigned_hops, tt_builder = transfertool_cls.submission_builder_for_path(remaining_hops, logger=logger)
+            if assigned_hops:
+                break
+
+        if not assigned_hops:
+            break
+
+        remaining_hops = remaining_hops[len(assigned_hops):]
+        tt_builder_for_hops.append((assigned_hops, tt_builder))
+
+    if remaining_hops:
+        # We cannot submit the whole path
+        return []
+
+    return tt_builder_for_hops
 
 
 def __assign_paths_to_transfertool_and_create_hops(
         candidate_paths_by_request_id: "Dict[str: List[DirectTransferDefinition]]",
-        transfertools_by_name: "Optional[Dict[str, Type[Transfertool]]]" = None,
+        transfertool_classes: "Optional[List[Type[Transfertool]]]" = None,
         logger: "Callable" = logging.log,
         session: "Optional[Session]" = None,
-) -> "Tuple[Dict[TransferToolBuilder, List[DirectTransferDefinition]], Set[str], Set[str]]":
+) -> "Tuple[Dict[TransferToolBuilder, List[DirectTransferDefinition]], Set[str]]":
     """
     for each request, pick the first path which can be submitted by one of the transfertools.
     If the chosen path is multihop, create all missing intermediate requests and replicas.
     """
     reqs_no_host = set()
-    reqs_unsupported_transfertool = set()
     paths_by_transfertool_builder = {}
     default_tombstone_delay = config_get_int('transfers', 'multihop_tombstone_delay', default=transfer_core.DEFAULT_MULTIHOP_TOMBSTONE_DELAY, expiration_time=600)
     for request_id, candidate_paths in candidate_paths_by_request_id.items():
         # Get the rws object from any candidate path. It is the same for all candidate paths. For multihop, the initial request is the last hop
         rws = candidate_paths[0][-1].rws
 
-        request_transfertools = __parse_request_transfertools(rws, logger)
-        if request_transfertools is None:
-            # Parsing failed
-            reqs_no_host.add(request_id)
-            continue
-        if request_transfertools and transfertools_by_name and not request_transfertools.intersection(transfertools_by_name):
-            # The request explicitly asks for a transfertool which this submitter doesn't support
-            reqs_unsupported_transfertool.add(request_id)
-            continue
-
-        # Selects the first path which can be submitted by a supported transfertool and for which the creation of
-        # intermediate hops (if it is a multihop) work correctly
+        # Selects the first path which can be submitted using a chain of supported transfertools
+        # and for which the creation of intermediate hops (if it is a multihop) works correctly
         best_path = None
         builder_to_use = None
+        hops_to_submit = []
         must_skip_submission = False
-        for transfer_path in candidate_paths:
-            builder = None
-            if transfertools_by_name:
-                transfertools_to_try = set(transfertools_by_name)
-                if request_transfertools:
-                    transfertools_to_try = transfertools_to_try.intersection(request_transfertools)
-                for transfertool in transfertools_to_try:
-                    builder = transfertools_by_name[transfertool].submission_builder_for_path(transfer_path, logger=logger)
-                    if builder:
-                        break
-            if builder or not transfertools_by_name:
-                created, must_skip_submission = __create_missing_replicas_and_requests(
-                    transfer_path, default_tombstone_delay, logger=logger, session=session
-                )
-                if created:
-                    best_path = transfer_path
-                    builder_to_use = builder
-                if created or must_skip_submission:
-                    break
+
+        tt_assignments = [(transfer_path, __assign_to_transfertool(transfer_path, transfertool_classes, logger=logger))
+                          for transfer_path in candidate_paths]
+        # Prioritize the paths which need less transfertool transitions.
+        # Ideally, the entire path should be submitted to a single transfertool
+        for transfer_path, tt_assignment in sorted(tt_assignments, key=lambda t: len(t[1])):
+            # Set the 'transfertool' field on the intermediate hops which should be created in the database
+            for sub_path, tt_builder in tt_assignment:
+                if tt_builder:
+                    for hop in sub_path:
+                        if hop is not transfer_path[-1]:
+                            hop.rws.transfertool = tt_builder.transfertool_class.external_name
+            created, must_skip_submission = __create_missing_replicas_and_requests(
+                transfer_path, default_tombstone_delay, logger=logger, session=session
+            )
+            if created:
+                best_path = transfer_path
+                # Only the first sub-path will be submitted to the corresponding transfertool,
+                # the rest of the hops will wait for first hops to be transferred
+                hops_to_submit, builder_to_use = tt_assignment[0]
+            if created or must_skip_submission:
+                break
 
         if not best_path:
             reqs_no_host.add(request_id)
@@ -337,8 +353,11 @@ def __assign_paths_to_transfertool_and_create_hops(
             logger(logging.INFO, '%s: Part of the transfer is already being handled. Skip for now.' % request_id)
             continue
 
-        paths_by_transfertool_builder.setdefault(builder_to_use, []).append(best_path)
-    return paths_by_transfertool_builder, reqs_no_host, reqs_unsupported_transfertool
+        if len(hops_to_submit) < len(best_path):
+            logger(logging.INFO, '%s: Only first %d hops will be submitted by %s', request_id, len(hops_to_submit), builder_to_use)
+
+        paths_by_transfertool_builder.setdefault(builder_to_use, []).append(hops_to_submit)
+    return paths_by_transfertool_builder, reqs_no_host
 
 
 @transactional_session
@@ -397,21 +416,22 @@ def __create_missing_replicas_and_requests(
         rws.attributes['next_hop_request_id'] = transfer_path[i + 1].rws.request_id
         rws.attributes['initial_request_id'] = initial_request_id
         rws.attributes['source_replica_expression'] = hop.src.rse.name
-        new_req = queue_requests(requests=[{'dest_rse_id': rws.dest_rse.id,
-                                            'scope': rws.scope,
-                                            'name': rws.name,
-                                            'rule_id': '00000000000000000000000000000000',  # Dummy Rule ID used for multihop. TODO: Replace with actual rule_id once we can flag intermediate requests
-                                            'attributes': rws.attributes,
-                                            'request_type': rws.request_type,
-                                            'retry_count': rws.retry_count,
-                                            'account': rws.account,
-                                            'requested_at': datetime.datetime.now()}], session=session)
+        req_to_queue = {'dest_rse_id': rws.dest_rse.id,
+                        'state': RequestState.QUEUED,
+                        'scope': rws.scope,
+                        'name': rws.name,
+                        'rule_id': '00000000000000000000000000000000',  # Dummy Rule ID used for multihop. TODO: Replace with actual rule_id once we can flag intermediate requests
+                        'attributes': rws.attributes,
+                        'request_type': rws.request_type,
+                        'retry_count': rws.retry_count,
+                        'account': rws.account,
+                        'requested_at': datetime.datetime.now()}
+        if rws.transfertool:
+            req_to_queue['transfertool'] = rws.transfertool
+        new_req = queue_requests(requests=[req_to_queue], session=session)
         # If a request already exists, new_req will be an empty list.
         if new_req:
             db_req = new_req[0]
-            # queue_request may put it in PREPARING state; we don't want that.
-            # TODO: maybe better to not relly on queue_request here?
-            set_request_state(db_req['id'], RequestState.QUEUED, session=session, logger=logger)
             logger(logging.DEBUG, '%s: New request created for the transfer between %s and %s : %s', initial_request_id, transfer_path[0].src, transfer_path[-1].dst, db_req['id'])
         else:
             db_req = request_core.get_request_by_did(rws.scope, rws.name, rws.dest_rse.id, session=session)

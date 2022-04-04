@@ -87,6 +87,9 @@ class GlobusTransferTool(Transfertool):
     """
     Globus implementation of Transfertool abstract base class
     """
+
+    external_name = 'globus'
+
     def __init__(self, external_host, logger=logging.log, group_bulk=200, group_policy='single'):
         """
         Initializes the transfertool
@@ -102,19 +105,14 @@ class GlobusTransferTool(Transfertool):
 
     @classmethod
     def submission_builder_for_path(cls, transfer_path, logger=logging.log):
-        if len(transfer_path) != 1:
-            # Only accept single hop
-            logger(logging.WARNING, "Globus cannot submit multi-hop transfers. Skipping {}".format([str(hop) for hop in transfer_path]))
-            return None
-
-        [hop] = transfer_path
+        hop = transfer_path[0]
         source_globus_endpoint_id = hop.src.rse.attributes.get('globus_endpoint_id', None)
         dest_globus_endpoint_id = hop.dst.rse.attributes.get('globus_endpoint_id', None)
         if not source_globus_endpoint_id or not dest_globus_endpoint_id:
             logger(logging.WARNING, "Source or destination globus_endpoint_id not set. Skipping {}".format(hop))
-            return None
+            return [], None
 
-        return TransferToolBuilder(cls, external_host='Globus Online Transfertool')
+        return [hop], TransferToolBuilder(cls, external_host='Globus Online Transfertool')
 
     def group_into_submit_jobs(self, transfer_paths):
         jobs = bulk_group_transfers(transfer_paths, policy=self.group_policy, group_bulk=self.group_bulk)
