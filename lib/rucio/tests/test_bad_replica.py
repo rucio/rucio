@@ -26,10 +26,13 @@ import pytest
 from rucio.common.exception import RucioException, UnsupportedOperation, InvalidType
 from rucio.common.utils import generate_uuid, clean_surls
 from rucio.core.did import delete_dids
-from rucio.core.replica import add_replicas, get_replicas_state, list_replicas, declare_bad_file_replicas, list_bad_replicas, get_bad_pfns, get_bad_replicas_backlog, list_bad_replicas_status
+from rucio.core.replica import (add_replicas, get_replicas_state, list_replicas,
+                                declare_bad_file_replicas, list_bad_replicas, get_bad_pfns,
+                                get_bad_replicas_backlog, list_bad_replicas_status)
 from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
 from rucio.daemons.badreplicas.necromancer import run as necromancer_run
+from rucio.daemons.badreplicas.necromancer import REGION
 from rucio.db.sqla.constants import DIDType, ReplicaState, BadPFNStatus, BadFilesStatus
 from rucio.tests.common import headers, auth
 
@@ -129,7 +132,7 @@ def test_get_bad_replicas_backlog(rse_factory, mock_scope, root_account, file_co
     res = declare_bad_file_replicas(replicas, 'This is a good reason', root_account)
     assert res == {}
 
-    result = get_bad_replicas_backlog(force_refresh=True)
+    result = get_bad_replicas_backlog()
     assert rse1_id in result
     assert result[rse1_id] == nbfiles1
 
@@ -150,7 +153,8 @@ def test_get_bad_replicas_backlog(rse_factory, mock_scope, root_account, file_co
         assert rep in list_rep
 
     # Run necromancer once, all the files on RSE2 should be gone, 80 files should stay on RSE1
-    get_bad_replicas_backlog(force_refresh=True)
+    REGION.invalidate()
+    get_bad_replicas_backlog()
     necromancer_run(threads=1, bulk=20, once=True)
 
     bad_replicas = list_bad_replicas(rses=[{'id': rse1_id}, {'id': rse2_id}])
