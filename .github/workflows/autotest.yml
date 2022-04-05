@@ -7,6 +7,18 @@ on:
     - cron: '0 3 * * *'
 
 jobs:
+  add_header:
+    name: Add header lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          # We need the history to determine the file creation date.
+          fetch-depth: 0
+      - name: Check headers
+        shell: bash
+        run: |
+          python3 tools/add_header --dry-run --disable-progress-bar
   setup:
     runs-on: ubuntu-latest
     steps:
