@@ -8,3 +8,10 @@ repos:
   rev: 4.0.1
   hooks:
   - id: flake8
+- repo: local
+  hooks:
+  - id: add-header
+    name: Run `add_header` script
+    description: Run the `add_header` script to verify the file headers
+    entry: tools/add_header
+    language: system
