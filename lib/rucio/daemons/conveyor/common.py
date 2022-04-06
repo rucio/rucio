@@ -294,6 +294,10 @@ def __assign_paths_to_transfertool_and_create_hops(
         # Prioritize the paths which need less transfertool transitions.
         # Ideally, the entire path should be submitted to a single transfertool
         for transfer_path, tt_assignment in sorted(tt_assignments, key=lambda t: len(t[1])):
+            if not tt_assignment:
+                logger(logging.INFO, '%s: None of the transfertools can submit the request: %s', request_id, [c.__name__ for c in transfertool_classes])
+                continue
+
             # Set the 'transfertool' field on the intermediate hops which should be created in the database
             for sub_path, tt_builder in tt_assignment:
                 if tt_builder:
