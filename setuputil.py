@@ -93,7 +93,7 @@ server_requirements_table = {
         'stomp.py',
         'statsd',
         'geoip2',
-        'oauth2client',
+        'google-auth',
         'retrying',
         'redis',
         'flask',
