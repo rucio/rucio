@@ -1571,8 +1571,12 @@ def add_monitor_message(new_state, request, additional_fields, session=None):
 
     if message['started_at'] and message['transferred_at']:
         message['duration'] = (message['transferred_at'] - message['started_at']).seconds
-    if message['dst-url']:
-        message['protocol'] = message['dst-url'].split(':')[0]
+    if not message.get('protocol'):
+        dst_url = message['dst-url']
+        if dst_url and ':' in dst_url:
+            message['protocol'] = dst_url.split(':')[0]
+        elif request.get('transfertool'):
+            message['protocol'] = request['transfertool']
     if not message.get('src-rse'):
         src_rse_id = request.get('source_rse_id', None)
         if src_rse_id:
