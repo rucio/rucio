@@ -285,11 +285,11 @@ def adler32(file):
     adler = 1
 
     can_mmap = False
-    try:
-        with open(file, 'r+b') as f:
-            can_mmap = True
-    except:
-        pass
+    # try:
+    #    with open(file, 'r+b') as f:
+    #        can_mmap = True
+    # except:
+    #    pass
 
     try:
         # use mmap if possible
