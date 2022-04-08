@@ -80,7 +80,7 @@ class GlobusTransferStatusReport(TransferStatusReport):
         pass
 
     def get_monitor_msg_fields(self, session, logger=logging.log):
-        return {}
+        return {'protocol': 'globus'}
 
 
 class GlobusTransferTool(Transfertool):
