@@ -1,4 +1,5 @@
-# Copyright 2016-2021 CERN
+# -*- coding: utf-8 -*-
+# Copyright CERN since 2015
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,12 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Wen Guan <wguan.icedew@gmail.com>, 2016
-# - Vincent Garonne <vgaronne@gmail.com>, 2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2021
-# - Robert Illingworth <illingwo@fnal.gov>, 2019
 
 ''' add mismatch scheme state to requests '''
 

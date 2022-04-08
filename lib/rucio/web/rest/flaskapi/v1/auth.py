@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2021 CERN
+# Copyright CERN since 2018
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,16 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
-# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
 
 from __future__ import print_function
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2022 CERN
+# Copyright CERN since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,28 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
-# - Yun-Pin Sun <winter0128@gmail.com>, 2013
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2021
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
-# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
-# - Eric Vaandering <ewv@fnal.gov>, 2018-2020
-# - asket <asket.agarwal96@gmail.com>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
-# - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Igor Mandrichenko <ivm@fnal.gov>, 2021
-# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021-2022
 
 from __future__ import print_function
 

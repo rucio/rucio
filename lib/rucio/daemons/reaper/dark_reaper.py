@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2022 CERN
+# Copyright CERN since 2016
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,21 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2020-2022
-# - Brandon White <bjwhite@fnal.gov>, 2019
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020-2021
-# - Eric Vaandering <ewv@fnal.gov>, 2021
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 '''
 Dark Reaper is a daemon to manage quarantined file deletion.

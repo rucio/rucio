@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019-2022 CERN
+# Copyright CERN since 2019
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Tobias Wegner <twegner@cern.ch>, 2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2022
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2021
-# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import logging
 import os

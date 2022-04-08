@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2022 CERN
+# Copyright CERN since 2013
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,26 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2021
-# - Wen Guan <wen.guan@cern.ch>, 2014-2016
-# - Tomáš Kouba <tomas.kouba@cern.ch>, 2014
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2016
-# - dciangot <diego.ciangottini@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Matt Snyder <msnyder@bnl.gov>, 2019-2021
-# - Brandon White <bjwhite@fnal.gov>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
-# - Nick Smith <nick.smith@cern.ch>, 2020-2021
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 """
 Conveyor transfer submitter is a daemon to manage non-tape file transfers.

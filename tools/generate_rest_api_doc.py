@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2022 CERN
+# Copyright CERN since 2020
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 from apispec import APISpec
 from apispec_webframeworks.flask import FlaskPlugin
