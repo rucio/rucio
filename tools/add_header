@@ -157,7 +157,7 @@ class HeaderTemplate(ABC):
         Determines if a file is suitable for this template. Every file should
         only get accepted by one file.
 
-        :param path: The path to the file.
+        :param file_path: The path to the file.
         :returns: True if the template can be used for the file, False otherwise.
         """
         pass
@@ -202,27 +202,27 @@ class HeaderTemplate(ABC):
 
 class PythonHeaderTemplate(HeaderTemplate):
     @staticmethod
-    def _is_file_using_shebag(file_path: str) -> bool:
+    def _get_file_shebag(file_path: str) -> Optional[str]:
         """
-        Checks wether the python file is using a shebag.
+        Returns the python file shebag.
 
-        :param file_path: Path to the file for which the template gets created.
-        :returns: True if a shebag comment is present, False otherwise.
+        :param file_path: The path to the file.
+        :returns: The python file shebag if present. This includes a new line character.
         :throws UnicodeDecodeError: If the file could not be read.
         """
         with open(file_path, "r") as file_obj:
             file_content = file_obj.readlines()
 
         if len(file_content) == 0:
-            return False
+            return None
         if "#!/usr/bin/env python" in file_content[0]:
-            return True
-        return False
+            return file_content[0]
+        return None
 
     @staticmethod
     def is_file_suitable(file_path: str) -> bool:
         try:
-            is_file_using_shebag = PythonHeaderTemplate._is_file_using_shebag(file_path)
+            is_file_using_shebag = PythonHeaderTemplate._get_file_shebag(file_path) is not None
         except UnicodeDecodeError:
             # File could not be opened, this makes it automatically invalid
             return False
@@ -231,12 +231,11 @@ class PythonHeaderTemplate(HeaderTemplate):
 
     def __init__(self, file_path: str):
         super().__init__(file_path)
-        self.is_file_using_shebag = PythonHeaderTemplate._is_file_using_shebag(file_path)
 
     def get_header(self) -> str:
         file_creation_year = get_git_file_creation_year(self.file_path)
 
-        shebag_string = "#!/usr/bin/env python3\n" if self.is_file_using_shebag else ""
+        shebag_string = PythonHeaderTemplate._get_file_shebag(self.file_path) or ""
         copyright_string = "# Copyright CERN" \
             + (f" since {file_creation_year}" if file_creation_year else "") \
             + "\n"
