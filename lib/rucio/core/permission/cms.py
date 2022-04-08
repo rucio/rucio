@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2017-2022 CERN
+# Copyright CERN since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,21 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Eric Vaandering <ewv@fnal.gov>, 2018-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 import rucio.core.scope
 from rucio.core.account import has_account_attribute

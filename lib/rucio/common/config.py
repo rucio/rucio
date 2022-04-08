@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2022 CERN
+# Copyright CERN since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,21 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2013
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013
-# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Tobias Wegner <twegner@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Tomas Javurek <tomas.javurek@cern.ch>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - martynia <martynia@users.noreply.github.com>, 2021
 
 """Provides functions to access the local configuration. The configuration locations are provided by get_config_dirs."""
 

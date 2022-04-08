@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2022 CERN
+# Copyright CERN since 2013
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,27 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2021
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
-# - Wen Guan <wen.guan@cern.ch>, 2014-2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2022
-# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
-# - Eric Vaandering <ewv@fnal.gov>, 2018
-# - dciangot <diego.ciangottini@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Dilaksun Bavarajan <dilaksun.bavarajan@cern.ch>, 2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2020
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
-# - Sahan Dilshan <32576163+sahandilshan@users.noreply.github.com>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
-# - Rob Barnsley <rob.barnsley@skao.int>, 2022
 
 from __future__ import absolute_import, division
 import datetime

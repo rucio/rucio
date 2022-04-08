@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2022 CERN
+# Copyright CERN since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,33 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2022
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2022
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
-# - Yun-Pin Sun <winter0128@gmail.com>, 2013
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2021
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
-# - Wen Guan <wen.guan@cern.ch>, 2015
-# - asket <asket.agarwal96@gmail.com>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Tobias Wegner <twegner@cern.ch>, 2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
-# - Brandon White <bjwhite@fnal.gov>, 2019
-# - Luc Goossens <luc.goossens@cern.ch>, 2020
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2020
-# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021-2022
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 import logging
 import operator

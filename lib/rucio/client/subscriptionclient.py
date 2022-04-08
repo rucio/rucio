@@ -1,4 +1,5 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright CERN since 2013
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,16 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
-# - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
 
 from json import dumps
 from requests.status_codes import codes

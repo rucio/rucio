@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2021 CERN
+# Copyright CERN since 2013
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2014
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Luc Goossens <luc.goossens@cern.ch>, 2020
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import logging
 from datetime import datetime

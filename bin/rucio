@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2012-2022 CERN
+# Copyright CERN since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,50 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2012-2022
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
-# - Yun-Pin Sun <winter0128@gmail.com>, 2012-2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2022
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - David Cameron <david.cameron@cern.ch>, 2014-2021
-# - Tomáš Kouba <tomas.kouba@cern.ch>, 2014
-# - Wen Guan <wen.guan@cern.ch>, 2014
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
-# - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
-# - Tobias Wegner <twegner@cern.ch>, 2017-2019
-# - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
-# - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
-# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
-# - Tomas Javurek <tomas.javurek@cern.ch>, 2018-2020
-# - asket <asket.agarwal96@gmail.com>, 2018
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2020
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Boris Bauermeister <boris.bauermeister@fysik.su.se>, 2019
-# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Jason Nielsen <jnielsen@ucsc.edu>, 2020
-# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
-# - Rahul Chauhan <omrahulchauhan@gmail.com>, 2021
-# - Rakshita Varadarajan <rakshitajps@gmail.com>, 2021
-# - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2021
-# - Petr Vokac <petr.vokac@fjfi.cvut.cz>, 2021
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - zoepap05 <90753392+zoepap05@users.noreply.github.com>, 2021
-# - KosKyr <90753277+KosKyr@users.noreply.github.com>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
-# - jdierkes <joel.dierkes@cern.ch>, 2021
-# - Igor Mandrichenko <ivm@fnal.gov>, 2021
-# - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2021-2022
-# - Carlosbg <bogomcar@gmail.com>, 2021
-# - KarthikSundar2002 <karthiksundar30092002@gmail.com>, 2022
 
 from __future__ import print_function
 

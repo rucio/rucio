@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright CERN since 2013
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,16 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
-# - WeiJen Chang <e4523744@gmail.com>, 2014
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 '''
 Compatibility Wrapper for DQ2 and Rucio.

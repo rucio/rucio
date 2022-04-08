@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2022 CERN
+# Copyright CERN since 2013
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,25 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2016
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2022
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019-2022
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Ilija Vukotic <ivukotic@cern.ch>, 2020-2021
-# - Luc Goossens <luc.goossens@cern.ch>, 2020
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Eric Vaandering <ewv@fnal.gov>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021-2022
-# - Christoph Ames <christoph.ames@physik.uni-muenchen.de>, 2021
 
 import uuid
 import datetime

@@ -1,4 +1,5 @@
-# Copyright 2012-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright CERN since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,28 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2014
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
-# - Wen Guan <wguan.icedew@gmail.com>, 2014-2017
-# - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
-# - Tobias Wegner <twegner@cern.ch>, 2017
-# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2018
-# - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - James Clark <james.clark@physics.gatech.edu>, 2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
-# - Luca Scotto Lavina, <scotto@lpnhe.in2p3.fr>, 2021
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2021
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2021
-# - Lionel Schwarz <lionel.schwarz@in2p3.fr>, 2021
-#
-# PY3K COMPATIBLE
 
 """
 This module defines the base class for implementing a transfer protocol,
