@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright CERN since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,17 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2018
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
 
 """
 Client class for callers of the Rucio system

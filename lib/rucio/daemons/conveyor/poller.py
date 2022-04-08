@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2022 CERN
+# Copyright CERN since 2013
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,20 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
-# - Wen Guan <wen.guan@cern.ch>, 2014-2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Matt Snyder <msnyder@bnl.gov>, 2019-2021
-# - Brandon White <bjwhite@fnal.gov>, 2019
-# - Nick Smith <nick.smith@cern.ch>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 """
 Conveyor is a daemon to manage file transfers.

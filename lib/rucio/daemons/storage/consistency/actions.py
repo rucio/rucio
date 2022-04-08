@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021-2022 CERN
+# Copyright CERN since 2022
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Stefan Piperov <piperov@cern.ch>, 2021-2022
 
 """
 Storage-Consistency-Actions is a daemon to delete dark files, and re-subscribe the missing ones, identified previously in a Storage-Consistency-Scanner run.

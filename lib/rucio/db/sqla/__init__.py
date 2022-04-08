@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2022 CERN
+# Copyright CERN since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,13 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2015
-# - Brandon White <bjwhite@fnal.gov>, 2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2020
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2022
 
 from sqlalchemy.sql.expression import bindparam, text
 

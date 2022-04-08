@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2022 CERN
+# Copyright CERN since 2015
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,23 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Wen Guan <wen.guan@cern.ch>, 2015-2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2015-2020
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2022
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2020
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Robert Illingworth <illingwo@fnal.gov>, 2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Matt Snyder <msnyder@bnl.gov>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 """
 Conveyor finisher is a daemon to update replicas and rules based on requests.

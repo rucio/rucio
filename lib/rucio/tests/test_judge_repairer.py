@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2022 CERN
+# Copyright CERN since 2014
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,20 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2021
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2015
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
-# - Nick Smith <nick.smith@cern.ch>, 2021
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
 
 import itertools
 import unittest

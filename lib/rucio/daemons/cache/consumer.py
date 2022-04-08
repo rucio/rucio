@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2022 CERN
+# Copyright CERN since 2014
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Wen Guan <wen.guan@cern.ch>, 2014
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2021
-# - Robert Illingworth <illingwo@fnal.gov>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
-# - Eric Vaandering <ewv@fnal.gov>, 2022
 
 """
 Cache consumer is a daemon to retrieve rucio cache operation information to synchronize rucio catalog.
