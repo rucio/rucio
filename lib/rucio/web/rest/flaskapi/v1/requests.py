@@ -33,16 +33,146 @@ class RequestGet(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, scope_name, rse):
         """
-        List request for given DID to a destination RSE.
-
-        .. :quickref: RequestGet; list requests
-
-        :param scope_name: data identifier (scope)/(name).
-        :param rse: destination RSE.
-        :reqheader Content-Type: application/json
-        :status 200: Request found.
-        :status 404: Request not found.
-        :status 406: Not Acceptable.
+        ---
+        summary: Get Request
+        description: Get a request for a given DID to a destinaion RSE.
+        tags:
+          - Requests
+        parameters:
+        - name: scope_name
+          in: path
+          description: Data identifier (scope)/(name).
+          schema:
+            type: string
+          style: simple
+        - name: rse
+          in: path
+          description: Destination rse.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: The request associated with the DID and destination RSE.
+                  type: object
+                  properties:
+                    id:
+                      description: The id of the request.
+                      type: strig
+                    request_type:
+                      description: The request type.
+                      type: string
+                      enum: ["T", "U", "D", "I", "O"]
+                    scope:
+                      description: The scope of the transfer.
+                      type: string
+                    name:
+                      description: The name of the transfer.
+                      type: string
+                    did_type:
+                      description: The did type.
+                      type: string
+                    dest_rse_id:
+                      description: The destination RSE id.
+                      type: string
+                    source_rse_id:
+                      description: The source RSE id.
+                      type: string
+                    attributes:
+                      description: All attributes associated with the request.
+                      type: string
+                    state:
+                      description: The state of the request.
+                      type: string
+                      enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
+                    external_id:
+                      description: External id of the request.
+                      type: string
+                    external_host:
+                      description: External host of the request.
+                      type: string
+                    retry_count:
+                      description: The numbers of attempted retires.
+                      type: integer
+                    err_msg:
+                      description: An error message if one occured.
+                      type: string
+                    previous_attempt_id:
+                      description: The id of the previous attempt.
+                      type: string
+                    rule_id:
+                      description: The id of the associated replication rule.
+                      type: string
+                    activity:
+                      description: The activity of the request.
+                      type: string
+                    bytes:
+                      description: The size of the did in bytes.
+                      type: integer
+                    md5:
+                      description: The md5 checksum of the did to transfer.
+                      type: string
+                    adler32:
+                      description: The adler32 checksum of the did to transfer.
+                      type: string
+                    dest_url:
+                      description: The destination url.
+                      type: string
+                    submitted_at:
+                      description: The time the request got submitted.
+                      type: string
+                    started_at:
+                      description: The time the request got started.
+                      type: string
+                    transferred_at:
+                      description: The time the request got transfered.
+                      type: string
+                    estimated_at:
+                      description: The time the request got estimated.
+                      type: string
+                    submitter_id:
+                      description: The id of the submitter.
+                      type: string
+                    estimated_stated_at:
+                      description: The estimation of the started at value.
+                      type: string
+                    estimated_transferred_at:
+                      description: The estimation of the transfered at value.
+                      type: string
+                    staging_started_at:
+                      description: The time the staging got started.
+                      type: string
+                    staging_finished_at:
+                      description: The time the staging got finished.
+                      type: string
+                    account:
+                      description: The account which issued the request.
+                      type: string
+                    requested_at:
+                      description: The time the request got requested.
+                      type: string
+                    priority:
+                      description: The priority of the request.
+                      type: integer
+                    transfertool:
+                      description: The transfertool used.
+                      type: string
+                    source_rse:
+                      description: The name of the source RSE.
+                      type: string
+                    dest_rse:
+                      description: The name of the destination RSE.
+                      type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, flask.request.environ.get('vo'))
@@ -68,15 +198,146 @@ class RequestHistoryGet(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, scope_name, rse):
         """
-        List request for given DID to a destination RSE.
-
-        .. :quickref: RequestHistoryGet; list requests
-
-        :param scope_name: data identifier (scope)/(name).
-        :param rse: destination RSE.
-        :reqheader Content-Type: application/json
-        :status 200: Request found.
-        :status 404: Request not found.
+        ---
+        summary: Get Historical Request
+        description: List a hostorical request for a given DID to a destination RSE.
+        tags:
+          - Requests
+        parameters:
+        - name: scope_name
+          in: path
+          description: Data identifier (scope)/(name).
+          schema:
+            type: string
+          style: simple
+        - name: rse
+          in: path
+          description: Destination rse.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: The request associated with the DID and destination RSE.
+                  type: object
+                  properties:
+                    id:
+                      description: The id of the request.
+                      type: strig
+                    request_type:
+                      description: The request type.
+                      type: string
+                      enum: ["T", "U", "D", "I", "O"]
+                    scope:
+                      description: The scope of the transfer.
+                      type: string
+                    name:
+                      description: The name of the transfer.
+                      type: string
+                    did_type:
+                      description: The did type.
+                      type: string
+                    dest_rse_id:
+                      description: The destination RSE id.
+                      type: string
+                    source_rse_id:
+                      description: The source RSE id.
+                      type: string
+                    attributes:
+                      description: All attributes associated with the request.
+                      type: string
+                    state:
+                      description: The state of the request.
+                      type: string
+                      enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
+                    external_id:
+                      description: External id of the request.
+                      type: string
+                    external_host:
+                      description: External host of the request.
+                      type: string
+                    retry_count:
+                      description: The numbers of attempted retires.
+                      type: integer
+                    err_msg:
+                      description: An error message if one occured.
+                      type: string
+                    previous_attempt_id:
+                      description: The id of the previous attempt.
+                      type: string
+                    rule_id:
+                      description: The id of the associated replication rule.
+                      type: string
+                    activity:
+                      description: The activity of the request.
+                      type: string
+                    bytes:
+                      description: The size of the did in bytes.
+                      type: integer
+                    md5:
+                      description: The md5 checksum of the did to transfer.
+                      type: string
+                    adler32:
+                      description: The adler32 checksum of the did to transfer.
+                      type: string
+                    dest_url:
+                      description: The destination url.
+                      type: string
+                    submitted_at:
+                      description: The time the request got submitted.
+                      type: string
+                    started_at:
+                      description: The time the request got started.
+                      type: string
+                    transferred_at:
+                      description: The time the request got transfered.
+                      type: string
+                    estimated_at:
+                      description: The time the request got estimated.
+                      type: string
+                    submitter_id:
+                      description: The id of the submitter.
+                      type: string
+                    estimated_stated_at:
+                      description: The estimation of the started at value.
+                      type: string
+                    estimated_transferred_at:
+                      description: The estimation of the transfered at value.
+                      type: string
+                    staging_started_at:
+                      description: The time the staging got started.
+                      type: string
+                    staging_finished_at:
+                      description: The time the staging got finished.
+                      type: string
+                    account:
+                      description: The account which issued the request.
+                      type: string
+                    requested_at:
+                      description: The time the request got requested.
+                      type: string
+                    priority:
+                      description: The priority of the request.
+                      type: integer
+                    transfertool:
+                      description: The transfertool used.
+                      type: string
+                    source_rse:
+                      description: The name of the source RSE.
+                      type: string
+                    dest_rse:
+                      description: The name of the destination RSE.
+                      type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, flask.request.environ.get('vo'))
@@ -102,14 +363,178 @@ class RequestList(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
-        List requests for a given source and destination RSE or site.
-
-        .. :quickref: RequestsGet; list requests
-
-        :reqheader Content-Type: application/x-json-stream
-        :status 200: Request found.
-        :status 404: Request not found.
-        :status 406: Not Acceptable.
+        ---
+        summary: List Historic Requests
+        description: List requests for a given source and destination RSE or site.
+        tags:
+          - Requests
+        parameters:
+        - name: src_rse
+          in: query
+          description: The source rse.
+          schema:
+            type: array
+            items:
+              type: object
+              required:
+                - rse_id
+              properties:
+                rse_id:
+                  description: The id of the rse.
+                  type: string
+        - name: dest_rse
+          in: query
+          description: The destination rse.
+          schema:
+            type: array
+            items:
+              type: object
+              required:
+                - rse_id
+              properties:
+                rse_id:
+                  description: The id of the rse.
+                  type: string
+        - name: src_site
+          in: query
+          description: The source site.
+          schema:
+            type: string
+        - name: dest_site
+          in: query
+          description: The destination site.
+          schema:
+            type: string
+        - name: request_states
+          in: query
+          description: The accepted request states. Delimited by comma.
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: All requests matching the arguments. Seperated by the new line character.
+                  type: array
+                  items:
+                    description: A request.
+                    type: object
+                    properties:
+                      id:
+                        description: The id of the request.
+                        type: strig
+                      request_type:
+                        description: The request type.
+                        type: string
+                        enum: ["T", "U", "D", "I", "O"]
+                      scope:
+                        description: The scope of the transfer.
+                        type: string
+                      name:
+                        description: The name of the transfer.
+                        type: string
+                      did_type:
+                        description: The did type.
+                        type: string
+                      dest_rse_id:
+                        description: The destination RSE id.
+                        type: string
+                      source_rse_id:
+                        description: The source RSE id.
+                        type: string
+                      attributes:
+                        description: All attributes associated with the request.
+                        type: string
+                      state:
+                        description: The state of the request.
+                        type: string
+                        enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
+                      external_id:
+                        description: External id of the request.
+                        type: string
+                      external_host:
+                        description: External host of the request.
+                        type: string
+                      retry_count:
+                        description: The numbers of attempted retires.
+                        type: integer
+                      err_msg:
+                        description: An error message if one occured.
+                        type: string
+                      previous_attempt_id:
+                        description: The id of the previous attempt.
+                        type: string
+                      rule_id:
+                        description: The id of the associated replication rule.
+                        type: string
+                      activity:
+                        description: The activity of the request.
+                        type: string
+                      bytes:
+                        description: The size of the did in bytes.
+                        type: integer
+                      md5:
+                        description: The md5 checksum of the did to transfer.
+                        type: string
+                      adler32:
+                        description: The adler32 checksum of the did to transfer.
+                        type: string
+                      dest_url:
+                        description: The destination url.
+                        type: string
+                      submitted_at:
+                        description: The time the request got submitted.
+                        type: string
+                      started_at:
+                        description: The time the request got started.
+                        type: string
+                      transferred_at:
+                        description: The time the request got transfered.
+                        type: string
+                      estimated_at:
+                        description: The time the request got estimated.
+                        type: string
+                      submitter_id:
+                        description: The id of the submitter.
+                        type: string
+                      estimated_stated_at:
+                        description: The estimation of the started at value.
+                        type: string
+                      estimated_transferred_at:
+                        description: The estimation of the transfered at value.
+                        type: string
+                      staging_started_at:
+                        description: The time the staging got started.
+                        type: string
+                      staging_finished_at:
+                        description: The time the staging got finished.
+                        type: string
+                      account:
+                        description: The account which issued the request.
+                        type: string
+                      requested_at:
+                        description: The time the request got requested.
+                        type: string
+                      priority:
+                        description: The priority of the request.
+                        type: integer
+                      transfertool:
+                        description: The transfertool used.
+                        type: string
+                      source_rse:
+                        description: The name of the source RSE.
+                        type: string
+                      dest_rse:
+                        description: The name of the destination RSE.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
         """
         src_rse = flask.request.args.get('src_rse', default=None)
         dst_rse = flask.request.args.get('dst_rse', default=None)
@@ -162,13 +587,190 @@ class RequestHistoryList(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
-        List historical requests for a given source and destination RSE or site.
-
-        .. :quickref: RequestsGet; list requests
-
-        :reqheader Content-Type: application/x-json-stream
-        :status 200: Request found.
-        :status 404: Request not found.
+        ---
+        summary: List Historic Requests
+        description: List historical requests for a given source and destination RSE or site.
+        tags:
+          - Requests
+        parameters:
+        - name: src_rse
+          in: query
+          description: The source rse.
+          schema:
+            type: array
+            items:
+              type: object
+              required:
+                - rse_id
+              properties:
+                rse_id:
+                  description: The id of the rse.
+                  type: string
+        - name: dest_rse
+          in: query
+          description: The destination rse.
+          schema:
+            type: array
+            items:
+              type: object
+              required:
+                - rse_id
+              properties:
+                rse_id:
+                  description: The id of the rse.
+                  type: string
+        - name: src_site
+          in: query
+          description: The source site.
+          schema:
+            type: string
+        - name: dest_site
+          in: query
+          description: The destination site.
+          schema:
+            type: string
+        - name: request_states
+          in: query
+          description: The accepted request states. Delimited by comma.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: The offset of the list.
+          schema:
+            type: integer
+          default: 0
+        - name: limit
+          in: query
+          description: The maximum number of items to return.
+          schema:
+            type: integer
+          default: 100
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: All requests matching the arguments. Seperated by a new line character.
+                  type: array
+                  items:
+                    description: A request.
+                    type: object
+                    properties:
+                      id:
+                        description: The id of the request.
+                        type: strig
+                      request_type:
+                        description: The request type.
+                        type: string
+                        enum: ["T", "U", "D", "I", "O"]
+                      scope:
+                        description: The scope of the transfer.
+                        type: string
+                      name:
+                        description: The name of the transfer.
+                        type: string
+                      did_type:
+                        description: The did type.
+                        type: string
+                      dest_rse_id:
+                        description: The destination RSE id.
+                        type: string
+                      source_rse_id:
+                        description: The source RSE id.
+                        type: string
+                      attributes:
+                        description: All attributes associated with the request.
+                        type: string
+                      state:
+                        description: The state of the request.
+                        type: string
+                        enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
+                      external_id:
+                        description: External id of the request.
+                        type: string
+                      external_host:
+                        description: External host of the request.
+                        type: string
+                      retry_count:
+                        description: The numbers of attempted retires.
+                        type: integer
+                      err_msg:
+                        description: An error message if one occured.
+                        type: string
+                      previous_attempt_id:
+                        description: The id of the previous attempt.
+                        type: string
+                      rule_id:
+                        description: The id of the associated replication rule.
+                        type: string
+                      activity:
+                        description: The activity of the request.
+                        type: string
+                      bytes:
+                        description: The size of the did in bytes.
+                        type: integer
+                      md5:
+                        description: The md5 checksum of the did to transfer.
+                        type: string
+                      adler32:
+                        description: The adler32 checksum of the did to transfer.
+                        type: string
+                      dest_url:
+                        description: The destination url.
+                        type: string
+                      submitted_at:
+                        description: The time the request got submitted.
+                        type: string
+                      started_at:
+                        description: The time the request got started.
+                        type: string
+                      transferred_at:
+                        description: The time the request got transfered.
+                        type: string
+                      estimated_at:
+                        description: The time the request got estimated.
+                        type: string
+                      submitter_id:
+                        description: The id of the submitter.
+                        type: string
+                      estimated_stated_at:
+                        description: The estimation of the started at value.
+                        type: string
+                      estimated_transferred_at:
+                        description: The estimation of the transfered at value.
+                        type: string
+                      staging_started_at:
+                        description: The time the staging got started.
+                        type: string
+                      staging_finished_at:
+                        description: The time the staging got finished.
+                        type: string
+                      account:
+                        description: The account which issued the request.
+                        type: string
+                      requested_at:
+                        description: The time the request got requested.
+                        type: string
+                      priority:
+                        description: The priority of the request.
+                        type: integer
+                      transfertool:
+                        description: The transfertool used.
+                        type: string
+                      source_rse:
+                        description: The name of the source RSE.
+                        type: string
+                      dest_rse:
+                        description: The name of the destination RSE.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
         """
         src_rse = flask.request.args.get('src_rse', default=None)
         dst_rse = flask.request.args.get('dst_rse', default=None)
