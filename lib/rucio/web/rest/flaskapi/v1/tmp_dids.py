@@ -23,14 +23,74 @@ class BulkDIDS(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Bulk add temporary data identifiers.
-
-        .. :quickref: BulkDIDS; Bulk add temporary dids.
-
-        :<json list dids: A list of dids.
-        :status 201: Created.
-        :status 400: Cannot decode json parameter list.
-        :status 401: Invalid Auth Token.
+        ---
+        summary: Add Temporary Data Identifiers
+        description: Bulk adds temporary data identifiers.
+        tags:
+          - Temporary Data Identifiers
+        requestBody:
+          content:
+            application/json:
+              schema:
+                description: A list of temporary dids.
+                type: array
+                items:
+                  description: A temporary did.
+                  properties:
+                    rse:
+                      description: The name of the RSE.
+                      type: string
+                    rse_id:
+                      description: The id of the RSE. Can be specified instead of the RSE name.
+                      type: string
+                    scope:
+                      description: The scope.
+                      type: string
+                    parent_scope:
+                      description: The parent scope.
+                      type: string
+                    name:
+                      description: The name of the DID.
+                      type: string
+                    path:
+                      description: The path of the DID.
+                      type: string
+                    pfn:
+                      description: The pfn of the DID.
+                      type: string
+                    bytes:
+                      description: The size of the DID in bytes.
+                      type: integer
+                    md5:
+                      description: The md5 checksum of the DID.
+                      type: string
+                    adler32:
+                      description: The adler32 checksum of the DID.
+                      type: string
+                    guid:
+                      description: The guid of the DID.
+                      type: string
+                    events:
+                      description: The events of the DID.
+                      type: string
+                    parent_name:
+                      description: The name of the parent.
+                      type: string
+                    offset:
+                      description: The offset of the DID.
+                      type: integer
+        responses:
+          201:
+            description: Created
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
         """
         dids = json_list()
         add_temporary_dids(dids=dids, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
