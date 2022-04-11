@@ -25,44 +25,64 @@ class Scope(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
-        """List all scopes.
-
-        .. :quickref: Scopes; Get all scopes.
-
-        **Example request**:
-
-        .. sourcecode:: http
-
-            GET /posts/ HTTP/1.1
-            Host: rucio.com
-
-        **Example response**:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Vary: Accept
-            Content-Type: application/json
-
-            ["RSE1", "RSE2", "RSE3", "RSE4", "RSE5"]
-
-        :resheader Content-Type: application/json
-        :status 200: scopes found
-        :status 406: Not Acceptable
-        :returns: :class:`String`
+        """
+        ---
+        summary: List Scopes
+        description: List all scopes
+        tags:
+          - Scopes
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: All scopes.
+                  type: array
+                  items:
+                    description: A scope.
+                    type: string
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
         """
         return jsonify(list_scopes(vo=request.environ.get('vo')))
 
     def post(self, account, scope):
-        """Add a new scope.
-
-        .. :quickref: Scopes; Add a new scope.
-
-        :resheader Location: post url
-        :status 201: scope created
-        :status 404: account does not exist
-        :status 401: unauthorized
-        :status 409: scope already exists
+        """
+        ---
+        summary: Add Scope
+        description: Adds a new scope.
+        tags:
+          - Scopes
+        parameters:
+        - name: account
+          in: path
+          description: The account associated with the scope.
+          schema:
+            type: string
+          style: simple
+        - name: scope
+          in: path
+          description: The name of the scope.
+          schema:
+            type: string
+          style: simple
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Account not found
+          409:
+            description: Scope already exists
         """
         try:
             add_scope(scope, account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -78,16 +98,36 @@ class AccountScopeList(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
-        """List account scopes.
-
-        .. :quickref: Scopes; Get scopes for account.
-
-        :resheader Content-Type: application/json
-        :status 200: Scopes found
-        :status 404: Account not found
-        :status 404: No scopes for this account
-        :status 406: Not Acceptable
-        :returns: A list containing all scope names for an account.
+        """
+        ---
+        summary: List Account Scopes
+        description: List all scopes for an account.
+        tags:
+          - Scopes
+        parameters:
+        - name: account
+          in: path
+          description: The account associated with the scope.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: All scopes for the account.
+                  type: array
+                  items:
+                    description: A scope for the account.
+                    type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Account not found or no scopes
+          406:
+            description: Not acceptable
         """
         try:
             scopes = get_scopes(account, vo=request.environ.get('vo'))
