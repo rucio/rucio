@@ -1,7 +1,7 @@
 version: "3.5"
 services:
   rucio:
-    image: docker.io/rucio/rucio-dev:py3
+    image: docker.io/rucio/rucio-dev
     extra_hosts:
       - "ruciodb:127.0.0.1"
       - "graphite:127.0.0.1"
