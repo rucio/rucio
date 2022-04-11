@@ -238,7 +238,7 @@ class TestDidMetaMongo(unittest.TestCase):
         )
 
     def tearDown(self):
-        self.mongo_meta.drop_database()
+        pass
 
     @pytest.mark.dirty
     def test_set_get_metadata(self):
