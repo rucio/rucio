@@ -202,6 +202,17 @@ class HeaderTemplate(ABC):
 
 class PythonHeaderTemplate(HeaderTemplate):
     @staticmethod
+    def _should_file_be_ignored(file_path: str) -> bool:
+        """
+        Returns True if the file should be ignored. E.g. if it's auto-generated.
+
+        :param file_path: The path to the file.
+        :returns: True if the file should be ignored, False otherwise.
+        :throws UnicodeDecodeError: If the file could not be read.
+        """
+        return "lib/rucio/vcsversion.py" in file_path
+
+    @staticmethod
     def _get_file_shebag(file_path: str) -> Optional[str]:
         """
         Returns the python file shebag.
@@ -221,6 +232,9 @@ class PythonHeaderTemplate(HeaderTemplate):
 
     @staticmethod
     def is_file_suitable(file_path: str) -> bool:
+        if PythonHeaderTemplate._should_file_be_ignored(file_path):
+            return False
+
         try:
             is_file_using_shebag = PythonHeaderTemplate._get_file_shebag(file_path) is not None
         except UnicodeDecodeError:
