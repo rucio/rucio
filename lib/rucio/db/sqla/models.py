@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2022 CERN
+# Copyright CERN since 2015
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,26 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
-# - Wen Guan <wen.guan@cern.ch>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2020
-# - asket <asket.agarwal96@gmail.com>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Matt Snyder <msnyder@bnl.gov>, 2021
-# - joaquinbogado <joaquinbogado@gmail.com>, 2021
-# - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2022
 
 import datetime
 import sys

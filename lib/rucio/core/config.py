@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2022 CERN
+# Copyright CERN since 2014
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,16 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2017
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Brandon White <bjwhite@fnal.gov>, 2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
 
 from dogpile.cache.api import NoValue
 from sqlalchemy import func

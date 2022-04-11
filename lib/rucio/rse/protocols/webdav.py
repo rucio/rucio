@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2022 CERN
+# Copyright CERN since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,22 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2017
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
-# - David Cameron <david.cameron@cern.ch>, 2014
-# - Sylvain Blunier <sylvain.blunier@cern.ch>, 2016
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Eric Vaandering <ewv@fnal.gov>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2021
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Carl-Fredrik Enell <carl-fredrik.enell@eiscat.se>, 2022
 
 from __future__ import print_function, division
 import os

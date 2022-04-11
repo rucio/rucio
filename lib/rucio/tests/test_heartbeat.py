@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2021 CERN
+# Copyright CERN since 2015
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,14 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2017
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import random
 import threading

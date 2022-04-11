@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2022 CERN
+# Copyright CERN since 2015
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,15 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Wen Guan <wen.guan@cern.ch>, 2015-2016
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2019-2022
-# - Radu Carpa <radu.carpa@cern.ch>, 2021-2022
-# - Mayank Sharma <imptodefeat@gmail.com>, 2021-2022
-# - David Población Criado <david.poblacion.criado@cern.ch>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2021
 
 import threading
 import time

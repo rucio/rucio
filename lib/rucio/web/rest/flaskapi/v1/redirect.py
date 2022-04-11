@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2022 CERN
+# Copyright CERN since 2014
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2019
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2020
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2020
-# - Simon Fayer <simon.fayer05@imperial.ac.uk>, 2021
-# - Joel Dierkes <joel.dierkes@cern.ch>, 2022
 
 import itertools
 from typing import TYPE_CHECKING
