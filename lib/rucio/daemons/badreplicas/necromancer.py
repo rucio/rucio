@@ -37,6 +37,7 @@ from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import formatted_logger, setup_logging
+from rucio.common.utils import daemon_sleep
 from rucio.core import monitor, heartbeat
 from rucio.core.replica import list_bad_replicas, get_replicas_state, get_bad_replicas_backlog
 from rucio.core.rule import (update_rules_for_lost_replica, update_rules_for_bad_replica,
@@ -166,6 +167,8 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
 
         if once:
             break
+        elif tot_processed == 0:
+            daemon_sleep(start_time=stime, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
     logger(logging.INFO, 'Graceful stop requested')
     heartbeat.die(executable, hostname, pid, hb_thread)

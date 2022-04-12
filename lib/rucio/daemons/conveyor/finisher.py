@@ -323,7 +323,7 @@ def __check_suspicious_files(req, suspicious_patterns, logger=logging.log):
                 break
 
         if is_suspicious:
-            reason = 'Reported by conveyor'
+            reason = req['err_msg'][:255]
             urls = request_core.get_sources(req['request_id'], rse_id=req['source_rse_id'])
             if urls:
                 pfns = []
