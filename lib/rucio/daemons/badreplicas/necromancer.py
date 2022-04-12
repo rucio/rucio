@@ -17,6 +17,7 @@ from __future__ import division
 
 import logging
 import os
+import re
 import socket
 import threading
 import time
@@ -29,6 +30,7 @@ try:
 except ImportError:
     from configparser import NoOptionError, NoSectionError
 
+from sqlalchemy.exc import DatabaseError
 from dogpile.cache.api import NO_VALUE
 
 import rucio.db.sqla.util
@@ -146,8 +148,11 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
                         try:
                             update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
                             monitor.record_counter(name='necromancer.badfiles.lostfile')
-                        except DatabaseException as error:
-                            logger(logging.WARNING, str(error))
+                        except (DatabaseException, DatabaseError) as error:
+                            if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+                                logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
+                            else:
+                                logger(logging.ERROR, str(error))
 
                     else:
                         rep = list_replicas.get(ReplicaState.AVAILABLE, [])
@@ -156,8 +161,11 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
                         try:
                             update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
                             monitor.record_counter(name='necromancer.badfiles.recovering')
-                        except DatabaseException as error:
-                            logger(logging.WARNING, str(error))
+                        except (DatabaseException, DatabaseError) as error:
+                            if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+                                logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
+                            else:
+                                logger(logging.ERROR, str(error))
 
                 tot_processed += len(replicas)
                 logger(logging.INFO, 'It took %s seconds to process %s replicas' % (str(time.time() - stime), str(len(replicas))))
