@@ -124,7 +124,7 @@ class Search(ErrorHandlingMethodView):
         summary: List Data identifier
         description: List all data identifiers in a scope which match a given metadata.
         tags:
-          - Data Itentifiers
+          - Data Identifiers
         parameters:
         - name: scope
           in: path
@@ -250,7 +250,7 @@ class SearchExtended(ErrorHandlingMethodView):
         summary: List Data identifier with plugin metadata
         description: List all data identifiers in a scope which match a given metadata. Extended Version to included meteadata from various plugins.
         tags:
-          - Data Itentifiers
+          - Data Identifiers
         parameters:
         - name: scope
           in: path
@@ -895,7 +895,7 @@ class Attachment(ErrorHandlingMethodView):
         """
         ---
         summary: Add dids to did
-        description: Append data identifers to data identifiers.
+        description: Append data identifiers to data identifiers.
         tags:
           - Data Identifiers
         parameters:
@@ -1040,7 +1040,7 @@ class AttachmentHistory(ErrorHandlingMethodView):
         summary: Get history
         description: Returns the content history of a data identifier.
         tags:
-          - Data Identifers
+          - Data Identifiers
         parameters:
         - name: scope_name
           in: path
@@ -1325,7 +1325,7 @@ class Meta(ErrorHandlingMethodView):
         summary: Add metadata
         description: Add metadata to a did.
         tags:
-          - Data Identfiers
+          - Data Identifiers
         parameters:
         - name: scope_name
           in: path
