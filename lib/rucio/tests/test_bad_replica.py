@@ -25,13 +25,19 @@ from rucio.common.utils import generate_uuid, clean_surls
 from rucio.core.did import delete_dids
 from rucio.core.replica import (add_replicas, get_replicas_state, list_replicas,
                                 declare_bad_file_replicas, list_bad_replicas, get_bad_pfns,
-                                get_bad_replicas_backlog, list_bad_replicas_status)
+                                get_bad_replicas_backlog, list_bad_replicas_status, get_pfn_to_rse)
+from rucio.client.rseclient import RSEClient
 from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
 from rucio.daemons.badreplicas.necromancer import run as necromancer_run
 from rucio.daemons.badreplicas.necromancer import REGION
 from rucio.db.sqla.constants import DIDType, ReplicaState, BadPFNStatus, BadFilesStatus
 from rucio.tests.common import headers, auth
+
+
+@pytest.fixture
+def rse_client():
+    return RSEClient()
 
 
 @pytest.mark.noparallel(reason='calls list_bad_replicas() which acts on all bad replicas without any filtering')
@@ -457,3 +463,47 @@ def test_add_and_delete_bad_replicas(rse_factory, mock_scope, root_account, did_
     list_deleted_rep = [{'scope': rep['scope'].external, 'name': rep['name']} for rep in list_bad_replicas_status(state=BadFilesStatus.DELETED, rse_id=rse1_id, vo=vo)]
     for rep in client_files:
         assert rep in list_deleted_rep
+
+
+def test_get_pfn_to_rse(rse_factory, rse_client, vo):
+    """ REPLICA (CORE): Test that get_pfn_to_rse is able to handle same scheme with different port"""
+
+    # Adding replicas to deterministic RSE
+    rse1, rse1_id = rse_factory.make_rse(scheme='file', protocol_impl='rucio.rse.protocols.posix.Default', vo=vo)
+    protocols = [{'scheme': 'MOCK',
+                  'hostname': 'localhost',
+                  'port': 17,
+                  'prefix': '/the/one/with/all/the/files',
+                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                  'domains': {
+                      'lan': {'read': 4,
+                              'write': 1,
+                              'delete': 0}
+                  },
+                  'extended_attributes': 'TheOneWithAllTheRest'},
+                 {'scheme': 'MOCK',
+                  'hostname': 'localhost',
+                  'port': 18,
+                  'prefix': '/the/one/with/all/the/files',
+                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                  'domains': {
+                      'lan': {'read': 1,
+                              'write': 1,
+                              'delete': 0}},
+                  'extended_attributes': 'TheOneWithAllTheRest'}, ]
+    for prot in protocols:
+        rse_client.add_protocol(rse1, prot)
+
+    pfn = 'MOCK://localhost:17/the/one/with/all/the/files/file1'
+    pfn_no_port = 'MOCK://localhost/the/one/with/all/the/files/file1'
+    pfn_other_port = 'MOCK://localhost:18/the/one/with/all/the/files/file1'
+    pfn_non_existing_port = 'MOCK://localhost:19/the/one/with/all/the/files/file1'
+
+    res = get_pfn_to_rse([pfn], vo=vo)
+    assert res == ('MOCK', {rse1_id: [pfn]}, {})
+    res = get_pfn_to_rse([pfn_no_port], vo=vo)
+    assert res == ('MOCK', {rse1_id: [pfn_no_port]}, {})
+    res = get_pfn_to_rse([pfn_other_port], vo=vo)
+    assert res == ('MOCK', {rse1_id: [pfn_other_port]}, {})
+    res = get_pfn_to_rse([pfn_non_existing_port], vo=vo)
+    assert res == ('MOCK', {}, {'unknown': [pfn_non_existing_port]})
