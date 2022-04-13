@@ -2177,6 +2177,27 @@ class TestBinRucio(unittest.TestCase):
 
         try:
             remove(filename)
-        except OSError as e:
-            if e.args[0] != 2:
-                raise e
+        except OSError as err:
+            if err.args[0] != 2:
+                raise err
+
+    def test_add_lifetime_exception_large_dids_number(self):
+        """ CLIENT(USER): Check that exceptions with more than 1k DIDs are supported """
+        filename = get_tmp_dir() + 'lifetime_exception.txt'
+        with open(filename, 'w') as file_:
+            for _ in range(2000):
+                file_.write('%s:%s\n' % (self.user, generate_uuid()))
+
+        # Try adding an exception
+        cmd = 'rucio add-lifetime-exception --inputfile %s --reason "%s" --expiration %s' % (filename, 'Needed for analysis', '2015-10-30')
+        print(cmd)
+        exitcode, out, err = execute(cmd)
+        print(exitcode, out, err)
+        assert exitcode == 0
+        assert "Nothing to submit" in err
+
+        try:
+            remove(filename)
+        except OSError as err:
+            if err.args[0] != 2:
+                raise err
