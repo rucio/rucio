@@ -411,21 +411,11 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
 
     while not GRACEFUL_STOP.is_set():
         # try to get auto exclude parameters from the config table. Otherwise use CLI parameters.
-        try:
-            auto_exclude_threshold = config_get('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold)
-            auto_exclude_timeout = config_get('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout)
-        except (NoOptionError, NoSectionError, RuntimeError):
-            pass
-
+        auto_exclude_threshold = config_get('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold, raise_exception=False)
+        auto_exclude_timeout = config_get('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout, raise_exception=False)
         # Check if there is a Judge Evaluator backlog
-        try:
-            max_evaluator_backlog_count = config_get('reaper', 'max_evaluator_backlog_count')
-        except (NoOptionError, NoSectionError, RuntimeError):
-            max_evaluator_backlog_count = None
-        try:
-            max_evaluator_backlog_duration = config_get('reaper', 'max_evaluator_backlog_duration')
-        except (NoOptionError, NoSectionError, RuntimeError):
-            max_evaluator_backlog_duration = None
+        max_evaluator_backlog_count = config_get('reaper', 'max_evaluator_backlog_count', default=None, raise_exception=False)
+        max_evaluator_backlog_duration = config_get('reaper', 'max_evaluator_backlog_duration', default=None, raise_exception=False)
         if max_evaluator_backlog_count or max_evaluator_backlog_duration:
             backlog = get_evaluation_backlog()
             if max_evaluator_backlog_count and \
