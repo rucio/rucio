@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright CERN since 2019
 #
@@ -54,7 +55,7 @@ from rucio.db.sqla.util import get_db_time
 GRACEFUL_STOP = threading.Event()
 
 
-def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vos=None, limit_suspicious_files_on_rse=5, sleep_time=300):
+def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vos=None, limit_suspicious_files_on_rse=5, sleep_time=3600, active_mode=False):
     """
     Main loop to check for available replicas which are labeled as suspicious.
 
@@ -246,12 +247,13 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vo
                         for replica_value in recoverable_replicas[vo][rse_key].values():
                             surls_list.append(replica_value['surl'])
 
-                        add_bad_pfns(pfns=surls_list, account=InternalAccount('root', vo=vo), state='TEMPORARY_UNAVAILABLE', expires_at=datetime.utcnow() + timedelta(days=3))
+                        if active_mode:
+                            add_bad_pfns(pfns=surls_list, account=InternalAccount('root', vo=vo), state='TEMPORARY_UNAVAILABLE', expires_at=datetime.utcnow() + timedelta(days=3))
 
                         logger(logging.INFO, "%s is problematic (more than %s suspicious replicas). Send a Jira ticket for the RSE (to be implemented).", rse_key, limit_suspicious_files_on_rse)
                         logger(logging.INFO, "The following files on %s have been marked as TEMPORARILY UNAVAILABLE:", rse_key)
-                        for rse_values in recoverable_replicas[vo][rse_key].values():
-                            logger(logging.INFO, 'Scope: %s    Name: %s', rse_values['scope'], rse_values['name'])
+                        for replica_values in recoverable_replicas[vo][rse_key].values():
+                            logger(logging.INFO, 'Temporarily unavailable: RSE: %s    Scope: %s    Name: %s    PFN: %s', rse_key, replica_values['scope'], replica_values['name'], replica_values['surl'])
                         # Remove the RSE from the dictionary as it has been dealt with.
                         del recoverable_replicas[vo][rse_key]
 
@@ -271,48 +273,50 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vo
                     # Get the rse_id by going to one of the suspicious replicas from that RSE and reading it from there
                     rse_id = list(recoverable_replicas[vo][rse_key].values())[0]['rse_id']
                     for replica_key in list(recoverable_replicas[vo][rse_key].keys()):
+                        file_metadata = get_metadata(recoverable_replicas[vo][rse_key][replica_key]["scope"], recoverable_replicas[vo][rse_key][replica_key]["name"])
+                        recoverable_replicas[vo][rse_key][replica_key]["datatype"] = str(file_metadata["datatype"])
                         if recoverable_replicas[vo][rse_key][replica_key]['available_elsewhere'] is True:
                             # Replicas with other copies on at least one other RSE can safely be labeled as bad
-                            files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key]['surl'])
+                            files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key])
                             # Remove replica from dictionary
                             del recoverable_replicas[vo][rse_key][replica_key]
                         elif recoverable_replicas[vo][rse_key][replica_key]['available_elsewhere'] is False:
                             if (recoverable_replicas[vo][rse_key][replica_key]['name'].startswith("log.")) or (recoverable_replicas[vo][rse_key][replica_key]['name'].startswith("user")):
                                 # Don't keep log files or user files
-                                files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key]['surl'])
+                                files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key])
                                 del recoverable_replicas[vo][rse_key][replica_key]
                             else:
                                 # Deal with replicas based on their metadata.
-                                file_metadata = get_metadata(recoverable_replicas[vo][rse_key][replica_key]["scope"], recoverable_replicas[vo][rse_key][replica_key]["name"])
                                 if file_metadata["datatype"] is None:  # "None" type has no function "split()"
-                                    files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key]['surl'])
+                                    files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key])
                                     continue
                                 for i in json_data:
                                     if i["datatype"] == file_metadata["datatype"].split("_")[-1]:
                                         action = i["action"]
                                         if action == "ignore":
-                                            files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key]['surl'])
+                                            files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key])
                                         elif action == "declare bad":
-                                            files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key]['surl'])
+                                            files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key])
                                         else:
                                             logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Match for the metadata 'datatype' (%s) of replica found in json file, but no match for 'action' (%s)",
                                                    rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'], i["datatype"], i["action"])
                                         break
                                     else:
-                                        # If no policy has be set, default to ignoring the file (no action taken).
-                                        files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key]['surl'])
+                                        # If no policy has been set, default to ignoring the file (no action taken).
+                                        files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key])
 
                     logger(logging.INFO, '(%s) Remaining replicas (pfns) that will be ignored:', rse_key)
                     for i in files_to_be_ignored:
-                        logger(logging.INFO, '%s', i)
+                        logger(logging.INFO, 'Ignore: RSE: %s    Scope: %s    Name: %s    Datatype: %s    PFN: %s', rse_key, i["scope"], i["name"], i["datatype"], i["surl"])
                     logger(logging.INFO, '(%s) Remaining replica (pfns) that will be declared BAD:', rse_key)
                     for i in files_to_be_declared_bad:
-                        logger(logging.INFO, '%s', i)
+                        logger(logging.INFO, 'Declare bad: RSE: %s    Scope: %s    Name: %s    Datatype: %s    PFN: %s', rse_key, i["scope"], i["name"], i["datatype"], i["surl"])
 
                     if files_to_be_declared_bad:
                         logger(logging.INFO, 'Ready to declare %s bad replica(s) on %s (RSE id: %s).', len(files_to_be_declared_bad), rse_key, str(rse_id))
 
-                        declare_bad_file_replicas(pfns=files_to_be_declared_bad, reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), session=None)
+                        if active_mode:
+                            declare_bad_file_replicas(pfns=files_to_be_declared_bad, reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), session=None)
 
                         logger(logging.INFO, 'Finished declaring bad replicas on %s.\n', rse_key)
 
@@ -342,7 +346,7 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vo
     logger(logging.INFO, 'Graceful stop done.')
 
 
-def run(once=False, younger_than=3, nattempts=10, vos=None, limit_suspicious_files_on_rse=5):
+def run(once=False, younger_than=3, nattempts=10, vos=None, limit_suspicious_files_on_rse=5, sleep_time=3600, active_mode=False):
     """
     Starts up the Suspicious-Replica-Recoverer threads.
     """
@@ -362,7 +366,7 @@ def run(once=False, younger_than=3, nattempts=10, vos=None, limit_suspicious_fil
     sanity_check(executable='rucio-replica-recoverer', hostname=socket.gethostname())
 
     if once:
-        declare_suspicious_replicas_bad(once, younger_than, nattempts, vos, limit_suspicious_files_on_rse)
+        declare_suspicious_replicas_bad(once, younger_than, nattempts, vos, limit_suspicious_files_on_rse, sleep_time, active_mode)
     else:
         logger(logging.INFO, 'Suspicious file replicas recovery starting 1 worker.')
         t = threading.Thread(target=declare_suspicious_replicas_bad,
@@ -370,7 +374,9 @@ def run(once=False, younger_than=3, nattempts=10, vos=None, limit_suspicious_fil
                                      'younger_than': younger_than,
                                      'nattempts': nattempts,
                                      'vos': vos,
-                                     'limit_suspicious_files_on_rse': limit_suspicious_files_on_rse})
+                                     'limit_suspicious_files_on_rse': limit_suspicious_files_on_rse,
+                                     'sleep_time': sleep_time,
+                                     'active_mode': active_mode})
         t.start()
         logger(logging.INFO, 'Waiting for interrupts')
 

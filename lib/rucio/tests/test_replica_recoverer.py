@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright CERN since 2019
 #
@@ -200,7 +201,7 @@ class TestReplicaRecoverer(unittest.TestCase):
 
         # Run replica recoverer once
         try:
-            run(once=True, younger_than=1, nattempts=2, limit_suspicious_files_on_rse=5)
+            run(once=True, younger_than=1, nattempts=2, limit_suspicious_files_on_rse=5, sleep_time=0, active_mode=True)
         except KeyboardInterrupt:
             stop()
 
