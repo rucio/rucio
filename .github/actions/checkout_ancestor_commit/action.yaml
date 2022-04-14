@@ -1,0 +1,63 @@
+name: "Checkout Ancestor Commit"
+description: >-
+  Checks out the most recent common ancestor of two commits.
+
+  This action clones all necessary repositories, no prior clone required.
+
+inputs:
+  ref:
+    description: >-
+      The reference for which the ancestor commit, with the current checked out
+      commit, should be found.
+    required: false
+    default: master
+  repository:
+    description: >-
+      `repository_owner/repository_name` of the repository containing the
+      reference commit. For example, rucio/rucio.
+    default: rucio/rucio
+  files_to_copy:
+    description: >-
+      Necessary files to copy (e.g. scripts, configurations, ...) to run code in
+      the older version of the project. This is for the case an ancestor commit
+      gets checked out wich does not contain the required files.
+
+      New line character as delimiter of items.
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Checkout Ancestor Commit
+      shell: bash
+      env:
+        COMMON_ANCESTOR_REPO: upstream
+      run: |
+        echo "Fetch the repository of the common ancestor branch."
+        git remote add $COMMON_ANCESTOR_REPO https://github.com/${{ inputs.repository }}.git
+
+        echo "Fetch the branch of the common ancestor."
+        git fetch $COMMON_ANCESTOR_REPO ${{ inputs.ref }}
+
+        FORK_POINT=$(git merge-base $COMMON_ANCESTOR_REPO/${{ inputs.ref }} HEAD)
+        echo "The fork point of the current branch with the master is $FORK_POINT"
+
+        echo "Backup all specified files since they could be changed."
+        IFS=$'\n'
+        FILES_TO_COPY=$'.github/actions/checkout_ancestor_commit/action.yaml\n${{ inputs.files_to_copy }}'
+        for f in $FILES_TO_COPY; do
+          mkdir -p ../tmp/$(dirname $f)
+          cp $f ../tmp/$f
+        done
+
+        echo "Checking out the fork point"
+        git checkout $FORK_POINT
+
+        echo "Restore backed up files."
+        for f in $FILES_TO_COPY; do
+          mkdir -p $(dirname $f)
+          cp ../tmp/$f $f
+        done
