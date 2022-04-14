@@ -91,9 +91,7 @@ class _RseLoaderContext:
         rse_data = self.rse_id_to_data_map.get(rse_id)
         if rse_data is None:
             rse_data = RseData(rse_id)
-            rse_data.load_name(session=self.session)
-            rse_data.load_info(session=self.session)
-            rse_data.load_attributes(session=self.session)
+            rse_data.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=self.session)
             self.rse_id_to_data_map[rse_id] = rse_data
         return rse_data
 

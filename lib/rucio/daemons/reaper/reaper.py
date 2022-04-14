@@ -50,7 +50,7 @@ from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts
 from rucio.core.message import add_message
 from rucio.core.replica import list_and_mark_unlocked_replicas, list_and_mark_unlocked_replicas_no_temp_table, delete_replicas
-from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, get_rse_protocols
+from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, get_rse_protocols, RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
 from rucio.core.vo import list_vos
@@ -289,43 +289,42 @@ def get_max_deletion_threads_by_hostname(hostname):
     return result
 
 
-def __check_rse_usage(rse: str, rse_id: str, greedy: bool = False,
-                      logger: 'Callable' = logging.log) -> 'Tuple[int, bool]':
+def __check_rse_usage(rse: RseData, greedy: bool = False, logger: 'Callable' = logging.log) -> 'Tuple[int, bool]':
     """
     Internal method to check RSE usage and limits.
 
-    :param rse:     The RSE name.
+    :param rse_name:     The RSE name.
     :param rse_id:  The RSE id.
     :param greedy:  If True, needed_free_space will be set to 1TB regardless of actual rse usage.
 
     :returns: needed_free_space, only_delete_obsolete.
     """
 
-    result = REGION.get('rse_usage_%s' % rse_id)
+    result = REGION.get('rse_usage_%s' % rse.id)
     if result is NO_VALUE:
         needed_free_space, used, free, obsolete = 0, 0, 0, 0
 
         # First of all check if greedy mode is enabled for this RSE
         if greedy:
             result = (1000000000000, False)
-            REGION.set('rse_usage_%s' % rse_id, result)
+            REGION.set('rse_usage_%s' % rse.id, result)
             return result
 
         # Get RSE limits
-        limits = get_rse_limits(rse_id=rse_id)
+        limits = get_rse_limits(rse_id=rse.id)
         min_free_space = limits.get('MinFreeSpace', 0)
 
         # Check from which sources to get used and total spaces
         # Default is storage
-        attributes = list_rse_attributes(rse_id=rse_id)
+        attributes = list_rse_attributes(rse_id=rse.id)
         source_for_total_space = attributes.get('source_for_total_space', 'storage')
         source_for_used_space = attributes.get('source_for_used_space', 'storage')
 
         logger(logging.DEBUG, 'RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
-               rse, source_for_total_space, source_for_used_space)
+               rse.name, source_for_total_space, source_for_used_space)
 
         # Get total, used and obsolete space
-        rse_usage = get_rse_usage(rse_id=rse_id)
+        rse_usage = get_rse_usage(rse_id=rse.id)
         usage = [entry for entry in rse_usage if entry['source'] == 'obsolete']
         for var in usage:
             obsolete = var['used']
@@ -336,10 +335,10 @@ def __check_rse_usage(rse: str, rse_id: str, greedy: bool = False,
         if not usage:
             if not obsolete:
                 result = (needed_free_space, False)
-                REGION.set('rse_usage_%s' % rse_id, result)
+                REGION.set('rse_usage_%s' % rse.id, result)
                 return result
             result = (obsolete, True)
-            REGION.set('rse_usage_%s' % rse_id, result)
+            REGION.set('rse_usage_%s' % rse.id, result)
             return result
 
         # Extract the total and used space
@@ -351,7 +350,7 @@ def __check_rse_usage(rse: str, rse_id: str, greedy: bool = False,
             usage = [entry for entry in rse_usage if entry['source'] == source_for_used_space]
             if not usage:
                 result = (needed_free_space, False)
-                REGION.set('rse_usage_%s' % rse_id, result)
+                REGION.set('rse_usage_%s' % rse.id, result)
                 return result
             for var in usage:
                 used = var['used']
@@ -366,7 +365,7 @@ def __check_rse_usage(rse: str, rse_id: str, greedy: bool = False,
             result = (obsolete, True)
         else:
             result = (needed_free_space, False)
-        REGION.set('rse_usage_%s' % rse_id, result)
+        REGION.set('rse_usage_%s' % rse.id, result)
         return result
 
     return result
@@ -437,6 +436,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 continue
 
         rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
+        rses_to_process = [RseData(id_=rse['id'], name=rse['rse'], columns=rse) for rse in rses_to_process]
         if not rses_to_process:
             logger(logging.ERROR, 'Reaper: No RSEs found. Will sleep for 30 seconds')
             GRACEFUL_STOP.wait(30)
@@ -451,22 +451,22 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             tot_needed_free_space = 0
             for rse in rses_to_process:
                 # Check if the RSE is a staging area
-                if rse['staging_area']:
-                    staging_areas.append(rse['rse'])
+                if rse.columns['staging_area']:
+                    staging_areas.append(rse.name)
                 # Check if RSE is blocklisted
-                if rse['availability'] % 2 == 0:
-                    logger(logging.DEBUG, 'RSE %s is blocklisted for delete', rse['rse'])
+                if rse.columns['availability'] % 2 == 0:
+                    logger(logging.DEBUG, 'RSE %s is blocklisted for delete', rse.name)
                     continue
-                attributes = list_rse_attributes(rse_id=rse['id'])
+                attributes = list_rse_attributes(rse_id=rse.id)
                 enable_greedy = attributes.get('greedyDeletion', False) or greedy
-                needed_free_space, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], greedy=enable_greedy, logger=logger)
+                needed_free_space, only_delete_obsolete = __check_rse_usage(rse, greedy=enable_greedy, logger=logger)
                 if needed_free_space:
-                    dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, only_delete_obsolete, enable_greedy]
+                    dict_rses[rse] = [needed_free_space, only_delete_obsolete, enable_greedy]
                     tot_needed_free_space += needed_free_space
                 elif only_delete_obsolete:
-                    dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, only_delete_obsolete, enable_greedy]
+                    dict_rses[rse] = [needed_free_space, only_delete_obsolete, enable_greedy]
                 else:
-                    logger(logging.DEBUG, 'Nothing to delete on %s', rse['rse'])
+                    logger(logging.DEBUG, 'Nothing to delete on %s', rse.name)
 
             # Ordering the RSEs based on the needed free space
             sorted_dict_rses = OrderedDict(sorted(dict_rses.items(), key=lambda x: x[1][0], reverse=True))
@@ -478,45 +478,44 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
 
             list_rses_mult = []
 
-            # Loop over the RSEs. rse_key = (rse, rse_id) and fill list_rses_mult that contains all RSEs to process with different multiplicity
-            for rse_key in dict_rses:
-                rse_name, rse_id = rse_key
+            # Loop over the RSEs and fill list_rses_mult that contains all RSEs to process with different multiplicity
+            for rse in dict_rses:
                 # The length of the deletion queue scales inversily with the number of workers
                 # The ceil increase the weight of the RSE with small amount of files to delete
                 if tot_needed_free_space:
-                    max_workers = ceil(dict_rses[rse_key][0] / tot_needed_free_space * 1000 / heart_beat['nr_threads'])
+                    max_workers = ceil(dict_rses[rse][0] / tot_needed_free_space * 1000 / heart_beat['nr_threads'])
                 else:
                     max_workers = 1
 
-                list_rses_mult.extend([(rse_name, rse_id, dict_rses[rse_key][0]) for _ in range(int(max_workers))])
+                list_rses_mult.extend([(rse, dict_rses[rse][0]) for _ in range(int(max_workers))])
             random.shuffle(list_rses_mult)
 
             paused_rses = []
-            for rse_name, rse_id, needed_free_space in list_rses_mult:
-                result = REGION.get('pause_deletion_%s' % rse_id, expiration_time=120)
+            for rse, needed_free_space in list_rses_mult:
+                result = REGION.get('pause_deletion_%s' % rse.id, expiration_time=120)
                 if result is not NO_VALUE:
-                    paused_rses.append(rse_name)
-                    logger(logging.DEBUG, 'Not enough replicas to delete on %s during the previous cycle. Deletion paused for a while', rse_name)
+                    paused_rses.append(rse.name)
+                    logger(logging.DEBUG, 'Not enough replicas to delete on %s during the previous cycle. Deletion paused for a while', rse.name)
                     continue
-                result = REGION.get('temporary_exclude_%s' % rse_id, expiration_time=auto_exclude_timeout)
+                result = REGION.get('temporary_exclude_%s' % rse.id, expiration_time=auto_exclude_timeout)
                 if result is not NO_VALUE:
-                    logger(logging.WARNING, 'Too many failed attempts for %s in last cycle. RSE is temporarly excluded.', rse_name)
-                    labels = {'rse': rse_name}
+                    logger(logging.WARNING, 'Too many failed attempts for %s in last cycle. RSE is temporarly excluded.', rse.name)
+                    labels = {'rse': rse.name}
                     EXCLUDED_RSE_GAUGE.labels(**labels).set(1)
                     continue
-                labels = {'rse': rse_name}
+                labels = {'rse': rse.name}
                 EXCLUDED_RSE_GAUGE.labels(**labels).set(0)
                 percent = 0
                 if tot_needed_free_space:
                     percent = needed_free_space / tot_needed_free_space * 100
-                logger(logging.DEBUG, 'Working on %s. Percentage of the total space needed %.2f', rse_name, percent)
+                logger(logging.DEBUG, 'Working on %s. Percentage of the total space needed %.2f', rse.name, percent)
                 try:
-                    rse_hostname, rse_info = rses_hostname_mapping[rse_id]
+                    rse_hostname, rse_info = rses_hostname_mapping[rse.id]
                 except KeyError:
-                    logger(logging.DEBUG, "Hostname lookup for %s failed.", rse_name)
-                    REGION.set('pause_deletion_%s' % rse_id, True)
+                    logger(logging.DEBUG, "Hostname lookup for %s failed.", rse.name)
+                    REGION.set('pause_deletion_%s' % rse.id, True)
                     continue
-                rse_hostname_key = '%s,%s' % (rse_id, rse_hostname)
+                rse_hostname_key = '%s,%s' % (rse.id, rse_hostname)
                 payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
                 # logger(logging.DEBUG, '%s Payload count : %s', prepend_str, str(payload_cnt))
                 tot_threads_for_hostname = 0
@@ -525,43 +524,43 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                     if key and key.find(',') > -1:
                         if key.split(',')[1] == rse_hostname:
                             tot_threads_for_hostname += payload_cnt[key]
-                        if key.split(',')[0] == str(rse_id):
+                        if key.split(',')[0] == str(rse.id):
                             tot_threads_for_rse += payload_cnt[key]
                 max_deletion_thread = get_max_deletion_threads_by_hostname(rse_hostname)
                 if rse_hostname_key in payload_cnt and tot_threads_for_hostname >= max_deletion_thread:
-                    logger(logging.DEBUG, 'Too many deletion threads for %s on RSE %s. Back off', rse_hostname, rse_name)
+                    logger(logging.DEBUG, 'Too many deletion threads for %s on RSE %s. Back off', rse_hostname, rse.name)
                     # Might need to reschedule a try on this RSE later in the same cycle
                     continue
-                logger(logging.INFO, 'Nb workers on %s smaller than the limit (current %i vs max %i). Starting new worker on RSE %s', rse_hostname, tot_threads_for_hostname, max_deletion_thread, rse_name)
+                logger(logging.INFO, 'Nb workers on %s smaller than the limit (current %i vs max %i). Starting new worker on RSE %s', rse_hostname, tot_threads_for_hostname, max_deletion_thread, rse.name)
                 live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
                 logger(logging.DEBUG, 'Total deletion workers for %s : %i', rse_hostname, tot_threads_for_hostname + 1)
                 # List and mark BEING_DELETED the files to delete
                 del_start_time = time.time()
-                only_delete_obsolete = dict_rses[(rse_name, rse_id)][1]
-                enable_greedy = dict_rses[(rse_name, rse_id)][2]
+                only_delete_obsolete = dict_rses[rse][1]
+                enable_greedy = dict_rses[rse][2]
                 try:
                     use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
                         if only_delete_obsolete:
-                            logger(logging.DEBUG, 'Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', rse_name)
+                            logger(logging.DEBUG, 'Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', rse.name)
                         if use_temp_tables:
                             replicas = list_and_mark_unlocked_replicas(limit=chunk_size,
                                                                        bytes_=needed_free_space,
-                                                                       rse_id=rse_id,
+                                                                       rse_id=rse.id,
                                                                        delay_seconds=delay_seconds,
                                                                        only_delete_obsolete=only_delete_obsolete,
                                                                        session=None)
                         else:
                             replicas = list_and_mark_unlocked_replicas_no_temp_table(limit=chunk_size,
                                                                                      bytes_=needed_free_space,
-                                                                                     rse_id=rse_id,
+                                                                                     rse_id=rse.id,
                                                                                      delay_seconds=delay_seconds,
                                                                                      only_delete_obsolete=only_delete_obsolete,
                                                                                      session=None)
-                    logger(logging.DEBUG, 'list_and_mark_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', rse_name, needed_free_space, time.time() - del_start_time, len(replicas))
+                    logger(logging.DEBUG, 'list_and_mark_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', rse.name, needed_free_space, time.time() - del_start_time, len(replicas))
                     if not enable_greedy and len(replicas) < chunk_size:
-                        logger(logging.DEBUG, 'Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', rse_name, chunk_size, len(replicas))
-                        REGION.set('pause_deletion_%s' % rse_id, True)
+                        logger(logging.DEBUG, 'Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', rse.name, chunk_size, len(replicas))
+                        REGION.set('pause_deletion_%s' % rse.id, True)
 
                 except (DatabaseException, IntegrityError, DatabaseError) as error:
                     logger(logging.ERROR, '%s', str(error))
@@ -581,7 +580,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                                                                            lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
                                                                            operation='delete', scheme=scheme).values())[0])
                             except (ReplicaUnAvailable, ReplicaNotFound) as error:
-                                logger(logging.WARNING, 'Failed get pfn UNAVAILABLE replica %s:%s on %s with error %s', replica['scope'], replica['name'], rse_name, str(error))
+                                logger(logging.WARNING, 'Failed get pfn UNAVAILABLE replica %s:%s on %s with error %s', replica['scope'], replica['name'], rse.name, str(error))
                                 replica['pfn'] = None
 
                             except Exception:
@@ -593,8 +592,8 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                         # Then finally delete the replicas
                         del_start = time.time()
                         with monitor.record_timer_block('reaper.delete_replicas'):
-                            delete_replicas(rse_id=rse_id, files=deleted_files)
-                        logger(logging.DEBUG, 'delete_replicas successed on %s : %s replicas in %s seconds', rse_name, len(deleted_files), time.time() - del_start)
+                            delete_replicas(rse_id=rse.id, files=deleted_files)
+                        logger(logging.DEBUG, 'delete_replicas successed on %s : %s replicas in %s seconds', rse.name, len(deleted_files), time.time() - del_start)
                         DELETION_COUNTER.inc(len(deleted_files))
                 except Exception:
                     logger(logging.CRITICAL, 'Exception', exc_info=True)
