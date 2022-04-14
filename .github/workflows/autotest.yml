@@ -19,6 +19,52 @@ jobs:
         shell: bash
         run: |
           python3 tools/add_header --dry-run --disable-progress-bar
+  python_annotations:
+    name: Check Python Type Annotations
+    runs-on: ubuntu-latest
+    env:
+      UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE: ../updated_type_annotation_report.txt
+      INITIAL_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE: ../initial_type_annotation_report.txt
+    steps:
+      - uses: actions/checkout@v3
+      - name: Count current number of missing type annotations
+        id: count_updated
+        shell: bash
+        run: |
+          pip install flake8 flake8-annotations
+          source tools/count_missing_type_annotations_utils.sh
+          create_missing_python_type_annotations_report ${{ env.UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }}
+          echo "The current number of missing python type annotations: $(wc -l < ${{ env.UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }})"
+      - name: Checkout ancestor commit with rucio/master
+        uses: ./.github/actions/checkout_ancestor_commit
+        with:
+          files_to_copy: |
+            tools/count_missing_type_annotations.sh
+            tools/count_missing_type_annotations_utils.sh
+      - name: Count initial number of missing type annotations
+        id: count_initial
+        shell: bash
+        run: |
+          source tools/count_missing_type_annotations_utils.sh
+          create_missing_python_type_annotations_report ${{ env.INITIAL_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }}
+          echo "The initial number of missing python type annotations: $(wc -l < ${{ env.INITIAL_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }})"
+      - name: Diff of missing annotations
+        shell: bash
+        run: |
+          diff ${{ env.INITIAL_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }} ${{ env.UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }} || true
+      - name: Compare numbers of missing type annotations
+        shell: bash
+        run: |
+          INITIAL_NUMBER_OF_MISSING_TYPE_ANNOTATIONS=$(wc -l < ${{ env.INITIAL_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }})
+          UPDATED_NUMBER_OF_MISSING_TYPE_ANNOTATIONS=$(wc -l < ${{ env.UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }})
+
+          echo "The initial number of missing type annotations is: $INITIAL_NUMBER_OF_MISSING_TYPE_ANNOTATIONS"
+          echo "The updated number of missing type annotations is: $UPDATED_NUMBER_OF_MISSING_TYPE_ANNOTATIONS"
+          if [ $UPDATED_NUMBER_OF_MISSING_TYPE_ANNOTATIONS -gt $INITIAL_NUMBER_OF_MISSING_TYPE_ANNOTATIONS ]; then
+            echo "The number of missing python type annotations should never increase! This way we ensure that new functions are type annotated."
+            echo "Look into 'Diff of missing type annotations' to see what changed."
+            exit 1
+          fi
   setup:
     runs-on: ubuntu-latest
     steps:
