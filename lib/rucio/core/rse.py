@@ -15,6 +15,8 @@
 
 from datetime import datetime
 import json
+import logging
+import traceback
 from io import StringIO
 from re import match
 from typing import TYPE_CHECKING
@@ -43,6 +45,55 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 REGION = make_region_memcached(expiration_time=900)
+
+
+class RseData:
+    """
+    Helper data class storing rse data grouped in one place.
+    """
+    def __init__(self, id_, name=None, attributes=None, info=None):
+        self.id = id_
+        self.name = name
+        self.attributes = attributes
+        self.info = info
+
+    def __str__(self):
+        if self.name is not None:
+            return self.name
+        return self.id
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return self.id == other.id
+
+    def is_tape(self):
+        if self.info['rse_type'] == RSEType.TAPE or self.info['rse_type'] == 'TAPE':
+            return True
+        return False
+
+    def is_tape_or_staging_required(self):
+        if self.is_tape() or self.attributes.get('staging_required', False):
+            return True
+        return False
+
+    @read_session
+    def load_name(self, session=None):
+        if self.name is None:
+            self.name = get_rse_name(rse_id=self.id, session=session)
+        return self.name
+
+    @read_session
+    def load_attributes(self, session=None):
+        if self.attributes is None:
+            self.attributes = get_rse_attributes(self.id, session=session)
+        return self.attributes
+
+    @read_session
+    def load_info(self, session=None):
+        if self.info is None:
+            self.info = get_rse_info(self.id, session=session)
+        return self.info
 
 
 @transactional_session
@@ -581,6 +632,29 @@ def get_rse_attribute(key, rse_id=None, value=None, use_cache=True, session=None
     return result
 
 
+def get_rse_attributes(rse_id, session=None):
+    """
+    List rse attributes
+
+    :param rse:     the rse name.
+    :param rse_id:  The RSE id.
+    :param session: The database session in use.
+
+    :returns: A dictionary with RSE attributes for a RSE.
+    """
+
+    key = 'rse_attributes_%s' % (rse_id)
+    result = REGION.get(key)
+    if result is NO_VALUE:
+        try:
+            result = None
+            result = list_rse_attributes(rse_id=rse_id, session=session)
+            REGION.set(key, result)
+        except:
+            logging.warning("Failed to get RSE %s attributes, error: %s" % (rse_id, traceback.format_exc()))
+    return result
+
+
 @read_session
 def get_rse_supported_checksums(rse_id, session=None):
     """
@@ -1047,6 +1121,24 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
         info['protocols'].append(p)
     info['protocols'] = sorted(info['protocols'], key=lambda p: (p['hostname'], p['scheme'], p['port']))
     return info
+
+
+@read_session
+def get_rse_info(rse_id, session=None):
+    """
+    For historical reasons, related to usage of rsemanager, "rse_info" is equivalent to
+    a cached call to get_rse_protocols without any schemes set.
+
+    :param rse_id: The id of the rse.
+    :param session: The database session.
+    :returns: A dict with RSE information and supported protocols
+    """
+    key = 'rse_info_%s' % rse_id
+    result = REGION.get(key)
+    if result is NO_VALUE:
+        result = get_rse_protocols(rse_id=rse_id, session=session)
+        REGION.set(key, result)
+    return result
 
 
 @transactional_session

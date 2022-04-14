@@ -666,7 +666,6 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.common.rse_attributes.REGION',
     'rucio.core.rse.REGION',
     'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
 ]}], indirect=True)
@@ -916,7 +915,6 @@ def overwrite_on_tape_topology(rse_factory, did_factory, root_account, vo, file_
     ('transfers', 'use_multihop', True)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.common.rse_attributes.REGION',
     'rucio.core.rse.REGION',
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
     'rucio.core.config.REGION',
@@ -946,7 +944,6 @@ def test_overwrite_on_tape(overwrite_on_tape_topology, core_config_mock, caches_
     ('transfers', 'use_multihop', True)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.common.rse_attributes.REGION',
     'rucio.core.rse.REGION',
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
     'rucio.core.config.REGION',
@@ -989,7 +986,6 @@ def test_file_exists_handled(overwrite_on_tape_topology, core_config_mock, cache
     ('transfers', 'overwrite_corrupted_files', False)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.common.rse_attributes.REGION',
     'rucio.core.rse.REGION',
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
     'rucio.core.config.REGION',
