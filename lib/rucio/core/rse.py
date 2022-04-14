@@ -51,11 +51,17 @@ class RseData:
     """
     Helper data class storing rse data grouped in one place.
     """
-    def __init__(self, id_, name=None, attributes=None, info=None):
+    def __init__(self, id_, name=None, columns=None, attributes=None, info=None, usage=None, limits=None):
         self.id = id_
         self.name = name
+        self.columns = columns
         self.attributes = attributes
         self.info = info
+        self.usage = usage
+        self.limits = limits
+
+    def __hash__(self):
+        return hash(self.id)
 
     def __str__(self):
         if self.name is not None:
@@ -78,22 +84,20 @@ class RseData:
         return False
 
     @read_session
-    def load_name(self, session=None):
-        if self.name is None:
+    def ensure_loaded(self, load_name=False, load_columns=False, load_attributes=False,
+                      load_info=False, load_usage=False, load_limits=False, session=None):
+        if self.name is None and load_name:
             self.name = get_rse_name(rse_id=self.id, session=session)
-        return self.name
-
-    @read_session
-    def load_attributes(self, session=None):
-        if self.attributes is None:
+        if self.columns is None and load_columns:
+            self.columns = get_rse(rse_id=self.id, session=session)
+        if self.attributes is None and load_attributes:
             self.attributes = get_rse_attributes(self.id, session=session)
-        return self.attributes
-
-    @read_session
-    def load_info(self, session=None):
-        if self.info is None:
+        if self.info is None and load_info:
             self.info = get_rse_info(self.id, session=session)
-        return self.info
+        if self.usage is None and load_usage:
+            self.usage = get_rse_usage(rse_id=self.id, session=session)
+        if self.limits is None and load_limits:
+            self.limits = get_rse_limits(rse_id=self.id, session=session)
 
 
 @transactional_session
