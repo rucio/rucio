@@ -499,7 +499,7 @@ def perm_del_rule(issuer, kwargs, session=None):
     """
     if _is_root(issuer):
         return True
-    if get_rule(kwargs['rule_id'])['account'] == issuer:
+    if get_rule(rule_id=kwargs['rule_id'], session=session)['account'] == issuer:
         return True
 
     # Check if user is a country admin
@@ -508,7 +508,7 @@ def perm_del_rule(issuer, kwargs, session=None):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.append(kv['key'].partition('-')[2])
 
-    rule = get_rule(rule_id=kwargs['rule_id'])
+    rule = get_rule(rule_id=kwargs['rule_id'], session=session)
     rses = parse_expression(rule['rse_expression'], filter_={'vo': issuer.vo}, session=session)
     if admin_in_country:
         for rse in rses:
@@ -548,7 +548,7 @@ def perm_update_rule(issuer, kwargs, session=None):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.append(kv['key'].partition('-')[2])
 
-    rule = get_rule(rule_id=kwargs['rule_id'])
+    rule = get_rule(rule_id=kwargs['rule_id'], session=session)
     rses = parse_expression(rule['rse_expression'], filter_={'vo': issuer.vo}, session=session)
     if admin_in_country:
         for rse in rses:
@@ -560,7 +560,7 @@ def perm_update_rule(issuer, kwargs, session=None):
         return False
 
     # Owner can change the rest of a rule
-    if get_rule(kwargs['rule_id'])['account'] == issuer:
+    if get_rule(kwargs['rule_id'], session=session)['account'] == issuer:
         return True
 
     return False
@@ -589,7 +589,7 @@ def perm_move_rule(issuer, kwargs, session=None):
     admin_destination = False
 
     if admin_in_country:
-        rule = get_rule(rule_id=kwargs['rule_id'])
+        rule = get_rule(rule_id=kwargs['rule_id'], session=session)
         rses = parse_expression(rule['rse_expression'], filter_={'vo': issuer.vo}, session=session)
         for rse in rses:
             if list_rse_attributes(rse_id=rse['id'], session=session).get('country') in admin_in_country:
@@ -621,7 +621,7 @@ def perm_approve_rule(issuer, kwargs, session=None):
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
 
-    rule = get_rule(rule_id=kwargs['rule_id'])
+    rule = get_rule(rule_id=kwargs['rule_id'], session=session)
     rses = parse_expression(rule['rse_expression'], filter_={'vo': issuer.vo}, session=session)
 
     # APPROVERS can approve the rule
@@ -1302,7 +1302,7 @@ def perm_access_rule_vo(issuer, kwargs, session=None):
     :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return get_rule(kwargs['rule_id'])['scope'].vo == issuer.vo
+    return get_rule(kwargs['rule_id'], session=session)['scope'].vo == issuer.vo
 
 
 def perm_export(issuer, kwargs, session=None):
