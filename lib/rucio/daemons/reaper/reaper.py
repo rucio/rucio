@@ -50,14 +50,14 @@ from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts
 from rucio.core.message import add_message
 from rucio.core.replica import list_and_mark_unlocked_replicas, list_and_mark_unlocked_replicas_no_temp_table, delete_replicas
-from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, RseData
+from rucio.core.rse import list_rses, RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
 from rucio.core.vo import list_vos
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from typing import Callable, Optional, Tuple
+    from typing import Any, Callable, Optional, Tuple
 
 GRACEFUL_STOP = threading.Event()
 
@@ -269,7 +269,7 @@ def get_max_deletion_threads_by_hostname(hostname):
     return result
 
 
-def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: 'Callable' = logging.log) -> 'Tuple[int, bool]':
+def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: "Callable[..., Any]" = logging.log) -> 'Tuple[int, bool]':
     """
     Wrapper around __check_rse_usage which manages the cache entry.
     """
@@ -281,7 +281,7 @@ def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: 'Callab
     return result
 
 
-def __check_rse_usage(rse: RseData, greedy: bool = False, logger: 'Callable' = logging.log) -> 'Tuple[int, bool]':
+def __check_rse_usage(rse: RseData, greedy: bool = False, logger: "Callable[..., Any]" = logging.log) -> 'Tuple[int, bool]':
     """
     Internal method to check RSE usage and limits.
 
@@ -292,51 +292,54 @@ def __check_rse_usage(rse: RseData, greedy: bool = False, logger: 'Callable' = l
     :returns: needed_free_space, only_delete_obsolete.
     """
 
-    needed_free_space, used, free, obsolete = 0, 0, 0, 0
-
     # First of all check if greedy mode is enabled for this RSE
     if greedy:
         return 1000000000000, False
 
+    rse.ensure_loaded(load_limits=True, load_usage=True, load_attributes=True)
+
     # Get RSE limits
-    limits = get_rse_limits(rse_id=rse.id)
-    min_free_space = limits.get('MinFreeSpace', 0)
+    min_free_space = rse.limits.get('MinFreeSpace', 0)
 
     # Check from which sources to get used and total spaces
     # Default is storage
-    attributes = list_rse_attributes(rse_id=rse.id)
-    source_for_total_space = attributes.get('source_for_total_space', 'storage')
-    source_for_used_space = attributes.get('source_for_used_space', 'storage')
+    source_for_total_space = rse.attributes.get('source_for_total_space', 'storage')
+    source_for_used_space = rse.attributes.get('source_for_used_space', 'storage')
 
     logger(logging.DEBUG, 'RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
            rse.name, source_for_total_space, source_for_used_space)
 
     # Get total, used and obsolete space
-    rse_usage = get_rse_usage(rse_id=rse.id)
-    usage = [entry for entry in rse_usage if entry['source'] == 'obsolete']
-    for var in usage:
-        obsolete = var['used']
-        break
-    usage = [entry for entry in rse_usage if entry['source'] == source_for_total_space]
+    total_space_entry = None
+    used_space_entry = None
+    obsolete_entry = None
+    for entry in rse.usage:
+        if total_space_entry and used_space_entry and obsolete_entry:
+            break
+
+        entry_source = entry['source']
+        if not total_space_entry and entry_source == source_for_total_space:
+            total_space_entry = entry
+        if not used_space_entry and entry_source == source_for_used_space:
+            used_space_entry = entry
+        if not obsolete_entry and entry_source == 'obsolete':
+            obsolete_entry = entry
+
+    obsolete = 0
+    if obsolete_entry:
+        obsolete = obsolete_entry['used']
 
     # If no information is available about disk space, do nothing except if there are replicas with Epoch tombstone
-    if not usage:
+    needed_free_space = 0
+    if not total_space_entry:
         if not obsolete:
             return needed_free_space, False
         return obsolete, True
+    if not used_space_entry:
+        return needed_free_space, False
 
     # Extract the total and used space
-    for var in usage:
-        total, used = var['total'], var['used']
-        break
-
-    if source_for_total_space != source_for_used_space:
-        usage = [entry for entry in rse_usage if entry['source'] == source_for_used_space]
-        if not usage:
-            return needed_free_space, False
-        for var in usage:
-            used = var['used']
-            break
+    total, used = total_space_entry['total'], used_space_entry['used']
 
     free = total - used
     if min_free_space:
