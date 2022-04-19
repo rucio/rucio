@@ -457,19 +457,19 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             list_rses_mult = []
 
             # Loop over the RSEs and fill list_rses_mult that contains all RSEs to process with different multiplicity
-            for rse in dict_rses:
+            for rse, (needed_free_space, only_delete_obsolete, enable_greedy) in dict_rses.items():
                 # The length of the deletion queue scales inversily with the number of workers
                 # The ceil increase the weight of the RSE with small amount of files to delete
                 if tot_needed_free_space:
-                    max_workers = ceil(dict_rses[rse][0] / tot_needed_free_space * 1000 / heart_beat['nr_threads'])
+                    max_workers = ceil(needed_free_space / tot_needed_free_space * 1000 / heart_beat['nr_threads'])
                 else:
                     max_workers = 1
 
-                list_rses_mult.extend([(rse, dict_rses[rse][0]) for _ in range(int(max_workers))])
+                list_rses_mult.extend([(rse, needed_free_space, only_delete_obsolete, enable_greedy) for _ in range(int(max_workers))])
             random.shuffle(list_rses_mult)
 
             paused_rses = []
-            for rse, needed_free_space in list_rses_mult:
+            for rse, needed_free_space, only_delete_obsolete, enable_greedy in list_rses_mult:
                 result = REGION.get('pause_deletion_%s' % rse.id, expiration_time=120)
                 if result is not NO_VALUE:
                     paused_rses.append(rse.name)
@@ -514,8 +514,6 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 logger(logging.DEBUG, 'Total deletion workers for %s : %i', rse_hostname, tot_threads_for_hostname + 1)
                 # List and mark BEING_DELETED the files to delete
                 del_start_time = time.time()
-                only_delete_obsolete = dict_rses[rse][1]
-                enable_greedy = dict_rses[rse][2]
                 try:
                     use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
