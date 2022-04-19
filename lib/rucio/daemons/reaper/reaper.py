@@ -50,14 +50,14 @@ from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts
 from rucio.core.message import add_message
 from rucio.core.replica import list_and_mark_unlocked_replicas, list_and_mark_unlocked_replicas_no_temp_table, delete_replicas
-from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, get_rse_protocols, RseData
+from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
 from rucio.core.vo import list_vos
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from typing import Callable, Tuple
+    from typing import Callable, Optional, Tuple
 
 GRACEFUL_STOP = threading.Event()
 
@@ -237,34 +237,14 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
     return deleted_files
 
 
-def get_rses_to_hostname_mapping():
+def _rse_deletion_hostname(rse: RseData) -> "Optional[str]":
     """
-    Return a dictionaries mapping the RSEs to the hostname of the SE
-
-    :returns:      Dictionary with RSE_id as key and (hostname, rse_info) as value
+    Retrieves the hostname of the default deletion protocol
     """
-
-    result = REGION.get('rse_hostname_mapping')
-    if result is NO_VALUE:
-        result = {}
-        all_rses = list_rses()
-        for rse in all_rses:
-            try:
-                rse_protocol = get_rse_protocols(rse_id=rse['id'])
-            except RSENotFound:
-                logging.log(logging.WARNING, 'RSE deleted while constructing rse-to-hostname mapping. Skipping %s', rse['rse'])
-                continue
-
-            for prot in rse_protocol['protocols']:
-                if prot['domains']['wan']['delete'] == 1:
-                    result[rse['id']] = (prot['hostname'], rse_protocol)
-            if rse['id'] not in result:
-                logging.log(logging.WARNING, 'No default delete protocol for %s', rse['rse'])
-
-        REGION.set('rse_hostname_mapping', result)
-        return result
-
-    return result
+    for prot in rse.info['protocols']:
+        if prot['domains']['wan']['delete'] == 1:
+            return prot['hostname']
+    return None
 
 
 def get_max_deletion_threads_by_hostname(hostname):
@@ -457,8 +437,8 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 if rse.columns['availability'] % 2 == 0:
                     logger(logging.DEBUG, 'RSE %s is blocklisted for delete', rse.name)
                     continue
-                attributes = list_rse_attributes(rse_id=rse.id)
-                enable_greedy = attributes.get('greedyDeletion', False) or greedy
+                rse.ensure_loaded(load_attributes=True)
+                enable_greedy = rse.attributes.get('greedyDeletion', False) or greedy
                 needed_free_space, only_delete_obsolete = __check_rse_usage(rse, greedy=enable_greedy, logger=logger)
                 if needed_free_space:
                     dict_rses[rse] = [needed_free_space, only_delete_obsolete, enable_greedy]
@@ -472,9 +452,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             sorted_dict_rses = OrderedDict(sorted(dict_rses.items(), key=lambda x: x[1][0], reverse=True))
             logger(logging.DEBUG, 'List of RSEs to process ordered by needed space desc: %s', str(sorted_dict_rses))
 
-            # Get the mapping between the RSE and the hostname used for deletion. The dictionary has RSE as key and (hostanme, rse_info) as value
-            rses_hostname_mapping = get_rses_to_hostname_mapping()
-            # logger(logging.DEBUG, '%s Mapping RSEs to hostnames used for deletion : %s', prepend_str, str(rses_hostname_mapping))
+            RseData.bulk_load(dict_rses, load_info=True)
 
             list_rses_mult = []
 
@@ -509,10 +487,10 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 if tot_needed_free_space:
                     percent = needed_free_space / tot_needed_free_space * 100
                 logger(logging.DEBUG, 'Working on %s. Percentage of the total space needed %.2f', rse.name, percent)
-                try:
-                    rse_hostname, rse_info = rses_hostname_mapping[rse.id]
-                except KeyError:
-                    logger(logging.DEBUG, "Hostname lookup for %s failed.", rse.name)
+
+                rse_hostname = _rse_deletion_hostname(rse)
+                if not rse_hostname:
+                    logger(logging.WARNING, 'No default delete protocol for %s', rse.name)
                     REGION.set('pause_deletion_%s' % rse.id, True)
                     continue
                 rse_hostname_key = '%s,%s' % (rse.id, rse_hostname)
@@ -569,14 +547,14 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                     logger(logging.CRITICAL, 'Exception', exc_info=True)
                 # Physical  deletion will take place there
                 try:
-                    prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme, logger=logger)
+                    prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, logger=logger)
                     for file_replicas in chunks(replicas, chunk_size):
                         # Refresh heartbeat
                         live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
                         del_start_time = time.time()
                         for replica in file_replicas:
                             try:
-                                replica['pfn'] = str(list(rsemgr.lfns2pfns(rse_settings=rse_info,
+                                replica['pfn'] = str(list(rsemgr.lfns2pfns(rse_settings=rse.info,
                                                                            lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
                                                                            operation='delete', scheme=scheme).values())[0])
                             except (ReplicaUnAvailable, ReplicaNotFound) as error:
@@ -586,7 +564,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                             except Exception:
                                 logger(logging.CRITICAL, 'Exception', exc_info=True)
 
-                        deleted_files = delete_from_storage(file_replicas, prot, rse_info, staging_areas, auto_exclude_threshold, logger=logger)
+                        deleted_files = delete_from_storage(file_replicas, prot, rse.info, staging_areas, auto_exclude_threshold, logger=logger)
                         logger(logging.INFO, '%i files processed in %s seconds', len(file_replicas), time.time() - del_start_time)
 
                         # Then finally delete the replicas
@@ -661,9 +639,6 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
         return
 
     logging.log(logging.INFO, 'Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses_to_process]))
-
-    # To populate the cache
-    get_rses_to_hostname_mapping()
 
     logging.log(logging.INFO, 'starting reaper threads')
     threads_list = [threading.Thread(target=reaper, kwargs={'once': once,
