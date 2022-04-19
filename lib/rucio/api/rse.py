@@ -293,6 +293,7 @@ def get_rse_usage(rse, issuer, source=None, per_account=False, vo='def'):
     usages = rse_module.get_rse_usage(rse_id=rse_id, source=source, per_account=per_account)
 
     for u in usages:
+        u['rse'] = rse
         if 'account_usages' in u:
             for account_usage in u['account_usages']:
                 account_usage['account'] = account_usage['account'].external
