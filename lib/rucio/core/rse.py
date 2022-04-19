@@ -816,11 +816,9 @@ def get_rse_usage(rse_id, source=None, session=None, per_account=False):
     if source:
         query_rse_usage = query_rse_usage.filter_by(source=source)
 
-    rse = get_rse_name(rse_id=rse_id, session=session)
     for row in query_rse_usage:
         total = (row.free or 0) + (row.used or 0)
         rse_usage = {'rse_id': rse_id,
-                     'rse': rse,
                      'source': row.source,
                      'used': row.used, 'free': row.free,
                      'total': total,
