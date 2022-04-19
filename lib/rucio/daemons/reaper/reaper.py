@@ -269,6 +269,18 @@ def get_max_deletion_threads_by_hostname(hostname):
     return result
 
 
+def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: 'Callable' = logging.log) -> 'Tuple[int, bool]':
+    """
+    Wrapper around __check_rse_usage which manages the cache entry.
+    """
+    cache_key = 'rse_usage_%s' % rse.id
+    result = REGION.get(cache_key)
+    if result is NO_VALUE:
+        result = __check_rse_usage(rse=rse, greedy=greedy, logger=logger)
+        REGION.set(cache_key, result)
+    return result
+
+
 def __check_rse_usage(rse: RseData, greedy: bool = False, logger: 'Callable' = logging.log) -> 'Tuple[int, bool]':
     """
     Internal method to check RSE usage and limits.
@@ -280,75 +292,61 @@ def __check_rse_usage(rse: RseData, greedy: bool = False, logger: 'Callable' = l
     :returns: needed_free_space, only_delete_obsolete.
     """
 
-    result = REGION.get('rse_usage_%s' % rse.id)
-    if result is NO_VALUE:
-        needed_free_space, used, free, obsolete = 0, 0, 0, 0
+    needed_free_space, used, free, obsolete = 0, 0, 0, 0
 
-        # First of all check if greedy mode is enabled for this RSE
-        if greedy:
-            result = (1000000000000, False)
-            REGION.set('rse_usage_%s' % rse.id, result)
-            return result
+    # First of all check if greedy mode is enabled for this RSE
+    if greedy:
+        return 1000000000000, False
 
-        # Get RSE limits
-        limits = get_rse_limits(rse_id=rse.id)
-        min_free_space = limits.get('MinFreeSpace', 0)
+    # Get RSE limits
+    limits = get_rse_limits(rse_id=rse.id)
+    min_free_space = limits.get('MinFreeSpace', 0)
 
-        # Check from which sources to get used and total spaces
-        # Default is storage
-        attributes = list_rse_attributes(rse_id=rse.id)
-        source_for_total_space = attributes.get('source_for_total_space', 'storage')
-        source_for_used_space = attributes.get('source_for_used_space', 'storage')
+    # Check from which sources to get used and total spaces
+    # Default is storage
+    attributes = list_rse_attributes(rse_id=rse.id)
+    source_for_total_space = attributes.get('source_for_total_space', 'storage')
+    source_for_used_space = attributes.get('source_for_used_space', 'storage')
 
-        logger(logging.DEBUG, 'RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
-               rse.name, source_for_total_space, source_for_used_space)
+    logger(logging.DEBUG, 'RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
+           rse.name, source_for_total_space, source_for_used_space)
 
-        # Get total, used and obsolete space
-        rse_usage = get_rse_usage(rse_id=rse.id)
-        usage = [entry for entry in rse_usage if entry['source'] == 'obsolete']
-        for var in usage:
-            obsolete = var['used']
-            break
-        usage = [entry for entry in rse_usage if entry['source'] == source_for_total_space]
+    # Get total, used and obsolete space
+    rse_usage = get_rse_usage(rse_id=rse.id)
+    usage = [entry for entry in rse_usage if entry['source'] == 'obsolete']
+    for var in usage:
+        obsolete = var['used']
+        break
+    usage = [entry for entry in rse_usage if entry['source'] == source_for_total_space]
 
-        # If no information is available about disk space, do nothing except if there are replicas with Epoch tombstone
+    # If no information is available about disk space, do nothing except if there are replicas with Epoch tombstone
+    if not usage:
+        if not obsolete:
+            return needed_free_space, False
+        return obsolete, True
+
+    # Extract the total and used space
+    for var in usage:
+        total, used = var['total'], var['used']
+        break
+
+    if source_for_total_space != source_for_used_space:
+        usage = [entry for entry in rse_usage if entry['source'] == source_for_used_space]
         if not usage:
-            if not obsolete:
-                result = (needed_free_space, False)
-                REGION.set('rse_usage_%s' % rse.id, result)
-                return result
-            result = (obsolete, True)
-            REGION.set('rse_usage_%s' % rse.id, result)
-            return result
-
-        # Extract the total and used space
+            return needed_free_space, False
         for var in usage:
-            total, used = var['total'], var['used']
+            used = var['used']
             break
 
-        if source_for_total_space != source_for_used_space:
-            usage = [entry for entry in rse_usage if entry['source'] == source_for_used_space]
-            if not usage:
-                result = (needed_free_space, False)
-                REGION.set('rse_usage_%s' % rse.id, result)
-                return result
-            for var in usage:
-                used = var['used']
-                break
+    free = total - used
+    if min_free_space:
+        needed_free_space = min_free_space - free
 
-        free = total - used
-        if min_free_space:
-            needed_free_space = min_free_space - free
-
-        # If needed_free_space negative, nothing to delete except if some Epoch tombstoned replicas
-        if needed_free_space <= 0:
-            result = (obsolete, True)
-        else:
-            result = (needed_free_space, False)
-        REGION.set('rse_usage_%s' % rse.id, result)
-        return result
-
-    return result
+    # If needed_free_space negative, nothing to delete except if some Epoch tombstoned replicas
+    if needed_free_space <= 0:
+        return obsolete, True
+    else:
+        return needed_free_space, False
 
 
 def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=False, greedy=False,
@@ -439,7 +437,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                     continue
                 rse.ensure_loaded(load_attributes=True)
                 enable_greedy = rse.attributes.get('greedyDeletion', False) or greedy
-                needed_free_space, only_delete_obsolete = __check_rse_usage(rse, greedy=enable_greedy, logger=logger)
+                needed_free_space, only_delete_obsolete = __check_rse_usage_cached(rse, greedy=enable_greedy, logger=logger)
                 if needed_free_space:
                     dict_rses[rse] = [needed_free_space, only_delete_obsolete, enable_greedy]
                     tot_needed_free_space += needed_free_space
