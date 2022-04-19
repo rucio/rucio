@@ -41,7 +41,7 @@ from rucio.db.sqla.constants import (RSEType, ReplicaState)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 if TYPE_CHECKING:
-    from typing import Dict, Optional
+    from typing import Dict, Optional, Sequence
     from sqlalchemy.orm import Session
 
 REGION = make_region_memcached(expiration_time=900)
@@ -98,6 +98,67 @@ class RseData:
             self.usage = get_rse_usage(rse_id=self.id, session=session)
         if self.limits is None and load_limits:
             self.limits = get_rse_limits(rse_id=self.id, session=session)
+
+    @staticmethod
+    @read_session
+    def bulk_load(rse_datas: "Sequence[RseData]", load_name=False, load_columns=False, load_attributes=False,
+                  load_info=False, load_usage=False, load_limits=False, session=None):
+        """
+        Given a sequence of RseData objects, ensure that the desired fields are initialised
+        in all objects from the input.
+        """
+        rse_datas_by_id = {}
+        names_to_load = set()
+        columns_to_load = set()
+        attributes_to_load = set()
+        infos_to_load = set()
+        usages_to_load = set()
+        limits_to_load = set()
+        for rse_data in rse_datas:
+            rse_id = rse_data.id
+            rse_datas_by_id.setdefault(rse_id, []).append(rse_data)
+            if load_name and rse_data.name is None:
+                names_to_load.add(rse_id)
+            if load_columns and rse_data.columns is None:
+                columns_to_load.add(rse_id)
+            if load_attributes and rse_data.attributes is None:
+                attributes_to_load.add(rse_id)
+            if load_info and rse_data.info is None:
+                infos_to_load.add(rse_id)
+            if load_usage and rse_data.usage is None:
+                usages_to_load.add(rse_id)
+            if load_limits and rse_data.limits is None:
+                limits_to_load.add(rse_id)
+
+        for rse_id in names_to_load:
+            name = get_rse_name(rse_id=rse_id, session=session)
+            for rse_data in rse_datas_by_id[rse_id]:
+                rse_data.name = name
+
+        for rse_id in columns_to_load:
+            rse = get_rse(rse_id=rse_id, session=session)
+            for rse_data in rse_datas_by_id[rse_id]:
+                rse_data.columns = rse
+
+        for rse_id in attributes_to_load:
+            attributes = get_rse_attributes(rse_id=rse_id, session=session)
+            for rse_data in rse_datas_by_id[rse_id]:
+                rse_data.attributes = attributes
+
+        for rse_id in infos_to_load:
+            info = get_rse_info(rse_id=rse_id, session=session)
+            for rse_data in rse_datas_by_id[rse_id]:
+                rse_data.info = info
+
+        for rse_id in usages_to_load:
+            usage = get_rse_usage(rse_id=rse_id, session=session)
+            for rse_data in rse_datas_by_id[rse_id]:
+                rse_data.usage = usage
+
+        for rse_id in limits_to_load:
+            limits = get_rse_limits(rse_id=rse_id, session=session)
+            for rse_data in rse_datas_by_id[rse_id]:
+                rse_data.limits = limits
 
 
 @transactional_session
