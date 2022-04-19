@@ -56,7 +56,7 @@ def run_migrations_offline():
     # try getting url & version_table_schema
     url = config.get_main_option("sqlalchemy.url")
     version_table_schema = config.get_main_option("version_table_schema")
-    
+
     # try getting dialect in case URL has not been specified
     dialect = config.get_main_option("dialect")
 
