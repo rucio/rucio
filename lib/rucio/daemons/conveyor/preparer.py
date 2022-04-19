@@ -31,7 +31,7 @@ from rucio.db.sqla.constants import RequestState
 if TYPE_CHECKING:
     from typing import Optional
     from sqlalchemy.orm import Session
-    from rucio.daemons.conveyor.common import HeartbeatHandler
+    from rucio.daemons.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
 

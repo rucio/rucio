@@ -37,7 +37,7 @@ from rucio.common.policy import get_policy
 from rucio.core import request as request_core
 from rucio.core.monitor import record_counter
 from rucio.core.transfer import set_transfer_update_time
-from rucio.daemons.conveyor.common import HeartbeatHandler
+from rucio.daemons.common import HeartbeatHandler
 from rucio.db.sqla.session import transactional_session
 from rucio.transfertool.fts3 import FTS3CompletionMessageTransferStatusReport
 
