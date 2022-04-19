@@ -1,0 +1,78 @@
+# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2014
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
+# - Rizart Dona <rizart.dona@cern.ch>, 2022
+
+[alembic]
+
+# Choose one of the databases+schema below
+# Oracle, PostgreSQL, MySQL/MariaDB are fully supported
+
+#sqlalchemy.url=oracle://user:pass@servicename
+#version_table_schema=rucio
+
+#sqlalchemy.url=postgresql://rucio:rucio@psql-hostname:5432/rucio
+#version_table_schema=rucio
+
+#sqlalchemy.url=mysql+pymysql://rucio:rucio@rucio-hostname:3306/rucio
+#version_table_schema=rucio
+
+# Select DB dialect for offline mode migration, options: [sqlite, mysql, postgresql, oracle]
+# If this option is specified, sqlalchemy.url is not needed
+dialect=postgresql
+
+# Specify starting revision for offline mode migration
+# If this is not specified, alembic will produce SQL statements for all revisions
+starting_rev=
+
+# Do not modify this
+script_location = lib/rucio/db/sqla/migrate_repo/
+
+# Logging configuration
+[loggers]
+keys = root,sqlalchemy,alembic
+
+[handlers]
+keys = console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = WARN
+handlers = console
+qualname =
+
+[logger_sqlalchemy]
+level = WARN
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers =
+qualname = alembic
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %H:%M:%S
