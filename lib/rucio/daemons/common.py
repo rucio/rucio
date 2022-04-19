@@ -51,6 +51,7 @@ class HeartbeatHandler:
         self.logger = None
         self.last_heart_beat = None
         self.last_time = None
+        self.last_payload = None
 
     def __enter__(self):
         heartbeat.sanity_check(executable=self.executable, hostname=self.hostname)
@@ -63,17 +64,18 @@ class HeartbeatHandler:
             if self.logger:
                 self.logger(logging.INFO, 'Heartbeat cleaned up')
 
-    def live(self, force_renew=False):
+    def live(self, force_renew=False, payload=None):
         """
         :return: a tuple: <the number of the current worker>, <total number of workers>, <decorated logger>
         """
         if force_renew \
                 or not self.last_time \
-                or self.last_time < datetime.datetime.now() - datetime.timedelta(seconds=self.renewal_interval):
+                or self.last_time < datetime.datetime.now() - datetime.timedelta(seconds=self.renewal_interval) \
+                or self.last_payload != payload:
             if self.older_than:
-                self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread, older_than=self.older_than)
+                self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread, payload=payload, older_than=self.older_than)
             else:
-                self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread)
+                self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread, payload=payload)
 
             prefix = '%s[%i/%i]: ' % (self.logger_prefix, self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'])
             self.logger = formatted_logger(logging.log, prefix + '%s')
@@ -83,6 +85,7 @@ class HeartbeatHandler:
             else:
                 self.logger(logging.DEBUG, 'Heartbeat renewed')
             self.last_time = datetime.datetime.now()
+            self.last_payload = payload
 
         return self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'], self.logger
 
