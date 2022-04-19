@@ -131,7 +131,7 @@ def get_rses_to_process(rses, include_rses, exclude_rses, vos):
     return rses
 
 
-def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_threshold, logger=logging.log):
+def delete_from_storage(replicas, prot, rse_info, is_staging, auto_exclude_threshold, logger=logging.log):
     deleted_files = []
     rse_name = rse_info['rse']
     rse_id = rse_info['id']
@@ -154,7 +154,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_th
                 logger(logging.DEBUG, 'Deletion ATTEMPT of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
                 start = time.time()
                 # For STAGING RSEs, no physical deletion
-                if rse_id in staging_areas:
+                if is_staging:
                     logger(logging.WARNING, 'Deletion STAGING of %s:%s as %s on %s, will only delete the catalog and not do physical deletion', replica['scope'], replica['name'], replica['pfn'], rse_name)
                     deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
                     continue
@@ -424,16 +424,12 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             continue
         start_time = time.time()
         try:
-            staging_areas = []
             dict_rses = {}
             heart_beat = live(executable, hostname, pid, hb_thread, older_than=3600)
             prepend_str = 'reaper[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
             logger = formatted_logger(logging.log, prepend_str + '%s')
             tot_needed_free_space = 0
             for rse in rses_to_process:
-                # Check if the RSE is a staging area
-                if rse.columns['staging_area']:
-                    staging_areas.append(rse.name)
                 # Check if RSE is blocklisted
                 if rse.columns['availability'] % 2 == 0:
                     logger(logging.DEBUG, 'RSE %s is blocklisted for delete', rse.name)
@@ -563,7 +559,8 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                             except Exception:
                                 logger(logging.CRITICAL, 'Exception', exc_info=True)
 
-                        deleted_files = delete_from_storage(file_replicas, prot, rse.info, staging_areas, auto_exclude_threshold, logger=logger)
+                        is_staging = rse.columns['staging_area']
+                        deleted_files = delete_from_storage(file_replicas, prot, rse.info, is_staging, auto_exclude_threshold, logger=logger)
                         logger(logging.INFO, '%i files processed in %s seconds', len(file_replicas), time.time() - del_start_time)
 
                         # Then finally delete the replicas
