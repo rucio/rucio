@@ -22,7 +22,6 @@ from __future__ import division
 import logging
 import os
 import random
-import socket
 import threading
 import time
 import traceback
@@ -43,17 +42,18 @@ from rucio.common.exception import (DatabaseException, RSENotFound,
                                     ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
                                     VONotFound)
-from rucio.common.logging import formatted_logger, setup_logging
+from rucio.common.logging import setup_logging
 from rucio.common.utils import chunks, daemon_sleep
 from rucio.core import monitor
 from rucio.core.credential import get_signed_url
-from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts
+from rucio.core.heartbeat import list_payload_counts
 from rucio.core.message import add_message
 from rucio.core.replica import list_and_mark_unlocked_replicas, list_and_mark_unlocked_replicas_no_temp_table, delete_replicas
 from rucio.core.rse import list_rses, RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
 from rucio.core.vo import list_vos
+from rucio.daemons.common import HeartbeatHandler
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
@@ -371,22 +371,37 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     :param auto_exclude_threshold: Number of service unavailable exceptions after which the RSE gets temporarily excluded.
     :param auto_exclude_timeout:   Timeout for temporarily excluded RSEs.
     """
-    hostname = socket.getfqdn()
-    executable = 'reaper'
-    pid = os.getpid()
-    hb_thread = threading.current_thread()
-    sanity_check(executable=executable, hostname=hostname)
-    heart_beat = live(executable, hostname, pid, hb_thread)
-    prepend_str = 'reaper[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logger = formatted_logger(logging.log, prepend_str + '%s')
 
+    executable = 'reaper'
+    with HeartbeatHandler(executable=executable, renewal_interval=sleep_time - 1) as heartbeat_handler:
+        return _reaper(
+            rses=rses,
+            include_rses=include_rses,
+            exclude_rses=exclude_rses,
+            vos=vos,
+            chunk_size=chunk_size,
+            once=once,
+            greedy=greedy,
+            scheme=scheme,
+            delay_seconds=delay_seconds,
+            sleep_time=sleep_time,
+            auto_exclude_threshold=auto_exclude_threshold,
+            auto_exclude_timeout=auto_exclude_timeout,
+            heartbeat_handler=heartbeat_handler
+        )
+
+
+def _reaper(rses, include_rses, exclude_rses, vos, chunk_size, once, greedy, scheme,
+            delay_seconds, sleep_time, auto_exclude_threshold, auto_exclude_timeout,
+            heartbeat_handler):
+
+    _, total_workers, logger = heartbeat_handler.live()
     logger(logging.INFO, 'Reaper starting')
 
     if not once:
         GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
-    heart_beat = live(executable, hostname, pid, hb_thread)
-    prepend_str = 'reaper[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logger = formatted_logger(logging.log, prepend_str + '%s')
+
+    _, total_workers, logger = heartbeat_handler.live()
     logger(logging.INFO, 'Reaper started')
 
     while not GRACEFUL_STOP.is_set():
@@ -425,9 +440,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
         start_time = time.time()
         try:
             dict_rses = {}
-            heart_beat = live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'reaper[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-            logger = formatted_logger(logging.log, prepend_str + '%s')
+            _, total_workers, logger = heartbeat_handler.live()
             tot_needed_free_space = 0
             for rse in rses_to_process:
                 # Check if RSE is blocklisted
@@ -458,7 +471,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 # The length of the deletion queue scales inversily with the number of workers
                 # The ceil increase the weight of the RSE with small amount of files to delete
                 if tot_needed_free_space:
-                    max_workers = ceil(needed_free_space / tot_needed_free_space * 1000 / heart_beat['nr_threads'])
+                    max_workers = ceil(needed_free_space / tot_needed_free_space * 1000 / total_workers)
                 else:
                     max_workers = 1
 
@@ -491,7 +504,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                     REGION.set('pause_deletion_%s' % rse.id, True)
                     continue
                 rse_hostname_key = '%s,%s' % (rse.id, rse_hostname)
-                payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
+                payload_cnt = list_payload_counts(heartbeat_handler.executable, older_than=heartbeat_handler.older_than)
                 # logger(logging.DEBUG, '%s Payload count : %s', prepend_str, str(payload_cnt))
                 tot_threads_for_hostname = 0
                 tot_threads_for_rse = 0
@@ -507,7 +520,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                     # Might need to reschedule a try on this RSE later in the same cycle
                     continue
                 logger(logging.INFO, 'Nb workers on %s smaller than the limit (current %i vs max %i). Starting new worker on RSE %s', rse_hostname, tot_threads_for_hostname, max_deletion_thread, rse.name)
-                live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
+                _, total_workers, logger = heartbeat_handler.live(payload=rse_hostname_key)
                 logger(logging.DEBUG, 'Total deletion workers for %s : %i', rse_hostname, tot_threads_for_hostname + 1)
                 # List and mark BEING_DELETED the files to delete
                 del_start_time = time.time()
@@ -545,7 +558,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                     prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, logger=logger)
                     for file_replicas in chunks(replicas, chunk_size):
                         # Refresh heartbeat
-                        live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
+                        _, total_workers, logger = heartbeat_handler.live(payload=rse_hostname_key)
                         del_start_time = time.time()
                         for replica in file_replicas:
                             try:
@@ -588,10 +601,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             if once:
                 break
 
-    die(executable=executable, hostname=hostname, pid=pid, thread=hb_thread)
     logger(logging.INFO, 'Graceful stop requested')
-    logger(logging.INFO, 'Graceful stop done')
-    return
 
 
 def stop(signum=None, frame=None):
