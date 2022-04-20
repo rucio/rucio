@@ -413,20 +413,17 @@ def _reaper(rses, include_rses, exclude_rses, vos, chunk_size, once, greedy, sch
         max_evaluator_backlog_duration = config_get('reaper', 'max_evaluator_backlog_duration', default=None, raise_exception=False)
         if max_evaluator_backlog_count or max_evaluator_backlog_duration:
             backlog = get_evaluation_backlog()
-            if max_evaluator_backlog_count and \
-               backlog[0] and \
-               max_evaluator_backlog_duration and \
-               backlog[1] and \
-               backlog[0] > max_evaluator_backlog_count and \
-               backlog[1] < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration):
+            count_is_hit = max_evaluator_backlog_count and backlog[0] and backlog[0] > max_evaluator_backlog_count
+            duration_is_hit = max_evaluator_backlog_duration and backlog[1] and backlog[1] < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration)
+            if count_is_hit and duration_is_hit:
                 logger(logging.ERROR, 'Reaper: Judge evaluator backlog count and duration hit, stopping operation')
                 GRACEFUL_STOP.wait(30)
                 continue
-            elif max_evaluator_backlog_count and backlog[0] and backlog[0] > max_evaluator_backlog_count:
+            elif count_is_hit:
                 logger(logging.ERROR, 'Reaper: Judge evaluator backlog count hit, stopping operation')
                 GRACEFUL_STOP.wait(30)
                 continue
-            elif max_evaluator_backlog_duration and backlog[1] and backlog[1] < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration):
+            elif duration_is_hit:
                 logger(logging.ERROR, 'Reaper: Judge evaluator backlog duration hit, stopping operation')
                 GRACEFUL_STOP.wait(30)
                 continue
