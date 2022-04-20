@@ -25,8 +25,8 @@ from rucio.common.exception import RucioException
 from rucio.common.logging import setup_logging
 from rucio.core.request import preparer_update_requests, reduce_requests, sort_requests_minimum_distance, \
     get_transfertool_filter, get_supported_transfertools, rse_lookup_filter, list_transfer_requests_and_source_replicas
-from rucio.daemons.conveyor.common import run_conveyor_daemon
 from rucio.db.sqla.constants import RequestState
+from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -85,7 +85,7 @@ def preparer(once, sleep_time, bulk, partition_wait_time=10):
     # Make an initial heartbeat so that all instanced daemons have the correct worker number on the next try
     logger_prefix = executable = 'conveyor-preparer'
 
-    run_conveyor_daemon(
+    run_daemon(
         once=once,
         graceful_stop=graceful_stop,
         executable=executable,

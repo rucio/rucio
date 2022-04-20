@@ -31,7 +31,8 @@ from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import record_counter, record_timer
-from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, run_conveyor_daemon, next_transfers_to_submit
+from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, next_transfers_to_submit
+from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 
@@ -135,7 +136,7 @@ def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
         }
     }
 
-    run_conveyor_daemon(
+    run_daemon(
         once=once,
         graceful_stop=graceful_stop,
         executable=executable,
