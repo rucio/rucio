@@ -269,6 +269,38 @@ def get_max_deletion_threads_by_hostname(hostname):
     return result
 
 
+def __try_reserve_worker_slot(heartbeat_handler: "HeartbeatHandler", rse: RseData, hostname: str, logger: "Callable[..., Any]") -> "Optional[str]":
+    """
+    The maximum number of concurrent workers is limited per hostname and per RSE due to storage performance reasons.
+    This function tries to reserve a slot to run the deletion worker for the given RSE and hostname.
+
+    The function doesn't guarantee strong consistency: the number of total workers may end being slightly
+    higher than the configured limit.
+
+    The reservation is done using the "payload" field of the rucio heart-beats.
+    if reservation successful, returns the heartbeat payload used for the reservation. Otherwise, returns None
+    """
+
+    rse_hostname_key = '%s,%s' % (rse.id, hostname)
+    payload_cnt = list_payload_counts(heartbeat_handler.executable, older_than=heartbeat_handler.older_than)
+    tot_threads_for_hostname = 0
+    tot_threads_for_rse = 0
+    for key in payload_cnt:
+        if key and key.find(',') > -1:
+            if key.split(',')[1] == hostname:
+                tot_threads_for_hostname += payload_cnt[key]
+            if key.split(',')[0] == str(rse.id):
+                tot_threads_for_rse += payload_cnt[key]
+    max_deletion_thread = get_max_deletion_threads_by_hostname(hostname)
+    if rse_hostname_key in payload_cnt and tot_threads_for_hostname >= max_deletion_thread:
+        logger(logging.DEBUG, 'Too many deletion threads for %s on RSE %s. Back off', hostname, rse.name)
+        return None
+    logger(logging.INFO, 'Nb workers on %s smaller than the limit (current %i vs max %i). Starting new worker on RSE %s', hostname, tot_threads_for_hostname, max_deletion_thread, rse.name)
+    _, total_workers, logger = heartbeat_handler.live(payload=rse_hostname_key)
+    logger(logging.DEBUG, 'Total deletion workers for %s : %i', hostname, tot_threads_for_hostname + 1)
+    return rse_hostname_key
+
+
 def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: "Callable[..., Any]" = logging.log) -> 'Tuple[int, bool]':
     """
     Wrapper around __check_rse_usage which manages the cache entry.
@@ -500,25 +532,12 @@ def _reaper(rses, include_rses, exclude_rses, vos, chunk_size, once, greedy, sch
                     logger(logging.WARNING, 'No default delete protocol for %s', rse.name)
                     REGION.set('pause_deletion_%s' % rse.id, True)
                     continue
-                rse_hostname_key = '%s,%s' % (rse.id, rse_hostname)
-                payload_cnt = list_payload_counts(heartbeat_handler.executable, older_than=heartbeat_handler.older_than)
-                # logger(logging.DEBUG, '%s Payload count : %s', prepend_str, str(payload_cnt))
-                tot_threads_for_hostname = 0
-                tot_threads_for_rse = 0
-                for key in payload_cnt:
-                    if key and key.find(',') > -1:
-                        if key.split(',')[1] == rse_hostname:
-                            tot_threads_for_hostname += payload_cnt[key]
-                        if key.split(',')[0] == str(rse.id):
-                            tot_threads_for_rse += payload_cnt[key]
-                max_deletion_thread = get_max_deletion_threads_by_hostname(rse_hostname)
-                if rse_hostname_key in payload_cnt and tot_threads_for_hostname >= max_deletion_thread:
-                    logger(logging.DEBUG, 'Too many deletion threads for %s on RSE %s. Back off', rse_hostname, rse.name)
+
+                hb_payload = __try_reserve_worker_slot(heartbeat_handler=heartbeat_handler, rse=rse, hostname=rse_hostname, logger=logger)
+                if not hb_payload:
                     # Might need to reschedule a try on this RSE later in the same cycle
                     continue
-                logger(logging.INFO, 'Nb workers on %s smaller than the limit (current %i vs max %i). Starting new worker on RSE %s', rse_hostname, tot_threads_for_hostname, max_deletion_thread, rse.name)
-                _, total_workers, logger = heartbeat_handler.live(payload=rse_hostname_key)
-                logger(logging.DEBUG, 'Total deletion workers for %s : %i', rse_hostname, tot_threads_for_hostname + 1)
+
                 # List and mark BEING_DELETED the files to delete
                 del_start_time = time.time()
                 try:
@@ -555,7 +574,7 @@ def _reaper(rses, include_rses, exclude_rses, vos, chunk_size, once, greedy, sch
                     prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, logger=logger)
                     for file_replicas in chunks(replicas, chunk_size):
                         # Refresh heartbeat
-                        _, total_workers, logger = heartbeat_handler.live(payload=rse_hostname_key)
+                        _, total_workers, logger = heartbeat_handler.live(payload=hb_payload)
                         del_start_time = time.time()
                         for replica in file_replicas:
                             try:
