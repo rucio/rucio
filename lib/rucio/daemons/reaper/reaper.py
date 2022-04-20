@@ -19,6 +19,7 @@ Reaper is a daemon to manage file deletion.
 
 from __future__ import division
 
+import functools
 import logging
 import os
 import random
@@ -43,7 +44,7 @@ from rucio.common.exception import (DatabaseException, RSENotFound,
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
                                     VONotFound)
 from rucio.common.logging import setup_logging
-from rucio.common.utils import chunks, daemon_sleep
+from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import list_payload_counts
@@ -53,11 +54,12 @@ from rucio.core.rse import list_rses, RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
 from rucio.core.vo import list_vos
-from rucio.daemons.common import HeartbeatHandler
+from rucio.daemons.common import run_daemon
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Optional, Tuple
+    from rucio.daemons.common import HeartbeatHandler
 
 GRACEFUL_STOP = threading.Event()
 
@@ -405,41 +407,33 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     """
 
     executable = 'reaper'
-    with HeartbeatHandler(executable=executable, renewal_interval=sleep_time - 1) as heartbeat_handler:
 
-        _, total_workers, logger = heartbeat_handler.live()
-        logger(logging.INFO, 'Reaper starting')
-
-        if not once:
-            GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
-
-        while not GRACEFUL_STOP.is_set():
-            start_time = time.time()
-            _run_once(
-                rses=rses,
-                include_rses=include_rses,
-                exclude_rses=exclude_rses,
-                vos=vos,
-                chunk_size=chunk_size,
-                greedy=greedy,
-                scheme=scheme,
-                delay_seconds=delay_seconds,
-                auto_exclude_threshold=auto_exclude_threshold,
-                auto_exclude_timeout=auto_exclude_timeout,
-                heartbeat_handler=heartbeat_handler
-            )
-
-            if once:
-                break
-
-            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP, logger=logger)
-
-        logger(logging.INFO, 'Graceful stop requested')
+    run_daemon(
+        once=once,
+        graceful_stop=GRACEFUL_STOP,
+        executable=executable,
+        logger_prefix=executable,
+        partition_wait_time=0 if once else 10,
+        sleep_time=sleep_time,
+        run_once_fnc=functools.partial(
+            _run_once,
+            rses=rses,
+            include_rses=include_rses,
+            exclude_rses=exclude_rses,
+            vos=vos,
+            chunk_size=chunk_size,
+            greedy=greedy,
+            scheme=scheme,
+            delay_seconds=delay_seconds,
+            auto_exclude_threshold=auto_exclude_threshold,
+            auto_exclude_timeout=auto_exclude_timeout,
+        )
+    )
 
 
 def _run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
               delay_seconds, auto_exclude_threshold, auto_exclude_timeout,
-              heartbeat_handler):
+              heartbeat_handler, **_kwargs):
 
     _, total_workers, logger = heartbeat_handler.live()
     logger(logging.INFO, 'Reaper started')
