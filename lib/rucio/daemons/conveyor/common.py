@@ -27,7 +27,6 @@ from typing import TYPE_CHECKING
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
                                     DuplicateFileTransferSubmission, VONotFound)
-from rucio.common.utils import PriorityQueue
 from rucio.core import request as request_core, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
@@ -35,7 +34,6 @@ from rucio.core.request import set_request_state, queue_requests
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
-from rucio.daemons.common import HeartbeatHandler
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState
 from rucio.db.sqla.session import transactional_session
@@ -46,56 +44,6 @@ if TYPE_CHECKING:
     from rucio.core.transfer import DirectTransferDefinition
     from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
     from sqlalchemy.orm import Session
-
-
-def run_conveyor_daemon(once, graceful_stop, executable, logger_prefix, partition_wait_time, sleep_time, run_once_fnc, activities=None):
-
-    with HeartbeatHandler(executable=executable, renewal_interval=sleep_time - 1, logger_prefix=logger_prefix) as heartbeat_handler:
-        logger = heartbeat_handler.logger
-        logger(logging.INFO, 'started')
-
-        if partition_wait_time:
-            graceful_stop.wait(partition_wait_time)
-
-        activity_next_exe_time = PriorityQueue()
-        for activity in activities or [None]:
-            activity_next_exe_time[activity] = time.time()
-
-        while not graceful_stop.is_set() and activity_next_exe_time:
-            if once:
-                activity = activity_next_exe_time.pop()
-                time_to_sleep = 0
-            else:
-                activity = activity_next_exe_time.top()
-                time_to_sleep = activity_next_exe_time[activity] - time.time()
-
-            if time_to_sleep > 0:
-                if activity:
-                    logger(logging.DEBUG, 'Switching to activity %s and sleeping %s seconds', activity, time_to_sleep)
-                else:
-                    logger(logging.DEBUG, 'Sleeping %s seconds', time_to_sleep)
-                graceful_stop.wait(time_to_sleep)
-            else:
-                if activity:
-                    logger(logging.DEBUG, 'Switching to activity %s', activity)
-                else:
-                    logger(logging.DEBUG, 'Starting next iteration')
-
-            _, _, logger = heartbeat_handler.live()
-
-            must_sleep = True
-            try:
-                must_sleep = run_once_fnc(activity=activity, heartbeat_handler=heartbeat_handler)
-            except Exception:
-                logger(logging.CRITICAL, "Exception", exc_info=True)
-                if once:
-                    raise
-
-            if not once:
-                if must_sleep:
-                    activity_next_exe_time[activity] = time.time() + sleep_time
-                else:
-                    activity_next_exe_time[activity] = time.time() + 1
 
 
 @transactional_session

@@ -32,7 +32,7 @@ from rucio.core import config as config_core
 from rucio.core.monitor import record_counter, record_gauge
 from rucio.core.request import get_stats_by_activity_direction_state, release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo
 from rucio.core.rse import get_rse, set_rse_transfer_limits, delete_rse_transfer_limits, get_rse_transfer_limits
-from rucio.daemons.conveyor.common import run_conveyor_daemon
+from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestState
 
 graceful_stop = threading.Event()
@@ -47,7 +47,7 @@ def throttler(once=False, sleep_time=600, partition_wait_time=10):
 
     logger_prefix = executable = 'conveyor-throttler'
 
-    run_conveyor_daemon(
+    run_daemon(
         once=once,
         graceful_stop=graceful_stop,
         executable=executable,
