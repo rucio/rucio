@@ -569,6 +569,7 @@ def _reaper(rses, include_rses, exclude_rses, vos, chunk_size, once, greedy, sch
                     continue
                 except Exception:
                     logger(logging.CRITICAL, 'Exception', exc_info=True)
+                    continue
                 # Physical  deletion will take place there
                 try:
                     prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, logger=logger)
