@@ -241,6 +241,7 @@ def _rse_deletion_hostname(rse: RseData) -> "Optional[str]":
     """
     Retrieves the hostname of the default deletion protocol
     """
+    rse.ensure_loaded(load_info=True)
     for prot in rse.info['protocols']:
         if prot['domains']['wan']['delete'] == 1:
             return prot['hostname']
@@ -485,8 +486,6 @@ def _run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
     sorted_dict_rses = OrderedDict(sorted(dict_rses.items(), key=lambda x: x[1][0], reverse=True))
     logger(logging.DEBUG, 'List of RSEs to process ordered by needed space desc: %s', str(sorted_dict_rses))
 
-    RseData.bulk_load(dict_rses, load_info=True)
-
     list_rses_mult = []
 
     # Loop over the RSEs and fill list_rses_mult that contains all RSEs to process with different multiplicity
@@ -566,6 +565,7 @@ def _run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
             continue
         # Physical  deletion will take place there
         try:
+            rse.ensure_loaded(load_info=True)
             prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, logger=logger)
             for file_replicas in chunks(replicas, chunk_size):
                 # Refresh heartbeat
