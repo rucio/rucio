@@ -105,11 +105,12 @@ class TestReplicaRecoverer(unittest.TestCase):
             suspicious_pfns = replica['rses'][self.rse4suspicious_id]
             for i in range(3):
                 print("Declaring suspicious file replica: " + suspicious_pfns[0])
-                self.replica_client.declare_suspicious_file_replicas([suspicious_pfns[0], ], 'This is a good reason.')
+                # The reason must contain the word "checksum", so that the replica can be declared bad.
+                self.replica_client.declare_suspicious_file_replicas([suspicious_pfns[0], ], 'checksum')
                 sleep(1)
             if replica['name'] == path.basename(self.tmp_file2):
                 print("Declaring bad file replica: " + suspicious_pfns[0])
-                self.replica_client.declare_bad_file_replicas([suspicious_pfns[0], ], 'This is a good reason')
+                self.replica_client.declare_bad_file_replicas([suspicious_pfns[0], ], 'checksum')
             if replica['name'] == path.basename(self.tmp_file3):
                 print("Updating replica state as unavailable: " + replica['rses'][self.rse4recovery_id][0])
                 update_replica_state(self.rse4recovery_id, self.internal_scope, path.basename(self.tmp_file3), ReplicaState.UNAVAILABLE)
@@ -185,7 +186,7 @@ class TestReplicaRecoverer(unittest.TestCase):
             # ----------------------------------------------------------------------------------------------------------------------------------
 
             - Explaination: Suspicious replicas that are the last remaining copy (unavailable on MOCK_RECOVERY) are handeled differently depending
-                            by their metadata "datatype". RAW files have the poilcy to be ignored. testtype_declare_bad files are of a fictional
+                            on their metadata "datatype". RAW files have the poilcy to be ignored. testtype_declare_bad files are of a fictional
                             type that has the policy of being declared bad. testtype_nopolicy files are of a fictional type that doesn't have a
                             policy specified, meaning they should be ignored by default.
 
