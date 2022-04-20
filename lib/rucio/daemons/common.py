@@ -138,8 +138,13 @@ def run_daemon(once, graceful_stop, executable, logger_prefix, partition_wait_ti
             _, _, logger = heartbeat_handler.live()
 
             must_sleep = True
+            start_time = time.time()
             try:
                 must_sleep = run_once_fnc(activity=activity, heartbeat_handler=heartbeat_handler)
+                if must_sleep is None:
+                    # The run_once_fnc doesn't explicitly return whether we must sleep,
+                    # so sleep by default
+                    must_sleep = True
             except Exception:
                 logger(logging.CRITICAL, "Exception", exc_info=True)
                 if once:
@@ -147,6 +152,11 @@ def run_daemon(once, graceful_stop, executable, logger_prefix, partition_wait_ti
 
             if not once:
                 if must_sleep:
-                    activity_next_exe_time[activity] = time.time() + sleep_time
+                    time_diff = time.time() - start_time
+                    time_to_sleep = max(1, sleep_time - time_diff)
+                    activity_next_exe_time[activity] = time.time() + time_to_sleep
                 else:
                     activity_next_exe_time[activity] = time.time() + 1
+
+        if not once:
+            logger(logging.INFO, 'Graceful stop requested')
