@@ -26,10 +26,9 @@ import random
 import threading
 import time
 import traceback
-from collections import OrderedDict
 from configparser import NoOptionError, NoSectionError
 from datetime import datetime, timedelta
-from math import ceil
+from math import log2
 from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NO_VALUE
@@ -415,7 +414,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
         partition_wait_time=0 if once else 10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
-            _run_once,
+            run_once,
             rses=rses,
             include_rses=include_rses,
             exclude_rses=exclude_rses,
@@ -430,9 +429,11 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     )
 
 
-def _run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
-              delay_seconds, auto_exclude_threshold, auto_exclude_timeout,
-              heartbeat_handler, **_kwargs):
+def run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
+             delay_seconds, auto_exclude_threshold, auto_exclude_timeout,
+             heartbeat_handler, **_kwargs):
+
+    must_sleep = True
 
     _, total_workers, logger = heartbeat_handler.live()
     logger(logging.INFO, 'Reaper started')
@@ -449,20 +450,53 @@ def _run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
         duration_is_hit = max_evaluator_backlog_duration and backlog[1] and backlog[1] < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration)
         if count_is_hit and duration_is_hit:
             logger(logging.ERROR, 'Reaper: Judge evaluator backlog count and duration hit, stopping operation')
-            return
+            return must_sleep
         elif count_is_hit:
             logger(logging.ERROR, 'Reaper: Judge evaluator backlog count hit, stopping operation')
-            return
+            return must_sleep
         elif duration_is_hit:
             logger(logging.ERROR, 'Reaper: Judge evaluator backlog duration hit, stopping operation')
-            return
+            return must_sleep
 
     rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
     rses_to_process = [RseData(id_=rse['id'], name=rse['rse'], columns=rse) for rse in rses_to_process]
     if not rses_to_process:
         logger(logging.ERROR, 'Reaper: No RSEs found. Will sleep for 30 seconds')
-        return
-    
+        return must_sleep
+
+    # On big deletion campaigns, we desire to re-iterate fast on RSEs which have a lot of data to delete.
+    # The called function will return the RSEs which have more work remaining.
+    # Call the deletion routine again on this returned subset of RSEs.
+    # Scale the number of allowed iterations with the number of total reaper workers
+    iteration = 0
+    max_fast_reiterations = int(log2(total_workers))
+    while rses_to_process and iteration <= max_fast_reiterations:
+        rses_to_process = _run_once(
+            rses_to_process=rses_to_process,
+            chunk_size=chunk_size,
+            greedy=greedy,
+            scheme=scheme,
+            delay_seconds=delay_seconds,
+            auto_exclude_threshold=auto_exclude_threshold,
+            auto_exclude_timeout=auto_exclude_timeout,
+            heartbeat_handler=heartbeat_handler
+        )
+        if rses_to_process and iteration < max_fast_reiterations:
+            logger(logging.INFO, "Will perform fast-reiteration %d/%d with rses: %s", iteration + 1, max_fast_reiterations, [str(rse) for rse in rses_to_process])
+        iteration += 1
+
+    if rses_to_process:
+        # There is still more work to be performed.
+        # Inform the calling context that it must call reaper again (on the full list of rses)
+        must_sleep = False
+
+    return must_sleep
+
+
+def _run_once(rses_to_process, chunk_size, greedy, scheme,
+              delay_seconds, auto_exclude_threshold, auto_exclude_timeout,
+              heartbeat_handler, **_kwargs):
+
     dict_rses = {}
     _, total_workers, logger = heartbeat_handler.live()
     tot_needed_free_space = 0
@@ -482,26 +516,20 @@ def _run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
         else:
             logger(logging.DEBUG, 'Nothing to delete on %s', rse.name)
 
+    rses_with_params = [(rse, needed_free_space, only_delete_obsolete, enable_greedy)
+                        for rse, (needed_free_space, only_delete_obsolete, enable_greedy) in dict_rses.items()]
+
     # Ordering the RSEs based on the needed free space
-    sorted_dict_rses = OrderedDict(sorted(dict_rses.items(), key=lambda x: x[1][0], reverse=True))
-    logger(logging.DEBUG, 'List of RSEs to process ordered by needed space desc: %s', str(sorted_dict_rses))
+    sorted_rses = sorted(rses_with_params, key=lambda x: x[1], reverse=True)
+    log_msg_str = ', '.join(f'{rse}:{needed_free_space}:{only_delete_obsolete}:{enable_greedy}'
+                            for rse, needed_free_space, only_delete_obsolete, enable_greedy in sorted_rses)
+    logger(logging.DEBUG, 'List of RSEs to process ordered by needed space desc: %s', log_msg_str)
 
-    list_rses_mult = []
+    random.shuffle(rses_with_params)
 
-    # Loop over the RSEs and fill list_rses_mult that contains all RSEs to process with different multiplicity
-    for rse, (needed_free_space, only_delete_obsolete, enable_greedy) in dict_rses.items():
-        # The length of the deletion queue scales inversily with the number of workers
-        # The ceil increase the weight of the RSE with small amount of files to delete
-        if tot_needed_free_space:
-            max_workers = ceil(needed_free_space / tot_needed_free_space * 1000 / total_workers)
-        else:
-            max_workers = 1
-
-        list_rses_mult.extend([(rse, needed_free_space, only_delete_obsolete, enable_greedy) for _ in range(int(max_workers))])
-    random.shuffle(list_rses_mult)
-
+    work_remaining_by_rse = {}
     paused_rses = []
-    for rse, needed_free_space, only_delete_obsolete, enable_greedy in list_rses_mult:
+    for rse, needed_free_space, only_delete_obsolete, enable_greedy in rses_with_params:
         result = REGION.get('pause_deletion_%s' % rse.id, expiration_time=120)
         if result is not NO_VALUE:
             paused_rses.append(rse.name)
@@ -556,6 +584,9 @@ def _run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
             if not enable_greedy and len(replicas) < chunk_size:
                 logger(logging.DEBUG, 'Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', rse.name, chunk_size, len(replicas))
                 REGION.set('pause_deletion_%s' % rse.id, True)
+                work_remaining_by_rse[rse] = False
+            else:
+                work_remaining_by_rse[rse] = True
 
         except (DatabaseException, IntegrityError, DatabaseError) as error:
             logger(logging.ERROR, '%s', str(error))
@@ -598,6 +629,9 @@ def _run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
 
     if paused_rses:
         logger(logging.INFO, 'Deletion paused for a while for following RSEs: %s', ', '.join(paused_rses))
+
+    rses_with_more_work = [rse for rse, has_more_work in work_remaining_by_rse.items() if has_more_work]
+    return rses_with_more_work
 
 
 def stop(signum=None, frame=None):
