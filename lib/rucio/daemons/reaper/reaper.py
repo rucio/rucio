@@ -406,37 +406,45 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
 
     executable = 'reaper'
     with HeartbeatHandler(executable=executable, renewal_interval=sleep_time - 1) as heartbeat_handler:
-        return _reaper(
-            rses=rses,
-            include_rses=include_rses,
-            exclude_rses=exclude_rses,
-            vos=vos,
-            chunk_size=chunk_size,
-            once=once,
-            greedy=greedy,
-            scheme=scheme,
-            delay_seconds=delay_seconds,
-            sleep_time=sleep_time,
-            auto_exclude_threshold=auto_exclude_threshold,
-            auto_exclude_timeout=auto_exclude_timeout,
-            heartbeat_handler=heartbeat_handler
-        )
+
+        _, total_workers, logger = heartbeat_handler.live()
+        logger(logging.INFO, 'Reaper starting')
+
+        if not once:
+            GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
+
+        while not GRACEFUL_STOP.is_set():
+            start_time = time.time()
+            _run_once(
+                rses=rses,
+                include_rses=include_rses,
+                exclude_rses=exclude_rses,
+                vos=vos,
+                chunk_size=chunk_size,
+                greedy=greedy,
+                scheme=scheme,
+                delay_seconds=delay_seconds,
+                auto_exclude_threshold=auto_exclude_threshold,
+                auto_exclude_timeout=auto_exclude_timeout,
+                heartbeat_handler=heartbeat_handler
+            )
+
+            if once:
+                break
+
+            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP, logger=logger)
+
+        logger(logging.INFO, 'Graceful stop requested')
 
 
-def _reaper(rses, include_rses, exclude_rses, vos, chunk_size, once, greedy, scheme,
-            delay_seconds, sleep_time, auto_exclude_threshold, auto_exclude_timeout,
-            heartbeat_handler):
-
-    _, total_workers, logger = heartbeat_handler.live()
-    logger(logging.INFO, 'Reaper starting')
-
-    if not once:
-        GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
+def _run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
+              delay_seconds, auto_exclude_threshold, auto_exclude_timeout,
+              heartbeat_handler):
 
     _, total_workers, logger = heartbeat_handler.live()
     logger(logging.INFO, 'Reaper started')
 
-    while not GRACEFUL_STOP.is_set():
+    if True:  # TODO: de-indent in another commit
         # try to get auto exclude parameters from the config table. Otherwise use CLI parameters.
         auto_exclude_threshold = config_get('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold, raise_exception=False)
         auto_exclude_timeout = config_get('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout, raise_exception=False)
@@ -449,24 +457,19 @@ def _reaper(rses, include_rses, exclude_rses, vos, chunk_size, once, greedy, sch
             duration_is_hit = max_evaluator_backlog_duration and backlog[1] and backlog[1] < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration)
             if count_is_hit and duration_is_hit:
                 logger(logging.ERROR, 'Reaper: Judge evaluator backlog count and duration hit, stopping operation')
-                GRACEFUL_STOP.wait(30)
-                continue
+                return
             elif count_is_hit:
                 logger(logging.ERROR, 'Reaper: Judge evaluator backlog count hit, stopping operation')
-                GRACEFUL_STOP.wait(30)
-                continue
+                return
             elif duration_is_hit:
                 logger(logging.ERROR, 'Reaper: Judge evaluator backlog duration hit, stopping operation')
-                GRACEFUL_STOP.wait(30)
-                continue
+                return
 
         rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
         rses_to_process = [RseData(id_=rse['id'], name=rse['rse'], columns=rse) for rse in rses_to_process]
         if not rses_to_process:
             logger(logging.ERROR, 'Reaper: No RSEs found. Will sleep for 30 seconds')
-            GRACEFUL_STOP.wait(30)
-            continue
-        start_time = time.time()
+            return
         try:
             dict_rses = {}
             _, total_workers, logger = heartbeat_handler.live()
@@ -605,20 +608,10 @@ def _reaper(rses, include_rses, exclude_rses, vos, chunk_size, once, greedy, sch
             if paused_rses:
                 logger(logging.INFO, 'Deletion paused for a while for following RSEs: %s', ', '.join(paused_rses))
 
-            if once:
-                break
-
-            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP, logger=logger)
-
         except DatabaseException as error:
             logger(logging.WARNING, 'Reaper:  %s', str(error))
         except Exception:
             logger(logging.CRITICAL, 'Exception', exc_info=True)
-        finally:
-            if once:
-                break
-
-    logger(logging.INFO, 'Graceful stop requested')
 
 
 def stop(signum=None, frame=None):
