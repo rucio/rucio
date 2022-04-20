@@ -33,7 +33,6 @@ from math import ceil
 from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NO_VALUE
-from prometheus_client import Gauge
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
@@ -67,7 +66,8 @@ REGION = make_region_memcached(expiration_time=600)
 
 DELETION_COUNTER = monitor.MultiCounter(prom='rucio_daemons_reaper_deletion_done', statsd='reaper.deletion.done',
                                         documentation='Number of deleted replicas')
-EXCLUDED_RSE_GAUGE = Gauge('rucio_daemons_reaper_excluded_rses', 'Temporarly excluded RSEs', labelnames=('rse',))
+EXCLUDED_RSE_GAUGE = monitor.MultiGauge('daemons.reaper.excluded_rses',
+                                        documentation='Temporarly excluded RSEs', labelnames=('rse',))
 
 
 def get_rses_to_process(rses, include_rses, exclude_rses, vos):
@@ -201,8 +201,7 @@ def delete_from_storage(replicas, prot, rse_info, is_staging, auto_exclude_thres
                 if noaccess_attempts >= auto_exclude_threshold:
                     logger(logging.INFO, 'Too many (%d) NOACCESS attempts for %s. RSE will be temporarly excluded.', noaccess_attempts, rse_name)
                     REGION.set('temporary_exclude_%s' % rse_id, True)
-                    labels = {'rse': rse_name}
-                    EXCLUDED_RSE_GAUGE.labels(**labels).set(1)
+                    EXCLUDED_RSE_GAUGE.labels(rse=rse_name).set(1)
                     break
 
             except Exception as error:
@@ -232,8 +231,7 @@ def delete_from_storage(replicas, prot, rse_info, is_staging, auto_exclude_thres
             add_message('deletion-failed', payload)
         logger(logging.INFO, 'Cannot connect to %s. RSE will be temporarly excluded.', rse_name)
         REGION.set('temporary_exclude_%s' % rse_id, True)
-        labels = {'rse': rse_name}
-        EXCLUDED_RSE_GAUGE.labels(**labels).set(1)
+        EXCLUDED_RSE_GAUGE.labels(rse=rse_name).set(1)
     finally:
         prot.close()
     return deleted_files
@@ -510,14 +508,14 @@ def _run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
             paused_rses.append(rse.name)
             logger(logging.DEBUG, 'Not enough replicas to delete on %s during the previous cycle. Deletion paused for a while', rse.name)
             continue
+
         result = REGION.get('temporary_exclude_%s' % rse.id, expiration_time=auto_exclude_timeout)
         if result is not NO_VALUE:
             logger(logging.WARNING, 'Too many failed attempts for %s in last cycle. RSE is temporarly excluded.', rse.name)
-            labels = {'rse': rse.name}
-            EXCLUDED_RSE_GAUGE.labels(**labels).set(1)
+            EXCLUDED_RSE_GAUGE.labels(rse=rse.name).set(1)
             continue
-        labels = {'rse': rse.name}
-        EXCLUDED_RSE_GAUGE.labels(**labels).set(0)
+        EXCLUDED_RSE_GAUGE.labels(rse=rse.name).set(0)
+
         percent = 0
         if tot_needed_free_space:
             percent = needed_free_space / tot_needed_free_space * 100
