@@ -3920,6 +3920,42 @@ def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logg
     return result
 
 
+@read_session
+def get_suspicious_reason(rse_id, scope, name, nattempts=0, logger=logging.log, session=None):
+    """
+    Returns the error message(s) which lead to the replica(s) being declared suspicious.
+
+    :param rse_id: ID of RSE.
+    :param scope: Scope of the replica DID.
+    :param name: Name of the replica DID.
+    :param session: The database session in use. Default value = None.
+    """
+    # Alias for bad replicas
+    bad_replicas_alias = aliased(models.BadReplicas, name='bad_replicas_alias')
+
+    # query base
+    query = session.query(bad_replicas_alias.scope, bad_replicas_alias.name, bad_replicas_alias.reason, bad_replicas_alias.rse_id)\
+                   .filter(bad_replicas_alias.rse_id == rse_id,
+                           bad_replicas_alias.scope == scope,
+                           bad_replicas_alias.name == name)
+    count = query.count()
+
+    query_result = query.group_by(bad_replicas_alias.rse_id, bad_replicas_alias.scope, bad_replicas_alias.name, bad_replicas_alias.reason).having(func.count() > nattempts).all()
+
+    result = []
+    rses = {}
+    for scope_, name_, reason, rse_id_ in query_result:
+        if rse_id_ not in rses:
+            rse = get_rse_name(rse_id=rse_id_, session=session)
+            rses[rse_id_] = rse
+        result.append({'scope': scope, 'name': name, 'rse': rses[rse_id_], 'rse_id': rse_id_, 'reason': reason, 'count': count})
+
+    if len(result) > 1:
+        logger(logging.WARNING, "Multiple reasons have been found. Please investigate.")
+
+    return result
+
+
 @transactional_session
 def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
     """
