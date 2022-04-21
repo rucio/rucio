@@ -181,7 +181,10 @@ class Default(protocol.RSEProtocol):
         """
         self.logger(logging.DEBUG, 'connecting to storage')
 
-        gfal2.set_verbose(gfal2.verbose_level.verbose)
+        if 'RUCIO_CLIENT_MODE' in os.environ:
+            gfal2.set_verbose(gfal2.verbose_level.verbose)
+        else:
+            gfal2.set_verbose(gfal2.verbose_level.warning)
 
         self.__ctx = gfal2.creat_context()  # pylint: disable=no-member
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
