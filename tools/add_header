@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright CERN since 2018
+# Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,6 @@ the new header have to be provided too.
 import argparse
 import logging
 import os
-import re
 import sys
 from abc import ABC, abstractmethod
 from enum import Enum, auto
@@ -47,21 +46,6 @@ class Arguments:
     files: Optional[List[str]]
     dry_run: bool
     disable_progress_bar: bool
-
-
-def get_git_file_creation_year(file_path: str) -> Optional[str]:
-    """
-    Returns the year the file was created, uses git as version tracker to
-    determine the year.
-
-    :param file_path: The path to the file.
-    :returns: The year the file was created. None if no year is found.
-    """
-    command = f"git log --follow --format=%as {file_path} | tail -1"
-    command_out = os.popen(command).read()
-
-    parsed = re.search(r"(\d\d\d\d)-\d\d-\d\d", command_out)
-    return str(parsed.group(1)) if parsed else None
 
 
 class ResultStates(Enum):
@@ -247,17 +231,12 @@ class PythonHeaderTemplate(HeaderTemplate):
         super().__init__(file_path)
 
     def get_header(self) -> str:
-        file_creation_year = get_git_file_creation_year(self.file_path)
-
         shebag_string = PythonHeaderTemplate._get_file_shebag(self.file_path) or ""
-        copyright_string = "# Copyright CERN" \
-            + (f" since {file_creation_year}" if file_creation_year else "") \
-            + "\n"
 
         return shebag_string \
-            + "# -*- coding: utf-8 -*-\n" \
-            + copyright_string \
-            + """#
+            + """# -*- coding: utf-8 -*-
+# Copyright European Organization for Nuclear Research (CERN) since 2012
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
