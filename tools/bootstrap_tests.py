@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import os.path
+import os
 import sys
 import time
 
@@ -25,11 +26,40 @@ os.chdir(base_path)
 from rucio.api.vo import add_vo  # noqa: E402
 from rucio.client import Client  # noqa: E402
 from rucio.common.config import config_get, config_get_bool  # noqa: E402
-from rucio.common.exception import Duplicate, RucioException  # noqa: E402
+from rucio.common.exception import Duplicate, RucioException, DuplicateContent  # noqa: E402
 from rucio.core.account import add_account_attribute  # noqa: E402
 from rucio.core.vo import map_vo  # noqa: E402
 from rucio.common.types import InternalAccount  # noqa: E402
 from rucio.tests.common_server import reset_config_table  # noqa: E402
+from rucio.common.utils import extract_scope
+
+
+def belleii_bootstrap(client):
+    scopes = ['raw', 'hraw', 'other', 'mc_tmp', 'mc', 'test', 'user', 'data', 'data_tmp', 'group']
+    for scope in scopes:
+        try:
+            client.add_scope(scope=scope, account='root')
+        except Duplicate:
+            pass
+        except Exception as err:
+            print(err)
+
+    lpns = ['/belle', '/belle/mc', '/belle/Data', '/belle/user', '/belle/raw']
+    for lpn in lpns:
+        scope, name = extract_scope(lpn)
+        try:
+            client.add_did(scope=scope, name=name, did_type='CONTAINER')
+        except Duplicate:
+            pass
+        except Exception as err:
+            print(err)
+        if name != '/belle':
+            try:
+                client.attach_dids(scope='other', name='/belle', dids=[{'scope': str(scope), 'name': str(name)}])
+            except DuplicateContent:
+                pass
+            except Exception as err:
+                print(err)
 
 
 if __name__ == '__main__':
@@ -45,7 +75,7 @@ if __name__ == '__main__':
         vo = {}
 
     try:
-        c = Client()
+        client = Client()
     except RucioException as e:
         error_msg = str(e)
         print('Creating client failed:', error_msg)
@@ -59,7 +89,7 @@ if __name__ == '__main__':
         raise
 
     try:
-        c.add_account('jdoe', 'SERVICE', 'jdoe@email.com')
+        client.add_account('jdoe', 'SERVICE', 'jdoe@email.com')
     except Duplicate:
         print('Account jdoe already added' % locals())
 
@@ -69,18 +99,18 @@ if __name__ == '__main__':
         print(error)
 
     try:
-        c.add_account('panda', 'SERVICE', 'panda@email.com')
+        client.add_account('panda', 'SERVICE', 'panda@email.com')
         add_account_attribute(account=InternalAccount('panda', **vo), key='admin', value=True)
     except Duplicate:
         print('Account panda already added' % locals())
 
     try:
-        c.add_scope('jdoe', 'mock')
+        client.add_scope('jdoe', 'mock')
     except Duplicate:
         print('Scope mock already added' % locals())
 
     try:
-        c.add_scope('root', 'archive')
+        client.add_scope('root', 'archive')
     except Duplicate:
         print('Scope archive already added' % locals())
 
@@ -92,8 +122,11 @@ if __name__ == '__main__':
                                 ('/CN=docker client', 'x509', 'dummy@cern.ch'),
                                 ('mlassnig@CERN.CH', 'GSS', 'mario.lassnig@cern.ch')]
 
-    for i in additional_test_accounts:
+    for account in additional_test_accounts:
         try:
-            c.add_identity(account='root', identity=i[0], authtype=i[1], email=i[2])
+            client.add_identity(account='root', identity=account[0], authtype=account[1], email=account[2])
         except Exception:
-            print('Already added: ', i)
+            print('Already added: ', account)
+
+    if os.getenv('POLICY') == 'belleii':
+        belleii_bootstrap(client)

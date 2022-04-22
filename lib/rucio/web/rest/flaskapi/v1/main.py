@@ -28,6 +28,7 @@ DEFAULT_ENDPOINTS = [
     'config',
     'credentials',
     'dids',
+    'dirac',
     'export',
     'heartbeats',
     'identities',

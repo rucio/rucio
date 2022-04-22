@@ -25,7 +25,7 @@ import sys  # noqa: E402
 import traceback  # noqa: E402
 
 from rucio.client import Client  # noqa: E402
-from rucio.common.exception import Duplicate  # noqa: E402
+from rucio.common.exception import Duplicate, InvalidObject  # noqa: E402
 
 UNKNOWN = 3
 CRITICAL = 2
@@ -60,6 +60,9 @@ def main(argv):
                       continent=continent, time_zone=time_zone, ISP=ISP)
         except Duplicate:
             print('%(rse)s already added' % locals())
+        except InvalidObject as err:
+            print(err)
+            continue
         except:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
