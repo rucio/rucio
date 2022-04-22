@@ -184,6 +184,73 @@ class HeaderTemplate(ABC):
         return self.get_header() in "".join(file_content)
 
 
+class BashHeaderTemplate(HeaderTemplate):
+    @staticmethod
+    def _get_file_shebag(file_path: str) -> Optional[str]:
+        """
+        Returns the bash file shebag.
+
+        :param file_path: The path to the file.
+        :returns: The python file shebag if present. This includes a new line character.
+        :throws UnicodeDecodeError: If the file could not be read.
+        """
+        with open(file_path, "r") as file_obj:
+            file_content = file_obj.readlines()
+
+        if len(file_content) == 0:
+            return None
+        if "#!/bin/bash" in file_content[0]:
+            return file_content[0]
+        return None
+
+    @staticmethod
+    def is_file_suitable(file_path: str) -> bool:
+        if PythonHeaderTemplate._should_file_be_ignored(file_path):
+            return False
+
+        try:
+            is_file_using_shebag = BashHeaderTemplate._get_file_shebag(file_path) is not None
+        except UnicodeDecodeError:
+            # File could not be opened, this makes it automatically invalid
+            return False
+
+        return os.path.splitext(file_path)[1] == ".sh" or is_file_using_shebag
+
+    def __init__(self, file_path: str):
+        super().__init__(file_path)
+
+    def get_header(self) -> str:
+        shebag_string = BashHeaderTemplate._get_file_shebag(self.file_path) or ""
+
+        return shebag_string \
+            + """# -*- coding: utf-8 -*-
+# Copyright European Organization for Nuclear Research (CERN) since 2012
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""
+
+    def current_header_number_of_lines(self) -> int:
+        with open(self.file_path, "r") as file_obj:
+            file_content = file_obj.readlines()
+
+        ret = 0
+        for line in file_content:
+            if not line.startswith("#"):
+                break
+            ret += 1
+        return ret
+
+
 class PythonHeaderTemplate(HeaderTemplate):
     @staticmethod
     def _should_file_be_ignored(file_path: str) -> bool:
