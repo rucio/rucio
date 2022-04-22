@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright 2012-2021 CERN
+# -*- coding: utf-8 -*-
+# Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,12 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 if [ "$#" -ne 1 ]; then
     echo "At least one of these arguments has to be specified:"

@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright 2018-2020 CERN
+# -*- coding: utf-8 -*-
+# Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 if [ -z "$SYNTAX_FLAKE_ARGS" ]; then
     SYNTAX_FLAKE_ARGS="--exclude=\"*.cfg\" bin/* lib/ tools/*.py"

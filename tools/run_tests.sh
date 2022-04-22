@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright 2012-2021 CERN
+# -*- coding: utf-8 -*-
+# Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
-# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014
-# - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
-# - Tobias Wegner <twegner@cern.ch>, 2017
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 function usage {
   echo "Usage: $0 [OPTION]..."
