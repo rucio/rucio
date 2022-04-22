@@ -132,7 +132,7 @@ def get_rses_to_process(rses, include_rses, exclude_rses, vos):
     return rses
 
 
-def delete_from_storage(replicas, prot, rse_info, is_staging, auto_exclude_threshold, logger=logging.log):
+def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info, is_staging, auto_exclude_threshold, logger=logging.log):
     deleted_files = []
     rse_name = rse_info['rse']
     rse_id = rse_info['id']
@@ -142,6 +142,7 @@ def delete_from_storage(replicas, prot, rse_info, is_staging, auto_exclude_thres
         prot.connect()
         for replica in replicas:
             # Physical deletion
+            _, _, logger = heartbeat_handler.live(payload=hb_payload)
             try:
                 deletion_dict = {'scope': replica['scope'].external,
                                  'name': replica['name'],
@@ -615,7 +616,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
                         logger(logging.CRITICAL, 'Exception', exc_info=True)
 
                 is_staging = rse.columns['staging_area']
-                deleted_files = delete_from_storage(file_replicas, prot, rse.info, is_staging, auto_exclude_threshold, logger=logger)
+                deleted_files = delete_from_storage(heartbeat_handler, hb_payload, file_replicas, prot, rse.info, is_staging, auto_exclude_threshold, logger=logger)
                 logger(logging.INFO, '%i files processed in %s seconds', len(file_replicas), time.time() - del_start_time)
 
                 # Then finally delete the replicas
