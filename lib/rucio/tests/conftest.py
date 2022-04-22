@@ -83,6 +83,12 @@ def scope_client():
     return ScopeClient()
 
 
+def dirac_client():
+    from rucio.client.diracclient import DiracClient
+
+    return DiracClient()
+
+
 @pytest.fixture
 def rest_client():
     from rucio.tests.common import print_response
