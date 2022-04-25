@@ -86,6 +86,18 @@ def test_download_without_base_dir(rse_factory, did_factory, download_client):
         shutil.rmtree(scope)
 
 
+def test_download_exception_return_information(did_factory, rse_factory, download_client):
+    rse, _ = rse_factory.make_posix_rse()
+    did = did_factory.upload_test_file(rse)
+    did_str = '%s:%s' % (did['scope'], did['name'])
+
+    with patch('rucio.client.downloadclient.DownloadClient._download_item', side_effect=Exception()):
+        res = download_client.download_dids([{"did": did_str}], deactivate_file_download_exceptions=True)
+
+    assert len(res) == 1
+    assert res[0]["clientState"] == "FAILED"
+
+
 @pytest.mark.dirty(reason='creates a new scope which is not cleaned up')
 def test_overlapping_did_names(rse_factory, did_factory, download_client, root_account, mock_scope, vo):
     """
