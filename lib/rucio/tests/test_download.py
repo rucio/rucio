@@ -31,6 +31,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core import did as did_core
 from rucio.core import scope as scope_core
 from rucio.core.rse import add_protocol
+from rucio.client.downloadclient import FileDownloadState
 from rucio.rse import rsemanager as rsemgr
 from rucio.rse.protocols.posix import Default as PosixProtocol
 from rucio.tests.common import skip_rse_tests_with_accounts, scope_name_generator, file_generator
@@ -727,3 +728,17 @@ def test_download_exclude_tape(rse_factory, did_factory, download_client):
          TemporaryDirectory() as tmp_dir, \
          pytest.raises(NoFilesDownloaded):
         download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir}])
+
+
+def test_download_states():
+    """ Tests the available download states. """
+    FileDownloadState.PROCESSING
+    FileDownloadState.DOWNLOAD_ATTEMPT
+    FileDownloadState.DONE
+    FileDownloadState.ALREADY_DONE
+    FileDownloadState.FOUND_IN_PCACHE
+    FileDownloadState.FILE_NOT_FOUND
+    FileDownloadState.FAIL_VALIDATE
+    FileDownloadState.FAILED
+
+    assert len(FileDownloadState) == 8
