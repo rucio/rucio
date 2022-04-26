@@ -50,8 +50,7 @@ class TestModuleImport():
             configdirs.append('%s/lib/rucio/client/' % os.environ['RUCIO_HOME'])
         if 'VIRTUAL_ENV' in os.environ:
             configdirs.append('%s/lib/rucio/client/' % os.environ['VIRTUAL_ENV'])
-        path = (os.path.join(confdir, 'lib') for confdir in configdirs)
-        path = next(iter(filter(os.path.exists, path)), None)
+        path = next(iter(filter(os.path.exists, configdirs)), None)
 
         result = module_find(path)
         error = False
