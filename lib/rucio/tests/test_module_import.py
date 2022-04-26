@@ -34,7 +34,7 @@ from modulefinder import ModuleFinder
 import importlib
 
 
-class TestModuleImport():
+class TestModuleImport:
     def test_import(self):
         """ """
         cmd = 'rucio --version'
@@ -52,6 +52,9 @@ class TestModuleImport():
             configdirs.append('%s/lib/rucio/client/' % os.environ['VIRTUAL_ENV'])
         path = next(iter(filter(os.path.exists, configdirs)), None)
 
+        if path is None:
+            print("ERROR: unable to get path")
+            return
         result = module_find(path)
         error = False
         for import_name in result.modules:
@@ -91,6 +94,26 @@ class TestModuleImport():
         if _config and config_template and not compare_config(_config, config_template):
             print("\nWARN: config could be wrong\n")
 
+    def test_load_conf_values(self):
+        configdirs = ["/opt/rucio/"]
+        if 'RUCIO_HOME' in os.environ:
+            configdirs.append('%s/' % os.environ['RUCIO_HOME'])
+        if 'VIRTUAL_ENV' in os.environ:
+            configdirs.append('%s/' % os.environ['VIRTUAL_ENV'])
+        path = next(iter(filter(os.path.exists, configdirs)), None)
+        paths = get_list_of_python_files(path)
+
+
+
+        for _file in paths:
+            import mmap
+            try:
+                with open(_file, 'rb', 0) as file, \
+                        mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as s:
+                    if s.find(b'config_get(') != -1:
+                        print('\nWARN: configuration could be imported in %s on line\n' % file)
+            except Exception:
+                pass
 
 def module_find(files):
     mf = ModuleFinder()
@@ -99,16 +122,16 @@ def module_find(files):
     return mf
 
 
-def get_list_of_python_files(dirName):
-    listOfFile = os.listdir(dirName)
-    allFiles = list()
-    for entry in listOfFile:
-        fullPath = os.path.join(dirName, entry)
-        if os.path.isdir(fullPath):
-            allFiles = allFiles + get_list_of_python_files(fullPath)
-        elif fullPath.endswith(".py"):
-            allFiles.append(fullPath)
-    return allFiles
+def get_list_of_python_files(dirname):
+    list_of_file = os.listdir(dirname)
+    all_files = list()
+    for entry in list_of_file:
+        full_path = os.path.join(dirname, entry)
+        if os.path.isdir(full_path):
+            all_files = all_files + get_list_of_python_files(full_path)
+        elif full_path.endswith(".py"):
+            all_files.append(full_path)
+    return all_files
 
 
 def compare_credentials(creds, creds_template):
@@ -130,7 +153,7 @@ def compare_config(config, config_template):
     if sorted(config.sections()) != sorted(config_template.parser.sections()):
         return False
     for section in config.sections():
-        if sorted([i[0] for i in config.items(section)]) != sorted([i[0] for i in config_template.parser.items(section)]):
+        if sorted([i[0] for i in config.items(section)]) != sorted(
+                [i[0] for i in config_template.parser.items(section)]):
             return False
     return True
-
