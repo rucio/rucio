@@ -16,6 +16,7 @@
 from __future__ import division
 
 import copy
+import enum
 import itertools
 import logging
 import os
@@ -40,6 +41,21 @@ from rucio.common.utils import adler32, detect_client_location, generate_uuid, p
 from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_ALGO_DICT, PREFERRED_CHECKSUM
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
+
+
+@enum.unique
+class FileDownloadState(str, enum.Enum):
+    """
+    The state a file can be in before/while/after downloading.
+    """
+    PROCESSING = "PROCESSING"
+    DOWNLOAD_ATTEMPT = "DOWNLOAD_ATTEMPT"
+    DONE = "DONE"
+    ALREADY_DONE = "ALREADY_DONE"
+    FOUND_IN_PCACHE = "FOUND_IN_PCACHE"
+    FILE_NOT_FOUND = "FILE_NOT_FOUND"
+    FAIL_VALIDATE = "FAIL_VALIDATE"
+    FAILED = "FAILED"
 
 
 class BaseExtractionTool:
@@ -486,7 +502,7 @@ class DownloadClient:
         trace.setdefault('datasetScope', item.get('dataset_scope', ''))
         trace.setdefault('dataset', item.get('dataset_name', ''))
         trace.setdefault('filesize', item.get('bytes'))
-        trace.setdefault('clientState', 'PROCESSING')
+        trace.setdefault('clientState', FileDownloadState.PROCESSING)
         trace.setdefault('stateReason', 'UNKNOWN')
 
         dest_file_paths = item['dest_file_paths']
@@ -515,10 +531,10 @@ class DownloadClient:
                     if not os.path.isfile(missing_file_path):
                         logger(logging.DEBUG, "copying '%s' to '%s'" % (dest_file_path, missing_file_path))
                         shutil.copy2(dest_file_path, missing_file_path)
-                item['clientState'] = 'ALREADY_DONE'
+                item['clientState'] = FileDownloadState.ALREADY_DONE
                 trace['transferStart'] = time.time()
                 trace['transferEnd'] = time.time()
-                trace['clientState'] = 'ALREADY_DONE'
+                trace['clientState'] = FileDownloadState.ALREADY_DONE
                 send_trace(trace, self.client.host, self.client.user_agent)
                 return item
 
@@ -526,8 +542,8 @@ class DownloadClient:
         sources = item.get('sources')
         if not sources or not len(sources):
             logger(logging.WARNING, '%sNo available source found for file: %s' % (log_prefix, did_str))
-            item['clientState'] = 'FILE_NOT_FOUND'
-            trace['clientState'] = 'FILE_NOT_FOUND'
+            item['clientState'] = FileDownloadState.FILE_NOT_FOUND
+            trace['clientState'] = FileDownloadState.FILE_NOT_FOUND
             trace['stateReason'] = 'No available sources'
             self._send_trace(trace)
             return item
@@ -560,10 +576,10 @@ class DownloadClient:
             # if file found in pcache, send trace and return
             if pcache_state == 0 and hardlink_state == 1:
                 logger(logging.INFO, 'File found in pcache.')
-                item['clientState'] = 'FOUND_IN_PCACHE'
+                item['clientState'] = FileDownloadState.FOUND_IN_PCACHE
                 trace['transferStart'] = time.time()
                 trace['transferEnd'] = time.time()
-                trace['clientState'] = 'FOUND_IN_PCACHE'
+                trace['clientState'] = FileDownloadState.FOUND_IN_PCACHE
                 self._send_trace(trace)
                 return item
             else:
@@ -588,7 +604,7 @@ class DownloadClient:
                 continue
 
             trace['remoteSite'] = rse_name
-            trace['clientState'] = 'DOWNLOAD_ATTEMPT'
+            trace['clientState'] = FileDownloadState.DOWNLOAD_ATTEMPT
             trace['protocol'] = scheme
 
             transfer_timeout = self._compute_actual_transfer_timeout(item)
@@ -630,7 +646,7 @@ class DownloadClient:
                     success = True
                 except Exception as error:
                     logger(logging.DEBUG, error)
-                    trace['clientState'] = str(type(error).__name__)
+                    trace['clientState'] = FileDownloadState.FAILED
                     trace['stateReason'] = str(error)
 
                 end_time = time.time()
@@ -642,7 +658,7 @@ class DownloadClient:
                         os.unlink(temp_file_path)
                         logger(logging.WARNING, '%sChecksum validation failed for file: %s' % (log_prefix, did_str))
                         logger(logging.DEBUG, 'Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
-                        trace['clientState'] = 'FAIL_VALIDATE'
+                        trace['clientState'] = FileDownloadState.FAIL_VALIDATE
                         trace['stateReason'] = 'Checksum validation failed: Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum)
                 if not success:
                     logger(logging.WARNING, '%sDownload attempt failed. Try %s/%s' % (log_prefix, attempt, retries))
@@ -652,7 +668,7 @@ class DownloadClient:
 
         if not success:
             logger(logging.ERROR, '%sFailed to download file %s' % (log_prefix, did_str))
-            item['clientState'] = 'FAILED'
+            item['clientState'] = FileDownloadState.FAILED
             return item
 
         dest_file_path_iter = iter(dest_file_paths)
@@ -675,9 +691,9 @@ class DownloadClient:
 
         trace['transferStart'] = start_time
         trace['transferEnd'] = end_time
-        trace['clientState'] = 'DONE'
+        trace['clientState'] = FileDownloadState.DONE
         trace['stateReason'] = 'OK'
-        item['clientState'] = 'DONE'
+        item['clientState'] = FileDownloadState.DONE
         self._send_trace(trace)
 
         duration = round(end_time - start_time, 2)
@@ -904,13 +920,13 @@ class DownloadClient:
                 dest_file_path = next(iter(item['dest_file_paths']))
                 if os.path.isfile(dest_file_path):
                     logger(logging.INFO, 'File exists already locally: %s' % file_did_str)
-                    item['clientState'] = 'ALREADY_DONE'
-                    trace['clientState'] = 'ALREADY_DONE'
+                    item['clientState'] = FileDownloadState.ALREADY_DONE
+                    trace['clientState'] = FileDownloadState.ALREADY_DONE
                     self._send_trace(trace)
                 elif len(pfns) == 0:
                     logger(logging.WARNING, 'No available source found for file: %s' % file_did_str)
-                    item['clientState'] = 'FILE_NOT_FOUND'
-                    trace['clientState'] = 'FILE_NOT_FOUND'
+                    item['clientState'] = FileDownloadState.FILE_NOT_FOUND
+                    trace['clientState'] = FileDownloadState.FILE_NOT_FOUND
                     self._send_trace(trace)
                 else:
                     item['trace'] = trace
@@ -967,8 +983,8 @@ class DownloadClient:
                     rucio_checksum = 0 if skip_check else item.get('adler32')
                     local_checksum = 0 if skip_check else adler32(temp_file_path)
                     if str(rucio_checksum).lstrip('0') == str(local_checksum).lstrip('0'):
-                        item['clientState'] = 'DONE'
-                        trace['clientState'] = 'DONE'
+                        item['clientState'] = FileDownloadState.DONE
+                        trace['clientState'] = FileDownloadState.DONE
                         # remove .part ending
                         os.rename(temp_file_path, dest_file_path)
 
@@ -986,13 +1002,13 @@ class DownloadClient:
                         os.unlink(temp_file_path)
                         logger(logging.WARNING, 'Checksum validation failed for file: %s' % file_did_str)
                         logger(logging.DEBUG, 'Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
-                        item['clientState'] = 'FAIL_VALIDATE'
-                        trace['clientState'] = 'FAIL_VALIDATE'
+                        item['clientState'] = FileDownloadState.FAIL_VALIDATE
+                        trace['clientState'] = FileDownloadState.FAIL_VALIDATE
                 else:
                     logger(logging.ERROR, 'Failed to download file: %s' % file_did_str)
                     logger(logging.DEBUG, 'Aria2c status: %s' % status)
-                    item['clientState'] = 'FAILED'
-                    trace['clientState'] = 'DOWNLOAD_ATTEMPT'
+                    item['clientState'] = FileDownloadState.FAILED
+                    trace['clientState'] = FileDownloadState.DOWNLOAD_ATTEMPT
 
                 self._send_trace(trace)
                 del item['trace']
@@ -1551,12 +1567,11 @@ class DownloadClient:
         :raises NoFilesDownloaded:
         :raises NotAllFilesDownloaded:
         """
-        success_states = ['ALREADY_DONE', 'DONE', 'FOUND_IN_PCACHE']
-        # failure_states = ['FILE_NOT_FOUND', 'FAIL_VALIDATE', 'FAILED']
+        success_states = [FileDownloadState.ALREADY_DONE, FileDownloadState.DONE, FileDownloadState.FOUND_IN_PCACHE]
         num_successful = 0
         num_failed = 0
         for item in output_items:
-            clientState = item.get('clientState', 'FAILED')
+            clientState = item.get('clientState', FileDownloadState.FAILED)
             if clientState in success_states:
                 num_successful += 1
             else:
