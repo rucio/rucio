@@ -22,9 +22,11 @@ from rucio.core.rse import get_rse_id
 from rucio.core import dirac
 from rucio.common.exception import AccessDenied
 from rucio.common.utils import extract_scope
+from rucio.db.sqla.session import transactional_session
 
 
-def add_files(lfns, issuer, ignore_availability, vo='def'):
+@transactional_session
+def add_files(lfns, issuer, ignore_availability, vo='def', session=None):
     """
     Bulk add files :
     - Create the file and replica.
@@ -35,9 +37,10 @@ def add_files(lfns, issuer, ignore_availability, vo='def'):
     :param issuer: The issuer account.
     :param ignore_availability: A boolean to ignore blocked sites.
     :param vo: The VO to act on.
+    :param session: The database session in use.
 
     """
-    scopes = list_scopes(vo=vo)
+    scopes = list_scopes(vo=vo, session=session)
     dids = []
     rses = {}
     for lfn in lfns:
@@ -45,7 +48,7 @@ def add_files(lfns, issuer, ignore_availability, vo='def'):
         dids.append({'scope': scope, 'name': name})
         rse = lfn['rse']
         if rse not in rses:
-            rse_id = get_rse_id(rse=rse, vo=vo)
+            rse_id = get_rse_id(rse=rse, vo=vo, session=session)
             rses[rse] = rse_id
         lfn['rse_id'] = rses[rse]
 
@@ -53,14 +56,14 @@ def add_files(lfns, issuer, ignore_availability, vo='def'):
     for rse in rses:
         rse_id = rses[rse]
         kwargs = {'rse': rse, 'rse_id': rse_id}
-        if not has_permission(issuer=issuer, action='add_replicas', kwargs=kwargs, vo=vo):
+        if not has_permission(issuer=issuer, action='add_replicas', kwargs=kwargs, vo=vo, session=session):
             raise AccessDenied('Account %s can not add file replicas on %s for VO %s' % (issuer, rse, vo))
-        if not has_permission(issuer=issuer, action='skip_availability_check', kwargs=kwargs, vo=vo):
+        if not has_permission(issuer=issuer, action='skip_availability_check', kwargs=kwargs, vo=vo, session=session):
             ignore_availability = False
 
     # Check if the issuer can add the files
     kwargs = {'issuer': issuer, 'dids': dids}
-    if not has_permission(issuer=issuer, action='add_dids', kwargs=kwargs, vo=vo):
+    if not has_permission(issuer=issuer, action='add_dids', kwargs=kwargs, vo=vo, session=session):
         raise AccessDenied('Account %s can not bulk add data identifier for VO %s' % (issuer, vo))
 
-    dirac.add_files(lfns=lfns, account=issuer, ignore_availability=ignore_availability, session=None, vo=vo)
+    dirac.add_files(lfns=lfns, account=issuer, ignore_availability=ignore_availability, vo=vo, session=session)

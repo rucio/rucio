@@ -18,21 +18,24 @@ from rucio.common import exception
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount
 from rucio.core import importer
+from rucio.db.sqla.session import transactional_session
 
 
-def import_data(data, issuer, vo='def'):
+@transactional_session
+def import_data(data, issuer, vo='def', session=None):
     """
     Import data to add/update/delete records in Rucio.
 
     :param data: data to be imported.
     :param issuer: the issuer.
     :param vo: the VO of the issuer.
+    :param session: The database session in use.
     """
     kwargs = {'issuer': issuer}
     validate_schema(name='import', obj=data, vo=vo)
-    if not permission.has_permission(issuer=issuer, vo=vo, action='import', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='import', kwargs=kwargs, session=session):
         raise exception.AccessDenied('Account %s can not import data' % issuer)
 
     for account in data.get('accounts', []):
         account['account'] = InternalAccount(account['account'], vo=vo)
-    return importer.import_data(data, vo=vo)
+    return importer.import_data(data, vo=vo, session=session)

@@ -39,7 +39,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
     :param session: The database session in use.
     """
     replicas = replica.get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date, filter_={'vo': vo}, session=session)
-    return [api_update_return_dict(r) for r in replicas]
+    return [api_update_return_dict(r, session=session) for r in replicas]
 
 
 @read_session
@@ -60,7 +60,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
 
     replicas = replica.list_bad_replicas_status(state=state, rse_id=rse_id, younger_than=younger_than,
                                                 older_than=older_than, limit=limit, list_pfns=list_pfns, vo=vo, session=session)
-    return [api_update_return_dict(r) for r in replicas]
+    return [api_update_return_dict(r, session=session) for r in replicas]
 
 
 @transactional_session
@@ -386,7 +386,7 @@ def list_dataset_replicas_vp(scope, name, deep=False, vo='def', session=None):
 
     scope = InternalScope(scope, vo=vo)
     for r in replica.list_dataset_replicas_vp(scope=scope, name=name, deep=deep, session=session):
-        yield api_update_return_dict(r)
+        yield api_update_return_dict(r, session=session)
 
 
 @stream_session

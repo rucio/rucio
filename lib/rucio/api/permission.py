@@ -18,8 +18,10 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import permission
 from rucio.core.rse import get_rse_id
 from rucio.common.exception import RSENotFound
+from rucio.db.sqla.session import read_session
 
 
+@read_session
 def has_permission(issuer, action, kwargs, vo='def', session=None):
     """
     Checks if an account has the specified permission to
