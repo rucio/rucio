@@ -69,7 +69,7 @@ def rse_name_generator(size=10):
 
     :returns: A random RSE name
     """
-    return 'MOCK_' + ''.join(choice(ascii_uppercase) for x in range(size))
+    return 'MOCK-' + ''.join(choice(ascii_uppercase) for x in range(size))
 
 
 def file_generator(size=2, namelen=10):
