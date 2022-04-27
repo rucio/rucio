@@ -21,12 +21,14 @@ from rucio.common.exception import InvalidObject, AccessDenied
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import subscription
+from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 
 SubscriptionRuleState = namedtuple('SubscriptionRuleState', ['account', 'name', 'state', 'count'])
 
 
-def add_subscription(name, account, filter_, replication_rules, comments, lifetime, retroactive, dry_run, priority=None, issuer=None, vo='def'):
+@transactional_session
+def add_subscription(name, account, filter_, replication_rules, comments, lifetime, retroactive, dry_run, priority=None, issuer=None, vo='def', session=None):
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
@@ -53,10 +55,11 @@ def add_subscription(name, account, filter_, replication_rules, comments, lifeti
     :type issuer:  String
     :param vo: The VO to act on.
     :type vo: String
+    :param session: The database session in use.
     :returns: subscription_id
     :rtype:   String
     """
-    if not has_permission(issuer=issuer, vo=vo, action='add_subscription', kwargs={'account': account}):
+    if not has_permission(issuer=issuer, vo=vo, action='add_subscription', kwargs={'account': account}, session=session):
         raise AccessDenied('Account %s can not add subscription' % (issuer))
     try:
         if filter_:
@@ -85,10 +88,13 @@ def add_subscription(name, account, filter_, replication_rules, comments, lifeti
             else:
                 filter_[_key] = _type(filter_[_key], vo=vo).internal
 
-    return subscription.add_subscription(name=name, account=account, filter_=dumps(filter_), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority)
+    return subscription.add_subscription(name=name, account=account, filter_=dumps(filter_), replication_rules=dumps(replication_rules),
+                                         comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority,
+                                         session=session)
 
 
-def update_subscription(name, account, metadata=None, issuer=None, vo='def'):
+@transactional_session
+def update_subscription(name, account, metadata=None, issuer=None, vo='def', session=None):
     """
     Updates a subscription
 
@@ -102,9 +108,10 @@ def update_subscription(name, account, metadata=None, issuer=None, vo='def'):
     :type issuer: String
     :param vo: The VO to act on.
     :type vo: String
+    :param session: The database session in use.
     :raises: SubscriptionNotFound if subscription is not found
     """
-    if not has_permission(issuer=issuer, vo=vo, action='update_subscription', kwargs={'account': account}):
+    if not has_permission(issuer=issuer, vo=vo, action='update_subscription', kwargs={'account': account}, session=session):
         raise AccessDenied('Account %s can not update subscription' % (issuer))
     try:
         if not isinstance(metadata, dict):
@@ -136,10 +143,11 @@ def update_subscription(name, account, metadata=None, issuer=None, vo='def'):
                 else:
                     filter_[_key] = _type(filter_[_key], vo=vo).internal
 
-    return subscription.update_subscription(name=name, account=account, metadata=metadata)
+    return subscription.update_subscription(name=name, account=account, metadata=metadata, session=session)
 
 
-def list_subscriptions(name=None, account=None, state=None, vo='def'):
+@stream_session
+def list_subscriptions(name=None, account=None, state=None, vo='def', session=None):
     """
     Returns a dictionary with the subscription information :
     Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
@@ -152,6 +160,7 @@ def list_subscriptions(name=None, account=None, state=None, vo='def'):
     :type state: String
     :param vo: The VO to act on.
     :type vo: String
+    :param session: The database session in use.
     :returns: Dictionary containing subscription parameter
     :rtype:   Dict
     :raises: exception.NotFound if subscription is not found
@@ -162,7 +171,7 @@ def list_subscriptions(name=None, account=None, state=None, vo='def'):
     else:
         account = InternalAccount('*', vo=vo)
 
-    subs = subscription.list_subscriptions(name, account, state)
+    subs = subscription.list_subscriptions(name, account, state, session=session)
 
     for sub in subs:
         sub['account'] = sub['account'].external
@@ -178,19 +187,21 @@ def list_subscriptions(name=None, account=None, state=None, vo='def'):
         yield sub
 
 
-def list_subscription_rule_states(name=None, account=None, vo='def'):
+@stream_session
+def list_subscription_rule_states(name=None, account=None, vo='def', session=None):
     """Returns a list of with the number of rules per state for a subscription.
 
     :param name: Name of the subscription
     :param account: Account identifier
     :param vo: The VO to act on.
+    :param session: The database session in use.
     :returns: Sequence with SubscriptionRuleState named tuples (account, name, state, count)
     """
     if account is not None:
         account = InternalAccount(account, vo=vo)
     else:
         account = InternalAccount('*', vo=vo)
-    subs = subscription.list_subscription_rule_states(name, account)
+    subs = subscription.list_subscription_rule_states(name, account, session=session)
     for sub in subs:
         # sub is an immutable Row so return new named tuple with edited entries
         d = sub._asdict()
@@ -198,28 +209,32 @@ def list_subscription_rule_states(name=None, account=None, vo='def'):
         yield SubscriptionRuleState(**d)
 
 
-def delete_subscription(subscription_id, vo='def'):
+@transactional_session
+def delete_subscription(subscription_id, vo='def', session=None):
     """
     Deletes a subscription
 
     :param subscription_id: Subscription identifier
     :param vo: The VO of the user issuing command
+    :param session: The database session in use.
     :type subscription_id:  String
     """
 
     raise NotImplementedError
 
 
-def get_subscription_by_id(subscription_id, vo='def'):
+@read_session
+def get_subscription_by_id(subscription_id, vo='def', session=None):
     """
     Get a specific subscription by id.
 
     :param subscription_id: The subscription_id to select.
     :param vo: The VO of the user issuing command.
+    :param session: The database session in use.
 
     :raises: SubscriptionNotFound if no Subscription can be found.
     """
-    sub = subscription.get_subscription_by_id(subscription_id)
+    sub = subscription.get_subscription_by_id(subscription_id, session=session)
     if sub['account'].vo != vo:
         raise AccessDenied('Unable to get subscription')
 

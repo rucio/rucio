@@ -20,31 +20,35 @@ from rucio.common.utils import api_update_return_dict
 from rucio.core import lock
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.session import stream_session
 
 
 LOGGER = logging.getLogger('lock')
 LOGGER.setLevel(logging.DEBUG)
 
 
-def get_dataset_locks(scope, name, vo='def'):
+@stream_session
+def get_dataset_locks(scope, name, vo='def', session=None):
     """
     Get the dataset locks of a dataset.
 
     :param scope:          Scope of the dataset.
     :param name:           Name of the dataset.
     :param vo:             The VO to act on.
+    :param session:        The database session in use.
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
 
     scope = InternalScope(scope, vo=vo)
 
-    locks = lock.get_dataset_locks(scope=scope, name=name)
+    locks = lock.get_dataset_locks(scope=scope, name=name, session=session)
 
     for lock_object in locks:
-        yield api_update_return_dict(lock_object)
+        yield api_update_return_dict(lock_object, session=session)
 
 
-def get_dataset_locks_bulk(dids, vo='def'):
+@stream_session
+def get_dataset_locks_bulk(dids, vo='def', session=None):
     """
     Get the dataset locks for multiple datasets or containers.
 
@@ -52,6 +56,7 @@ def get_dataset_locks_bulk(dids, vo='def'):
                             "type" is optional. If present, will be either DIDType.DATASET or DIDType.CONTAINER,
                             or string "dataset" or "container"
     :param vo:              The VO to act on.
+    :param session:         The database session in use.
     :return:                Generator of dicts describing found locks {'rse_id': ..., 'state': ...}. Duplicates are removed
     """
 
@@ -75,7 +80,7 @@ def get_dataset_locks_bulk(dids, vo='def'):
         dids_converted.append(did)
 
     seen = set()
-    for lock_info in lock.get_dataset_locks_bulk(dids_converted):
+    for lock_info in lock.get_dataset_locks_bulk(dids_converted, session=session):
         # filter duplicates - same scope, name, rse_id, rule_id
         scope_str = str(lock_info["scope"])
         key = (scope_str, lock_info["name"], lock_info["rse_id"], lock_info["rule_id"])
@@ -84,35 +89,39 @@ def get_dataset_locks_bulk(dids, vo='def'):
             yield lock_info
 
 
-def get_dataset_locks_by_rse(rse, vo='def'):
+@stream_session
+def get_dataset_locks_by_rse(rse, vo='def', session=None):
     """
     Get the dataset locks of an RSE.
 
     :param rse:            RSE name.
     :param vo:             The VO to act on.
+    :param session:        The database session in use.
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
 
-    rse_id = get_rse_id(rse=rse, vo=vo)
-    locks = lock.get_dataset_locks_by_rse_id(rse_id=rse_id)
+    rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+    locks = lock.get_dataset_locks_by_rse_id(rse_id=rse_id, session=session)
 
     for lock_object in locks:
-        yield api_update_return_dict(lock_object)
+        yield api_update_return_dict(lock_object, session=session)
 
 
-def get_replica_locks_for_rule_id(rule_id, vo='def'):
+@stream_session
+def get_replica_locks_for_rule_id(rule_id, vo='def', session=None):
     """
     Get the replica locks for a rule_id.
 
     :param rule_id:     Rule ID.
     :param vo:          The VO to act on.
+    :param session:     The database session in use.
     :return:            List of dicts.
     """
 
-    locks = lock.get_replica_locks_for_rule_id(rule_id=rule_id)
+    locks = lock.get_replica_locks_for_rule_id(rule_id=rule_id, session=session)
 
     for lock_object in locks:
         if lock_object['scope'].vo != vo:  # rule is on a different VO, so don't return any locks
             LOGGER.debug('rule id %s is not present on VO %s' % (rule_id, vo))
             break
-        yield api_update_return_dict(lock_object)
+        yield api_update_return_dict(lock_object, session=session)

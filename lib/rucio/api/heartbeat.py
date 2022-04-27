@@ -16,24 +16,28 @@
 from rucio.api import permission
 from rucio.common import exception
 from rucio.core import heartbeat
+from rucio.db.sqla.session import read_session, transactional_session
 
 
-def list_heartbeats(issuer=None, vo='def'):
+@read_session
+def list_heartbeats(issuer=None, vo='def', session=None):
     """
     Return a list of tuples of all heartbeats.
 
     :param issuer: The issuer account.
     :param vo: the VO for the issuer.
+    :param session: The database session in use.
     :returns: List of tuples [('Executable', 'Hostname', ...), ...]
     """
 
     kwargs = {'issuer': issuer}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='list_heartbeats', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='list_heartbeats', kwargs=kwargs, session=session):
         raise exception.AccessDenied('%s cannot list heartbeats' % issuer)
-    return heartbeat.list_heartbeats()
+    return heartbeat.list_heartbeats(session=session)
 
 
-def create_heartbeat(executable, hostname, pid, thread, older_than, payload, issuer=None, vo='def'):
+@transactional_session
+def create_heartbeat(executable, hostname, pid, thread, older_than, payload, issuer=None, vo='def', session=None):
     """
     Creates a heartbeat.
     :param issuer: The issuer account.
@@ -44,9 +48,10 @@ def create_heartbeat(executable, hostname, pid, thread, older_than, payload, iss
     :param thread: Python Thread Object.
     :param older_than: Ignore specified heartbeats older than specified nr of seconds.
     :param payload: Payload identifier which can be further used to identify the work a certain thread is executing.
+    :param session: The database session in use.
 
     """
     kwargs = {'issuer': issuer}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='send_heartbeats', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='send_heartbeats', kwargs=kwargs, session=session):
         raise exception.AccessDenied('%s cannot send heartbeats' % issuer)
-    heartbeat.live(executable=executable, hostname=hostname, pid=pid, thread=thread, older_than=older_than, payload=payload)
+    heartbeat.live(executable=executable, hostname=hostname, pid=pid, thread=thread, older_than=older_than, payload=payload, session=session)
