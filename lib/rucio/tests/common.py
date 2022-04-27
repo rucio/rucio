@@ -64,6 +64,26 @@ def scope_name_generator():
     return 'mock_' + str(uuid()).lower()[:16]
 
 
+def did_name_generator(did_type='file'):
+    """ Generate random did name.
+
+    :returns: A random did name
+    """
+    if os.getenv('POLICY') == 'belleii':
+        path = '/belle'
+        path += '/cont_%s' % str(uuid())
+        if did_type == 'container':
+            return path
+        path += '/dataset_%s' % str(uuid())
+        if did_type == 'dataset':
+            return path
+        path += '/file_%s' % str(uuid())
+        return path
+    if did_type in ['file', 'dataset', 'container']:
+        return '%s_%s' % (did_type, str(uuid()))
+    return 'mock_' + str(uuid())
+
+
 def rse_name_generator(size=10):
     """ Generate random RSE name.
 

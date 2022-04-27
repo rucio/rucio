@@ -12,7 +12,6 @@ belleii:
       - rucio_tests/test_judge_injector.py
       - rucio_tests/test_qos.py
       - rucio_tests/test_throttler.py
-      - rucio_tests/test_abacus_account.py
       - rucio_tests/test_api_external_representation.py
       - rucio_tests/test_authentication.py
       - rucio_tests/test_rse_protocol_s3.py
@@ -80,6 +79,7 @@ belleii:
       - rucio_tests/test_permission.py
       - rucio_tests/test_curl.py
       - rucio_tests/test_auditor_hdfs.py
+      - rucio_tests/test_abacus_account.py
 
       
   rdbms: 
