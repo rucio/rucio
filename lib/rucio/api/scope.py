@@ -19,14 +19,17 @@ import rucio.common.exception
 from rucio.core import scope as core_scope
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.schema import validate_schema
+from rucio.db.sqla.session import read_session, transactional_session
 
 
-def list_scopes(filter_={}, vo='def'):
+@read_session
+def list_scopes(filter_={}, vo='def', session=None):
     """
     Lists all scopes.
 
     :param filter_: Dictionary of attributes by which the input data should be filtered
     :param vo: The VO to act on.
+    :param session: The database session in use.
 
     :returns: A list containing all scopes.
     """
@@ -38,10 +41,11 @@ def list_scopes(filter_={}, vo='def'):
         filter_['scope'] = InternalScope(scope=filter_['scope'], vo=vo)
     else:
         filter_['scope'] = InternalScope(scope='*', vo=vo)
-    return [scope.external for scope in core_scope.list_scopes(filter_=filter_)]
+    return [scope.external for scope in core_scope.list_scopes(filter_=filter_, session=session)]
 
 
-def add_scope(scope, account, issuer, vo='def'):
+@transactional_session
+def add_scope(scope, account, issuer, vo='def', session=None):
     """
     Creates a scope for an account.
 
@@ -49,30 +53,33 @@ def add_scope(scope, account, issuer, vo='def'):
     :param scope: The scope identifier.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
+    :param session: The database session in use.
     """
 
     validate_schema(name='scope', obj=scope, vo=vo)
 
     kwargs = {'scope': scope, 'account': account}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_scope', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_scope', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add scope' % (issuer))
 
     scope = InternalScope(scope, vo=vo)
     account = InternalAccount(account, vo=vo)
 
-    core_scope.add_scope(scope, account)
+    core_scope.add_scope(scope, account, session=session)
 
 
-def get_scopes(account, vo='def'):
+@read_session
+def get_scopes(account, vo='def', session=None):
     """
     Gets a list of all scopes for an account.
 
     :param account: The account name.
     :param vo: The VO to act on.
+    :param session: The database session in use.
 
     :returns: A list containing the names of all scopes for this account.
     """
 
     account = InternalAccount(account, vo=vo)
 
-    return [scope.external for scope in core_scope.get_scopes(account)]
+    return [scope.external for scope in core_scope.get_scopes(account, session=session)]
