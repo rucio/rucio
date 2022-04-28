@@ -613,7 +613,7 @@ class UploadClient:
             logger(logging.DEBUG, 'Removing remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
-                protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain, impl=impl)
+                protocol_delete = self._create_protocol(rse_settings, 'delete', force_scheme=force_scheme, domain=domain, impl=impl)
                 delete_pfn = '%s.rucio.upload' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0]
                 if sign_service:
                     delete_pfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'delete', delete_pfn)
@@ -627,7 +627,7 @@ class UploadClient:
             logger(logging.DEBUG, 'Removing not-registered remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
-                protocol_delete = self._create_protocol(rse_settings, 'delete', domain=domain, impl=impl)
+                protocol_delete = self._create_protocol(rse_settings, 'delete', force_scheme=force_scheme, domain=domain, impl=impl)
                 delete_pfn = '%s' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0]
                 if sign_service:
                     delete_pfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'delete', delete_pfn)
