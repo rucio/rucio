@@ -35,6 +35,8 @@ skiplimitedsql = pytest.mark.skipif('RDBMS' in os.environ and os.environ['RDBMS'
                                     reason="does not work in SQLite because of missing features")
 skip_multivo = pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'multi_vo',
                                   reason="does not work for multiVO")
+skip_non_belleii = pytest.mark.skipif(not ('POLICY' in os.environ and os.environ['POLICY'] == 'belleii'),
+                                      reason="specific belleii tests")
 
 
 def get_long_vo():

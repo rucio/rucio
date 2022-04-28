@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright CERN since 2021
+# Copyright CERN since 2022
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,10 @@ import pytest
 from rucio.common.exception import InvalidObject
 from rucio.common.schema.belleii import validate_schema
 from rucio.common.utils import generate_uuid, extract_scope
-from rucio.tests.common import did_name_generator
+from rucio.tests.common import did_name_generator, skip_non_belleii
 
 
+@skip_non_belleii
 def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac_client, rse_client, replica_client):
     """ DIRAC (CLIENT): Test the functionality of the addfile method """
     nbfiles = 5
@@ -67,6 +68,7 @@ def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac
         assert datetime.now() - rules[0]['expires_at'] < timedelta(hours=24)
 
 
+@skip_non_belleii
 def test_belle2_schema(rse_factory, did_factory, root_account, did_client):
     """ BELLE2 SCHEMA (COMMON): Basic tests on Belle II schema """
     bad_paths = ['invalid_name', '/belle/invalid@/did']
