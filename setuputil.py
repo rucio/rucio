@@ -34,7 +34,7 @@ clients_requirements_table = {
         'typing',
         'enum34',
     ],
-    'ssh': ['paramiko'],
+    'ssh': ['cryptography', 'paramiko'],
     'kerberos': [
         'kerberos',
         'pykerberos',
@@ -76,6 +76,7 @@ server_requirements_table = {
         'argcomplete',
         'boto',
         'python-magic',
+        'cryptography',
         'paramiko',
         'boto3',
         'pysftp',
