@@ -13,32 +13,64 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from datetime import datetime, timedelta
 
+import pytest
+
+from rucio.common.exception import InvalidObject
+from rucio.common.schema.belleii import validate_schema
 from rucio.common.utils import generate_uuid, extract_scope
-from rucio.core import distance as distance_core
-from rucio.core import rse as rse_core
+from rucio.tests.common import did_name_generator
 
 
-def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac_client, rse_client, replica_client, vo):
-
-    src_rses = [rse_factory.make_posix_rse() for _ in range(2)]
-    dst_rses = [rse_factory.make_posix_rse() for _ in range(3)]
-    for _, src_rse_id in src_rses:
-        for _, dst_rse_id in dst_rses:
-            distance_core.add_distance(src_rse_id=src_rse_id, dest_rse_id=dst_rse_id, ranking=10)
-            distance_core.add_distance(src_rse_id=dst_rse_id, dest_rse_id=src_rse_id, ranking=10)
-    print([rse for rse in rse_core.list_rses()])
-    print([did for did in did_client.list_content('other', '/belle')])
+def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac_client, rse_client, replica_client):
+    """ DIRAC (CLIENT): Test the functionality of the addfile method """
     nbfiles = 5
-    # Adding replicas to deterministic RSE
     rse1, rse1_id = rse_factory.make_srm_rse(deterministic=True)
     rse_client.add_rse_attribute(rse=rse1, key='ANY', value='True')
 
-    # Create replicas on rse1
-    lfns = [{'lfn': '/belle/MC/test_dir/file_%s' % generate_uuid(), 'rse': rse1, 'bytes': 1, 'adler32': '0cc737eb', 'guid': generate_uuid()} for _ in range(nbfiles)]
+    # Create replicas on rse1 using addfile
+    lfns = [{'lfn': did_name_generator('file'), 'rse': rse1, 'bytes': 1, 'adler32': '0cc737eb', 'guid': generate_uuid()} for _ in range(nbfiles)]
     files = [{'scope': extract_scope(lfn['lfn'], [])[0], 'name': lfn['lfn']} for lfn in lfns]
     reps = [{'scope': extract_scope(lfn['lfn'], [])[0], 'name': lfn['lfn'], 'rse': rse1} for lfn in lfns]
     dirac_client.add_files(lfns=lfns, ignore_availability=False)
     replicas = [rep for rep in replica_client.list_replicas(dids=files)]
     for replica in replicas:
         assert {'scope': replica['scope'], 'name': replica['name'], 'rse': list(replica['rses'].keys())[0]} in reps
+
+    # Check the existence of all parents from the files
+    for lfn in lfns:
+        directories = lfn['lfn'].split('/')
+        for cnt, directory in enumerate(directories):
+            parent = "/".join(directories[0:cnt])
+            child = "/".join(directories[0:cnt + 1])
+            if parent != '':
+                parent_scope, parent_name = extract_scope(parent, [])
+                children = [did['name'] for did in did_client.list_content(parent_scope, parent_name)]
+                assert child in children
+
+    # Check that the default rules are created
+    for lfn in lfns:
+        # Check dataset rule
+        directory = "/".join(lfn['lfn'].split('/')[:-1])
+        scope, name = extract_scope(directory, [])
+        rules = [rule for rule in did_client.list_did_rules(scope, name)]
+        assert len(rules) == 1
+        assert rules[0]['rse_expression'] == 'ANY=true'
+        assert rules[0]['expires_at'] is None
+
+        # Check file rule
+        scope, name = extract_scope(lfn['lfn'], [])
+        rules = [rule for rule in did_client.list_did_rules(scope, name)]
+        assert len(rules) == 1
+        assert rules[0]['rse_expression'] == rse1
+        assert datetime.now() - rules[0]['expires_at'] < timedelta(hours=24)
+
+
+def test_belle2_schema(rse_factory, did_factory, root_account, did_client):
+    """ BELLE2 SCHEMA (COMMON): Basic tests on Belle II schema """
+    bad_paths = ['invalid_name', '/belle/invalid@/did']
+    for path in bad_paths:
+        scope, name = extract_scope(path, [])
+        with pytest.raises(InvalidObject):
+            validate_schema('did', {'name': name, 'scope': scope, 'type': 'CONTAINER'})

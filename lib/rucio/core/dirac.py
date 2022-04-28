@@ -124,7 +124,7 @@ def add_files(lfns, account, ignore_availability, vo='def', session=None):
                     account=InternalAccount(account, vo=vo),
                     statuses=None,
                     meta=None,
-                    rules=[{'copies': 1, 'rse_expression': 'ANY=true', 'weight': None, 'account': InternalAccount(account, vo=vo), 'lifetime': None, 'grouping': 'NONE'}],
+                    rules=[{'copies': 1, 'rse_expression': 'ANY=true', 'weight': None, 'account': InternalAccount(account, vo=vo), 'lifetime': lifetime, 'grouping': 'NONE'}],
                     lifetime=None,
                     dids=None,
                     rse_id=None,
