@@ -610,7 +610,7 @@ class UploadClient:
 
         # Removing tmp from earlier attempts
         if (not sign_service and protocol_write.exists(pfn_tmp)) or (sign_service and protocol_read.exists(signed_read_pfn_tmp)):
-            logger(logging.DEBUG, 'Removing remains of previous upload attemtps.')
+            logger(logging.DEBUG, 'Removing remains of previous upload attempts.')
             try:
                 # Construct protocol for delete operation.
                 protocol_delete = self._create_protocol(rse_settings, 'delete', force_scheme=force_scheme, domain=domain, impl=impl)
@@ -624,7 +624,7 @@ class UploadClient:
 
         # Removing not registered files from earlier attempts
         if delete_existing:
-            logger(logging.DEBUG, 'Removing not-registered remains of previous upload attemtps.')
+            logger(logging.DEBUG, 'Removing not-registered remains of previous upload attempts.')
             try:
                 # Construct protocol for delete operation.
                 protocol_delete = self._create_protocol(rse_settings, 'delete', force_scheme=force_scheme, domain=domain, impl=impl)
