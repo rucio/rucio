@@ -209,9 +209,9 @@ def queue_requests(requests, session=None, logger=logging.log):
     for req in requests:
 
         if isinstance(req['attributes'], string_types):
-            req['attributes'] = json.loads(req['attributes'])
+            req['attributes'] = json.loads(req['attributes'] or '{}')
             if isinstance(req['attributes'], string_types):
-                req['attributes'] = json.loads(req['attributes'])
+                req['attributes'] = json.loads(req['attributes'] or '{}')
 
         if req['request_type'] == RequestType.TRANSFER:
             request_clause.append(and_(models.Request.scope == req['scope'],
@@ -617,7 +617,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
                     res_dict = dict(res)
                     res_dict.pop('_sa_instance_state')
                     res_dict['request_id'] = res_dict['id']
-                    res_dict['attributes'] = json.loads(str(res_dict['attributes']))
+                    res_dict['attributes'] = json.loads(str(res_dict['attributes'] or '{}'))
 
                     dst_id = res_dict['dest_rse_id']
                     src_id = res_dict['source_rse_id']
@@ -747,7 +747,7 @@ def get_request(request_id, session=None):
         else:
             tmp = dict(tmp)
             tmp.pop('_sa_instance_state')
-            tmp['attributes'] = json.loads(str(tmp['attributes']))
+            tmp['attributes'] = json.loads(str(tmp['attributes'] or '{}'))
             return tmp
     except IntegrityError as error:
         raise RucioException(error.args)
@@ -773,7 +773,7 @@ def get_requests_by_transfer(external_host, transfer_id, session=None):
                 t2 = dict(t)
                 t2.pop('_sa_instance_state')
                 t2['request_id'] = t2['id']
-                t2['attributes'] = json.loads(str(t2['attributes']))
+                t2['attributes'] = json.loads(str(t2['attributes'] or '{}'))
                 result.append(t2)
             return result
         return
@@ -813,7 +813,7 @@ def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
 
             tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
             tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
-            tmp['attributes'] = json.loads(str(tmp['attributes']))
+            tmp['attributes'] = json.loads(str(tmp['attributes'] or '{}'))
 
             return tmp
     except IntegrityError as error:
