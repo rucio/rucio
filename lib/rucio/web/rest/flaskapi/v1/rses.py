@@ -36,17 +36,92 @@ class RSEs(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
-        """ List all RSEs.
-
-        .. :quickref: RSEs; List all RSEs.
-
-        :query expression: The returned list only contains RSE matching this expression.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: DIDs found.
-        :status 400: Invalid RSE Expression.
-        :status 401: Invalid Auth Token.
-        :status 406: Not Acceptable.
-        :returns: A list containing all RSEs.
+        """
+        ---
+        summary: List RSEs
+        description: Lists all RSEs.
+        tags:
+          - Rucio Storage Elements
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expression:
+                    description: An RSE expression.
+                    type: string
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: A list with the corresponding rses.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        description: The rse id.
+                        type: string
+                      rse:
+                        description: The name of the rse.
+                        type: string
+                      rse_type:
+                        description: The type of the rse.
+                        type: string
+                      deterministic:
+                        description: If the rse is deterministic.
+                        type: boolean
+                      volatile:
+                        description: If the rse is volatile.
+                        type: boolean
+                      staging_area:
+                        description: Is this rse a staging area?
+                        type: boolean
+                      city:
+                        description: The city of the rse.
+                        type: string
+                      region_code:
+                        description: The region_code of the rse.
+                        type: string
+                      country_name:
+                        description: The country name of the rse.
+                        type: string
+                      continent:
+                        description: The continent of the rse.
+                        type: string
+                      time_zone:
+                        description: The time zone of the rse.
+                        type: string
+                      ISP:
+                        description: The isp of the rse.
+                        type: string
+                      ASN:
+                        description: The asn of the rse.
+                        type: string
+                      longitude:
+                        description: The longitude of the rse.
+                        type: number
+                      latitude:
+                        description: The latitude of the rse.
+                        type: number
+                      availability:
+                        description: The availability of the rse.
+                        type: integer
+                      usage:
+                        description: The usage of the rse.
+                        type: integer
+                      qos_class:
+                        description: The quality of service class.
+                        type: string
+          400:
+            description: Invalid RSE expression
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
         """
         expression = request.args.get('expression', default=None)
 
@@ -71,30 +146,84 @@ class RSE(ErrorHandlingMethodView):
     """ Create, update, get and disable RSE. """
 
     def post(self, rse):
-        """ Create RSE with given name.
-
-        .. :quickref: RSE; create a new RSE.
-
-        :param rse: The RSE name.
-        :<json bool deterministic: Boolean to know if the pfn is generated deterministically.
-        :<json bool volatile: Boolean for RSE cache.
-        :<json string city: City for the RSE.
-        :<json bool staging_area: Staging area.
-        :<json string region_code: The region code for the RSE.
-        :<json string country_name: The country.
-        :<json string continent: The continent.
-        :<json string time_zone: Timezone.
-        :<json string ISP: Internet Service Provider.
-        :<json string rse_type: RSE type.
-        :<json number latitude: Latitude coordinate of RSE.
-        :<json number longitude: Longitude coordinate of RSE.
-        :<json string ASN: Access service network.
-        :<json integer availability: Availability.
-        :status 201: RSE created successfully.
-        :status 400: Cannot decode json parameter dictionary.
-        :status 401: Invalid Auth Token.
-        :status 409: RSE already exists.
-        :status 409: RSE not found.
+        """
+        ---
+        summary: Create RSE
+        description: Creates a RSE with all the metadata.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deterministic:
+                    description: If the pfn is generated deterministicly.
+                    type: boolean
+                  volatile:
+                    description: RSE cache.
+                    type: boolean
+                  city:
+                    description: The city of the RSE.
+                    type: string
+                  staging_area:
+                    description: Staging area.
+                    type: string
+                  region_code:
+                    description: The region code of the RSE.
+                    type: string
+                  country_name:
+                    description: The country name of the RSE.
+                    type: string
+                  continent:
+                    description: The continent of the RSE.
+                    type: string
+                  time_zone:
+                    description: The time zone of the RSE.
+                    type: string
+                  ISP:
+                    description: The internet service provider of the RSE.
+                    type: string
+                  rse_type:
+                    description: The rse type.
+                    type: string
+                    enum: ["DISK", "TAPE"]
+                  latitute:
+                    description: The latitute of the RSE.
+                    type: float
+                  longitude:
+                    description: The longitude of the RSE.
+                    type: float
+                  ASN:
+                    description: The access service network of the RSE.
+                    type: string
+                  availability:
+                    description: The availability of the RSE.
+                    type: integer
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          400:
+            description: Cannot decode json parameter dictionary
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE not found
+          409:
+            description: RSE already exists.
         """
         kwargs = {
             'deterministic': True,
@@ -132,18 +261,79 @@ class RSE(ErrorHandlingMethodView):
         return 'Created', 201
 
     def put(self, rse):
-        """ Update RSE properties (e.g. name, availability).
-
-        .. :quickref: RSE; Update an RSE.
-
-        :param rse: The RSE name.
-        :<json dict parameters: Dictionary of parameters to update.
-        :status 201: RSE updated successfully.
-        :status 400: Cannot decode json parameter dictionary.
-        :status 401: Invalid Auth Token.
-        :status 409: RSE not found.
-        :status 409: RSE already exists.
-
+        """
+        ---
+        summary: Update RSE
+        description: Update RSE properties.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  availability_raed:
+                    description: The vailability of the RSE.
+                    type: boolean
+                  availability_write:
+                    description: The vailability of the RSE.
+                    type: boolean
+                  availability_delete:
+                    description: The vailability of the RSE.
+                    type: boolean
+                  deterministic:
+                    description: If the pfn is generated deterministicly.
+                    type: boolean
+                  volatile:
+                    description: RSE cache.
+                    type: boolean
+                  city:
+                    description: The city of the RSE.
+                    type: string
+                  staging_area:
+                    description: Staging area.
+                    type: string
+                  region_code:
+                    description: The region code of the RSE.
+                    type: string
+                  country_name:
+                    description: The country name of the RSE.
+                    type: string
+                  time_zone:
+                    description: The time zone of the RSE.
+                    type: string
+                  rse_type:
+                    description: The rse type.
+                    type: string
+                    enum: ["DISK", "TAPE"]
+                  latitute:
+                    description: The latitute of the RSE.
+                    type: float
+                  longitude:
+                    description: The longitude of the RSE.
+                    type: float
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          400:
+            description: Cannot decode json parameter dictionary
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE not found
         """
         kwargs = {
             'parameters': json_parameters(optional=True),
@@ -165,18 +355,77 @@ class RSE(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
-        """ Details about a specific RSE.
-
-        .. :quickref: RSE; get RSE details.
-
-        :param rse: the RSE name.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE not found.
-        :status 406: Not Acceptable.
-        :returns: A list containing all RSEs.
-
+        """
+        ---
+        summary: Get RSE
+        description: Get details about a specific RSE.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: The RSE properties.
+                  type: object
+                  properties:
+                    deterministic:
+                      description: If the pfn is generated deterministicly.
+                      type: boolean
+                    volatile:
+                      description: RSE cache.
+                      type: boolean
+                    city:
+                      description: The city of the RSE.
+                      type: string
+                    staging_area:
+                      description: Staging area.
+                      type: string
+                    region_code:
+                      description: The region code of the RSE.
+                      type: string
+                    country_name:
+                      description: The country name of the RSE.
+                      type: string
+                    continent:
+                      description: The continent of the RSE.
+                      type: string
+                    time_zone:
+                      description: The time zone of the RSE.
+                    type: string
+                    ISP:
+                      description: The internet service provider of the RSE.
+                      type: string
+                    rse_type:
+                      description: The rse type.
+                      type: string
+                      enum: ["DISK", "TAPE"]
+                    latitute:
+                      description: The latitute of the RSE.
+                      type: float
+                    longitude:
+                      description: The longitude of the RSE.
+                      type: float
+                    ASN:
+                      description: The access service network of the RSE.
+                      type: string
+                    availability:
+                      description: The availability of the RSE.
+                      type: integer
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE not found
+          406:
+            description: Not acceptable
         """
         try:
             rse_prop = get_rse(rse=rse, vo=request.environ.get('vo'))
@@ -185,14 +434,26 @@ class RSE(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
     def delete(self, rse):
-        """ Disable RSE with given RSE name.
-
-        .. :quickref: RSE; disable RSE.
-
-        :param rse: the RSE name.
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE not found.
+        """
+        ---
+        summary: Disable RSE
+        description: Disable a specific RSE.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE not found
         """
         try:
             del_rse(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -208,18 +469,52 @@ class Attributes(ErrorHandlingMethodView):
     """ Create, update, get and disable RSE attribute."""
 
     def post(self, rse, key):
-        """ create RSE attribute with given RSE name.
-
-        .. :quickref: Attributes; Create RSE attribute.
-
-        :param rse: RSE name.
-        :param key: Key attribute.
-        :<json dict parameter: Dictionary with 'value'.
-        :status 201: Created.
-        :status 400: Cannot decode json parameter dictionary.
-        :status 400: Key not defined.
-        :status 401: Invalid Auth Token.
-        :status 409: Attribute already exists.
+        """
+        ---
+        summary: Create RSE Attribute
+        description: Create a RSE attribute with given RSE name.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        - name: key
+          in: path
+          description: The name of the attribute of the RSE.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - value
+                properties:
+                  value:
+                    description: The value of the RSE attribute.
+                    type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          400:
+            description: Cannot decode json parameter dictionary
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE not found
+          409:
+            description: Attribute already exists
         """
         parameters = json_parameters()
         value = param_get(parameters, 'value')
@@ -237,16 +532,34 @@ class Attributes(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
         """
-        list all RSE attributes for a RSE.
-
-        .. :quickref: Attributes; List all RSE attributes.
-
-        :param rse: RSE name.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 406: Not Acceptable.
-        :returns: A list containing all RSE attributes.
+        ---
+        summary: Get RSE Attributes
+        description: Lists all RSE attributes for a RSE.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: The RSE attribute list. Returns a dictionary with the attribute names as keys and the values as values.
+                  type: object
+                  additionalProperties:
+                    type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE not found
+          406:
+            description: Not acceptable
         """
         try:
             rse_attr = list_rse_attributes(rse, vo=request.environ.get('vo'))
@@ -258,16 +571,32 @@ class Attributes(ErrorHandlingMethodView):
         return jsonify(rse_attr)
 
     def delete(self, rse, key):
-        """ Delete an RSE attribute for given RSE name.
-
-        .. :quickref: Attributes; Delete RSE attribute.
-        :param rse: RSE name.
-        :param key: The key name.
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE not found.
-        :status 404: RSE attribute not found.
-
+        """
+        ---
+        summary: Delete RSE Attribute
+        description: Delete an RSE attribute for given RSE name.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        - name: key
+          in: path
+          description: The name of the attribute of the RSE.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE or RSE attribute not found
         """
         try:
             del_rse_attribute(rse=rse, key=key, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -284,20 +613,141 @@ class ProtocolList(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
-        """ List all supported protocols of the given RSE.
-
-        .. :quickref: Protocols; List all RSE protocols.
-
-        :param rse: The RSE name.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Operation Not Supported.
-        :status 404: RSE Not Found.
-        :status 404: RSE Protocol Domain Not Supported.
-        :status 404: RSE Protocol Not Supported.
-        :status 406: Not Acceptable.
-        :returns: A list containing all supported protocols and all their attributes.
+        """
+        ---
+        summary: List RSE Protocols
+        description: List all supported protocols of the given RSE.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: Supported RSE Protocols and other information.
+                  type: object
+                  properties:
+                    deterministic:
+                      description: If the pfn is generated deterministicly.
+                      type: boolean
+                    volatile:
+                      description: RSE cache.
+                      type: boolean
+                    staging_area:
+                      description: Staging area.
+                      type: string
+                    rse_type:
+                      description: The rse type.
+                      type: string
+                      enum: ["DISK", "TAPE"]
+                    availability_read:
+                      description: The read availability of the RSE.
+                      type: boolean
+                    availability_write:
+                      description: The write availability of the RSE.
+                      type: boolean
+                    availability_delete:
+                      description: The delete availability of the RSE.
+                      type: boolean
+                    credentials:
+                      description: The credentials, currently None.
+                      type: string
+                    domain:
+                      description: The domains of the RSE protocols.
+                      type: array
+                    id:
+                      description: The RSE id.
+                      type: string
+                    lfn2pfn_algorithm:
+                      description: The algorithm used to translate the logical file names to the physical ones.
+                      type: string
+                    qos_class:
+                      description: The qos class of the RSE.
+                      type: string
+                    rse:
+                      description: The name of the RSE.
+                      type: string
+                    sign_url:
+                      description: The sign url of the RSE.
+                      type: string
+                    verify_checksum:
+                      description: If the checksum of the files should be verified.
+                      type: boolean
+                    protocols:
+                      description: All supported protocols of the RSE.
+                      type: array
+                      items:
+                        type: object
+                        description: A supported RSE protocol.
+                        properties:
+                          hostname:
+                            description: The hostname of the protocol.
+                            type: string
+                          scheme:
+                            description: The scheme of the protocol.
+                            type: string
+                          port:
+                            description: The port of the protocol.
+                            type: integer
+                          prefix:
+                            description: The prefix of the protocol.
+                            type: string
+                          impl:
+                            description: The implementation of the protocol.
+                            type: string
+                          domains:
+                            description: The domains of the protocol.
+                            type: object
+                            properties:
+                              lan:
+                                description: The lan domain
+                                type: object
+                                properties:
+                                  read:
+                                    description: The read value of the lan protocol.
+                                    type: integer
+                                  write:
+                                    description: The write value of the lan protocol.
+                                    type: integer
+                                  delete:
+                                    description: The delete value of the lan protocol.
+                                    type: integer
+                              wan:
+                                  read:
+                                    description: The read value of the wan protocol.
+                                    type: integer
+                                  write:
+                                    description: The read value of the wan protocol.
+                                    type: integer
+                                  delete:
+                                    description: The read value of the wan protocol.
+                                    type: integer
+                                  third_party_copy:
+                                    description: The third party copy value of the wan protocol.
+                                    type: integer
+                                  third_party_copy_read:
+                                    description: The third party copy read value of the wan protocol.
+                                    type: integer
+                                  third_party_copy_write:
+                                    description: The third party copy write value of the wan protocol.
+                                    type: integer
+                          extended_attributes:
+                            description: The extended attributes of the protocol.
+                            type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE not found or RSE Operation, RSE Protocal Doman, RSE Protocol not supported
+          406:
+            description: Not acceptable
         """
         try:
             p_list = get_rse_protocols(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -316,25 +766,63 @@ class LFNS2PFNS(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse, scheme=None):
         """
-        Return PFNs for a set of LFNs.  Formatted as a JSON object where the key is a LFN and the
-        value is the corresponding PFN.
-
-        .. :quickref: Attributes; Translate LFNs to PFNs.
-
-        :param rse: The RSE name.
-        :param scheme: The protocol identifier.
-        :query lfn: One or more LFN to translate.
-        :query scheme: Optional argument to help with the protocol selection (e.g., http / gsiftp / srm)
-        :query domain: Optional argument used to select the protocol for wan or lan use cases.
-        :query operation: Optional query argument to select the protoco for read-vs-writes.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
-        :status 404: RSE Protocol Not Supported.
-        :status 404: RSE Protocol Domain Not Supported.
-        :status 406: Not Acceptable.
-        :returns: A list with detailed PFN information.
+        ---
+        summary: Translate LFNs to PFNs
+        description: Return PFNs for a set of LFNs.  Formatted as a JSON object where the key is a LFN and the value is the corresponding PFN.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        - name: schema
+          in: path
+          description: The protocol identifier.
+          schema:
+            type: string
+          style: simple
+          required: False
+        - name: lfn
+          in: query
+          description: The lfns of the request.
+          schema:
+            type: string
+          required: True
+        - name: scheme
+          in: query
+          description: Optional argument to help with the protocol selection (e.g., http / gsiftp / srm)
+          schema:
+            type: string
+        - name: domain
+          in: query
+          description: Optional argument used to select the protocol for wan or lan use cases.
+          schema:
+            type: string
+        - name: operation
+          in: query
+          description: Optional query argument to select the protoco for read-vs-writes.
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: The PFNs to the LFNs. Dictionary with lfns as keys and pfns as values.
+                  type: object
+                  additionalProperties:
+                    type:
+                      string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE not found or RSE Protocol or RSE Protocl Domain not supported
+          406:
+            description: Not acceptable
         """
         lfns = request.args.getlist('lfn')
         lfns = list(map(lambda lfn: lfn.split(":", 1), lfns))
@@ -363,20 +851,83 @@ class Protocol(ErrorHandlingMethodView):
 
     def post(self, rse, scheme):
         """
-        Create a protocol for a given RSE.
-
-        .. :quickref: Protocol; Create an RSE protocol.
-
-        :param rse: The RSE name.
-        :param scheme: The protocol identifier.
-        :<json dict paramaters: parameter of the new protocol entry.
-        :status 201: Created.
-        :status 400: Cannot decode json parameter dictionary.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE not found.
-        :status 404: RSE Protocol Domain Not Supported.
-        :status 409: RSE Protocol Priority Error.
-
+        ---
+        summary: Create RSE Protocol
+        description: Create a protocol for a given RSE.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        - name: scheme
+          in: path
+          description: The protocol identifier.
+          schema:
+            type: string
+          style: simple
+          required: False
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  domains:
+                    description: The domains for the protocol.
+                    type: array
+                  port:
+                    description: The port the protocol uses.
+                    type: integer
+                  hostname:
+                    description: The hostname of the protocol.
+                    type: string
+                  extended_attributes:
+                    description: Extended attributes for the protocol.
+                    type: string
+                  prefix:
+                    description: The prefix of the Protocol.
+                    type: string
+                  impl:
+                    description: The impl used by the Protocol.
+                    type: string
+                  read_lan:
+                    description: If the protocol is readable via lan.
+                    type: integer
+                  write_lan:
+                    description: If the protocol is writable via lan.
+                    type: integer
+                  delete_lan:
+                    description: If the protocol is deletable via lan.
+                    type: integer
+                  read_wan:
+                    description: If the protocol is readable via wan.
+                    type: integer
+                  write_wan:
+                    description: If the protocol is writable via wan.
+                    type: integer
+                  delete_wan:
+                    description: If the protocol is deletable via wan.
+                    type: integer
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          400:
+            description: Cannot decode json parameter dictionary
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE not found or RSE Protocol Domain not supported
+          409:
+            description: RSE protocol priority error
         """
         parameters = json_parameters()
 
@@ -398,21 +949,148 @@ class Protocol(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse, scheme):
-        """ List all references of the provided RSE for the given protocol.
-
-        .. :quickref: Protocol; List RSE protocol.
-
-        :param rse: The RSE name.
-        :param scheme: The protocol identifier.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
-        :status 404: RSE Protocol Not Supported.
-        :status 404: RSE Protocol Domain Not Supported.
-        :status 406: Not Acceptable.
-        :returns: A list with detailed protocol information.
-
+        """
+        ---
+        summary: Get Protocols
+        description: List all references of the provided RSE for the given protocol.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        - name: scheme
+          in: path
+          description: The protocol identifier.
+          schema:
+            type: string
+          style: simple
+          required: False
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: A dict with RSE information and supported protocols.
+                  type: object
+                  properties:
+                    deterministic:
+                      description: If the pfn is generated deterministicly.
+                      type: boolean
+                    volatile:
+                      description: RSE cache.
+                      type: boolean
+                    staging_area:
+                      description: Staging area.
+                      type: string
+                    rse_type:
+                      description: The rse type.
+                      type: string
+                      enum: ["DISK", "TAPE"]
+                    availability_read:
+                      description: The read availability of the RSE.
+                      type: boolean
+                    availability_write:
+                      description: The write availability of the RSE.
+                      type: boolean
+                    availability_delete:
+                      description: The delete availability of the RSE.
+                      type: boolean
+                    credentials:
+                      description: The credentials, currently None.
+                      type: string
+                    domain:
+                      description: The domains of the RSE protocols.
+                      type: array
+                    id:
+                      description: The RSE id.
+                      type: string
+                    lfn2pfn_algorithm:
+                      description: The algorithm used to translate the logical file names to the physical ones.
+                      type: string
+                    qos_class:
+                      description: The qos class of the RSE.
+                      type: string
+                    rse:
+                      description: The name of the RSE.
+                      type: string
+                    sign_url:
+                      description: The sign url of the RSE.
+                      type: string
+                    verify_checksum:
+                      description: If the checksum of the files should be verified.
+                      type: boolean
+                    protocols:
+                      description: All supported protocols of the RSE.
+                      type: array
+                      items:
+                        type: object
+                        description: A supported RSE protocol.
+                        properties:
+                          hostname:
+                            description: The hostname of the protocol.
+                            type: string
+                          scheme:
+                            description: The scheme of the protocol.
+                            type: string
+                          port:
+                            description: The port of the protocol.
+                            type: integer
+                          prefix:
+                            description: The prefix of the protocol.
+                            type: string
+                          impl:
+                            description: The implementation of the protocol.
+                            type: string
+                          domains:
+                            description: The domains of the protocol.
+                            type: object
+                            properties:
+                              lan:
+                                description: The lan domain
+                                type: object
+                                properties:
+                                  read:
+                                    description: The read value of the lan protocol.
+                                    type: integer
+                                  write:
+                                    description: The write value of the lan protocol.
+                                    type: integer
+                                  delete:
+                                    description: The delete value of the lan protocol.
+                                    type: integer
+                              wan:
+                                  read:
+                                    description: The read value of the wan protocol.
+                                    type: integer
+                                  write:
+                                    description: The read value of the wan protocol.
+                                    type: integer
+                                  delete:
+                                    description: The read value of the wan protocol.
+                                    type: integer
+                                  third_party_copy:
+                                    description: The third party copy value of the wan protocol.
+                                    type: integer
+                                  third_party_copy_read:
+                                    description: The third party copy read value of the wan protocol.
+                                    type: integer
+                                  third_party_copy_write:
+                                    description: The third party copy write value of the wan protocol.
+                                    type: integer
+                          extended_attributes:
+                            description: The extended attributes of the protocol.
+                            type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE not found or Protocol or Protocol domain not Supported.
+          406:
+            description: Not acceptable
         """
         try:
             p_list = get_rse_protocols(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -423,24 +1101,160 @@ class Protocol(ErrorHandlingMethodView):
 
     def put(self, rse, scheme, hostname=None, port=None):
         """
-        Updates attributes of an existing protocol entry. Because protocol identifier, hostname,
-        and port are used as unique identifier they are immutable.
-
-        .. :quickref: Protocol; Update RSE protocol.
-
-        :param rse: The RSE name.
-        :param scheme: The protocol identifier.
-        :param hostname: The hostname defined for the scheme, used if more than one scheme is registered with the same identifier.
-        :param port: The port registered for the hostname, ued if more than one scheme is registered with the same identifier and hostname.
-        :<json dict paramaters: parameter of the new protocol entry.
-        :status 201: Created.
-        :status 400: Cannot decode json parameter dictionary.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE not found.
-        :status 404: RSE Protocol Not Supported.
-        :status 404: RSE Protocol Domain Not Supported.
-        :status 409: RSE Protocol Priority Error.
-
+        ---
+        summary: Update Protocol Attributes
+        description: Updates attributes of an existing protocol entry. Because protocol identifier, hostname, and port are used as unique identifier they are immutable.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        - name: scheme
+          in: path
+          description: The protocol identifier.
+          schema:
+            type: string
+          style: simple
+        - name: hostname
+          in: path
+          description: The hostname of the protocol.
+          schema:
+            type: string
+          style: simple
+          required: False
+        - name: port
+          in: path
+          description: The port of the protocol.
+          schema:
+            type: integer
+          style: simple
+          required: False
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: A dict with RSE information and supported protocols.
+                  type: object
+                  properties:
+                    deterministic:
+                      description: If the pfn is generated deterministicly.
+                      type: boolean
+                    volatile:
+                      description: RSE cache.
+                      type: boolean
+                    staging_area:
+                      description: Staging area.
+                      type: string
+                    rse_type:
+                      description: The rse type.
+                      type: string
+                      enum: ["DISK", "TAPE"]
+                    availability_read:
+                      description: The read availability of the RSE.
+                      type: boolean
+                    availability_write:
+                      description: The write availability of the RSE.
+                      type: boolean
+                    availability_delete:
+                      description: The delete availability of the RSE.
+                      type: boolean
+                    credentials:
+                      description: The credentials, currently None.
+                      type: string
+                    domain:
+                      description: The domains of the RSE protocols.
+                      type: array
+                    id:
+                      description: The RSE id.
+                      type: string
+                    lfn2pfn_algorithm:
+                      description: The algorithm used to translate the logical file names to the physical ones.
+                      type: string
+                    qos_class:
+                      description: The qos class of the RSE.
+                      type: string
+                    rse:
+                      description: The name of the RSE.
+                      type: string
+                    sign_url:
+                      description: The sign url of the RSE.
+                      type: string
+                    verify_checksum:
+                      description: If the checksum of the files should be verified.
+                      type: boolean
+                    protocols:
+                      description: All supported protocols of the RSE.
+                      type: array
+                      items:
+                        type: object
+                        description: A supported RSE protocol.
+                        properties:
+                          hostname:
+                            description: The hostname of the protocol.
+                            type: string
+                          scheme:
+                            description: The scheme of the protocol.
+                            type: string
+                          port:
+                            description: The port of the protocol.
+                            type: integer
+                          prefix:
+                            description: The prefix of the protocol.
+                            type: string
+                          impl:
+                            description: The implementation of the protocol.
+                            type: string
+                          domains:
+                            description: The domains of the protocol.
+                            type: object
+                            properties:
+                              lan:
+                                description: The lan domain
+                                type: object
+                                properties:
+                                  read:
+                                    description: The read value of the lan protocol.
+                                    type: integer
+                                  write:
+                                    description: The write value of the lan protocol.
+                                    type: integer
+                                  delete:
+                                    description: The delete value of the lan protocol.
+                                    type: integer
+                              wan:
+                                  read:
+                                    description: The read value of the wan protocol.
+                                    type: integer
+                                  write:
+                                    description: The read value of the wan protocol.
+                                    type: integer
+                                  delete:
+                                    description: The read value of the wan protocol.
+                                    type: integer
+                                  third_party_copy:
+                                    description: The third party copy value of the wan protocol.
+                                    type: integer
+                                  third_party_copy_read:
+                                    description: The third party copy read value of the wan protocol.
+                                    type: integer
+                                  third_party_copy_write:
+                                    description: The third party copy write value of the wan protocol.
+                                    type: integer
+                          extended_attributes:
+                            description: The extended attributes of the protocol.
+                            type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: RSE not found or Protocol or Protocol domain not Supported.
+          406:
+            description: Not acceptable
         """
         parameters = json_parameters()
         try:
@@ -464,19 +1278,45 @@ class Protocol(ErrorHandlingMethodView):
 
     def delete(self, rse, scheme, hostname=None, port=None):
         """
-        Deletes a protocol entry for the provided RSE.
-
-        .. :quickref: Protocol; Delete an RSE protocol.
-
-        :param rse: The RSE name.
-        :param scheme: The protocol identifier.
-        :param hostname: The hostname defined for the scheme, used if more than one scheme is registered with the same identifier.
-        :param port: The port registered for the hostname, ued if more than one scheme is registered with the same identifier and hostname.
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE not found.
-        :status 404: RSE Protocol Not Supported.
-
+        ---
+        summary: Delete Protocol Attributes
+        description: Delete all protocol attibutes.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        - name: scheme
+          in: path
+          description: The protocol identifier.
+          schema:
+            type: string
+          style: simple
+        - name: hostname
+          in: path
+          description: The hostname of the protocol.
+          schema:
+            type: string
+          style: simple
+          required: False
+        - name: port
+          in: path
+          description: The port of the protocol.
+          schema:
+            type: integer
+          style: simple
+          required: False
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found or protocol not supported
         """
         try:
             del_protocols(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), scheme=scheme, hostname=hostname, port=port)
@@ -492,20 +1332,69 @@ class Usage(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rse):
         """
-        Get RSE usage information.
-
-        .. :quickref: Usage; Get RSE usage.
-
-        :param rse: the RSE name.
-        :query source: The information source, e.g., srm.
-        :query per_account: Boolean whether the usage should be also calculated per account or not.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
-        :status 406: Not Acceptable.
-        :returns: A list of dictionaries with the usage information.
-
+        ---
+        summary: Get Rse Usage Information
+        description: Get rse usage information.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        - name: per_account
+          in: query
+          description: Boolean whether the usage should be also calculated per account or not.
+          schema:
+            type: boolean
+        - name: source
+          in: query
+          description: The information source, e.g., srm.
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: A list with the rse usage.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      rse_id:
+                        description: The id of the rse.
+                        type: string
+                      rse:
+                        description: The name of the rse.
+                        type: string
+                      source:
+                        description: The source of the rse.
+                        type: string
+                      used:
+                        description: The number of used bytes.
+                        type: integer
+                      free:
+                        description: The number of free bytes.
+                        type: integer
+                      total:
+                        description: The number of total bytes.
+                        type: integer
+                      files:
+                        description: The number of files.
+                        type: integer
+                      updated_at:
+                        description: The last time it got updated.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         per_account = request.args.get('per_account') == 'True'
         try:
@@ -525,17 +1414,48 @@ class Usage(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
     def put(self, rse):
-        """ Update RSE usage information.
-
-        .. :quickref: Usage; Update RSE usage.
-
-        :param rse: The RSE name.
-        :<json dict parameter: Dictionary with 'source', 'used', 'free', 'files' values to update.
-        :status 200: OK.
-        :status 400: Cannot decode json parameter dictionary.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE not found.
-
+        """
+        ---
+        summary: Update Rse Usage
+        description: Update the RSE Update information.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source:
+                    description: The information source, e.g. srm.
+                    type: string
+                  used:
+                    description: The number of used bytes.
+                    type: integer
+                  free:
+                    description: The number of free bytes.
+                    type: integer
+                  files:
+                    description: The number of files.
+                    type: integer
+        responses:
+          200:
+            description: OK
+          400:
+            description: Can not decode json parameter list.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         parameters = json_parameters()
         kwargs = {'source': None, 'used': None, 'free': None, 'files': None}
@@ -558,18 +1478,56 @@ class UsageHistory(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rse):
         """
-        Get RSE usage information.
-
-        .. :quickref: UsageHistory; Get RSE usage history.
-
-        :param rse: the RSE name.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
-        :status 406: Not Acceptable.
-        :returns: Line separated list of dictionary with RSE usage information.
-
+        ---
+        summary: Get Rse Usage History
+        description: Get the rse usage history
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: A list with the rse usage history items.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      rse_id:
+                        description: The id of the rse.
+                        type: string
+                      rse:
+                        description: The name of the rse.
+                        type: string
+                      source:
+                        description: The source of the rse.
+                        type: string
+                      used:
+                        description: The number of used bytes.
+                        type: integer
+                      free:
+                        description: The number of free bytes.
+                        type: integer
+                      total:
+                        description: The number of total bytes.
+                        type: integer
+                      updated_at:
+                        description: The last time it got updated.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         try:
             def generate(issuer, source, vo):
@@ -587,18 +1545,36 @@ class Limits(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
         """
-        Get RSE limits.
-
-        .. :quickref: Limits; Get RSE limits.
-
-        :param rse: the RSE name.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
-        :status 406: Not Acceptable.
-        :returns: List of dictionaries with RSE limits.
-
+        ---
+        summary: Get Rse Limits
+        description: Get the rse limits.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: The limits.
+                  type: object
+                  additionalProperties:
+                    x-additionalPropertiesName: limit name
+                    description: An item with the name as key and the value as value.
+                    type: integer
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         try:
             limits = get_rse_limits(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -607,15 +1583,40 @@ class Limits(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
     def put(self, rse):
-        """ Update RSE limits.
-
-        .. :quickref: Limits; Update RSE limits.
-
-        :param rse: The RSE name.
-        :status 200: OK.
-        :status 400: Cannot decode json parameter dictionary.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
+        """
+        ---
+        summary: Update Rse Limit
+        description: Update an rse limit.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    description: The name of the limit.
+                    type: string
+                  value:
+                    description: The value of the limit.
+                    type: integer
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         parameters = json_parameters()
         kwargs = {'name': None, 'value': None}
@@ -632,16 +1633,39 @@ class Limits(ErrorHandlingMethodView):
         return '', 200
 
     def delete(self, rse):
-        """ Update RSE limits.
-
-        .. :quickref: Limits; Update RSE limits.
-
-        :param rse: The RSE name.
-        :status 200: OK.
-        :status 400: Cannot decode json parameter dictionary.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
-
+        """
+        ---
+        summary: Delete Rse Limit
+        description: Delete an rse limit
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - name
+                properties:
+                  name:
+                    description: The name of the limit.
+                    type: string
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         parameters = json_parameters()
         name = param_get(parameters, 'name')
@@ -662,17 +1686,53 @@ class RSEAccountUsageLimit(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
         """
-        Get account usage and limit for one RSE.
-
-        .. :quickref: RSEAccountUsageLimit; Get account usage.
-
-        :param rse: the RSE name.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
-        :status 406: Not Acceptable.
-        :returns: Line separated list of dict with account usage and limits.
+        ---
+        summary: Get Rse Account Usage and Limit
+        description: Returns the usage and limit of an account for a rse.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: A list with the rse account limits and usages.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      rse_id:
+                        description: The id of the rse.
+                        type: string
+                      rse:
+                        description: The name of the rse.
+                        type: string
+                      account:
+                        description: The account.
+                        type: string
+                      used_files:
+                        description: The number of used files.
+                        type: integer
+                      used_bytes:
+                        description: The number of used bytes.
+                        type: integer
+                      quota_bytes:
+                        description: The number of quota bytes.
+                        type: integer
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         try:
             def generate(vo):
@@ -690,17 +1750,57 @@ class Distance(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, source, destination):
         """
-        Get RSE distance between source and destination.
-
-        .. :quickref: Distance; Get RSE distance.
-
-        :param source: the source RSE name.
-        :param destination: the destination RSE name.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 406: Not Acceptable.
-        :returns: List of dictionaries with RSE distances.
+        ---
+        summary: Get Rse Distances
+        description: Returns the distances between a source and destination rse.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: source
+          in: path
+          description: The name of the source Rucio Storage Element.
+          schema:
+            type: string
+          style: simple
+        - name: destination
+          in: path
+          description: The name of the destination Rucio Storage Element.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: The distances between the Rses.
+                  type: array
+                  items:
+                    type: object
+                    description: One distance betweeen source and destination.
+                    properties:
+                      src_rse_id:
+                        description: The source rse id.
+                        type: string
+                      dest_rse_id:
+                        description: The destination rse id.
+                        type: string
+                      ranking:
+                        description: The ranking.
+                        type: integer
+                      agis_distance:
+                        description: The agis distance.
+                        type: integer
+                      geoip_distance:
+                        description: The geo ip distance.
+                        type: integer
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         try:
             distance = get_distance(source=source, destination=destination, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -709,16 +1809,69 @@ class Distance(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
     def post(self, source, destination):
-        """ Create distance information between source RSE and destination RSE.
-
-        .. :quickref: Distance; Create RSE distance.
-
-        :param source: The source RSE name.
-        :param destination: The destination RSE name.
-        :status 201: Created.
-        :status 400: Cannot decode json parameter dictionary.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
+        """
+        ---
+        summary: Create Rse Distance
+        description: Post a rse distance.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: source
+          in: path
+          description: The name of the source Rucio Storage Element.
+          schema:
+            type: string
+          style: simple
+        - name: destination
+          in: path
+          description: The name of the destination Rucio Storage Element.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ranking:
+                    description: The ranking of the distance.
+                    type: integer
+                  distance:
+                    description: The distance between the Rses.
+                    type: integer
+                  geoip_distance:
+                    description: The geoip distance between the Rses.
+                    type: integer
+                  active:
+                    description: If the distance is active.
+                    type: boolean
+                  submitted:
+                    description: If the distance is submitted.
+                    type: boolean
+                  finished:
+                    description: If the distance is finished.
+                    type: boolean
+                  failed:
+                    description: If the distance failed.
+                    type: boolean
+                  transfer_speed:
+                    description: The transferspeed between the Rses.
+                    type: integer
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         parameters = json_parameters()
         kwargs = {
@@ -752,16 +1905,69 @@ class Distance(ErrorHandlingMethodView):
         return 'Created', 201
 
     def put(self, source, destination):
-        """ Update distance information between source RSE and destination RSE.
-
-        .. :quickref: Distance; Update RSE distance.
-
-        :param source: The source RSE name.
-        :param destination: The destination RSE name.
-        :status 200: OK.
-        :status 400: Cannot decode json parameter dictionary.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
+        """
+        ---
+        summary: Update Rse Distance
+        description: Update rse distance information.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: source
+          in: path
+          description: The name of the source Rucio Storage Element.
+          schema:
+            type: string
+          style: simple
+        - name: destination
+          in: path
+          description: The name of the destination Rucio Storage Element.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ranking:
+                    description: The ranking of the distance.
+                    type: integer
+                  agis_distance:
+                    description: The distance between the Rses.
+                    type: integer
+                  geoip_distance:
+                    description: The geoip distance between the Rses.
+                    type: integer
+                  active:
+                    description: If the distance is active.
+                    type: boolean
+                  submitted:
+                    description: If the distance is submitted.
+                    type: boolean
+                  finished:
+                    description: If the distance is finished.
+                    type: boolean
+                  failed:
+                    description: If the distance failed.
+                    type: boolean
+                  transfer_speed:
+                    description: The transferspeed between the Rses.
+                    type: integer
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         parameters = json_parameters()
         try:
@@ -780,15 +1986,39 @@ class Distance(ErrorHandlingMethodView):
         return '', 200
 
     def delete(self, source, destination):
-        """ Delete distance information between source RSE and destination RSE.
-
-        .. :quickref: Distance; Delete RSE distances.
-
-        :param source: The source RSE name.
-        :param destination: The destination RSE name.
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
+        """
+        ---
+        summary: Delete Rse Distance
+        description: Delete distance information between source RSE and destination RSE.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: source
+          in: path
+          description: The name of the source Rucio Storage Element.
+          schema:
+            type: string
+          style: simple
+        - name: destination
+          in: path
+          description: The name of the destination Rucio Storage Element.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Deleted"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         try:
             delete_distance(
@@ -811,15 +2041,38 @@ class QoSPolicy(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def post(self, rse, policy):
         """
-        Add QoS policy to RSE
-
-        .. :quickref: QoSPolicy; Add QoS policy to RSE.
-
-        :param rse: The RSE name.
-        :param policy: The QoS policy name.
-        :status 201: Created.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
+        ---
+        summary: Add QoS policy
+        description: Add a QoS Policy to a RSE.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        - name: policy
+          in: path
+          description: The QoS policy to add to and rse.
+          schema:
+            type: string
+          style: simple
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         try:
             add_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -831,15 +2084,33 @@ class QoSPolicy(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def delete(self, rse, policy):
         """
-        Delete QoS policy from RSE.
-
-        .. :quickref: QoSPolicy; Delete QoS policy from RSE.
-
-        :param rse: The RSE name.
-        :param policy: The QoS policy name.
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE not found.
+        ---
+        summary: Delete QoS Policy
+        description: Delete QoS policy from RSE.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        - name: policy
+          in: path
+          description: The QoS policy to add to and rse.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         try:
             delete_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -851,15 +2122,41 @@ class QoSPolicy(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
         """
-        List all QoS policies of an RSE.
-
-        .. :quickref: QoSPolicy; List all QoS policies of an RSE.
-
-        :param rse: The RSE name.
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :returns: List of QoS policies
+        ---
+        summary: Gett QoS Policies
+        description: List all QoS policies for an Rse.
+        tags:
+          - Rucio Storage Elements
+        parameters:
+        - name: rse
+          in: path
+          description: The name of the Rucio Storage Element name.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: A list with all the QoS policies for an Rse.
+                  type: array
+                  items:
+                    type: object
+                    porperties:
+                      rse_id:
+                        description: The rse id.
+                        type: string
+                      qos_policy:
+                        description: The qos policy.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse not found
+          406:
+            description: Not acceptable
         """
         try:
             qos_policies = list_qos_policies(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
