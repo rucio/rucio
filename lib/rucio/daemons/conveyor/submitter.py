@@ -33,7 +33,8 @@ from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
 from rucio.core.monitor import MultiCounter, record_timer
 from rucio.core.transfer import transfer_path_str
-from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, run_conveyor_daemon, next_transfers_to_submit
+from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, next_transfers_to_submit
+from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
@@ -192,7 +193,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
         },
     }
 
-    run_conveyor_daemon(
+    run_daemon(
         once=once,
         graceful_stop=graceful_stop,
         executable=executable,

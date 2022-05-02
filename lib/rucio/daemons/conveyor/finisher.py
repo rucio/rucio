@@ -40,7 +40,7 @@ from rucio.core import request as request_core, replica as replica_core
 from rucio.core.config import items
 from rucio.core.monitor import record_timer, record_counter
 from rucio.core.rse import list_rses
-from rucio.daemons.conveyor.common import run_conveyor_daemon
+from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, BadFilesStatus
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager
@@ -123,7 +123,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
         activities.sort()
         executable += '--activities ' + str(activities)
 
-    run_conveyor_daemon(
+    run_daemon(
         once=once,
         graceful_stop=graceful_stop,
         executable=executable,

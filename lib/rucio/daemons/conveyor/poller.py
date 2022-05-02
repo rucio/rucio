@@ -41,7 +41,7 @@ from rucio.common.utils import dict_chunks
 from rucio.core import transfer as transfer_core, request as request_core
 from rucio.core.monitor import record_timer, record_counter
 from rucio.db.sqla.constants import RequestState, RequestType
-from rucio.daemons.conveyor.common import run_conveyor_daemon
+from rucio.daemons.common import run_daemon
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 
@@ -134,7 +134,7 @@ def poller(once=False, activities=None, sleep_time=60,
     if FILTER_TRANSFERTOOL:
         executable += ' --filter-transfertool ' + FILTER_TRANSFERTOOL
 
-    run_conveyor_daemon(
+    run_daemon(
         once=once,
         graceful_stop=graceful_stop,
         executable=executable,
