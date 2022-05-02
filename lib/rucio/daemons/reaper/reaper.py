@@ -305,10 +305,8 @@ def __check_rse_usage(rse: str, rse_id: str, greedy: bool = False,
     if result is NO_VALUE:
         needed_free_space, used, free, obsolete = 0, 0, 0, 0
 
-        # First of all check if greedy mode is enabled for this RSE or generally
-        attributes = list_rse_attributes(rse_id=rse_id)
-        rse_attr_greedy = attributes.get('greedyDeletion', False)
-        if greedy or rse_attr_greedy:
+        # First of all check if greedy mode is enabled for this RSE
+        if greedy:
             result = (1000000000000, False)
             REGION.set('rse_usage_%s' % rse_id, result)
             return result
@@ -319,6 +317,7 @@ def __check_rse_usage(rse: str, rse_id: str, greedy: bool = False,
 
         # Check from which sources to get used and total spaces
         # Default is storage
+        attributes = list_rse_attributes(rse_id=rse_id)
         source_for_total_space = attributes.get('source_for_total_space', 'storage')
         source_for_used_space = attributes.get('source_for_used_space', 'storage')
 
@@ -468,12 +467,14 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 if rse['availability'] % 2 == 0:
                     logger(logging.DEBUG, 'RSE %s is blocklisted for delete', rse['rse'])
                     continue
-                needed_free_space, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], greedy=greedy, logger=logger)
+                attributes = list_rse_attributes(rse_id=rse['id'])
+                enable_greedy = attributes.get('greedyDeletion', False) or greedy
+                needed_free_space, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], greedy=enable_greedy, logger=logger)
                 if needed_free_space:
-                    dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, only_delete_obsolete]
+                    dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, only_delete_obsolete, enable_greedy]
                     tot_needed_free_space += needed_free_space
                 elif only_delete_obsolete:
-                    dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, only_delete_obsolete]
+                    dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, only_delete_obsolete, enable_greedy]
                 else:
                     logger(logging.DEBUG, 'Nothing to delete on %s', rse['rse'])
 
@@ -497,11 +498,11 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 else:
                     max_workers = 1
 
-                list_rses_mult.extend([(rse_name, rse_id, dict_rses[rse_key][0], dict_rses[rse_key][1]) for _ in range(int(max_workers))])
+                list_rses_mult.extend([(rse_name, rse_id, dict_rses[rse_key][0]) for _ in range(int(max_workers))])
             random.shuffle(list_rses_mult)
 
             paused_rses = []
-            for rse_name, rse_id, needed_free_space, max_being_deleted_files in list_rses_mult:
+            for rse_name, rse_id, needed_free_space in list_rses_mult:
                 result = REGION.get('pause_deletion_%s' % rse_id, expiration_time=120)
                 if result is not NO_VALUE:
                     paused_rses.append(rse_name)
@@ -547,6 +548,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 # List and mark BEING_DELETED the files to delete
                 del_start_time = time.time()
                 only_delete_obsolete = dict_rses[(rse_name, rse_id)][1]
+                enable_greedy = dict_rses[(rse_name, rse_id)][2]
                 try:
                     use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
@@ -567,7 +569,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                                                                                      only_delete_obsolete=only_delete_obsolete,
                                                                                      session=None)
                     logger(logging.DEBUG, 'list_and_mark_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', rse_name, needed_free_space, time.time() - del_start_time, len(replicas))
-                    if len(replicas) < chunk_size:
+                    if not enable_greedy and len(replicas) < chunk_size:
                         logger(logging.DEBUG, 'Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', rse_name, chunk_size, len(replicas))
                         REGION.set('pause_deletion_%s' % rse_id, True)
 
