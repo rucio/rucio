@@ -1138,7 +1138,7 @@ def perm_list_heartbeats(issuer, kwargs, session=None):
     :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return _is_root(issuer)
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='handle_heartbeats', session=session)
 
 
 def perm_send_heartbeats(issuer, kwargs, session=None):
@@ -1149,7 +1149,7 @@ def perm_send_heartbeats(issuer, kwargs, session=None):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session) or has_account_attribute(account=issuer, key='handle_heartbeats', session=session)
 
 
 def perm_resurrect(issuer, kwargs, session=None):
