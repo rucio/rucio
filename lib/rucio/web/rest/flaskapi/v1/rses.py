@@ -400,7 +400,7 @@ class RSE(ErrorHandlingMethodView):
                       type: string
                     time_zone:
                       description: The time zone of the RSE.
-                    type: string
+                      type: string
                     ISP:
                       description: The internet service provider of the RSE.
                       type: string
