@@ -132,7 +132,7 @@ class TemporaryRSEFactory:
                 'scheme': scheme,
                 'hostname': '%s.cern.ch' % rse_id,
                 'port': 0,
-                'prefix': '/test/',
+                'prefix': '/test_%s/' % rse_id,
                 'impl': protocol_impl,
                 'domains': {
                     'wan': {
@@ -141,6 +141,11 @@ class TemporaryRSEFactory:
                         'delete': 1,
                         'third_party_copy_read': 1,
                         'third_party_copy_write': 1,
+                    },
+                    'lan': {
+                        'read': 1,
+                        'write': 1,
+                        'delete': 1,
                     }
                 }
             }
@@ -156,7 +161,7 @@ class TemporaryRSEFactory:
         return self._make_rse(scheme='file', protocol_impl='rucio.rse.protocols.posix.Default', add_rse_kwargs=kwargs)
 
     def make_mock_rse(self, **kwargs):
-        return self._make_rse(scheme='MOCK', protocol_impl='rucio.rse.protocols.mock.Default', add_rse_kwargs=kwargs)
+        return self._make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.mock.Default', add_rse_kwargs=kwargs)
 
     def make_xroot_rse(self, **kwargs):
         return self._make_rse(scheme='root', protocol_impl='rucio.rse.protocols.xrootd.Default', add_rse_kwargs=kwargs)

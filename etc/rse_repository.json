@@ -302,60 +302,6 @@
     },
     "storage_usage_tool": "rucio.rse.protocols.posix.Default.getSpace"
   },
-  "MOCK_SUSPICIOUS":{
-    "backend_type": "POSIX",
-    "deterministic": true,
-    "protocols": {
-      "default": "file",
-      "supported": {
-        "file": {
-          "prefix": "/tmp/rucio_rse1/",
-          "impl": "rucio.rse.protocols.posix.Default",
-          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATADISK1"},
-          "domains": {
-            "lan": {
-              "read": 1,
-              "write": 1,
-              "delete": 1
-            },
-            "wan": {
-              "read": 1,
-              "write": 1,
-              "delete": 1
-            }
-          }
-        }
-      }
-    },
-    "storage_usage_tool": "rucio.rse.protocols.posix.Default.getSpace"
-  },
-  "MOCK_RECOVERY":{
-    "backend_type": "POSIX",
-    "deterministic": true,
-    "protocols": {
-      "default": "file",
-      "supported": {
-        "file": {
-          "prefix": "/tmp/rucio_rse2/",
-          "impl": "rucio.rse.protocols.posix.Default",
-          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATADISK2"},
-          "domains": {
-            "lan": {
-              "read": 1,
-              "write": 1,
-              "delete": 1
-            },
-            "wan": {
-              "read": 1,
-              "write": 1,
-              "delete": 1
-            }
-          }
-        }
-      }
-    },
-    "storage_usage_tool": "rucio.rse.protocols.posix.Default.getSpace"
-  },
   "FZK-LCG2_SCRATCHDISK":{
     "backend_type": "dCache",
     "protocols": {
@@ -402,35 +348,6 @@
     },
     "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
   },
-  "CERN-PROD_TZERO":{
-    "backend_type": "Castor",
-    "deterministic": false,
-    "protocols": {
-      "default": "castor",
-      "supported": {
-        "rfio": {
-          "impl": "rucio.rse.protocols.rfio.Default",
-          "hostname": "castoratlas.cern.ch.mock",
-          "port": 9002,
-          "prefix": "/castor/cern.ch/grid/atlas/tzero/",
-          "domains": {
-            "lan": {
-              "read": 1,
-              "write": 1,
-              "delete": 1
-            },
-            "wan": {
-              "read": 1,
-              "write": 1,
-              "delete": 1
-            }
-          },
-          "extended_attributes": "{'The One After the Port': '/srm/managerv2'}"
-        }
-      }
-    },
-    "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
-  },
   "WJ-XROOTD":{
     "backend_type": "XROOTD",
     "deterministic": true,
@@ -459,7 +376,7 @@
     },
     "storage_usage_tool": "rucio.rse.protocols.xrootd.Default.getSpace"
   },
-  "SSH_DISK":{
+  "SSH-DISK":{
     "backend_type": "SSH",
     "deterministic": true,
     "protocols": {

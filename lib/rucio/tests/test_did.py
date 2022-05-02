@@ -28,12 +28,10 @@ from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlread
                                     UnsupportedStatus, ScopeNotFound, FileAlreadyExists, FileConsistencyMismatch)
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
                             get_metadata, set_metadata, get_did, get_did_access_cnt, add_did_to_followed,
                             get_users_following_did, remove_did_from_followed, set_status)
 from rucio.core.replica import add_replica
-from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType
 from rucio.tests.common import rse_name_generator, scope_name_generator
 
@@ -60,7 +58,6 @@ class TestDIDCore:
             add_did(scope=mock_scope, name=dsn['name'], did_type='DATASET', account=root_account)
         delete_dids(dids=dsns, account=root_account)
 
-    @pytest.mark.dirty
     def test_touch_dids_atime(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Touch dids accessed_at timestamp"""
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
@@ -78,7 +75,6 @@ class TestDIDCore:
         assert now == get_did_atime(scope=mock_scope, name=tmp_dsn1)
         assert get_did_atime(scope=mock_scope, name=tmp_dsn2) is None
 
-    @pytest.mark.dirty
     def test_touch_dids_access_cnt(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Increase dids access_cnt"""
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
@@ -95,10 +91,9 @@ class TestDIDCore:
         assert 100 == get_did_access_cnt(scope=mock_scope, name=tmp_dsn1)
         assert get_did_access_cnt(scope=mock_scope, name=tmp_dsn2) is None
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_update_dids(self, vo, mock_scope, root_account):
+    def test_update_dids(self, vo, mock_scope, root_account, rse_factory):
         """ DATA IDENTIFIERS (CORE): Update file size and checksum"""
+        rse, rse_id = rse_factory.make_mock_rse()
         dsn = 'dsn_%s' % generate_uuid()
         lfn = 'lfn.%s' % str(generate_uuid())
         add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
@@ -106,7 +101,7 @@ class TestDIDCore:
         files = [{'scope': mock_scope, 'name': lfn,
                   'bytes': 724963570, 'adler32': '0cc737eb',
                   'meta': {'guid': str(generate_uuid()), 'events': 100}}]
-        attach_dids(scope=mock_scope, name=dsn, rse_id=get_rse_id(rse='MOCK', vo=vo), dids=files, account=root_account)
+        attach_dids(scope=mock_scope, name=dsn, rse_id=rse_id, dids=files, account=root_account)
 
         set_metadata(scope=mock_scope, name=lfn, key='adler32', value='0cc737ee')
         assert get_metadata(scope=mock_scope, name=lfn)['adler32'] == '0cc737ee'
@@ -117,16 +112,13 @@ class TestDIDCore:
         set_metadata(scope=mock_scope, name=lfn, key='bytes', value=724963577)
         assert get_metadata(scope=mock_scope, name=lfn)['bytes'] == 724963577
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_get_did_with_dynamic(self, vo, mock_scope, root_account):
+    def test_get_did_with_dynamic(self, vo, mock_scope, root_account, rse_factory):
         """ DATA IDENTIFIERS (CORE): Get did with dynamic resolve of size"""
+        rse, rse_id = rse_factory.make_mock_rse()
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
         tmp_dsn3 = 'dsn_%s' % generate_uuid()
         tmp_dsn4 = 'dsn_%s' % generate_uuid()
-
-        rse_id = get_rse_id(rse='MOCK', vo=vo)
 
         add_did(scope=mock_scope, name=tmp_dsn1, did_type=DIDType.DATASET, account=root_account)
         add_replica(rse_id=rse_id, scope=mock_scope, name=tmp_dsn2, bytes_=10, account=root_account)
@@ -139,10 +131,9 @@ class TestDIDCore:
         assert get_did(scope=mock_scope, name=tmp_dsn1, dynamic=True)['bytes'] == 20
         assert get_did(scope=mock_scope, name=tmp_dsn4, dynamic=True)['bytes'] == 20
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_reattach_dids(self, vo, mock_scope, root_account):
+    def test_reattach_dids(self, vo, mock_scope, root_account, rse_factory):
         """ DATA IDENTIFIERS (CORE): Repeatedly attach and detach DIDs """
+        rse, rse_id = rse_factory.make_mock_rse()
         parent_name = 'parent_%s' % generate_uuid()
         add_did(scope=mock_scope, name=parent_name, did_type=DIDType.DATASET, account=root_account)
 
@@ -150,7 +141,6 @@ class TestDIDCore:
         files = [{'scope': mock_scope, 'name': child_name,
                   'bytes': 12345, 'adler32': '0cc737eb'}]
 
-        rse_id = get_rse_id('MOCK', vo=vo)
         attach_dids(scope=mock_scope, name=parent_name, rse_id=rse_id, dids=files, account=root_account)
 
         detach_dids(scope=mock_scope, name=parent_name, dids=files)
@@ -250,16 +240,14 @@ class TestDIDApi:
 
 class TestDIDClients:
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_list_dids(self, did_client, replica_client, scope_client):
+    def test_list_dids(self, did_client, replica_client, scope_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): List dids by pattern."""
+        tmp_rse, rse_id = rse_factory.make_mock_rse()
         tmp_scope = scope_name_generator()
         tmp_files = []
         tmp_files.append('file_a_1%s' % generate_uuid())
         tmp_files.append('file_a_2%s' % generate_uuid())
         tmp_files.append('file_b_1%s' % generate_uuid())
-        tmp_rse = 'MOCK'
 
         scope_client.add_scope('jdoe', tmp_scope)
         for tmp_file in tmp_files:
@@ -390,15 +378,14 @@ class TestDIDClients:
             did_client.list_dids(tmp_scope, {'NotReallyAKey': 'NotReallyAValue'})
 
     @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_add_did(self, vo, did_client):
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_add_did(self, vo, did_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): Add, populate, list did content and create a sample"""
         tmp_scope = 'mock'
-        tmp_rse = 'MOCK'
+        tmp_rse, rse_id = rse_factory.make_mock_rse()
+        rse2, rse2_id = rse_factory.make_mock_rse()
         tmp_dsn = 'dsn_%s' % generate_uuid()
         root = InternalAccount('root', vo=vo)
-        set_local_account_limit(root, get_rse_id('MOCK', vo=vo), -1)
-        set_local_account_limit(root, get_rse_id('CERN-PROD_TZERO', vo=vo), -1)
 
         # PFN example: rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/xx/xx/xx/filename
         dataset_meta = {'project': 'data13_hip',
@@ -408,7 +395,7 @@ class TestDIDClients:
                         'datatype': 'NTUP_TRIG',
                         'version': 'f392_m927',
                         }
-        rules = [{'copies': 1, 'rse_expression': 'MOCK', 'account': 'root'}]
+        rules = [{'copies': 1, 'rse_expression': tmp_rse, 'account': 'root'}]
 
         with pytest.raises(ScopeNotFound):
             did_client.add_dataset(scope='Nimportnawak', name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules)
@@ -432,7 +419,7 @@ class TestDIDClients:
                           'bytes': 724963570, 'adler32': '0cc737eb',
                           'pfn': pfn, 'meta': file_meta})
 
-        rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2), 'account': 'root'}]
+        rules = [{'copies': 1, 'rse_expression': rse2, 'lifetime': timedelta(days=2), 'account': 'root'}]
 
         with pytest.raises(InvalidPath):
             did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files, rse=tmp_rse)
@@ -454,7 +441,7 @@ class TestDIDClients:
             files.append({'scope': InternalScope(tmp_scope, vo=vo), 'name': lfn,
                           'bytes': 724963570, 'adler32': '0cc737eb',
                           'pfn': pfn, 'meta': file_meta})
-        rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
+        rules = [{'copies': 1, 'rse_expression': rse2, 'lifetime': timedelta(days=2)}]
 
         with pytest.raises(InvalidPath):
             did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files, rse=tmp_rse)
@@ -469,11 +456,11 @@ class TestDIDClients:
         assert len(files) == 2
 
     @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_attach_dids_to_dids(self, did_client):
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_attach_dids_to_dids(self, did_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): Attach dids to dids"""
         tmp_scope = 'mock'
-        tmp_rse = 'MOCK'
+        tmp_rse, rse_id = rse_factory.make_mock_rse()
         nb_datasets = 5
         nb_files = 5
         attachments, dsns = list(), list()
@@ -507,11 +494,11 @@ class TestDIDClients:
             did_client.attach_dids_to_dids([{'scope': 'mock', 'name': cnt_name, 'rse': tmp_rse, 'dids': attachment['dids']}])
 
     @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_add_files_to_datasets(self, did_client):
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_add_files_to_datasets(self, did_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): Add files to Datasets"""
         tmp_scope = 'mock'
-        tmp_rse = 'MOCK'
+        tmp_rse, rse_id = rse_factory.make_mock_rse()
         dsn1 = 'dsn.%s' % str(generate_uuid())
         dsn2 = 'dsn.%s' % str(generate_uuid())
         meta = {'transient': True}
@@ -591,12 +578,12 @@ class TestDIDClients:
         did_client.add_datasets(dsns)
 
     @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_exists(self, did_client, replica_client):
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_exists(self, did_client, replica_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): Check if data identifier exists """
         tmp_scope = 'mock'
         tmp_file = 'file_%s' % generate_uuid()
-        tmp_rse = 'MOCK'
+        tmp_rse, rse_id = rse_factory.make_mock_rse()
 
         replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1, '0cc737eb')
 
@@ -609,29 +596,28 @@ class TestDIDClients:
             did_client.get_did('i_dont_exist', 'neither_do_i')
 
     @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_did_hierarchy(self, did_client, replica_client, scope_client):
+    def test_did_hierarchy(self, did_client, replica_client, scope_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): Check did hierarchy rule """
 
         account = 'jdoe'
-        rse = 'MOCK'
+        rse, rse_id = rse_factory.make_mock_rse()
         scope = scope_name_generator()
-        file = ['file_%s' % generate_uuid() for i in range(10)]
+        file_ = ['file_%s' % generate_uuid() for i in range(10)]
         dst = ['dst_%s' % generate_uuid() for i in range(4)]
         cnt = ['cnt_%s' % generate_uuid() for i in range(4)]
 
         scope_client.add_scope(account, scope)
 
         for i in range(10):
-            replica_client.add_replica(rse, scope, file[i], 1, '0cc737eb')
+            replica_client.add_replica(rse, scope, file_[i], 1, '0cc737eb')
         for i in range(4):
             did_client.add_did(scope, dst[i], 'DATASET', statuses=None, meta=None, rules=None)
         for i in range(4):
             did_client.add_did(scope, cnt[i], 'CONTAINER', statuses=None, meta=None, rules=None)
 
         for i in range(4):
-            did_client.add_files_to_dataset(scope, dst[i], [{'scope': scope, 'name': file[2 * i], 'bytes': 1, 'adler32': '0cc737eb'},
-                                                            {'scope': scope, 'name': file[2 * i + 1], 'bytes': 1, 'adler32': '0cc737eb'}])
+            did_client.add_files_to_dataset(scope, dst[i], [{'scope': scope, 'name': file_[2 * i], 'bytes': 1, 'adler32': '0cc737eb'},
+                                                            {'scope': scope, 'name': file_[2 * i + 1], 'bytes': 1, 'adler32': '0cc737eb'}])
 
         did_client.add_containers_to_container(scope, cnt[1], [{'scope': scope, 'name': cnt[2]}, {'scope': scope, 'name': cnt[3]}])
         did_client.add_datasets_to_container(scope, cnt[0], [{'scope': scope, 'name': dst[1]}, {'scope': scope, 'name': dst[2]}])
@@ -648,30 +634,28 @@ class TestDIDClients:
             # else:
             #     assert r['level'] == 1
 
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_detach_did(self, did_client, replica_client, scope_client):
+    def test_detach_did(self, did_client, replica_client, scope_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): Detach dids from a did"""
 
         account = 'jdoe'
-        rse = 'MOCK'
+        rse, rse_id = rse_factory.make_mock_rse()
         scope = scope_name_generator()
-        file = ['file_%s' % generate_uuid() for i in range(10)]
+        file_ = ['file_%s' % generate_uuid() for i in range(10)]
         dst = ['dst_%s' % generate_uuid() for i in range(5)]
         cnt = ['cnt_%s' % generate_uuid() for i in range(2)]
 
         scope_client.add_scope(account, scope)
 
         for i in range(10):
-            replica_client.add_replica(rse, scope, file[i], 1, '0cc737eb')
+            replica_client.add_replica(rse, scope, file_[i], 1, '0cc737eb')
         for i in range(5):
             did_client.add_dataset(scope, dst[i], statuses=None, meta=None, rules=None)
         for i in range(2):
             did_client.add_container(scope, cnt[i], statuses=None, meta=None, rules=None)
 
         for i in range(5):
-            did_client.add_files_to_dataset(scope, dst[i], [{'scope': scope, 'name': file[2 * i], 'bytes': 1, 'adler32': '0cc737eb'},
-                                                            {'scope': scope, 'name': file[2 * i + 1], 'bytes': 1, 'adler32': '0cc737eb'}])
+            did_client.add_files_to_dataset(scope, dst[i], [{'scope': scope, 'name': file_[2 * i], 'bytes': 1, 'adler32': '0cc737eb'},
+                                                            {'scope': scope, 'name': file_[2 * i + 1], 'bytes': 1, 'adler32': '0cc737eb'}])
 
         did_client.add_containers_to_container(scope, cnt[1], [{'scope': scope, 'name': dst[2]}, {'scope': scope, 'name': dst[3]}])
 
@@ -681,13 +665,13 @@ class TestDIDClients:
         did_client.add_datasets_to_container(scope, cnt[0], [{'scope': scope, 'name': dst[1]}, {'scope': scope, 'name': dst[2]}])
 
         did_client.detach_dids(scope, cnt[0], [{'scope': scope, 'name': dst[1]}])
-        did_client.detach_dids(scope, dst[3], [{'scope': scope, 'name': file[6]}, {'scope': scope, 'name': file[7]}])
+        did_client.detach_dids(scope, dst[3], [{'scope': scope, 'name': file_[6]}, {'scope': scope, 'name': file_[7]}])
         result = did_client.scope_list(scope, recursive=True)
         for r in result:
             if r['name'] == dst[1]:
                 assert r['level'] == 0
             if r['type'] == 'file':
-                if (r['name'] in file[6:9]):
+                if (r['name'] in file_[6:9]):
                     assert r['level'] == 0
                 else:
                     assert r['level'] != 0
@@ -698,11 +682,11 @@ class TestDIDClients:
         did_client.close(scope, dst[4])
         metadata = did_client.get_metadata(scope, dst[4])
         i_bytes, i_length = metadata['bytes'], metadata['length']
-        metadata = did_client.get_metadata(scope, file[8])
+        metadata = did_client.get_metadata(scope, file_[8])
         file1_bytes = metadata['bytes']
-        metadata = did_client.get_metadata(scope, file[9])
+        metadata = did_client.get_metadata(scope, file_[9])
         file2_bytes = metadata['bytes']
-        did_client.detach_dids(scope, dst[4], [{'scope': scope, 'name': file[8]}, {'scope': scope, 'name': file[9]}])
+        did_client.detach_dids(scope, dst[4], [{'scope': scope, 'name': file_[8]}, {'scope': scope, 'name': file_[9]}])
         metadata = did_client.get_metadata(scope, dst[4])
         f_bytes, f_length = metadata['bytes'], metadata['length']
         assert i_bytes == f_bytes + file1_bytes + file2_bytes
@@ -763,10 +747,10 @@ class TestDIDClients:
             assert tmp_scopes[i] + ':' + tmp_files[i] not in r_topdids
 
     @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_get_did(self, did_client, replica_client):
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_get_did(self, did_client, replica_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): add a new data identifier and try to retrieve it back"""
-        rse = 'MOCK'
+        rse, rse_id = rse_factory.make_mock_rse()
         scope = 'mock'
         file = generate_uuid()
         dsn = generate_uuid()
@@ -783,10 +767,10 @@ class TestDIDClients:
         assert type(did2['expired_at']) == datetime
 
     @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_get_meta(self, did_client, replica_client):
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_get_meta(self, did_client, replica_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): add a new meta data for an identifier and try to retrieve it back"""
-        rse = 'MOCK'
+        rse, rse_id = rse_factory.make_mock_rse()
         scope = 'mock'
         file = generate_uuid()
         keys = ['project', 'run_number']
@@ -802,10 +786,10 @@ class TestDIDClients:
             assert meta[keys[i]] == values[i]
 
     @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_list_content(self, did_client):
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_list_content(self, did_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): test to list contents for an identifier"""
-        rse = 'MOCK'
+        rse, rse_id = rse_factory.make_mock_rse()
         scope = 'mock'
         nbfiles = 5
         dataset1 = generate_uuid()
@@ -835,10 +819,10 @@ class TestDIDClients:
         assert dataset2 in datasets_s
 
     @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_list_files(self, did_client, replica_client):
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_list_files(self, did_client, replica_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): List files for a container"""
-        rse = 'MOCK'
+        rse, rse_id = rse_factory.make_mock_rse()
         scope = 'mock'
         dataset1 = generate_uuid()
         dataset2 = generate_uuid()
@@ -877,10 +861,10 @@ class TestDIDClients:
             did_client.list_files(scope, 'Nimportnawak')
 
     @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_list_replicas(self, did_client, replica_client):
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_list_replicas(self, did_client, replica_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): List replicas for a container"""
-        rse = 'MOCK'
+        rse, rse_id = rse_factory.make_mock_rse()
         scope = 'mock'
         dsn1 = generate_uuid()
         dsn2 = generate_uuid()
@@ -907,11 +891,11 @@ class TestDIDClients:
         assert replicas is not None
 
     @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_close(self, did_client, replica_client):
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_close(self, did_client, replica_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): test to close data identifiers"""
 
-        tmp_rse = 'MOCK'
+        tmp_rse, rse_id = rse_factory.make_mock_rse()
         tmp_scope = 'mock'
 
         # Add dataset
@@ -949,11 +933,11 @@ class TestDIDClients:
             did_client.attach_dids(scope=tmp_scope, name=tmp_dataset, dids=files)
 
     @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_open(self, did_client, replica_client):
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_open(self, did_client, replica_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): test to re-open data identifiers for priv account"""
 
-        tmp_rse = 'MOCK'
+        tmp_rse, rse_id = rse_factory.make_mock_rse()
         tmp_scope = 'mock'
 
         # Add dataset
@@ -986,11 +970,11 @@ class TestDIDClients:
         did_client.set_status(scope=tmp_scope, name=tmp_dataset, open=True)
 
     @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_bulk_get_meta(self, did_client, replica_client):
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_bulk_get_meta(self, did_client, replica_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): Add a new meta data for a list of DIDs and try to retrieve them back"""
         key = 'project'
-        rse = 'MOCK'
+        rse, _ = rse_factory.make_mock_rse()
         scope = 'mock'
         files = ['file_%s' % generate_uuid() for _ in range(4)]
         dst = ['dst_%s' % generate_uuid() for _ in range(4)]

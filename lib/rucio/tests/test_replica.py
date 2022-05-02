@@ -953,7 +953,7 @@ class TestReplicaMetalink:
         rse_info = rsemgr.get_rse_info(rse=rse, vo=vo)
         assert rse_info['deterministic'] is False
         files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
-                  'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test/%s/%s' % (rse_id, mock_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
+                  'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test_%s/%s/%s' % (rse_id, rse_id, mock_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
         for f in files:
             input_[f['pfn']] = {'scope': f['scope'].external, 'name': f['name']}
         add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)

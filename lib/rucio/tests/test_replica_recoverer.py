@@ -27,7 +27,7 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get_bool
 from rucio.common.types import InternalScope
 from rucio.core.replica import (update_replica_state, list_replicas, list_bad_replicas_status)
-from rucio.core.rse import get_rse_id, add_rse_attribute
+from rucio.core.rse import add_rse_attribute
 from rucio.core.did import set_metadata
 from rucio.daemons.replicarecoverer.suspicious_replica_recoverer import run, stop
 from rucio.db.sqla.constants import DIDType, BadFilesStatus, ReplicaState
@@ -35,8 +35,7 @@ from rucio.tests.common import execute, file_generator
 from rucio.tests.common_server import get_vo
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
+@pytest.mark.usefixtures("rse_factory_unittest")
 class TestReplicaRecoverer(unittest.TestCase):
 
     def setUp(self):
@@ -46,16 +45,16 @@ class TestReplicaRecoverer(unittest.TestCase):
             self.vo = {}
 
         self.replica_client = ReplicaClient()
+        assert hasattr(self, "rse_factory")
+        rse_factory = self.rse_factory
 
         # Using two test RSEs
-        self.rse4suspicious = 'MOCK_SUSPICIOUS'
-        self.rse4suspicious_id = get_rse_id(self.rse4suspicious, **self.vo)
-        self.rse4recovery = 'MOCK_RECOVERY'
-        self.rse4recovery_id = get_rse_id(self.rse4recovery, **self.vo)
+        self.rse4suspicious, self.rse4suspicious_id = rse_factory.make_posix_rse(deterministic=True, **self.vo)
+        self.rse4recovery, self.rse4recovery_id = rse_factory.make_posix_rse(deterministic=True, **self.vo)
         self.scope = 'mock'
         self.internal_scope = InternalScope(self.scope, **self.vo)
 
-        # For testing, we create 3 files and upload them to Rucio to two test RSEs.
+        # For testing, we create 5 files and upload them to Rucio to two test RSEs.
         self.tmp_file1 = file_generator()
         self.tmp_file2 = file_generator()
         self.tmp_file3 = file_generator()
@@ -69,6 +68,7 @@ class TestReplicaRecoverer(unittest.TestCase):
             cmd = 'rucio -v upload --rse {0} --scope {1} {2} {3} {4} {5} {6}'.format(rse, self.scope, self.tmp_file1, self.tmp_file2, self.tmp_file3, self.tmp_file4, self.tmp_file5)
             exitcode, out, err = execute(cmd)
 
+            print(exitcode, out, err)
             # checking if Rucio upload went OK
             assert exitcode == 0
 
@@ -92,7 +92,7 @@ class TestReplicaRecoverer(unittest.TestCase):
 
         # Changing the replica statuses as follows:
         # ----------------------------------------------------------------------------------------------------------------------------------
-        # Name         State(s) declared on MOCK_RECOVERY       State(s) declared on MOCK_SUSPICIOUS        Metadata "datatype"
+        # Name         State(s) declared on rse4recovery       State(s) declared on rse4suspicious        Metadata "datatype"
         # ----------------------------------------------------------------------------------------------------------------------------------
         # tmp_file1    available                                suspicious (available)
         # tmp_file2    available                                suspicious + bad (unavailable)
@@ -162,7 +162,7 @@ class TestReplicaRecoverer(unittest.TestCase):
         assert (path.basename(self.tmp_file4), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (path.basename(self.tmp_file5), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
 
-        # On purpose not checking for status to be declared 'SUSPICIOUS' on MOCK_SUSPICIOUS.
+        # On purpose not checking for status to be declared 'SUSPICIOUS' on rse4suspicious.
         # The only existing function (to date) gathering info about 'SUSPICIOUS' replicas
         # is used (currently only) from the tested replica_recoverer itself.
 
@@ -172,11 +172,11 @@ class TestReplicaRecoverer(unittest.TestCase):
             setUp function (above) is supposed to run first
             (nose does this automatically):
 
-            - uploads 6 test files to two test RSEs ('MOCK_RECOVERY', 'MOCK_SUSPICIOUS')
+            - uploads 6 test files to two test RSEs (rse4recovery, rse4suspicious)
             - prepares their statuses to be as follows:
 
             # ----------------------------------------------------------------------------------------------------------------------------------
-            # Name         State(s) declared on MOCK_RECOVERY       State(s) declared on MOCK_SUSPICIOUS        Metadata "datatype"
+            # Name         State(s) declared on rse4recovery       State(s) declared on rse4suspicious        Metadata "datatype"
             # ----------------------------------------------------------------------------------------------------------------------------------
             # tmp_file1    available                                suspicious (available)
             # tmp_file2    available                                suspicious + bad (unavailable)
@@ -185,8 +185,8 @@ class TestReplicaRecoverer(unittest.TestCase):
             # tmp_file5    unavailable                              suspicious (available)                      testtypenopolicy
             # ----------------------------------------------------------------------------------------------------------------------------------
 
-            - Explaination: Suspicious replicas that are the last remaining copy (unavailable on MOCK_RECOVERY) are handeled differently depending
-                            on their metadata "datatype". RAW files have the poilcy to be ignored. testtype_declare_bad files are of a fictional
+            - Explaination: Suspicious replicas that are the last remaining copy (unavailable on rse4recovery) are handeled differently depending
+                            by their metadata "datatype". RAW files have the poilcy to be ignored. testtype_declare_bad files are of a fictional
                             type that has the policy of being declared bad. testtype_nopolicy files are of a fictional type that doesn't have a
                             policy specified, meaning they should be ignored by default.
 
@@ -196,7 +196,7 @@ class TestReplicaRecoverer(unittest.TestCase):
 
             Concluding:
 
-            - checks that tmp_file1 and tmp_file4 were declared as 'BAD' on 'MOCK_SUSPICIOUS'
+            - checks that tmp_file1 and tmp_file4 were declared as 'BAD' on rse4suspicious
 
         """
 
@@ -207,9 +207,9 @@ class TestReplicaRecoverer(unittest.TestCase):
             stop()
 
         # Checking the outcome:
-        # we expect to see only one change, i.e. tmp_file1 declared as bad on MOCK_SUSPICIOUS
+        # we expect to see only one change, i.e. tmp_file1 declared as bad on rse4suspicious
         # ----------------------------------------------------------------------------------------------------------------------------------
-        # Name         State(s) declared on MOCK_RECOVERY       State(s) declared on MOCK_SUSPICIOUS        Metadata "datatype"
+        # Name         State(s) declared on rse4recovery       State(s) declared on rse4suspicious        Metadata "datatype"
         # ----------------------------------------------------------------------------------------------------------------------------------
         # tmp_file1    available                                suspicious + bad (unavailable)
         # tmp_file2    available                                suspicious + bad (unavailable)
