@@ -41,7 +41,7 @@ from rucio.db.sqla.constants import (RSEType, ReplicaState)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 if TYPE_CHECKING:
-    from typing import Dict, Optional, Sequence
+    from typing import Any, Dict, Optional, Sequence
     from sqlalchemy.orm import Session
 
 REGION = make_region_memcached(expiration_time=900)
@@ -1395,7 +1395,7 @@ MUTABLE_RSE_PROPERTIES = {
 
 
 @transactional_session
-def update_rse(rse_id, parameters, session=None):
+def update_rse(rse_id: str, parameters: 'Dict[str, Any]', session=None):
     """
     Update RSE properties like availability or name.
 
