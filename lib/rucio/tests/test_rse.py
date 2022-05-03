@@ -25,13 +25,15 @@ from rucio.common import exception
 from rucio.common.config import config_get_bool
 from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported,
                                     InvalidObject, ResourceTemporaryUnavailable,
-                                    RSEAttributeNotFound, RSEOperationNotSupported)
+                                    RSEAttributeNotFound, RSEOperationNotSupported,
+                                    InputValidationError)
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses,
                             rse_exists, add_rse_attribute, list_rse_attributes,
                             set_rse_transfer_limits, get_rse_transfer_limits,
                             delete_rse_transfer_limits, get_rse_protocols,
-                            del_rse_attribute, get_rse_attribute, get_rse, rse_is_empty)
+                            del_rse_attribute, get_rse_attribute, get_rse, rse_is_empty,
+                            update_rse)
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType
 from rucio.rse import rsemanager as mgr
@@ -1464,3 +1466,16 @@ class TestRSEClient(unittest.TestCase):
         rse_name = rse_name_generator()
         with pytest.raises(RSENotFound):
             self.client.delete_rse(rse=rse_name)
+
+    def test_rse_update_unsupported_option(self):
+        """ RSE(CLIENT): update with an unsupported option should throw an exception"""
+        rse_name = rse_name_generator()
+        add_rse(rse_name, **self.vo)
+        rse_id = get_rse_id(rse_name, **self.vo)
+
+        update_rse(rse_id, parameters={'city': 'Berlin'})
+        assert get_rse(rse_id)['city'] == 'Berlin'
+
+        with pytest.raises(InputValidationError):
+            update_rse(rse_id, parameters={'city': 'Not Berlin', 'non_existing_option': 3})
+        assert get_rse(rse_id)['city'] == 'Berlin'

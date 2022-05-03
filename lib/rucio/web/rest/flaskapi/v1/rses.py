@@ -24,7 +24,7 @@ from rucio.api.rse import add_rse, update_rse, list_rses, del_rse, add_rse_attri
     add_distance, get_distance, update_distance, delete_distance, list_qos_policies, add_qos_policy, delete_qos_policy
 from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RSEOperationNotSupported, \
     RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, \
-    InvalidRSEExpression, RSEAttributeNotFound, CounterNotFound, InvalidPath, ReplicaNotFound
+    InvalidRSEExpression, RSEAttributeNotFound, CounterNotFound, InvalidPath, ReplicaNotFound, InputValidationError
 from rucio.common.utils import render_json, APIEncoder
 from rucio.rse import rsemanager
 from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
@@ -329,7 +329,7 @@ class RSE(ErrorHandlingMethodView):
                   type: string
                   enum: ["Created"]
           400:
-            description: Cannot decode json parameter dictionary
+            description: Cannot decode json parameter dictionary or invalid option provided
           401:
             description: Invalid Auth Token
           404:
@@ -342,7 +342,7 @@ class RSE(ErrorHandlingMethodView):
         }
         try:
             update_rse(rse, **kwargs)
-        except InvalidObject as error:
+        except (InvalidObject, InputValidationError) as error:
             return generate_http_error_flask(400, error)
         except AccessDenied as error:
             return generate_http_error_flask(401, error)

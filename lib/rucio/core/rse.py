@@ -1374,6 +1374,26 @@ def del_protocols(rse_id, scheme, hostname=None, port=None, session=None):
                     i += 1
 
 
+MUTABLE_RSE_PROPERTIES = {
+    'name',
+    'availability_read',
+    'availability_write',
+    'availability_delete',
+    'latitude',
+    'longitude',
+    'time_zone',
+    'rse_type',
+    'volatile',
+    'deterministic',
+    'region_code',
+    'country_name',
+    'city',
+    'staging_area',
+    'qos_class',
+    'availability'
+}
+
+
 @transactional_session
 def update_rse(rse_id, parameters, session=None):
     """
@@ -1384,7 +1404,12 @@ def update_rse(rse_id, parameters, session=None):
     :param session: The database session in use.
 
     :raises RSENotFound: If RSE is not found.
+    :raises InputValidationError: If a parameter does not exist. Nothing will be added then.
     """
+    for key in parameters.keys():
+        if key not in MUTABLE_RSE_PROPERTIES:
+            raise exception.InputValidationError(f"The key '{key}' does not exist for RSE properties.")
+
     try:
         query = session.query(models.RSE).filter_by(id=rse_id).one()
     except sqlalchemy.orm.exc.NoResultFound:
@@ -1406,9 +1431,9 @@ def update_rse(rse_id, parameters, session=None):
                 availability = availability | availability_mapping[key]
             else:
                 availability = availability & ~availability_mapping[key]
-        elif key in ['latitude', 'longitude', 'time_zone', 'rse_type', 'volatile', 'deterministic', 'region_code', 'country_name', 'city', 'staging_area', 'qos_class']:
+        elif key in MUTABLE_RSE_PROPERTIES - {'name', 'availability_read', 'availability_write', 'availability_delete'}:
             param[key] = parameters[key]
-    param['availability'] = availability
+    param['availability'] = availability or param['availability']
 
     # handle null-able keys
     for key in parameters:
