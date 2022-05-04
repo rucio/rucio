@@ -82,6 +82,7 @@ def run_once(paused_rules, heartbeat_handler, **_kwargs):
             return
 
         for rule in rules:
+            _, _, logger = heartbeat_handler.live()
             rule_id = rule[0]
             rule_expression = rule[1]
             logger(logging.INFO, 'Deleting rule %s with expression %s' % (rule_id, rule_expression))

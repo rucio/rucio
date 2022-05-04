@@ -89,6 +89,7 @@ def run_once(paused_dids, did_limit, heartbeat_handler, **_kwargs):
 
         done_dids = {}
         for did in dids:
+            _, _, logger = heartbeat_handler.live()
             if graceful_stop.is_set():
                 break
 
