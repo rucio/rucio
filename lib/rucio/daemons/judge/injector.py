@@ -16,10 +16,8 @@
 """
 Judge-Injector is a daemon to asynchronously create replication rules
 """
-
+import functools
 import logging
-import os
-import socket
 import threading
 import time
 from copy import deepcopy
@@ -30,13 +28,12 @@ from re import match
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.logging import formatted_logger, setup_logging
+from rucio.common.logging import setup_logging
 from rucio.common.exception import (DatabaseException, RuleNotFound, RSEWriteBlocked,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientAccountLimit)
-from rucio.common.utils import daemon_sleep
-from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 from rucio.core.rule import inject_rule, get_injected_rules, update_rule
+from rucio.daemons.common import run_daemon
 
 graceful_stop = threading.Event()
 
@@ -45,27 +42,27 @@ def rule_injector(once=False, sleep_time=60):
     """
     Main loop to check for asynchronous creation of replication rules
     """
-
-    hostname = socket.gethostname()
-    pid = os.getpid()
-    current_thread = threading.current_thread()
-
-    paused_rules = {}  # {rule_id: datetime}
-
-    # Make an initial heartbeat so that all judge-inectors have the correct worker number on the next try
     executable = 'judge-injector'
-    heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=2 * 60 * 60)
-    prefix = 'judge-injector[%i/%i] ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-    logger = formatted_logger(logging.log, prefix + '%s')
-    graceful_stop.wait(1)
+    paused_rules = {}  # {rule_id: datetime}
+    run_daemon(
+        once=once,
+        graceful_stop=graceful_stop,
+        executable=executable,
+        logger_prefix=executable,
+        partition_wait_time=1,
+        sleep_time=sleep_time,
+        run_once_fnc=functools.partial(
+            run_once,
+            paused_rules=paused_rules,
+        )
+    )
 
-    while not graceful_stop.is_set():
+
+def run_once(paused_rules, heartbeat_handler, **_kwargs):
+    worker_number, total_workers, logger = heartbeat_handler.live()
+
+    if True:  # TODO: de-indent in next commit
         try:
-            # heartbeat
-            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=2 * 60 * 60)
-            prefix = 'judge-injector[%i/%i] ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-            logger = formatted_logger(logging.log, prefix + '%s')
-
             start = time.time()
 
             # Refresh paused rules
@@ -74,15 +71,15 @@ def rule_injector(once=False, sleep_time=60):
                 if datetime.utcnow() > paused_rules[key]:
                     del paused_rules[key]
 
-            rules = get_injected_rules(total_workers=heartbeat['nr_threads'],
-                                       worker_number=heartbeat['assign_thread'],
+            rules = get_injected_rules(total_workers=total_workers,
+                                       worker_number=worker_number,
                                        limit=100,
                                        blocked_rules=[key for key in paused_rules])
             logger(logging.DEBUG, 'index query time %f fetch size is %d' % (time.time() - start, len(rules)))
 
-            if not rules and not once:
+            if not rules:
                 logger(logging.DEBUG, 'did not get any work (paused_rules=%s)' % str(len(paused_rules)))
-                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=logger)
+                return
             else:
                 for rule in rules:
                     rule_id = rule[0]
@@ -136,10 +133,6 @@ def rule_injector(once=False, sleep_time=60):
         except Exception as e:
             logger(logging.CRITICAL, 'Exception', exc_info=True)
             record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-        if once:
-            break
-
-    die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
 
 def stop(signum=None, frame=None):
@@ -158,10 +151,6 @@ def run(once=False, threads=1, sleep_time=60):
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
-
-    executable = 'judge-injector'
-    hostname = socket.gethostname()
-    sanity_check(executable=executable, hostname=hostname)
 
     if once:
         rule_injector(once)
