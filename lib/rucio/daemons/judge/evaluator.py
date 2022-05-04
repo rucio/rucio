@@ -16,10 +16,9 @@
 """
 Judge-Evaluator is a daemon to re-evaluate and execute replication rules.
 """
-
+import copy
+import functools
 import logging
-import os
-import socket
 import threading
 import time
 import traceback
@@ -27,7 +26,6 @@ from datetime import datetime, timedelta
 from random import randint
 from re import match
 
-from six import iteritems
 from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm.exc import FlushError
 
@@ -35,10 +33,9 @@ import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalScope
-from rucio.common.utils import daemon_sleep
-from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did
+from rucio.daemons.common import run_daemon
 
 graceful_stop = threading.Event()
 
@@ -48,42 +45,48 @@ def re_evaluator(once=False, sleep_time=30, did_limit=100):
     Main loop to check the re-evaluation of dids.
     """
 
-    hostname = socket.gethostname()
-    pid = os.getpid()
-    current_thread = threading.current_thread()
-
     paused_dids = {}  # {(scope, name): datetime}
+    run_daemon(
+        once=once,
+        graceful_stop=graceful_stop,
+        executable='judge-evaluator',
+        logger_prefix='re_evaluator',
+        partition_wait_time=1,
+        sleep_time=sleep_time,
+        run_once_fnc=functools.partial(
+            run_once,
+            did_limit=did_limit,
+            paused_dids=paused_dids,
+        )
+    )
 
-    # Make an initial heartbeat so that all judge-evaluators have the correct worker number on the next try
-    executable = 'judge-evaluator'
-    live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
-    graceful_stop.wait(1)
 
-    while not graceful_stop.is_set():
+def run_once(paused_dids, did_limit, heartbeat_handler, **_kwargs):
+    worker_number, total_workers, logger = heartbeat_handler.live()
+
+    if True:  # TODO: de-indent in next commit
         try:
             # heartbeat
-            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
-
             start = time.time()  # NOQA
 
             # Refresh paused dids
-            paused_dids = dict((k, v) for k, v in iteritems(paused_dids) if datetime.utcnow() < v)
+            iter_paused_dids = copy.copy(paused_dids)
+            for key in iter_paused_dids:
+                if datetime.utcnow() > paused_dids[key]:
+                    del paused_dids[key]
 
             # Select a bunch of dids for re evaluation for this worker
-            dids = get_updated_dids(total_workers=heartbeat['nr_threads'],
-                                    worker_number=heartbeat['assign_thread'],
+            dids = get_updated_dids(total_workers=total_workers,
+                                    worker_number=worker_number,
                                     limit=did_limit,
                                     blocked_dids=[(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids])
-            logging.debug('re_evaluator[%s/%s] index query time %f fetch size is %d (%d blocked)' % (heartbeat['assign_thread'],
-                                                                                                     heartbeat['nr_threads'],
-                                                                                                     time.time() - start,
-                                                                                                     len(dids),
-                                                                                                     len([(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids])))
+            logger(logging.DEBUG, 'index query time %f fetch size is %d (%d blocked)', time.time() - start, len(dids),
+                   len([(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids]))
 
             # If the list is empty, sent the worker to sleep
-            if not dids and not once:
-                logging.debug('re_evaluator[%s/%s] did not get any work (paused_dids=%s)' % (heartbeat['assign_thread'], heartbeat['nr_threads'], str(len(paused_dids))))
-                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop)
+            if not dids:
+                logger(logging.DEBUG, 'did not get any work (paused_dids=%s)', str(len(paused_dids)))
+                return
             else:
                 done_dids = {}
                 for did in dids:
@@ -94,7 +97,7 @@ def re_evaluator(once=False, sleep_time=30, did_limit=100):
                     did_tag = '%s:%s' % (did.scope.internal, did.name)
                     if did_tag in done_dids:
                         if did.rule_evaluation_action in done_dids[did_tag]:
-                            logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s already done' % (heartbeat['assign_thread'], heartbeat['nr_threads'], did.scope, did.name))
+                            logger(logging.DEBUG, 'evaluation of %s:%s already done', did.scope, did.name)
                             delete_updated_did(id_=did.id)
                             continue
                     else:
@@ -107,7 +110,7 @@ def re_evaluator(once=False, sleep_time=30, did_limit=100):
                     try:
                         start_time = time.time()
                         re_evaluate_did(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action)
-                        logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'], did.scope, did.name, time.time() - start_time))
+                        logger(logging.DEBUG, 'evaluation of %s:%s took %f', did.scope, did.name, time.time() - start_time)
                         delete_updated_did(id_=did.id)
                         done_dids[did_tag].append(did.rule_evaluation_action)
                     except DataIdentifierNotFound:
@@ -115,41 +118,36 @@ def re_evaluator(once=False, sleep_time=30, did_limit=100):
                     except (DatabaseException, DatabaseError) as e:
                         if match('.*ORA-000(01|54).*', str(e.args[0])):
                             paused_dids[(did.scope.internal, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
-                            logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'], did.scope, did.name))
+                            logger(logging.WARNING, 'Locks detected for %s:%s', did.scope, did.name)
                             record_counter('rule.judge.exceptions.{exception}', labels={'exception': 'LocksDetected'})
                         elif match('.*QueuePool.*', str(e.args[0])):
-                            logging.warning(traceback.format_exc())
+                            logger(logging.WARNING, traceback.format_exc())
                             record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                         elif match('.*ORA-03135.*', str(e.args[0])):
-                            logging.warning(traceback.format_exc())
+                            logger(logging.WARNING, traceback.format_exc())
                             record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                         else:
-                            logging.error(traceback.format_exc())
+                            logger(logging.ERROR, traceback.format_exc())
                             record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
                     except ReplicationRuleCreationTemporaryFailed as e:
                         record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-                        logging.warning('re_evaluator[%s/%s]: Replica Creation temporary failed, retrying later for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'], did.scope, did.name))
+                        logger(logging.WARNING, 'Replica Creation temporary failed, retrying later for %s:%s', did.scope, did.name)
                     except FlushError as e:
                         record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-                        logging.warning('re_evaluator[%s/%s]: Flush error for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'], did.scope, did.name))
+                        logger(logging.WARNING, 'Flush error for %s:%s', did.scope, did.name)
         except (DatabaseException, DatabaseError) as e:
             if match('.*QueuePool.*', str(e.args[0])):
-                logging.warning(traceback.format_exc())
+                logger(logging.WARNING, traceback.format_exc())
                 record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
             elif match('.*ORA-03135.*', str(e.args[0])):
-                logging.warning(traceback.format_exc())
+                logger(logging.WARNING, traceback.format_exc())
                 record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
             else:
-                logging.critical(traceback.format_exc())
+                logger(logging.CRITICAL, traceback.format_exc())
                 record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
         except Exception as e:
-            logging.critical(traceback.format_exc())
+            logger(logging.CRITICAL, traceback.format_exc())
             record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-
-        if once:
-            break
-
-    die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
 
 def stop(signum=None, frame=None):
@@ -168,10 +166,6 @@ def run(once=False, threads=1, sleep_time=30, did_limit=100):
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
-
-    executable = 'judge-evaluator'
-    hostname = socket.gethostname()
-    sanity_check(executable=executable, hostname=hostname)
 
     if once:
         re_evaluator(once=once, did_limit=did_limit)
