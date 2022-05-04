@@ -16,10 +16,8 @@
 """
 Judge-Repairer is a daemon to repair stuck replication rules.
 """
-
+import functools
 import logging
-import os
-import socket
 import threading
 import time
 import traceback
@@ -33,11 +31,10 @@ from sqlalchemy.exc import DatabaseError
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import DatabaseException
-from rucio.common.logging import setup_logging, formatted_logger
-from rucio.common.utils import daemon_sleep
-from rucio.core.heartbeat import live, die, sanity_check
+from rucio.common.logging import setup_logging
 from rucio.core.monitor import record_counter
 from rucio.core.rule import repair_rule, get_stuck_rules
+from rucio.daemons.common import run_daemon
 
 graceful_stop = threading.Event()
 
@@ -46,27 +43,29 @@ def rule_repairer(once=False, sleep_time=60):
     """
     Main loop to check for STUCK replication rules
     """
-
-    hostname = socket.gethostname()
-    pid = os.getpid()
-    current_thread = threading.current_thread()
-
-    paused_rules = {}  # {rule_id: datetime}
-
-    # Make an initial heartbeat so that all judge-repairers have the correct worker number on the next try
     executable = 'judge-repairer'
-    heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
-    prepend_str = 'rule_repairer [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-    logger = formatted_logger(logging.log, prepend_str + '%s')
-    graceful_stop.wait(1)
+    paused_rules = {}  # {rule_id: datetime}
+    run_daemon(
+        once=once,
+        graceful_stop=graceful_stop,
+        executable=executable,
+        logger_prefix=executable,
+        partition_wait_time=1,
+        sleep_time=sleep_time,
+        run_once_fnc=functools.partial(
+            run_once,
+            paused_rules=paused_rules,
+            delta=-1 if once else 1800,
+        )
+    )
 
-    while not graceful_stop.is_set():
+
+def run_once(paused_rules, delta, heartbeat_handler, **_kwargs):
+    worker_number, total_workers, logger = heartbeat_handler.live()
+
+    if True:  # TODO: de-indent in next commit
         try:
             # heartbeat
-            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
-            prepend_str = 'rule_repairer [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-            logger = formatted_logger(logging.log, prepend_str + '%s')
-
             start = time.time()
 
             # Refresh paused rules
@@ -76,17 +75,17 @@ def rule_repairer(once=False, sleep_time=60):
                     del paused_rules[key]
 
             # Select a bunch of rules for this worker to repair
-            rules = get_stuck_rules(total_workers=heartbeat['nr_threads'],
-                                    worker_number=heartbeat['assign_thread'],
-                                    delta=-1 if once else 1800,
+            rules = get_stuck_rules(total_workers=total_workers,
+                                    worker_number=worker_number,
+                                    delta=delta,
                                     limit=100,
                                     blocked_rules=[key for key in paused_rules])
 
             logger(logging.DEBUG, 'index query time %f fetch size is %d' % (time.time() - start, len(rules)))
 
-            if not rules and not once:
+            if not rules:
                 logger(logging.DEBUG, 'did not get any work (paused_rules=%s)' % (str(len(paused_rules))))
-                daemon_sleep(start, sleep_time, graceful_stop)
+                return
             else:
                 for rule_id in rules:
                     rule_id = rule_id[0]
@@ -125,10 +124,6 @@ def rule_repairer(once=False, sleep_time=60):
         except Exception as e:
             logging.critical(traceback.format_exc())
             record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-        if once:
-            break
-
-    die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
 
 def stop(signum=None, frame=None):
@@ -147,10 +142,6 @@ def run(once=False, threads=1, sleep_time=60):
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
-
-    executable = 'judge-repairer'
-    hostname = socket.gethostname()
-    sanity_check(executable=executable, hostname=hostname)
 
     if once:
         rule_repairer(once)
