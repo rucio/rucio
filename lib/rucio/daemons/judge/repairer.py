@@ -87,6 +87,7 @@ def run_once(paused_rules, delta, heartbeat_handler, **_kwargs):
             return
 
         for rule_id in rules:
+            _, _, logger = heartbeat_handler.live()
             rule_id = rule_id[0]
             logger(logging.INFO, 'Repairing rule %s' % (rule_id))
             if graceful_stop.is_set():
