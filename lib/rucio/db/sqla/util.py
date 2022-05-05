@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 import sqlalchemy
 from alembic import command, op
 from alembic.config import Config
-from sqlalchemy import func, inspect
+from sqlalchemy import func, inspect, Column
 from sqlalchemy.dialects.postgresql.base import PGInspector
 from sqlalchemy.exc import IntegrityError, DatabaseError
 from sqlalchemy.ext.declarative import declarative_base
@@ -33,11 +33,13 @@ from sqlalchemy.sql.expression import select, text
 
 from rucio import alembicrevision
 from rucio.common.config import config_get
+from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount
 from rucio.core.account_counter import create_counters_for_new_account
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType
 from rucio.db.sqla.session import get_engine, get_session, get_dump_engine
+from rucio.db.sqla.types import InternalScopeString, String
 
 if TYPE_CHECKING:
     from typing import Optional, Union  # noqa: F401
@@ -353,3 +355,51 @@ def create_temp_table(name, *columns, primary_key=None, session=None):
         session.execute(CreateTable(table, if_not_exists=True))
         session.query(DeclarativeObj).delete()
     return DeclarativeObj
+
+
+def create_scope_name_temp_table(name, session):
+    """
+    Create a temporary table with columns 'scope' and 'name'
+    """
+
+    columns = [
+        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
+        Column("name", String(get_schema_value('NAME_LENGTH'))),
+    ]
+    return create_temp_table(
+        name,
+        *columns,
+        primary_key=columns,
+        session=session,
+    )
+
+
+def create_association_temp_table(name, session):
+    """
+    Create a temporary table with columns 'scope', 'name', 'child_scope'and 'child_name'
+    """
+
+    columns = [
+        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
+        Column("name", String(get_schema_value('NAME_LENGTH'))),
+        Column("child_scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
+        Column("child_name", String(get_schema_value('NAME_LENGTH'))),
+    ]
+    return create_temp_table(
+        name,
+        *columns,
+        primary_key=columns,
+        session=session,
+    )
+
+
+def create_id_temp_table(name, session):
+    """
+    Create a temp table with a single id column of uuid type
+    """
+
+    return create_temp_table(
+        name,
+        Column("id", models.GUID()),
+        session=session,
+    )
