@@ -69,6 +69,20 @@ def did_client():
     return DIDClient()
 
 
+@pytest.fixture(scope='module')
+def rse_client():
+    from rucio.client.rseclient import RSEClient
+
+    return RSEClient()
+
+
+@pytest.fixture(scope='module')
+def scope_client():
+    from rucio.client.scopeclient import ScopeClient
+
+    return ScopeClient()
+
+
 @pytest.fixture
 def rest_client():
     from rucio.tests.common import print_response
