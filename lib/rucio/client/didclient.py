@@ -398,19 +398,24 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def get_did(self, scope, name, dynamic=False):
+    def get_did(self, scope, name, dynamic=False, dynamic_depth=None):
         """
         Retrieve a single data identifier.
 
         :param scope: The scope name.
         :param name: The data identifier name.
-        :param dynamic: Calculate sizes dynamically when True
+        :param dynamic_depth: The DID type as string ('FILE'/'DATASET') at which to stop the dynamic
+        length/bytes calculation. If not set, the size will not be computed dynamically.
+        :param dynamic: (Deprecated) same as dynamic_depth = 'FILE'
         """
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name)])
-        if dynamic:
-            path += '?dynamic=True'
-        url = build_url(choice(self.list_hosts), path=path)
+        params = {}
+        if dynamic_depth:
+            params['dynamic_depth'] = dynamic_depth
+        elif dynamic:
+            params['dynamic_depth'] = 'FILE'
+        url = build_url(choice(self.list_hosts), path=path, params=params)
         r = self._send_request(url, type_='GET')
         if r.status_code == codes.ok:
             return next(self._load_json_data(r))

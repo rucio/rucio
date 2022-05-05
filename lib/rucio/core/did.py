@@ -20,11 +20,10 @@ from datetime import datetime, timedelta
 from enum import Enum
 from hashlib import md5
 from re import match
-from typing import Tuple
+from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, or_, exists, update, delete
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
 from sqlalchemy.sql.expression import bindparam, case, select, true, false
@@ -41,6 +40,11 @@ from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState, BadFilesStatus
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
+
+if TYPE_CHECKING:
+    from typing import Any, Dict, Tuple, Optional
+    from sqlalchemy.orm import Session
+    from rucio.common.types import InternalScope
 
 
 @read_session
@@ -1476,20 +1480,22 @@ def __get_did(scope, name, session=None):
 
 
 @read_session
-def get_did(scope, name, dynamic=False, session=None):
+def get_did(scope: "InternalScope", name: str, dynamic_depth: "Optional[DIDType]" = None, session: "Optional[Session]" = None) -> "Dict[str, Any]":
     """
     Retrieve a single data identifier.
 
-    :param scope:          The scope name.
-    :param name:           The data identifier name.
-    :param dynamic:        Dynamically resolve the bytes and length of the did.
-    :param session:        The database session in use.
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param dynamic_depth: the DID type to use as source for estimation of this DIDs length/bytes.
+    If set to None, or to a value which doesn't make sense (ex: requesting depth = CONTAINER for a did of type DATASET)
+    will not compute the size dynamically.
+    :param session: The database session in use.
     """
     did = __get_did(scope=scope, name=name, session=session)
 
     bytes_, length = did.bytes, did.length
-    if dynamic and did.did_type != DIDType.FILE:
-        bytes_, length, _ = __resolve_bytes_length_events_did(did=did, session=session)
+    if dynamic_depth:
+        bytes_, length, events = __resolve_bytes_length_events_did(did=did, dynamic_depth=dynamic_depth, session=session)
 
     if did.did_type == DIDType.FILE:
         return {'scope': did.scope, 'name': did.name, 'type': did.did_type,
@@ -2079,19 +2085,26 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, accoun
     attach_dids(scope=output_scope, name=output_name, dids=output_files, account=account, rse_id=None, session=session)
 
 
-@read_session
-def __resolve_bytes_length_events_did(did: models.DataIdentifier, session: Session) -> Tuple[int, int, int]:
+@transactional_session
+def __resolve_bytes_length_events_did(
+        did: models.DataIdentifier,
+        dynamic_depth: "DIDType" = DIDType.FILE,
+        session: "Optional[Session]" = None,
+) -> "Tuple[int, int, int]":
     """
     Resolve bytes, length and events of a did
 
     :did: the DID ORM object for which we perform the resolution
+    :param dynamic_depth: the DID type to use as source for estimation of this DIDs length/bytes.
+    If set to None, or to a value which doesn't make sense (ex: requesting depth = DATASET for a did of type FILE)
+    will not compute the size dynamically.
     :param session: The database session in use.
     """
 
     bytes_, length, events = 0, 0, 0
-    if did.did_type == DIDType.FILE:
-        bytes_, length, events = did.bytes, 1, did.events
-    elif did.did_type in (DIDType.DATASET, DIDType.CONTAINER):
+
+    if did.did_type == DIDType.DATASET and dynamic_depth == DIDType.FILE or \
+            did.did_type == DIDType.CONTAINER and dynamic_depth in (DIDType.FILE, DIDType.DATASET):
 
         if did.did_type == DIDType.DATASET:
             datasets = [{'scope': did.scope, 'name': did.name}]
@@ -2099,7 +2112,7 @@ def __resolve_bytes_length_events_did(did: models.DataIdentifier, session: Sessi
             datasets = list_child_datasets(scope=did.scope, name=did.name, session=session)
 
         for dataset in datasets:
-            try:
+            if dynamic_depth == DIDType.FILE:
                 stmt = select(
                     func.count(),
                     func.sum(models.DataIdentifierAssociation.bytes),
@@ -2108,6 +2121,16 @@ def __resolve_bytes_length_events_did(did: models.DataIdentifier, session: Sessi
                     models.DataIdentifierAssociation.scope == dataset['scope'],
                     models.DataIdentifierAssociation.name == dataset['name'],
                 )
+            else:
+                stmt = select(
+                    func.sum(models.DataIdentifier.length),
+                    func.sum(models.DataIdentifier.bytes),
+                    func.sum(models.DataIdentifier.events),
+                ).where(
+                    models.DataIdentifier.scope == dataset['scope'],
+                    models.DataIdentifier.name == dataset['name'],
+                )
+            try:
                 tmp_length, tmp_bytes, tmp_events = session.execute(stmt).one()
             except NoResultFound:
                 tmp_length, tmp_bytes, tmp_events = 0, 0, 0
@@ -2115,6 +2138,10 @@ def __resolve_bytes_length_events_did(did: models.DataIdentifier, session: Sessi
             bytes_ += tmp_bytes or 0
             length += tmp_length or 0
             events += tmp_events or 0
+    elif did.did_type == DIDType.FILE:
+        bytes_, length, events = did.bytes, 1, did.events
+    else:
+        bytes_, length, events = did.bytes, did.length, did.events
     return bytes_, length, events
 
 

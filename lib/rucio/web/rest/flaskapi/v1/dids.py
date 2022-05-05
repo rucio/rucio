@@ -29,6 +29,7 @@ from rucio.common.exception import ScopeNotFound, DataIdentifierNotFound, DataId
     DuplicateContent, AccessDenied, KeyNotFound, Duplicate, InvalidValueForKey, UnsupportedStatus, \
     UnsupportedOperation, RSENotFound, RuleNotFound, InvalidMetadata, InvalidPath, FileAlreadyExists, InvalidObject, FileConsistencyMismatch
 from rucio.common.utils import render_json, APIEncoder
+from rucio.db.sqla.constants import DIDType
 from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
     parse_scope_name, try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, json_list, param_get, json_parse
 
@@ -575,9 +576,16 @@ class DIDs(ErrorHandlingMethodView):
           schema:
             type: string
           style: simple
+        - name: dynamic_depth
+          in: query
+          description: The DID type at which to stop the dynamic length/size estimation
+          schema:
+            type: string
+            enum: ["FILE", "DATASET"]
         - name: dynamic
           in: query
-          description: Flag to dynamically calculate size for open DIDs.
+          description: Same as dynamic_depth = "FILE"
+          deprecated: true
           schema:
             type: string
         responses:
@@ -654,8 +662,18 @@ class DIDs(ErrorHandlingMethodView):
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
-            dynamic = 'dynamic' in request.args
-            did = get_did(scope=scope, name=name, dynamic=dynamic, vo=request.environ.get('vo'))
+            dynamic_depth = None
+            if 'dynamic_depth' in request.args:
+                orig = request.args['dynamic_depth'].upper()
+                if orig == 'DATASET':
+                    dynamic_depth = DIDType.DATASET
+                elif orig == 'FILE':
+                    dynamic_depth = DIDType.FILE
+                else:
+                    dynamic_depth = None
+            elif 'dynamic' in request.args:
+                dynamic_depth = DIDType.FILE
+            did = get_did(scope=scope, name=name, dynamic_depth=dynamic_depth, vo=request.environ.get('vo'))
             return Response(render_json(**did), content_type='application/json')
         except ValueError as error:
             return generate_http_error_flask(400, error)

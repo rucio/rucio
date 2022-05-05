@@ -121,14 +121,14 @@ class TestDIDCore:
         add_replica(rse_id=rse_id, bytes_=10, account=root_account, **file1)
         add_replica(rse_id=rse_id, bytes_=10, account=root_account, **file2)
         attach_dids(dids=[file1, file2], account=root_account, **dataset1)
-        did1 = get_did(dynamic=True, **dataset1)
+        did1 = get_did(dynamic_depth=DIDType.FILE, **dataset1)
         assert did1['length'] == 2
         assert did1['bytes'] == 20
 
         # attach dataset to container and verify get_did(dynamic) on container
         container = did_factory.make_container()
         attach_dids(dids=[dataset1], account=root_account, **container)
-        did1 = get_did(dynamic=True, **container)
+        did1 = get_did(dynamic_depth=DIDType.FILE, **container)
         assert did1['length'] == 2
         assert did1['bytes'] == 20
 
@@ -138,9 +138,15 @@ class TestDIDCore:
         add_replica(rse_id=rse_id, bytes_=10, account=root_account, **file3)
         attach_dids(dids=[dataset2], account=root_account, **container)
         attach_dids(dids=[file3], account=root_account, **dataset2)
-        did1 = get_did(dynamic=True, **container)
+        did1 = get_did(dynamic_depth=DIDType.FILE, **container)
         assert did1['length'] == 3
         assert did1['bytes'] == 30
+
+        # if resolve_depth is dataset, the result will be incorrect, but this is by design,
+        # dataset has to be re-evaluated
+        did1 = get_did(dynamic_depth=DIDType.DATASET, **container)
+        assert did1['length'] == 0
+        assert did1['bytes'] == 0
 
     def test_reattach_dids(self, vo, mock_scope, root_account, rse_factory):
         """ DATA IDENTIFIERS (CORE): Repeatedly attach and detach DIDs """

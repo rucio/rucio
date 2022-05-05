@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from copy import deepcopy
+from typing import TYPE_CHECKING
 
 import rucio.api.permission
 from rucio.common.constants import RESERVED_KEYS
@@ -25,6 +26,10 @@ from rucio.core import did, naming_convention, meta as meta_core
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
+
+if TYPE_CHECKING:
+    from typing import Any, Dict, Optional
+    from sqlalchemy.orm import Session
 
 
 @stream_session
@@ -399,13 +404,15 @@ def scope_list(scope, name=None, recursive=False, vo='def', session=None):
 
 
 @read_session
-def get_did(scope, name, dynamic=False, vo='def', session=None):
+def get_did(scope: str, name: str, dynamic_depth: "Optional[DIDType]" = None, vo: str = 'def', session: "Optional[Session]" = None) -> "Dict[str, Any]":
     """
     Retrieve a single data did.
 
     :param scope: The scope name.
     :param name: The data identifier name.
-    :param dynamic:  Dynamically resolve the bytes and length of the did
+    :param dynamic_depth: the DID type to use as source for estimation of this DIDs length/bytes.
+    If set to None, or to a value which doesn't make sense (ex: requesting depth = CONTAINER for a did of type DATASET)
+    will not compute the size dynamically.
     :param vo: The VO to act on.
     :return did: Dictionary containing {'name', 'scope', 'type'}, Exception otherwise
     :param session: The database session in use.
@@ -413,7 +420,7 @@ def get_did(scope, name, dynamic=False, vo='def', session=None):
 
     scope = InternalScope(scope, vo=vo)
 
-    d = did.get_did(scope=scope, name=name, dynamic=dynamic, session=session)
+    d = did.get_did(scope=scope, name=name, dynamic_depth=dynamic_depth, session=session)
     return api_update_return_dict(d, session=session)
 
 

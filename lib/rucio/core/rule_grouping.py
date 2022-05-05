@@ -1257,7 +1257,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, session=None, logger=l
             # simply loop over child datasets
             # this is an approximation because ignoring the possibility of file overlap
             for ds_scope, ds_name in datasets:
-                ds = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic=True, session=session)  # this will be retrieved again later on -> could be optimized
+                ds = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic_depth=DIDType.FILE, session=session)  # this will be retrieved again later on -> could be optimized
                 nbytes += ds['bytes']
                 one_rse_coverage = rucio.core.replica.get_RSEcoverage_of_dataset(scope=ds_scope, name=ds_name, session=session)
                 for rse_id, bytes_ in one_rse_coverage.items():
@@ -1273,7 +1273,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, session=None, logger=l
         for ds_scope, ds_name in datasets:
             # prnt(('processing dataset ',ds_scope, ds_name))
             #
-            ds = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic=True, session=session)
+            ds = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic_depth=DIDType.FILE, session=session)
             ds_length = ds['length']
             ds_bytes = ds['bytes']
             ds_open = ds['open']
