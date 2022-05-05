@@ -35,7 +35,7 @@ from six import string_types
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import and_, or_, text, true, null, tuple_, false
+from sqlalchemy.sql.expression import and_, or_, text, true, null, tuple_, false, select
 
 from rucio.core.account import has_account_attribute
 import rucio.core.did
@@ -1485,13 +1485,15 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
 
     # Update size and length of did
     if session.bind.dialect.name == 'oracle':
-        stmt = session.query(func.sum(models.DataIdentifierAssociation.bytes),
-                             func.count(1)).\
-            with_hint(models.DataIdentifierAssociation,
-                      "index(CONTENTS CONTENTS_PK)", 'oracle').\
-            filter(models.DataIdentifierAssociation.scope == scope,
-                   models.DataIdentifierAssociation.name == name)
-        for bytes_, length in stmt:
+        stmt = select(
+            func.count(),
+            func.sum(models.DataIdentifierAssociation.bytes),
+        ).with_hint(
+            models.DataIdentifierAssociation, "index(CONTENTS CONTENTS_PK)", 'oracle'
+        ).where(models.DataIdentifierAssociation.scope == scope,
+                models.DataIdentifierAssociation.name == name)
+
+        for length, bytes_ in session.execute(stmt):
             did.bytes = bytes_
             did.length = length
 
