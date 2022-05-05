@@ -19,17 +19,12 @@ from configparser import NoOptionError, NoSectionError
 from sqlalchemy import or_, delete, update
 from sqlalchemy.exc import IntegrityError
 
-from dogpile.cache.api import NO_VALUE
-
-from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get
 from rucio.common.exception import InvalidObject, RucioException
 from rucio.common.utils import APIEncoder
 from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
-
-REGION = make_region_memcached(expiration_time=900)
 
 SUPPORTED_SERVICES = ['influx', 'elastic', 'email', 'activemq']
 
@@ -45,15 +40,10 @@ def add_message(event_type, payload, session=None):
     :param payload: The message payload. Will be persisted as JSON.
     :param session: The database session to use.
     """
-
-    services_list = REGION.get('services_list')
-    if services_list == NO_VALUE:
-        try:
-            services_list = config_get('hermes', 'services_list')
-        except (NoOptionError, NoSectionError, RuntimeError):
-            services_list = 'influx,activemq,elastic,email'
-        REGION.set('services_list', services_list)
-
+    try:
+        services_list = config_get('hermes', 'services_list')
+    except (NoOptionError, NoSectionError, RuntimeError):
+        services_list = 'activemq,email'
     try:
         payload = json.dumps(payload, cls=APIEncoder)
     except TypeError as err:  # noqa: F841
