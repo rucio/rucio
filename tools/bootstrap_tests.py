@@ -16,11 +16,14 @@
 
 import os.path
 import sys
+import requests
 import time
+from json import dumps
 
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
+
 
 from rucio.api.vo import add_vo  # noqa: E402
 from rucio.client import Client  # noqa: E402
@@ -30,6 +33,20 @@ from rucio.core.account import add_account_attribute  # noqa: E402
 from rucio.core.vo import map_vo  # noqa: E402
 from rucio.common.types import InternalAccount  # noqa: E402
 from rucio.tests.common_server import reset_config_table  # noqa: E402
+
+
+def create_influxdb_database():
+    response = requests.get('http://localhost:8086/api/v2/buckets?org=rucio', headers={'Authorization': 'Token mytoken'})
+    if response.status_code == 200:
+        json = response.json()
+        buckets = json.get('buckets', [])
+        for bucket in buckets:
+            bucket_id, name = bucket['id'], bucket['name']
+            if name == 'rucio':
+                data = {"bucketId": bucket_id, "database": "rucio", "default": True, "org": "rucio", "retention_policy": "example-rp"}
+                res = requests.post('http://localhost:8086/api/v2/dbrps', headers={'Authorization': 'Token mytoken', 'Content-type': 'application/json'}, data=dumps(data))
+                return res
+    return response
 
 
 if __name__ == '__main__':
@@ -97,3 +114,7 @@ if __name__ == '__main__':
             c.add_identity(account='root', identity=i[0], authtype=i[1], email=i[2])
         except Exception:
             print('Already added: ', i)
+
+    response = create_influxdb_database()
+    if response.status_code != 201:
+        print('Failed to create rucio database in influxDB : %s' % response.text)

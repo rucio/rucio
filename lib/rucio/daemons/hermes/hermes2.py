@@ -226,10 +226,10 @@ def deliver_to_activemq(messages, conns, destination, username, password, use_ss
         elif str(message['event_type']).lower().startswith('dataset'):
             logger(logging.DEBUG, '[broker] - event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)',
                    str(message['event_type']).lower(),
-                   message['payload']['scope'],
-                   message['payload']['name'],
-                   message['payload']['rse'],
-                   message['payload']['rule_id'],
+                   message['payload'].get('scope', None),
+                   message['payload'].get('name', None),
+                   message['payload'].get('rse', None),
+                   message['payload'].get('rule_id', None),
                    str(message['created_at']))
 
         elif str(message['event_type']).lower().startswith('deletion'):
@@ -238,10 +238,10 @@ def deliver_to_activemq(messages, conns, destination, username, password, use_ss
             logger(logging.DEBUG,
                    '[broker] - event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)',
                    str(message['event_type']).lower(),
-                   message['payload']['scope'],
-                   message['payload']['name'],
-                   message['payload']['rse'],
-                   message['payload']['url'],
+                   message['payload'].get('scope', None),
+                   message['payload'].get('name', None),
+                   message['payload'].get('rse', None),
+                   message['payload'].get('url', None),
                    str(message['created_at']))
         else:
             logger(logging.DEBUG,
@@ -378,8 +378,11 @@ def aggregate_to_influx(messages, bin_size, endpoint, logger):
                                                                                                  timestamp)
             points += point
             points += '\n'
+    influx_token = config_get('hermes', 'influxdb_token', False, None)
+    if influx_token:
+        headers = {'Authorization': 'Token %s' % influx_token}
     if points:
-        res = requests.post(endpoint, data=points)
+        res = requests.post(endpoint, headers=headers, data=points)
         logger(logging.DEBUG, '%s', str(res.text))
         return res.status_code
     return 204
