@@ -30,7 +30,7 @@ from traceback import format_exc
 import requests
 from dogpile.cache.api import NO_VALUE
 from six import string_types
-from sqlalchemy import func, and_, or_, exists, not_, update, delete, insert, Column
+from sqlalchemy import func, and_, or_, exists, not_, update, delete, insert
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
@@ -42,7 +42,6 @@ import rucio.core.lock
 from rucio.common import exception
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.constants import SuspiciousAvailability
@@ -56,8 +55,7 @@ from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailab
                                      BadFilesStatus, RuleState, BadPFNStatus)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
                                    DEFAULT_SCHEMA_NAME, BASE)
-from rucio.db.sqla.types import InternalScopeString, String
-from rucio.db.sqla.util import create_temp_table
+from rucio.db.sqla.util import create_scope_name_temp_table, create_association_temp_table
 from rucio.rse import rsemanager as rsemgr
 
 REGION = make_region_memcached(expiration_time=60)
@@ -1554,38 +1552,9 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
                                                      'for deleting' % replica_rse.rse)
 
-    columns = [
-        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
-        Column("name", String(get_schema_value('NAME_LENGTH'))),
-    ]
-    scope_name_temp_table = create_temp_table(
-        "delete_replicas",
-        *columns,
-        primary_key=columns,
-        session=session,
-    )
-    columns = [
-        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
-        Column("name", String(get_schema_value('NAME_LENGTH'))),
-    ]
-    scope_name_temp_table2 = create_temp_table(
-        "delete_replicas2",
-        *columns,
-        primary_key=columns,
-        session=session,
-    )
-    columns = [
-        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
-        Column("name", String(get_schema_value('NAME_LENGTH'))),
-        Column("child_scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
-        Column("child_name", String(get_schema_value('NAME_LENGTH'))),
-    ]
-    association_temp_table = create_temp_table(
-        "delete_replicas_association",
-        *columns,
-        primary_key=columns,
-        session=session,
-    )
+    scope_name_temp_table = create_scope_name_temp_table("delete_replicas", session=session)
+    scope_name_temp_table2 = create_scope_name_temp_table("delete_replicas2", session=session)
+    association_temp_table = create_association_temp_table("delete_replicas_association", session=session)
 
     session.bulk_insert_mappings(scope_name_temp_table, [{'scope': file['scope'], 'name': file['name']} for file in files])
 
@@ -2541,16 +2510,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
     total_bytes = 0
     rows = []
 
-    columns = [
-        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
-        Column("name", String(get_schema_value('NAME_LENGTH'))),
-    ]
-    temp_table_cls = create_temp_table(
-        "list_and_mark_unlocked_replicas",
-        *columns,
-        primary_key=columns,
-        session=session,
-    )
+    temp_table_cls = create_scope_name_temp_table("list_and_mark_unlocked_replicas", session=session)
 
     replicas_alias = aliased(models.RSEFileAssociation, name='replicas_alias')
 
