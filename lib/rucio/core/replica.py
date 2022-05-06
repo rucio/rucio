@@ -1574,8 +1574,9 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
     stmt = select(
         func.count(),
         func.sum(models.RSEFileAssociation.bytes),
-    ).join(
+    ).join_from(
         scope_name_temp_table,
+        models.RSEFileAssociation,
         and_(models.RSEFileAssociation.scope == scope_name_temp_table.scope,
              models.RSEFileAssociation.name == scope_name_temp_table.name,
              models.RSEFileAssociation.rse_id == rse_id)
@@ -1669,8 +1670,9 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         models.DataIdentifierAssociation.scope,
         models.DataIdentifierAssociation.name,
     ).distinct(
-    ).join(
+    ).join_from(
         scope_name_temp_table,
+        models.DataIdentifierAssociation,
         and_(scope_name_temp_table.scope == models.DataIdentifierAssociation.child_scope,
              scope_name_temp_table.name == models.DataIdentifierAssociation.child_name)
     ).join(
@@ -1701,8 +1703,9 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
             models.DataIdentifierAssociation.child_scope,
             models.DataIdentifierAssociation.child_name,
         ).distinct(
-        ).join(
+        ).join_from(
             scope_name_temp_table,
+            models.DataIdentifierAssociation,
             and_(scope_name_temp_table.scope == models.DataIdentifierAssociation.child_scope,
                  scope_name_temp_table.name == models.DataIdentifierAssociation.child_name)
         ).outerjoin(
@@ -1779,8 +1782,9 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                 models.DataIdentifier.name,
                 models.DataIdentifier.did_type,
             ).distinct(
-            ).join(
+            ).join_from(
                 association_temp_table,
+                models.DataIdentifier,
                 and_(association_temp_table.scope == models.DataIdentifier.scope,
                      association_temp_table.name == models.DataIdentifier.name)
             ).where(
@@ -1821,8 +1825,9 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         models.CollectionReplica.scope,
         models.CollectionReplica.name,
     ).distinct(
-    ).join(
+    ).join_from(
         scope_name_temp_table,
+        models.CollectionReplica,
         and_(scope_name_temp_table.scope == models.CollectionReplica.scope,
              scope_name_temp_table.name == models.CollectionReplica.name),
     ).join(
@@ -1892,8 +1897,9 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
     stmt = select(
         models.ConstituentAssociation
     ).distinct(
-    ).join(
+    ).join_from(
         scope_name_temp_table,
+        models.ConstituentAssociation,
         and_(scope_name_temp_table.scope == models.ConstituentAssociation.scope,
              scope_name_temp_table.name == models.ConstituentAssociation.name),
     ).outerjoin(
@@ -2020,8 +2026,9 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         ).distinct(
         ).where(
             models.DataIdentifier.is_archive == true()
-        ).join(
+        ).join_from(
             scope_name_temp_table,
+            models.DataIdentifier,
             and_(scope_name_temp_table.scope == models.DataIdentifier.scope,
                  scope_name_temp_table.name == models.DataIdentifier.name)
         ).join(
@@ -2555,8 +2562,9 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             models.RSEFileAssociation.bytes,
             models.RSEFileAssociation.tombstone,
             models.RSEFileAssociation.state,
-        ).join(
+        ).join_from(
             temp_table_cls,
+            models.RSEFileAssociation,
             and_(models.RSEFileAssociation.scope == temp_table_cls.scope,
                  models.RSEFileAssociation.name == temp_table_cls.name,
                  models.RSEFileAssociation.rse_id == rse_id)
