@@ -1484,7 +1484,7 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
         __evaluate_did_detach(did, session=session)
 
     # Update size and length of did
-    if session.bind.dialect.name == 'oracle':
+    if did.did_type == DIDType.DATASET:
         stmt = select(
             func.count(),
             func.sum(models.DataIdentifierAssociation.bytes),
