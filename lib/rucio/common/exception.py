@@ -941,13 +941,13 @@ class DuplicateFileTransferSubmission(RucioException):
         self.error_code = 90
 
 
-class DIDTypeError(RucioException):
+class DIDError(RucioException):
     """
-    An operation related to DIDType went wrong
+    An operation related to DID type went wrong
     """
     def __init__(self, *args, **kwargs):
-        super(DIDTypeError, self).__init__(*args, **kwargs)
-        self._message = 'Error using DIDType'
+        super(DIDError, self).__init__(*args, **kwargs)
+        self._message = 'Error using DID type'
         self.error_code = 91
 
 

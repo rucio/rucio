@@ -13,14 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.common.didtype import DIDType
-from rucio.common.exception import DIDTypeError
+from rucio.common.didtype import DID
+from rucio.common.exception import DIDError
 
 
 class TestDIDType:
     ''' Test the DIDType class '''
 
-    def _test_did(self, did, cmp_str, diff_half_did=DIDType(scope='diff'), diff_full_did=DIDType('sdiff:ndiff'), is_valid=True):
+    def _test_did(self, did, cmp_str, diff_half_did=DID(scope='diff'), diff_full_did=DID('sdiff:ndiff'), is_valid=True):
         stat = 0
         did_as_str = str(did)
         if did == diff_half_did:
@@ -48,50 +48,50 @@ class TestDIDType:
         ''' Test DIDType '''
         self.success = True
         try:
-            self._print_test(self._test_did(DIDType(), ''))
-            self._print_test(self._test_did(DIDType('scope:name.did.str'), 'scope:name.did.str'))
-            self._print_test(self._test_did(DIDType('user.implicit.scope.in.name'), 'user.implicit:user.implicit.scope.in.name'))
-            self._print_test(self._test_did(DIDType('custom.scope', 'custom.name'), 'custom.scope:custom.name'))
-            self._print_test(self._test_did(DIDType(['list.scope', 'list.name']), 'list.scope:list.name'))
-            self._print_test(self._test_did(DIDType(('tuple.scope', 'tuple.name')), 'tuple.scope:tuple.name'))
-            self._print_test(self._test_did(DIDType({'scope': 'dict.scope', 'name': 'dict.name'}), 'dict.scope:dict.name'))
-            self._print_test(self._test_did(DIDType(scope='kw.scope'), 'kw.scope'))
-            self._print_test(self._test_did(DIDType(name='kw.name'), 'kw.name'))
-            self._print_test(self._test_did(DIDType(name='user.kw.implicit.scope'), 'user.kw:user.kw.implicit.scope'))
-            self._print_test(self._test_did(DIDType(scope='kw.scope', name='kw.name'), 'kw.scope:kw.name'))
-            self._print_test(self._test_did(DIDType(did={'scope': 'kw.did.scope', 'name': 'kw.did.name'}), 'kw.did.scope:kw.did.name'))
-            self._print_test(self._test_did(DIDType(did=['kw.list.scope', 'kw.list.name']), 'kw.list.scope:kw.list.name'))
-            self._print_test(self._test_did(DIDType(did=('kw.tuple.scope', 'kw.tuple.name')), 'kw.tuple.scope:kw.tuple.name'))
-            self._print_test(self._test_did(DIDType('arg.scope', name='kwarg.name'), 'arg.scope:kwarg.name'))
-            self._print_test(self._test_did(DIDType('arg.name', scope='kwarg.scope'), 'kwarg.scope:arg.name'))
-            x = DIDType('scope.copy:name.test')
-            y = DIDType(x)
+            self._print_test(self._test_did(DID(), ''))
+            self._print_test(self._test_did(DID('scope:name.did.str'), 'scope:name.did.str'))
+            self._print_test(self._test_did(DID('user.implicit.scope.in.name'), 'user.implicit:user.implicit.scope.in.name'))
+            self._print_test(self._test_did(DID('custom.scope', 'custom.name'), 'custom.scope:custom.name'))
+            self._print_test(self._test_did(DID(['list.scope', 'list.name']), 'list.scope:list.name'))
+            self._print_test(self._test_did(DID(('tuple.scope', 'tuple.name')), 'tuple.scope:tuple.name'))
+            self._print_test(self._test_did(DID({'scope': 'dict.scope', 'name': 'dict.name'}), 'dict.scope:dict.name'))
+            self._print_test(self._test_did(DID(scope='kw.scope'), 'kw.scope'))
+            self._print_test(self._test_did(DID(name='kw.name'), 'kw.name'))
+            self._print_test(self._test_did(DID(name='user.kw.implicit.scope'), 'user.kw:user.kw.implicit.scope'))
+            self._print_test(self._test_did(DID(scope='kw.scope', name='kw.name'), 'kw.scope:kw.name'))
+            self._print_test(self._test_did(DID(did={'scope': 'kw.did.scope', 'name': 'kw.did.name'}), 'kw.did.scope:kw.did.name'))
+            self._print_test(self._test_did(DID(did=['kw.list.scope', 'kw.list.name']), 'kw.list.scope:kw.list.name'))
+            self._print_test(self._test_did(DID(did=('kw.tuple.scope', 'kw.tuple.name')), 'kw.tuple.scope:kw.tuple.name'))
+            self._print_test(self._test_did(DID('arg.scope', name='kwarg.name'), 'arg.scope:kwarg.name'))
+            self._print_test(self._test_did(DID('arg.name', scope='kwarg.scope'), 'kwarg.scope:arg.name'))
+            x = DID('scope.copy:name.test')
+            y = DID(x)
             if x != y:
                 print('Copy failed: {} != {}'.format(x, y))
                 self.success = False
-        except DIDTypeError as err:
+        except DIDError as err:
             print('Exception: {}'.format(err))
             self.success = False
 
         try:
-            DIDType('non.implicit.single.string')
+            DID('non.implicit.single.string')
             print('Exception for invalid DID did not work!')
             self.success = False
-        except DIDTypeError:
+        except DIDError:
             pass
 
         try:
-            DIDType('invalid', 'user.implicit:user:invalid')
+            DID('invalid', 'user.implicit:user:invalid')
             print('Exception for invalid DID did not work!')
             self.success = False
-        except DIDTypeError:
+        except DIDError:
             pass
 
         try:
-            DIDType('user.implicit:user:invalid')
+            DID('user.implicit:user:invalid')
             print('Exception for invalid DID did not work!')
             self.success = False
-        except DIDTypeError:
+        except DIDError:
             pass
 
         assert self.success
