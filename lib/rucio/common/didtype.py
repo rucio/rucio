@@ -19,14 +19,14 @@ DID type to represent a did and to simplify operations on it
 
 from six import string_types
 
-from rucio.common.exception import DIDTypeError
+from rucio.common.exception import DIDError
 
 
-class DIDType(object):
+class DID(object):
 
     """
     Class used to store a DID
-    Given an object did of type DIDType
+    Given an object did of type DID
     scope is stored in did.scope
     name is stored in did.name
     """
@@ -38,30 +38,30 @@ class DIDType(object):
 
     def __init__(self, *args, **kwargs):
         """
-        Constructs the DIDType object. Possible parameter combinations are:
-            DIDType()
-            DIDType('scope:name.did.str')
-            DIDType('user.implicit.scope.in.name')
-            DIDType('custom.scope', 'custom.name')
-            DIDType(['list.scope', 'list.name'])
-            DIDType(('tuple.scope', 'tuple.name'))
-            DIDType({'scope': 'dict.scope', 'name': 'dict.name'})
-            DIDType(scope='kw.scope')
-            DIDType(name='kw.name')
-            DIDType(name='user.kw.implicit.scope')
-            DIDType(scope='kw.scope', name='kw.name')
-            DIDType(did={'scope': 'kw.did.scope', 'name': 'kw.did.name'})
-            DIDType(did=['kw.list.scope', 'kw.list.name'])
-            DIDType(did=('kw.tuple.scope', 'kw.tuple.name'))
-            DIDType('arg.scope', name='kwarg.name')
-            DIDType('arg.name', scope='kwarg.scope')
+        Constructs the DID object. Possible parameter combinations are:
+            DID()
+            DID('scope:name.did.str')
+            DID('user.implicit.scope.in.name')
+            DID('custom.scope', 'custom.name')
+            DID(['list.scope', 'list.name'])
+            DID(('tuple.scope', 'tuple.name'))
+            DID({'scope': 'dict.scope', 'name': 'dict.name'})
+            DID(scope='kw.scope')
+            DID(name='kw.name')
+            DID(name='user.kw.implicit.scope')
+            DID(scope='kw.scope', name='kw.name')
+            DID(did={'scope': 'kw.did.scope', 'name': 'kw.did.name'})
+            DID(did=['kw.list.scope', 'kw.list.name'])
+            DID(did=('kw.tuple.scope', 'kw.tuple.name'))
+            DID('arg.scope', name='kwarg.name')
+            DID('arg.name', scope='kwarg.scope')
         """
         self.scope = self.name = ''
 
         num_args = len(args)
         num_kwargs = len(kwargs)
         if (num_args + num_kwargs) > 2:
-            raise DIDTypeError('Constructor takes at most 2 arguments. Given number: {}'.format(num_args + num_kwargs))
+            raise DIDError('Constructor takes at most 2 arguments. Given number: {}'.format(num_args + num_kwargs))
 
         did = ''
         if num_args == 1:
@@ -69,8 +69,8 @@ class DIDType(object):
 
             if num_kwargs == 1:
                 if not isinstance(did, string_types):
-                    raise DIDTypeError('First argument of constructor is expected to be string type'
-                                       'when keyword argument is given. Given type: {}'.format(type(did)))
+                    raise DIDError('First argument of constructor is expected to be string type'
+                                   'when keyword argument is given. Given type: {}'.format(type(did)))
 
                 k, v = next(iter(kwargs.items()))
                 if k == 'scope':
@@ -78,7 +78,7 @@ class DIDType(object):
                 elif k == 'name':
                     did = (did, v)
                 else:
-                    raise DIDTypeError('Constructor got unexpected keyword argument: {}'.format(k))
+                    raise DIDError('Constructor got unexpected keyword argument: {}'.format(k))
         elif num_args == 0:
             did = kwargs.get('did', kwargs)
         else:
@@ -91,37 +91,37 @@ class DIDType(object):
                 self.update_implicit_scope()
         elif isinstance(did, tuple) or isinstance(did, list):
             if len(did) != 2:
-                raise DIDTypeError('Construction from tuple or list requires exactly 2 elements')
+                raise DIDError('Construction from tuple or list requires exactly 2 elements')
             self.scope = did[0]
             self.name = did[1]
         elif isinstance(did, string_types):
-            did_parts = did.split(DIDType.SCOPE_SEPARATOR, 1)
+            did_parts = did.split(DID.SCOPE_SEPARATOR, 1)
             if len(did_parts) == 1:
                 self.name = did
                 self.update_implicit_scope()
                 if not self.has_scope():
-                    raise DIDTypeError('Object construction from non-splitable string is ambigious')
+                    raise DIDError('Object construction from non-splitable string is ambigious')
             else:
                 self.scope = did_parts[0]
                 self.name = did_parts[1]
-        elif isinstance(did, DIDType):
+        elif isinstance(did, DID):
             self.scope = did.scope
             self.name = did.name
         else:
-            raise DIDTypeError('Cannot build object from: {}'.format(type(did)))
+            raise DIDError('Cannot build object from: {}'.format(type(did)))
 
         if self.name.endswith('/'):
             self.name = self.name[:-1]
 
         if not self.is_valid_format():
-            raise DIDTypeError('Object has invalid format after construction: {}'.format(str(self)))
+            raise DIDError('Object has invalid format after construction: {}'.format(str(self)))
 
     def update_implicit_scope(self):
         """
         This method sets the scope  if it is implicitly given in self.name
         """
-        did_parts = self.name.split(DIDType.IMPLICIT_SCOPE_SEPARATOR)
-        num_scope_parts = DIDType.IMPLICIT_SCOPE_TO_LEN.get(did_parts[0], 0)
+        did_parts = self.name.split(DID.IMPLICIT_SCOPE_SEPARATOR)
+        num_scope_parts = DID.IMPLICIT_SCOPE_TO_LEN.get(did_parts[0], 0)
         if num_scope_parts > 0:
             self.scope = '.'.join(did_parts[0:num_scope_parts])
 
@@ -130,7 +130,7 @@ class DIDType(object):
         Method to check if the stored DID has a valid format
         :return: bool
         """
-        if self.scope.count(DIDType.SCOPE_SEPARATOR) or self.name.count(DIDType.SCOPE_SEPARATOR):
+        if self.scope.count(DID.SCOPE_SEPARATOR) or self.name.count(DID.SCOPE_SEPARATOR):
             return False
         return True
 
@@ -154,7 +154,7 @@ class DIDType(object):
         :return: string
         """
         if self.has_scope() and self.has_name():
-            return '{}{}{}'.format(self.scope, DIDType.SCOPE_SEPARATOR, self.name)
+            return '{}{}{}'.format(self.scope, DID.SCOPE_SEPARATOR, self.name)
         elif self.has_scope():
             return self.scope
         return self.name
@@ -166,10 +166,10 @@ class DIDType(object):
         """
         if isinstance(other, string_types):
             return str(self) == other
-        elif not isinstance(other, DIDType):
+        elif not isinstance(other, DID):
             try:
-                other = DIDType(other)
-            except DIDTypeError:
+                other = DID(other)
+            except DIDError:
                 return False
 
         return self.scope == other.scope and self.name == other.name
