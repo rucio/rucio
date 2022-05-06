@@ -110,7 +110,12 @@ class TestDIDCore:
         set_metadata(scope=mock_scope, name=lfn, key='bytes', value=724963577)
         assert get_metadata(scope=mock_scope, name=lfn)['bytes'] == 724963577
 
-    def test_get_did_with_dynamic(self, root_account, rse_factory, did_factory):
+    @pytest.mark.parametrize("file_config_mock", [
+        # Run test twice: with, and without, temp tables
+        {"overrides": [('core', 'use_temp_tables', 'True')]},
+        {"overrides": [('core', 'use_temp_tables', 'False')]},
+    ], indirect=True)
+    def test_get_did_with_dynamic(self, root_account, rse_factory, did_factory, file_config_mock):
         """ DATA IDENTIFIERS (CORE): Get did with dynamic resolve of size"""
         rse_name, rse_id = rse_factory.make_mock_rse()
 

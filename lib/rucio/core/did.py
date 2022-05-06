@@ -31,6 +31,7 @@ from sqlalchemy.sql.expression import bindparam, case, select, true, false
 import rucio.core.replica  # import add_replicas
 import rucio.core.rule
 from rucio.common import exception
+from rucio.common.config import config_get_bool
 from rucio.common.utils import is_archive, chunks
 from rucio.core import did_meta_plugins, config as config_core
 from rucio.core.message import add_message
@@ -40,6 +41,7 @@ from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState, BadFilesStatus
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
+from rucio.db.sqla.util import create_scope_name_temp_table
 
 if TYPE_CHECKING:
     from typing import Any, Dict, Tuple, Optional
@@ -2111,33 +2113,68 @@ def __resolve_bytes_length_events_did(
         else:
             datasets = list_child_datasets(scope=did.scope, name=did.name, session=session)
 
-        for dataset in datasets:
+        use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
+        if use_temp_tables and len(datasets) > 1:
+            temp_table = create_scope_name_temp_table('resolve_byte_length', session=session)
+            session.bulk_insert_mappings(temp_table, datasets)
+
             if dynamic_depth == DIDType.FILE:
                 stmt = select(
                     func.count(),
                     func.sum(models.DataIdentifierAssociation.bytes),
                     func.sum(models.DataIdentifierAssociation.events),
-                ).where(
-                    models.DataIdentifierAssociation.scope == dataset['scope'],
-                    models.DataIdentifierAssociation.name == dataset['name'],
+                ).join_from(
+                    temp_table,
+                    models.DataIdentifierAssociation,
+                    and_(models.DataIdentifierAssociation.scope == temp_table.scope,
+                         models.DataIdentifierAssociation.name == temp_table.name),
                 )
             else:
                 stmt = select(
                     func.sum(models.DataIdentifier.length),
                     func.sum(models.DataIdentifier.bytes),
                     func.sum(models.DataIdentifier.events),
-                ).where(
-                    models.DataIdentifier.scope == dataset['scope'],
-                    models.DataIdentifier.name == dataset['name'],
+                ).join_from(
+                    temp_table,
+                    models.DataIdentifier,
+                    and_(models.DataIdentifier.scope == temp_table.scope,
+                         models.DataIdentifier.name == temp_table.name),
                 )
             try:
-                tmp_length, tmp_bytes, tmp_events = session.execute(stmt).one()
+                length, bytes_, events = session.execute(stmt).one()
+                length = length or 0
+                bytes_ = bytes_ or 0
+                events = events or 0
             except NoResultFound:
-                tmp_length, tmp_bytes, tmp_events = 0, 0, 0
-
-            bytes_ += tmp_bytes or 0
-            length += tmp_length or 0
-            events += tmp_events or 0
+                bytes_, length, events = 0, 0, 0
+        else:
+            for dataset in datasets:
+                if dynamic_depth == DIDType.FILE:
+                    stmt = select(
+                        func.count(),
+                        func.sum(models.DataIdentifierAssociation.bytes),
+                        func.sum(models.DataIdentifierAssociation.events),
+                    ).where(
+                        models.DataIdentifierAssociation.scope == dataset['scope'],
+                        models.DataIdentifierAssociation.name == dataset['name'],
+                    )
+                else:
+                    stmt = select(
+                        func.sum(models.DataIdentifier.length),
+                        func.sum(models.DataIdentifier.bytes),
+                        func.sum(models.DataIdentifier.events),
+                    ).where(
+                        models.DataIdentifier.scope == dataset['scope'],
+                        models.DataIdentifier.name == dataset['name'],
+                    )
+                try:
+                    tmp_length, tmp_bytes, tmp_events = session.execute(stmt).one()
+                    bytes_ += tmp_bytes or 0
+                    length += tmp_length or 0
+                    events += tmp_events or 0
+                except NoResultFound:
+                    bytes_, length, events = 0, 0, 0
+                    break
     elif did.did_type == DIDType.FILE:
         bytes_, length, events = did.bytes, 1, did.events
     else:
