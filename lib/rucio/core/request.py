@@ -369,44 +369,55 @@ def list_transfer_requests_and_source_replicas(
     if request_state is None:
         request_state = RequestState.QUEUED
 
-    sub_requests = session.query(models.Request.id,
-                                 models.Request.rule_id,
-                                 models.Request.scope,
-                                 models.Request.name,
-                                 models.Request.md5,
-                                 models.Request.adler32,
-                                 models.Request.bytes,
-                                 models.Request.activity,
-                                 models.Request.attributes,
-                                 models.Request.previous_attempt_id,
-                                 models.Request.dest_rse_id,
-                                 models.Request.retry_count,
-                                 models.Request.account,
-                                 models.Request.created_at,
-                                 models.Request.requested_at,
-                                 models.Request.priority,
-                                 models.Request.transfertool) \
-        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle') \
-        .filter(models.Request.state == request_state) \
-        .filter(models.Request.request_type == request_type) \
-        .join(models.RSE, models.RSE.id == models.Request.dest_rse_id) \
-        .filter(models.RSE.deleted == false()) \
-        .outerjoin(models.TransferHop, models.TransferHop.next_hop_request_id == models.Request.id) \
-        .filter(models.TransferHop.next_hop_request_id == null()) \
-        .order_by(models.Request.created_at)
+    sub_requests = select(
+        models.Request.id,
+        models.Request.rule_id,
+        models.Request.scope,
+        models.Request.name,
+        models.Request.md5,
+        models.Request.adler32,
+        models.Request.bytes,
+        models.Request.activity,
+        models.Request.attributes,
+        models.Request.previous_attempt_id,
+        models.Request.dest_rse_id,
+        models.Request.retry_count,
+        models.Request.account,
+        models.Request.created_at,
+        models.Request.requested_at,
+        models.Request.priority,
+        models.Request.transfertool
+    ).with_hint(
+        models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle'
+    ).where(
+        models.Request.state == request_state,
+        models.Request.request_type == request_type
+    ).join(
+        models.RSE,
+        models.RSE.id == models.Request.dest_rse_id
+    ).where(
+        models.RSE.deleted == false()
+    ).outerjoin(
+        models.TransferHop,
+        models.TransferHop.next_hop_request_id == models.Request.id
+    ).where(
+        models.TransferHop.next_hop_request_id == null()
+    ).order_by(
+        models.Request.created_at
+    )
 
     if not ignore_availability:
-        sub_requests = sub_requests.filter(models.RSE.availability.in_((2, 3, 6, 7)))
+        sub_requests = sub_requests.where(models.RSE.availability.in_((2, 3, 6, 7)))
 
     if isinstance(older_than, datetime.datetime):
-        sub_requests = sub_requests.filter(models.Request.requested_at < older_than)
+        sub_requests = sub_requests.where(models.Request.requested_at < older_than)
 
     if activity:
-        sub_requests = sub_requests.filter(models.Request.activity == activity)
+        sub_requests = sub_requests.where(models.Request.activity == activity)
 
     # if a transfertool is specified make sure to filter for those requests and apply related index
     if transfertool:
-        sub_requests = sub_requests.filter(models.Request.transfertool == transfertool)
+        sub_requests = sub_requests.where(models.Request.transfertool == transfertool)
         sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_TRA_ACT_IDX)", 'oracle')
     else:
         sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')
@@ -430,54 +441,69 @@ def list_transfer_requests_and_source_replicas(
 
     sub_requests = sub_requests.subquery()
 
-    query = session.query(sub_requests.c.id,
-                          sub_requests.c.rule_id,
-                          sub_requests.c.scope,
-                          sub_requests.c.name,
-                          sub_requests.c.md5,
-                          sub_requests.c.adler32,
-                          sub_requests.c.bytes,
-                          sub_requests.c.activity,
-                          sub_requests.c.attributes,
-                          sub_requests.c.previous_attempt_id,
-                          sub_requests.c.dest_rse_id,
-                          sub_requests.c.account,
-                          sub_requests.c.retry_count,
-                          sub_requests.c.priority,
-                          sub_requests.c.transfertool,
-                          sub_requests.c.requested_at,
-                          models.RSE.id.label("source_rse_id"),
-                          models.RSE.rse,
-                          models.RSEFileAssociation.path,
-                          models.Source.ranking.label("source_ranking"),
-                          models.Source.url.label("source_url"),
-                          models.Distance.ranking.label("distance_ranking")) \
-        .order_by(sub_requests.c.created_at) \
-        .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
-                                                   sub_requests.c.name == models.RSEFileAssociation.name,
-                                                   models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                                   sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id)) \
-        .with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle') \
-        .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
-                                    models.RSE.deleted == false())) \
-        .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
-                                       models.RSE.id == models.Source.rse_id)) \
-        .with_hint(models.Source, "INDEX(SOURCES SOURCES_PK)", 'oracle') \
-        .outerjoin(models.Distance, and_(sub_requests.c.dest_rse_id == models.Distance.dest_rse_id,
-                                         models.RSEFileAssociation.rse_id == models.Distance.src_rse_id)) \
-        .with_hint(models.Distance, "INDEX(DISTANCES DISTANCES_PK)", 'oracle')
+    stmt = select(
+        sub_requests.c.id,
+        sub_requests.c.rule_id,
+        sub_requests.c.scope,
+        sub_requests.c.name,
+        sub_requests.c.md5,
+        sub_requests.c.adler32,
+        sub_requests.c.bytes,
+        sub_requests.c.activity,
+        sub_requests.c.attributes,
+        sub_requests.c.previous_attempt_id,
+        sub_requests.c.dest_rse_id,
+        sub_requests.c.account,
+        sub_requests.c.retry_count,
+        sub_requests.c.priority,
+        sub_requests.c.transfertool,
+        sub_requests.c.requested_at,
+        models.RSE.id.label("source_rse_id"),
+        models.RSE.rse,
+        models.RSEFileAssociation.path,
+        models.Source.ranking.label("source_ranking"),
+        models.Source.url.label("source_url"),
+        models.Distance.ranking.label("distance_ranking")
+    ).order_by(
+        sub_requests.c.created_at
+    ).outerjoin(
+        models.RSEFileAssociation,
+        and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
+             sub_requests.c.name == models.RSEFileAssociation.name,
+             models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+             sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id)
+    ).with_hint(
+        models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle'
+    ).outerjoin(
+        models.RSE,
+        and_(models.RSE.id == models.RSEFileAssociation.rse_id,
+             models.RSE.deleted == false())
+    ).outerjoin(
+        models.Source,
+        and_(sub_requests.c.id == models.Source.request_id,
+             models.RSE.id == models.Source.rse_id)
+    ).with_hint(
+        models.Source, "INDEX(SOURCES SOURCES_PK)", 'oracle'
+    ).outerjoin(
+        models.Distance,
+        and_(sub_requests.c.dest_rse_id == models.Distance.dest_rse_id,
+             models.RSEFileAssociation.rse_id == models.Distance.src_rse_id)
+    ).with_hint(
+        models.Distance, "INDEX(DISTANCES DISTANCES_PK)", 'oracle'
+    )
 
     # if transfertool specified, select only the requests where the source rses are set up for the transfer tool
     if transfertool and not multihop_rses:
-        query = query.subquery()
-        query = session.query(query) \
-            .join(models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == query.c.source_rse_id) \
-            .filter(models.RSEAttrAssociation.key == 'transfertool',
-                    models.RSEAttrAssociation.value.like('%' + transfertool + '%'))
+        stmt = stmt.join(
+            models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == models.RSE.id,  # source_rse_id
+        ).where(
+            models.RSEAttrAssociation.key == 'transfertool',
+            models.RSEAttrAssociation.value.like('%' + transfertool + '%')
+        )
 
     requests_by_id = {}
     for (request_id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, dest_rse_id, account, retry_count,
-         priority, transfertool, requested_at, source_rse_id, source_rse_name, file_path, source_ranking, source_url, distance_ranking) in query:
+         priority, transfertool, requested_at, source_rse_id, source_rse_name, file_path, source_ranking, source_url, distance_ranking) in session.execute(stmt):
 
         # If we didn't pre-filter using temporary tables on database side, perform the filtering here
         if not use_temp_tables and rses and dest_rse_id not in rses:
