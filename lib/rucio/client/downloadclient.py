@@ -1111,8 +1111,8 @@ class DownloadClient:
             for did in resolved_dids:
                 did_to_input_items.setdefault(DID(did), []).append(item)
 
-                if 'length' in did and not did['length']:
-                    did_with_size = self.client.get_did(scope=did['scope'], name=did['name'], dynamic=True)
+                if 'CONTAINER' in did.get('did_type', '').upper() or ('length' in did and not did['length']):
+                    did_with_size = self.client.get_did(scope=did['scope'], name=did['name'], dynamic_depth='FILE')
                     did['length'] = did_with_size['length']
                     did['bytes'] = did_with_size['bytes']
 
