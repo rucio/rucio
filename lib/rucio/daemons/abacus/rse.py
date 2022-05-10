@@ -49,26 +49,24 @@ def rse_update(once=False, sleep_time=10):
 def run_once(heartbeat_handler, **_kwargs):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
-    if True:
-        if True:
-            # Select a bunch of rses for to update for this worker
-            start = time.time()  # NOQA
-            rse_ids = get_updated_rse_counters(total_workers=total_workers,
-                                               worker_number=worker_number)
-            logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(rse_ids)))
+    # Select a bunch of rses for to update for this worker
+    start = time.time()  # NOQA
+    rse_ids = get_updated_rse_counters(total_workers=total_workers,
+                                       worker_number=worker_number)
+    logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(rse_ids)))
 
-            # If the list is empty, sent the worker to sleep
-            if not rse_ids:
-                logger(logging.INFO, 'did not get any work')
-                return
-            else:
-                for rse_id in rse_ids:
-                    worker_number, total_workers, logger = heartbeat_handler.live()
-                    if graceful_stop.is_set():
-                        break
-                    start_time = time.time()
-                    update_rse_counter(rse_id=rse_id)
-                    logger(logging.DEBUG, 'update of rse "%s" took %f' % (rse_id, time.time() - start_time))
+    # If the list is empty, sent the worker to sleep
+    if not rse_ids:
+        logger(logging.INFO, 'did not get any work')
+        return
+
+    for rse_id in rse_ids:
+        worker_number, total_workers, logger = heartbeat_handler.live()
+        if graceful_stop.is_set():
+            break
+        start_time = time.time()
+        update_rse_counter(rse_id=rse_id)
+        logger(logging.DEBUG, 'update of rse "%s" took %f' % (rse_id, time.time() - start_time))
 
 
 def stop(signum=None, frame=None):
