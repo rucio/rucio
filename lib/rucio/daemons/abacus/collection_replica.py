@@ -50,32 +50,31 @@ def collection_replica_update(once=False, limit=1000, sleep_time=10):
 
 def run_once(heartbeat_handler, limit, **_kwargs):
     worker_number, total_workers, logger = heartbeat_handler.live()
-    if True:
-        if True:
-            # Select a bunch of collection replicas for to update for this worker
-            start = time.time()  # NOQA
-            replicas = get_cleaned_updated_collection_replicas(total_workers=total_workers - 1,
-                                                               worker_number=worker_number,
-                                                               limit=limit)
+    # Select a bunch of collection replicas for to update for this worker
+    start = time.time()  # NOQA
+    replicas = get_cleaned_updated_collection_replicas(total_workers=total_workers - 1,
+                                                       worker_number=worker_number,
+                                                       limit=limit)
 
-            logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(replicas)))
-            # If the list is empty, sent the worker to sleep
-            if not replicas:
-                logger(logging.INFO, 'did not get any work')
-                must_sleep = True
-                return must_sleep
-            else:
-                for replica in replicas:
-                    worker_number, total_workers, logger = heartbeat_handler.live()
-                    if graceful_stop.is_set():
-                        break
-                    start_time = time.time()
-                    update_collection_replica(replica)
-                    logger(logging.DEBUG, 'update of collection replica "%s" took %f' % (replica['id'], time.time() - start_time))
-                must_sleep = False
-                if limit and len(replicas) < limit:
-                    must_sleep = True
-                return must_sleep
+    logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(replicas)))
+    # If the list is empty, sent the worker to sleep
+    if not replicas:
+        logger(logging.INFO, 'did not get any work')
+        must_sleep = True
+        return must_sleep
+
+    for replica in replicas:
+        worker_number, total_workers, logger = heartbeat_handler.live()
+        if graceful_stop.is_set():
+            break
+        start_time = time.time()
+        update_collection_replica(replica)
+        logger(logging.DEBUG, 'update of collection replica "%s" took %f' % (replica['id'], time.time() - start_time))
+
+    must_sleep = False
+    if limit and len(replicas) < limit:
+        must_sleep = True
+    return must_sleep
 
 
 def stop(signum=None, frame=None):
