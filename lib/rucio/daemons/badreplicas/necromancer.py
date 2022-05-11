@@ -17,6 +17,7 @@ from __future__ import division
 
 import logging
 import os
+import re
 import socket
 import threading
 import time
@@ -29,6 +30,7 @@ try:
 except ImportError:
     from configparser import NoOptionError, NoSectionError
 
+from sqlalchemy.exc import DatabaseError
 from dogpile.cache.api import NO_VALUE
 
 import rucio.db.sqla.util
@@ -37,6 +39,7 @@ from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import formatted_logger, setup_logging
+from rucio.common.utils import daemon_sleep
 from rucio.core import monitor, heartbeat
 from rucio.core.replica import list_bad_replicas, get_replicas_state, get_bad_replicas_backlog
 from rucio.core.rule import (update_rules_for_lost_replica, update_rules_for_bad_replica,
@@ -145,8 +148,11 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
                         try:
                             update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
                             monitor.record_counter(name='necromancer.badfiles.lostfile')
-                        except DatabaseException as error:
-                            logger(logging.WARNING, str(error))
+                        except (DatabaseException, DatabaseError) as error:
+                            if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+                                logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
+                            else:
+                                logger(logging.ERROR, str(error))
 
                     else:
                         rep = list_replicas.get(ReplicaState.AVAILABLE, [])
@@ -155,8 +161,11 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
                         try:
                             update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
                             monitor.record_counter(name='necromancer.badfiles.recovering')
-                        except DatabaseException as error:
-                            logger(logging.WARNING, str(error))
+                        except (DatabaseException, DatabaseError) as error:
+                            if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+                                logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
+                            else:
+                                logger(logging.ERROR, str(error))
 
                 tot_processed += len(replicas)
                 logger(logging.INFO, 'It took %s seconds to process %s replicas' % (str(time.time() - stime), str(len(replicas))))
@@ -166,6 +175,8 @@ def necromancer(thread=0, bulk=5, once=False, sleep_time=60):
 
         if once:
             break
+        elif tot_processed == 0:
+            daemon_sleep(start_time=stime, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
     logger(logging.INFO, 'Graceful stop requested')
     heartbeat.die(executable, hostname, pid, hb_thread)
