@@ -30,6 +30,7 @@ import time
 import traceback
 import unittest
 import uuid
+from copy import deepcopy
 from datetime import datetime
 from functools import wraps
 
@@ -1807,23 +1808,26 @@ def add_lifetime_exception(args):
         scope, name = get_scope(did, client)
         dids_list.append({'scope': scope, 'name': name})
     summary = {0: len(dids_list), 1: 0, 2: 0, 3: 0, 4: 0}
-    for meta in client.get_metadata_bulk(dids_list):
-        scope, name = meta['scope'], meta['name']
-        dids_list.remove({'scope': scope, 'name': name})
-        if meta['did_type'] == 'FILE':
-            logger.warning('%s:%s is a file. Will be ignored' % (scope, name))
-            summary[1] += 1
-        elif meta['did_type'] == 'CONTAINER':
-            logger.warning('%s:%s is a container. It needs to be resolved' % (scope, name))
-            containers.append({'scope': scope, 'name': name})
-            summary[2] += 1
-        elif not meta['eol_at']:
-            logger.warning('%s:%s is not affected by the lifetime model' % (scope, name))
-            summary[3] += 1
-        else:
-            logger.info('%s:%s will be declared' % (scope, name))
-            datasets.append({'scope': scope, 'name': name})
-            summary[4] += 1
+    chunk_limit = 500  # Server should be able to accept 1000
+    dids_list_copy = deepcopy(dids_list)
+    for chunk in chunks(dids_list_copy, chunk_limit):
+        for meta in client.get_metadata_bulk(chunk):
+            scope, name = meta['scope'], meta['name']
+            dids_list.remove({'scope': scope, 'name': name})
+            if meta['did_type'] == 'FILE':
+                logger.warning('%s:%s is a file. Will be ignored' % (scope, name))
+                summary[1] += 1
+            elif meta['did_type'] == 'CONTAINER':
+                logger.warning('%s:%s is a container. It needs to be resolved' % (scope, name))
+                containers.append({'scope': scope, 'name': name})
+                summary[2] += 1
+            elif not meta['eol_at']:
+                logger.warning('%s:%s is not affected by the lifetime model' % (scope, name))
+                summary[3] += 1
+            else:
+                logger.info('%s:%s will be declared' % (scope, name))
+                datasets.append({'scope': scope, 'name': name})
+                summary[4] += 1
 
     for did in dids_list:
         scope = did['scope']
