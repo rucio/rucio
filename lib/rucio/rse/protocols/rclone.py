@@ -18,7 +18,7 @@ import os
 import logging
 
 from rucio.common import exception
-from rucio.common.config import get_config_dirs, get_rse_credentials
+from rucio.common.config import get_config_dirs
 from rucio.common.utils import execute, PREFERRED_CHECKSUM
 from rucio.rse.protocols import protocol
 
@@ -39,7 +39,7 @@ class Default(protocol.RSEProtocol):
         """
         super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
         if len(rse_settings['protocols']) == 1:
-            raise exception.RucioException('rclone initialization requires at least one other protocol defined on the RSE. (from ssh, sftp, posix, webdav, s3)')
+            raise exception.RucioException('rclone initialization requires at least one other protocol defined on the RSE. (from ssh, sftp, posix, webdav)')
         self.scheme = self.attributes['scheme']
         setuprclone = False
         for protocols in reversed(rse_settings['protocols']):
@@ -120,36 +120,6 @@ class Default(protocol.RSEProtocol):
             except Exception as e:
                 raise exception.ServiceUnavailable(e)
 
-        elif protocols['scheme'] == 's3':
-            self.hostname = '%s_rclone_rse' % (protocols['scheme'])
-            self.host = protocols['hostname']
-            access_key, secret_key, is_secure = None, None, None
-            if 'S3_ACCESS_KEY' in os.environ:
-                access_key = os.environ['S3_ACCESS_KEY']
-            if 'S3_SECRET_KEY' in os.environ:
-                secret_key = os.environ['S3_SECRET_KEY']
-
-            if is_secure is None or access_key is None or secret_key is None:
-                credentials = get_rse_credentials()
-                self.rse['credentials'] = credentials.get(self.rse['rse'])
-
-                if not access_key:
-                    access_key = self.rse['credentials']['access_key']
-                if not secret_key:
-                    secret_key = self.rse['credentials']['secret_key']
-
-            if not access_key or not secret_key:
-                self.logger(logging.ERROR, 'rclone.init: Missing key(s) for s3 host: {}'.format(self.host))
-                return False
-
-            try:
-                cmd = 'rclone config create {0} s3 provider AWS env_auth false access_key_id {1} secret_access_key {2} region us-east-1 acl private'.format(self.hostname, access_key, secret_key)
-                self.logger(logging.DEBUG, 'rclone.init: cmd: {}'.format(cmd))
-                status, out, err = execute(cmd)
-                if status:
-                    return False
-            except Exception as e:
-                raise exception.ServiceUnavailable(e)
         else:
             self.logger(logging.DEBUG, 'rclone.init: {} protocol impl not supported by rucio rclone'.format(protocols['impl']))
             return False
