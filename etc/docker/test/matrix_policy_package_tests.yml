@@ -1,6 +1,97 @@
+atlas:
+  installation_cmd: ""
+  config_overrides:
+    permission: atlas
+    extract_scope:  atlas
+    schema: atlas
+    lfn2pfn_algorithm_default: "hash"
+  tests:
+    allow:
+      - rucio_tests
+    deny:
+      - rucio_tests/test_bad_replica.py
+      - rucio_tests/test_rule.py
+      - rucio_tests/test_replica.py
+      - rucio_tests/test_account.py
+      - rucio_tests/test_rse_selector.py
+      - rucio_tests/test_s3.py
+      - rucio_tests/test_judge_injector.py
+      - rucio_tests/test_qos.py
+      - rucio_tests/test_did_meta_plugins.py
+      - rucio_tests/test_throttler.py
+      - rucio_tests/test_abacus_account.py
+      - rucio_tests/test_api_external_representation.py
+      - rucio_tests/test_authentication.py
+      - rucio_tests/test_bb8.py
+      - rucio_tests/test_rse_protocol_s3.py
+      - rucio_tests/test_oauthmanager.py
+      - rucio_tests/test_rse_lfn2path.py
+      - rucio_tests/test_oidc.py
+      - rucio_tests/test_pfns.py
+      - rucio_tests/test_curl.py
+      - rucio_tests/test_abacus_rse.py
+      - rucio_tests/test_boolean.py
+      - rucio_tests/test_meta.py
+      - rucio_tests/test_dumper_data_model.py
+      - rucio_tests/test_clients.py
+      - rucio_tests/test_did.py
+      - rucio_tests/test_dirac.py
+      - rucio_tests/test_permission.py
+      - rucio_tests/test_judge_evaluator.py
+      - rucio_tests/test_dataset_replicas.py
+      - rucio_tests/test_rse_protocol_gfal2.py
+      - rucio_tests/test_bin_rucio.py
+      - rucio_tests/test_rse_protocol_s3boto.py
+      - rucio_tests/test_rse_protocol_sftp.py
+      - rucio_tests/test_auditor.py
+      - rucio_tests/test_identity.py
+      - rucio_tests/test_import_export.py
+      - rucio_tests/test_judge_cleaner.py
+      - rucio_tests/rucioxdist.py
+      - rucio_tests/test_scope.py
+      - rucio_tests/test_rse_protocol_mock.py
+      - rucio_tests/test_judge_repairer.py
+      - rucio_tests/test_heartbeat.py
+      - rucio_tests/test_rse_expression_parser.py
+      - rucio_tests/test_config.py
+      - rucio_tests/test_utils.py
+      - rucio_tests/test_meta_did.py
+      - rucio_tests/test_naming_convention.py
+      - rucio_tests/test_rse_protocol_srm.py
+      - rucio_tests/test_rse_protocol_posix.py
+      - rucio_tests/test_rse_protocol_webdav.py
+      - rucio_tests/test_dumper_consistency.py
+      - rucio_tests/test_replica_recoverer.py
+      - rucio_tests/test_request.py
+      - rucio_tests/test_common_types.py
+      - rucio_tests/test_undertaker.py
+      - rucio_tests/test_auditor_hdfs.py
+      - rucio_tests/test_rse.py
+      - rucio_tests/test_credential.py
+      - rucio_tests/test_counter.py
+      - rucio_tests/test_redirect.py
+      - rucio_tests/test_rse_protocol_xrootd.py
+      - rucio_tests/test_account_limits.py
+      - rucio_tests/test_abacus_collection_replica.py
+      - rucio_tests/test_multi_vo.py
+      - rucio_tests/test_subscription.py
+      - rucio_tests/test_filter_engine.py
+      - rucio_tests/test_impl_upload_download.py
+      - rucio_tests/test_rse_protocol_rclone.py
+      - rucio_tests/test_rse_protocol_rsync.py
+      - rucio_tests/test_rse_protocol_ssh.py
+  rdbms:
+    - postgres14
+  python:
+    - "3.6"
+  dists:
+    - centos7
+  image_identifier:
+    - atlas
+
 belleii:
   installation_cmd: ""
-  config_overrides: 
+  config_overrides:
     permission: belleii
     extract_scope: belleii
     schema: belleii
@@ -80,13 +171,11 @@ belleii:
       - rucio_tests/test_curl.py
       - rucio_tests/test_auditor_hdfs.py
       - rucio_tests/test_abacus_account.py
-
-      
-  rdbms: 
+  rdbms:
     - postgres14
   python:
     - "3.6"
   dists:
     - centos7
-  image_identifier: 
+  image_identifier:
     - belleii
