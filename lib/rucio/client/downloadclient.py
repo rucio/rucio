@@ -33,7 +33,7 @@ from threading import Thread
 from rucio.client.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException)
-from rucio.common.didtype import DIDType
+from rucio.common.didtype import DID
 from rucio.common.pcache import Pcache
 from rucio.common.utils import adler32, detect_client_location, generate_uuid, parse_replicas_from_string, \
     send_trace, sizefmt, execute, parse_replicas_from_file, extract_scope
@@ -202,7 +202,7 @@ class DownloadClient:
             did_str = item.get('did')
             pfn = item.get('pfn')
             rse = item.get('rse')
-            item['input_dids'] = {DIDType(did_str): {}}
+            item['input_dids'] = {DID(did_str): {}}
 
             if not did_str or not pfn or not rse:
                 logger(logging.DEBUG, item)
@@ -322,7 +322,7 @@ class DownloadClient:
 
         did_to_options = {}
         for metalink in metalinks:
-            did = DIDType(metalink['did'])
+            did = DID(metalink['did'])
             did_to_options[did] = [item]
             metalink['input_dids'] = {did: {}}
 
@@ -1090,7 +1090,7 @@ class DownloadClient:
                 logger(logging.WARNING, 'An item didnt have any DIDs after resolving the input: %s.' % item.get('did', item))
             item['dids'] = resolved_dids
             for did in resolved_dids:
-                did_to_input_items.setdefault(DIDType(did), []).append(item)
+                did_to_input_items.setdefault(DID(did), []).append(item)
 
                 if 'length' in did and not did['length']:
                     did_with_size = self.client.get_did(scope=did['scope'], name=did['name'], dynamic=True)
@@ -1118,7 +1118,7 @@ class DownloadClient:
         for item_group in item_groups:
             # Take configuration from the first item in the group; but dids from all items
             item = item_group[0]
-            input_dids = {DIDType(did): did
+            input_dids = {DID(did): did
                           for item in item_group
                           for did in item.get('dids')}
 
@@ -1193,9 +1193,9 @@ class DownloadClient:
             # Match the file did back to the dids which were provided to list_replicas.
             # Later, this will allow to match the file back to input_items via did_to_input_items
             for file_item in file_items:
-                file_did = DIDType(file_item['did'])
+                file_did = DID(file_item['did'])
 
-                file_input_dids = {DIDType(did) for did in file_item.get('parent_dids', [])}.intersection(input_dids)
+                file_input_dids = {DID(did) for did in file_item.get('parent_dids', [])}.intersection(input_dids)
                 if file_did in input_dids:
                     file_input_dids.add(file_did)
                 file_item['input_dids'] = {did: input_dids[did] for did in file_input_dids}
@@ -1272,7 +1272,7 @@ class DownloadClient:
 
         # get replicas for every file of the given dids
         for file_item in file_items:
-            file_did = DIDType(file_item['did'])
+            file_did = DID(file_item['did'])
             input_items = list(itertools.chain.from_iterable(did_to_input_items.get(did, []) for did in file_item['input_dids']))
             options = self._options_from_input_items(input_items)
 
