@@ -55,9 +55,9 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
 
     sub_query = exists(
     ).where(
-        and_(models.ReplicationRule.scope == models.DataIdentifier.scope,
-             models.ReplicationRule.name == models.DataIdentifier.name,
-             models.ReplicationRule.locked == true())
+        models.ReplicationRule.scope == models.DataIdentifier.scope,
+        models.ReplicationRule.name == models.DataIdentifier.name,
+        models.ReplicationRule.locked == true(),
     )
     list_stmt = select(
         models.DataIdentifier.scope,
@@ -355,10 +355,10 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
             exists(
                 select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX) */", dialect="oracle")
             ).where(
-                and_(models.DataIdentifierAssociation.child_scope == scope,
-                     models.DataIdentifierAssociation.child_name == name,
-                     models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
-                     models.DataIdentifierAssociation.name == models.DataIdentifier.name)
+                models.DataIdentifierAssociation.child_scope == scope,
+                models.DataIdentifierAssociation.child_name == name,
+                models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
+                models.DataIdentifierAssociation.name == models.DataIdentifier.name
             )
         ).where(
             or_(models.DataIdentifier.is_archive.is_(None),
@@ -1057,9 +1057,9 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
     ).prefix_with(
         "/*+ INDEX(RULES RULES_SCOPE_NAME_IDX) */", dialect='oracle'
     ).where(
-        and_(models.DataIdentifier.scope == models.ReplicationRule.scope,
-             models.DataIdentifier.name == models.ReplicationRule.name,
-             models.ReplicationRule.state == RuleState.INJECT)
+        models.DataIdentifier.scope == models.ReplicationRule.scope,
+        models.DataIdentifier.name == models.ReplicationRule.name,
+        models.ReplicationRule.state == RuleState.INJECT
     )
 
     select_stmt = select(
@@ -1323,8 +1323,8 @@ def list_files(scope, name, long=False, session=None):
                 ).with_hint(
                     models.DataIdentifierAssociation, "INDEX_RS_ASC(DIDS DIDS_PK) INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", "oracle"
                 ).where(
-                    and_(models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
-                         models.DataIdentifier.name == models.DataIdentifierAssociation.child_name)
+                    models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
+                    models.DataIdentifier.name == models.DataIdentifierAssociation.child_name
                 )
             else:
                 dst_cnt_query = select(
