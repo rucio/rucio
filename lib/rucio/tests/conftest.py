@@ -83,6 +83,7 @@ def scope_client():
     return ScopeClient()
 
 
+@pytest.fixture(scope='module')
 def dirac_client():
     from rucio.client.diracclient import DiracClient
 
