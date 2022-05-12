@@ -16,10 +16,8 @@
 """
 Judge-Cleaner is a daemon to clean expired replication rules.
 """
-
+import functools
 import logging
-import os
-import socket
 import threading
 import time
 from copy import deepcopy
@@ -31,12 +29,11 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.logging import formatted_logger, setup_logging
+from rucio.common.logging import setup_logging
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
-from rucio.common.utils import daemon_sleep
-from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 from rucio.core.rule import delete_rule, get_expired_rules
+from rucio.daemons.common import run_daemon
 from rucio.db.sqla.util import get_db_time
 
 graceful_stop = threading.Event()
@@ -46,88 +43,84 @@ def rule_cleaner(once=False, sleep_time=60):
     """
     Main loop to check for expired replication rules
     """
-
-    hostname = socket.gethostname()
-    pid = os.getpid()
-    current_thread = threading.current_thread()
-
-    paused_rules = {}  # {rule_id: datetime}
-
-    # Make an initial heartbeat so that all judge-cleaners have the correct worker number on the next try
     executable = 'judge-cleaner'
-    heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
-    prefix = 'judge-cleaner[%i/%i] ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-    logger = formatted_logger(logging.log, prefix + '%s')
-    graceful_stop.wait(1)
+    paused_rules = {}  # {rule_id: datetime}
+    run_daemon(
+        once=once,
+        graceful_stop=graceful_stop,
+        executable=executable,
+        logger_prefix=executable,
+        partition_wait_time=1,
+        sleep_time=sleep_time,
+        run_once_fnc=functools.partial(
+            run_once,
+            paused_rules=paused_rules,
+        )
+    )
 
-    while not graceful_stop.is_set():
-        try:
-            # heartbeat
-            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
-            prefix = 'judge-cleaner[%i/%i] ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-            logger = formatted_logger(logging.log, prefix + '%s')
 
-            start = time.time()
+def run_once(paused_rules, heartbeat_handler, **_kwargs):
+    worker_number, total_workers, logger = heartbeat_handler.live()
 
-            # Refresh paused rules
-            iter_paused_rules = deepcopy(paused_rules)
-            for key in iter_paused_rules:
-                if datetime.utcnow() > paused_rules[key]:
-                    del paused_rules[key]
+    try:
+        start = time.time()
 
-            rules = get_expired_rules(total_workers=heartbeat['nr_threads'],
-                                      worker_number=heartbeat['assign_thread'],
-                                      limit=200,
-                                      blocked_rules=[key for key in paused_rules])
-            logger(logging.DEBUG, 'index query time %f fetch size is %d' % (time.time() - start, len(rules)))
+        # Refresh paused rules
+        iter_paused_rules = deepcopy(paused_rules)
+        for key in iter_paused_rules:
+            if datetime.utcnow() > paused_rules[key]:
+                del paused_rules[key]
 
-            if not rules and not once:
-                logger(logging.DEBUG, 'did not get any work (paused_rules=%s)' % str(len(paused_rules)))
-                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop, logger=logger)
-            else:
-                for rule in rules:
-                    rule_id = rule[0]
-                    rule_expression = rule[1]
-                    logger(logging.INFO, 'Deleting rule %s with expression %s' % (rule_id, rule_expression))
-                    if graceful_stop.is_set():
-                        break
-                    try:
-                        start = time.time()
-                        delete_rule(rule_id=rule_id, nowait=True)
-                        logger(logging.DEBUG, 'deletion of %s took %f' % (rule_id, time.time() - start))
-                    except (DatabaseException, DatabaseError, UnsupportedOperation) as e:
-                        if match('.*ORA-00054.*', str(e.args[0])):
-                            paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
-                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': 'LocksDetected'})
-                            logger(logging.WARNING, 'Locks detected for %s' % rule_id)
-                        elif match('.*QueuePool.*', str(e.args[0])):
-                            logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-                        elif match('.*ORA-03135.*', str(e.args[0])):
-                            logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-                        else:
-                            logger(logging.ERROR, 'DatabaseException', exc_info=True)
-                            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-                    except RuleNotFound:
-                        pass
-        except (DatabaseException, DatabaseError) as e:
-            if match('.*QueuePool.*', str(e.args[0])):
-                logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-            elif match('.*ORA-03135.*', str(e.args[0])):
-                logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-            else:
-                logger(logging.CRITICAL, 'DatabaseException', exc_info=True)
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-        except Exception as e:
+        rules = get_expired_rules(total_workers=total_workers,
+                                  worker_number=worker_number,
+                                  limit=200,
+                                  blocked_rules=[key for key in paused_rules])
+        logger(logging.DEBUG, 'index query time %f fetch size is %d' % (time.time() - start, len(rules)))
+
+        if not rules:
+            logger(logging.DEBUG, 'did not get any work (paused_rules=%s)' % str(len(paused_rules)))
+            return
+
+        for rule in rules:
+            _, _, logger = heartbeat_handler.live()
+            rule_id = rule[0]
+            rule_expression = rule[1]
+            logger(logging.INFO, 'Deleting rule %s with expression %s' % (rule_id, rule_expression))
+            if graceful_stop.is_set():
+                break
+            try:
+                start = time.time()
+                delete_rule(rule_id=rule_id, nowait=True)
+                logger(logging.DEBUG, 'deletion of %s took %f' % (rule_id, time.time() - start))
+            except (DatabaseException, DatabaseError, UnsupportedOperation) as e:
+                if match('.*ORA-00054.*', str(e.args[0])):
+                    paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
+                    record_counter('rule.judge.exceptions.{exception}', labels={'exception': 'LocksDetected'})
+                    logger(logging.WARNING, 'Locks detected for %s' % rule_id)
+                elif match('.*QueuePool.*', str(e.args[0])):
+                    logger(logging.WARNING, 'DatabaseException', exc_info=True)
+                    record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+                elif match('.*ORA-03135.*', str(e.args[0])):
+                    logger(logging.WARNING, 'DatabaseException', exc_info=True)
+                    record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+                else:
+                    logger(logging.ERROR, 'DatabaseException', exc_info=True)
+                    record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+            except RuleNotFound:
+                pass
+    except (DatabaseException, DatabaseError) as e:
+        if match('.*QueuePool.*', str(e.args[0])):
+            logger(logging.WARNING, 'DatabaseException', exc_info=True)
+            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+        elif match('.*ORA-03135.*', str(e.args[0])):
+            logger(logging.WARNING, 'DatabaseException', exc_info=True)
+            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+        else:
             logger(logging.CRITICAL, 'DatabaseException', exc_info=True)
             record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-        if once:
-            break
-
-    die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
+    except Exception as e:
+        logger(logging.CRITICAL, 'DatabaseException', exc_info=True)
+        record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
 
 
 def stop(signum=None, frame=None):
@@ -152,10 +145,6 @@ def run(once=False, threads=1, sleep_time=60):
         if db_time - client_time > max_offset or client_time - db_time > max_offset:
             logging.critical('Offset between client and db time too big. Stopping Cleaner')
             return
-
-    executable = 'judge-cleaner'
-    hostname = socket.gethostname()
-    sanity_check(executable=executable, hostname=hostname)
 
     if once:
         rule_cleaner(once)
