@@ -15,6 +15,8 @@
 
 from datetime import datetime
 import json
+import logging
+import traceback
 from io import StringIO
 from re import match
 from typing import TYPE_CHECKING
@@ -39,10 +41,124 @@ from rucio.db.sqla.constants import (RSEType, ReplicaState)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 if TYPE_CHECKING:
-    from typing import Dict, Optional
+    from typing import Dict, Optional, Sequence
     from sqlalchemy.orm import Session
 
 REGION = make_region_memcached(expiration_time=900)
+
+
+class RseData:
+    """
+    Helper data class storing rse data grouped in one place.
+    """
+    def __init__(self, id_, name=None, columns=None, attributes=None, info=None, usage=None, limits=None):
+        self.id = id_
+        self.name = name
+        self.columns = columns
+        self.attributes = attributes
+        self.info = info
+        self.usage = usage
+        self.limits = limits
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def __str__(self):
+        if self.name is not None:
+            return self.name
+        return self.id
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return self.id == other.id
+
+    def is_tape(self):
+        if self.info['rse_type'] == RSEType.TAPE or self.info['rse_type'] == 'TAPE':
+            return True
+        return False
+
+    def is_tape_or_staging_required(self):
+        if self.is_tape() or self.attributes.get('staging_required', False):
+            return True
+        return False
+
+    @read_session
+    def ensure_loaded(self, load_name=False, load_columns=False, load_attributes=False,
+                      load_info=False, load_usage=False, load_limits=False, session=None):
+        if self.name is None and load_name:
+            self.name = get_rse_name(rse_id=self.id, session=session)
+        if self.columns is None and load_columns:
+            self.columns = get_rse(rse_id=self.id, session=session)
+        if self.attributes is None and load_attributes:
+            self.attributes = get_rse_attributes(self.id, session=session)
+        if self.info is None and load_info:
+            self.info = get_rse_info(self.id, session=session)
+        if self.usage is None and load_usage:
+            self.usage = get_rse_usage(rse_id=self.id, session=session)
+        if self.limits is None and load_limits:
+            self.limits = get_rse_limits(rse_id=self.id, session=session)
+
+    @staticmethod
+    @read_session
+    def bulk_load(rse_datas: "Sequence[RseData]", load_name=False, load_columns=False, load_attributes=False,
+                  load_info=False, load_usage=False, load_limits=False, session=None):
+        """
+        Given a sequence of RseData objects, ensure that the desired fields are initialised
+        in all objects from the input.
+        """
+        rse_datas_by_id = {}
+        names_to_load = set()
+        columns_to_load = set()
+        attributes_to_load = set()
+        infos_to_load = set()
+        usages_to_load = set()
+        limits_to_load = set()
+        for rse_data in rse_datas:
+            rse_id = rse_data.id
+            rse_datas_by_id.setdefault(rse_id, []).append(rse_data)
+            if load_name and rse_data.name is None:
+                names_to_load.add(rse_id)
+            if load_columns and rse_data.columns is None:
+                columns_to_load.add(rse_id)
+            if load_attributes and rse_data.attributes is None:
+                attributes_to_load.add(rse_id)
+            if load_info and rse_data.info is None:
+                infos_to_load.add(rse_id)
+            if load_usage and rse_data.usage is None:
+                usages_to_load.add(rse_id)
+            if load_limits and rse_data.limits is None:
+                limits_to_load.add(rse_id)
+
+        for rse_id in names_to_load:
+            name = get_rse_name(rse_id=rse_id, session=session)
+            for rse_data in rse_datas_by_id[rse_id]:
+                rse_data.name = name
+
+        for rse_id in columns_to_load:
+            rse = get_rse(rse_id=rse_id, session=session)
+            for rse_data in rse_datas_by_id[rse_id]:
+                rse_data.columns = rse
+
+        for rse_id in attributes_to_load:
+            attributes = get_rse_attributes(rse_id=rse_id, session=session)
+            for rse_data in rse_datas_by_id[rse_id]:
+                rse_data.attributes = attributes
+
+        for rse_id in infos_to_load:
+            info = get_rse_info(rse_id=rse_id, session=session)
+            for rse_data in rse_datas_by_id[rse_id]:
+                rse_data.info = info
+
+        for rse_id in usages_to_load:
+            usage = get_rse_usage(rse_id=rse_id, session=session)
+            for rse_data in rse_datas_by_id[rse_id]:
+                rse_data.usage = usage
+
+        for rse_id in limits_to_load:
+            limits = get_rse_limits(rse_id=rse_id, session=session)
+            for rse_data in rse_datas_by_id[rse_id]:
+                rse_data.limits = limits
 
 
 @transactional_session
@@ -581,6 +697,29 @@ def get_rse_attribute(key, rse_id=None, value=None, use_cache=True, session=None
     return result
 
 
+def get_rse_attributes(rse_id, session=None):
+    """
+    List rse attributes
+
+    :param rse:     the rse name.
+    :param rse_id:  The RSE id.
+    :param session: The database session in use.
+
+    :returns: A dictionary with RSE attributes for a RSE.
+    """
+
+    key = 'rse_attributes_%s' % (rse_id)
+    result = REGION.get(key)
+    if result is NO_VALUE:
+        try:
+            result = None
+            result = list_rse_attributes(rse_id=rse_id, session=session)
+            REGION.set(key, result)
+        except:
+            logging.warning("Failed to get RSE %s attributes, error: %s" % (rse_id, traceback.format_exc()))
+    return result
+
+
 @read_session
 def get_rse_supported_checksums(rse_id, session=None):
     """
@@ -677,11 +816,9 @@ def get_rse_usage(rse_id, source=None, session=None, per_account=False):
     if source:
         query_rse_usage = query_rse_usage.filter_by(source=source)
 
-    rse = get_rse_name(rse_id=rse_id, session=session)
     for row in query_rse_usage:
         total = (row.free or 0) + (row.used or 0)
         rse_usage = {'rse_id': rse_id,
-                     'rse': rse,
                      'source': row.source,
                      'used': row.used, 'free': row.free,
                      'total': total,
@@ -1047,6 +1184,24 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
         info['protocols'].append(p)
     info['protocols'] = sorted(info['protocols'], key=lambda p: (p['hostname'], p['scheme'], p['port']))
     return info
+
+
+@read_session
+def get_rse_info(rse_id, session=None):
+    """
+    For historical reasons, related to usage of rsemanager, "rse_info" is equivalent to
+    a cached call to get_rse_protocols without any schemes set.
+
+    :param rse_id: The id of the rse.
+    :param session: The database session.
+    :returns: A dict with RSE information and supported protocols
+    """
+    key = 'rse_info_%s' % rse_id
+    result = REGION.get(key)
+    if result is NO_VALUE:
+        result = get_rse_protocols(rse_id=rse_id, session=session)
+        REGION.set(key, result)
+    return result
 
 
 @transactional_session
