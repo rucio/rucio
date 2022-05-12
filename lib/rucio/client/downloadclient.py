@@ -429,6 +429,8 @@ class DownloadClient:
             except Exception as error:
                 logger(logging.ERROR, '%sFailed to download item' % log_prefix)
                 logger(logging.DEBUG, error)
+                item["clientState"] = "FAILED"
+                output_queue.put(item)
 
     @staticmethod
     def _compute_actual_transfer_timeout(item):
