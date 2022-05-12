@@ -18,18 +18,15 @@ Abacus-Account is a daemon to update Account counters.
 """
 
 import logging
-import os
-import socket
 import threading
 import time
-import traceback
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.logging import setup_logging, formatted_logger
-from rucio.common.utils import get_thread_with_periodic_running_function, daemon_sleep
+from rucio.common.logging import setup_logging
+from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.account_counter import get_updated_account_counters, update_account_counter, fill_account_counter_history_table
-from rucio.core.heartbeat import live, die, sanity_check
+from rucio.daemons.common import run_daemon
 
 graceful_stop = threading.Event()
 
@@ -38,48 +35,37 @@ def account_update(once=False, sleep_time=10):
     """
     Main loop to check and update the Account Counters.
     """
+    run_daemon(
+        once=once,
+        graceful_stop=graceful_stop,
+        executable='abacus-account',
+        logger_prefix='account_update',
+        partition_wait_time=1,
+        sleep_time=sleep_time,
+        run_once_fnc=run_once,
+    )
 
-    # Make an initial heartbeat so that all abacus-account daemons have the correct worker number on the next try
-    executable = 'abacus-account'
-    hostname = socket.gethostname()
-    pid = os.getpid()
-    current_thread = threading.current_thread()
-    live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
-    while not graceful_stop.is_set():
-        try:
-            # Heartbeat
-            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
+def run_once(heartbeat_handler, **_kwargs):
+    worker_number, total_workers, logger = heartbeat_handler.live()
 
-            prepend_str = 'account_update[%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-            logger = formatted_logger(logging.log, prepend_str + '%s')
+    start = time.time()  # NOQA
+    account_rse_ids = get_updated_account_counters(total_workers=total_workers,
+                                                   worker_number=worker_number)
+    logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(account_rse_ids)))
 
-            # Select a bunch of rses for to update for this worker
-            start = time.time()  # NOQA
-            account_rse_ids = get_updated_account_counters(total_workers=heartbeat['nr_threads'],
-                                                           worker_number=heartbeat['assign_thread'])
-            logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(account_rse_ids)))
+    # If the list is empty, sent the worker to sleep
+    if not account_rse_ids:
+        logger(logging.INFO, 'did not get any work')
+        return
 
-            # If the list is empty, sent the worker to sleep
-            if not account_rse_ids and not once:
-                logger(logging.INFO, 'did not get any work')
-                daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=graceful_stop)
-            else:
-                for account_rse_id in account_rse_ids:
-                    if graceful_stop.is_set():
-                        break
-                    start_time = time.time()
-                    update_account_counter(account=account_rse_id[0], rse_id=account_rse_id[1])
-                    logger(logging.DEBUG, 'update of account-rse counter "%s-%s" took %f' % (account_rse_id[0], account_rse_id[1], time.time() - start_time))
-        except Exception:
-            logger(logging.ERROR, traceback.format_exc())
-
-        if once:
+    for account_rse_id in account_rse_ids:
+        worker_number, total_workers, logger = heartbeat_handler.live()
+        if graceful_stop.is_set():
             break
-
-    logging.info('account_update: graceful stop requested')
-    die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
-    logging.info('account_update: graceful stop done')
+        start_time = time.time()
+        update_account_counter(account=account_rse_id[0], rse_id=account_rse_id[1])
+        logger(logging.DEBUG, 'update of account-rse counter "%s-%s" took %f' % (account_rse_id[0], account_rse_id[1], time.time() - start_time))
 
 
 def stop(signum=None, frame=None):
@@ -98,10 +84,6 @@ def run(once=False, threads=1, fill_history_table=False, sleep_time=10):
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
-
-    executable = 'abacus-account'
-    hostname = socket.gethostname()
-    sanity_check(executable=executable, hostname=hostname)
 
     if once:
         logging.info('main: executing one iteration only')
