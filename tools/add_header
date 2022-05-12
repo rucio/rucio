@@ -359,22 +359,36 @@ def template_exists_for_file(file_path: str) -> bool:
         return False
 
 
+def get_all_files_recursive(path: str) -> Iterator[str]:
+    """
+    Returns all files in the project, known to the versioning system. This
+    includes the files in subdirectories.
+
+    :param path: The path which should contain the files.
+    :returns: An Iterator over all files found in the VS.
+    """
+    command = f"cd {path} && git ls-files"
+    command_out = os.popen(command).read().strip()
+
+    if not command_out:
+        logging.warning("This does not seem to be a git project or no files found. We won't traverse the folder here.")
+        return
+
+    for f in command_out.split("\n"):
+        yield f
+
+
 def get_all_suitable_files_recursive(path: str) -> Iterator[str]:
     """
-    Returns all files for which a template exist. This includes the files in
-    subdirectories.
+    Returns all files for which a template exist and which are in the VS. This
+    includes the files in subdirectories.
 
     :param path: The path which should contain the files.
     :returns: An Iterator over all suitable files found.
     """
-    for (dirpath, _, filenames) in os.walk(path):
-        if ".git/" in dirpath:
-            continue
-
-        for f in filenames:
-            f = os.path.join(dirpath, f)
-            if template_exists_for_file(f):
-                yield f
+    for f in get_all_files_recursive(path):
+        if template_exists_for_file(f):
+            yield f
 
 
 def modify_header(header_template: HeaderTemplate) -> None:
