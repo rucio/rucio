@@ -42,11 +42,13 @@ from rucio.common.exception import (DatabaseException, RSENotFound,
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
                                     VONotFound)
 from rucio.common.logging import setup_logging
+from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import list_payload_counts
 from rucio.core.message import add_message
+from rucio.core.oidc import get_token_for_account_operation
 from rucio.core.replica import list_and_mark_unlocked_replicas, list_and_mark_unlocked_replicas_no_temp_table, delete_replicas
 from rucio.core.rse import list_rses, RseData
 from rucio.core.rse_expression_parser import parse_expression
@@ -406,6 +408,9 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     """
 
     executable = 'reaper'
+    oidc_account = config_get_bool('reaper', 'oidc_account', False, '')
+    oidc_scope = config_get('reaper', 'oidc_scope', False, 'delete')
+    oidc_audience = config_get('reaper', 'oidc_audience', False, 'rse')
 
     run_daemon(
         once=once,
@@ -426,13 +431,16 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             delay_seconds=delay_seconds,
             auto_exclude_threshold=auto_exclude_threshold,
             auto_exclude_timeout=auto_exclude_timeout,
+            oidc_account=oidc_account,
+            oidc_scope=oidc_scope,
+            oidc_audience=oidc_audience,
         )
     )
 
 
 def run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
              delay_seconds, auto_exclude_threshold, auto_exclude_timeout,
-             heartbeat_handler, **_kwargs):
+             heartbeat_handler, oidc_account, oidc_scope, oidc_audience, **_kwargs):
 
     must_sleep = True
 
@@ -480,7 +488,10 @@ def run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
             delay_seconds=delay_seconds,
             auto_exclude_threshold=auto_exclude_threshold,
             auto_exclude_timeout=auto_exclude_timeout,
-            heartbeat_handler=heartbeat_handler
+            heartbeat_handler=heartbeat_handler,
+            oidc_account=oidc_account,
+            oidc_scope=oidc_scope,
+            oidc_audience=oidc_audience,
         )
         if rses_to_process and iteration < max_fast_reiterations:
             logger(logging.INFO, "Will perform fast-reiteration %d/%d with rses: %s", iteration + 1, max_fast_reiterations, [str(rse) for rse in rses_to_process])
@@ -496,7 +507,7 @@ def run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
 
 def _run_once(rses_to_process, chunk_size, greedy, scheme,
               delay_seconds, auto_exclude_threshold, auto_exclude_timeout,
-              heartbeat_handler, **_kwargs):
+              heartbeat_handler, oidc_account, oidc_scope, oidc_audience, **_kwargs):
 
     dict_rses = {}
     _, total_workers, logger = heartbeat_handler.live()
@@ -597,8 +608,15 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
             continue
         # Physical  deletion will take place there
         try:
-            rse.ensure_loaded(load_info=True)
-            prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, logger=logger)
+            rse.ensure_loaded(load_info=True, load_attributes=True)
+            auth_token = None
+            if oidc_account and rse.attributes.get('oidc_support', False):
+                account = InternalAccount(oidc_account, vo=rse.columns['vo'])
+                token_dict = get_token_for_account_operation(account, req_audience=oidc_audience, req_scope=oidc_scope, admin=True)
+                if token_dict is not None and 'token' in token_dict:
+                    auth_token = token_dict['token']
+                    logger(logging.DEBUG, 'OIDC authentication used for deletion.')
+            prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, auth_token=auth_token, logger=logger)
             for file_replicas in chunks(replicas, chunk_size):
                 # Refresh heartbeat
                 _, total_workers, logger = heartbeat_handler.live(payload=hb_payload)
