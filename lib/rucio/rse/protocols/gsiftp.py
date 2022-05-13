@@ -29,7 +29,7 @@ class Default(protocol.RSEProtocol):
     def __init__(self, protocol_attr, rse_settings, logger=None):
         """ Initializes the object with information about the referred RSE.
 
-            :param props Properties derived from the RSE Repository
+            :param props: Properties derived from the RSE Repository
         """
         super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
 
