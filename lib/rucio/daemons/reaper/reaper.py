@@ -582,7 +582,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
                                                                              only_delete_obsolete=only_delete_obsolete,
                                                                              session=None)
             logger(logging.DEBUG, 'list_and_mark_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', rse.name, needed_free_space, time.time() - del_start_time, len(replicas))
-            if not enable_greedy and len(replicas) < chunk_size:
+            if (len(replicas) == 0 and enable_greedy) or (len(replicas) < chunk_size and not enable_greedy):
                 logger(logging.DEBUG, 'Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', rse.name, chunk_size, len(replicas))
                 REGION.set('pause_deletion_%s' % rse.id, True)
                 work_remaining_by_rse[rse] = False
