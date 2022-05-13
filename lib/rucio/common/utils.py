@@ -783,7 +783,7 @@ def extract_scope(did, scopes=None, default_extract=_DEFAULT_EXTRACT):
     if not _loaded_policy_package_scope_algorithms:
         register_policy_package_algorithms('scope', _EXTRACT_SCOPE_ALGORITHMS)
         _loaded_policy_package_scope_algorithms = True
-    extract_scope_convention = config_get('common', 'extract_scope', False, None)
+    extract_scope_convention = config_get('common', 'extract_scope', False, None) or config_get('policy', 'extract_scope', False, None)
     if extract_scope_convention is None or extract_scope_convention not in _EXTRACT_SCOPE_ALGORITHMS:
         extract_scope_convention = default_extract
     return _EXTRACT_SCOPE_ALGORITHMS[extract_scope_convention](did=did, scopes=scopes)

@@ -35,6 +35,8 @@ skiplimitedsql = pytest.mark.skipif('RDBMS' in os.environ and os.environ['RDBMS'
                                     reason="does not work in SQLite because of missing features")
 skip_multivo = pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'multi_vo',
                                   reason="does not work for multiVO")
+skip_non_belleii = pytest.mark.skipif(not ('POLICY' in os.environ and os.environ['POLICY'] == 'belleii'),
+                                      reason="specific belleii tests")
 
 
 def get_long_vo():
@@ -64,12 +66,32 @@ def scope_name_generator():
     return 'mock_' + str(uuid()).lower()[:16]
 
 
+def did_name_generator(did_type='file'):
+    """ Generate random did name.
+
+    :returns: A random did name
+    """
+    if os.getenv('POLICY') == 'belleii':
+        path = '/belle'
+        path += '/cont_%s' % str(uuid())
+        if did_type == 'container':
+            return path
+        path += '/dataset_%s' % str(uuid())
+        if did_type == 'dataset':
+            return path
+        path += '/file_%s' % str(uuid())
+        return path
+    if did_type in ['file', 'dataset', 'container']:
+        return '%s_%s' % (did_type, str(uuid()))
+    return 'mock_' + str(uuid())
+
+
 def rse_name_generator(size=10):
     """ Generate random RSE name.
 
     :returns: A random RSE name
     """
-    return 'MOCK_' + ''.join(choice(ascii_uppercase) for x in range(size))
+    return 'MOCK-' + ''.join(choice(ascii_uppercase) for x in range(size))
 
 
 def file_generator(size=2, namelen=10):

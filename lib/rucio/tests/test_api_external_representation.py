@@ -43,7 +43,7 @@ from rucio.daemons.abacus import rse as abacus_rse
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
 from rucio.db.sqla import constants
-from rucio.tests.common import rse_name_generator
+from rucio.tests.common import rse_name_generator, did_name_generator
 from rucio.tests.common_server import get_vo
 
 
@@ -158,10 +158,12 @@ class TestApiExternalRepresentation(unittest.TestCase):
     def test_api_did(self):
         """ DID (API): Test external representation of DIDs """
         # add some dids
-        add_did(self.scope_name, 'ext_parent', 'container', issuer='root', account=self.account_name, **self.vo)
-        add_did(self.scope_name, 'ext_child', 'dataset', issuer='root', account=self.account_name, **self.vo)
-        attachment = {'scope': self.scope_name, 'name': 'ext_parent',
-                      'dids': [{'scope': self.scope_name, 'name': 'ext_child', 'type': 'DATASET'}]}
+        ext_parent = did_name_generator('container')
+        ext_child = did_name_generator('dataset')
+        add_did(self.scope_name, ext_parent, 'container', issuer='root', account=self.account_name, **self.vo)
+        add_did(self.scope_name, ext_child, 'dataset', issuer='root', account=self.account_name, **self.vo)
+        attachment = {'scope': self.scope_name, 'name': ext_parent,
+                      'dids': [{'scope': self.scope_name, 'name': ext_child, 'type': 'DATASET'}]}
         attach_dids_to_dids([attachment], issuer='root', **self.vo)
 
         # test scope_list
@@ -177,8 +179,8 @@ class TestApiExternalRepresentation(unittest.TestCase):
         assert parent_found
 
         # test get_did
-        add_did_to_followed(self.scope_name, 'ext_parent', self.account_name, **self.vo)
-        out = get_users_following_did('ext_parent', self.scope_name, **self.vo)
+        add_did_to_followed(self.scope_name, ext_parent, self.account_name, **self.vo)
+        out = get_users_following_did(ext_parent, self.scope_name, **self.vo)
         out = list(out)
         assert 0 != len(out)
         for user in out:
@@ -225,12 +227,13 @@ class TestApiExternalRepresentation(unittest.TestCase):
     def test_api_replica(self):
         """ REPLICA (API): Test external representation of replicas """
 
-        did = 'ext_' + str(generate_uuid())
+        did = did_name_generator('file')
+        did_parent = did_name_generator('dataset')
         pfn = 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (self.scope_name, generate_uuid())
         add_replicas(self.rse2_name, files=[{'scope': self.scope_name, 'name': did, 'bytes': 100, 'pfn': pfn}], issuer='root', **self.vo)
 
-        add_did(self.scope_name, 'ext_parent_2', 'dataset', issuer='root', account=self.account_name, **self.vo)
-        attachment = {'scope': self.scope_name, 'name': 'ext_parent_2',
+        add_did(self.scope_name, did_parent, 'dataset', issuer='root', account=self.account_name, **self.vo)
+        attachment = {'scope': self.scope_name, 'name': did_parent,
                       'dids': [{'scope': self.scope_name, 'name': did}]}
         attach_dids_to_dids([attachment], issuer='root', **self.vo)
 
@@ -262,7 +265,7 @@ class TestApiExternalRepresentation(unittest.TestCase):
     def test_api_request(self):
         """ REQUEST (API): Test external representation of requests """
 
-        did = generate_uuid()
+        did = did_name_generator('dataset')
         add_did(self.scope_name, did, 'dataset', issuer='root', account=self.account_name, rse=self.rse_name, **self.vo)
 
         requests = [{
@@ -277,7 +280,7 @@ class TestApiExternalRepresentation(unittest.TestCase):
             'retry_count': 1,
             'requested_at': datetime.now(),
             'attributes': {
-                'activity': 'User Subscription',
+                'activity': 'Functional Test',
                 'bytes': 10,
                 'md5': '',
                 'adler32': ''
@@ -349,7 +352,7 @@ class TestApiExternalRepresentation(unittest.TestCase):
         account_counter.add_counter(rse_id=rse_mock_id, account=self.account)
         account_counter.increase(rse_id=rse_mock_id, account=self.account, files=1, bytes_=10)
         account_counter.update_account_counter(self.account, rse_mock_id)
-        did = 'file_' + generate_uuid()
+        did = did_name_generator('file')
         add_did(self.scope_name, did, 'DATASET', 'root', account=self.account_name, rse=rse_mock, **self.vo)
         abacus_rse.run(once=True)
 
@@ -394,7 +397,7 @@ class TestApiExternalRepresentation(unittest.TestCase):
         """ SUBSCRIPTION (API): Test external representation of subscriptions """
 
         sub = 'ext_' + generate_uuid()
-        did = 'ext_' + generate_uuid()
+        did = did_name_generator('file')
         new_acc_name = ''.join(random.choice(string.ascii_lowercase) for x in range(10))
         new_scope_name = ''.join(random.choice(string.ascii_lowercase) for x in range(10))
         add_account(new_acc_name, 'USER', 'test@test.com', 'root', **self.new_vo)
@@ -404,12 +407,12 @@ class TestApiExternalRepresentation(unittest.TestCase):
         add_did(new_scope_name, did, 'DATASET', 'root', account=new_acc_name, rse=self.rse3_name, **self.new_vo)
 
         sub_id = add_subscription(sub, new_acc_name, {'account': [new_acc_name], 'scope': [new_scope_name]},
-                                  [{'copies': 1, 'rse_expression': self.rse3_name, 'weight': 0, 'activity': 'User Subscriptions',
+                                  [{'copies': 1, 'rse_expression': self.rse3_name, 'weight': 0, 'activity': 'Functional Test',
                                     'source_replica_expression': self.rse4_name}],
                                   '', False, 0, 0, 3, 'root', **self.new_vo)
         add_replication_rule(dids=[{'scope': new_scope_name, 'name': did}], copies=1, rse_expression=self.rse3_name, weight=None,
                              lifetime=180, grouping='DATASET', account=new_acc_name, locked=False, subscription_id=sub_id,
-                             source_replica_expression=self.rse4_name, activity='User Subscriptions', notify=None,
+                             source_replica_expression=self.rse4_name, activity='Functional Test', notify=None,
                              purge_replicas=False, ignore_availability=False, comment='', ask_approval=False, asynchronous=False,
                              delay_injection=None, priority=0, split_container=False, meta='', issuer='root', **self.new_vo)
 
