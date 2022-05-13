@@ -18,24 +18,28 @@ from rucio.core import lifetime_exception
 from rucio.common import exception
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict
+from rucio.db.sqla.session import stream_session, transactional_session
 
 
-def list_exceptions(exception_id=None, states=None, vo='def'):
+@stream_session
+def list_exceptions(exception_id=None, states=None, vo='def', session=None):
     """
     List exceptions to Lifetime Model.
 
     :param id:         The id of the exception
     :param states:     The states to filter
     :param vo:         The VO to act on
+    :param session:    The database session in use.
     """
 
-    exceptions = lifetime_exception.list_exceptions(exception_id=exception_id, states=states)
+    exceptions = lifetime_exception.list_exceptions(exception_id=exception_id, states=states, session=session)
     for e in exceptions:
         if vo == e['scope'].vo:
-            yield api_update_return_dict(e)
+            yield api_update_return_dict(e, session=session)
 
 
-def add_exception(dids, account, pattern, comments, expires_at, vo='def'):
+@transactional_session
+def add_exception(dids, account, pattern, comments, expires_at, vo='def', session=None):
     """
     Add exceptions to Lifetime Model.
 
@@ -45,6 +49,7 @@ def add_exception(dids, account, pattern, comments, expires_at, vo='def'):
     :param comments:    The comments associated to the exception.
     :param expires_at:  The expiration date of the exception.
     :param vo:          The VO to act on.
+    :param session:     The database session in use.
 
     returns:            The id of the exception.
     """
@@ -52,7 +57,7 @@ def add_exception(dids, account, pattern, comments, expires_at, vo='def'):
     account = InternalAccount(account, vo=vo)
     for did in dids:
         did['scope'] = InternalScope(did['scope'], vo=vo)
-    exceptions = lifetime_exception.add_exception(dids=dids, account=account, pattern=pattern, comments=comments, expires_at=expires_at)
+    exceptions = lifetime_exception.add_exception(dids=dids, account=account, pattern=pattern, comments=comments, expires_at=expires_at, session=session)
 
     for key in exceptions:
         if key == 'exceptions':
@@ -68,7 +73,8 @@ def add_exception(dids, account, pattern, comments, expires_at, vo='def'):
     return exceptions
 
 
-def update_exception(exception_id, state, issuer, vo='def'):
+@transactional_session
+def update_exception(exception_id, state, issuer, vo='def', session=None):
     """
     Update exceptions state to Lifetime Model.
 
@@ -76,8 +82,9 @@ def update_exception(exception_id, state, issuer, vo='def'):
     :param state:      The states to filter.
     :param issuer:     The issuer account.
     :param vo:         The VO to act on.
+    :param session:    The database session in use.
     """
     kwargs = {'exception_id': exception_id, 'vo': vo}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='update_lifetime_exceptions', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='update_lifetime_exceptions', kwargs=kwargs, session=session):
         raise exception.AccessDenied('Account %s can not update lifetime exceptions' % (issuer))
-    return lifetime_exception.update_exception(exception_id=exception_id, state=state)
+    return lifetime_exception.update_exception(exception_id=exception_id, state=state, session=session)
