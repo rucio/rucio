@@ -3821,14 +3821,14 @@ def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logg
     :param nattempts: The minimum number of replica appearances in the bad_replica DB table from younger_than date. Default value = 0.
     :param rse_expression: The RSE expression where the replicas are located.
     :param filter_: Dictionary of attributes by which the RSE results should be filtered. e.g.: {'availability_write': True}
-    :param: exclude_states: List of states which eliminates replicas from search result if any of the states in the list
+    :param exclude_states: List of states which eliminates replicas from search result if any of the states in the list
                             was declared for a replica since younger_than date. Allowed values
                             = ['B', 'R', 'D', 'L', 'T', 'S'] (meaning 'BAD', 'RECOVERED', 'DELETED', 'LOST', 'TEMPORARY_UNAVAILABLE', 'SUSPICIOUS').
-    :param: available_elsewhere: Default: SuspiciousAvailability["ALL"].value, all suspicious replicas are returned.
+    :param available_elsewhere: Default: SuspiciousAvailability["ALL"].value, all suspicious replicas are returned.
                                  If SuspiciousAvailability["EXIST_COPIES"].value, only replicas that additionally have copies declared as AVAILABLE on at least one other RSE
                                  than the one in the bad_replicas table will be taken into account.
                                  If SuspiciousAvailability["LAST_COPY"].value, only replicas that do not have another copy declared as AVAILABLE on another RSE will be taken into account.
-    :param: is_suspicious: If True, only replicas declared as SUSPICIOUS in bad replicas table will be taken into account. Default value = False.
+    :param is_suspicious: If True, only replicas declared as SUSPICIOUS in bad replicas table will be taken into account. Default value = False.
     :param session: The database session in use. Default value = None.
 
     :returns: a list of replicas:

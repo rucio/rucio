@@ -30,7 +30,7 @@ class Default(ngarc.Default):
     def __init__(self, protocol_attr, rse_settings, logger=None):
         """ Initializes the object with information about the referred RSE.
 
-            :param props Properties derived from the RSE Repository
+            :param props: Properties derived from the RSE Repository
         """
         super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
         self.attributes.pop('determinism_type', None)
@@ -61,8 +61,8 @@ class Default(ngarc.Default):
     def put(self, source, target, source_dir=None, transfer_timeout=None):
         """ Allows to store files inside the referred RSE.
 
-            :param source Physical file name
-            :param target Name of the file on the storage system e.g. with prefixed scope
+            :param source: Physical file name
+            :param target: Name of the file on the storage system e.g. with prefixed scope
             :param source_dir Path where the to be transferred files are stored in the local file system
             :param transfer_timeout Transfer timeout (in seconds)
 
@@ -73,7 +73,7 @@ class Default(ngarc.Default):
     def delete(self, pfn):
         """ Deletes a file from the connected RSE.
 
-            :param pfn Physical file name
+            :param pfn: Physical file name
 
             :raises ServiceUnavailable, SourceNotFound
         """
@@ -82,7 +82,7 @@ class Default(ngarc.Default):
     def rename(self, pfn, new_pfn):
         """ Allows to rename a file stored inside the connected RSE.
 
-            :param pfn      Current physical file name
+            :param pfn:      Current physical file name
             :param new_pfn  New physical file name
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound

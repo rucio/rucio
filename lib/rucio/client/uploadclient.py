@@ -683,8 +683,8 @@ class UploadClient:
     def _retry_protocol_stat(self, protocol, pfn):
         """
         Try to stat file, on fail try again 1s, 2s, 4s, 8s, 16s, 32s later. Fail is all fail
-        :param protocol     The protocol to use to reach this file
-        :param pfn          Physical file name of the target for the protocol stat
+        :param protocol:     The protocol to use to reach this file
+        :param pfn:          Physical file name of the target for the protocol stat
         """
         retries = config_get_int('client', 'protocol_stat_retries', raise_exception=False, default=6)
         for attempt in range(retries):
@@ -711,9 +711,9 @@ class UploadClient:
     def _create_protocol(self, rse_settings, operation, impl=None, force_scheme=None, domain='wan'):
         """
         Protol construction.
-        :param: rse_settings        rse_settings
-        :param: operation           activity, e.g. read, write, delete etc.
-        :param: force_scheme        custom scheme
+        :param rse_settings:        rse_settings
+        :param operation:           activity, e.g. read, write, delete etc.
+        :param force_scheme:        custom scheme
         :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
         """
         try:
@@ -742,7 +742,7 @@ class UploadClient:
             - If it has files, the root folder will be a dataset
             - If it is empty, it does not create anything
 
-        :param: item        dictionary containing all descriptions of the files to upload
+        :param item:        dictionary containing all descriptions of the files to upload
         """
         files = []
         datasets = []
