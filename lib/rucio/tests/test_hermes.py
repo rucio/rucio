@@ -281,16 +281,36 @@ def test_hermes2(core_config_mock, caches_mock):
     assert rse_included
 
     # Checking ElasticSearch
+    pattern = "%a, %d %b %Y %H:%M:%S %Z"
     assert service_dict["elastic"] == 0
-    # TODO implement checks in Elastic
-    # curl -XPOST "https://localhost:9200/_search" -d '{"query": {"match_all": {}}}'
+    data = ' { "query": { "match_all": {} } }'
+    headers = {"Content-Type": "application/json"}
+    response = requests.post(
+        "http://localhost:9200/_search?size=200", data=data, headers=headers
+    )
+    assert response.status_code == 200
+    res = response.json()
+    elastic_messages = []
+    for entry in res["hits"]["hits"]:
+        message = entry["_source"]
+        elastic_messages.append(
+            {
+                "created_at": datetime.strptime(
+                    message["payload"]["created_at"], pattern
+                ),
+                "event_type": message["event_type"],
+                "rse": message["payload"]["rse"],
+                "bytes": message["payload"]["bytes"],
+            }
+        )
+    for message in list_messages:
+        assert message in elastic_messages
 
     # Checking ActiveMQ
     time.sleep(10)  # Waiting that all the messages are consumed
     assert service_dict["activemq"] == 0
     assert len(listener.messages) == len(list_messages)
 
-    pattern = "%a, %d %b %Y %H:%M:%S %Z"
     activemq_messages = []
     for message in listener.messages:
         message["payload"]["created_at"] = datetime.strptime(
@@ -298,7 +318,7 @@ def test_hermes2(core_config_mock, caches_mock):
         )
         message["payload"]["event_type"] = message["event_type"]
         activemq_messages.append(message["payload"])
-    for message in activemq_messages:
+    for message in list_messages:
         assert message in activemq_messages
 
     # Checking email
