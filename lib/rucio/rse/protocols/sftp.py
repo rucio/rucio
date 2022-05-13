@@ -49,7 +49,7 @@ class Default(protocol.RSEProtocol):
         """
             Establishes the actual connection to the referred RSE.
 
-            :param: credentials needed to establish a connection with the stroage.
+            :param credentials: needed to establish a connection with the stroage.
 
             :raises RSEAccessDenied: if no connection could be established.
         """

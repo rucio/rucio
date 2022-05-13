@@ -613,7 +613,7 @@ class NoRename(Default):
     def rename(self, pfn, new_pfn):
         """ Allows to rename a file stored inside the connected RSE.
 
-            :param pfn      Current physical file name
+            :param pfn:      Current physical file name
             :param new_pfn  New physical file name
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
@@ -628,7 +628,7 @@ class CLI(Default):
     def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.
 
-            :param props Properties derived from the RSE Repository
+            :param props: Properties derived from the RSE Repository
         """
 
         super(CLI, self).__init__(protocol_attr, rse_settings, logger=logger)
