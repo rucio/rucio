@@ -266,7 +266,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     scope = mock_scope
     account = root_account
 
-    # Create an 2 archives and 4 files:
+    # Create 2 archives and 4 files:
     # - One only exists in the first archive
     # - One in both, plus another replica, which is not in an archive
     # - One in both, plus another replica, which is not in an archive; and this replica has expired
@@ -311,7 +311,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
 
     # Run reaper the first time.
     # the expired non-archive replica of c_with_expired_replica must be removed,
-    # but the did must not be remove and it must still remain in the dataset because
+    # but the did must not be removed, and it must still remain in the dataset because
     # it still has the replica from inside the archive
     assert replica_core.get_replica(rse_id=rse_id, **c_with_expired_replica)
     cache_region.invalidate()
@@ -358,7 +358,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
 
     # Expire the second archive replica and run reaper another time
     # c_with_expired_replica is removed because its external replica got removed at previous step
-    # and it exist only inside the archive now.
+    # and it exists only inside the archive now.
     # If not open, Dataset2 will be removed because it will be empty.
     did_core.set_status(open=False, **dataset2)
     replica_core.set_tombstone(rse_id=rse_id, tombstone=datetime.utcnow() - timedelta(days=1), **archive2)
