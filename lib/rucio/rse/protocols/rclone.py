@@ -35,7 +35,7 @@ class Default(protocol.RSEProtocol):
     def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.
 
-            :param props Properties derived from the RSE Repository
+            :param props: Properties derived from the RSE Repository
         """
         super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
         if len(rse_settings['protocols']) == 1:
@@ -57,7 +57,7 @@ class Default(protocol.RSEProtocol):
     def setuphostname(self, protocols):
         """ Initializes the rclone object with information about protocols in the referred RSE.
 
-            :param protocols Protocols in the RSE
+            :param protocols: Protocols in the RSE
         """
         if protocols['scheme'] in ['scp', 'rsync', 'sftp']:
             self.hostname = 'ssh_rclone_rse'
@@ -144,7 +144,7 @@ class Default(protocol.RSEProtocol):
     def exists(self, pfn):
         """ Checks if the requested file is known by the referred RSE.
 
-            :param pfn Physical file name
+            :param pfn: Physical file name
 
             :returns: True if the file exists, False if it doesn't
 
@@ -272,8 +272,8 @@ class Default(protocol.RSEProtocol):
     def get(self, pfn, dest, transfer_timeout=None):
         """ Provides access to files stored inside connected the RSE.
 
-            :param pfn Physical file name of requested file
-            :param dest Name and path of the files when stored at the client
+            :param pfn: Physical file name of requested file
+            :param dest: Name and path of the files when stored at the client
             :param transfer_timeout: Transfer timeout (in seconds) - dummy
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
@@ -323,7 +323,7 @@ class Default(protocol.RSEProtocol):
         """
             Deletes a file from the connected RSE.
 
-            :param pfn Physical file name
+            :param pfn: Physical file name
 
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
@@ -344,7 +344,7 @@ class Default(protocol.RSEProtocol):
     def rename(self, pfn, new_pfn):
         """ Allows to rename a file stored inside the connected RSE.
 
-            :param pfn      Current physical file name
+            :param pfn:      Current physical file name
             :param new_pfn  New physical file name
             :raises DestinationNotAccessible: if the destination storage was not accessible.
             :raises ServiceUnavailable: if some generic error occured in the library.

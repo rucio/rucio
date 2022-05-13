@@ -1564,7 +1564,7 @@ class retry:
     def __init__(self, func, *args, **kwargs):
         '''
         :param func: a method that should be executed with retries
-        :param args parametres of the func
+        :param args: parametres of the func
         :param kwargs: key word arguments of the func
         '''
         self.func, self.args, self.kwargs = func, args, kwargs
