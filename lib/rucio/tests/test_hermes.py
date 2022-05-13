@@ -169,8 +169,9 @@ def test_hermes2(core_config_mock, caches_mock):
             "durable-subscription-name": "someValue",
         },
     )
-    while not conn.is_connected():
-        print(conn.is_connected())
+    for _ in range(10):
+        if conn.is_connected():
+            break
         time.sleep(2)
     listener.reset()
     print("Waiting for messages...")
@@ -229,7 +230,7 @@ def test_hermes2(core_config_mock, caches_mock):
     assert service_dict["activemq"] == 0
     assert service_dict["email"] == 0
 
-    # Now add nb_messages more messages of event-type deletion-done associated to services influx and elastic
+    # Now add nb_messages more messages of event-type deletion-done associated to services influx, elastic and activemq
     for _ in range(nb_messages):
         event_type = event_types[1]
         message = {
@@ -256,6 +257,7 @@ def test_hermes2(core_config_mock, caches_mock):
     messages = retrieve_messages(50, old_mode=False)
     for message in messages:
         service_dict[message["services"]] += 1
+    time.sleep(20)  # Waiting that all the messages are consumed to check ActiveMQ
 
     # Checking influxDB
     assert service_dict["influx"] == 0
@@ -286,10 +288,11 @@ def test_hermes2(core_config_mock, caches_mock):
     data = ' { "query": { "match_all": {} } }'
     headers = {"Content-Type": "application/json"}
     response = requests.post(
-        "http://localhost:9200/_search?size=200", data=data, headers=headers
+        "http://localhost:9200/_search?size=1000", data=data, headers=headers
     )
     assert response.status_code == 200
     res = response.json()
+    print(res)
     elastic_messages = []
     for entry in res["hits"]["hits"]:
         message = entry["_source"]
@@ -307,7 +310,6 @@ def test_hermes2(core_config_mock, caches_mock):
         assert message in elastic_messages
 
     # Checking ActiveMQ
-    time.sleep(10)  # Waiting that all the messages are consumed
     assert service_dict["activemq"] == 0
     assert len(listener.messages) == len(list_messages)
 
