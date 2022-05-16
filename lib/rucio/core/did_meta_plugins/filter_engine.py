@@ -38,6 +38,16 @@ OPERATORS_CONVERSION_LUT = {
     "": operator.eq
 }
 
+# lookup table converting pythonic operators to oracle operators
+ORACLE_OP_MAP = {
+    operator.eq: "==",
+    operator.ne: "<>",
+    operator.gt: ">",
+    operator.lt: "<",
+    operator.ge: ">=",
+    operator.le: "<="
+}
+
 # understood date formats.
 VALID_DATE_FORMATS = (
     '%Y-%m-%d %H:%M:%S',
@@ -344,13 +354,24 @@ class FilterEngine:
                         expression = or_(expression, key.is_(None))
                 elif json_column:                                                                   # -> this key filters on the content of a json column
                     if session.bind.dialect.name == 'oracle':
-                        # Compiling for Oracle yields a UnsupportedCompilationError so fall back to support for equality only.
-                        # TODO
-                        if oper != operator.eq:
-                            raise exception.FilterEngineGenericError("Oracle implementation does not support this operator.")
-                        if isinstance(value, str) and any([char in value for char in ['*', '%']]):
-                            raise exception.FilterEngineGenericError("Oracle implementation does not support wildcards.")
-                        expression = text("json_exists(meta,'$?(@.{} == \"{}\")')".format(key, value))
+                        if isinstance(value, str) and any([char in value for char in ['*', '%']]):  # wildcards
+                            if value in ('*', '%', u'*', u'%'):                                     # match wildcard exactly == no filtering on key
+                                continue
+                            else:                                                                   # partial match with wildcard == like || notlike
+                                if oper == operator.eq:
+                                    expression = text("json_exists({},'$?(@.{} like \"{}\")')".format(json_column, key, value.replace('*', '%')))
+                                elif oper == operator.ne:
+                                    raise exception.FilterEngineGenericError("Oracle implementation does not support this operator.")
+                        else:
+                            try:
+                                if isinstance(value, (bool)):                                       # bool must be checked first (as bool subclass of int)
+                                    expression = text("json_exists({},'$?(@.{}.boolean() {} \"{}\")')".format(json_column, key, ORACLE_OP_MAP[oper], value))
+                                elif isinstance(value, (int, float)):
+                                    expression = text("json_exists({},'$?(@.{} {} {})')".format(json_column, key, ORACLE_OP_MAP[oper], value))
+                                else:
+                                    expression = text("json_exists({},'$?(@.{} {} \"{}\")')".format(json_column, key, ORACLE_OP_MAP[oper], value))
+                            except Exception as e:
+                                raise exception.FilterEngineGenericError(e)
                     else:
                         if isinstance(value, str) and any([char in value for char in ['*', '%']]):  # wildcards
                             if value in ('*', '%', u'*', u'%'):                                     # match wildcard exactly == no filtering on key
