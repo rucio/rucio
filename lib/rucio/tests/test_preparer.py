@@ -23,7 +23,7 @@ from rucio.core import config as rucio_config
 from rucio.core.did import add_did, delete_dids
 from rucio.core.distance import get_distances, add_distance
 from rucio.core.replica import add_replicas, delete_replicas
-from rucio.core.request import sort_requests_minimum_distance, get_transfertool_filter, get_supported_transfertools, list_transfer_requests_and_source_replicas
+from rucio.core.request import get_supported_transfertools, list_transfer_requests_and_source_replicas
 from rucio.core.rse import set_rse_transfer_limits, add_rse, del_rse, add_rse_attribute
 from rucio.daemons.conveyor import preparer
 from rucio.db.sqla import models
@@ -32,7 +32,7 @@ from rucio.db.sqla.session import get_session
 from rucio.tests.common import rse_name_generator
 
 if TYPE_CHECKING:
-    from typing import Set, Optional, Callable
+    from typing import Optional, Callable
     from sqlalchemy.orm import Session
 
 
@@ -294,57 +294,6 @@ def test_two_sources_one_destination(db_session, vo, file, mock_request):
         assert updated_mock_request.source_rse_id == source2_rse.rse_id  # distance 2 < 5
 
         delete_replicas(rse_id=source2_rse.rse_id, files=[file], session=db_session)
-
-
-def test_sort_requests_minimum_distance():
-    request_dicts = [{}, {}, {}]
-    for i in range(len(request_dicts)):
-        request_dicts[i]['request_id'] = i
-        request_dicts[i]['distance_ranking'] = 3 - i
-
-    result = sort_requests_minimum_distance(request_dicts)
-    assert next(result)['request_id'] == 2
-    assert next(result)['request_id'] == 1
-    assert next(result)['request_id'] == 0
-    pytest.raises(StopIteration, next, result)
-
-
-def test_filter_requests_for_transfertools():
-    request_dicts = [{}, {}, {}]
-    for i in range(len(request_dicts)):
-        request_dicts[i]['request_id'] = 0  # same request for all
-        request_dicts[i]['dest_rse_id'] = 'rse1'
-        request_dicts[i]['src_rse_id'] = f'rse{2 + i}'
-
-    def get_transfertools(rse_id: str) -> "Set[str]":
-        assert rse_id
-        if rse_id == 'rse1':
-            return {'globus'}
-        elif rse_id == 'rse2':
-            return {'fts3'}
-        elif rse_id == 'rse3':
-            return {'globus'}
-        elif rse_id == 'rse4':
-            return {'fts3', 'globus'}
-        else:
-            raise AssertionError('rse_id out of range')
-
-    transfertool_filter = get_transfertool_filter(get_transfertools=get_transfertools)
-    result = list(transfertool_filter(request_dicts))
-    print(result)
-
-    assert len(result) == 2
-    result.sort(key=lambda rws_dict: rws_dict['src_rse_id'])
-    assert result[0]['request_id'] == 0
-    assert result[0]['src_rse_id'] == 'rse3'
-    assert result[0]['dest_rse_id'] == 'rse1'
-    assert 'transfertool' in result[0]
-    assert result[0]['transfertool'] == 'globus'
-    assert result[1]['request_id'] == 0
-    assert result[1]['src_rse_id'] == 'rse4'
-    assert result[1]['dest_rse_id'] == 'rse1'
-    assert 'transfertool' in result[1]
-    assert result[1]['transfertool'] == 'globus'
 
 
 def test_get_supported_transfertools_default(vo, db_session):

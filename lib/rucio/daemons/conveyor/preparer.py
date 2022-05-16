@@ -23,8 +23,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import RucioException
 from rucio.common.logging import setup_logging
-from rucio.core.request import preparer_update_requests, reduce_requests, sort_requests_minimum_distance, \
-    get_transfertool_filter, get_supported_transfertools, rse_lookup_filter, list_transfer_requests_and_source_replicas
+from rucio.core.request import prepare_requests, list_transfer_requests_and_source_replicas
 from rucio.db.sqla.constants import RequestState
 from rucio.daemons.common import run_daemon
 
@@ -108,29 +107,27 @@ def run_once(bulk: int = 100, heartbeat_handler: "Optional[HeartbeatHandler]" = 
         worker_number, total_workers, logger = 0, 0, logging.log
 
     start_time = time()
+    requests_with_sources = []
     try:
-        req_sources = list_transfer_requests_and_source_replicas(
+        requests_with_sources = list_transfer_requests_and_source_replicas(
             total_workers=total_workers,
             worker_number=worker_number,
             limit=bulk,
             request_state=RequestState.PREPARING,
             session=session
         )
-        if not req_sources:
-            count = 0
+        if not requests_with_sources:
             updated_msg = 'had nothing to do'
         else:
-            transfertool_filter = get_transfertool_filter(lambda rse_id: get_supported_transfertools(rse_id=rse_id, session=session))
-            requests = reduce_requests(req_sources, [rse_lookup_filter, sort_requests_minimum_distance, transfertool_filter], logger=logger)
-            count = preparer_update_requests(requests, session=session)
+            count = prepare_requests(requests_with_sources=requests_with_sources, logger=logger, session=session)
             updated_msg = f'updated {count}/{bulk} requests'
     except RucioException:
         logger(logging.ERROR, 'errored with a RucioException, retrying later', exc_info=True)
-        count = 0
         updated_msg = 'errored'
     logger(logging.INFO, '%s, taking %.3f seconds' % (updated_msg, time() - start_time))
 
-    queue_empty = False
-    if count < bulk:
-        queue_empty = True
-    return queue_empty
+    must_sleep = False
+    if len(requests_with_sources) < bulk / 2:
+        logger(logging.INFO, "Only %s transfers, which is less than half of the bulk %s", len(requests_with_sources), bulk)
+        must_sleep = True
+    return must_sleep
