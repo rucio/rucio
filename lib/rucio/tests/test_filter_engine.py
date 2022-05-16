@@ -204,7 +204,7 @@ class TestFilterEngineReal(unittest.TestCase):
             dids = set(dids)
             self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 1)
 
-        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+        if json_implemented(session=session):
             dids = []
             q = FilterEngine('testkeyint1!=1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
@@ -253,7 +253,7 @@ class TestFilterEngineReal(unittest.TestCase):
 
         # Plugin: JSON
         #
-        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+        if json_implemented(session=session):
             did_name = self._create_tmp_DID()
             set_metadata(scope=self.tmp_scope, name=did_name, key='testkeyint1', value=1)
 
@@ -331,7 +331,7 @@ class TestFilterEngineReal(unittest.TestCase):
 
         # Plugin: JSON
         #
-        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+        if json_implemented(session=session):
             did_name = self._create_tmp_DID()
             set_metadata(scope=self.tmp_scope, name=did_name, key='testkeyint1', value=1)
 
@@ -396,7 +396,7 @@ class TestFilterEngineReal(unittest.TestCase):
 
         # Plugin: JSON
         #
-        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+        if json_implemented(session=session):
             did_name1 = self._create_tmp_DID()
             did_name2 = self._create_tmp_DID()
             did_name3 = self._create_tmp_DID()
@@ -476,7 +476,7 @@ class TestFilterEngineReal(unittest.TestCase):
 
         # Plugin: JSON
         #
-        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+        if json_implemented(session=session):
             did_name1 = self._create_tmp_DID()
             did_name2 = self._create_tmp_DID()
             did_name3 = self._create_tmp_DID()
@@ -566,7 +566,7 @@ class TestFilterEngineReal(unittest.TestCase):
 
         # Plugin: JSON
         #
-        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+        if json_implemented(session=session):
             did_name1 = self._create_tmp_DID()
             did_name2 = self._create_tmp_DID()
             did_name3 = self._create_tmp_DID()
@@ -688,7 +688,7 @@ class TestFilterEngineReal(unittest.TestCase):
 
         # Plugin: JSON
         #
-        if session.bind.dialect.name != 'oracle' and json_implemented(session=session):
+        if json_implemented(session=session):
             did_name1 = self._create_tmp_DID()
             did_name2 = self._create_tmp_DID()
             did_name3 = self._create_tmp_DID()
@@ -721,27 +721,28 @@ class TestFilterEngineReal(unittest.TestCase):
             dids = set(dids)
             self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True), 4)  # 1, 2, 3, 4
 
-            dids = []
-            q = FilterEngine('testkeystr1 != *anothertest*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
-                additional_model_attributes=[
-                    models.DidMeta.scope,
-                    models.DidMeta.name
-                ],
-                json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
-            dids = set(dids)
-            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True), 2)  # 3, 4
+            if session.bind.dialect.name != 'oracle':
+                dids = []
+                q = FilterEngine('testkeystr1 != *anothertest*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                    additional_model_attributes=[
+                        models.DidMeta.scope,
+                        models.DidMeta.name
+                    ],
+                    json_column=models.DidMeta.meta)
+                dids += [did for did in q.yield_per(5)]
+                dids = set(dids)
+                self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True), 2)  # 3, 4
 
-            dids = []
-            q = FilterEngine('testkeystr1 != *test*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
-                additional_model_attributes=[
-                    models.DidMeta.scope,
-                    models.DidMeta.name
-                ],
-                json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
-            dids = set(dids)
-            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True), 0)
+                dids = []
+                q = FilterEngine('testkeystr1 != *test*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                    additional_model_attributes=[
+                        models.DidMeta.scope,
+                        models.DidMeta.name
+                    ],
+                    json_column=models.DidMeta.meta)
+                dids += [did for did in q.yield_per(5)]
+                dids = set(dids)
+                self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True), 0)
 
 
 if __name__ == '__main__':
