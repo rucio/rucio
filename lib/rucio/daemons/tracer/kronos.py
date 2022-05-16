@@ -294,7 +294,8 @@ class AMQConsumer(object):
             self.__logger(logging.ERROR, "Cannot update replicas.", exc_info=True)
             record_counter('daemons.tracer.kronos.update_error')
 
-        self.__logger(logging.INFO, 'updated %d replica(s)' % len(replicas))
+        record_counter('daemons.tracer.kronos.updated_replicas')
+        self.__logger(logging.DEBUG, 'updated %d replica(s)' % len(replicas))
 
 
 def kronos_file(thread=0, dataset_queue=None, sleep_time=60):
