@@ -212,6 +212,19 @@ class TestDIDCore:
 
         assert rows == 0
 
+    def test_circular_attach(self, root_account, rse_factory, did_factory):
+        """ Ensure that it's not possible to create a circular attachment of containers"""
+        container1 = did_factory.make_container()
+        container2 = did_factory.make_container()
+        container3 = did_factory.make_container()
+        attach_dids(dids=[container2], account=root_account, **container1)
+        with pytest.raises(UnsupportedOperation, match='Circular attachment detected'):
+            attach_dids(dids=[container1], account=root_account, **container2)
+
+        attach_dids(dids=[container3], account=root_account, **container2)
+        with pytest.raises(UnsupportedOperation, match='Circular attachment detected'):
+            attach_dids(dids=[container1], account=root_account, **container3)
+
 
 class TestDIDApi:
 
