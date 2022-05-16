@@ -359,17 +359,17 @@ class FilterEngine:
                                 continue
                             else:                                                                   # partial match with wildcard == like || notlike
                                 if oper == operator.eq:
-                                    expression = text("json_exists({},'$?(@.{} like \"{}\")')".format(json_column, key, value.replace('*', '%')))
+                                    expression = text("json_exists({},'$?(@.{} like \"{}\")')".format(json_column.key, key, value.replace('*', '%')))
                                 elif oper == operator.ne:
                                     raise exception.FilterEngineGenericError("Oracle implementation does not support this operator.")
                         else:
                             try:
                                 if isinstance(value, (bool)):                                       # bool must be checked first (as bool subclass of int)
-                                    expression = text("json_exists({},'$?(@.{}.boolean() {} \"{}\")')".format(json_column, key, ORACLE_OP_MAP[oper], value))
+                                    expression = text("json_exists({},'$?(@.{}.boolean() {} \"{}\")')".format(json_column.key, key, ORACLE_OP_MAP[oper], value))
                                 elif isinstance(value, (int, float)):
-                                    expression = text("json_exists({},'$?(@.{} {} {})')".format(json_column, key, ORACLE_OP_MAP[oper], value))
+                                    expression = text("json_exists({},'$?(@.{} {} {})')".format(json_column.key, key, ORACLE_OP_MAP[oper], value))
                                 else:
-                                    expression = text("json_exists({},'$?(@.{} {} \"{}\")')".format(json_column, key, ORACLE_OP_MAP[oper], value))
+                                    expression = text("json_exists({},'$?(@.{} {} \"{}\")')".format(json_column.key, key, ORACLE_OP_MAP[oper], value))
                             except Exception as e:
                                 raise exception.FilterEngineGenericError(e)
                     else:
