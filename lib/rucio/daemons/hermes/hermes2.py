@@ -36,7 +36,12 @@ import requests
 import stomp
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get, config_get_int, config_get_bool
+from rucio.common.config import (
+    config_get,
+    config_get_int,
+    config_get_bool,
+    config_get_list,
+)
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.utils import daemon_sleep
@@ -499,8 +504,7 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
     logger = formatted_logger(logging.log, prepend_str + "%s")
 
     try:
-        services_list = config_get("hermes", "services_list")
-        services_list = services_list.split(",")
+        services_list = config_get_list("hermes", "services_list")
     except (NoOptionError, NoSectionError, RuntimeError):
         logger(logging.DEBUG, "No services found, exiting")
         sys.exit(1)

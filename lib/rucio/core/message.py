@@ -19,14 +19,13 @@ from configparser import NoOptionError, NoSectionError
 from sqlalchemy import or_, delete, update
 from sqlalchemy.exc import IntegrityError
 
+from rucio.common.constants import SUPPORTED_SERVICES, MAX_MESSAGE_LENGTH
 from rucio.common.config import config_get
 from rucio.common.exception import InvalidObject, RucioException
 from rucio.common.utils import APIEncoder
 from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
-
-SUPPORTED_SERVICES = ['influx', 'elastic', 'email', 'activemq']
 
 
 @transactional_session
@@ -59,7 +58,7 @@ def add_message(event_type, payload, session=None):
         if service == 'email' and event_type != 'email':
             continue
 
-        if len(payload) > 4000:
+        if len(payload) > MAX_MESSAGE_LENGTH:
             new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload, services=service)
         else:
             new_message = Message(event_type=event_type, payload=payload, services=service)
@@ -154,7 +153,7 @@ def delete_messages(messages, session=None):
     message_condition = []
     for message in messages:
         message_condition.append(Message.id == message['id'])
-        if len(message['payload']) > 4000:
+        if len(message['payload']) > MAX_MESSAGE_LENGTH:
             message['payload_nolimit'] = message.pop('payload')
 
     try:
@@ -196,7 +195,7 @@ def update_messages_services(messages, services, session=None):
     message_condition = []
     for message in messages:
         message_condition.append(Message.id == message['id'])
-        if len(message['payload']) > 4000:
+        if len(message['payload']) > MAX_MESSAGE_LENGTH:
             message['payload_nolimit'] = message.pop('payload')
 
     try:

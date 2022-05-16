@@ -241,6 +241,64 @@ def config_get_bool(section, option, raise_exception=True, default=None, check_c
     ))
 
 
+def config_get_list(section, option, raise_exception=True, default=None, check_config_table=True, session=None,
+                    use_cache=True, expiration_time=900):
+    """
+    Return a list for a given option in a section
+
+    :param section: the named section.
+    :param option: the named option.
+    :param raise_exception: Boolean to raise or not NoOptionError, NoSectionError or RuntimeError.
+    :param default: the default value if not found.
+    :param check_config_table: if not set, avoid looking at config table even if it is called from server/daemon
+    :param session: The database session in use. Only used if not found in config file and if it is called from
+                    server/daemon
+    :param use_cache: Boolean if the cache should be used. Only used if not found in config file and if it is called
+                      from server/daemon
+    :param expiration_time: Time after that the cached value gets ignored. Only used if not found in config file and if
+                            it is called from server/daemon
+.
+    :returns: the configuration value.
+
+    :raises NoOptionError
+    :raises NoSectionError
+    :raises RuntimeError
+    :raises ValueError
+    """
+    from rucio.common.utils import is_client
+    client_mode = is_client()
+    try:
+        return get_config().get(section, option)
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
+        if not client_mode and check_config_table:
+            try:
+                return __convert_string_to_list(__config_get_table(section=section, option=option, raise_exception=raise_exception,
+                                                                   default=default, session=session, use_cache=use_cache,
+                                                                   expiration_time=expiration_time))
+            except (ConfigNotFound, DatabaseException, ImportError):
+                raise err
+            except ValueError as err_:
+                raise err_
+        else:
+            if raise_exception and default is None:
+                raise err
+            try:
+                return __convert_string_to_list(default)
+            except ValueError as err_:
+                raise err_
+
+
+def __convert_string_to_list(string):
+    """
+    Convert a comma separated string to a list
+    :param string: The input string.
+
+    :returns: A list extracted from the string.
+    """
+    string = string.split(',')
+    return [item.strip(' ') for item in string]
+
+
 def __config_get_table(section, option, raise_exception=True, default=None, clean_cached=False, session=None,
                        use_cache=True, expiration_time=900):
     """

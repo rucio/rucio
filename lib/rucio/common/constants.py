@@ -60,6 +60,12 @@ FTS_COMPLETE_STATE = namedtuple('FTS_COMPLETE_STATE', ['OK', 'ERROR'])('Ok', 'Er
 FTS_JOB_TYPE = namedtuple('FTS_JOB_TYPE', ['MULTIPLE_REPLICA', 'MULTI_HOP', 'SESSION_REUSE', 'REGULAR'])('R', 'H', 'Y', 'N')
 
 
+# Messages constants
+
+MAX_MESSAGE_LENGTH = 4000
+SUPPORTED_SERVICES = ['influx', 'elastic', 'email', 'activemq']
+
+
 class SuspiciousAvailability(Enum):
     ALL = 0
     EXIST_COPIES = 1
