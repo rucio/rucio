@@ -486,7 +486,7 @@ def __add_collections_to_container(scope, name, collections, account, session):
     :param account: The account owner.
     :param session: The database session in use.
     """
-
+    container_parents = None
     condition = []
     for cond in collections:
 
@@ -519,6 +519,13 @@ def __add_collections_to_container(scope, name, collections, account, session):
 
         if child_type != row.did_type:
             raise exception.UnsupportedOperation("Mixed collection is not allowed: '%s:%s' is a %s(expected type: %s)" % (row.scope, row.name, row.did_type, child_type))
+
+        if child_type == DIDType.CONTAINER:
+            if container_parents is None:
+                container_parents = {(parent['scope'], parent['name']) for parent in list_all_parent_dids(scope=scope, name=name, session=session)}
+
+            if (row.scope, row.name) in container_parents:
+                raise exception.UnsupportedOperation('Circular attachment detected. %s:%s is already a parent of %s:%s', row.scope, row.name, scope, name)
 
     for c in collections:
         did_asso = models.DataIdentifierAssociation(
