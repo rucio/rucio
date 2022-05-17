@@ -1,0 +1,36 @@
+name: 💅 Feature Request
+description: Submit a feature request
+labels: enhancement
+body:
+  - type: textarea
+    attributes:
+      label: Description
+      description: A clear and concise description of what the feature is.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Motivation
+      description: Please outline the motivation for the proposal and why it should be implemented. Has this been requested by a lot of users?
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: Change
+      description: Please outline the change for the proposal in detail.
+    validations:
+      required: false
+
+  - type: checkboxes
+    attributes:
+      label: Additional Information
+      description: Please select all conditions that apply.
+      options:
+        - label: The `Core` needs to be changed.
+        - label: A `Daemon` needs to be changed.
+        - label: The `REST API` needs to be changed.
+        - label: The `API layer` needs to be changed.
+        - label: The `Client` needs to be changed.
+        - label: The change is incompatible with old Rucio versions.

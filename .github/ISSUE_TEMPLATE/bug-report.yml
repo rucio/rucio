@@ -1,0 +1,46 @@
+name: 🐛 Bug Report
+description: Submit a bug report to help us improve
+labels: bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing your issue, ask yourself:
+        - Is this clearly a Rucio defect?
+        - Do I have basic ideas about where it goes wrong? (For example, if there are stack traces, are they pointing to one file?)
+        - Could it be because of my own mistakes?
+        - Does an issue about the bug already exist?
+
+  - type: textarea
+    attributes:
+      label: Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+
+
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      description: Write down the steps to reproduce the bug. You should start with a fresh installation, or your git repository linked above.
+      placeholder: |
+        1. Step 1...
+        2. Step 2...
+        3. Step 3...
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Rucio Version
+      description: The used Rucio Version.
+      placeholder: "e.g. Client: 1.26.3, Server: 1.28.4"
+
+  - type: textarea
+    attributes:
+      label: Additional Information
+      description: Include other relevant details, e.g. about your environment or setup.
+      placeholder: |
+        - Operating System
+        - Is the bug on the client/server side?
+        - ...
