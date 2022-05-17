@@ -8,6 +8,7 @@ on:
 
 jobs:
   add_header:
+    if: github.repository_owner == 'rucio' || github.event_name != 'schedule'
     name: Add header lint
     runs-on: ubuntu-latest
     steps:
@@ -20,6 +21,7 @@ jobs:
         run: |
           python3 tools/add_header --dry-run --disable-progress-bar
   setup:
+    if: github.repository_owner == 'rucio' || github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -72,7 +74,9 @@ jobs:
       - name: Run test with cfg
         run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
   release-patch-setup:
-    if: 'github.event_name == ''pull_request'' && !startsWith(github.event.pull_request.base.ref, ''release'') && !startsWith(github.event.pull_request.head.ref, ''feature'')'
+    if: |
+      github.event_name == 'pull_request' && !startsWith(github.event.pull_request.base.ref, 'release') && !startsWith(github.event.pull_request.head.ref, 'feature')
+      && (github.repository_owner == 'rucio' || github.event_name != 'schedule')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
