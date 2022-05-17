@@ -214,7 +214,7 @@ class TestFilterEngineReal(unittest.TestCase):
                 json_column=models.DidMeta.meta)
             dids += [did for did in q.yield_per(5)]
             dids = set(dids)
-            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 2)
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 0)
 
     @read_session
     def test_OneSidedInequality(self, session=None):
@@ -425,7 +425,7 @@ class TestFilterEngineReal(unittest.TestCase):
                 json_column=models.DidMeta.meta)
             dids += [did for did in q.yield_per(5)]
             dids = set(dids)
-            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 1)     # 1
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 0)     # 0
 
     @read_session
     def test_OrGroups(self, session=None):
@@ -584,7 +584,7 @@ class TestFilterEngineReal(unittest.TestCase):
                 json_column=models.DidMeta.meta)
             dids += [did for did in q.yield_per(5)]
             dids = set(dids)
-            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 3)     # 1, 2, 3
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 2)     # 1, 2
 
             dids = []
             q = FilterEngine('testkeyint1 = 1, testkeystr1 = test; testkeyint1 != 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
