@@ -584,7 +584,7 @@ class TestFilterEngineReal(unittest.TestCase):
                 json_column=models.DidMeta.meta)
             dids += [did for did in q.yield_per(5)]
             dids = set(dids)
-            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 2)     # 1, 2
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 2)     # 2, 3
 
             dids = []
             q = FilterEngine('testkeyint1 = 1, testkeystr1 = test; testkeyint1 != 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
