@@ -16,6 +16,7 @@
 import json
 import random
 import subprocess
+import logging
 import time
 import traceback
 from datetime import datetime, timedelta
@@ -156,6 +157,7 @@ def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
                 token = token_object.token
             if token_type == 'refresh_token':
                 token = token_object.refresh_token
+                auth_args["redirect_uri"] = ""
             if token_type and token:
                 oidc_client.grant[auth_args['state']] = Grant()
                 oidc_client.grant[auth_args['state']].grant_expiration_time = time_util.utc_time_sans_frac() + 300
@@ -454,7 +456,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
     except Exception:
         # TO-DO catch different exceptions - InvalidGrant etc. ...
         record_counter(name='IdP_authorization.access_token.exception')
-        # logging.debug(traceback.format_exc())
+        logging.debug(traceback.format_exc())
         return None
         # raise CannotAuthenticate(traceback.format_exc())
 
@@ -925,7 +927,7 @@ def __refresh_token_oidc(token_object, session=None):
         oidc_client = oidc_dict['client']
         # getting a new refreshed set of tokens
         state = oidc_dict['state']
-        oidc_tokens = oidc_client.do_access_token_refresh(state=state)
+        oidc_tokens = oidc_client.do_access_token_refresh(state=state, skew=LEEWAY_SECS)
         if 'error' in oidc_tokens:
             raise CannotAuthorize(oidc_tokens['error'])
         record_counter(name='IdP_authorization.refresh_token.refreshed')
