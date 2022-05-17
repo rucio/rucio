@@ -925,8 +925,7 @@ def __refresh_token_oidc(token_object, session=None):
         oidc_client = oidc_dict['client']
         # getting a new refreshed set of tokens
         state = oidc_dict['state']
-        oidc_tokens = oidc_client.do_access_token_refresh(state=state,
-                                                          skew=LEEWAY_SECS)
+        oidc_tokens = oidc_client.do_access_token_refresh(state=state)
         if 'error' in oidc_tokens:
             raise CannotAuthorize(oidc_tokens['error'])
         record_counter(name='IdP_authorization.refresh_token.refreshed')
