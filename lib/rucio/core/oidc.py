@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright European Organization for Nuclear Research (CERN) since 2012
+# Copyright 2019-2022 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 
 import json
 import random
+import logging
 import subprocess
 import time
 import traceback
@@ -56,6 +57,10 @@ EXPECTED_OIDC_AUDIENCE = config_get('oidc', 'expected_audience', False, 'rucio')
 EXPECTED_OIDC_SCOPE = config_get('oidc', 'expected_scope', False, 'openid profile')
 EXCHANGE_GRANT_TYPE = config_get('oidc', 'exchange_grant_type', False, 'urn:ietf:params:oauth:grant-type:token-exchange')
 REFRESH_LIFETIME_H = config_get_int('oidc', 'default_jwt_refresh_lifetime', False, 96)
+
+# Allow 2 mins of leeway in case Rucio and IDP server clocks are not perfectly syncronized
+# this affects the token issued time (a token could be issued in the future if IDP clock is ahead)
+LEEWAY_SECS = 120
 
 # TO-DO permission layer: if scope == 'wlcg.groups'
 # --> check 'profile' info (requested profile scope)
@@ -169,7 +174,7 @@ def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
                 client_secret = secrets[kwargs.get('issuer_id', ADMIN_ISSUER_ID)]
             elif 'issuer' in kwargs:
                 client_secret = next((secrets[i] for i in secrets if 'issuer' in secrets[i] and  # NOQA: W504
-                                      secrets[i]['issuer'] == kwargs.get('issuer')), None)
+                                      kwargs.get('issuer') in secrets[i]['issuer']), None)
             redirect_url = kwargs.get('redirect_uri', None)
             if not redirect_url:
                 redirect_to = kwargs.get("redirect_to", "auth/oidc_token")
@@ -339,7 +344,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
             raise CannotAuthenticate("User related Rucio OIDC session could not keep "
                                      + "track of responses from outstanding requests.")  # NOQA: W503
         req_url = urlparse(oauth_req_params.redirect_msg)
-        issuer = 'https://' + req_url.netloc + '/'
+        issuer = req_url.scheme + "://" + req_url.netloc
         req_params = parse_qs(req_url.query)
         for key in req_params:
             req_params[key] = val_to_space_sep_str(req_params[key])
@@ -349,7 +354,8 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
         # exchange access code for a access token
         oidc_tokens = oidc_client.do_access_token_request(state=state,
                                                           request_args={"code": code},
-                                                          authn_method="client_secret_basic")
+                                                          authn_method="client_secret_basic",
+                                                          skew=LEEWAY_SECS)
         if 'error' in oidc_tokens:
             raise CannotAuthorize(oidc_tokens['error'])
         # mitigate replay attacks
@@ -448,6 +454,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
     except Exception:
         # TO-DO catch different exceptions - InvalidGrant etc. ...
         record_counter(name='IdP_authorization.access_token.exception')
+        # logging.debug(traceback.format_exc())
         return None
         # raise CannotAuthenticate(traceback.format_exc())
 
@@ -918,7 +925,8 @@ def __refresh_token_oidc(token_object, session=None):
         oidc_client = oidc_dict['client']
         # getting a new refreshed set of tokens
         state = oidc_dict['state']
-        oidc_tokens = oidc_client.do_access_token_refresh(state=state)
+        oidc_tokens = oidc_client.do_access_token_refresh(state=state,
+                                                          skew=LEEWAY_SECS)
         if 'error' in oidc_tokens:
             raise CannotAuthorize(oidc_tokens['error'])
         record_counter(name='IdP_authorization.refresh_token.refreshed')
