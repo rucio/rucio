@@ -89,7 +89,12 @@ class TestDIDCore:
         assert 100 == get_did_access_cnt(scope=mock_scope, name=tmp_dsn1)
         assert get_did_access_cnt(scope=mock_scope, name=tmp_dsn2) is None
 
-    def test_update_dids(self, vo, mock_scope, root_account, rse_factory):
+    @pytest.mark.parametrize("file_config_mock", [
+        # Run test twice: with, and without, temp tables
+        {"overrides": [('core', 'use_temp_tables', 'True')]},
+        {"overrides": [('core', 'use_temp_tables', 'False')]},
+    ], indirect=True)
+    def test_update_dids(self, vo, mock_scope, root_account, rse_factory, file_config_mock):
         """ DATA IDENTIFIERS (CORE): Update file size and checksum"""
         rse, rse_id = rse_factory.make_mock_rse()
         dsn = 'dsn_%s' % generate_uuid()
@@ -153,7 +158,12 @@ class TestDIDCore:
         assert did1['length'] == 0
         assert did1['bytes'] == 0
 
-    def test_reattach_dids(self, vo, mock_scope, root_account, rse_factory):
+    @pytest.mark.parametrize("file_config_mock", [
+        # Run test twice: with, and without, temp tables
+        {"overrides": [('core', 'use_temp_tables', 'True')]},
+        {"overrides": [('core', 'use_temp_tables', 'False')]},
+    ], indirect=True)
+    def test_reattach_dids(self, vo, mock_scope, root_account, rse_factory, file_config_mock):
         """ DATA IDENTIFIERS (CORE): Repeatedly attach and detach DIDs """
         rse, rse_id = rse_factory.make_mock_rse()
         parent_name = 'parent_%s' % generate_uuid()
@@ -224,7 +234,12 @@ class TestDIDCore:
 
         assert rows == 0
 
-    def test_circular_attach(self, root_account, rse_factory, did_factory):
+    @pytest.mark.parametrize("file_config_mock", [
+        # Run test twice: with, and without, temp tables
+        {"overrides": [('core', 'use_temp_tables', 'True')]},
+        {"overrides": [('core', 'use_temp_tables', 'False')]},
+    ], indirect=True)
+    def test_circular_attach(self, root_account, rse_factory, did_factory, file_config_mock):
         """ Ensure that it's not possible to create a circular attachment of containers"""
         container1 = did_factory.make_container()
         container2 = did_factory.make_container()
