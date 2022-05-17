@@ -397,8 +397,6 @@ class FilterEngine:
                                     expression = oper(json_column[key].as_string(), value)
                             except Exception as e:
                                 raise exception.FilterEngineGenericError(e)
-                            if oper == operator.ne:                                                 # set .ne operator to include NULLs.
-                                expression = or_(expression, json_column[key].is_(None))
                 else:
                     raise exception.FilterEngineGenericError("Requested filter on key without model attribute, but [json_column] not set.")
 
