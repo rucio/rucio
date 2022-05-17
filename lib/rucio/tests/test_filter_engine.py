@@ -595,7 +595,7 @@ class TestFilterEngineReal(unittest.TestCase):
                 json_column=models.DidMeta.meta)
             dids += [did for did in q.yield_per(5)]
             dids = set(dids)
-            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 2)     # 2, 3
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 1)     # 3
 
     @read_session
     def test_BackwardsCompatibilityCreatedAfter(self, session=None):
