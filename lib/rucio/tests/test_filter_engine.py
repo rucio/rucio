@@ -425,7 +425,7 @@ class TestFilterEngineReal(unittest.TestCase):
                 json_column=models.DidMeta.meta)
             dids += [did for did in q.yield_per(5)]
             dids = set(dids)
-            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 0)     # 0
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 0)
 
     @read_session
     def test_OrGroups(self, session=None):
@@ -465,7 +465,7 @@ class TestFilterEngineReal(unittest.TestCase):
             additional_model_attributes=[models.DataIdentifier.name])
         dids += [did for did in q.yield_per(5)]
         dids = set(dids)
-        self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 0)     #
+        self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 0)
 
         dids = []
         q = FilterEngine('name = {}; name = {}; name = {}'.format(did_name1, did_name2, did_name3), model_class=models.DataIdentifier).create_sqla_query(
@@ -527,7 +527,7 @@ class TestFilterEngineReal(unittest.TestCase):
                 json_column=models.DidMeta.meta)
             dids += [did for did in q.yield_per(5)]
             dids = set(dids)
-            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 0)     #
+            self.assertEqual(list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True), 0)
 
             dids = []
             q = FilterEngine('name = {}; name = {}; name = {}'.format(did_name1, did_name2, did_name3), model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
