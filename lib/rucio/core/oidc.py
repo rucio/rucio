@@ -440,6 +440,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
                            .update({models.OAuthRequest.access_msg: oauth_req_params.access_msg,
                                     models.OAuthRequest.redirect_msg: new_token['token']})
                 session.commit()
+            record_timer(name='IdP_authorization', time=time.time() - start)
             if '_polling' in oauth_req_params.access_msg:
                 return {'polling': True}
             elif 'http' in oauth_req_params.access_msg:
@@ -447,8 +448,8 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
             else:
                 return {'fetchcode': fetchcode}
         else:
+            record_timer(name='IdP_authorization', time=time.time() - start)
             return {'token': new_token}
-        record_timer(name='IdP_authorization', time=time.time() - start)
 
     except Exception:
         # TO-DO catch different exceptions - InvalidGrant etc. ...
