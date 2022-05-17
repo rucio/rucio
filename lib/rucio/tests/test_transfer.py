@@ -19,15 +19,31 @@ from concurrent.futures import ThreadPoolExecutor
 from rucio.common.exception import NoDistance
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replicas
-from rucio.core.transfer import get_hops
+from rucio.core.transfer import get_hops, get_transfer_paths
 from rucio.core import rule as rule_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType, RequestState
-from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.session import transactional_session, get_session
 from rucio.common.utils import generate_uuid
-from rucio.daemons.conveyor.common import next_transfers_to_submit
+from rucio.daemons.conveyor.common import next_transfers_to_submit, assign_paths_to_transfertool_and_create_hops
+
+
+@transactional_session
+def __fake_source_ranking(request, source_rse_id, new_ranking, session=None):
+    rowcount = session.query(models.Source).filter(models.Source.rse_id == source_rse_id).update({'ranking': new_ranking})
+    if not rowcount:
+        models.Source(request_id=request['id'],
+                      scope=request['scope'],
+                      name=request['name'],
+                      rse_id=source_rse_id,
+                      dest_rse_id=request['dest_rse_id'],
+                      ranking=new_ranking,
+                      bytes=request['bytes'],
+                      url=None,
+                      is_using=False). \
+            save(session=session, flush=False)
 
 
 def test_get_hops(rse_factory):
@@ -163,37 +179,22 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
-    @transactional_session
-    def __fake_source_ranking(source_rse_id, new_ranking, session=None):
-        rowcount = session.query(models.Source).filter(models.Source.rse_id == source_rse_id).update({'ranking': new_ranking})
-        if not rowcount:
-            models.Source(request_id=request['id'],
-                          scope=request['scope'],
-                          name=request['name'],
-                          rse_id=source_rse_id,
-                          dest_rse_id=request['dest_rse_id'],
-                          ranking=new_ranking,
-                          bytes=request['bytes'],
-                          url=None,
-                          is_using=False). \
-                save(session=session, flush=False)
-
     # On equal priority and distance, disk should be preferred over tape. Both disk sources will be returned
     [[_, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
     assert len(transfer[0].legacy_sources) == 2
     assert transfer[0].legacy_sources[0][0] in (disk1_rse_name, disk2_rse_name)
 
     # Change the rating of the disk RSEs. Disk still preferred, because it must fail twice before tape is tried
-    __fake_source_ranking(disk1_rse_id, -1)
-    __fake_source_ranking(disk2_rse_id, -1)
+    __fake_source_ranking(request, disk1_rse_id, -1)
+    __fake_source_ranking(request, disk2_rse_id, -1)
     [[_, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
     assert len(transfer[0].legacy_sources) == 2
     assert transfer[0].legacy_sources[0][0] in (disk1_rse_name, disk2_rse_name)
 
     # Change the rating of the disk RSEs again. Tape RSEs must now be preferred.
     # Multiple tape sources are not allowed. Only one tape RSE source must be returned.
-    __fake_source_ranking(disk1_rse_id, -2)
-    __fake_source_ranking(disk2_rse_id, -2)
+    __fake_source_ranking(request, disk1_rse_id, -2)
+    __fake_source_ranking(request, disk2_rse_id, -2)
     [[_, transfers]] = next_transfers_to_submit(rses=all_rses).items()
     assert len(transfers) == 1
     transfer = transfers[0]
@@ -206,7 +207,7 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
     assert transfer[0].legacy_sources[0][0] == tape2_rse_name
 
     # On different source ranking, the bigger ranking is preferred
-    __fake_source_ranking(tape2_rse_id, -1)
+    __fake_source_ranking(request, tape2_rse_id, -1)
     [[_, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
     assert len(transfer[0].legacy_sources) == 1
     assert transfer[0].legacy_sources[0][0] == tape1_rse_name
@@ -339,3 +340,28 @@ def test_singlehop_vs_multihop_priority(rse_factory, root_account, mock_scope, c
     [[_, transfers]] = next_transfers_to_submit(rses=rse_factory.created_rses).items()
     transfer = next(iter(t for t in transfers if t[0].rws.name == file['name']))
     assert len(transfer) == 2
+
+
+def test_fk_error_on_source_creation(rse_factory, did_factory, root_account):
+    """
+    verify that ensure_db_sources correctly handles foreign key errors while creating sources
+    """
+
+    if get_session().bind.dialect.name == 'sqlite':
+        pytest.skip('Will not run on sqlite')
+
+    src_rse, src_rse_id = rse_factory.make_mock_rse()
+    dst_rse, dst_rse_id = rse_factory.make_mock_rse()
+    add_distance(src_rse_id, dst_rse_id, ranking=10)
+
+    did = did_factory.random_did()
+    file = {'scope': did['scope'], 'name': did['name'], 'type': 'FILE', 'bytes': 1, 'adler32': 'beefdead'}
+    add_replicas(rse_id=src_rse_id, files=[file], account=root_account)
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    requests, *_ = get_transfer_paths(rses=[src_rse_id, dst_rse_id])
+    request_id, [transfer_path] = next(iter(requests.items()))
+
+    transfer_path[0].rws.request_id = generate_uuid()
+    to_submit, *_ = assign_paths_to_transfertool_and_create_hops(requests)
+    assert not to_submit
