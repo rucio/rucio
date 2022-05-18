@@ -949,6 +949,58 @@ def test_overwrite_on_tape(overwrite_on_tape_topology, core_config_mock, caches_
     'rucio.core.config.REGION',
     'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
 ]}], indirect=True)
+def test_overwrite_hops(overwrite_on_tape_topology, core_config_mock, caches_mock, did_factory, file_factory):
+    """
+    Ensure that we request overwrite of intermediate hops on multi-hop transfers towards TAPE RSEs
+    """
+    rse1_id, rse2_id, rse3_id, did1, did2 = overwrite_on_tape_topology(did1_corrupted=False, did2_corrupted=True)
+    did_factory.upload_client.upload(
+        [
+            {
+                'path': file_factory.file_generator(size=3),
+                'rse': rse_core.get_rse_name(rse2_id),
+                'did_scope': did1['scope'].external,
+                'did_name': did1['name'],
+                'no_register': True,
+            }
+        ]
+    )
+    all_rses = [rse1_id, rse2_id, rse3_id]
+
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+    fts_schema_version = FTS3Transfertool(external_host=TEST_FTS_HOST).version()['schema']['major']
+    if fts_schema_version >= 8:
+        # Newer fts version will honor the overwrite_hop
+        request = __wait_for_request_state(dst_rse_id=rse2_id, state=RequestState.DONE, **did1)
+        assert request['state'] == RequestState.DONE
+        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did1)
+        assert request['state'] == RequestState.FAILED
+        assert 'Destination file exists and overwrite is not enabled' in request['err_msg']
+    else:
+        # FTS only recently introduced the overwrite_hops parameter. It will be ignored on old
+        # fts versions and the first hop will fail with the  file exists error
+        # TODO: remove this else after FTS 3.12 release and after updating rucio/fts container with the new release
+        request = __wait_for_request_state(dst_rse_id=rse2_id, state=RequestState.FAILED, **did1)
+        assert request['state'] == RequestState.FAILED
+        assert 'Destination file exists and overwrite is not enabled' in request['err_msg']
+        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did1)
+        assert request['state'] == RequestState.FAILED
+        assert 'Unused hop in multi-hop' in request['err_msg']
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.dirty(reason="leaves files in XRD containers")
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', True)
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse.REGION',
+    'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
+    'rucio.core.config.REGION',
+    'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
+]}], indirect=True)
 def test_file_exists_handled(overwrite_on_tape_topology, core_config_mock, caches_mock):
     """
     If a transfer fails because the destination job_params exists, and the size+checksums of that existing job_params
