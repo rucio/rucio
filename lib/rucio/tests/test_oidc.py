@@ -200,7 +200,8 @@ class MockResponse(object):
 class MockClientOIDC(MagicMock):
     # pylint: disable=unused-argument
     @classmethod
-    def do_access_token_request(cls, state=None, request_args={}, authn_method="client_secret_basic"):
+    def do_access_token_request(cls, state=None, request_args={},
+                                authn_method="client_secret_basic", skew=120):
         if request_args['code'] == 'wrongcode':
             return {'error': 'Unknown AuthZ code provided'}
         else:
