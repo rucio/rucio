@@ -31,13 +31,15 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        alter_column('tokens', 'refresh_token',
-                existing_type=sa.String(length=315),
-                type_=sa.String(length=3072))
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        alter_column('tokens', 'refresh_token', existing_type=sa.String(315), type_=sa.String(3072), schema=schema)
 
 
 def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
-    pass
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        alter_column('tokens', 'refresh_token', existing_type=sa.String(3072), type_=sa.String(315), schema=schema)
