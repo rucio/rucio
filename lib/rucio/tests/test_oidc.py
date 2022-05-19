@@ -692,7 +692,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
 
     @patch('rucio.core.oidc.JWS')
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_CLIENTS')
     def test_validate_and_save_external_token_success(self, mock_oidc_clients, mock_jwt_dict, mock_jws):
         """ OIDC validate externally provided token with correct audience, scope and issuer - success
 
@@ -730,7 +729,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
 
     @patch('rucio.core.oidc.JWS')
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_CLIENTS')
     def test_validate_and_save_external_token_fail(self, mock_oidc_clients, mock_jwt_dict, mock_jws):
         """ OIDC validate externally provided token with correct audience, scope and issuer - failure
 
@@ -766,7 +764,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert not db_token
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_1(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -850,7 +847,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert expected_access_token == new_token_dict['token']
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_2(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -951,7 +947,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert expected_preexisting_access_token == new_token_dict['token']
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_3(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -994,7 +989,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert not new_token_dict
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_4(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -1060,7 +1054,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert not new_token_dict
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_5(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -1124,7 +1117,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert (expected_access_token_1 == new_token_dict['token']) or (expected_access_token_2 == new_token_dict['token'])
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_6(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -1202,7 +1194,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert expected_access_token == new_token_dict['token']
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_7(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -1286,7 +1277,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert preexisting_final_access_token == new_token_dict['token']
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_8(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -1357,7 +1347,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert preexisting_final_access_token == new_token_dict['token']
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_9(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -1421,7 +1410,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert (expected_access_token_1 == new_token_dict['token']) or (expected_access_token_2 == new_token_dict['token'])
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_10(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -1499,7 +1487,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert expected_access_token == new_token_dict['token']
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_11(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -1583,7 +1570,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert preexisting_final_access_token == new_token_dict['token']
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_12(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -1676,7 +1662,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert preexisting_final_access_token == new_token_dict['token']
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_13(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -1763,7 +1748,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert expected_access_token == new_token_dict['token']
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_14(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -1852,7 +1836,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert hypothetical_exchange_access_token != new_token_dict['token']
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_15(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
@@ -1894,7 +1877,6 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         assert not new_token_dict
 
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
-    @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_AT_for_account_operation_16(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
