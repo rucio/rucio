@@ -185,7 +185,8 @@ def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
                 token = token_object.token
             if token_type == 'refresh_token':
                 token = token_object.refresh_token
-                auth_args["redirect_uri"] = ""
+                # do not remove - even though None, oic expects this key to exist
+                auth_args["redirect_uri"] = None
             if token_type and token:
                 oidc_client.grant[auth_args['state']] = Grant()
                 oidc_client.grant[auth_args['state']].grant_expiration_time = time_util.utc_time_sans_frac() + 300
