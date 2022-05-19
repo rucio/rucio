@@ -850,17 +850,16 @@ def refresh_cli_auth_token(token_string, account, session=None):
         if new_token is None:
             return None
 
-    # if the new_token has same audience and scopes as the original
-    # account_token --> return this token and exp timestamp to the user
-    if all_oidc_req_claims_present(new_token.oidc_scope, new_token.audience,
-                                   account_token.oidc_scope, account_token.audience):
-        epoch_exp = int(floor((new_token.expired_at - datetime(1970, 1, 1)).total_seconds()))
-        new_token_string = new_token.token
-        return new_token_string, epoch_exp
-
-    # if scopes and audience are not the same, return None
-    logging.debug("No token could be returned for refresh operation for account %s.", account)
-    return None
+        # if the new_token has same audience and scopes as the original
+        # account_token --> return this token and exp timestamp to the user
+        if all_oidc_req_claims_present(new_token.oidc_scope, new_token.audience,
+                                       account_token.oidc_scope, account_token.audience):
+            epoch_exp = int(floor((new_token.expired_at - datetime(1970, 1, 1)).total_seconds()))
+            new_token_string = new_token.token
+            return new_token_string, epoch_exp
+        # if scopes and audience are not the same, return None
+        logging.debug("No token could be returned for refresh operation for account %s.", account)
+        return None
 
 
 @transactional_session
