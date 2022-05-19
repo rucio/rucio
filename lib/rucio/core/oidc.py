@@ -16,6 +16,7 @@
 import json
 import random
 import subprocess
+import logging
 import time
 import traceback
 from datetime import datetime, timedelta
@@ -45,7 +46,6 @@ from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
-from rucio.common.logging import logging, setup_logging
 
 # worokaround for a bug in pyoidc (as of Dec 2019)
 REQUEST2ENDPOINT['CCAccessTokenRequest'] = 'token_endpoint'
@@ -62,8 +62,6 @@ REFRESH_LIFETIME_H = config_get_int('oidc', 'default_jwt_refresh_lifetime', Fals
 # this affects the token issued time (a token could be issued in the future if IDP clock is ahead)
 LEEWAY_SECS = 120
 
-# setup logging
-setup_logging()
 
 # TO-DO permission layer: if scope == 'wlcg.groups'
 # --> check 'profile' info (requested profile scope)
