@@ -114,10 +114,29 @@ def __get_rucio_oidc_clients(keytimeout=43200):
     return (clients, admin_clients)
 
 
-# Initialising Rucio OIDC Clients
-ALL_OIDC_CLIENTS = __get_rucio_oidc_clients()
-OIDC_CLIENTS = ALL_OIDC_CLIENTS[0]
-OIDC_ADMIN_CLIENTS = ALL_OIDC_CLIENTS[1]
+# global variables to represent the IdP clients
+OIDC_CLIENTS = {}
+OIDC_ADMIN_CLIENTS = {}
+
+
+def __initialize_oidc_clients():
+    """
+    Initialising Rucio OIDC Clients
+    """
+
+    try:
+        ALL_OIDC_CLIENTS = __get_rucio_oidc_clients()
+        global OIDC_CLIENTS
+        global OIDC_ADMIN_CLIENTS
+        OIDC_CLIENTS = ALL_OIDC_CLIENTS[0]
+        OIDC_ADMIN_CLIENTS = ALL_OIDC_CLIENTS[1]
+    except Exception as error:
+        logging.debug("OIDC clients not properly loaded: %s", error)
+        pass
+
+
+# try loading OIDC clients uppon module import
+__initialize_oidc_clients()
 
 
 def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
@@ -139,6 +158,13 @@ def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
     :returns: if first_init == True: dict {'client': oidc client object, 'request': auth_url}
               for all other cases return oidc client object. If anything goes wrong, exception is thrown.
     """
+
+    if not OIDC_CLIENTS:
+        # retry once loading OIDC clients
+        __initialize_oidc_clients()
+        if not OIDC_CLIENTS:
+            raise CannotAuthenticate(traceback.format_exc())
+
     try:
 
         auth_args = {"grant_types": ["authorization_code"],
@@ -478,6 +504,13 @@ def __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=Non
     :param session: The database session in use.
     :returns: A dict with token and expires_at entries.
     """
+
+    if not OIDC_ADMIN_CLIENTS:
+        # retry once loading OIDC clients
+        __initialize_oidc_clients()
+        if not OIDC_ADMIN_CLIENTS:
+            raise CannotAuthenticate(traceback.format_exc())
+
     try:
 
         oidc_client = OIDC_ADMIN_CLIENTS[issuer]
@@ -521,6 +554,12 @@ def __get_admin_account_for_issuer(session=None):
     """ Gets admin account for the IdP issuer
     :returns : dictionary { 'issuer_1': (account, identity), ... }
     """
+
+    if not OIDC_ADMIN_CLIENTS:
+        # retry once loading OIDC clients
+        __initialize_oidc_clients()
+        if not OIDC_ADMIN_CLIENTS:
+            raise CannotAuthenticate(traceback.format_exc())
 
     issuer_account_dict = {}
     for issuer in OIDC_ADMIN_CLIENTS:
@@ -1141,6 +1180,13 @@ def validate_jwt(json_web_token, session=None):
                            authz_scope: <authz_scope> }
               if successful, None otherwise.
     """
+
+    if not OIDC_CLIENTS:
+        # retry once loading OIDC clients
+        __initialize_oidc_clients()
+        if not OIDC_CLIENTS:
+            raise CannotAuthenticate(traceback.format_exc())
+
     try:
 
         # getting issuer from the token payload
