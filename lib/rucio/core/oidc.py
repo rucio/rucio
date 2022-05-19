@@ -116,12 +116,6 @@ def __get_rucio_oidc_clients(keytimeout=43200):
     return (clients, admin_clients)
 
 
-# Initialising Rucio OIDC Clients
-ALL_OIDC_CLIENTS = __get_rucio_oidc_clients()
-OIDC_CLIENTS = ALL_OIDC_CLIENTS[0]
-OIDC_ADMIN_CLIENTS = ALL_OIDC_CLIENTS[1]
-
-
 def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
     """
     Get an OIDC client object, (re-)initialised with parameters corresponding
@@ -142,6 +136,9 @@ def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
               for all other cases return oidc client object. If anything goes wrong, exception is thrown.
     """
     try:
+        # load OIDC app clients
+        OIDC_CLIENTS = __get_rucio_oidc_clients()[0]
+
         auth_args = {"grant_types": ["authorization_code"],
                      "response_type": "code",
                      "state": kwargs.get('state', rndstr()),
@@ -480,6 +477,10 @@ def __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=Non
     :returns: A dict with token and expires_at entries.
     """
     try:
+
+        # load OIDC admin clients
+        OIDC_ADMIN_CLIENTS = __get_rucio_oidc_clients()[1]
+
         oidc_client = OIDC_ADMIN_CLIENTS[issuer]
         args = {"client_id": oidc_client.client_id,
                 "client_secret": oidc_client.client_secret,
@@ -521,6 +522,9 @@ def __get_admin_account_for_issuer(session=None):
     """ Gets admin account for the IdP issuer
     :returns : dictionary { 'issuer_1': (account, identity), ... }
     """
+    # load OIDC admin clients
+    OIDC_ADMIN_CLIENTS = __get_rucio_oidc_clients()[1]
+
     issuer_account_dict = {}
     for issuer in OIDC_ADMIN_CLIENTS:
         admin_identity = oidc_identity_string(OIDC_ADMIN_CLIENTS[issuer].client_id, issuer)
@@ -1141,6 +1145,9 @@ def validate_jwt(json_web_token, session=None):
               if successful, None otherwise.
     """
     try:
+        # load OIDC app clients
+        OIDC_CLIENTS = __get_rucio_oidc_clients()[0]
+
         # getting issuer from the token payload
         token_dict = __get_rucio_jwt_dict(json_web_token, session=session)
         if not token_dict:
