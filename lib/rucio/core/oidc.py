@@ -1176,7 +1176,7 @@ def validate_jwt(json_web_token, session=None):
                 # save the token in Rucio DB giving the permission to use it for Rucio operations
                 __save_validated_token(json_web_token, token_dict, session=session)
             else:
-                logging.debug("Token audience [%s] or scope [%s] verification failed.", (token_dict['audience'], token_dict['authz_scope']))
+                logging.debug("Token audience [%s] or scope [%s] verification failed.", token_dict['audience'], token_dict['authz_scope'])
                 return None
         else:
             logging.debug("Token audience or scope not present.")
