@@ -16,7 +16,6 @@
 import json
 import random
 import subprocess
-import logging
 import time
 import traceback
 from datetime import datetime, timedelta
@@ -46,6 +45,7 @@ from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.common.logging import logging, setup_logging
 
 # worokaround for a bug in pyoidc (as of Dec 2019)
 REQUEST2ENDPOINT['CCAccessTokenRequest'] = 'token_endpoint'
@@ -61,6 +61,9 @@ REFRESH_LIFETIME_H = config_get_int('oidc', 'default_jwt_refresh_lifetime', Fals
 # Allow 2 mins of leeway in case Rucio and IDP server clocks are not perfectly syncronized
 # this affects the token issued time (a token could be issued in the future if IDP clock is ahead)
 LEEWAY_SECS = 120
+
+# setup logging
+setup_logging()
 
 # TO-DO permission layer: if scope == 'wlcg.groups'
 # --> check 'profile' info (requested profile scope)
@@ -109,7 +112,7 @@ def __get_rucio_oidc_clients(keytimeout=43200):
             client.store_registration_info(client_reg)
             admin_clients[issuer] = client
         except Exception as error:
-            raise RucioException(error.args)
+            raise RucioException(error.args) from error
     return (clients, admin_clients)
 
 
@@ -169,8 +172,8 @@ def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
             try:
                 with open(IDPSECRETS) as client_secret_file:
                     secrets = json.load(client_secret_file)
-            except:
-                raise CannotAuthenticate("Rucio server is missing information from the idpsecrets.json file.")
+            except Exception as error:
+                raise CannotAuthenticate("Rucio server is missing information from the idpsecrets.json file.") from error
             if 'issuer_id' in kwargs:
                 client_secret = secrets[kwargs.get('issuer_id', ADMIN_ISSUER_ID)]
             elif 'issuer' in kwargs:
@@ -198,8 +201,8 @@ def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
                                    info='code=' + kwargs.get('code', rndstr()) + '&state=' + auth_args['state'],
                                    sformat="urlencoded")
         return {'client': oidc_client, 'state': auth_args['state']}
-    except Exception:
-        raise CannotAuthenticate(traceback.format_exc())
+    except Exception as error:
+        raise CannotAuthenticate(traceback.format_exc()) from error
 
 
 @transactional_session
@@ -261,6 +264,7 @@ def get_auth_oidc(account, session=None, **kwargs):
     else:
         # Make sure the account exists
         if not account_exists(account, session=session):
+            logging.debug("Account %s does not exist.", account)
             return None
 
     try:
@@ -315,8 +319,8 @@ def get_auth_oidc(account, session=None, **kwargs):
         record_timer(name='IdP_authentication.request', time=time.time() - start)
         return auth_url
 
-    except Exception:
-        raise CannotAuthenticate(traceback.format_exc())
+    except Exception as error:
+        raise CannotAuthenticate(traceback.format_exc()) from error
 
 
 @transactional_session
@@ -497,14 +501,17 @@ def __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=Non
                 new_token = __save_validated_token(oidc_tokens['access_token'], validate_dict, extra_dict={}, session=session)
                 record_counter(name='IdP_authorization.access_token.saved')
                 return new_token
+            else:
+                logging.debug("Rucio could not get a valid admin token from the Identity Provider.")
+                return None
+        else:
+            logging.debug("Rucio could not get its admin access token from the Identity Provider.")
             return None
-            # raise RucioException("Rucio could not get a valid admin token from the Identity Provider.")
-        return None
-        # raise RucioException("Rucio could not get its admin access token from the Identity Provider.")
 
     except Exception:
         # TO-DO catch different exceptions - InvalidGrant etc. ...
         record_counter(name='IdP_authorization.access_token.exception')
+        logging.debug(traceback.format_exc())
         return None
         # raise CannotAuthenticate(traceback.format_exc())
 
@@ -606,6 +613,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
         if admin and not get_token_for_adminacc:
             # we require any other account than admin to have valid OIDC token in the Rucio DB
             if not account_tokens:
+                logging.debug("No valid token exists for account %s.", account)
                 return None
             # we also require that these tokens at least one has the Rucio scopes and audiences
             valid_subject_token_exists = False
@@ -613,6 +621,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                 if all_oidc_req_claims_present(account_token.oidc_scope, account_token.audience, EXPECTED_OIDC_SCOPE, EXPECTED_OIDC_AUDIENCE):
                     valid_subject_token_exists = True
             if not valid_subject_token_exists:
+                logging.debug("No valid audience/scope exists for account %s token.", account)
                 return None
             # openid scope is not supported for client_credentials auth flow - removing it if being asked for
             if 'openid' in req_scope:
@@ -643,6 +652,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
         if not admin and not get_token_for_adminacc:
             # we require any other account than admin to have valid OIDC token in the Rucio DB
             if not account_tokens:
+                logging.debug("No valid token exists for account %s.", account)
                 return None
             # we also require that these tokens at least one has the Rucio scopes and audiences
             valid_subject_token_exists = False
@@ -650,6 +660,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                 if all_oidc_req_claims_present(account_token.oidc_scope, account_token.audience, EXPECTED_OIDC_SCOPE, EXPECTED_OIDC_AUDIENCE):
                     valid_subject_token_exists = True
             if not valid_subject_token_exists:
+                logging.debug("No valid audience/scope exists for account %s token.", account)
                 return None
             subject_token = None
             for token in account_tokens:
@@ -670,9 +681,11 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                                                     account=account,
                                                     session=session)
             return exchanged_token
+        logging.debug("No token could be returned for account operation for account %s.", account)
         return None
     except Exception:
         # raise CannotAuthorize(traceback.format_exc(), type(account), account)
+        logging.debug(traceback.format_exc())
         return None
 
 
@@ -755,6 +768,7 @@ def __exchange_token_oidc(subject_token_object, session=None, **kwargs):
 
     except Exception:
         # raise CannotAuthorize(traceback.format_exc())
+        logging.debug(traceback.format_exc())
         return None
 
 
@@ -776,7 +790,7 @@ def __change_refresh_state(token, refresh=False, session=None):
                                                 models.Token.refresh_expired_at: datetime.utcnow()})
         session.commit()
     except Exception as error:
-        raise RucioException(error.args)
+        raise RucioException(error.args) from error
 
 
 @transactional_session
@@ -796,14 +810,18 @@ def refresh_cli_auth_token(token_string, account, session=None):
                                    models.Token.account == account,
                                    models.Token.expired_at > datetime.utcnow()) \
                            .with_for_update(skip_locked=True).first()
+
     # if token does not exist in the DB, return None
     if account_token is None:
+        logging.debug("No valid token exists for account %s.", account)
         return None
 
     # protection (!) no further action should be made
     # for token_string without refresh_token in the DB !
     if account_token.refresh_token is None:
+        logging.debug("No refresh token exists for account %s.", account)
         return None
+
     # if the token exists, check if it was refreshed already, if not, refresh it
     if account_token.refresh:
         # protection (!) returning the same token if the token_string
@@ -832,15 +850,17 @@ def refresh_cli_auth_token(token_string, account, session=None):
         if new_token is None:
             return None
 
-        # if the new_token has same audience and scopes as the original
-        # account_token --> return this token and exp timestamp to the user
-        if all_oidc_req_claims_present(new_token.oidc_scope, new_token.audience,
-                                       account_token.oidc_scope, account_token.audience):
-            epoch_exp = int(floor((new_token.expired_at - datetime(1970, 1, 1)).total_seconds()))
-            new_token_string = new_token.token
-            return new_token_string, epoch_exp
-        # if scopes and audience are not the same, return None
-        return None
+    # if the new_token has same audience and scopes as the original
+    # account_token --> return this token and exp timestamp to the user
+    if all_oidc_req_claims_present(new_token.oidc_scope, new_token.audience,
+                                   account_token.oidc_scope, account_token.audience):
+        epoch_exp = int(floor((new_token.expired_at - datetime(1970, 1, 1)).total_seconds()))
+        new_token_string = new_token.token
+        return new_token_string, epoch_exp
+
+    # if scopes and audience are not the same, return None
+    logging.debug("No token could be returned for refresh operation for account %s.", account)
+    return None
 
 
 @transactional_session
@@ -884,7 +904,7 @@ def refresh_jwt_tokens(total_workers, worker_number, refreshrate=3600, limit=100
                 nrefreshed += 1
 
     except Exception as error:
-        raise RucioException(error.args)
+        raise RucioException(error.args) from error
 
     return nrefreshed
 
@@ -964,9 +984,9 @@ def __refresh_token_oidc(token_object, session=None):
         record_timer(name='IdP_authorization.refresh_token', time=time.time() - start)
         return new_token
 
-    except Exception:
+    except Exception as error:
         record_counter(name='IdP_authorization.refresh_token.exception')
-        raise CannotAuthorize(traceback.format_exc())
+        raise CannotAuthorize(traceback.format_exc()) from error
 
 
 @transactional_session
@@ -998,11 +1018,9 @@ def delete_expired_oauthrequests(total_workers, worker_number, limit=1000, sessi
                                .filter(models.OAuthRequest.state.in_(states)) \
                                .with_for_update(skip_locked=True) \
                                .delete(synchronize_session='fetch')
-
+        return ndeleted
     except Exception as error:
-        raise RucioException(error.args)
-
-    return ndeleted
+        raise RucioException(error.args) from error
 
 
 def __get_keyvalues_from_claims(token, keys=None):
@@ -1024,8 +1042,8 @@ def __get_keyvalues_from_claims(token, keys=None):
                 value = val_to_space_sep_str(claims[key])
             resdict[key] = value
         return resdict
-    except Exception:
-        raise CannotAuthenticate(traceback.format_exc())
+    except Exception as error:
+        raise CannotAuthenticate(traceback.format_exc()) from error
 
 
 @read_session
@@ -1045,6 +1063,7 @@ def __get_rucio_jwt_dict(jwt, account=None, session=None):
         identity_string = oidc_identity_string(token_payload['sub'], token_payload['iss'])
         expiry_date = datetime.utcfromtimestamp(float(token_payload['exp']))
         if expiry_date < datetime.utcnow():  # check if expired
+            logging.debug("Token has already expired since: %s", str(expiry_date))
             return None
         scope = None
         audience = None
@@ -1058,6 +1077,7 @@ def __get_rucio_jwt_dict(jwt, account=None, session=None):
             account = get_default_account(identity_string, IdentityType.OIDC, True, session=session)
         else:
             if not exist_identity_account(identity_string, IdentityType.OIDC, account, session=session):
+                logging.debug("No OIDC identity exists for account: %s", str(account))
                 return None
         value = {'account': account,
                  'identity': identity_string,
@@ -1066,6 +1086,7 @@ def __get_rucio_jwt_dict(jwt, account=None, session=None):
                  'authz_scope': scope}
         return value
     except Exception:
+        logging.debug(traceback.format_exc())
         return None
 
 
@@ -1100,7 +1121,7 @@ def __save_validated_token(token, valid_dict, extra_dict=None, session=None):
         return token_dictionary(new_token)
 
     except Exception as error:
-        raise RucioException(error.args)
+        raise RucioException(error.args) from error
 
 
 @transactional_session
@@ -1151,13 +1172,16 @@ def validate_jwt(json_web_token, session=None):
                 # save the token in Rucio DB giving the permission to use it for Rucio operations
                 __save_validated_token(json_web_token, token_dict, session=session)
             else:
+                logging.debug("Token audience [%s] or scope [%s] verification failed.", (token_dict['audience'], token_dict['authz_scope']))
                 return None
         else:
+            logging.debug("Token audience or scope not present.")
             return None
         record_counter(name='JSONWebToken.saved')
         return token_dict
     except Exception:
         record_counter(name='JSONWebToken.invalid')
+        logging.debug(traceback.format_exc())
         return None
 
 
