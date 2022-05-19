@@ -20,6 +20,7 @@ BB8 is a daemon to rebalance data.
 
 import argparse
 
+from rucio.daemons.bb8.bb8 import run
 from rucio.daemons.bb8.common import rebalance_rse
 
 
@@ -28,8 +29,11 @@ def get_parser():
     Returns the argparse parser.
     """
     parser = argparse.ArgumentParser(description='The BB8 daemon is responsible for rebalancing data between RSEs.')
-    parser.add_argument('rse', action='store', help='RSE to rebalance')
+    parser.add_argument('rse', action='store', help='RSE to rebalance. Can be either a RSE or RSE expression.')
     parser.add_argument('bytes', action='store', type=int, help='Number of bytes to rebalance')
+    parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
+    parser.add_argument('--sleep-time', action="store", default=30, type=int, help='Concurrency control: thread sleep time after each chunk of work')
+    parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads for this process')
     parser.add_argument('--dry-run', action='store_true', default=False, help='Only run in dry-run mode')
     parser.add_argument('--exclude-expression', action='store', help='Exclude these rse_expression from being destinations')
     parser.add_argument('--comment', action='store', help='Add a comment to the new rules')
@@ -51,7 +55,4 @@ if __name__ == "__main__":
                       source_replica_expression=args.source_replica_expression,
                       mode='decommission')
     else:
-        rebalance_rse(rse_id=args.rse, max_bytes=args.bytes, dry_run=args.dry_run,
-                      comment=args.comment, force_expression=args.force_expression,
-                      priority=args.priority,
-                      source_replica_expression=args.source_replica_expression)
+        run(once=args.run_once, rse_expression=args.rse, move_subscriptions=False, use_dump=False, sleep_time=args.sleep_time, threads=args.threads, dry_run=args.dry_run)

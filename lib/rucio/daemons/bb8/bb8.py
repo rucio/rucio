@@ -23,18 +23,13 @@ import threading
 import time
 import os
 
-from sqlalchemy import func, or_, and_
-from rucio.db.sqla.session import read_session
-
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import RuleState, LockState
+from rucio.common.config import config_get_float
 from rucio.common.exception import InvalidRSEExpression
 from rucio.common.logging import formatted_logger, setup_logging
-from rucio.core import config as config_core
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts
 from rucio.core.rse import get_rse_usage
-from rucio.daemons.bb8.common import rebalance_rse
+from rucio.daemons.bb8.common import rebalance_rse, get_active_locks
 
 
 GRACEFUL_STOP = threading.Event()
@@ -61,10 +56,10 @@ def rule_rebalancer(rse_expression, move_subscriptions=False, use_dump=False, sl
         heart_beat = live(executable, hostname, pid, hb_thread)
         start_time = time.time()
         total_rebalance_volume = 0
-        tolerance = config_core.get('bb8', 'tolerance', default=0.05)
-        max_total_rebalance_volume = config_core.get('bb8', 'max_total_rebalance_volume', default=10 * 1E12)
-        max_rse_rebalance_volume = config_core.get('bb8', 'max_rse_rebalance_volume', default=500 * 1E9)
-        min_total = config_core.get('bb8', 'min_total', default=20 * 1E9)
+        tolerance = config_get_float('bb8', 'tolerance', default=0.05)
+        max_total_rebalance_volume = config_get_float('bb8', 'max_total_rebalance_volume', default=10 * 1E12)
+        max_rse_rebalance_volume = config_get_float('bb8', 'max_rse_rebalance_volume', default=500 * 1E9)
+        min_total = config_get_float('bb8', 'min_total', default=20 * 1E9)
         payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
         if rse_expression in payload_cnt:
             logger(logging.WARNING, 'One BB8 instance already running with the same RSE expression. Stopping')
@@ -206,31 +201,9 @@ def run(once, rse_expression, move_subscriptions=False, use_dump=False, sleep_ti
     setup_logging()
     hostname = socket.gethostname()
     sanity_check(executable='rucio-bb8', hostname=hostname)
-
-    if once:
-        rule_rebalancer(rse_expression=rse_expression, move_subscriptions=move_subscriptions, use_dump=use_dump, once=once)
-    else:
-        logging.info('BB8 starting %s threads', str(threads))
-        threads = [threading.Thread(target=rule_rebalancer, kwargs={'once': once, 'rse_expression': rse_expression, 'sleep_time': sleep_time, 'dry_run': dry_run}) for _ in range(0, threads)]
-        [thread.start() for thread in threads]
-        # Interruptible joins require a timeout.
-        while threads[0].is_alive():
-            [thread.join(timeout=3.14) for thread in threads]
-
-
-@read_session
-def get_active_locks(session=None):
-    locks_dict = {}
-    rule_ids = session.query(models.ReplicationRule.id).filter(or_(models.ReplicationRule.state == RuleState.REPLICATING, models.ReplicationRule.state == RuleState.STUCK),
-                                                               models.ReplicationRule.comments == 'Background rebalancing').all()
-    for row in rule_ids:
-        rule_id = row[0]
-        query = session.query(func.count(), func.sum(models.ReplicaLock.bytes), models.ReplicaLock.state, models.ReplicaLock.rse_id).\
-            filter(and_(models.ReplicaLock.rule_id == rule_id, models.ReplicaLock.state != LockState.OK)).group_by(models.ReplicaLock.state, models.ReplicaLock.rse_id)
-        for lock in query.all():
-            cnt, size, _, rse_id = lock
-            if rse_id not in locks_dict:
-                locks_dict[rse_id] = {'bytes': 0, 'locks': 0}
-            locks_dict[rse_id]['locks'] += cnt
-            locks_dict[rse_id]['bytes'] += size
-    return locks_dict
+    logging.info('BB8 starting %s threads', str(threads))
+    threads = [threading.Thread(target=rule_rebalancer, kwargs={'once': once, 'rse_expression': rse_expression, 'sleep_time': sleep_time, 'dry_run': dry_run}) for _ in range(0, threads)]
+    [thread.start() for thread in threads]
+    # Interruptible joins require a timeout.
+    while threads[0].is_alive():
+        [thread.join(timeout=3.14) for thread in threads]

@@ -31,11 +31,11 @@ from rucio.core.rse_selector import RSESelector
 from rucio.common.config import config_get, config_get_int, config_get_bool
 from rucio.common.exception import (InsufficientTargetRSEs, RuleNotFound, DuplicateRule,
                                     InsufficientAccountLimit)
-from rucio.common.types import InternalAccount
+from rucio.common.types import InternalAccount, InternalScope
 
 from rucio.db.sqla.session import transactional_session, read_session
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import (DIDType, RuleState, RuleGrouping)
+from rucio.db.sqla.constants import (DIDType, RuleState, RuleGrouping, LockState)
 from requests import get
 
 
@@ -252,6 +252,12 @@ def list_rebalance_rule_candidates(rse_id, mode=None, session=None):
         allowed_accounts = [InternalAccount(acc.strip(' '), vo=vo) for acc in allowed_accounts.split(',')]
         rule_clause.append(models.ReplicationRule.account.in_(allowed_accounts))
 
+    # Only move rules which with scope <allowed_scopes> (coma separated scopes, e.g. mc16_13TeV,data18_13TeV)
+    allowed_scopes = config_get(section='bb8', option='allowed_scopes', raise_exception=False, default=None, expiration_time=3600)
+    if allowed_scopes:
+        allowed_scopes = [InternalScope(scope.strip(' '), vo=vo) for scope in allowed_scopes.split(',')]
+        rule_clause.append(models.ReplicationRule.scope.in_(allowed_scopes))
+
     # Only move rules that have a certain grouping <allowed_grouping> (accepted values : all, dataset, none)
     rule_grouping_mapping = {
         'all': RuleGrouping.ALL,
@@ -278,7 +284,7 @@ def list_rebalance_rule_candidates(rse_id, mode=None, session=None):
     allowed_did_type = config_get(section='bb8', option='allowed_did_type', raise_exception=False, default=None, expiration_time=3600)
     if allowed_did_type:
         allowed_did_type = [models.DataIdentifier.did_type == did_type for did_type in type_to_did_type_mapping.get(allowed_did_type)]
-        did_clause.append(or_(allowed_did_type))
+        did_clause.append(or_(*allowed_did_type))
 
     # Only allows to migrate rules of closed DID is <only_move_closed_did> is set
     only_move_closed_did = config_get_bool(section='bb8', option='only_move_closed_did', raise_exception=False, default=None, expiration_time=3600)
@@ -443,3 +449,21 @@ def rebalance_rse(rse_id, max_bytes=1E9, max_files=None, dry_run=False, exclude_
 
     logger(logging.INFO, 'BB8 is rebalancing %d GB of data (%d rules) from %s', rebalanced_bytes / 1E9, len(rebalanced_datasets), src_rse)
     return rebalanced_datasets
+
+
+@read_session
+def get_active_locks(session=None):
+    locks_dict = {}
+    rule_ids = session.query(models.ReplicationRule.id).filter(or_(models.ReplicationRule.state == RuleState.REPLICATING, models.ReplicationRule.state == RuleState.STUCK),
+                                                               models.ReplicationRule.comments == 'Background rebalancing').all()
+    for row in rule_ids:
+        rule_id = row[0]
+        query = session.query(func.count(), func.sum(models.ReplicaLock.bytes), models.ReplicaLock.state, models.ReplicaLock.rse_id).\
+            filter(and_(models.ReplicaLock.rule_id == rule_id, models.ReplicaLock.state != LockState.OK)).group_by(models.ReplicaLock.state, models.ReplicaLock.rse_id)
+        for lock in query.all():
+            cnt, size, _, rse_id = lock
+            if rse_id not in locks_dict:
+                locks_dict[rse_id] = {'bytes': 0, 'locks': 0}
+            locks_dict[rse_id]['locks'] += cnt
+            locks_dict[rse_id]['bytes'] += size
+    return locks_dict
