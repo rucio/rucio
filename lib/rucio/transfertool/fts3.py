@@ -578,10 +578,12 @@ class FTS3ApiTransferStatusReport(Fts3TransferStatusReport):
         if file_state_is_final:
             if file_state == FTS_STATE.FINISHED:
                 new_state = RequestState.DONE
-            elif job_state_is_final and file_state == FTS_STATE.FAILED \
-                    and self._is_recoverable_fts_overwrite_error(self.request(session), reason, self._file_metadata):
-                new_state = RequestState.DONE
-            elif job_state_is_final and file_state in (FTS_STATE.FAILED, FTS_STATE.CANCELED):
+            elif file_state == FTS_STATE.FAILED and not self._multi_sources:  # for multi-source transfers we must wait for the job to be in a final state
+                if self._is_recoverable_fts_overwrite_error(self.request(session), reason, self._file_metadata):
+                    new_state = RequestState.DONE
+                else:
+                    new_state = RequestState.FAILED
+            elif job_state_is_final and file_state == FTS_STATE.CANCELED:
                 new_state = RequestState.FAILED
             elif job_state_is_final and file_state == FTS_STATE.NOT_USED:
                 if job_state == FTS_STATE.FINISHED:
