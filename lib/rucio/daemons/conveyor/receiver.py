@@ -73,9 +73,7 @@ class Receiver(object):
            and 'issuer' in msg['job_metadata'].keys() \
            and str(msg['job_metadata']['issuer']) == str('rucio'):
 
-            if 'job_state' in msg.keys() and (
-                    str(msg['job_state']) != str('ACTIVE')
-                    or str(msg['job_state']) == str('ACTIVE') and 'job_m_replica' in msg.keys() and (str(msg['job_m_replica']).lower() == str('true'))):
+            if 'job_state' in msg.keys() and str(msg['job_state']) != str('ACTIVE'):
                 record_counter('daemons.conveyor.receiver.message_rucio')
 
                 self._perform_request_update(msg)
