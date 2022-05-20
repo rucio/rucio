@@ -1173,7 +1173,7 @@ def list_pfns(args):
                         logger.warning('The file has multiple parents')
                     for did in parents:
                         if did['type'] == 'DATASET':
-                            path = construct_surl(did['name'], name, naming_convention=naming_convention)
+                            path = construct_surl(did['name'], scope, name, naming_convention=naming_convention)
                             pfn = ''.join([proto.attributes['scheme'],
                                            '://',
                                            proto.attributes['hostname'],

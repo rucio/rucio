@@ -501,7 +501,7 @@ def my_key_generator(namespace, fn, **kw):
     return generate_key
 
 
-def construct_surl_DQ2(dsn, filename):
+def construct_surl_DQ2(dsn: str, scope: str, filename: str) -> str:
     """
     Defines relative SURL for new replicas. This method
     contains DQ2 convention. To be used for non-deterministic sites.
@@ -540,7 +540,7 @@ def construct_surl_DQ2(dsn, filename):
         return '/%s/%s/%s/%s/%s' % (project, dataset_type, tag, stripped_dsn, filename)
 
 
-def construct_surl_T0(dsn, filename):
+def construct_surl_T0(dsn: str, scope: str, filename: str) -> str:
     """
     Defines relative SURL for new replicas. This method
     contains Tier0 convention. To be used for non-deterministic sites.
@@ -560,7 +560,7 @@ def construct_surl_T0(dsn, filename):
         return '/other/other/other/other/%s' % (filename)
 
 
-def construct_surl_BelleII(dsn, filename):
+def construct_surl_BelleII(dsn: str, scope: str, filename: str) -> str:
     """
     Defines relative SURL for Belle II specific replicas.
     This method contains the Belle II convention.
@@ -593,7 +593,14 @@ register_surl_algorithm(construct_surl_DQ2, 'DQ2')
 register_surl_algorithm(construct_surl_BelleII, 'BelleII')
 
 
-def construct_surl(dsn, filename, naming_convention=None):
+def construct_surl(dsn: str, scope: str, filename: str, naming_convention: str = None) -> str:
+    """
+    Applies non-deterministic source url convention to the given replica.
+    use the naming_convention to call the actual function which will do the job.
+    Rucio administrators can potentially register additional surl generation algorithms,
+    which are not implemented inside this main rucio repository, so changing the
+    argument list must be done with caution.
+    """
     global _loaded_policy_modules
     if not _loaded_policy_modules:
         # on first call, register any SURL functions from the policy packages
@@ -602,7 +609,7 @@ def construct_surl(dsn, filename, naming_convention=None):
 
     if naming_convention is None or naming_convention not in _SURL_ALGORITHMS:
         naming_convention = _DEFAULT_SURL
-    return _SURL_ALGORITHMS[naming_convention](dsn, filename)
+    return _SURL_ALGORITHMS[naming_convention](dsn, scope, filename)
 
 
 def __strip_dsn(dsn):
