@@ -34,11 +34,12 @@ KEY_TYPES = ['ALL', 'COLLECTION', 'FILE', 'DERIVED']
 
 SCHEME_MAP = {'srm': ['srm', 'gsiftp'],
               'gsiftp': ['srm', 'gsiftp'],
-              'https': ['https', 'davs', 's3', 'srm+https'],
-              'davs': ['https', 'davs', 's3', 'srm+https'],
+              'https': ['https', 'davs', 's3', 'srm+https', 'cs3s'],
+              'davs': ['https', 'davs', 's3', 'srm+https', 'cs3s'],
               'root': ['root'],
               's3': ['https', 'davs', 's3', 'srm+https'],
-              'srm+https': ['https', 'davs', 's3', 'srm+https'],
+              'srm+https': ['https', 'davs', 's3', 'srm+https', 'cs3s'],
+              'cs3s': ['https', 'davs', 'srm+https', 'cs3s'],
               'scp': ['scp'],
               'rsync': ['rsync'],
               'rclone': ['rclone']}
