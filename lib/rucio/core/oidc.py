@@ -60,7 +60,7 @@ EXPECTED_OIDC_SCOPE = config_get('oidc', 'expected_scope', False, 'openid profil
 EXCHANGE_GRANT_TYPE = config_get('oidc', 'exchange_grant_type', False, 'urn:ietf:params:oauth:grant-type:token-exchange')
 REFRESH_LIFETIME_H = config_get_int('oidc', 'default_jwt_refresh_lifetime', False, 96)
 
-# Allow 2 mins of leeway in case Rucio and IdP server clocks are not perfectly synchronized 
+# Allow 2 mins of leeway in case Rucio and IdP server clocks are not perfectly synchronized
 # this affects the token issued time (a token could be issued in the future if IdP clock is ahead)
 LEEWAY_SECS = 120
 
