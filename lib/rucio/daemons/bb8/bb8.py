@@ -21,6 +21,7 @@ import functools
 import logging
 import socket
 import threading
+from typing import TYPE_CHECKING
 
 from rucio.common.config import config_get_float
 from rucio.common.exception import InvalidRSEExpression
@@ -32,17 +33,20 @@ from rucio.daemons.bb8.common import rebalance_rse, get_active_locks
 from rucio.daemons.common import run_daemon
 
 
+if TYPE_CHECKING:
+    from rucio.daemons.common import HeartbeatHandler
+
 graceful_stop = threading.Event()
 
 
 def rule_rebalancer(
-    rse_expression,
-    move_subscriptions=False,
-    use_dump=False,
-    sleep_time=300,
-    once=True,
-    dry_run=False,
-):
+    rse_expression: str,
+    move_subscriptions: bool = False,
+    use_dump: bool = False,
+    sleep_time: int = 300,
+    once: bool = True,
+    dry_run: bool = False,
+) -> None:
     """
     Create a rule_rebalancer worker
 
@@ -71,8 +75,13 @@ def rule_rebalancer(
 
 
 def run_once(
-    heartbeat_handler, rse_expression, move_subscriptions, use_dump, dry_run, **_kwargs
-):
+    heartbeat_handler: "HeartbeatHandler",
+    rse_expression: str,
+    move_subscriptions: bool,
+    use_dump: bool,
+    dry_run: bool,
+    **_kwargs
+) -> bool:
 
     must_sleep = False
     total_rebalance_volume = 0
@@ -311,14 +320,14 @@ def stop(signum=None, frame=None):
 
 
 def run(
-    once,
-    rse_expression,
-    move_subscriptions=False,
-    use_dump=False,
-    sleep_time=300,
-    threads=1,
-    dry_run=False,
-):
+    once: bool,
+    rse_expression: str,
+    move_subscriptions: bool = False,
+    use_dump: bool = False,
+    sleep_time: int = 300,
+    threads: int = 1,
+    dry_run: bool = False,
+) -> None:
     """
     Starts up the BB8 rebalancing threads.
     """
