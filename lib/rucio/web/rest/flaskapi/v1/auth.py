@@ -403,11 +403,11 @@ class TokenOIDC(ErrorHandlingMethodView):
                 headers.set('Content-Type', 'text/html')
                 return render_template('auth_crash.html', crashtype='unknown_identity'), 401, headers
             # domain setting is necessary so that the token gets distributed also to the webui server
-            domain = '.'.join(urlparse(webhome).netloc.split('.')[1:])
+            # domain = '.'.join(urlparse(webhome).netloc.split('.')[1:])
             response = redirect(webhome, code=303)
             response.headers.extend(headers)
-            response.set_cookie('x-rucio-auth-token', value=result['token']['token'], domain=domain, path='/')
-            response.set_cookie('rucio-auth-token-created-at', value=str(time.time()), domain=domain, path='/')
+            response.set_cookie('x-rucio-auth-token', value=result['token']['token'])
+            response.set_cookie('rucio-auth-token-created-at', value=str(time.time()))
             return response
         else:
             return '', 400, headers
