@@ -14,13 +14,12 @@
 # limitations under the License.
 
 import json
-from configparser import NoOptionError, NoSectionError
 
 from sqlalchemy import or_, delete, update
 from sqlalchemy.exc import IntegrityError
 
-from rucio.common.constants import SUPPORTED_SERVICES, MAX_MESSAGE_LENGTH
-from rucio.common.config import config_get
+from rucio.common.constants import HermesSupportedServices, MAX_MESSAGE_LENGTH
+from rucio.common.config import config_get_list
 from rucio.common.exception import InvalidObject, RucioException
 from rucio.common.utils import APIEncoder
 from rucio.db.sqla import filter_thread_work
@@ -40,19 +39,15 @@ def add_message(event_type, payload, session=None):
     :param session: The database session to use.
     """
     try:
-        services_list = config_get('hermes', 'services_list')
-    except (NoOptionError, NoSectionError, RuntimeError):
-        services_list = 'activemq,email'
-    try:
         payload = json.dumps(payload, cls=APIEncoder)
     except TypeError as err:  # noqa: F841
         raise InvalidObject('Invalid JSON for payload: %(err)s' % locals())
 
-    services = services_list.split(',')
-    for service in services:
-        service.strip(' ')
-        if service not in SUPPORTED_SERVICES:
-            raise RucioException('Unsupported service type (%s)  for messages' % service)
+    for service in config_get_list('hermes', 'services_list', raise_exception=False, default=['activemq', 'email'], session=session):
+        try:
+            HermesSupportedServices(service.upper())
+        except ValueError as err:
+            raise RucioException(str(err))
         if event_type == 'email' and service != 'email':
             continue
         if service == 'email' and event_type != 'email':
