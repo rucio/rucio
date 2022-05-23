@@ -89,7 +89,7 @@ class TestHeartbeat(unittest.TestCase):
         pids = [self.__pid() for _ in range(3)]
         assert live('test0', 'host0', pids[0]) == {'assign_thread': 0, 'nr_threads': 1}
         assert live('test0', 'host1', pids[1]) == {'assign_thread': 1, 'nr_threads': 2}
-        assert live('test0', 'host0', pids[2]) == {'assign_thread': 0, 'nr_threads': 3}
+        assert live('test0', 'host0', pids[0]) == {'assign_thread': 0, 'nr_threads': 2}
 
     def test_heartbeat_payload(self):
         """ HEARTBEAT (CORE): Test heartbeat with payload"""
