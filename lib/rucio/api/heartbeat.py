@@ -37,7 +37,7 @@ def list_heartbeats(issuer=None, vo='def', session=None):
 
 
 @transactional_session
-def create_heartbeat(executable, hostname, pid, thread, older_than, payload, issuer=None, vo='def', session=None):
+def create_heartbeat(executable, hostname, pid, older_than, payload, thread=None, issuer=None, vo='def', session=None):
     """
     Creates a heartbeat.
     :param issuer: The issuer account.
