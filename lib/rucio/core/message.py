@@ -43,7 +43,7 @@ def add_message(event_type, payload, session=None):
     except TypeError as err:  # noqa: F841
         raise InvalidObject('Invalid JSON for payload: %(err)s' % locals())
 
-    for service in config_get_list('hermes', 'services_list', raise_exception=False, default=['activemq', 'email'], session=session):
+    for service in config_get_list('hermes', 'services_list', raise_exception=False, default='activemq,email', session=session):
         try:
             HermesSupportedServices(service.upper())
         except ValueError as err:

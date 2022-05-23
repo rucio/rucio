@@ -29,6 +29,7 @@ import socket
 import sys
 import threading
 import time
+from typing import TYPE_CHECKING
 from configparser import NoOptionError, NoSectionError
 from email.mime.text import MIMEText
 
@@ -47,6 +48,10 @@ from rucio.common.logging import setup_logging
 from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import MultiCounter
 from rucio.daemons.common import run_daemon
+
+if TYPE_CHECKING:
+    from typing import Callable, List, Dict
+    from rucio.daemons.common import HeartbeatHandler
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
@@ -83,7 +88,7 @@ class HermesListener(stomp.ConnectionListener):
         logging.error("[broker] [%s]: %s", self.__broker, frame.body)
 
 
-def setup_activemq(logger):
+def setup_activemq(logger: "Callable"):
     """
     Deliver messages to ActiveMQ
 
@@ -308,7 +313,7 @@ def deliver_to_activemq(
     return to_delete
 
 
-def deliver_emails(messages, logger):
+def deliver_emails(messages: "List[Dict]", logger: "Callable") -> "List":
     """
     Sends emails
 
@@ -347,7 +352,7 @@ def deliver_emails(messages, logger):
     return to_delete
 
 
-def submit_to_elastic(messages, endpoint, logger):
+def submit_to_elastic(messages: "List[Dict]", endpoint: str, logger: "Callable") -> int:
     """
     Aggregate a list of message to ElasticSearch
 
@@ -366,7 +371,9 @@ def submit_to_elastic(messages, endpoint, logger):
     return res.status_code
 
 
-def aggregate_to_influx(messages, bin_size, endpoint, logger):
+def aggregate_to_influx(
+    messages: "List[Dict]", bin_size: int, endpoint: str, logger: "Callable"
+) -> int:
     """
     Aggregate a list of message using a certain bin_size
     and submit them to a InfluxDB endpoint
@@ -472,7 +479,7 @@ def aggregate_to_influx(messages, bin_size, endpoint, logger):
     return 204
 
 
-def hermes2(once=False, bulk=1000, sleep_time=10):
+def hermes2(once: bool = False, bulk: int = 1000, sleep_time: int = 10) -> None:
     """
     Creates a Hermes2 Worker that can submit messages to different services (InfluXDB, ElasticSearch, ActiveMQ)
     The list of services need to be define in the config service in the hermes section.
@@ -496,7 +503,7 @@ def hermes2(once=False, bulk=1000, sleep_time=10):
     )
 
 
-def run_once(heartbeat_handler, bulk, **_kwargs):
+def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> bool:
 
     worker_number, total_workers, logger = heartbeat_handler.live()
     try:
@@ -689,7 +696,13 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, threads=1, bulk=1000, sleep_time=10, broker_timeout=3):
+def run(
+    once: bool = False,
+    threads: int = 1,
+    bulk: int = 1000,
+    sleep_time: int = 10,
+    broker_timeout: int = 3,
+) -> None:
     """
     Starts up the hermes2 threads.
     """

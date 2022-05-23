@@ -268,13 +268,19 @@ def config_get_list(section, option, raise_exception=True, default=None, check_c
     from rucio.common.utils import is_client
     client_mode = is_client()
     try:
-        return get_config().get(section, option)
+        res = get_config().get(section, option)
+        if isinstance(res, list):
+            return res
+        return __convert_string_to_list(res)
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
         if not client_mode and check_config_table:
             try:
-                return __convert_string_to_list(__config_get_table(section=section, option=option, raise_exception=raise_exception,
-                                                                   default=default, session=session, use_cache=use_cache,
-                                                                   expiration_time=expiration_time))
+                res = __config_get_table(section=section, option=option, raise_exception=raise_exception,
+                                         default=default, session=session, use_cache=use_cache,
+                                         expiration_time=expiration_time)
+                if isinstance(res, list):
+                    return res
+                return __convert_string_to_list(res)
             except (ConfigNotFound, DatabaseException, ImportError):
                 raise err
             except ValueError as err_:
@@ -283,6 +289,8 @@ def config_get_list(section, option, raise_exception=True, default=None, check_c
             if raise_exception and default is None:
                 raise err
             try:
+                if isinstance(default, list):
+                    return default
                 return __convert_string_to_list(default)
             except ValueError as err_:
                 raise err_
