@@ -57,6 +57,8 @@ from rucio.daemons.common import run_daemon
 
 graceful_stop = threading.Event()
 
+RULES_COMMENT_LENGTH = 255
+
 
 def _retrial(func, *args, **kwargs):
     """
@@ -357,7 +359,7 @@ def run_once(heartbeat_handler, bulk, **_kwargs):
                             else:
                                 purge_replicas = False
                             rse_expression = str(rule_dict["rse_expression"])
-                            comment = str(subscription["comments"])
+                            comment = str(subscription["comments"])[:RULES_COMMENT_LENGTH]
                             if "comments" in rule_dict:
                                 comment = str(rule_dict["comments"])
                             subscription_id = str(subscription["id"])
