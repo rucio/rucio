@@ -23,6 +23,7 @@ from json import loads
 from math import exp
 from sys import exc_info
 from traceback import format_exception
+from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.db.sqla.constants import DIDType, SubscriptionState
@@ -54,6 +55,9 @@ from rucio.core.rse_selector import resolve_rse_expression
 from rucio.core.rule import add_rule, list_rules, get_rule
 from rucio.core.subscription import list_subscriptions, update_subscription
 from rucio.daemons.common import run_daemon
+
+if TYPE_CHECKING:
+    from rucio.daemons.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
 
@@ -217,7 +221,7 @@ def select_algorithm(algorithm, rule_ids, params):
     return selected_rses
 
 
-def transmogrifier(bulk=5, once=False, sleep_time=60):
+def transmogrifier(bulk: int = 5, once: bool = False, sleep_time: int = 60) -> None:
     """
     Creates a Transmogrifier Worker that gets a list of new DIDs for a given hash,
     identifies the subscriptions matching the DIDs and
@@ -241,7 +245,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
     )
 
 
-def run_once(heartbeat_handler, bulk, **_kwargs):
+def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> bool:
 
     worker_number, total_workers, logger = heartbeat_handler.live()
     dids, subscriptions = [], []
@@ -359,7 +363,9 @@ def run_once(heartbeat_handler, bulk, **_kwargs):
                             else:
                                 purge_replicas = False
                             rse_expression = str(rule_dict["rse_expression"])
-                            comment = str(subscription["comments"])[:RULES_COMMENT_LENGTH]
+                            comment = str(subscription["comments"])[
+                                :RULES_COMMENT_LENGTH
+                            ]
                             if "comments" in rule_dict:
                                 comment = str(rule_dict["comments"])
                             subscription_id = str(subscription["id"])
@@ -682,7 +688,9 @@ def run_once(heartbeat_handler, bulk, **_kwargs):
     return must_sleep
 
 
-def run(threads=1, bulk=100, once=False, sleep_time=60):
+def run(
+    threads: int = 1, bulk: int = 100, once: bool = False, sleep_time: int = 60
+) -> None:
     """
     Starts up the transmogrifier threads.
     """
