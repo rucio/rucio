@@ -66,7 +66,9 @@ jobs:
           if echo '{}' | "${{ steps.files.outputs.build_images }}" --version-test 2; then
             # new --branch option not available in older build_images.py revisions
             BUILD_ARGS=("${BUILD_ARGS[@]}" "--branch" "${{ matrix.branch }}")
-          elif [[ "${{ matrix.branch }}" != "master" ]]; then
+          fi
+          if [[ "${{ matrix.branch }}" != "master" ]]; then
+            # The image tag is the same for the different rucio versions. This if ensures, that only the master gets builded. rucio#5572
             echo "::warning::Not building image for branch ${{ matrix.branch }}, because it would overwrite master"
             exit 0
           fi
@@ -134,7 +136,9 @@ jobs:
           if echo '{}' | "${{ steps.files.outputs.build_images }}" --version-test 2; then
             # new --branch option not available in older build_images.py revisions
             BUILD_ARGS=("${BUILD_ARGS[@]}" "--branch" "${{ matrix.branch }}")
-          elif [[ "${{ matrix.branch }}" != "master" ]]; then
+          fi
+          if [[ "${{ matrix.branch }}" != "master" ]]; then
+            # The image tag is the same for the different rucio versions. This if ensures, that only the master gets builded. rucio#5572
             echo "::warning::Not building image for branch ${{ matrix.branch }}, because it would overwrite master"
             exit 0
           fi
