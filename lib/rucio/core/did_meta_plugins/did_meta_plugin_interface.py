@@ -114,3 +114,15 @@ class DidMetaPlugin(object, metaclass=ABCMeta):
         :returns (Boolean)
         """
         pass
+
+    @abstractmethod
+    def on_delete(self, scope, name, archive=False, session=None):
+        """
+        Method to be called when DID is deleted
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param archive: Boolean to choose if the metadata must be archive when DID is deleted.
+        :param session: The database session in use.
+        """
+        pass
