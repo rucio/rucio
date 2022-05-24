@@ -3813,7 +3813,7 @@ def get_replicas_state(scope=None, name=None, session=None):
 
 
 @read_session
-def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logger=logging.log, younger_than=10, nattempts=0, session=None, exclude_states=['B', 'R', 'D'], is_suspicious=False):
+def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logger=logging.log, younger_than=10, nattempts=0, nattempts_exact=False, session=None, exclude_states=['B', 'R', 'D'], is_suspicious=False):
     """
     Gets a list of replicas from bad_replicas table which are: declared more than <nattempts> times since <younger_than> date,
     present on the RSE specified by the <rse_expression> and do not have a state in <exclude_states> list.
@@ -3822,6 +3822,7 @@ def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logg
     Keyword Arguments:
     :param younger_than: Datetime object to select the replicas which were declared since younger_than date. Default value = 10 days ago.
     :param nattempts: The minimum number of replica appearances in the bad_replica DB table from younger_than date. Default value = 0.
+    :param nattempts_exact: If True, then only replicas with exactly 'nattempts' appearences in the bad_replica DB table are retrieved. Replicas with more appearences are ignored.
     :param rse_expression: The RSE expression where the replicas are located.
     :param filter_: Dictionary of attributes by which the RSE results should be filtered. e.g.: {'availability_write': True}
     :param exclude_states: List of states which eliminates replicas from search result if any of the states in the list
@@ -3908,8 +3909,13 @@ def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logg
     query = query.filter(not_(other_states_present))
 
     # finally, the results are grouped by RSE, scope, name and required to have
-    # at least 'nattempts' occurrences in the result of the query per replica
-    query_result = query.group_by(models.RSEFileAssociation.rse_id, bad_replicas_alias.scope, bad_replicas_alias.name).having(func.count() > nattempts).all()
+    # at least 'nattempts' occurrences in the result of the query per replica.
+    # If nattempts_exact, then only replicas are required to have exactly
+    # 'nattempts' occurences.
+    if nattempts_exact:
+        query_result = query.group_by(models.RSEFileAssociation.rse_id, bad_replicas_alias.scope, bad_replicas_alias.name).having(func.count() == nattempts).all()
+    else:
+        query_result = query.group_by(models.RSEFileAssociation.rse_id, bad_replicas_alias.scope, bad_replicas_alias.name).having(func.count() > nattempts).all()
 
     # translating the rse_id to RSE name and assembling the return list of dictionaries
     result = []

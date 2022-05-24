@@ -97,12 +97,13 @@ class TestReplicaRecoverer(unittest.TestCase):
         # tmp_file1    available                                suspicious (available)
         # tmp_file2    available                                suspicious + bad (unavailable)
         # tmp_file3    unavailable                              suspicious (available)                      RAW
-        # tmp_file4    unavailable                              suspicious (available)                      testtypedeclarebad
+        # tmp_file4    unavailable                              suspicious (unavailable)                    testtypedeclarebad
         # tmp_file5    unavailable                              suspicious (available)                      testtypenopolicy
         # ----------------------------------------------------------------------------------------------------------------------------------
 
         for replica in replicalist:
             suspicious_pfns = replica['rses'][self.rse4suspicious_id]
+            #  Declare each file as suspicious multiple times, except for tmp_file6
             for i in range(3):
                 print("Declaring suspicious file replica: " + suspicious_pfns[0])
                 # The reason must contain the word "checksum", so that the replica can be declared bad.
@@ -142,7 +143,7 @@ class TestReplicaRecoverer(unittest.TestCase):
                 assert replica['states'][self.rse4suspicious_id] == 'AVAILABLE'
                 assert (self.rse4recovery_id in replica['states']) is False
 
-        # Checking if only self.tmp_file2 is declared as 'BAD'
+        # Checking if self.tmp_file2 and self.tmp_file6 were declared as 'BAD'
         self.from_date = datetime.now() - timedelta(days=1)
         bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4suspicious_id, younger_than=self.from_date, **self.vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
@@ -178,10 +179,10 @@ class TestReplicaRecoverer(unittest.TestCase):
             # ----------------------------------------------------------------------------------------------------------------------------------
             # Name         State(s) declared on rse4recovery       State(s) declared on rse4suspicious        Metadata "datatype"
             # ----------------------------------------------------------------------------------------------------------------------------------
-            # tmp_file1    available                                suspicious (available)
+            # tmp_file1    available                                suspicious (unavailable)
             # tmp_file2    available                                suspicious + bad (unavailable)
             # tmp_file3    unavailable                              suspicious (available)                      RAW
-            # tmp_file4    unavailable                              suspicious (available)                      testtypedeclare_bad
+            # tmp_file4    unavailable                              suspicious (available)                      testtypedeclarebad
             # tmp_file5    unavailable                              suspicious (available)                      testtypenopolicy
             # ----------------------------------------------------------------------------------------------------------------------------------
 
@@ -196,26 +197,25 @@ class TestReplicaRecoverer(unittest.TestCase):
 
             Concluding:
 
-            - checks that tmp_file1 and tmp_file4 were declared as 'BAD' on rse4suspicious
+            - checks that tmp_file1, tmp_file4 and tmp_file6 were declared as 'BAD' on rse4suspicious
 
         """
 
-        # Run replica recoverer once
         try:
             run(once=True, younger_than=1, nattempts=2, limit_suspicious_files_on_rse=5, sleep_time=0, active_mode=True)
         except KeyboardInterrupt:
             stop()
 
         # Checking the outcome:
-        # we expect to see only one change, i.e. tmp_file1 declared as bad on rse4suspicious
+        # We expect to see three changes: tmp_file1 and tmp_file4 should be declared as bad on rse4suspicious
         # ----------------------------------------------------------------------------------------------------------------------------------
         # Name         State(s) declared on rse4recovery       State(s) declared on rse4suspicious        Metadata "datatype"
         # ----------------------------------------------------------------------------------------------------------------------------------
         # tmp_file1    available                                suspicious + bad (unavailable)
         # tmp_file2    available                                suspicious + bad (unavailable)
         # tmp_file3    unavailable                              suspicious (available)                      RAW
-        # tmp_file4    unavailable                              suspicious + bad (unvailable)               test_type_declare_bad
-        # tmp_file5    unavailable                              suspicious (available)                      test_type_ignore
+        # tmp_file4    unavailable                              suspicious + bad (unavailable)              testtypedeclarebad
+        # tmp_file5    unavailable                              suspicious (available)                      testtypenopolicy
         # ----------------------------------------------------------------------------------------------------------------------------------
 
         # Gather replica info after replica_recoverer has run.
@@ -235,7 +235,7 @@ class TestReplicaRecoverer(unittest.TestCase):
                 assert replica['states'][self.rse4suspicious_id] == 'AVAILABLE'
                 assert (self.rse4recovery_id in replica['states']) is False
 
-        # Checking if replicas declared as 'BAD'
+        # Checking if replicas were declared as 'BAD'
         bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4suspicious_id, younger_than=self.from_date, **self.vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
 
