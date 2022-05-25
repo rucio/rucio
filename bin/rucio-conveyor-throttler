@@ -87,7 +87,7 @@ Check transfer requests::
 
 Finally one of the transfer requests got put in the queue and can be picked up by the Conyevor-Submitter daemon to submit the transfer job to the transfertool.
 The other request will have to wait until one of the queued requests is done or until the transfer limit changes.
-''')
+''', formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False,
                         help='One iteration only')
     parser.add_argument('--sleep-time', action="store", default=600, type=int,

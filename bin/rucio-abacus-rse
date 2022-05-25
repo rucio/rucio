@@ -60,7 +60,7 @@ Check RSE usage again::
       updated_at: 2018-12-03 08:58:33
       source: rucio
   ------
-''')
+''', formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads on this process')
     parser.add_argument("--enable-history", action="store_true", default=False, help='Record RSE usage into history table every hour.')

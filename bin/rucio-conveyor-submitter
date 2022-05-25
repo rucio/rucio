@@ -78,7 +78,7 @@ Note that attempting the use the ``--vos`` argument when in single-VO mode will 
   $ rucio-conveyor-submitter --run-once --vos abc xyz
   2020-07-29 13:39:37,263 5752    INFO    RSE selection: automatic
   2020-07-29 13:39:37,264 5752    INFO    starting submitter threads
-    ''')
+    ''', formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False,
                         help='One iteration only')
     parser.add_argument("--total-threads", action="store", default=1, type=int,

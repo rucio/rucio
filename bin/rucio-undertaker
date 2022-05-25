@@ -57,7 +57,7 @@ Check if the DID exists::
   | SCOPE:NAME   | [DID TYPE]   |
   |--------------+--------------|
   +--------------+--------------+
-    ''')
+''', formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--total-workers", action="store", default=1, type=int, help='Total number of workers')
     parser.add_argument("--chunk-size", action="store", default=5, type=int, help='Chunk size')

@@ -73,7 +73,7 @@ Check the replication rules and the replicas::
   session.get_session().query(models.RSEFileAssociation).filter_by(name='file', scope='mock', rse_id=rse_id).first().lock_cnt // 0
 
 The rule we created before was deleted and the replica of the file on RSE MOCK2 got a tombstone because there is no protecting rule anymore.
-    ''')
+    ''', formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads on this process')
     parser.add_argument('--sleep-time', action="store", default=60, type=int, help='Concurrency control: thread sleep time after each chunk of work')
