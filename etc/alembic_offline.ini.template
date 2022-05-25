@@ -18,8 +18,8 @@
 # Choose one of the databases+schema below
 # Oracle, PostgreSQL, MySQL/MariaDB are fully supported
 
-sqlalchemy.url=oracle://user:pass@servicename
-version_table_schema=rucio
+#sqlalchemy.url=oracle://user:pass@servicename
+#version_table_schema=rucio
 
 #sqlalchemy.url=postgresql://rucio:rucio@psql-hostname:5432/rucio
 #version_table_schema=rucio
@@ -27,10 +27,13 @@ version_table_schema=rucio
 #sqlalchemy.url=mysql+pymysql://rucio:rucio@rucio-hostname:3306/rucio
 #version_table_schema=rucio
 
-# SQLite doesn't support our migrations
-# Only enable it to correctly skip the alembic unittests on SQLite
-default = sqlite:////tmp/rucio.db
-version_table_schema=rucio
+# Select DB dialect for offline mode migration, options: [sqlite, mysql, postgresql, oracle]
+# If this option is specified, sqlalchemy.url is not needed
+dialect=postgresql
+
+# Specify starting revision for offline mode migration
+# If this is not specified, alembic will produce SQL statements for all revisions
+starting_rev=
 
 # Do not modify this
 script_location = lib/rucio/db/sqla/migrate_repo/
