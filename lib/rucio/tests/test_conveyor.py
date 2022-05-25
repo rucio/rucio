@@ -38,6 +38,7 @@ from rucio.daemons.conveyor.submitter import submitter
 from rucio.daemons.conveyor.stager import stager
 from rucio.daemons.conveyor.throttler import throttler
 from rucio.daemons.conveyor.receiver import receiver, graceful_stop as receiver_graceful_stop
+from rucio.daemons.judge.evaluator import re_evaluator as judge_evaluator
 from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, RSEType
@@ -736,6 +737,123 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
 
     replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=2 * MAX_POLL_WAIT_SECONDS, **did)
     assert replica['state'] == ReplicaState.AVAILABLE
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+def test_qos_transfer_tape_replica_no_disk_replica(rse_factory, did_factory, root_account, replica_client):
+    """
+    Test qos rse: validate that rse maximum_pin_lifetime is passed to transfer tool in the transfer request
+    Submit a real transfer to FTS and rely on the gfal "mock" plugin to report a simulated "success"
+    https://gitlab.cern.ch/dmc/gfal2/-/blob/master/src/plugins/mock/README_PLUGIN_MOCK
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    all_rses = [src_rse_id, dst_rse_id]
+
+    maximum_pin_lifetime = 86400
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
+    rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+
+    did = did_factory.upload_test_file(src_rse)
+    replica = replica_core.get_replica(rse_id=src_rse_id, **did)
+
+    replica_client.add_replicas(rse=dst_rse, files=[{'scope': did['scope'].external, 'name': did['name'], 'state': 'C',
+                                                     'bytes': replica['bytes'], 'adler32': replica['adler32'], 'md5': replica['md5']}])
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    qos_request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert qos_request['attributes']['lifetime'] == str(maximum_pin_lifetime)
+
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+    replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=2 * MAX_POLL_WAIT_SECONDS, **did)
+    assert replica['state'] == ReplicaState.AVAILABLE
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+def test_qos_transfer_with_missing_tape_replica(rse_factory, did_factory, did_client, root_account, replica_client):
+    """
+    Test qos rse with missing tape replica
+    Submit a real transfer to FTS and rely on the gfal "mock" plugin to report a simulated "success"
+    https://gitlab.cern.ch/dmc/gfal2/-/blob/master/src/plugins/mock/README_PLUGIN_MOCK
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    rse_with_replica, rse_with_replica_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    all_rses = [src_rse_id, dst_rse_id, rse_with_replica_id]
+
+    maximum_pin_lifetime = 86400
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    distance_core.add_distance(rse_with_replica_id, dst_rse_id, ranking=9)
+    rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
+    rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+
+    did = did_factory.upload_test_file(rse_with_replica)
+    replica = replica_core.get_replica(rse_id=rse_with_replica_id, **did)
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+    qos_request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert qos_request['attributes']['lifetime'] == str(maximum_pin_lifetime)
+
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+    replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=2 * MAX_POLL_WAIT_SECONDS, **did)
+    assert replica['state'] == ReplicaState.AVAILABLE
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+def test_qos_transfer_with_existing_disk_replica_and_rule(rse_factory, did_factory, root_account, replica_client):
+    """
+    Test qos rse with existing replicas and rules: ensure other rules don't transition to STUCK because new qos rule fails
+    Submit a real transfer to FTS and rely on the gfal "mock" plugin to report a simulated "success"
+    https://gitlab.cern.ch/dmc/gfal2/-/blob/master/src/plugins/mock/README_PLUGIN_MOCK
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    previous_rse, previous_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    all_rses = [src_rse_id, dst_rse_id]
+
+    maximum_pin_lifetime = 86400
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    distance_core.add_distance(src_rse_id, previous_rse_id, ranking=10)
+    rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
+    rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+
+    did = did_factory.upload_test_file(src_rse)
+    did_factory.upload_test_file(rse_name=previous_rse, scope=did['scope'].external, name=did['name'], path=did['path'])
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=previous_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+    replica = replica_core.get_replica(rse_id=src_rse_id, **did)
+
+    replica_client.add_replicas(rse=dst_rse, files=[{'scope': did['scope'].external, 'name': did['name'], 'state': 'C',
+                                                     'bytes': replica['bytes'], 'adler32': replica['adler32'], 'md5': replica['md5']}])
+    replica_client.add_replicas(rse=src_rse, files=[{'scope': did['scope'].external, 'name': did['name'], 'state': 'C',
+                                                     'bytes': replica['bytes'], 'adler32': replica['adler32'], 'md5': replica['md5']}])
+    replica_client.add_replicas(rse=previous_rse, files=[{'scope': did['scope'].external, 'name': did['name'], 'state': 'C',
+                                                          'bytes': replica['bytes'], 'adler32': replica['adler32'], 'md5': replica['md5']}])
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+    judge_evaluator(once=True)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+    replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=2 * MAX_POLL_WAIT_SECONDS, **did)
+    assert replica['state'] == ReplicaState.AVAILABLE
+
+    qos_request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert qos_request['attributes']['lifetime'] == str(maximum_pin_lifetime)
 
 
 @skip_rse_tests_with_accounts
