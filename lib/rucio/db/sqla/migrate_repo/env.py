@@ -44,7 +44,7 @@ def run_migrations_offline():
     """
     Run migrations in 'offline' mode.
 
-    This configures the context with just a URL
+    This configures the context with just a URL/dialect
     and not an Engine, though an Engine is acceptable
     here as well.  By skipping the Engine creation
     we don't even need a DBAPI to be available.
@@ -53,14 +53,22 @@ def run_migrations_offline():
     script output.
     """
 
+    # try getting url & version_table_schema
     url = config.get_main_option("sqlalchemy.url")
-
     version_table_schema = config.get_main_option("version_table_schema")
+
+    # try getting dialect in case URL has not been specified
+    dialect = config.get_main_option("dialect")
+
+    # try getting starting revision
+    starting_rev = config.get_main_option("starting_rev")
 
     context.configure(
         url=url,
-        target_metadata=target_metadata,
         version_table_schema=version_table_schema,
+        dialect_name=dialect,
+        starting_rev=starting_rev,
+        target_metadata=target_metadata,
         literal_binds=True,
         include_schemas=True)
 
