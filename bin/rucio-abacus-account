@@ -54,7 +54,7 @@ Check account usage again::
   | MOCK  | 211.724 kB | 0.000 B | 0.000 B      |
   +-------+------------+---------+--------------+
 
-    ''')
+    ''', formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads on this process')
     parser.add_argument("--enable-history", action="store_true", default=False, help='Record account usage into history table every hour.')

@@ -34,7 +34,7 @@ def get_parser():
     parser = argparse.ArgumentParser(description="The Consistency-Actions daemon is responsible for applying the corrective actions resulting from a consistency-check scan of an RSE.", epilog='''
 Run the daemon::
   $ rucio-storage-consistency-actions --run-once --scope cms --rses T2_US_Purdue T2_US_Nebraska --dark-threshold-percent 2.0 --miss-threshold-percent 1.5 --scanner-files-path /tmp/consistency-dump --sleep-time 10
-    ''')
+''', formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--scope", action="store", default=False, type=str,
                         help='Scope of the input files produced by theiCC scanner - e.g.: "cms" ')

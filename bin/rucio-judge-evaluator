@@ -119,7 +119,7 @@ Check the replicas for the DID mock:file::
 The DID mock:file has now two replicas with one lock each.
 As the file replica is attached to the dataset and the rule for the dataset specifies another RSE MOCK instead of the upload RSE, it has to be replicated to this RSE.
 Therefor a second replica in state COPYING got created on RSE MOCK.
-    ''')
+    ''', formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads for this process')
     parser.add_argument('--sleep-time', action="store", default=30, type=int, help='Concurrency control: thread sleep time after each chunk of work')

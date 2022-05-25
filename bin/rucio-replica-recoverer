@@ -30,7 +30,6 @@ def get_parser():
     Returns the argparse parser.
     """
     parser = argparse.ArgumentParser(description='''
-
 Replica-Recoverer is a daemon that declares suspicious replicas
 that are available on other RSE as bad. Consequently, automatic
 replica recovery is triggered via necromancer daemon,
@@ -228,7 +227,7 @@ Note that attempting the use the ``--vos`` argument when in single-VO mode will 
 
   $ rucio-replica-recoverer --run-once --vos abc xyz
   2020-07-28 15:21:33,349 5488    WARNING Ignoring argument vos, this is only applicable in a multi-VO setup.
-''')  # NOQA: E501
+''', formatter_class=argparse.RawDescriptionHelpFormatter)  # NOQA: E501
     parser.add_argument("--nattempts", action="store", default=10, help='Minimum count of suspicious file replica appearance in bad_replicas table. Default value is 10.')
     parser.add_argument("--younger-than", action="store", default=3, help='Consider all file replicas logged in bad_replicas table since speicified number of younger-than days. Default value is 3.')
     parser.add_argument('--vos', nargs='+', type=str, help='Optional list of VOs to consider. Only used in multi-VO mode.')
