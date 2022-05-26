@@ -697,7 +697,7 @@ def test_non_deterministic_dst(did_factory, did_client, root_account, vo, caches
         rse_core.update_rse(rse_id=dst_rse_id, parameters={'deterministic': True})
 
 
-@skip_rse_tests_with_accounts
+#@skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs stager; poller and finisher")
 def test_stager(rse_factory, did_factory, root_account, replica_client):
     """
@@ -739,7 +739,7 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
     assert replica['state'] == ReplicaState.AVAILABLE
 
 
-@skip_rse_tests_with_accounts
+# @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_qos_transfer_tape_replica_no_disk_replica(rse_factory, did_factory, root_account, replica_client):
     """
@@ -747,7 +747,7 @@ def test_qos_transfer_tape_replica_no_disk_replica(rse_factory, did_factory, roo
     Submit a real transfer to FTS and rely on the gfal "mock" plugin to report a simulated "success"
     https://gitlab.cern.ch/dmc/gfal2/-/blob/master/src/plugins/mock/README_PLUGIN_MOCK
     """
-    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
+    src_rse , src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
     dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
     all_rses = [src_rse_id, dst_rse_id]
 
@@ -769,13 +769,14 @@ def test_qos_transfer_tape_replica_no_disk_replica(rse_factory, did_factory, roo
     qos_request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
     assert qos_request['attributes']['lifetime'] == str(maximum_pin_lifetime)
 
-    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertype='single', filter_transfertool=None)
+    judge_evaluator(once=True)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
 
     replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=2 * MAX_POLL_WAIT_SECONDS, **did)
     assert replica['state'] == ReplicaState.AVAILABLE
 
 
-@skip_rse_tests_with_accounts
+# @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_qos_transfer_with_missing_tape_replica(rse_factory, did_factory, did_client, root_account, replica_client):
     """
@@ -810,7 +811,7 @@ def test_qos_transfer_with_missing_tape_replica(rse_factory, did_factory, did_cl
     assert replica['state'] == ReplicaState.AVAILABLE
 
 
-@skip_rse_tests_with_accounts
+# @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_qos_transfer_with_existing_disk_replica_and_rule(rse_factory, did_factory, root_account, replica_client):
     """

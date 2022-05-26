@@ -851,7 +851,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
         logger(logging.INFO, f'Destination RSE {rse_name} is type QoS. Creating transfer dict.')
         lifetime = maximum_pin_lifetime
         transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
-                                                        request_type=RequestType.STAGEIN,
+                                                        request_type=RequestType.TRANSFER,
                                                         scope=file['scope'],
                                                         name=file['name'],
                                                         rule=rule,
