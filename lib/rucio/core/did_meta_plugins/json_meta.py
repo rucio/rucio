@@ -164,7 +164,7 @@ class JSONDidMeta(DidMetaPlugin):
         :param session: The database session in use.
         """
         if not json_implemented(session=session):
-            raise NotImplementedError
+            return
 
         if archive:
             for row in session.query(models.DidMeta).filter_by(scope=scope, name=name).all():
@@ -264,3 +264,22 @@ class JSONDidMeta(DidMetaPlugin):
         :returns: The name of the plugin.
         """
         return self.plugin_name
+
+    @read_session
+    def get_metadata_archived(self, scope, name, session=None):
+        """
+        Get data identifier metadata (JSON)
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param session: The database session in use.
+        """
+        if not json_implemented(session=session):
+            raise NotImplementedError
+
+        try:
+            row = session.query(models.DeletedDidMeta).filter_by(scope=scope, name=name).one()
+            meta = getattr(row, 'meta')
+            return json_lib.loads(meta) if session.bind.dialect.name in ['oracle', 'sqlite'] else meta
+        except NoResultFound:
+            raise exception.DataIdentifierNotFound("No generic metadata found for '%(scope)s:%(name)s'" % locals())

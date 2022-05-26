@@ -37,6 +37,8 @@ skip_multivo = pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] 
                                   reason="does not work for multiVO")
 skip_non_belleii = pytest.mark.skipif(not ('POLICY' in os.environ and os.environ['POLICY'] == 'belleii'),
                                       reason="specific belleii tests")
+skip_client = pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'client',
+                                 reason="does not work for client suite")
 
 
 def is_influxdb_available() -> bool:
@@ -242,3 +244,9 @@ def load_test_conf_file(file_name):
 
 
 RSE_namedtuple = namedtuple('RSE_namedtuple', ['name', 'id'])
+
+@skip_client
+def skip_without_json():
+    from rucio.db.sqla.util import json_implemented
+    if not json_implemented():
+        pytest.skip("JSON support is not implemented in this database")
