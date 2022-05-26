@@ -315,6 +315,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     identifiers = []
     #  Loop over all the new dids
     for did in dids:
+        _, _, logger = heartbeat_handler.live()
         did_success = True
         if did["did_type"] == str(DIDType.DATASET) or did["did_type"] == str(
             DIDType.CONTAINER
