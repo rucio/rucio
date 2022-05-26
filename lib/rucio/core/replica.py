@@ -2079,6 +2079,8 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         session.execute(stmt)
 
         # Remove DID Metadata
+        # TODO : Implement call to on_delete method
+        # archive_metadata = config_get_bool('deletion', 'archive_metadata', default=False, session=session)
         must_delete_did_meta = True
         if session.bind.dialect.name == 'oracle':
             oracle_version = int(session.connection().connection.version.split('.')[0])
@@ -2164,6 +2166,346 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         )
         session.execute(stmt)
 
+
+@transactional_session
+def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, session: "Session"):
+    """
+    Perform update of collections/archive associations/dids after the removal of their replicas
+    :param rse_id: the rse id
+    :param files: list of files whose replica got deleted
+    :param session: The database session in use.
+    """
+    parent_condition, did_condition = [], []
+    clt_replica_condition, dst_replica_condition = [], []
+    incomplete_condition, messages, clt_is_not_archive_condition, archive_contents_condition = [], [], [], []
+    for file in files:
+
+        # Schedule update of all collections containing this file and having a collection replica in the RSE
+        dst_replica_condition.append(
+            and_(models.DataIdentifierAssociation.child_scope == file['scope'],
+                 models.DataIdentifierAssociation.child_name == file['name'],
+                 exists(select(1).prefix_with("/*+ INDEX(COLLECTION_REPLICAS COLLECTION_REPLICAS_PK) */", dialect='oracle')).where(
+                     and_(models.CollectionReplica.scope == models.DataIdentifierAssociation.scope,
+                          models.CollectionReplica.name == models.DataIdentifierAssociation.name,
+                          models.CollectionReplica.rse_id == rse_id))))
+
+        # If the file doesn't have any replicas anymore, we should perform cleanups of objects
+        # related to this file. However, if the file is "lost", it's removal wasn't intentional,
+        # so we want to skip deleting the metadata here. Perform cleanups:
+
+        # 1) schedule removal of this file from all parent datasets
+        parent_condition.append(
+            and_(models.DataIdentifierAssociation.child_scope == file['scope'],
+                 models.DataIdentifierAssociation.child_name == file['name'],
+                 ~exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                     and_(models.DataIdentifier.scope == file['scope'],
+                          models.DataIdentifier.name == file['name'],
+                          models.DataIdentifier.availability == DIDAvailability.LOST)),
+                 ~exists(select(1).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
+                     and_(models.RSEFileAssociation.scope == file['scope'],
+                          models.RSEFileAssociation.name == file['name'])),
+                 ~exists(select(1).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(
+                     and_(models.ConstituentAssociation.child_scope == file['scope'],
+                          models.ConstituentAssociation.child_name == file['name']))))
+
+        # 2) schedule removal of this file from the DID table
+        did_condition.append(
+            and_(models.DataIdentifier.scope == file['scope'],
+                 models.DataIdentifier.name == file['name'],
+                 models.DataIdentifier.availability != DIDAvailability.LOST,
+                 ~exists(select(1).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
+                     and_(models.RSEFileAssociation.scope == file['scope'],
+                          models.RSEFileAssociation.name == file['name'])),
+                 ~exists(select(1).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(
+                     and_(models.ConstituentAssociation.child_scope == file['scope'],
+                          models.ConstituentAssociation.child_name == file['name']))))
+
+        # 3) if the file is an archive, schedule cleanup on the files from inside the archive
+        archive_contents_condition.append(
+            and_(models.ConstituentAssociation.scope == file['scope'],
+                 models.ConstituentAssociation.name == file['name'],
+                 ~exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                     and_(models.DataIdentifier.scope == file['scope'],
+                          models.DataIdentifier.name == file['name'],
+                          models.DataIdentifier.availability == DIDAvailability.LOST)),
+                 ~exists(select(1).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
+                     and_(models.RSEFileAssociation.scope == file['scope'],
+                          models.RSEFileAssociation.name == file['name']))))
+
+    # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
+    if dst_replica_condition:
+        for chunk in chunks(dst_replica_condition, 10):
+            query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).\
+                filter(or_(*chunk)).\
+                distinct()
+
+            for parent_scope, parent_name in query:
+                models.UpdatedCollectionReplica(scope=parent_scope,
+                                                name=parent_name,
+                                                did_type=DIDType.DATASET,
+                                                rse_id=rse_id).\
+                    save(session=session, flush=False)
+
+    # Delete did from the content for the last did
+    while parent_condition:
+        child_did_condition, tmp_parent_condition = [], []
+        for chunk in chunks(parent_condition, 10):
+
+            stmt = select(
+                models.DataIdentifierAssociation.scope,
+                models.DataIdentifierAssociation.name,
+                models.DataIdentifierAssociation.did_type,
+                models.DataIdentifierAssociation.child_scope,
+                models.DataIdentifierAssociation.child_name,
+            ).prefix_with(
+                "/*+ USE_CONCAT NO_INDEX_FFS(CONTENTS CONTENTS_PK) */",
+                dialect='oracle',
+            ).where(
+                or_(*chunk)
+            )
+            for parent_scope, parent_name, did_type, child_scope, child_name in session.execute(stmt):
+
+                # Schedule removal of child file/dataset/container from the parent dataset/container
+                child_did_condition.append(
+                    and_(models.DataIdentifierAssociation.scope == parent_scope,
+                         models.DataIdentifierAssociation.name == parent_name,
+                         models.DataIdentifierAssociation.child_scope == child_scope,
+                         models.DataIdentifierAssociation.child_name == child_name))
+
+                # Schedule setting is_archive = False on parents which don't have any children with is_archive == True anymore
+                clt_is_not_archive_condition.append(
+                    and_(models.DataIdentifierAssociation.scope == parent_scope,
+                         models.DataIdentifierAssociation.name == parent_name,
+                         exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                             and_(models.DataIdentifier.scope == models.DataIdentifierAssociation.scope,
+                                  models.DataIdentifier.name == models.DataIdentifierAssociation.name,
+                                  models.DataIdentifier.is_archive == true())),
+                         ~exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                             and_(models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
+                                  models.DataIdentifier.name == models.DataIdentifierAssociation.child_name,
+                                  models.DataIdentifier.is_archive == true()))))
+
+                # If the parent dataset/container becomes empty as a result of the child removal
+                # (it was the last children), metadata cleanup has to be done:
+                #
+                # 1) Schedule to remove the replicas of this empty collection
+                clt_replica_condition.append(
+                    and_(models.CollectionReplica.scope == parent_scope,
+                         models.CollectionReplica.name == parent_name,
+                         exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                             and_(models.DataIdentifier.scope == parent_scope,
+                                  models.DataIdentifier.name == parent_name)),
+                         ~exists(select(1).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(
+                             and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                  models.DataIdentifierAssociation.name == parent_name))))
+
+                # 2) Schedule removal of this empty collection from its own parent collections
+                tmp_parent_condition.append(
+                    and_(models.DataIdentifierAssociation.child_scope == parent_scope,
+                         models.DataIdentifierAssociation.child_name == parent_name,
+                         ~exists(select(1).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(
+                             and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                  models.DataIdentifierAssociation.name == parent_name))))
+
+                # 3) Schedule removal of the entry from the DIDs table
+                remove_open_did = config_get_bool('reaper', 'remove_open_did', default=False, session=session)
+                if remove_open_did:
+                    did_condition.append(
+                        and_(models.DataIdentifier.scope == parent_scope,
+                             models.DataIdentifier.name == parent_name,
+                             ~exists(1).where(
+                                 and_(models.DataIdentifierAssociation.child_scope == parent_scope,
+                                      models.DataIdentifierAssociation.child_name == parent_name)),
+                             ~exists(1).where(
+                                 and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                      models.DataIdentifierAssociation.name == parent_name))))
+                else:
+                    did_condition.append(
+                        and_(models.DataIdentifier.scope == parent_scope,
+                             models.DataIdentifier.name == parent_name,
+                             models.DataIdentifier.is_open == False,  # NOQA
+                             ~exists(1).where(
+                                 and_(models.DataIdentifierAssociation.child_scope == parent_scope,
+                                      models.DataIdentifierAssociation.child_name == parent_name)),
+                             ~exists(1).where(
+                                 and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                      models.DataIdentifierAssociation.name == parent_name))))
+
+        if child_did_condition:
+
+            # get the list of modified parent scope, name
+            for chunk in chunks(child_did_condition, 10):
+                modifieds = session.query(models.DataIdentifierAssociation.scope,
+                                          models.DataIdentifierAssociation.name,
+                                          models.DataIdentifierAssociation.did_type).\
+                    distinct().\
+                    with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').\
+                    filter(or_(*chunk)).\
+                    filter(exists(select(1).
+                                  prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).
+                           where(and_(models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
+                                      models.DataIdentifierAssociation.name == models.DataIdentifier.name,
+                                      or_(models.DataIdentifier.complete == true(),
+                                          models.DataIdentifier.complete is None))))
+                for parent_scope, parent_name, parent_did_type in modifieds:
+                    message = {'scope': parent_scope,
+                               'name': parent_name,
+                               'did_type': parent_did_type,
+                               'event_type': 'INCOMPLETE'}
+                    if message not in messages:
+                        messages.append(message)
+                        incomplete_condition.append(
+                            and_(models.DataIdentifier.scope == parent_scope,
+                                 models.DataIdentifier.name == parent_name,
+                                 models.DataIdentifier.did_type == parent_did_type))
+
+            for chunk in chunks(child_did_condition, 10):
+                rucio.core.did.insert_content_history(filter_=or_(*chunk), did_created_at=None, session=session)
+                session.query(models.DataIdentifierAssociation).\
+                    filter(or_(*chunk)).\
+                    delete(synchronize_session=False)
+
+        parent_condition = tmp_parent_condition
+
+    for chunk in chunks(clt_replica_condition, 10):
+        session.query(models.CollectionReplica).\
+            filter(or_(*chunk)).\
+            delete(synchronize_session=False)
+
+    # Update incomplete state
+    for chunk in chunks(incomplete_condition, 10):
+        stmt = update(models.DataIdentifier).\
+            prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
+            where(or_(*chunk)).\
+            where(models.DataIdentifier.complete != false()).\
+            execution_options(synchronize_session=False).\
+            values(complete=False)
+        session.execute(stmt)
+
+    # delete empty dids
+    messages, deleted_dids, deleted_rules, deleted_did_meta = [], [], [], []
+    for chunk in chunks(did_condition, 10):
+        query = session.query(models.DataIdentifier.scope,
+                              models.DataIdentifier.name,
+                              models.DataIdentifier.did_type).\
+            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
+            filter(or_(*chunk))
+        for scope, name, did_type in query:
+            if did_type == DIDType.DATASET:
+                messages.append({'event_type': 'ERASE',
+                                 'payload': dumps({'scope': scope.external,
+                                                   'name': name,
+                                                   'account': 'root'})})
+            deleted_rules.append(and_(models.ReplicationRule.scope == scope,
+                                      models.ReplicationRule.name == name))
+            deleted_dids.append(and_(models.DataIdentifier.scope == scope,
+                                     models.DataIdentifier.name == name))
+            if session.bind.dialect.name == 'oracle':
+                oracle_version = int(session.connection().connection.version.split('.')[0])
+                if oracle_version >= 12:
+                    deleted_did_meta.append(and_(models.DidMeta.scope == scope,
+                                                 models.DidMeta.name == name))
+            else:
+                deleted_did_meta.append(and_(models.DidMeta.scope == scope,
+                                             models.DidMeta.name == name))
+
+    # Remove Archive Constituents
+    removed_constituents = []
+    constituents_to_delete_condition = []
+    for chunk in chunks(archive_contents_condition, 30):
+        query = session.query(models.ConstituentAssociation). \
+            with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_CHILD_IDX)", 'oracle'). \
+            filter(or_(*chunk))
+        for constituent in query:
+            removed_constituents.append({'scope': constituent.child_scope, 'name': constituent.child_name})
+            constituents_to_delete_condition.append(
+                and_(models.ConstituentAssociation.scope == constituent.scope,
+                     models.ConstituentAssociation.name == constituent.name,
+                     models.ConstituentAssociation.child_scope == constituent.child_scope,
+                     models.ConstituentAssociation.child_name == constituent.child_name))
+
+            models.ConstituentAssociationHistory(
+                child_scope=constituent.child_scope,
+                child_name=constituent.child_name,
+                scope=constituent.scope,
+                name=constituent.name,
+                bytes=constituent.bytes,
+                adler32=constituent.adler32,
+                md5=constituent.md5,
+                guid=constituent.guid,
+                length=constituent.length,
+                updated_at=constituent.updated_at,
+                created_at=constituent.created_at,
+            ).save(session=session, flush=False)
+
+            if len(constituents_to_delete_condition) > 200:
+                stmt = delete(models.ConstituentAssociation).\
+                    prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle').\
+                    where(or_(*constituents_to_delete_condition)).\
+                    execution_options(synchronize_session=False)
+                session.execute(stmt)
+                constituents_to_delete_condition.clear()
+
+                __cleanup_after_replica_deletion_without_temp_table(rse_id=rse_id, files=removed_constituents, session=session)
+                removed_constituents.clear()
+    if constituents_to_delete_condition:
+        stmt = delete(models.ConstituentAssociation). \
+            prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle'). \
+            where(or_(*constituents_to_delete_condition)). \
+            execution_options(synchronize_session=False)
+        session.execute(stmt)
+        __cleanup_after_replica_deletion_without_temp_table(rse_id=rse_id, files=removed_constituents, session=session)
+
+    # Remove rules in Waiting for approval or Suspended
+    for chunk in chunks(deleted_rules, 100):
+        stmt = delete(models.ReplicationRule).\
+            prefix_with("/*+ INDEX(RULES RULES_SCOPE_NAME_IDX) */", dialect='oracle').\
+            where(or_(*chunk)).\
+            where(models.ReplicationRule.state.in_((RuleState.SUSPENDED,
+                                                    RuleState.WAITING_APPROVAL))).\
+            execution_options(synchronize_session=False)
+        session.execute(stmt)
+
+    # Remove DID Metadata
+    for chunk in chunks(deleted_did_meta, 100):
+        session.query(models.DidMeta).\
+            filter(or_(*chunk)).\
+            delete(synchronize_session=False)
+
+    for chunk in chunks(messages, 100):
+        add_messages(chunk, session=session)
+
+    for chunk in chunks(deleted_dids, 100):
+        stmt = delete(models.DataIdentifier).\
+            prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
+            where(or_(*chunk)).\
+            execution_options(synchronize_session=False)
+        archive_dids = config_get_bool('deletion', 'archive_dids', default=False, session=session)
+        if archive_dids:
+            rucio.core.did.insert_deleted_dids(filter_=or_(*chunk), session=session)
+        session.execute(stmt)
+
+    # Set is_archive = false on collections which don't have archive children anymore
+    for chunk in chunks(clt_is_not_archive_condition, 100):
+        clt_to_update = list(session
+                             .query(models.DataIdentifierAssociation.scope,
+                                    models.DataIdentifierAssociation.name)
+                             .distinct(models.DataIdentifierAssociation.scope,
+                                       models.DataIdentifierAssociation.name)
+                             .with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
+                             .filter(or_(*chunk)))
+        if clt_to_update:
+            stmt = update(models.DataIdentifier).\
+                prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
+                where(or_(and_(models.DataIdentifier.scope == scope,
+                               models.DataIdentifier.name == name,
+                               models.DataIdentifier.is_archive == true())
+                          for scope, name in clt_to_update)).\
+                execution_options(synchronize_session=False).\
+                values(is_archive=False)
+            session.execute(stmt)
+
+>>>>>>> cc9cc326c (Move all config_core calls to config_get in core replica)
 
 @transactional_session
 def get_replica(rse_id, scope, name, *, session: "Session"):
