@@ -63,13 +63,15 @@ def scope_name_generator():
     return 'mock_' + str(uuid()).lower()[:16]
 
 
-def did_name_generator(did_type='file'):
+def did_name_generator(did_type='file', name_prefix='', name_suffix='', cnt=0):
     """ Generate random did name.
 
     :returns: A random did name
     """
     if os.getenv('POLICY') == 'belleii':
-        path = '/belle'
+        path = '/belle/mock' + name_prefix
+        if not path[-1] != '/':
+            path += '/'
         path += '/cont_%s' % str(uuid())
         if did_type == 'container':
             return path
@@ -78,9 +80,10 @@ def did_name_generator(did_type='file'):
             return path
         path += '/file_%s' % str(uuid())
         return path
-    if did_type in ['file', 'dataset', 'container']:
-        return '%s_%s' % (did_type, str(uuid()))
-    return 'mock_' + str(uuid())
+    if name_prefix:
+        name = '%s_%s%s' % (name_prefix, cnt, name_suffix)
+        return name
+    return '%s_%s' % (did_type, str(uuid()))
 
 
 def rse_name_generator(size=10):

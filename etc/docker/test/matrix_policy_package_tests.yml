@@ -143,6 +143,9 @@ belleii:
       - rucio_tests/test_impl_upload_download.py
       - rucio_tests/test_rse_protocol_rclone.py
       - rucio_tests/test_rse_protocol_rsync.py
+      - rucio_tests/test_abacus_collection_replica.py
+      - rucio_tests/test_abacus_rse.py
+      - rucio_tests/test_abacus_account.py
     deny:
       - rucio_tests/test_rse_protocol_ssh.py
       - rucio_tests/test_redirect.py
@@ -152,16 +155,13 @@ belleii:
       - rucio_tests/test_bb8.py
       - rucio_tests/test_rse_lfn2path.py
       - rucio_tests/test_s3.py
-      - rucio_tests/test_abacus_collection_replica.py
       - rucio_tests/test_rule.py
       - rucio_tests/test_subscription.py
       - rucio_tests/test_multi_vo.py
       - rucio_tests/test_rse.py
       - rucio_tests/test_naming_convention.py
-      - rucio_tests/test_abacus_rse.py
       - rucio_tests/test_dataset_replicas.py
       - rucio_tests/test_did_meta_plugins.py
-      - rucio_tests/test_did.py
       - rucio_tests/test_replica.py
       - rucio_tests/test_bin_rucio.py
       - rucio_tests/test_dirac.py
@@ -170,7 +170,7 @@ belleii:
       - rucio_tests/test_permission.py
       - rucio_tests/test_curl.py
       - rucio_tests/test_auditor_hdfs.py
-      - rucio_tests/test_abacus_account.py
+      - rucio_tests/test_did.py
   rdbms:
     - postgres14
   python:

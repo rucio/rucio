@@ -422,6 +422,7 @@ def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock
     rse_name, rse_id, dids = __add_test_rse_and_replicas(vo=vo, scope=scope, rse_name=rse_name_generator(),
                                                          names=['lfn' + generate_uuid() for _ in range(nb_files)], file_size=file_size, epoch_tombstone=True)
     dataset = did_factory.make_dataset()
+    print(dataset)
     did_core.attach_dids(dids=dids, account=account, **dataset)
 
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=50 * file_size)
