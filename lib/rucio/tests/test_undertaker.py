@@ -20,7 +20,6 @@ import pytest
 
 from rucio.common.policy import get_policy
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_dids, attach_dids, list_expired_dids, get_did, set_metadata
 from rucio.core.replica import add_replicas, get_replica
@@ -29,7 +28,7 @@ from rucio.core.rule import add_rules, list_rules
 from rucio.daemons.judge.cleaner import rule_cleaner
 from rucio.daemons.undertaker.undertaker import undertaker
 from rucio.db.sqla.util import json_implemented
-from rucio.tests.common import rse_name_generator
+from rucio.tests.common import rse_name_generator, did_name_generator
 
 LOG = getLogger(__name__)
 
@@ -54,12 +53,12 @@ class TestUndertaker:
 
         set_local_account_limit(jdoe, rse_id, -1)
 
-        dsns1 = [{'name': 'dsn_%s' % generate_uuid(),
+        dsns1 = [{'name': did_name_generator('dataset'),
                   'scope': mock_scope,
                   'type': 'DATASET',
                   'lifetime': -1} for _ in range(nbdatasets)]
 
-        dsns2 = [{'name': 'dsn_%s' % generate_uuid(),
+        dsns2 = [{'name': did_name_generator('dataset'),
                   'scope': mock_scope,
                   'type': 'DATASET',
                   'lifetime': -1,
@@ -76,7 +75,7 @@ class TestUndertaker:
 
         replicas = list()
         for dsn in dsns1 + dsns2:
-            files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(),
+            files = [{'scope': mock_scope, 'name': did_name_generator('file'),
                       'bytes': 1, 'adler32': '0cc737eb',
                       'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for _ in range(nbfiles)]
             attach_dids(scope=mock_scope, name=dsn['name'], rse_id=rse_id, dids=files, account=root_account)
@@ -102,7 +101,7 @@ class TestUndertaker:
         # Add quota
         set_local_account_limit(jdoe, get_rse_id('MOCK', vo=vo), -1)
 
-        dsn = {'name': 'dsn_%s' % generate_uuid(),
+        dsn = {'name': did_name_generator('dataset'),
                'scope': mock_scope,
                'type': 'DATASET',
                'lifetime': -1,
@@ -136,7 +135,7 @@ class TestUndertaker:
 
         set_local_account_limit(jdoe, rse_id, -1)
 
-        dsns2 = [{'name': 'dsn_%s' % generate_uuid(),
+        dsns2 = [{'name': did_name_generator('dataset'),
                   'scope': mock_scope,
                   'type': 'DATASET',
                   'lifetime': -1,
@@ -148,7 +147,7 @@ class TestUndertaker:
 
         replicas = list()
         for dsn in dsns2:
-            files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1,
+            files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1,
                       'adler32': '0cc737eb', 'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for _ in range(nbfiles)]
             attach_dids(scope=mock_scope, name=dsn['name'], rse_id=rse_id, dids=files, account=root_account)
             replicas += files
@@ -185,7 +184,7 @@ def test_removal_all_replicas2(rse_factory, root_account, mock_scope, core_confi
 
     nbdatasets = 1
     nbfiles = 5
-    dsns1 = [{'name': 'dsn_%s' % generate_uuid(),
+    dsns1 = [{'name': did_name_generator('dataset'),
               'scope': mock_scope,
               'type': 'DATASET',
               'lifetime': -1} for _ in range(nbdatasets)]
@@ -195,7 +194,7 @@ def test_removal_all_replicas2(rse_factory, root_account, mock_scope, core_confi
     replicas = list()
     for dsn in dsns1:
         files = [{'scope': mock_scope,
-                  'name': 'file_%s' % generate_uuid(),
+                  'name': did_name_generator('file'),
                   'bytes': 1,
                   'adler32': '0cc737eb'} for _ in range(nbfiles)]
         attach_dids(scope=mock_scope, name=dsn['name'], rse_id=rse1_id, dids=files, account=root_account)

@@ -357,6 +357,7 @@ class TestApiExternalRepresentation(unittest.TestCase):
         abacus_rse.run(once=True)
 
         out = api_rse.get_rse_usage(rse_mock, per_account=True, issuer='root', **self.vo)
+        print(out)
         assert rse_mock_id in [o['rse_id'] for o in out]
         for usage in out:
             if usage['rse_id'] == rse_mock_id:

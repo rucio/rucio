@@ -13,83 +13,57 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import unittest
-
 import pytest
 
-from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_get_bool
-from rucio.common.utils import generate_uuid
-from rucio.core.rse import get_rse_id, get_rse_usage
-from rucio.daemons.abacus import rse
+from rucio.common.schema import get_schema_value
+from rucio.core.rse import get_rse_usage
+from rucio.daemons.abacus.rse import rse_update
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
-from rucio.daemons.undertaker import undertaker
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
-from rucio.tests.common import file_generator
-from rucio.tests.common_server import get_vo
 
 
-@pytest.mark.noparallel(reason='uses daemon, failing in parallel to other tests, updates account')
-class TestAbacusRSE(unittest.TestCase):
-    account = 'root'
-    scope = 'mock'
-    rse = 'MOCK4'
-    file_sizes = 2
-    vo = {}
+@pytest.mark.noparallel(reason='uses daemon, failing in parallel to other tests')
+class TestAbacusRSE():
 
-    @classmethod
-    def setUpClass(cls):
-        cls.upload_client = UploadClient()
-        cls.session = get_session()
-
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-
-        cls.rse_id = get_rse_id(cls.rse, session=cls.session, **cls.vo)
-
-    @classmethod
-    def tearDownClass(cls):
-        undertaker.run(once=True)
-        cleaner.run(once=True)
-        if cls.vo:
-            reaper.run(once=True, include_rses='vo=%s&(%s)' % (cls.vo['vo'], cls.rse), greedy=True)
-        else:
-            reaper.run(once=True, include_rses=cls.rse, greedy=True)
-
-    def test_abacus_rse(self):
+    def test_abacus_rse(self, vo, mock_scope, rse_factory, did_factory, rucio_client):
         """ ABACUS (RSE): Test update of RSE usage. """
         # Get RSE usage of all sources
-        self.session.query(models.UpdatedRSECounter).delete()  # pylint: disable=no-member
-        self.session.query(models.RSEUsage).delete()  # pylint: disable=no-member
-        self.session.commit()  # pylint: disable=no-member
+        session = get_session()
+        session.query(models.UpdatedRSECounter).delete()  # pylint: disable=no-member
+        session.query(models.RSEUsage).delete()  # pylint: disable=no-member
+        session.commit()  # pylint: disable=no-member
 
         # Upload files -> RSE usage should increase
-        self.files = [{'did_scope': self.scope, 'did_name': 'file_' + generate_uuid(), 'path': file_generator(size=self.file_sizes), 'rse': self.rse, 'lifetime': -1} for i in range(0, 2)]
-        self.upload_client.upload(self.files)
-        [os.remove(file['path']) for file in self.files]
-        rse.run(once=True)
-        rse_usage = get_rse_usage(rse_id=self.rse_id)[0]
-        assert rse_usage['used'] == len(self.files) * self.file_sizes
-        rse_usage_from_rucio = get_rse_usage(rse_id=self.rse_id, source='rucio')[0]
-        assert rse_usage_from_rucio['used'] == len(self.files) * self.file_sizes
-        rse_usage_from_unavailable = get_rse_usage(rse_id=self.rse_id, source='unavailable')
+        file_sizes = 2
+        nfiles = 2
+        rse, rse_id = rse_factory.make_posix_rse()
+        dids = did_factory.upload_test_dataset(rse_name=rse, scope=mock_scope.external, size=file_sizes, nb_files=nfiles)
+        files = [{'scope': did['did_scope'], 'name': did['did_name']} for did in dids]
+        dataset = dids[0]['dataset_name']
+        rse_update(once=True)
+        rse_usage = get_rse_usage(rse_id=rse_id)[0]
+        assert rse_usage['used'] == len(files) * file_sizes
+        rse_usage_from_rucio = get_rse_usage(rse_id=rse_id, source='rucio')[0]
+        assert rse_usage_from_rucio['used'] == len(files) * file_sizes
+        rse_usage_from_unavailable = get_rse_usage(rse_id=rse_id, source='unavailable')
         assert len(rse_usage_from_unavailable) == 0
 
         # Delete files -> rse usage should decrease
         from rucio.daemons.reaper.reaper import REGION
         REGION.invalidate()
+        activity = get_schema_value('ACTIVITY')['enum'][0]
+        rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
         cleaner.run(once=True)
-        if self.vo:
-            reaper.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], self.rse), greedy=True)
+        if vo:
+            reaper.run(once=True, include_rses='vo=%s&(%s)' % (str(vo), rse), greedy=True)
         else:
-            reaper.run(once=True, include_rses=self.rse, greedy=True)
-        rse.run(once=True)
-        rse_usage = get_rse_usage(rse_id=self.rse_id)[0]
+            reaper.run(once=True, include_rses=rse, greedy=True)
+        rse_update(once=True)
+        rse_usage = get_rse_usage(rse_id=rse_id)[0]
         assert rse_usage['used'] == 0
-        rse_usage_from_rucio = get_rse_usage(rse_id=self.rse_id, source='rucio')[0]
+        rse_usage_from_rucio = get_rse_usage(rse_id=rse_id, source='rucio')[0]
         assert rse_usage_from_rucio['used'] == 0
-        rse_usage_from_unavailable = get_rse_usage(rse_id=self.rse_id, source='unavailable')
+        rse_usage_from_unavailable = get_rse_usage(rse_id=rse_id, source='unavailable')
         assert len(rse_usage_from_unavailable) == 0

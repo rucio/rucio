@@ -163,7 +163,13 @@ def perm_add_rule(issuer, kwargs, session=None):
     :returns: True if account is allowed, otherwise False
     """
     restricted_scopes = config_get('permission', 'restricted_scopes', raise_exception=False, default=[])
-    if kwargs['account'] == issuer and not kwargs['locked'] and not (restricted_scopes and kwargs['scope'] in restricted_scopes):
+    if kwargs['account'] == issuer and not kwargs.get('locked', False):
+        if kwargs.get('scope') and restricted_scopes and kwargs['scope'] in restricted_scopes:
+            return False
+        if kwargs.get('dids'):
+            for did in kwargs['dids']:
+                if restricted_scopes and did['scope'] in restricted_scopes:
+                    return False
         return True
     return perm_default(issuer, kwargs, session=session) or has_account_attribute(account=issuer, key='rule_admin', session=session)
 
@@ -378,7 +384,13 @@ def perm_add_did(issuer, kwargs, session=None):
     """
     # Check the accounts of the issued rules
     for rule in kwargs.get('rules', []):
-        if not perm_add_rule(issuer, kwargs=rule, session=session):
+        kwargs_rule = rule
+        if 'scope' not in kwargs_rule:
+            if kwargs['scope'] and not isinstance(kwargs['scope'], str):
+                kwargs_rule['scope'] = kwargs['scope'].external
+            else:
+                kwargs_rule['scope'] = kwargs['scope']
+        if not perm_add_rule(issuer, kwargs=kwargs_rule, session=session):
             return False
 
     return perm_default(issuer, kwargs, session=session)\

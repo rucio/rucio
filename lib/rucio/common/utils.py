@@ -693,6 +693,8 @@ def extract_scope_dirac(did, scopes):
 
 def extract_scope_belleii(did, scopes):
     split_did = did.split('/')
+    if did.startswith('/belle/mock/'):
+        return 'mock', did
     if did.startswith('/belle/MC/'):
         if did.startswith('/belle/MC/BG') or \
            did.startswith('/belle/MC/build') or \
