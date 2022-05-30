@@ -23,6 +23,7 @@ from string import ascii_uppercase
 
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
+from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalScope
 from rucio.common.utils import execute, generate_uuid
 from rucio.core import replica as replica_core
@@ -299,7 +300,7 @@ class TemporaryDidFactory:
         if not path:
             path = file_generator(size=size)
         if not name:
-            name = os.path.basename(path)
+            name = did_name_generator('file')
         item = {
             'path': path,
             'rse': rse_name,
@@ -307,7 +308,8 @@ class TemporaryDidFactory:
             'did_name': name,
             'guid': generate_uuid(),
         }
-        self.upload_client.upload([item])
+        activity = get_schema_value('ACTIVITY')['enum'][0]
+        self.upload_client.upload([item], activity=activity)
         did = {'scope': scope, 'name': name}
         self.created_dids.append(did)
         return item if return_full_item else did
@@ -321,7 +323,6 @@ class TemporaryDidFactory:
         for _ in range(0, nb_files):
             # TODO : Call did_name_generator
             path = file_generator(size=size)
-            # name = os.path.basename(path)
             name = did_name_generator('file')
             items.append({
                          'path': path,

@@ -48,6 +48,7 @@ from rucio.tests.common_server import get_vo
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE, fails when run in parallel')
+@pytest.mark.usefixtures("rse_factory_unittest")
 class TestApiExternalRepresentation(unittest.TestCase):
 
     @classmethod
@@ -346,8 +347,7 @@ class TestApiExternalRepresentation(unittest.TestCase):
         assert out['rse'] == self.rse_name
 
         # add some account and RSE counters
-        rse_mock = 'MOCK4'
-        rse_mock_id = get_rse_id(rse_mock, **self.vo)
+        rse_mock, rse_mock_id = self.rse_factory.make_mock_rse()
         account_counter.del_counter(rse_id=rse_mock_id, account=self.account)
         account_counter.add_counter(rse_id=rse_mock_id, account=self.account)
         account_counter.increase(rse_id=rse_mock_id, account=self.account, files=1, bytes_=10)

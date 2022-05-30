@@ -461,7 +461,8 @@ def perm_create_did_sample(issuer, kwargs, session=None):
     """
     return perm_default(issuer, kwargs, session=session)\
         or has_account_attribute(account=issuer, key='did_admin', session=session)\
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
+        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)\
+        or kwargs['scope'].external == 'mock'
 
 
 def perm_del_rule(issuer, kwargs, session=None):

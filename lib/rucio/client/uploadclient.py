@@ -68,7 +68,7 @@ class UploadClient:
         self.trace['eventType'] = 'upload'
         self.trace['eventVersion'] = version.RUCIO_VERSION[0]
 
-    def upload(self, items, summary_file_path=None, traces_copy_out=None, ignore_availability=False):
+    def upload(self, items, summary_file_path=None, traces_copy_out=None, ignore_availability=False, activity=None):
         """
         :param items: List of dictionaries. Each dictionary describing a file to upload. Keys:
             path                  - path of the file that will be uploaded
@@ -89,6 +89,7 @@ class UploadClient:
         :param summary_file_path: Optional: a path where a summary in form of a json file will be stored
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
         :param ignore_availability: ignore the availability of a RSE
+        :param activity: the activity set to the rule if no dataset is specified
 
         :returns: 0 on success
 
@@ -196,7 +197,7 @@ class UploadClient:
             #    impl = self.preferred_impl(rse_settings, domain)
 
             if not no_register and not register_after_upload:
-                self._register_file(file, registered_dataset_dids, ignore_availability=ignore_availability)
+                self._register_file(file, registered_dataset_dids, ignore_availability=ignore_availability, activity=activity)
 
             # if register_after_upload, file should be overwritten if it is not registered
             # otherwise if file already exists on RSE we're done
@@ -286,7 +287,7 @@ class UploadClient:
 
                 if not no_register:
                     if register_after_upload:
-                        self._register_file(file, registered_dataset_dids, ignore_availability=ignore_availability)
+                        self._register_file(file, registered_dataset_dids, ignore_availability=ignore_availability, activity=activity)
                     else:
                         replica_for_api = self._convert_file_for_api(file)
                         try:
@@ -335,7 +336,7 @@ class UploadClient:
             raise NotAllFilesUploaded()
         return 0
 
-    def _register_file(self, file, registered_dataset_dids, ignore_availability=False):
+    def _register_file(self, file, registered_dataset_dids, ignore_availability=False, activity=None):
         """
         Registers the given file in Rucio. Creates a dataset if
         needed. Registers the file DID and creates the replication
@@ -345,6 +346,7 @@ class UploadClient:
         :param file: dictionary describing the file
         :param registered_dataset_dids: set of dataset dids that were already registered
         :param ignore_availability: ignore the availability of a RSE
+        :param activity: the activity set to the rule if no dataset is specified
 
         :raises DataIdentifierAlreadyExists: if file DID is already registered and the checksums do not match
         """
@@ -406,7 +408,7 @@ class UploadClient:
             logger(logging.INFO, 'Successfully added replica in Rucio catalogue at %s' % rse)
             if not dataset_did_str:
                 # only need to add rules for files if no dataset is given
-                self.client.add_replication_rule([file_did], copies=1, rse_expression=rse, lifetime=file.get('lifetime'), ignore_availability=ignore_availability)
+                self.client.add_replication_rule([file_did], copies=1, rse_expression=rse, lifetime=file.get('lifetime'), ignore_availability=ignore_availability, activity=activity)
                 logger(logging.INFO, 'Successfully added replication rule at %s' % rse)
 
     def _get_file_guid(self, file):
