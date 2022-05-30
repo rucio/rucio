@@ -54,7 +54,7 @@ class JSONDidMeta(DidMetaPlugin):
             meta = getattr(row, 'meta')
             return json_lib.loads(meta) if session.bind.dialect.name in ['oracle', 'sqlite'] else meta
         except NoResultFound:
-            raise exception.DataIdentifierNotFound("No generic metadata found for '%(scope)s:%(name)s'" % locals())
+            return {}
 
     def set_metadata(self, scope, name, key, value, recursive=False, session=None):
         self.set_metadata_bulk(scope=scope, name=name, metadata={key: value}, recursive=recursive, session=session)
