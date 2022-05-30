@@ -98,6 +98,7 @@ belleii:
     lfn2pfn_algorithm_default: "belleii"
   tests:
     allow:
+      - rucio_tests/test_did.py
       - rucio_tests/test_belleii.py
       - rucio_tests/test_rse_selector.py
       - rucio_tests/test_judge_injector.py
@@ -170,7 +171,6 @@ belleii:
       - rucio_tests/test_permission.py
       - rucio_tests/test_curl.py
       - rucio_tests/test_auditor_hdfs.py
-      - rucio_tests/test_did.py
   rdbms:
     - postgres14
   python:
