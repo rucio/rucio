@@ -27,6 +27,7 @@ import pytest
 from rucio.common.config import config_get, config_get_bool, get_config_dirs
 from rucio.common.utils import generate_uuid as uuid, execute
 
+
 skip_rse_tests_with_accounts = pytest.mark.skipif(not any(os.path.exists(os.path.join(d, 'rse-accounts.cfg')) for d in get_config_dirs()),
                                                   reason='fails if no rse-accounts.cfg found')
 skiplimitedsql = pytest.mark.skipif('RDBMS' in os.environ and os.environ['RDBMS'] == 'sqlite',
@@ -89,7 +90,7 @@ def scope_name_generator():
     return 'mock_' + str(uuid()).lower()[:16]
 
 
-def did_name_generator(did_type='file', name_prefix='', name_suffix='', cnt=0):
+def did_name_generator(did_type: str = 'file', name_prefix: str = '', name_suffix: str = '', cnt: int = 0) -> str:
     """ Generate random did name.
 
     :returns: A random did name
@@ -112,7 +113,7 @@ def did_name_generator(did_type='file', name_prefix='', name_suffix='', cnt=0):
     return '%s_%s' % (did_type, str(uuid()))
 
 
-def rse_name_generator(size=10):
+def rse_name_generator(size: int = 10) -> str:
     """ Generate random RSE name.
 
     :returns: A random RSE name
