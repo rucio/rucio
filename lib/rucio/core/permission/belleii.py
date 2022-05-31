@@ -162,8 +162,9 @@ def perm_add_rule(issuer, kwargs, session=None):
     :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    restricted_scopes = config_get('permission', 'restricted_scopes', raise_exception=False, default=[])
-    if kwargs['account'] == issuer and not kwargs.get('locked', False):
+    restricted_scopes = config_get('permission', 'restricted_scopes', raise_exception=False, default=[], session=session)
+    # TODO change to config_get_list
+    if kwargs['account'] == issuer:
         if kwargs.get('scope') and restricted_scopes and kwargs['scope'] in restricted_scopes:
             return False
         if kwargs.get('dids'):

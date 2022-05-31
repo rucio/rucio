@@ -112,6 +112,8 @@ class TestUndertaker:
         add_dids(dids=[dsn], account=root_account)
 
         for did in list_expired_dids(limit=1000):
+            print(did['scope'], dsn['scope'])
+            print(did['name'], dsn['name'])
             assert(did['scope'] != dsn['scope'] and did['name'] != dsn['name'])
 
     @pytest.mark.parametrize("file_config_mock", [

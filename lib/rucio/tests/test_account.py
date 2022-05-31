@@ -24,7 +24,7 @@ from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.account import list_identities, add_account_attribute, list_account_attributes
+from rucio.core.account import list_identities, add_account_attribute, list_account_attributes, del_account_attribute
 from rucio.core.identity import add_account_identity, add_identity
 from rucio.db.sqla.constants import AccountStatus, IdentityType
 from rucio.tests.common import account_name_generator, headers, auth, vohdr, loginhdr
@@ -225,11 +225,14 @@ def test_delete_identity_of_account(vo, rest_client):
 
     # normal deletion
     data = {'authtype': 'USERPASS', 'identity': identity}
+    internal_account = InternalAccount(account, vo=vo)
+    add_account_attribute(internal_account, 'account_admin', True)
     response = rest_client.delete('/accounts/' + account + '/identities', headers=headers(auth(token)), json=data)
     assert response.status_code == 200
 
     # unauthorized deletion
     other_account = account_name_generator()
+    del_account_attribute(internal_account, 'account_admin')
     data = {'authtype': 'USERPASS', 'identity': identity}
     response = rest_client.delete('/accounts/' + other_account + '/identities', headers=headers(auth(token)), json=data)
     assert response.status_code == 401

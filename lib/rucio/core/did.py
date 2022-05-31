@@ -3096,8 +3096,7 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, accoun
     files = [did for did in list_files(scope=input_scope, name=input_name, long=False, session=session)]
     random.shuffle(files)
     output_files = files[:int(nbfiles)]
-    add_did(scope=output_scope, name=output_name, did_type=DIDType.DATASET, account=account, statuses={}, meta=[], rules=[], lifetime=None, dids=[], rse_id=None, session=session)
-    attach_dids(scope=output_scope, name=output_name, dids=output_files, account=account, rse_id=None, session=session)
+    add_did(scope=output_scope, name=output_name, did_type=DIDType.DATASET, account=account, statuses={}, meta=[], rules=[], lifetime=None, dids=output_files, rse_id=None, session=session)
 
 
 @transactional_session

@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from datetime import datetime, timedelta
+import os
 
 import pytest
 
@@ -437,7 +438,7 @@ class TestDIDClients:
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined scope')
     def test_add_did(self, vo, did_client, rse_factory):
-        """ DATA IDENTIFIERS (CLIENT): Add, populate, list did content and create a sample"""
+        """ DATA IDENTIFIERS (CLIENT): Add, populate, list did content"""
         tmp_scope = 'mock'
         tmp_rse, rse_id = rse_factory.make_mock_rse()
         rse2, rse2_id = rse_factory.make_mock_rse()
@@ -505,6 +506,36 @@ class TestDIDClients:
         files_without_pfn = [{'scope': i['scope'], 'name': i['name'], 'bytes': i['bytes'], 'adler32': i['adler32'], 'meta': i['meta']} for i in files]
         did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files_without_pfn, rse=tmp_rse)
 
+        did_client.close(scope=tmp_scope, name=tmp_dsn)
+
+    @pytest.mark.dirty
+    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='REST API only works with ATLAS DID convention')
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_create_sample(self, vo, root_account, did_client, rse_factory):
+        """ DATA IDENTIFIERS (CLIENT): Create a sample"""
+        tmp_scope = 'mock'
+        tmp_rse, rse_id = rse_factory.make_mock_rse()
+        tmp_dsn = did_name_generator('dataset')
+
+        # PFN example: rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/xx/xx/xx/filename
+        dataset_meta = {'project': 'data13_hip',
+                        'run_number': 300000,
+                        'stream_name': 'physics_CosmicCalo',
+                        'prod_step': 'merge',
+                        'datatype': 'NTUP_TRIG',
+                        'version': 'f392_m927',
+                        }
+        rules = [{'copies': 1, 'rse_expression': tmp_rse, 'account': root_account.external}]
+
+        files = []
+        for i in range(5):
+            lfn = did_name_generator('file')
+            file_meta = {'guid': str(generate_uuid()), 'events': 10}
+            files.append({'scope': InternalScope(tmp_scope, vo=vo), 'name': lfn,
+                          'bytes': 724963570, 'adler32': '0cc737eb',
+                          'meta': file_meta})
+
+        did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files, rse=tmp_rse)
         did_client.close(scope=tmp_scope, name=tmp_dsn)
 
         tmp_dsn_output = did_name_generator('dataset')
