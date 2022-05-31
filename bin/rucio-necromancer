@@ -100,7 +100,7 @@ Check replicas again::
   |---------+--------+------------+-----------+---------------------------------------------------------|
   | mock    | file   | 149.000 B  |    948240 | MOCK2: file://localhost:1/tmp/rucio_rse/mock/fb/d1/file |
   +---------+--------+------------+-----------+---------------------------------------------------------+
-    ''')
+''', formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False, help='Runs one loop iteration')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
     parser.add_argument("--bulk", action="store", default=1000, type=int, help='Bulk control: number of requests per cycle')
