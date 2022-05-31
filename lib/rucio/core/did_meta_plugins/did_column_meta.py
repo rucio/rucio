@@ -220,6 +220,7 @@ class DidColumnMeta(DidMetaPlugin):
                 (models.DataIdentifier.suppressed, operator.ne, true())
             ]
         )
+        query.with_hint(models.DataIdentifier, 'NO_EXPAND', 'oracle')
 
         if limit:
             query = query.limit(limit)
