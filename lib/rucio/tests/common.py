@@ -64,7 +64,7 @@ def scope_name_generator():
     return 'mock_' + str(uuid()).lower()[:16]
 
 
-def did_name_generator(did_type: str = 'file', name_prefix: str = '', name_suffix: str = '', cnt: int = 0) -> str:
+def did_name_generator(did_type='file', name_prefix='', name_suffix='', cnt=0):
     """ Generate random did name.
 
     :returns: A random did name
@@ -87,7 +87,7 @@ def did_name_generator(did_type: str = 'file', name_prefix: str = '', name_suffi
     return '%s_%s' % (did_type, str(uuid()))
 
 
-def rse_name_generator(size: int = 10) -> str:
+def rse_name_generator(size=10):
     """ Generate random RSE name.
 
     :returns: A random RSE name
