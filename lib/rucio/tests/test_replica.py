@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import hashlib
+import os
 import time
 from datetime import datetime, timedelta
 from json import dumps
@@ -28,6 +29,7 @@ from rucio.client.ruleclient import RuleClient
 from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, RucioException,
                                     ReplicaIsLocked, ReplicaNotFound, ScopeNotFound,
                                     DatabaseException, InputValidationError)
+from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, clean_surls, parse_response
 from rucio.core.config import set as cconfig_set
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
@@ -42,7 +44,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, ReplicaState, BadPFNStatus, OBSOLETE
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
-from rucio.tests.common import execute, headers, auth, Mime, accept
+from rucio.tests.common import execute, headers, auth, Mime, accept, did_name_generator
 
 
 def mocked_VP_requests_get(*args, **kwargs):
@@ -79,6 +81,7 @@ def mocked_VP_requests_get(*args, **kwargs):
 class TestReplicaCore:
 
     @mock.patch('rucio.core.replica.requests.get', side_effect=mocked_VP_requests_get)
+    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Hard-coded ATLAS PFN convention')
     def test_cache_replicas(self, mock_get, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): Test listing replicas with cached root protocol """
 
@@ -132,6 +135,7 @@ class TestReplicaCore:
                 client_location={'site': rse}):
             assert list(rep['pfns'].keys())[0].count('root://') == 1
 
+    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Hard-coded ATLAS PFN convention')
     def test_replicas_pfn_resolution(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): Test pfn resolution with different protocols, this shouldn't throw an error """
 
@@ -164,12 +168,12 @@ class TestReplicaCore:
 
         files = []
 
-        name = 'file_%s' % generate_uuid()
+        name = did_name_generator('file')
         hstr = hashlib.md5(('%s:%s' % (mock_scope, name)).encode('utf-8')).hexdigest()
         pfn = 'root://root.aperture.com:1401//test/chamber/mock/%s/%s/%s' % (hstr[0:2], hstr[2:4], name)
         files.append({'scope': mock_scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef', 'pfn': pfn})
 
-        name = 'element_%s' % generate_uuid()
+        name = did_name_generator('file')
         hstr = hashlib.md5(('%s:%s' % (mock_scope, name)).encode('utf-8')).hexdigest()
         pfn = 'root://root2.aperture.com:1401//test/chamber/mock/%s/%s/%s' % (hstr[0:2], hstr[2:4], name)
         files.append({'scope': mock_scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef', 'pfn': pfn})
@@ -182,7 +186,7 @@ class TestReplicaCore:
         _, rse2_id = rse_factory.make_mock_rse()
 
         nbfiles = 13
-        files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         for rse_id in [rse1_id, rse2_id]:
             add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
 
@@ -203,11 +207,11 @@ class TestReplicaCore:
         _, rse2_id = rse_factory.make_mock_rse()
 
         nbfiles = 5
-        files1 = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        files1 = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
 
         add_replicas(rse_id=rse1_id, files=files1, account=root_account, ignore_availability=True)
 
-        files2 = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        files2 = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         add_replicas(rse_id=rse1_id, files=files2, account=root_account, ignore_availability=True)
         add_replicas(rse_id=rse2_id, files=files2, account=root_account, ignore_availability=True)
 
@@ -228,10 +232,10 @@ class TestReplicaCore:
         _, rse_id = rse_factory.make_mock_rse()
 
         cconfig_set(section='reaper', option='remove_open_did', value=False)
-        tmp_dsn1 = 'dsn_%s' % generate_uuid()
-        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+        tmp_dsn1 = did_name_generator('dataset')
+        tmp_dsn2 = did_name_generator('dataset')
         nbfiles = 5
-        files1 = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        files1 = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
 
         add_did(scope=mock_scope, name=tmp_dsn1, did_type=DIDType.DATASET, account=root_account)
         add_did(scope=mock_scope, name=tmp_dsn2, did_type=DIDType.DATASET, account=root_account)
@@ -256,8 +260,8 @@ class TestReplicaCore:
         _, rse_id = rse_factory.make_mock_rse()
 
         nbfiles = 5
-        files1 = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        files2 = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        files1 = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        files2 = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         files2.append(files1[0])
 
         add_replicas(rse_id=rse_id, files=files1, account=root_account, ignore_availability=True)
@@ -287,7 +291,7 @@ class TestReplicaCore:
         _, rse1_id = rse_factory.make_mock_rse()
         _, rse2_id = rse_factory.make_mock_rse()
         nbfiles = 13
-        files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         rses = [rse1_id, rse2_id]
         for rse_id in rses:
             add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
@@ -304,6 +308,7 @@ class TestReplicaCore:
 
         assert nbfiles == replica_cpt
 
+    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Broken because use of CLI that does not use extract_scope')
     def test_list_replica_with_domain(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): Add and list file replicas forcing domain"""
 
@@ -338,7 +343,7 @@ class TestReplicaCore:
 
         nbfiles = 3
         files = [{'scope': mock_scope,
-                  'name': 'file_%s' % generate_uuid(),
+                  'name': did_name_generator('file'),
                   'bytes': 1234,
                   'adler32': '01234567',
                   'meta': {'events': 1234}} for _ in range(nbfiles)]
@@ -396,7 +401,7 @@ class TestReplicaCore:
                                   'lan': {'read': 1, 'write': 1, 'delete': 1},
                                   'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
-        name = 'element_%s' % generate_uuid()
+        name = did_name_generator('file')
         file_item = {'scope': mock_scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef'}
 
         add_replicas(rse_id=rse_id, files=[file_item], account=root_account)
@@ -437,6 +442,7 @@ class TestReplicaCore:
                                                             client_location={'site': 'SOMEWHERE'})]
         assert 'root://' in list(replicas[0]['pfns'].keys())[0]
 
+    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Hard-coded ATLAS PFN convention')
     def test_replica_mixed_protocols(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): Test adding replicas with mixed protocol """
 
@@ -477,21 +483,22 @@ class TestReplicaCore:
         """ REPLICA (CORE): set tombstone on replica """
         # Set tombstone on one replica
         rse, rse_id = rse_factory.make_mock_rse()
-        name = generate_uuid()
+        name = did_name_generator('file')
+        activity = get_schema_value('ACTIVITY')['enum'][0]
         add_replica(rse_id, mock_scope, name, 4, root_account)
         assert get_replica(rse_id, mock_scope, name)['tombstone'] is None
         set_tombstone(rse_id, mock_scope, name)
         assert get_replica(rse_id, mock_scope, name)['tombstone'] == OBSOLETE
 
         # Set tombstone on locked replica
-        name = generate_uuid()
+        name = did_name_generator('file')
         add_replica(rse_id, mock_scope, name, 4, root_account)
-        RuleClient().add_replication_rule([{'name': name, 'scope': mock_scope.external}], 1, rse, locked=True)
+        RuleClient().add_replication_rule([{'name': name, 'scope': mock_scope.external}], 1, rse, locked=True, activity=activity)
         with pytest.raises(ReplicaIsLocked):
             set_tombstone(rse_id, mock_scope, name)
 
         # Set tombstone on not found replica
-        name = generate_uuid()
+        name = did_name_generator('file')
         with pytest.raises(ReplicaNotFound):
             set_tombstone(rse_id, mock_scope, name)
 
@@ -501,6 +508,7 @@ class TestReplicaCore:
         # One RSE has an attribute set, the other uses the default value of "None" for tombstone
         rse1, rse1_id = rse_factory.make_mock_rse()
         rse2, rse2_id = rse_factory.make_mock_rse()
+        activity = get_schema_value('ACTIVITY')['enum'][0]
         tombstone_delay = 3600
         add_rse_attribute(rse_id=rse2_id, key='tombstone_delay', value=tombstone_delay)
 
@@ -517,9 +525,9 @@ class TestReplicaCore:
         assert expected_tombstone - timedelta(minutes=5) < tombstone < expected_tombstone + timedelta(minutes=5)
 
         # Adding rule removes the tombstone
-        RuleClient().add_replication_rule([{'name': did1['name'], 'scope': did1['scope'].external}], 1, rse1, locked=True)
+        RuleClient().add_replication_rule([{'name': did1['name'], 'scope': did1['scope'].external}], 1, rse1, locked=True, activity=activity)
         assert get_replica(rse1_id, **did1)['tombstone'] is None
-        RuleClient().add_replication_rule([{'name': did2['name'], 'scope': did2['scope'].external}], 1, rse2, locked=True)
+        RuleClient().add_replication_rule([{'name': did2['name'], 'scope': did2['scope'].external}], 1, rse2, locked=True, activity=activity)
         assert get_replica(rse2_id, **did2)['tombstone'] is None
 
     def test_list_replicas_with_updated_after(self, rse_factory, mock_scope, root_account):
@@ -633,7 +641,7 @@ def test_rest_list_replicas_content_type(rse_factory, mock_scope, replica_client
     """ REPLICA (REST): send a GET to list replicas with specific ACCEPT header."""
     rse, _ = rse_factory.make_mock_rse()
     scope = mock_scope.external
-    name = 'file_%s' % generate_uuid()
+    name = did_name_generator('file')
     files1 = [{'scope': scope, 'name': name, 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}}]
     replica_client.add_replicas(rse=rse, files=files1)
 
@@ -671,10 +679,10 @@ def test_client_add_list_replicas(rse_factory, replica_client, mock_scope):
     rse2, _ = rse_factory.make_posix_rse()
     nbfiles = 5
 
-    files1 = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    files1 = [{'scope': mock_scope.external, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
     replica_client.add_replicas(rse=rse1, files=files1)
 
-    files2 = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    files2 = [{'scope': mock_scope.external, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
     replica_client.add_replicas(rse=rse2, files=files2)
 
     replicas = [r for r in replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files1])]
@@ -686,7 +694,7 @@ def test_client_add_list_replicas(rse_factory, replica_client, mock_scope):
     replicas = [r for r in replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files2], schemes=['srm'])]
     assert len(replicas) == 5
 
-    files3 = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'state': 'U', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    files3 = [{'scope': mock_scope.external, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'state': 'U', 'meta': {'events': 10}} for _ in range(nbfiles)]
     replica_client.add_replicas(rse=rse2, files=files3)
     replicas = [r for r in replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files3], schemes=['file'])]
     for i in range(nbfiles):
@@ -704,7 +712,7 @@ def test_client_add_list_replicas(rse_factory, replica_client, mock_scope):
 
 def test_client_add_replica_scope_not_found(replica_client):
     """ REPLICA (CLIENT): Add replica with missing scope """
-    files = [{'scope': 'nonexistingscope', 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb'}]
+    files = [{'scope': 'nonexistingscope', 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb'}]
     with pytest.raises(ScopeNotFound):
         replica_client.add_replicas(rse='MOCK', files=files)
 
@@ -713,7 +721,7 @@ def test_client_access_denied_on_delete_replicas(rse_factory, mock_scope, replic
     """ REPLICA (CLIENT): Access denied on delete file replicas """
     rse, _ = rse_factory.make_mock_rse()
     nbfiles = 5
-    files = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    files = [{'scope': mock_scope.external, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
     replica_client.add_replicas(rse=rse, files=files)
     with pytest.raises(AccessDenied):
         replica_client.delete_replicas(rse=rse, files=files)
@@ -788,19 +796,21 @@ def test_client_list_blocklisted_replicas(rse_factory, did_factory, replica_clie
 
 
 @pytest.mark.dirty
+@pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Minos broken for non-ATLAS lfn2pfn')
 @pytest.mark.noparallel(reason='runs minos, which acts on all bad pfns')
 def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_client):
     """ REPLICA (CLIENT): Add temporary unavailable PFNs"""
     rse, rse_id = rse_factory.make_posix_rse()
     nbfiles = 5
     # Adding replicas to deterministic RSE
-    files = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    files = [{'scope': mock_scope.external, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
     replica_client.add_replicas(rse=rse, files=files)
 
     # Listing replicas on deterministic RSE
     list_rep = []
     for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['file'], all_states=True):
         pfn = list(replica['pfns'].keys())[0]
+        print(pfn)
         list_rep.append(pfn)
 
     # Submit bad PFNs
@@ -858,7 +868,7 @@ def test_client_declare_bad_pfns(rse_factory, mock_scope, replica_client):
     rse, rse_id = rse_factory.make_posix_rse()
     nbfiles = 5
     # Adding replicas to deterministic RSE
-    files = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    files = [{'scope': mock_scope.external, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
     replica_client.add_replicas(rse=rse, files=files)
 
     # Listing replicas on deterministic RSE
@@ -888,7 +898,7 @@ def test_client_add_temporary_pfns_input_validation_error(rse_factory, mock_scop
     rse, rse_id = rse_factory.make_posix_rse()
     nbfiles = 5
     # Adding replicas to deterministic RSE
-    files = [{'scope': mock_scope.external, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    files = [{'scope': mock_scope.external, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
     replica_client.add_replicas(rse=rse, files=files)
 
     # Listing replicas on deterministic RSE
@@ -908,21 +918,22 @@ def test_client_set_tombstone(rse_factory, mock_scope, root_account, replica_cli
     """ REPLICA (CLIENT): set tombstone on replica """
     # Set tombstone on one replica
     rse, rse_id = rse_factory.make_mock_rse()
-    name = generate_uuid()
+    name = did_name_generator('file')
+    activity = get_schema_value('ACTIVITY')['enum'][0]
     add_replica(rse_id, mock_scope, name, 4, root_account)
     assert get_replica(rse_id, mock_scope, name)['tombstone'] is None
     replica_client.set_tombstone([{'rse': rse, 'scope': mock_scope.external, 'name': name}])
     assert get_replica(rse_id, mock_scope, name)['tombstone'] == OBSOLETE
 
     # Set tombstone on locked replica
-    name = generate_uuid()
+    name = did_name_generator('file')
     add_replica(rse_id, mock_scope, name, 4, root_account)
-    RuleClient().add_replication_rule([{'name': name, 'scope': mock_scope.external}], 1, rse, locked=True)
+    RuleClient().add_replication_rule([{'name': name, 'scope': mock_scope.external}], 1, rse, locked=True, activity=activity)
     with pytest.raises(ReplicaIsLocked):
         replica_client.set_tombstone([{'rse': rse, 'scope': mock_scope.external, 'name': name}])
 
     # Set tombstone on not found replica
-    name = generate_uuid()
+    name = did_name_generator('file')
     with pytest.raises(ReplicaNotFound):
         replica_client.set_tombstone([{'rse': rse, 'scope': mock_scope.external, 'name': name}])
 
@@ -955,10 +966,10 @@ class TestReplicaMetalink:
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_client_list_replicas_metalink_4(self, did_client, replica_client):
         """ REPLICA (METALINK): List replicas as metalink version 4 """
-        fname = generate_uuid()
+        fname = did_name_generator('file')
 
         rses = ['MOCK', 'MOCK3', 'MOCK4']
-        dsn = generate_uuid()
+        dsn = did_name_generator('dataset')
         files = [{'scope': 'mock', 'name': fname, 'bytes': 1, 'adler32': '0cc737eb'}]
 
         did_client.add_dataset(scope='mock', name=dsn)
@@ -981,7 +992,7 @@ class TestReplicaMetalink:
         input_ = {}
         rse_info = rsemgr.get_rse_info(rse=rse, vo=vo)
         assert rse_info['deterministic'] is False
-        files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
+        files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb',
                   'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test_%s/%s/%s' % (rse_id, rse_id, mock_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
         for f in files:
             input_[f['pfn']] = {'scope': f['scope'].external, 'name': f['name']}
@@ -993,6 +1004,7 @@ class TestReplicaMetalink:
             pfn = list(result.keys())[0]
             assert input_[pfn] == list(result.values())[0]
 
+    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='get_did_from_pfns is based on ATLAS lfn2pfn algorithm')
     def test_client_get_did_from_pfns_deterministic(self, vo, rse_factory, mock_scope, root_account, replica_client):
         """ REPLICA (CLIENT): Get list of DIDs associated to PFNs for deterministic sites"""
         rse, rse_id = rse_factory.make_srm_rse()
@@ -1001,7 +1013,7 @@ class TestReplicaMetalink:
         input_ = {}
         rse_info = rsemgr.get_rse_info(rse=rse, vo=vo)
         assert rse_info['deterministic'] is True
-        files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         p = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
         for f in files:
             pfn = list(p.lfns2pfns(lfns={'scope': f['scope'].external, 'name': f['name']}).values())[0]

@@ -26,6 +26,7 @@ from rucio.db.sqla.constants import IdentityType
 
 
 if TYPE_CHECKING:
+    from typing import Optional
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
 
@@ -498,7 +499,7 @@ def perm_update_rule(issuer: "InternalAccount", kwargs: dict, session: "Optional
     """
     return perm_default(issuer, kwargs, session=session)\
         or has_account_attribute(account=issuer, key='rule_admin', session=session)\
-        or get_rule(kwargs['rule_id'], session=session)['account'] == issuer
+        or (kwargs.get('rule_id') and get_rule(kwargs['rule_id'], session=session)['account'] == issuer)
 
 
 def perm_approve_rule(issuer: "InternalAccount", kwargs: dict, session: "Optional[Session]" = None) -> bool:
