@@ -112,7 +112,7 @@ class TestUndertaker:
         add_dids(dids=[dsn], account=root_account)
 
         for did in list_expired_dids(limit=1000):
-            assert (did['scope'],  did['name']) != (dsn['scope'], dsn['name'])
+            assert (did['scope'], did['name']) != (dsn['scope'], dsn['name'])
 
     @pytest.mark.parametrize("file_config_mock", [
         # Run test twice: with, and without, temp tables
