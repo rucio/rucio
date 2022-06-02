@@ -82,7 +82,7 @@ class ReplicaState(enum.Enum):
 
 
 @enum.unique
-class HermesSupportedServices(str, enum.Enum):
+class HermesService(str, enum.Enum):
     """
     The services supported by Hermes2.
     """

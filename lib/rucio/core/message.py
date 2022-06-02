@@ -18,7 +18,7 @@ import json
 from sqlalchemy import or_, delete, update
 from sqlalchemy.exc import IntegrityError
 
-from rucio.common.constants import HermesSupportedServices, MAX_MESSAGE_LENGTH
+from rucio.common.constants import HermesService, MAX_MESSAGE_LENGTH
 from rucio.common.config import config_get_list
 from rucio.common.exception import InvalidObject, RucioException
 from rucio.common.utils import APIEncoder
@@ -45,7 +45,7 @@ def add_message(event_type, payload, session=None):
 
     for service in config_get_list('hermes', 'services_list', raise_exception=False, default='activemq,email', session=session):
         try:
-            HermesSupportedServices(service.upper())
+            HermesService(service.upper())
         except ValueError as err:
             raise RucioException(str(err))
         if event_type == 'email' and service != 'email':
