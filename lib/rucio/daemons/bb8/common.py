@@ -164,7 +164,6 @@ def __dump_url(rse_id, logger=logging.log):
         "bb8",
         "dump_url_template",
         raise_exception=False,
-        default="http://rucio-analytix.cern.ch:8080/LOCKS/GetFileFromHDFS?date=${date}&rse=${rse}",
     )
     url_template = Template(url_template_str)
 

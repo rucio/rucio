@@ -29,8 +29,8 @@ def get_parser():
     Returns the argparse parser.
     """
     parser = argparse.ArgumentParser(description='The BB8 daemon is responsible for rebalancing data between RSEs.')
-    parser.add_argument('rse', action='store', help='RSE to rebalance. Can be either a RSE or RSE expression.')
-    parser.add_argument('bytes', action='store', type=int, help='Number of bytes to rebalance')
+    parser.add_argument('--rse', action='store', help='RSE to rebalance. Can be either a RSE or RSE expression.')
+    parser.add_argument('--bytes', action='store', type=int, help='Number of bytes to expected to be rebalanced. It is a goal without guarantees')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument('--sleep-time', action="store", default=30, type=int, help='Concurrency control: thread sleep time after each chunk of work')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads for this process')
