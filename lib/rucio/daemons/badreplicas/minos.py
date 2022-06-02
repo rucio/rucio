@@ -13,34 +13,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 import logging
 import math
-import os
 import re
-import socket
 import threading
-import time
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound, ReplicaNotFound, DatabaseException
-from rucio.common.logging import formatted_logger, setup_logging
-from rucio.common.utils import chunks, daemon_sleep
-from rucio.core import heartbeat
+from rucio.common.logging import setup_logging
+from rucio.common.utils import chunks
 from rucio.core.did import get_metadata
 from rucio.core.replica import (get_bad_pfns, get_pfn_to_rse, declare_bad_file_replicas,
                                 get_did_from_pfns, update_replicas_states, bulk_add_bad_replicas,
                                 bulk_delete_bad_pfns, get_replicas_state)
 from rucio.core.rse import get_rse_name
+from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
 from rucio.db.sqla.session import get_session
 
-GRACEFUL_STOP = threading.Event()
+
+if TYPE_CHECKING:
+    from rucio.daemons.common import HeartbeatHandler
+
+graceful_stop = threading.Event()
 
 
-def minos(bulk=1000, once=False, sleep_time=60):
+def minos(bulk: int = 1000, once: bool = False, sleep_time: int = 60) -> None:
     """
     Creates a Minos Worker that gets a list of bad PFNs,
     extract the scope, name and rse_id and fill the bad_replicas table.
@@ -49,24 +52,22 @@ def minos(bulk=1000, once=False, sleep_time=60):
     :param once: Run only once.
     :param sleep_time: Time between two cycles.
     """
+    run_daemon(
+        once=once,
+        graceful_stop=graceful_stop,
+        executable='minos',
+        logger_prefix='minos',
+        partition_wait_time=1,
+        sleep_time=sleep_time,
+        run_once_fnc=functools.partial(
+            run_once,
+            bulk=bulk,
+        ),
+    )
 
-    executable = 'minos'
-    hostname = socket.getfqdn()
-    pid = os.getpid()
-    hb_thread = threading.current_thread()
-    heartbeat.sanity_check(executable=executable, hostname=hostname)
-    hb_thread = threading.current_thread()
-    heartbeat.sanity_check(executable=executable, hostname=hostname)
-    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prefix = 'minos[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logger = formatted_logger(logging.log, prefix + '%s')
-    logger(logging.INFO, 'Minos starting')
 
-    time.sleep(10)  # To prevent running on the same partition if all the daemons restart at the same time
-    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prefix = 'minos[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logger = formatted_logger(logging.log, prefix + '%s')
-
+def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> bool:
+    worker_number, total_workers, logger = heartbeat_handler.live()
     states_mapping = {BadPFNStatus.BAD: BadFilesStatus.BAD,
                       BadPFNStatus.SUSPICIOUS: BadFilesStatus.SUSPICIOUS,
                       BadPFNStatus.TEMPORARY_UNAVAILABLE: BadFilesStatus.TEMPORARY_UNAVAILABLE}
@@ -74,208 +75,195 @@ def minos(bulk=1000, once=False, sleep_time=60):
 
     chunk_size = 10  # The chunk size used for the commits
 
-    while not GRACEFUL_STOP.is_set():
-        start_time = time.time()
-        heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-        prefix = 'minos[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-        logger = formatted_logger(logging.log, prefix + '%s')
-        pfns = []
+    pfns = []
+
+    bad_replicas = {}
+    temporary_unvailables = {}
+    pfns = get_bad_pfns(thread=worker_number, total_threads=total_workers, limit=bulk)
+
+    # Class the PFNs into bad_replicas and temporary_unavailable
+    for pfn in pfns:
+        path = pfn['pfn']
+        account = pfn['account']
+        reason = pfn['reason']
+        expires_at = pfn['expires_at']
+        state = states_mapping[pfn['state']]
+        if state in [BadFilesStatus.BAD, BadFilesStatus.SUSPICIOUS]:
+            if (account, reason, state) not in bad_replicas:
+                bad_replicas[(account, reason, state)] = []
+            bad_replicas[(account, reason, state)].append(path)
+        elif state == BadFilesStatus.TEMPORARY_UNAVAILABLE:
+            if (account, reason, expires_at) not in temporary_unvailables:
+                temporary_unvailables[(account, reason, expires_at)] = []
+            temporary_unvailables[(account, reason, expires_at)].append(path)
+
+    # Process the bad and suspicious files
+    # The scope, name, rse_id are extracted and filled into the bad_replicas table
+    for account, reason, state in bad_replicas:
+        vo = account.vo
+        pfns = bad_replicas[(account, reason, state)]
+        logger(logging.INFO, 'Declaring %s replicas with state %s and reason %s' % (len(pfns), str(state), reason))
+        session = get_session()
+        schemes = {}
+        dict_rse = {}
+        unknown_replicas = []
         try:
-            bad_replicas = {}
-            temporary_unvailables = {}
-            pfns = get_bad_pfns(thread=heart_beat['assign_thread'], total_threads=heart_beat['nr_threads'], limit=bulk)
-
-            # Class the PFNs into bad_replicas and temporary_unavailable
+            # Splitting the PFNs by schemes
             for pfn in pfns:
-                path = pfn['pfn']
-                account = pfn['account']
-                reason = pfn['reason']
-                expires_at = pfn['expires_at']
-                state = states_mapping[pfn['state']]
-                if state in [BadFilesStatus.BAD, BadFilesStatus.SUSPICIOUS]:
-                    if (account, reason, state) not in bad_replicas:
-                        bad_replicas[(account, reason, state)] = []
-                    bad_replicas[(account, reason, state)].append(path)
-                elif state == BadFilesStatus.TEMPORARY_UNAVAILABLE:
-                    if (account, reason, expires_at) not in temporary_unvailables:
-                        temporary_unvailables[(account, reason, expires_at)] = []
-                    temporary_unvailables[(account, reason, expires_at)].append(path)
+                scheme = pfn.split(':')[0]
+                if scheme not in schemes:
+                    schemes[scheme] = []
+                schemes[scheme].append(pfn)
+            for scheme in schemes:
+                _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme], vo=vo)
+                for rse_id in tmp_dict_rse:
+                    if rse_id not in dict_rse:
+                        dict_rse[rse_id] = {}
+                    if scheme not in dict_rse[rse_id]:
+                        dict_rse[rse_id][scheme] = []
+                    dict_rse[rse_id][scheme].extend(tmp_dict_rse[rse_id])
+                unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
+            # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
+            if unknown_replicas:
+                logger(logging.INFO, 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
+                bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
 
-            # Process the bad and suspicious files
-            # The scope, name, rse_id are extracted and filled into the bad_replicas table
-            for account, reason, state in bad_replicas:
-                vo = account.vo
-                pfns = bad_replicas[(account, reason, state)]
-                logger(logging.INFO, 'Declaring %s replicas with state %s and reason %s' % (len(pfns), str(state), reason))
-                session = get_session()
-                schemes = {}
-                dict_rse = {}
-                unknown_replicas = []
+            for rse_id, pfns_by_scheme in dict_rse.items():
+                for scheme, pfns in pfns_by_scheme.items():
+                    vo_str = '' if vo == 'def' else ' on VO ' + vo
+                    logger(logging.DEBUG, 'Running on RSE %s%s with %s replicas' % (get_rse_name(rse_id=rse_id), vo_str, len(pfns)))
+                    nchunk = 0
+                    tot_chunk = int(math.ceil(len(pfns) / chunk_size))
+                    for chunk in chunks(pfns, chunk_size):
+                        nchunk += 1
+                        logger(logging.DEBUG, 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
+                        unknown_replicas = declare_bad_file_replicas(pfns=chunk, reason=reason, issuer=account, status=state, session=session)
+                        if unknown_replicas:
+                            logger(logging.DEBUG, 'Unknown replicas : %s' % (str(unknown_replicas)))
+                        bulk_delete_bad_pfns(pfns=chunk, session=session)
+                        session.commit()  # pylint: disable=no-member
+        except (DatabaseException, DatabaseError) as error:
+            if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+                logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
+            else:
+                logger(logging.ERROR, 'Exception', exc_info=True)
+            session.rollback()  # pylint: disable=no-member
+        except Exception:
+            session.rollback()  # pylint: disable=no-member
+            logger(logging.CRITICAL, 'Exception', exc_info=True)
+
+    worker_number, total_workers, logger = heartbeat_handler.live()
+
+    # Now get the temporary unavailable and update the replicas states
+    for account, reason, expires_at in temporary_unvailables:
+        vo = account.vo
+        pfns = temporary_unvailables[(account, reason, expires_at)]
+        logger(logging.INFO, 'Declaring %s replicas temporary available with timeout %s and reason %s' % (len(pfns), str(expires_at), reason))
+        logger(logging.DEBUG, 'Extracting RSEs')
+        schemes = {}
+        dict_rse = {}
+        unknown_replicas = []
+
+        # Splitting the PFNs by schemes
+        for pfn in pfns:
+            scheme = pfn.split(':')[0]
+            if scheme not in schemes:
+                schemes[scheme] = []
+            schemes[scheme].append(pfn)
+        for scheme in schemes:
+            _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme], vo=vo)
+            for rse_id in tmp_dict_rse:
+                if rse_id not in dict_rse:
+                    dict_rse[rse_id] = []
+                dict_rse[rse_id].extend(tmp_dict_rse[rse_id])
+                unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
+
+        # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
+        if unknown_replicas:
+            logger(logging.INFO, 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
+            bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
+
+        for rse_id in dict_rse:
+            replicas = []
+            rse = get_rse_name(rse_id=rse_id, session=None)
+            rse_vo_str = rse if vo == 'def' else '{} on {}'.format(rse, vo)
+            logger(logging.DEBUG, 'Running on RSE %s' % rse_vo_str)
+            for rep in get_did_from_pfns(pfns=dict_rse[rse_id], rse_id=None, vo=vo, session=None):
+                for pfn in rep:
+                    scope = rep[pfn]['scope']
+                    name = rep[pfn]['name']
+                    replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.TEMPORARY_UNAVAILABLE, 'pfn': pfn})
+            # The following part needs to be atomic
+            # We update the replicas states to TEMPORARY_UNAVAILABLE
+            # then insert a row in the bad_replicas table. TODO Update the row if it already exists
+            # then delete the corresponding rows into the bad_pfns table
+            logger(logging.DEBUG, 'Running on %s replicas on RSE %s' % (len(replicas), rse_vo_str))
+            nchunk = 0
+            tot_chunk = int(math.ceil(len(replicas) / float(chunk_size)))
+            session = get_session()
+            for chunk in chunks(replicas, chunk_size):
                 try:
-                    # Splitting the PFNs by schemes
-                    for pfn in pfns:
-                        scheme = pfn.split(':')[0]
-                        if scheme not in schemes:
-                            schemes[scheme] = []
-                        schemes[scheme].append(pfn)
-                    for scheme in schemes:
-                        _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme], vo=vo)
-                        for rse_id in tmp_dict_rse:
-                            if rse_id not in dict_rse:
-                                dict_rse[rse_id] = {}
-                            if scheme not in dict_rse[rse_id]:
-                                dict_rse[rse_id][scheme] = []
-                            dict_rse[rse_id][scheme].extend(tmp_dict_rse[rse_id])
-                        unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
-                    # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
-                    if unknown_replicas:
-                        logger(logging.INFO, 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
-                        bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
-
-                    for rse_id, pfns_by_scheme in dict_rse.items():
-                        for scheme, pfns in pfns_by_scheme.items():
-                            vo_str = '' if vo == 'def' else ' on VO ' + vo
-                            logger(logging.DEBUG, 'Running on RSE %s%s with %s replicas' % (get_rse_name(rse_id=rse_id), vo_str, len(pfns)))
-                            nchunk = 0
-                            tot_chunk = int(math.ceil(len(pfns) / chunk_size))
-                            for chunk in chunks(pfns, chunk_size):
-                                nchunk += 1
-                                logger(logging.DEBUG, 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
-                                unknown_replicas = declare_bad_file_replicas(pfns=chunk, reason=reason, issuer=account, status=state, session=session)
-                                if unknown_replicas:
-                                    logger(logging.DEBUG, 'Unknown replicas : %s' % (str(unknown_replicas)))
-                                bulk_delete_bad_pfns(pfns=chunk, session=session)
-                                session.commit()  # pylint: disable=no-member
+                    nchunk += 1
+                    logger(logging.DEBUG, 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
+                    update_replicas_states(chunk, nowait=False, session=session)
+                    bulk_add_bad_replicas(chunk, account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=reason, expires_at=expires_at, session=session)
+                    pfns = [entry['pfn'] for entry in chunk]
+                    bulk_delete_bad_pfns(pfns=pfns, session=session)
+                    session.commit()  # pylint: disable=no-member
+                except (UnsupportedOperation, ReplicaNotFound) as error:
+                    session.rollback()  # pylint: disable=no-member
+                    logger(logging.ERROR, 'Problem to bulk update PFNs. PFNs will be updated individually. Error : %s' % str(error))
+                    for rep in chunk:
+                        logger(logging.DEBUG, 'Working on %s' % (str(rep)))
+                        try:
+                            get_metadata(rep['scope'], rep['name'])
+                            unavailable_states = []
+                            rep_state = get_replicas_state(rep['scope'], rep['name'])
+                            unavailable_states.extend(rep_state.get(ReplicaState.TEMPORARY_UNAVAILABLE, []))
+                            unavailable_states.extend(rep_state.get(ReplicaState.BEING_DELETED, []))
+                            unavailable_states.extend(rep_state.get(ReplicaState.BAD, []))
+                            # If the replica is already not available, it is removed from the bad PFNs table
+                            if rep['rse_id'] in unavailable_states:
+                                logger(logging.INFO, '%s is in unavailable state. Will be removed from the list of bad PFNs' % str(rep['pfn']))
+                                bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
+                            # If the expiration date of the TEMPORARY_UNAVAILABLE is in the past, it is removed from the bad PFNs table
+                            elif expires_at < datetime.now():
+                                logger(logging.INFO, 'PFN %s expiration time (%s) is older than now and is not in unavailable state. Removing the PFNs from bad_pfns' % (str(rep['pfn']), expires_at))
+                                bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
+                            # Else update everything in the same transaction
+                            else:
+                                try:
+                                    session = get_session()
+                                    update_replicas_states([rep], nowait=False, session=session)
+                                    bulk_add_bad_replicas([rep], account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=reason, expires_at=expires_at, session=session)
+                                    bulk_delete_bad_pfns(pfns=[rep['pfn']], session=session)
+                                    session.commit()  # pylint: disable=no-member
+                                except Exception:
+                                    logger(logging.ERROR, 'Cannot update state of %s' % str(rep['pfn']))
+                        except (DataIdentifierNotFound, ReplicaNotFound):
+                            logger(logging.ERROR, 'Will remove %s from the list of bad PFNs' % str(rep['pfn']))
+                            bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
+                    session = get_session()
                 except (DatabaseException, DatabaseError) as error:
                     if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
                         logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
                     else:
                         logger(logging.ERROR, 'Exception', exc_info=True)
                     session.rollback()  # pylint: disable=no-member
+                    session = get_session()
                 except Exception:
                     session.rollback()  # pylint: disable=no-member
                     logger(logging.CRITICAL, 'Exception', exc_info=True)
-
-            heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-
-            # Now get the temporary unavailable and update the replicas states
-            for account, reason, expires_at in temporary_unvailables:
-                vo = account.vo
-                pfns = temporary_unvailables[(account, reason, expires_at)]
-                logger(logging.INFO, 'Declaring %s replicas temporary available with timeout %s and reason %s' % (len(pfns), str(expires_at), reason))
-                logger(logging.DEBUG, 'Extracting RSEs')
-                schemes = {}
-                dict_rse = {}
-                unknown_replicas = []
-
-                # Splitting the PFNs by schemes
-                for pfn in pfns:
-                    scheme = pfn.split(':')[0]
-                    if scheme not in schemes:
-                        schemes[scheme] = []
-                    schemes[scheme].append(pfn)
-                for scheme in schemes:
-                    _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme], vo=vo)
-                    for rse_id in tmp_dict_rse:
-                        if rse_id not in dict_rse:
-                            dict_rse[rse_id] = []
-                        dict_rse[rse_id].extend(tmp_dict_rse[rse_id])
-                        unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
-
-                # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
-                if unknown_replicas:
-                    logger(logging.INFO, 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
-                    bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
-
-                for rse_id in dict_rse:
-                    replicas = []
-                    rse = get_rse_name(rse_id=rse_id, session=None)
-                    rse_vo_str = rse if vo == 'def' else '{} on {}'.format(rse, vo)
-                    logger(logging.DEBUG, 'Running on RSE %s' % rse_vo_str)
-                    for rep in get_did_from_pfns(pfns=dict_rse[rse_id], rse_id=None, vo=vo, session=None):
-                        for pfn in rep:
-                            scope = rep[pfn]['scope']
-                            name = rep[pfn]['name']
-                            replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.TEMPORARY_UNAVAILABLE, 'pfn': pfn})
-                    # The following part needs to be atomic
-                    # We update the replicas states to TEMPORARY_UNAVAILABLE
-                    # then insert a row in the bad_replicas table. TODO Update the row if it already exists
-                    # then delete the corresponding rows into the bad_pfns table
-                    logger(logging.DEBUG, 'Running on %s replicas on RSE %s' % (len(replicas), rse_vo_str))
-                    nchunk = 0
-                    tot_chunk = int(math.ceil(len(replicas) / float(chunk_size)))
                     session = get_session()
-                    for chunk in chunks(replicas, chunk_size):
-                        try:
-                            nchunk += 1
-                            logger(logging.DEBUG, 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
-                            update_replicas_states(chunk, nowait=False, session=session)
-                            bulk_add_bad_replicas(chunk, account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=reason, expires_at=expires_at, session=session)
-                            pfns = [entry['pfn'] for entry in chunk]
-                            bulk_delete_bad_pfns(pfns=pfns, session=session)
-                            session.commit()  # pylint: disable=no-member
-                        except (UnsupportedOperation, ReplicaNotFound) as error:
-                            session.rollback()  # pylint: disable=no-member
-                            logger(logging.ERROR, 'Problem to bulk update PFNs. PFNs will be updated individually. Error : %s' % str(error))
-                            for rep in chunk:
-                                logger(logging.DEBUG, 'Working on %s' % (str(rep)))
-                                try:
-                                    get_metadata(rep['scope'], rep['name'])
-                                    unavailable_states = []
-                                    rep_state = get_replicas_state(rep['scope'], rep['name'])
-                                    unavailable_states.extend(rep_state.get(ReplicaState.TEMPORARY_UNAVAILABLE, []))
-                                    unavailable_states.extend(rep_state.get(ReplicaState.BEING_DELETED, []))
-                                    unavailable_states.extend(rep_state.get(ReplicaState.BAD, []))
-                                    # If the replica is already not available, it is removed from the bad PFNs table
-                                    if rep['rse_id'] in unavailable_states:
-                                        logger(logging.INFO, '%s is in unavailable state. Will be removed from the list of bad PFNs' % str(rep['pfn']))
-                                        bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
-                                    # If the expiration date of the TEMPORARY_UNAVAILABLE is in the past, it is removed from the bad PFNs table
-                                    elif expires_at < datetime.now():
-                                        logger(logging.INFO, 'PFN %s expiration time (%s) is older than now and is not in unavailable state. Removing the PFNs from bad_pfns' % (str(rep['pfn']), expires_at))
-                                        bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
-                                    # Else update everything in the same transaction
-                                    else:
-                                        try:
-                                            session = get_session()
-                                            update_replicas_states([rep], nowait=False, session=session)
-                                            bulk_add_bad_replicas([rep], account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=reason, expires_at=expires_at, session=session)
-                                            bulk_delete_bad_pfns(pfns=[rep['pfn']], session=session)
-                                            session.commit()  # pylint: disable=no-member
-                                        except Exception:
-                                            logger(logging.ERROR, 'Cannot update state of %s' % str(rep['pfn']))
-                                except (DataIdentifierNotFound, ReplicaNotFound):
-                                    logger(logging.ERROR, 'Will remove %s from the list of bad PFNs' % str(rep['pfn']))
-                                    bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
-                            session = get_session()
-                        except (DatabaseException, DatabaseError) as error:
-                            if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
-                                logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
-                            else:
-                                logger(logging.ERROR, 'Exception', exc_info=True)
-                            session.rollback()  # pylint: disable=no-member
-                            session = get_session()
-                        except Exception:
-                            session.rollback()  # pylint: disable=no-member
-                            logger(logging.CRITICAL, 'Exception', exc_info=True)
-                            session = get_session()
-
-        except Exception as error:
-            logger(logging.ERROR, '%s' % (str(error)))
-
-        if once:
-            break
-        if len(pfns) == bulk:
-            logger(logging.INFO, 'Processed maximum number of pfns according to the bulk size. Restart immediately next cycle')
-        else:
-            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP, logger=logger)
-
-    heartbeat.die(executable, hostname, pid, hb_thread)
-    logger(logging.INFO, 'Graceful stop requested')
-    logger(logging.INFO, 'Graceful stop done')
+    must_sleep = True
+    if len(pfns) == bulk:
+        logger(logging.INFO, 'Processed maximum number of pfns according to the bulk size. Restart immediately next cycle')
+        must_sleep = False
+        return must_sleep
+    return must_sleep
 
 
-def run(threads=1, bulk=100, once=False, sleep_time=60):
+def run(threads: int = 1, bulk: int = 100, once: bool = False, sleep_time: int = 60) -> None:
     """
     Starts up the minos threads.
     """
@@ -303,4 +291,4 @@ def stop(signum=None, frame=None):
     """
     Graceful exit.
     """
-    GRACEFUL_STOP.set()
+    graceful_stop.set()
