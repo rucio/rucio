@@ -1,5 +1,5 @@
 -- Definitions of Rucio database trigger objects
--- Authors: Rucio team and Gancho Dimitrov 
+-- Authors: Rucio team and Gancho Dimitrov
 
 
 
@@ -9,7 +9,7 @@
 
 
 
-CREATE OR REPLACE TRIGGER CREATE_LIST_PARTITIONS 
+CREATE OR REPLACE TRIGGER CREATE_LIST_PARTITIONS
 AFTER INSERT on SCOPES
   FOR EACH ROW
 DECLARE
@@ -50,7 +50,7 @@ END;
 -- If scope is deleted from the SCOPE table than its partition has to be exchanged to an archive table.
 
 
-CREATE OR REPLACE TRIGGER SCOPE_AVOID_UPDATE_DELETE 
+CREATE OR REPLACE TRIGGER SCOPE_AVOID_UPDATE_DELETE
 BEFORE UPDATE OR DELETE OF SCOPE on SCOPES
   FOR EACH ROW
 BEGIN
@@ -67,7 +67,7 @@ END;
 -- trigger for verification that the new values for "SCOPE and NAME" have not been used in the past ( the DELETED_DIDS table )
 
 
-CREATE OR REPLACE TRIGGER CHECK_DID_UNIQUENESS 
+CREATE OR REPLACE TRIGGER CHECK_DID_UNIQUENESS
 AFTER INSERT on DIDS
   FOR EACH ROW
 DECLARE
@@ -97,7 +97,7 @@ END;
 -- 5) =================================================================================================================
 -- trigger for moving each deleted row from the DIDS table to the DELETED_DIDS table
 
-CREATE OR REPLACE TRIGGER MIGRATE_DELETED_DID 
+CREATE OR REPLACE TRIGGER MIGRATE_DELETED_DID
 AFTER DELETE on DIDS
  FOR EACH ROW
 BEGIN

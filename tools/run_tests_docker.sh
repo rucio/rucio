@@ -160,7 +160,7 @@ else
             echo $TESTS | tr " " "\n"
             tools/pytest.sh -v --tb=short ${exitfirst:-} $TESTS
         else
-            tools/pytest.sh -v --tb=short ${exitfirst:-} 
+            tools/pytest.sh -v --tb=short ${exitfirst:-}
         fi
     fi
 fi

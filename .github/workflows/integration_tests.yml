@@ -43,14 +43,14 @@ jobs:
           fetch-depth: 0
       - name: Select tag for rucio containers
         shell: bash
-        run: | 
+        run: |
           # Change to cloned rucio/rucio repo
           cd $GITHUB_WORKSPACE/dev/rucio
-          
+
           # Get current branch and corresponding latest tag in rucio/rucio repo
           BRANCH=$(git rev-parse --abbrev-ref HEAD)
           OWNER="${{ github.repository_owner }}"
-          
+
           if [ $OWNER != 'rucio' ]; then
             echo "The workflow is running in user ${OWNER}'s fork. Fetching branches and tags from rucio/rucio instead."
             git remote add rucio https://github.com/rucio/rucio
@@ -67,11 +67,11 @@ jobs:
               RELEASE_FAMILY=$major.$minor
               LATEST_RELEASE_IN_RELEASE_FAMILY=$(git for-each-ref --format '%(refname)' refs/tags/$RELEASE_FAMILY.* | sort -k 1.11V | tail -1 | awk -F'/' '{print $3}')
               LATEST_RUCIO_RELEASE_FAMILY=$(git for-each-ref --format '%(refname)' refs/tags | sort -k 1.11V | tail -1 | awk -F'/' '{print $3}' | awk -F'.' '{print $1 "." $2}')
-              
-              echo "Release line for ${BRANCH} is ${RELEASE_FAMILY}" 
+
+              echo "Release line for ${BRANCH} is ${RELEASE_FAMILY}"
               echo "The latest release line for rucio is ${LATEST_RUCIO_RELEASE_FAMILY}"
               echo "The latest release in ${RELEASE_FAMILY} is ${LATEST_RELEASE_IN_RELEASE_FAMILY}"
-              
+
               if [ $LATEST_RUCIO_RELEASE_FAMILY = $RELEASE_FAMILY ]; then
                   GIT_REF='master' # always use containers/master when working on latest rucio/rucio release line
               else
@@ -82,7 +82,7 @@ jobs:
 
           cd $GITHUB_WORKSPACE
 
-          # Check if rucio/containers has a corresponding $GIT_REF 
+          # Check if rucio/containers has a corresponding $GIT_REF
           if [ $(git tag -l "$GIT_REF") ]; then
               git checkout tags/$GIT_REF
           else

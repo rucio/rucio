@@ -9,7 +9,7 @@ inputs:
   branch:
     required: true
 
-runs: 
+runs:
   using: composite
   steps:
     - name: Build images

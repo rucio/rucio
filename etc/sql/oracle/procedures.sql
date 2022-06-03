@@ -1,5 +1,5 @@
--- Rucio DB functions and procedure definitions for Oracle RDBMS  
--- Authors: Rucio team and Gancho Dimitrov 
+-- Rucio DB functions and procedure definitions for Oracle RDBMS
+-- Authors: Rucio team and Gancho Dimitrov
 
 
 
@@ -42,10 +42,10 @@ END;
 
 --------------------------------------------------------------------------------------------------------------------------------
 
-GRANT EXECUTE on DBMS_CRYPTO to ATLAS_RUCIO; 
+GRANT EXECUTE on DBMS_CRYPTO to ATLAS_RUCIO;
 
 
-CREATE OR REPLACE FUNCTION LFN2PATH(scope varchar2, name varchar2) 
+CREATE OR REPLACE FUNCTION LFN2PATH(scope varchar2, name varchar2)
 RETURN VARCHAR2 DETERMINISTIC IS
       md5  varchar2(1024) := lower(rawtohex(dbms_crypto.hash(to_clob(name), 2))) ;
       path varchar2(1024);
@@ -69,10 +69,10 @@ END;
 -- =========================================================================================
 
 
--- PLSQL procedure for adding new LIST partition to any relevant Rucio table (the LOGGING_TABPARTITIONS table must exist beforehand) 
+-- PLSQL procedure for adding new LIST partition to any relevant Rucio table (the LOGGING_TABPARTITIONS table must exist beforehand)
 -- Use of DBMS_ASSERT for validation of the input. Sanitise the input by replacing the dots and dashes into the SCOPE names by underscore for the partition names to be Oracle friendly.
 
-CREATE OR REPLACE PROCEDURE ADD_NEW_PARTITION( m_tabname VARCHAR2, m_partition_name VARCHAR2) 
+CREATE OR REPLACE PROCEDURE ADD_NEW_PARTITION( m_tabname VARCHAR2, m_partition_name VARCHAR2)
 AS
 	-- PRAGMA AUTONOMOUS_TRANSACTION;
 	-- define exception handling for the ORA-00054: resource busy and acquire with NOWAIT specified error
@@ -102,7 +102,7 @@ BEGIN
 		   EXCEPTION
     			WHEN resource_busy
 				-- THEN DBMS_LOCK.sleep(1);
-				THEN DBMS_SESSION.sleep(1); -- from 12c onwards 
+				THEN DBMS_SESSION.sleep(1); -- from 12c onwards
 				CONTINUE;
 			WHEN OTHERS
 				THEN v_error_message := SUBSTR(SQLERRM,1,1000);
@@ -150,7 +150,7 @@ END;
 -------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-CREATE OR REPLACE PROCEDURE ABACUS_RSE AS 
+CREATE OR REPLACE PROCEDURE ABACUS_RSE AS
     type array_raw is table of RAW(16) index by binary_integer;
     type array_number is table of NUMBER(19) index by binary_integer;
     r array_raw;
@@ -164,9 +164,9 @@ BEGIN
                 MERGE INTO RSE_usage D
                 USING (select r(i) as rse_id, sys_extract_utc(systimestamp) as now from dual) T
                 ON (D.rse_id = T.rse_id and D.source = 'rucio')
-                WHEN MATCHED THEN UPDATE SET files = files + f(i), used = used + b(i), updated_at = T.now           
+                WHEN MATCHED THEN UPDATE SET files = files + f(i), used = used + b(i), updated_at = T.now
                 WHEN NOT MATCHED THEN INSERT (rse_id, files, used, source, updated_at, created_at)
-                VALUES (r(i), f(i), b(i), 'rucio', T.now, T.now);                                
+                VALUES (r(i), f(i), b(i), 'rucio', T.now, T.now);
         COMMIT;
 END;
 /
@@ -178,11 +178,11 @@ END;
 
 CREATE OR REPLACE PROCEDURE ADD_RSE_USAGE AS
 BEGIN
-      FOR i in (SELECT rse_usage.rse_id, 
-                         rse_usage.used as bytes, 
-                         rse_usage.free,                          
-                         rse_usage.files, 
-                         rse_usage.updated_at, 
+      FOR i in (SELECT rse_usage.rse_id,
+                         rse_usage.used as bytes,
+                         rse_usage.free,
+                         rse_usage.files,
+                         rse_usage.updated_at,
                          rse_usage.source
                   FROM   rse_usage, rses
                   WHERE  rse_usage.rse_id = rses.id AND deleted = '0')
@@ -193,7 +193,7 @@ BEGIN
               WHEN NOT MATCHED THEN INSERT(rse_id, source, used, files, free, updated_at, created_at)
               VALUES (u.rse_id, U.source, u.bytes, u.files, u.free, u.updated_at, u.updated_at);
         END LOOP;
-              
+
         MERGE INTO RSE_USAGE_HISTORY H
         USING (SELECT hextoraw('00000000000000000000000000000000') as rse_id, 'rucio', sum(used) as bytes, sum(files) as files, sys_extract_utc(systimestamp) as updated_at
              FROM   rse_usage c, rses r
@@ -210,7 +210,7 @@ BEGIN
               WHEN MATCHED THEN UPDATE SET used=usage.bytes, files=usage.files, updated_at=sysdate
               WHEN NOT MATCHED THEN INSERT (rse_id, source, used, files, updated_at, created_at) VALUES (usage.rse_id, 'unavailable', usage.bytes, usage.files, sysdate, sysdate);
          END LOOP;
-                                
+
         COMMIT;
 END;
 /
@@ -281,9 +281,9 @@ FOR j IN 1 .. coll_parts.COUNT LOOP
 			EXECUTE IMMEDIATE stmt;
 		     	EXIT;
 		   EXCEPTION
-    			WHEN resource_busy 
+    			WHEN resource_busy
 			-- THEN DBMS_LOCK.sleep(1);
-			THEN DBMS_SESSION.sleep(1); -- from 12c onwards 
+			THEN DBMS_SESSION.sleep(1); -- from 12c onwards
 
 		   END;
 		END LOOP;
@@ -361,9 +361,9 @@ FOR j IN 1 .. coll_parts.COUNT LOOP
 			EXECUTE IMMEDIATE stmt;
 		     	EXIT;
 		   EXCEPTION
-    			WHEN resource_busy 
+    			WHEN resource_busy
 			-- THEN DBMS_LOCK.sleep(1);
-			THEN DBMS_SESSION.sleep(1); -- from Oracle 12c onwards 
+			THEN DBMS_SESSION.sleep(1); -- from Oracle 12c onwards
 		   END;
 		END LOOP;
 	END IF;
@@ -377,7 +377,7 @@ END;
 -------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-CREATE OR REPLACE PROCEDURE RUCIO_ACCOUNT_LOGICAL_BYTES 
+CREATE OR REPLACE PROCEDURE RUCIO_ACCOUNT_LOGICAL_BYTES
 AS
 BEGIN
 
@@ -462,7 +462,7 @@ END;
 -------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-CREATE OR REPLACE PROCEDURE RUCIO_ACCOUNTING_ALL_SCOPES 
+CREATE OR REPLACE PROCEDURE RUCIO_ACCOUNTING_ALL_SCOPES
 AS
   curr_time DATE;
   to_delete CHAR(1);
@@ -479,7 +479,7 @@ EXECUTE IMMEDIATE 'ALTER SESSION SET hash_area_size=2100000000';
 -- rep_type = 1 if non locked rule with no expiration data. Permanent data
 -- rep_type = 0 if non locked rule with expiration date. Temporary data
 -- 28th May 2018, version 1.6, added check for the number or rows when the CURRTIME is null
--- 10th Oct 2017, version 1.5, The CURRTIME is populated only at the end of the work because of the Monit Flume JDBC sorce  
+-- 10th Oct 2017, version 1.5, The CURRTIME is populated only at the end of the work because of the Monit Flume JDBC sorce
 -- Direct select - insert instead of passing data via collection.
 -- Added 3 more metrics (columns to the RUCIO_ACCOUNTING_TAB and HIST tables) on which is based the computation TIER, SPACETOKEN, GRP_DATATYPE
 
@@ -489,19 +489,19 @@ EXECUTE IMMEDIATE 'ALTER SESSION SET hash_area_size=2100000000';
 
  to_delete :='Y';
  num_null_currtime := 0;
- 
+
  SELECT  UNIQUE (case when ( TRUNC(currtime) = TRUNC(sysdate) ) then 'N'  else 'Y' end) INTO to_delete FROM RUCIO_ACCOUNTING_TAB;
- -- 28th May 2018: necessary for situations when the FOR loop did not finish for all scopes and partial information has left into the RUCIO_ACCOUNTING_TAB table 
+ -- 28th May 2018: necessary for situations when the FOR loop did not finish for all scopes and partial information has left into the RUCIO_ACCOUNTING_TAB table
  select count(*) INTO num_null_currtime from RUCIO_ACCOUNTING_TAB where currtime is null;
 
- 
+
  IF to_delete = 'Y' THEN
-    
-    IF num_null_currtime = 0 THEN 
+
+    IF num_null_currtime = 0 THEN
     	INSERT /*+ append */ INTO RUCIO_ACCOUNTING_HIST_TAB
         SELECT * FROM RUCIO_ACCOUNTING_TAB;
     END IF;
-    
+
  	DELETE FROM RUCIO_ACCOUNTING_TAB;
 	COMMIT;
  END IF;
@@ -619,18 +619,18 @@ FOR i IN ( SELECT scope FROM scopes WHERE scope NOT LIKE 'mock%' AND scope NOT I
 
     END LOOP;
 
-   
+
     curr_time := sysdate; -- single current time for each computed scope
 
-    /* 10th Oct 2017: 
-    The IT Monit Flume JDBCsource queries every hour and gets any new records from the table (based on the currtime column). 
-    That is why this column has to be populated at the end. If the currtime is updated in the LOOP, the TIER and SITE values are missed by Flume. 
+    /* 10th Oct 2017:
+    The IT Monit Flume JDBCsource queries every hour and gets any new records from the table (based on the currtime column).
+    That is why this column has to be populated at the end. If the currtime is updated in the LOOP, the TIER and SITE values are missed by Flume.
     */
 
 	-- Update the TIER and SITE columns with the real Tier and Site value from the RSE_ATTR_MAP table
 	UPDATE RUCIO_ACCOUNTING_TAB tab
-	set 
-    CURRTIME = curr_time, 
+	set
+    CURRTIME = curr_time,
     TIER = (select m.value from RSE_ATTR_MAP m, RSES r where m.rse_id=r.id AND r.rse = tab.rse AND m.key='tier'),
 	SITE = (select m.value from RSE_ATTR_MAP m, RSES r where m.rse_id=r.id AND r.rse = tab.rse AND m.key='site');
 	COMMIT;
@@ -651,7 +651,7 @@ END;
 
 
 
-CREATE OR REPLACE PROCEDURE ESTIMATE_TRANSFER_TIME 
+CREATE OR REPLACE PROCEDURE ESTIMATE_TRANSFER_TIME
 AS
 BEGIN
 
@@ -954,25 +954,25 @@ END;
 -------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-CREATE OR REPLACE PROCEDURE ADD_ACCOUNT_USAGE_HISTORY 
+CREATE OR REPLACE PROCEDURE ADD_ACCOUNT_USAGE_HISTORY
 AS
 BEGIN
 
 	/* 9th Jan 2019: A PLSQL procedure for insertion of the changed (since the previous execution) rows from the ACCOUNT_USAGE into the ACCOUNT_USAGE_HISTORY table */
 
-	MERGE INTO ACCOUNT_USAGE_HISTORY h 
-	USING 
+	MERGE INTO ACCOUNT_USAGE_HISTORY h
+	USING
 	( SELECT   account_usage.account,
-                         account_usage.rse_id, 
-                         account_usage.bytes,                          
-                         account_usage.files, 
+                         account_usage.rse_id,
+                         account_usage.bytes,
+                         account_usage.files,
                          account_usage.updated_at
                   FROM   account_usage, rses
-                  WHERE  account_usage.rse_id = rses.id AND deleted = '0') u 
+                  WHERE  account_usage.rse_id = rses.id AND deleted = '0') u
 	ON (h.rse_id = u.rse_id and h.account = u.account and h.updated_at = u.updated_at)
 	WHEN NOT MATCHED THEN INSERT(account, rse_id, bytes, files,  updated_at, created_at)
 	VALUES (u.account, u.rse_id, u.bytes, u.files, u.updated_at, CAST(SYS_EXTRACT_UTC(LOCALTIMESTAMP) AS DATE) );
-        
+
 COMMIT;
 
 END;
