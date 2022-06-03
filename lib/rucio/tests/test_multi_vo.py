@@ -47,7 +47,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_get_bool, config_remove_option, config_set
+from rucio.common.config import config_get_bool, config_remove_option, config_set, config_has_section, config_add_section
 from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, UnsupportedAccountName, \
     UnsupportedOperation, RucioException
 from rucio.common.types import InternalAccount, InternalScope
@@ -1089,12 +1089,23 @@ class TestMultiVODaemons(unittest.TestCase):
                                      'delete': 1}}}
         rse_client.add_rse(shr_rse)
         rse_client.add_rse_attribute(rse=shr_rse, key='verify_checksum', value=False)
+        rse_client.add_rse_attribute(rse=shr_rse, key='skip_upload_stat', value=True)
         rse_client.add_protocol(shr_rse, mock_protocol)
         add_rse(shr_rse, 'root', **self.new_vo)
         add_rse_attribute(rse=shr_rse, key='verify_checksum', value=False, issuer='root', **self.new_vo)
+        add_rse_attribute(rse=shr_rse, key='skip_upload_stat', value=True, issuer='root', **self.new_vo)
         add_protocol(rse=shr_rse, data=mock_protocol, issuer='root', **self.new_vo)
 
-        automatix(sites=[shr_rse], inputfile='/opt/rucio/etc/automatix.json', sleep_time=30, account='root', once=True, scope=shr_scope)
+        if not config_has_section("automatix"):
+            config_add_section("automatix")
+        config_set("automatix", "rses", shr_rse)
+        config_set("automatix", "scope", shr_scope)
+
+        automatix(
+            inputfile='/opt/rucio/etc/automatix.json',
+            sleep_time=10,
+            once=True,
+        )
 
         did_list_tst = list(DIDClient().list_dids(shr_scope, {}))
         did_list_new = list(list_dids(shr_scope, {}, **self.new_vo))
@@ -1106,6 +1117,9 @@ class TestMultiVODaemons(unittest.TestCase):
         replicas_new = list(list_replicas(did_dicts, rse_expression=shr_rse, **self.new_vo))
         assert len(replicas_tst) != 0
         assert len(replicas_new) == 0
+
+        config_remove_option("automatix", "rses")
+        config_remove_option("automatix", "scope")
 
 
 class TestVOMap(unittest.TestCase):

@@ -35,6 +35,7 @@ from rucio.common.types import InternalScope
 from rucio.common.utils import execute, generate_uuid
 from rucio.core import monitor
 from rucio.core.scope import list_scopes
+from rucio.core.vo import map_vo
 from rucio.daemons.common import run_daemon
 
 
@@ -162,8 +163,10 @@ def run_once(heartbeat_handler: "HeartbeatHandler", inputfile: str, **_kwargs) -
     account = config_get("automatix", "account", raise_exception=False, default="root")
     scope = config_get("automatix", "scope", raise_exception=False, default="test")
     client = Client(account=account)
-    filters = {"scope": InternalScope("*", vo=client.vo)}
-    if InternalScope(scope, vo=client.vo) not in list_scopes(filter_=filters):
+    vo = map_vo(client.vo)
+    filters = {"scope": InternalScope("*", vo=vo)}
+    scopes = list_scopes(filter_=filters)
+    if InternalScope(scope, vo=vo) not in scopes:
         logger(logging.ERROR, "Scope %s does not exist. Exiting", scope)
         return True
 

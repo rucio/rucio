@@ -17,7 +17,9 @@ import json
 import os
 import tempfile
 
-from rucio.common.config import config_add_section, config_has_section, config_set
+import pytest
+
+from rucio.common.config import config_add_section, config_has_section, config_set, config_remove_option
 from rucio.common.utils import generate_uuid
 from rucio.common.types import InternalScope
 from rucio.core.did import list_dids, list_files
@@ -27,6 +29,7 @@ from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import scope_name_generator
 
 
+@pytest.mark.noparallel(reason='changes global configuration value')
 def test_automatix(vo, root_account, rse_factory):
     """Automatix: Test the automatix daemon"""
     scope = scope_name_generator()
@@ -81,3 +84,5 @@ def test_automatix(vo, root_account, rse_factory):
         assert status
         for file_ in files:
             assert file_dict["%s:%s" % (file_["scope"], file_["name"])] is True
+    config_remove_option("automatix", "rses")
+    config_remove_option("automatix", "scope")
