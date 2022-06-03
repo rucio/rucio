@@ -769,15 +769,15 @@ def test_qos_staging_pin_no_disk_replica(rse_factory, did_factory, root_account)
     # test that proper lifetime is set on request
     assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
 
-    assert(rule_core.get_rule(rule_id)['state'] == RuleState.REPLICATING)
+    assert rule_core.get_rule(rule_id)['state'] == RuleState.REPLICATING
 
     for filtered_lock in [lock for lock in lock_core.get_replica_locks(scope=did['scope'], name=did['name'], restrict_rses=[dst_rse_id])]:
-        assert(filtered_lock['state'] == LockState.REPLICATING)
+        assert filtered_lock['state'] == LockState.REPLICATING
 
     replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=300, **did)
 
     assert replica['state'] == ReplicaState.AVAILABLE
-    assert(rule_core.get_rule(rule_id)['state'] == RuleState.OK)
+    assert rule_core.get_rule(rule_id)['state'] == RuleState.OK
 
 
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
@@ -814,9 +814,9 @@ def test_qos_transfer_two_rules_to_tape_and_buffer(rse_factory, did_factory, roo
 
     # check replica is safe on tape
     assert replica['state'] == ReplicaState.AVAILABLE
-    
+
     # check rule state is OK
-    assert(rule_core.get_rule(rule1_id)['state'] == RuleState.OK)
+    assert rule_core.get_rule(rule1_id)['state'] == RuleState.OK
 
     # now test a second rule to stage data back to "disk" storage
     rule2_id = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=buffer_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -831,14 +831,14 @@ def test_qos_transfer_two_rules_to_tape_and_buffer(rse_factory, did_factory, roo
 
     # check replica is safe on buffer
     assert replica['state'] == ReplicaState.AVAILABLE
-    
+
     # check that both rule states are OK
-    assert(rule_core.get_rule(rule2_id)['state'] == RuleState.OK)
-    assert(rule_core.get_rule(rule1_id)['state'] == RuleState.OK)
+    assert rule_core.get_rule(rule2_id)['state'] == RuleState.OK
+    assert rule_core.get_rule(rule1_id)['state'] == RuleState.OK
 
     # check that all locks are OK
     for filtered_lock in [lock for lock in lock_core.get_replica_locks(scope=did['scope'], name=did['name'])]:
-        assert(filtered_lock['state'] == LockState.OK)
+        assert filtered_lock['state'] == LockState.OK
 
 
 @skip_rse_tests_with_accounts
