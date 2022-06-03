@@ -63,5 +63,3 @@ COMMENT ON TABLE UPDATED_ACCOUNT_COUNTERS IS 'Table for updated account_rse info
 COMMENT ON TABLE UPDATED_COL_REP IS 'Table for updated collection replica information to be processed by Abacus';
 COMMENT ON TABLE UPDATED_DIDS IS 'Table for updated dids to be processed by judge-evaluator';
 COMMENT ON TABLE UPDATED_RSE_COUNTERS IS 'Table for updated rse usage information to be processed by Abacus';
-
-

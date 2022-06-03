@@ -370,9 +370,3 @@ comments=> 'Job for regular insertion of the changed (since the previous executi
 
 END;
 /
-
-
-
-
-
-
