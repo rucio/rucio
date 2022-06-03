@@ -19,16 +19,24 @@ import tempfile
 
 from rucio.common.config import config_add_section, config_has_section, config_set
 from rucio.common.utils import generate_uuid
+from rucio.common.types import InternalScope
 from rucio.core.did import list_dids, list_files
+from rucio.core.scope import add_scope
 from rucio.daemons.automatix.automatix import automatix
 from rucio.rse import rsemanager as rsemgr
+from rucio.tests.common import scope_name_generator
 
 
-def test_automatix(vo, root_account, mock_scope, rse_factory):
+def test_automatix(vo, root_account, rse_factory):
     """Automatix: Test the automatix daemon"""
+    scope = scope_name_generator()
+    add_scope(scope=InternalScope(scope, vo), account=root_account)
+    if not config_has_section("automatix"):
+        config_add_section("automatix")
+    rse, rse_id = rse_factory.make_posix_rse()
+    config_set("automatix", "rses", rse)
+    config_set("automatix", "scope", scope)
     if os.environ.get("POLICY") == "belleii":
-        if not config_has_section("automatix"):
-            config_add_section("automatix")
         config_set(
             "automatix",
             "dataset_pattern",
@@ -38,7 +46,6 @@ def test_automatix(vo, root_account, mock_scope, rse_factory):
         config_set("automatix", "did_prefix", "/belle/ddm/tests")
         config_set("automatix", "separator", "/")
 
-    rse, rse_id = rse_factory.make_posix_rse()
     project = generate_uuid()
     project = project[:8]
     test_dict = {
@@ -53,28 +60,21 @@ def test_automatix(vo, root_account, mock_scope, rse_factory):
         json.dump(test_dict, file_)
         file_.flush()
         automatix(
-            rses=[
-                rse,
-            ],
             inputfile=file_.name,
             sleep_time=10,
-            account=root_account.external,
-            worker_number=1,
-            total_workers=1,
-            scope=mock_scope.external,
             once=True,
-            dataset_lifetime=86400,
-            set_metadata=True,
         )
         dids = [
             did
             for did in list_dids(
-                scope=mock_scope, filters={"project": project}, did_type="collection"
+                scope=InternalScope(scope, vo),
+                filters={"project": project},
+                did_type="collection",
             )
         ]
         assert len(dids) == 1
         rse_info = rsemgr.get_rse_info(rse, vo)
-        files = [file_ for file_ in list_files(mock_scope, dids[0])]
+        files = [file_ for file_ in list_files(InternalScope(scope, vo), dids[0])]
         for file_ in files:
             file_["scope"] = file_["scope"].external
         status, file_dict = rsemgr.exists(rse_info, files)
