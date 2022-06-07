@@ -60,6 +60,10 @@ def config_get(section, option, raise_exception=True, default=None, clean_cached
     try:
         return extract_function(get_config(), section, option)
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
+        legacy_config = get_legacy_config(section, option, extract_function)
+        if legacy_config is not None:
+            return legacy_config
+
         from rucio.common.utils import is_client
         client_mode = is_client()
 
@@ -78,14 +82,46 @@ def config_get(section, option, raise_exception=True, default=None, clean_cached
             return default
 
 
+def get_legacy_config(section, option, extract_function):
+    """
+    Returns a legacy config value, if it is present.
+
+    :param section: The section of the new config.
+    :param option: The option of the new config.
+    :param extract_function: The method of ConfigParser.ConfigParser to call to retrieve the value.
+    :returns: The string value of the legacy option if one is found, None otherwise.
+    """
+    LEGACY_SECTION_NAME = {}
+    LEGACY_OPTION_NAME = {}
+
+    section = LEGACY_SECTION_NAME.get(section, section)
+    option = LEGACY_OPTION_NAME.get(option, option)
+
+    if config_has_option(section, option):
+        return extract_function(get_config(), section, option)
+
+    return None
+
+
 def config_has_section(section):
     """
-    Indicates whether the named section is present in the configuration. The DEFAULT section is not acknowledged.)
+    Indicates whether the named section is present in the configuration. The DEFAULT section is not acknowledged.
 
     :param section: Name of section in the Rucio config to verify.
     :returns: True if the section exists in the configuration; False otherwise
     """
     return get_config().has_section(section)
+
+
+def config_has_option(section, option):
+    """
+    Indicates whether the named option is present in the configuration. The DEFAULT section is not acknowledged.
+
+    :param section: Name of section in the Rucio config to verify.
+    :param option: Name of option in the Rucio config to verify.
+    :returns: True if the section and option exists in the configuration; False otherwise
+    """
+    return get_config().has_option(section, option)
 
 
 def config_add_section(section):
