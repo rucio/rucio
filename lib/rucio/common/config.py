@@ -56,11 +56,12 @@ def config_get(section, option, raise_exception=True, default=None, clean_cached
     :raises NoSectionError
     :raises RuntimeError
     """
-    from rucio.common.utils import is_client
-    client_mode = is_client()
     try:
         return get_config().get(section, option)
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
+        from rucio.common.utils import is_client
+        client_mode = is_client()
+
         if not client_mode and check_config_table:
             try:
                 return __config_get_table(section=section, option=option, raise_exception=raise_exception,
