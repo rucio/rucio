@@ -41,6 +41,7 @@ def config_get(section, option, raise_exception=True, default=None, clean_cached
     :param option: the named option.
     :param raise_exception: Boolean to raise or not NoOptionError, NoSectionError or RuntimeError.
     :param default: the default value if not found.
+    :param clean_cached: Deletes the cached config singleton instance if no config value is found
     :param check_config_table: if not set, avoid looking at config table even if it is called from server/daemon
     :param session: The database session in use. Only used if not found in config file and if it is called from
                     server/daemon
@@ -55,7 +56,6 @@ def config_get(section, option, raise_exception=True, default=None, clean_cached
     :raises NoSectionError
     :raises RuntimeError
     """
-    global __CONFIG
     from rucio.common.utils import is_client
     client_mode = is_client()
     try:
@@ -72,7 +72,7 @@ def config_get(section, option, raise_exception=True, default=None, clean_cached
             if raise_exception and default is None:
                 raise err
             if clean_cached:
-                __CONFIG = None
+                clean_cached_config()
             return default
 
 
@@ -361,6 +361,12 @@ def get_config():
     if __CONFIG is None:
         __CONFIG = Config()
     return __CONFIG.parser
+
+
+def clean_cached_config():
+    """Deletes the cached config singleton instance."""
+    global __CONFIG
+    __CONFIG = None
 
 
 class Config:
