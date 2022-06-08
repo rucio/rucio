@@ -276,7 +276,6 @@ class TemporaryDidFactory:
             name_prefix = 'lfn'
         name = did_name_generator(did_type=name_prefix, name_prefix='%s_%s' % (name_prefix, self.base_uuid), name_suffix=name_suffix, cnt=len(self.created_dids))
         did = {'scope': scope, 'name': name}
-        print(did)
         self.created_dids.append(did)
         return did
 
@@ -286,7 +285,6 @@ class TemporaryDidFactory:
 
     def make_dataset(self, scope=None):
         did = self._random_did(scope=scope, name_prefix='dataset')
-        print(did)
         self.client.add_did(scope=did['scope'].external, name=did['name'], did_type=DIDType.DATASET)
         return did
 
@@ -334,9 +332,7 @@ class TemporaryDidFactory:
                          'guid': generate_uuid(),
                          })
             did = {'scope': scope, 'name': name}
-            print(did)
             self.created_dids.append(did)
-        print(items)
         self.upload_client.upload(items)
         return items
 
