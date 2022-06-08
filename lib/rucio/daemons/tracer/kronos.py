@@ -17,6 +17,7 @@
 This daemon consumes tracer messages from ActiveMQ and updates the atime for replicas.
 """
 
+import _thread
 import logging
 import re
 import socket
@@ -351,15 +352,19 @@ def kronos_file(thread=0, dataset_queue=None, sleep_time=60):
         heart_beat = live(executable, hostname, pid, hb_thread)
         prepend_str = 'kronos-file[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
         logger = formatted_logger(logging.log, prepend_str + '%s')
-        conns = get_stomp_brokers(brokers=brokers_alias,
-                                  port=port,
-                                  use_ssl=use_ssl,
-                                  vhost=vhost,
-                                  reconnect_attempts=reconnect_attempts,
-                                  ssl_key_file=ssl_key_file,
-                                  ssl_cert_file=ssl_cert_file,
-                                  timeout=sleep_time,
-                                  logger=logger)
+        try:
+            conns = get_stomp_brokers(brokers=brokers_alias,
+                                      port=port,
+                                      use_ssl=use_ssl,
+                                      vhost=vhost,
+                                      reconnect_attempts=reconnect_attempts,
+                                      ssl_key_file=ssl_key_file,
+                                      ssl_cert_file=ssl_cert_file,
+                                      timeout=sleep_time,
+                                      logger=logger)
+        except:
+            _thread.interrupt_main()
+
         for conn in conns:
             if not conn.is_connected():
                 logger(logging.INFO, 'connecting to %s' % str(conn.transport._Transport__host_and_ports[0]))
