@@ -2116,7 +2116,7 @@ def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=Tru
         rowcount += result.rowcount
 
     for chunk in chunks(bad_replica_condition, 10):
-        update(models.BadReplicas).\
+        stmt = update(models.BadReplicas).\
             where(models.BadReplicas.rse_id == rse_id). \
             where(or_(*chunk)). \
             where(models.BadReplicas.state == BadFilesStatus.BAD) .\
@@ -2126,7 +2126,7 @@ def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=Tru
                 updated_at=datetime.utcnow()
         )
 
-        result = session.execute(stmt)
+        session.execute(stmt)
 
     if rowcount != len(files):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
