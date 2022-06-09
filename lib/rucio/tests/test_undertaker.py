@@ -90,8 +90,8 @@ class TestUndertaker(unittest.TestCase):
 
         add_rules(dids=dsns1, rules=[{'account': jdoe, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET'}])
 
-        undertaker(worker_number=1, total_workers=1, once=True)
-        undertaker(worker_number=1, total_workers=1, once=True)
+        undertaker(once=True)
+        undertaker(once=True)
 
         for replica in replicas:
             assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse_id)['tombstone'] is not None
@@ -153,7 +153,7 @@ class TestUndertaker(unittest.TestCase):
             attach_dids(scope=tmp_scope, name=dsn['name'], rse_id=rse_id, dids=files, account=root)
             replicas += files
 
-        undertaker(worker_number=1, total_workers=1, once=True)
+        undertaker(once=True)
 
         for replica in replicas:
             assert(get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse_id)['tombstone'] is None)
@@ -205,8 +205,8 @@ def test_removal_all_replicas2(rse_factory, root_account, mock_scope, core_confi
     rule_cleaner(once=True)
     for replica in replicas:
         assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse2_id)['tombstone'] is not None
-    undertaker(worker_number=1, total_workers=1, once=True)
-    undertaker(worker_number=1, total_workers=1, once=True)
+    undertaker(once=True)
+    undertaker(once=True)
 
     for replica in replicas:
         assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse1_id)['tombstone'] == datetime(year=1970, month=1, day=1)
