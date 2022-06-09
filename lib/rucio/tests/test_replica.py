@@ -194,7 +194,12 @@ class TestReplicaCore:
 
         assert nbfiles == replica_cpt
 
-    def test_delete_replicas(self, rse_factory, mock_scope, root_account):
+    @pytest.mark.parametrize("file_config_mock", [
+        # Run test twice: with, and without, temp tables
+        {"overrides": [('core', 'use_temp_tables', 'True')]},
+        {"overrides": [('core', 'use_temp_tables', 'False')]},
+    ], indirect=True)
+    def test_delete_replicas(self, rse_factory, mock_scope, root_account, file_config_mock):
         """ REPLICA (CORE): Delete replicas """
         _, rse1_id = rse_factory.make_mock_rse()
         _, rse2_id = rse_factory.make_mock_rse()
@@ -207,6 +212,9 @@ class TestReplicaCore:
         files2 = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         add_replicas(rse_id=rse1_id, files=files2, account=root_account, ignore_availability=True)
         add_replicas(rse_id=rse2_id, files=files2, account=root_account, ignore_availability=True)
+
+        # calling delete_replicas without any files must not fail
+        delete_replicas(rse_id=rse1_id, files=[])
 
         delete_replicas(rse_id=rse1_id, files=files1 + files2)
 
