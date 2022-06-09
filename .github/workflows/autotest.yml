@@ -63,7 +63,12 @@ jobs:
           echo "The updated number of missing type annotations is: $UPDATED_NUMBER_OF_MISSING_TYPE_ANNOTATIONS"
           if [ $UPDATED_NUMBER_OF_MISSING_TYPE_ANNOTATIONS -gt $INITIAL_NUMBER_OF_MISSING_TYPE_ANNOTATIONS ]; then
             echo "The number of missing python type annotations should never increase! This way we ensure that new functions are type annotated."
-            echo "Look into 'Diff of missing type annotations' to see what changed."
+            echo "Look into the first lines of 'Diff of missing type annotations' to get a reference point what function might be missing type annotations."
+            echo "**TL;DR** New code has to be type annotated, old code should be migrated. Look into Best Practices[1] for specific instructions on how to use it in our repository."
+            echo "Look into the Rucio Type Annotations Guide[2] to get some help on why, what and how to add type annotations."
+            echo
+            echo "[1] https://codimd.web.cern.ch/6-SU3cTpQSWRK6FHkM7mAA#Best-Practices"
+            echo "[2] https://codimd.web.cern.ch/6-SU3cTpQSWRK6FHkM7mAA#"
             exit 1
           fi
   setup:
