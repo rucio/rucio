@@ -79,7 +79,7 @@ server_requirements_table = {
         'pysftp',
         'sqlalchemy',
         'alembic',
-        'python-memcached',
+        'pymemcache',
         'python-dateutil',
         'stomp.py',
         'statsd',
