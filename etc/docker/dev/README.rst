@@ -273,4 +273,3 @@ And if we look at the replicas of the dataset, we see the there are replicas of 
     > | test    | file4  | 10.486 MB  | 65786e49  | XRD2: root://xrd2:1095//rucio/test/2b/c2/file4 |
     > | test    | file4  | 10.486 MB  | 65786e49  | XRD3: root://xrd3:1096//rucio/test/2b/c2/file4 |
     > +---------+--------+------------+-----------+------------------------------------------------+
-

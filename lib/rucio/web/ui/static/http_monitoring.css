@@ -1,5 +1,5 @@
-.ui-datepicker-inline { 
-  min-width: 100%; 
+.ui-datepicker-inline {
+  min-width: 100%;
   border: 2px solid #efefef;
   }
 
@@ -66,5 +66,3 @@ td.align-right {
 .vertical-menu * {
   min-width: 100%;
 }
-
-

@@ -104,7 +104,7 @@ def print_issues(issues, section_title):
                 print(format_issue(issue))
     else:
         print('\n##', section_title)
-        print()      
+        print()
         if features:
             print('### Features\n')
             for issue in features:
