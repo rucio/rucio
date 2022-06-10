@@ -1036,13 +1036,6 @@ def add_protocol(rse_id, parameter, session=None):
                 parameter[op_name] = parameter['domains'][s][op]
         del parameter['domains']
 
-    # If third_party_copy is set, but not the third_party_copy_read/write,
-    # set the _read/_write by copying the value from the third_party_copy
-    # This is done to maintain compatibility with old scripts.
-    if parameter.get('third_party_copy') is not None and parameter.get('third_party_copy_read') is None and parameter.get('third_party_copy_write') is None:
-        parameter['third_party_copy_read'] = parameter['third_party_copy']
-        parameter['third_party_copy_write'] = parameter['third_party_copy']
-
     if ('extended_attributes' in parameter) and parameter['extended_attributes']:
         try:
             parameter['extended_attributes'] = json.dumps(parameter['extended_attributes'], separators=(',', ':'))
@@ -1151,7 +1144,6 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
                           models.RSEProtocols.read_wan,
                           models.RSEProtocols.write_wan,
                           models.RSEProtocols.delete_wan,
-                          models.RSEProtocols.third_party_copy,
                           models.RSEProtocols.third_party_copy_read,
                           models.RSEProtocols.third_party_copy_write,
                           models.RSEProtocols.extended_attributes).filter(*terms)
@@ -1169,7 +1161,6 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
                  'wan': {'read': row.read_wan,
                          'write': row.write_wan,
                          'delete': row.delete_wan,
-                         'third_party_copy': row.third_party_copy,
                          'third_party_copy_read': row.third_party_copy_read,
                          'third_party_copy_write': row.third_party_copy_write}
              },

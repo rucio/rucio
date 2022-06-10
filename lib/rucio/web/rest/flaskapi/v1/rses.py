@@ -730,9 +730,6 @@ class ProtocolList(ErrorHandlingMethodView):
                                   delete:
                                     description: The read value of the wan protocol.
                                     type: integer
-                                  third_party_copy:
-                                    description: The third party copy value of the wan protocol.
-                                    type: integer
                                   third_party_copy_read:
                                     description: The third party copy read value of the wan protocol.
                                     type: integer
@@ -1073,9 +1070,6 @@ class Protocol(ErrorHandlingMethodView):
                                   delete:
                                     description: The read value of the wan protocol.
                                     type: integer
-                                  third_party_copy:
-                                    description: The third party copy value of the wan protocol.
-                                    type: integer
                                   third_party_copy_read:
                                     description: The third party copy read value of the wan protocol.
                                     type: integer
@@ -1236,9 +1230,6 @@ class Protocol(ErrorHandlingMethodView):
                                     type: integer
                                   delete:
                                     description: The read value of the wan protocol.
-                                    type: integer
-                                  third_party_copy:
-                                    description: The third party copy value of the wan protocol.
                                     type: integer
                                   third_party_copy_read:
                                     description: The third party copy read value of the wan protocol.
