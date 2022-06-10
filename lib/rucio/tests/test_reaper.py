@@ -26,6 +26,7 @@ from rucio.common.exception import ReplicaNotFound, DataIdentifierNotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core import did as did_core
+from rucio.core import message as message_core
 from rucio.core import replica as replica_core
 from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
@@ -62,7 +63,7 @@ def __add_test_rse_and_replicas(vo, scope, rse_name, names, file_size, epoch_tom
         dids.append({'scope': scope, 'name': file_name})
         replica_core.add_replica(rse_id=rse_id, scope=scope,
                                  name=file_name, bytes_=file_size,
-                                 tombstone=tombstone,
+                                 tombstone=tombstone, meta={'datatype': 'SOME_DATATYPE'},
                                  account=InternalAccount('root', vo=vo), adler32=None, md5=None)
     return rse_name, rse_id, dids
 
@@ -75,7 +76,7 @@ def __add_test_rse_and_replicas(vo, scope, rse_name, names, file_size, epoch_tom
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION'
 ]}], indirect=True)
-def test_reaper(vo, caches_mock, file_config_mock):
+def test_reaper(vo, caches_mock, file_config_mock, message_mock):
     """ REAPER (DAEMON): Test the reaper daemon."""
     [cache_region] = caches_mock
     scope = InternalScope('data13_hip', vo=vo)
@@ -100,6 +101,10 @@ def test_reaper(vo, caches_mock, file_config_mock):
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 200
+
+    msgs = message_core.retrieve_messages()
+    assert len(msgs) == 50  # one for each deleted file
+    assert all(msg['payload']['datatype'] == 'SOME_DATATYPE' for msg in msgs)
 
 
 @pytest.mark.parametrize("file_config_mock", [
