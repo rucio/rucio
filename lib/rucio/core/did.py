@@ -438,6 +438,8 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
         models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
     ).where(
         or_(*added_archives_condition)
+    ).limit(
+        1
     )
     if session.execute(stmt).scalar() is not None:
         stmt = update(
@@ -961,6 +963,8 @@ def detach_dids(scope, name, dids, session=None):
     ).filter_by(
         scope=scope,
         name=name,
+    ).limit(
+        1
     )
     if session.execute(stmt).scalar() is None:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' has no child data identifiers." % locals())
@@ -973,6 +977,8 @@ def detach_dids(scope, name, dids, session=None):
             stmt.filter_by(
                 child_scope=child_scope,
                 child_name=child_name
+            ).limit(
+                1
             )
         ).scalar()
         if associ_did is None:
@@ -1434,6 +1440,8 @@ def scope_list(scope, name=None, recursive=False, session=None):
         ).filter_by(
             scope=scope,
             name=name
+        ).limit(
+            1
         )
         topdids = session.execute(stmt).scalar()
         if topdids is None:
