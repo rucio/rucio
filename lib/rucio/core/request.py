@@ -1534,6 +1534,14 @@ def add_monitor_message(new_state, request, additional_fields, session=None):
         transfer_status = 'transfer-%s' % new_state.name
     transfer_status = transfer_status.lower()
 
+    stmt = select(
+        models.DataIdentifier.datatype
+    ).where(
+        models.DataIdentifier.scope == request['scope'],
+        models.DataIdentifier.name == request['name'],
+    )
+    datatype = session.execute(stmt).scalar_one_or_none()
+
     # Start by filling up fields from database request or with defaults.
     message = {'activity': request.get('activity', None),
                'request-id': request['id'],
@@ -1562,7 +1570,8 @@ def add_monitor_message(new_state, request, additional_fields, session=None):
                'started_at': request.get('started_at', None),
                'transferred_at': request.get('transferred_at', None),
                'tool-id': 'rucio-conveyor',
-               'account': request.get('account', None)}
+               'account': request.get('account', None),
+               'datatype': datatype}
 
     # Add (or override) existing fields
     message.update(additional_fields)

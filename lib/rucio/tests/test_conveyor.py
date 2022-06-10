@@ -26,6 +26,7 @@ from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid
 from rucio.common.exception import ReplicaNotFound, RequestNotFound
 from rucio.core import config as core_config
+from rucio.core import did as did_core
 from rucio.core import distance as distance_core
 from rucio.core import message as message_core
 from rucio.core import replica as replica_core
@@ -439,6 +440,7 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account, met
         # Add non-existing replica which will fail during multisource transfers on the RSE with lower cost (will be the preferred source)
         replica_client.add_replicas(rse=src_rse2, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
 
+        did_core.set_metadata(did['scope'], did['name'], 'datatype', 'RAW')
         rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
@@ -467,8 +469,10 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account, met
         msgs = message_core.retrieve_messages()
         msg_submitted = next(msg for msg in msgs if msg['event_type'] == 'transfer-submitted')
         assert msg_submitted['payload']['request-id'] == request['id']
+        assert msg_submitted['payload']['datatype'] == 'RAW'
         msg_done = next(msg for msg in msgs if msg['event_type'] == 'transfer-done')
         assert msg_done['payload']['request-id'] == request['id']
+        assert msg_done['payload']['datatype'] == 'RAW'
     finally:
         receiver_graceful_stop.set()
         receiver_thread.join(timeout=5)
