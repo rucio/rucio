@@ -30,7 +30,7 @@ from rucio.common import exception
 
 
 def config_get(section, option, raise_exception=True, default=None, clean_cached=False, check_config_table=True,
-               session=None, use_cache=True, expiration_time=900):
+               session=None, use_cache=True, expiration_time=900, extract_function=ConfigParser.ConfigParser.get):
     """
     Return the string value for a given option in a section
 
@@ -49,6 +49,7 @@ def config_get(section, option, raise_exception=True, default=None, clean_cached
                       from server/daemon
     :param expiration_time: Time after that the cached value gets ignored. Only used if not found in config file and if
                             it is called from server/daemon
+    :param extract_function: The method of ConfigParser.ConfigParser to call to retrieve the value.
 
     :returns: the configuration value.
 
@@ -57,7 +58,7 @@ def config_get(section, option, raise_exception=True, default=None, clean_cached
     :raises RuntimeError
     """
     try:
-        return get_config().get(section, option)
+        return extract_function(get_config(), section, option)
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
         from rucio.common.utils import is_client
         client_mode = is_client()
@@ -113,7 +114,6 @@ def config_get_int(section, option, raise_exception=True, default=None, check_co
                       from server/daemon
     :param expiration_time: Time after that the cached value gets ignored. Only used if not found in config file and if
                             it is called from server/daemon
-
     :returns: the configuration value.
 
     :raises NoOptionError
@@ -121,27 +121,17 @@ def config_get_int(section, option, raise_exception=True, default=None, check_co
     :raises RuntimeError
     :raises ValueError
     """
-    from rucio.common.utils import is_client
-    client_mode = is_client()
-    try:
-        return get_config().getint(section, option)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
-        if not client_mode and check_config_table:
-            try:
-                return int(__config_get_table(section=section, option=option, raise_exception=raise_exception,
-                                              default=default, session=session, use_cache=use_cache,
-                                              expiration_time=expiration_time))
-            except (ConfigNotFound, DatabaseException, ImportError):
-                raise err
-            except ValueError as err_:
-                raise err_
-        else:
-            if raise_exception and default is None:
-                raise err
-            try:
-                return int(default)
-            except ValueError as err_:
-                raise err_
+    return int(config_get(
+        section,
+        option,
+        raise_exception=raise_exception,
+        default=default,
+        check_config_table=check_config_table,
+        session=session,
+        use_cache=True,
+        expiration_time=expiration_time,
+        extract_function=ConfigParser.ConfigParser.getint
+    ))
 
 
 def config_get_float(section, option, raise_exception=True, default=None, check_config_table=True, session=None,
@@ -168,27 +158,17 @@ def config_get_float(section, option, raise_exception=True, default=None, check_
     :raises RuntimeError
     :raises ValueError
     """
-    from rucio.common.utils import is_client
-    client_mode = is_client()
-    try:
-        return get_config().getfloat(section, option)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
-        if not client_mode and check_config_table:
-            try:
-                return float(__config_get_table(section=section, option=option, raise_exception=raise_exception,
-                                                default=default, session=session, use_cache=use_cache,
-                                                expiration_time=expiration_time))
-            except (ConfigNotFound, DatabaseException, ImportError):
-                raise err
-            except ValueError as err_:
-                raise err_
-        else:
-            if raise_exception and default is None:
-                raise err
-            try:
-                return float(default)
-            except ValueError as err_:
-                raise err_
+    return float(config_get(
+        section,
+        option,
+        raise_exception=raise_exception,
+        default=default,
+        check_config_table=check_config_table,
+        session=session,
+        use_cache=True,
+        expiration_time=expiration_time,
+        extract_function=ConfigParser.ConfigParser.getfloat
+    ))
 
 
 def config_get_bool(section, option, raise_exception=True, default=None, check_config_table=True, session=None,
@@ -215,27 +195,17 @@ def config_get_bool(section, option, raise_exception=True, default=None, check_c
     :raises RuntimeError
     :raises ValueError
     """
-    from rucio.common.utils import is_client
-    client_mode = is_client()
-    try:
-        return get_config().getboolean(section, option)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
-        if not client_mode and check_config_table:
-            try:
-                return bool(__config_get_table(section=section, option=option, raise_exception=raise_exception,
-                                               default=default, session=session, use_cache=use_cache,
-                                               expiration_time=expiration_time))
-            except (ConfigNotFound, DatabaseException, ImportError):
-                raise err
-            except ValueError as err_:
-                raise err_
-        else:
-            if raise_exception and default is None:
-                raise err
-            try:
-                return bool(default)
-            except ValueError as err_:
-                raise err_
+    return bool(config_get(
+        section,
+        option,
+        raise_exception=raise_exception,
+        default=default,
+        check_config_table=check_config_table,
+        session=session,
+        use_cache=True,
+        expiration_time=expiration_time,
+        extract_function=ConfigParser.ConfigParser.getboolean
+    ))
 
 
 def __config_get_table(section, option, raise_exception=True, default=None, clean_cached=False, session=None,
