@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import false
 
@@ -439,6 +439,14 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
             if rowcount == 0:
                 raise RucioException("%s: failed to set transfer state: request doesn't exist or is not in SUBMITTING state" % rws)
 
+            stmt = select(
+                models.DataIdentifier.datatype
+            ).where(
+                models.DataIdentifier.scope == rws.scope,
+                models.DataIdentifier.name == rws.name,
+            )
+            datatype = session.execute(stmt).scalar_one_or_none()
+
             msg = {'request-id': rws.request_id,
                    'request-type': rws.request_type,
                    'scope': rws.scope.external,
@@ -455,7 +463,8 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
                    'checksum-adler': rws.adler32,
                    'external-id': external_id,
                    'external-host': external_host,
-                   'queued_at': str(submitted_at)}
+                   'queued_at': str(submitted_at),
+                   'datatype': datatype}
             if rws.scope.vo != 'def':
                 msg['vo'] = rws.scope.vo
 
