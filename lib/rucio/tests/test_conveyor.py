@@ -480,6 +480,7 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account, met
         assert msg_done['payload']['datatype'] == 'RAW'
         assert msg_done['payload']['datasetScope'] == dataset['scope'].external
         assert msg_done['payload']['dataset'] == dataset['name']
+        assert msg_done['payload']['transfer_link'].startswith('https://fts:8449/')
     finally:
         receiver_graceful_stop.set()
         receiver_thread.join(timeout=5)
