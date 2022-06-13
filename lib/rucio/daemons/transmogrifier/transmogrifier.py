@@ -20,7 +20,7 @@ import threading
 import time
 from datetime import datetime
 from json import loads
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Dict, Callable
 
 import rucio.db.sqla.util
 from rucio.db.sqla.constants import DIDType, SubscriptionState
@@ -52,6 +52,7 @@ from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
+    from rucio.common.types import InternalScope
 
 graceful_stop = threading.Event()
 
@@ -59,7 +60,13 @@ RULES_COMMENT_LENGTH = 255
 
 
 def __get_rule_dict(rule_dict: dict, subscription: dict) -> dict:
+    """
+    Internal method to clean and enrich the rule_dict coming from the subscription.
 
+    :param rule_dict: The rule dictionnary coming from a subscription.
+    :param subscription: The subscription associated to the rule.
+    :return: A dictionary that contains all the parameters associated to the rule.
+    """
     source_replica_expression = rule_dict.get("source_replica_expression", None)
     rule_dict["source_replica_expression"] = source_replica_expression
     locked = rule_dict.get("locked", None)
@@ -101,17 +108,32 @@ def __get_rule_dict(rule_dict: dict, subscription: dict) -> dict:
 
 
 def __split_rule_select_rses(
-    subscription_id,
-    subscription_name,
-    scope,
-    name,
-    account,
-    weight,
-    rse_expression,
-    copies,
-    blocklisted_rse_id,
-    logger,
-):
+    subscription_id: str,
+    subscription_name: str,
+    scope: "InternalScope",
+    name: str,
+    account: "InternalAccount",
+    weight: int,
+    rse_expression: str,
+    copies: int,
+    blocklisted_rse_id: list,
+    logger: "Callable",
+) -> List[Dict]:
+    """
+    Internal method to create a list of RSEs that match RSE expression for subscriptions with split_rule.
+
+    :param subscription_id: The subscription id.
+    :param subscription_name: The subscription name.
+    :param scope: The internal DID scope.
+    :param name: The DID name.
+    :param account: The internal account.
+    :param weight: The weight of the rule.
+    :param rse_expression: The RSE expression of the rule.
+    :param copies: The number of copies.
+    :param blocklisted_rse_id: The list of blocklisted_rse_id.
+    :param logger: The logger.
+    :return: A tuple of list selected_rses, preferred_rses, preferred_unmatched.
+    """
     preferred_rses = set()
     for rule in list_rules(
         filters={
@@ -165,7 +187,12 @@ def __split_rule_select_rses(
     return selected_rses, preferred_rses, preferred_unmatched
 
 
-def get_subscriptions(logger=logging.log):
+def get_subscriptions(logger: "Callable" = logging.log) -> List[Dict]:
+    """
+    A method to extract the list of active subscriptions and exclued the one that have bad RSE expression.
+    :param logger: The logger.
+    :return: The list of active subscriptions.
+    """
     subscriptions = []
     try:
         sub_dict = {3: []}
@@ -223,12 +250,12 @@ def get_subscriptions(logger=logging.log):
 
 def __is_matching_subscription(subscription, did, metadata):
     """
-    Method to identify if a DID matches a subscription.
+    Internal method to identify if a DID matches a subscription.
 
-    param subscription: The subscription dictionnary.
-    param did: The DID dictionnary
-    param metadata: The metadata dictionnary for the DID
-    return: True/False
+    :param subscription: The subscription dictionary.
+    :param did: The DID dictionary
+    :param metadata: The metadata dictionnary for the DID
+    :return: True/False
     """
     if metadata["hidden"]:
         return False
@@ -577,7 +604,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                         logger(
                             logging.ERROR,
                             "Rule for %s:%s on %s cannot be inserted"
-                            % (did["scope"], did["name"], rule_dict("rse_expression")),
+                            % (did["scope"], did["name"], rule_dict.get("rse_expression")),
                         )
                     else:
                         logger(
