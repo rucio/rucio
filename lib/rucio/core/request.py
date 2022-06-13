@@ -1555,6 +1555,8 @@ def add_monitor_message(new_state, request, additional_fields, session=None):
                'protocol': None,
                'scope': request['scope'],
                'name': request['name'],
+               'dataset': None,
+               'datasetScope': None,
                'src-type': None,
                'src-rse': request.get('source_rse', None),
                'src-url': None,
@@ -1578,6 +1580,12 @@ def add_monitor_message(new_state, request, additional_fields, session=None):
 
     if message['started_at'] and message['transferred_at']:
         message['duration'] = (message['transferred_at'] - message['started_at']).seconds
+    ds_scope = request['attributes'].get('ds_scope')
+    if not message['datasetScope'] and ds_scope:
+        message['datasetScope'] = ds_scope
+    ds_name = request['attributes'].get('ds_name')
+    if not message['dataset'] and ds_name:
+        message['dataset'] = ds_name
     if not message.get('protocol'):
         dst_url = message['dst-url']
         if dst_url and ':' in dst_url:

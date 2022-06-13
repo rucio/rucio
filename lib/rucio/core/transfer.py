@@ -453,6 +453,8 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
                    'request-type': rws.request_type,
                    'scope': rws.scope.external,
                    'name': rws.name,
+                   'dataset': None,
+                   'datasetScope': None,
                    'src-rse-id': transfer.src.rse.id,
                    'src-rse': transfer.src.rse.name,
                    'dst-rse-id': transfer.dst.rse.id,
@@ -469,6 +471,13 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
                    'datatype': datatype}
             if rws.scope.vo != 'def':
                 msg['vo'] = rws.scope.vo
+
+            ds_scope = transfer.rws.attributes.get('ds_scope')
+            if ds_scope:
+                msg['datasetScope'] = ds_scope
+            ds_name = transfer.rws.attributes.get('ds_name')
+            if ds_name:
+                msg['dataset'] = ds_name
 
             if msg['request-type']:
                 transfer_status = '%s-%s' % (msg['request-type'].name, msg['state'].name)
