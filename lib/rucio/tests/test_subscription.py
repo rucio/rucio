@@ -30,10 +30,11 @@ from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account
 from rucio.core.did import add_did, set_new_dids, list_new_dids
 from rucio.core.rule import add_rule
+from rucio.core.rse import add_rse_attribute
 from rucio.core.scope import add_scope
-from rucio.daemons.transmogrifier.transmogrifier import run
+from rucio.daemons.transmogrifier.transmogrifier import run, get_subscriptions
 from rucio.db.sqla.constants import AccountType, DIDType
-from rucio.tests.common import headers, auth, did_name_generator
+from rucio.tests.common import headers, auth, did_name_generator, rse_name_generator
 from rucio.tests.common_server import get_vo
 
 
@@ -451,3 +452,89 @@ class TestSubscriptionClient(unittest.TestCase):
         run(threads=1, bulk=1000000, once=True)
         rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
+
+
+@pytest.mark.noparallel(reason='uses daemon')
+class TestDaemon():
+    def test_run_transmogrifier_chained_subscription(self, rse_factory, vo, rucio_client, root_account):
+        """ SUBSCRIPTION (DAEMON): Test the transmogrifier with chained subscriptions """
+        rse1, rse1_id = rse_factory.make_mock_rse()
+        rse2, rse2_id = rse_factory.make_mock_rse()
+        rse3, _ = rse_factory.make_mock_rse()
+        rse4, _ = rse_factory.make_mock_rse()
+        rse5, _ = rse_factory.make_mock_rse()
+        rse6, _ = rse_factory.make_mock_rse()
+        add_rse_attribute(rse_id=rse1_id, key='associated_sites', value='%s,%s' % (rse3, rse4))
+        add_rse_attribute(rse_id=rse2_id, key='associated_sites', value='%s,%s' % (rse5, rse6))
+        rses = []
+        for cnt in range(5):
+            rse, _ = rse_factory.make_mock_rse()
+            rses.append(rse)
+        rse_expression = '%s|%s' % (rse1, rse2)
+        tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
+        add_scope(tmp_scope, root_account)
+        subscription_name = uuid()
+        dsn_prefix = did_name_generator('dataset')
+        dsn = '%sdataset-%s' % (dsn_prefix, uuid())
+
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+        rule1 = {'rse_expression': rse_expression,
+                 'copies': 1,
+                 'activity': 'Data Brokering'}
+        rule2 = {'rse_expression': '*',
+                 'copies': 1,
+                 'activity': 'Data Brokering',
+                 'algorithm': 'associated_site',
+                 'chained_idx': 1,
+                 'associated_site_idx': 2}
+
+        subid = rucio_client.add_subscription(name=subscription_name,
+                                              account=root_account.external,
+                                              filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
+                                              replication_rules=[rule1, rule2],
+                                              lifetime=None,
+                                              retroactive=0,
+                                              dry_run=0,
+                                              comments='Ni ! Ni!',
+                                              priority=1)
+        run(threads=1, bulk=1000000, once=True)
+        rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
+        assert len(rules) == 2
+        if rules[0]['source_replica_expression']:
+            rules.reverse()
+        assert rules[0]['rse_expression'] in [rse1, rse2]
+        if rules[0]['rse_expression'] == rse1:
+            assert rules[1]['source_replica_expression'] == rse1
+            assert rules[1]['rse_expression'] == rse4
+        if rules[0]['rse_expression'] == rse2:
+            assert rules[1]['source_replica_expression'] == rse2
+            assert rules[1]['rse_expression'] == rse6
+
+    def test_skip_subscription_bad_rse_expression(self, rse_factory, vo, rucio_client, root_account):
+        """ SUBSCRIPTION (DAEMON): Check that the subscriptions with bad RSE expression are skipped"""
+        _, _ = rse_factory.make_mock_rse()
+        rse_expression = rse_name_generator()
+        tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
+        add_scope(tmp_scope, root_account)
+        subscription_name = uuid()
+        dsn_prefix = did_name_generator('dataset')
+        dsn = '%sdataset-%s' % (dsn_prefix, uuid())
+
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+        rule = {'rse_expression': rse_expression,
+                'copies': 1,
+                'activity': 'Data Brokering',
+                'rse_expression': rse_expression}
+
+        rucio_client.add_subscription(name=subscription_name,
+                                      account=root_account.external,
+                                      filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
+                                      replication_rules=[rule],
+                                      lifetime=None,
+                                      retroactive=0,
+                                      dry_run=0,
+                                      comments='Ni ! Ni!',
+                                      priority=1)
+        for sub in get_subscriptions():
+            for rule in loads(sub["replication_rules"]):
+                assert rule["rse_expression"] != rse_expression
