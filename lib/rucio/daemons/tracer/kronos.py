@@ -88,7 +88,6 @@ class AMQConsumer(object):
 
         if 'resubmitted' in frame.headers:
             record_counter('daemons.tracer.kronos.received_resubmitted')
-            self.__logger(logging.WARNING, 'got a resubmitted report')
 
         try:
             if appversion == 'dq2':
@@ -288,14 +287,12 @@ class AMQConsumer(object):
                         resubmit['vo'] = replica['scope'].vo
                     self.__conn.send(body=jdumps(resubmit), destination=self.__queue, headers={'appversion': 'rucio', 'resubmitted': '1'})
                     record_counter('daemons.tracer.kronos.sent_resubmitted')
-                    self.__logger(logging.WARNING, 'hit locked row, resubmitted to queue')
             record_timer('daemons.tracer.kronos.update_atime', (time() - start_time) * 1000)
         except Exception:
             self.__logger(logging.ERROR, "Cannot update replicas.", exc_info=True)
             record_counter('daemons.tracer.kronos.update_error')
 
         record_counter('daemons.tracer.kronos.updated_replicas')
-        self.__logger(logging.DEBUG, 'updated %d replica(s)' % len(replicas))
 
 
 def kronos_file(thread=0, dataset_queue=None, sleep_time=60):
