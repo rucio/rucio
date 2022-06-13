@@ -538,3 +538,66 @@ class TestDaemon():
         for sub in get_subscriptions():
             for rule in loads(sub["replication_rules"]):
                 assert rule["rse_expression"] != rse_expression
+
+    def test_run_transmogrifier_wildcard_copies(self, rse_factory, vo, rucio_client, root_account):
+        """ SUBSCRIPTION (DAEMON): Test the transmogrifier with wildcard copies """
+        rse_attribute = uuid()[:8]
+        rses = {'no_tag': [], rse_attribute: []}
+        for cnt in range(5):
+            rse, rse_id = rse_factory.make_mock_rse()
+            rses['no_tag'].append(rse)
+        for cnt in range(5):
+            rse, rse_id = rse_factory.make_mock_rse()
+            add_rse_attribute(rse_id=rse_id, key=rse_attribute, value=True)
+            rses[rse_attribute].append(rse)
+        rse_expression = rse_attribute
+        tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
+        add_scope(tmp_scope, root_account)
+
+        # Check without split rule
+        subscription_name = uuid()
+        dsn_prefix = did_name_generator('dataset')
+        dsn = '%sdataset-%s' % (dsn_prefix, uuid())
+
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+        rule = {'rse_expression': rse_expression,
+                'copies': '*',
+                'activity': 'Data Brokering',
+                'rse_expression': rse_expression}
+
+        subid = rucio_client.add_subscription(name=subscription_name,
+                                              account=root_account.external,
+                                              filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
+                                              replication_rules=[rule],
+                                              lifetime=None,
+                                              retroactive=0,
+                                              dry_run=0,
+                                              comments='Ni ! Ni!',
+                                              priority=1)
+        run(threads=1, bulk=1000000, once=True)
+        rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
+
+        # Check with split rule
+        subscription_name = uuid()
+        dsn_prefix = did_name_generator('dataset')
+        dsn = '%sdataset-%s' % (dsn_prefix, uuid())
+
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+        rule = {'rse_expression': rse_expression,
+                'copies': '*',
+                'activity': 'Data Brokering',
+                'rse_expression': rse_expression}
+
+        subid = rucio_client.add_subscription(name=subscription_name,
+                                              account=root_account.external,
+                                              filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': False, 'did_type': ['DATASET', ]},
+                                              replication_rules=[rule],
+                                              lifetime=None,
+                                              retroactive=0,
+                                              dry_run=0,
+                                              comments='Ni ! Ni!',
+                                              priority=1)
+        run(threads=1, bulk=1000000, once=True)
+        rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
+        assert len(rules) == 1
+        assert rules[0]['copies'] == 5

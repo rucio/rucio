@@ -19,7 +19,7 @@ import re
 import threading
 import time
 from datetime import datetime
-from json import loads
+from json import loads, dumps
 from typing import TYPE_CHECKING, List, Dict, Callable
 
 import rucio.db.sqla.util
@@ -202,16 +202,23 @@ def get_subscriptions(logger: "Callable" = logging.log) -> List[Dict]:
         for sub in list_subscriptions(None, None):
             rse_expression = sub.get("rse_expression")
             skip_sub = False
-            for rule in loads(sub["replication_rules"]):
+            rules = loads(sub["replication_rules"])
+            overwrite_rules = False
+            for rule in rules:
                 rse_expression = rule.get("rse_expression")
                 try:
-                    parse_expression(rse_expression)
+                    list_rses_from_expression = parse_expression(rse_expression)
                 except InvalidRSEExpression:
                     logger(logging.ERROR, 'Invalid RSE expression %s for subscription %s. Subscription removed from the list', rse_expression, sub["id"])
                     skip_sub = True
                     break
+                if rule.get('copies') == '*':
+                    rule['copies'] = len(list_rses_from_expression)
+                    overwrite_rules = True
             if skip_sub:
                 continue
+            if overwrite_rules:
+                sub["replication_rules"] = dumps(rules)
             if (
                 sub["state"] != SubscriptionState.INACTIVE
                 and sub["lifetime"]
