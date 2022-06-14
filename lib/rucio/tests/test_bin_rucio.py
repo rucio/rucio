@@ -2183,7 +2183,7 @@ class TestBinRucio(unittest.TestCase):
 
     def test_add_lifetime_exception_large_dids_number(self):
         """ CLIENT(USER): Check that exceptions with more than 1k DIDs are supported """
-        filename = get_tmp_dir() + 'lifetime_exception.txt'
+        filename = get_tmp_dir() + 'lifetime_exception_many_dids.txt'
         with open(filename, 'w') as file_:
             for _ in range(2000):
                 file_.write('%s:%s\n' % (self.user, generate_uuid()))
