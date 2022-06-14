@@ -78,15 +78,15 @@ def did_name_generator(did_type='file', name_prefix='', name_suffix='', cnt=0, p
         if path is not None:
             return path
         path = '/belle/mock' + name_prefix
-        if not path[-1] != '/':
+        if path[-1] != '/':
             path += '/'
-        path += '/cont_%s' % str(uuid())
+        path += 'cont_%s' % str(uuid())
         if did_type == 'container':
             return path
-        path += '/dataset_%s' % str(uuid())
+        path += 'dataset_%s' % str(uuid())
         if did_type == 'dataset':
             return path
-        path += '/file_%s' % str(uuid())
+        path += 'file_%s' % str(uuid())
         return path
     if path is not None:
         return os.path.basename(path)
