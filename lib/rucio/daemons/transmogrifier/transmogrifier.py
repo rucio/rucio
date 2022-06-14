@@ -104,6 +104,10 @@ def __get_rule_dict(rule_dict: dict, subscription: dict) -> dict:
     if chained_idx:
         chained_idx = int(rule_dict["copies"])
     rule_dict["chained_idx"] = chained_idx
+    delay_injection = rule_dict.get("delay_injection", None)
+    if delay_injection:
+        delay_injection = int(delay_injection)
+    rule_dict["delay_injection"] = delay_injection
     return rule_dict
 
 
@@ -209,11 +213,16 @@ def get_subscriptions(logger: "Callable" = logging.log) -> List[Dict]:
                 try:
                     list_rses_from_expression = parse_expression(rse_expression)
                 except InvalidRSEExpression:
-                    logger(logging.ERROR, 'Invalid RSE expression %s for subscription %s. Subscription removed from the list', rse_expression, sub["id"])
+                    logger(
+                        logging.ERROR,
+                        "Invalid RSE expression %s for subscription %s. Subscription removed from the list",
+                        rse_expression,
+                        sub["id"],
+                    )
                     skip_sub = True
                     break
-                if rule.get('copies') == '*':
-                    rule['copies'] = len(list_rses_from_expression)
+                if rule.get("copies") == "*":
+                    rule["copies"] = len(list_rses_from_expression)
                     overwrite_rules = True
             if skip_sub:
                 continue
@@ -564,6 +573,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                                     "ignore_availability", None
                                 ),
                                 comment=rule_dict.get("comment"),
+                                delay_injection=rule_dict.get("delay_injection"),
                             )
                             created_rules[cnt + 1].append(rule_ids[0])
                             nb_rule += 1
@@ -611,7 +621,11 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                         logger(
                             logging.ERROR,
                             "Rule for %s:%s on %s cannot be inserted"
-                            % (did["scope"], did["name"], rule_dict.get("rse_expression")),
+                            % (
+                                did["scope"],
+                                did["name"],
+                                rule_dict.get("rse_expression"),
+                            ),
                         )
                     else:
                         logger(
