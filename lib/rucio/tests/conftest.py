@@ -254,6 +254,77 @@ def __get_fixture_param(request):
     return fixture_param
 
 
+def __create_in_memory_db_table(name, *columns, **kwargs):
+    """
+    Create an in-memory temporary table using the sqlite memory driver.
+    Make sqlalchemy  aware of that table by registering it via a
+    declarative base.
+    """
+    import datetime
+    from sqlalchemy import Column, DateTime, CheckConstraint
+    from sqlalchemy.pool import StaticPool
+    from sqlalchemy.schema import Table
+    from sqlalchemy.orm import registry
+    from rucio.db.sqla.models import ModelBase
+    from rucio.db.sqla.session import get_maker, create_engine
+
+    engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
+
+    # Create a class which inherits from ModelBase. This will allow us to use the rucio-specific methods like .save()
+    DeclarativeObj = type('DeclarativeObj{}'.format(name), (ModelBase,), {})
+    # Create a new declarative base and map the previously created object into the base
+    mapper_registry = registry()
+    InMemoryBase = mapper_registry.generate_base(name='InMemoryBase{}'.format(name))
+    table_args = tuple(columns) + tuple(kwargs.get('table_args', ())) + (
+        Column("created_at", DateTime, default=datetime.datetime.utcnow),
+        Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
+        CheckConstraint('CREATED_AT IS NOT NULL', name=name.upper() + '_CREATED_NN'),
+        CheckConstraint('UPDATED_AT IS NOT NULL', name=name.upper() + '_UPDATED_NN'),
+    )
+    table = Table(
+        name,
+        InMemoryBase.metadata,
+        *table_args
+    )
+    mapper_registry.map_imperatively(DeclarativeObj, table)
+    # Performa actual creation of the in-memory table
+    InMemoryBase.metadata.create_all(engine)
+
+    # Register the new table with the associated engine into the sqlalchemy sessionmaker
+    # In theory, this code must be protected by rucio.db.scla.session._LOCK, but this code will be executed
+    # during test case initialization, so there is no risk here to have concurrent calls from within the
+    # same process
+    senssionmaker = get_maker()
+    senssionmaker.kw.setdefault('binds', {}).update({DeclarativeObj: engine})
+    return DeclarativeObj
+
+
+@pytest.fixture
+def message_mock():
+    """
+    Fixture which overrides the Message table with a private instance
+    """
+    from unittest import mock
+    from rucio.common.utils import generate_uuid
+    from rucio.db.sqla.models import Column, String, PrimaryKeyConstraint, CheckConstraint, Text, Index, GUID
+
+    InMemoryMessage = __create_in_memory_db_table(
+        'message_' + generate_uuid(),
+        Column('id', GUID(), default=generate_uuid),
+        Column('event_type', String(256)),
+        Column('payload', String(4000)),
+        Column('payload_nolimit', Text),
+        Column('services', String(256)),
+        table_args=(PrimaryKeyConstraint('id', name='MESSAGES_ID_PK'),
+                    CheckConstraint('EVENT_TYPE IS NOT NULL', name='MESSAGES_EVENT_TYPE_NN'),
+                    CheckConstraint('PAYLOAD IS NOT NULL', name='MESSAGES_PAYLOAD_NN'),
+                    Index('MESSAGES_SERVICES_IDX', 'services', 'event_type'))
+    )
+
+    with mock.patch('rucio.core.message.Message', new=InMemoryMessage):
+        yield
+
+
 @pytest.fixture
 def core_config_mock(request):
     """
@@ -268,9 +339,8 @@ def core_config_mock(request):
     """
     from unittest import mock
     from rucio.common.utils import generate_uuid
-    from sqlalchemy.pool import StaticPool
-    from rucio.db.sqla.models import ModelBase, BASE, Column, String, PrimaryKeyConstraint
-    from rucio.db.sqla.session import get_session, get_maker, get_engine, create_engine, declarative_base
+    from rucio.db.sqla.models import Column, String, PrimaryKeyConstraint
+    from rucio.db.sqla.session import get_session
 
     # Get the fixture parameters
     table_content = []
@@ -278,25 +348,13 @@ def core_config_mock(request):
     if params:
         table_content = params.get("table_content", table_content)
 
-    # Create an in-memory dropdown replacement table for the "models.Config" table
-    engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
-    InMemoryBase = declarative_base(bind=engine)
-
-    class InMemoryConfig(InMemoryBase, ModelBase):
-        __tablename__ = 'configs_' + generate_uuid()
-        section = Column(String(128))
-        opt = Column(String(128))
-        value = Column(String(4000))
-        _table_args = (PrimaryKeyConstraint('section', 'opt', name='CONFIGS_PK'), )
-
-    InMemoryBase.metadata.create_all()
-
-    # Register the new table with the associated engine into the sqlalchemy sessionmaker
-    # In theory, this code must be protected by rucio.db.scla.session._LOCK, but this code will be executed
-    # during test case initialization, so there is no risk here to have concurrent calls from within the
-    # same process
-    current_engine = get_engine()
-    get_maker().configure(binds={BASE: current_engine, InMemoryBase: engine})
+    InMemoryConfig = __create_in_memory_db_table(
+        'configs_' + generate_uuid(),
+        Column('section', String(128)),
+        Column('opt', String(128)),
+        Column('value', String(4000)),
+        table_args=(PrimaryKeyConstraint('section', 'opt', name='CONFIGS_PK'),),
+    )
 
     # Fill the table with the requested mock data
     session = get_session()()
