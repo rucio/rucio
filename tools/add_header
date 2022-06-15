@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright CERN since 2018
+# Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,6 @@ the new header have to be provided too.
 import argparse
 import logging
 import os
-import re
 import sys
 from abc import ABC, abstractmethod
 from enum import Enum, auto
@@ -47,21 +46,6 @@ class Arguments:
     files: Optional[List[str]]
     dry_run: bool
     disable_progress_bar: bool
-
-
-def get_git_file_creation_year(file_path: str) -> Optional[str]:
-    """
-    Returns the year the file was created, uses git as version tracker to
-    determine the year.
-
-    :param file_path: The path to the file.
-    :returns: The year the file was created. None if no year is found.
-    """
-    command = f"git log --follow --format=%as {file_path} | tail -1"
-    command_out = os.popen(command).read()
-
-    parsed = re.search(r"(\d\d\d\d)-\d\d-\d\d", command_out)
-    return str(parsed.group(1)) if parsed else None
 
 
 class ResultStates(Enum):
@@ -200,6 +184,73 @@ class HeaderTemplate(ABC):
         return self.get_header() in "".join(file_content)
 
 
+class BashHeaderTemplate(HeaderTemplate):
+    @staticmethod
+    def _get_file_shebag(file_path: str) -> Optional[str]:
+        """
+        Returns the bash file shebag.
+
+        :param file_path: The path to the file.
+        :returns: The python file shebag if present. This includes a new line character.
+        :throws UnicodeDecodeError: If the file could not be read.
+        """
+        with open(file_path, "r") as file_obj:
+            file_content = file_obj.readlines()
+
+        if len(file_content) == 0:
+            return None
+        if "#!/bin/bash" in file_content[0]:
+            return file_content[0]
+        return None
+
+    @staticmethod
+    def is_file_suitable(file_path: str) -> bool:
+        if PythonHeaderTemplate._should_file_be_ignored(file_path):
+            return False
+
+        try:
+            is_file_using_shebag = BashHeaderTemplate._get_file_shebag(file_path) is not None
+        except UnicodeDecodeError:
+            # File could not be opened, this makes it automatically invalid
+            return False
+
+        return os.path.splitext(file_path)[1] == ".sh" or is_file_using_shebag
+
+    def __init__(self, file_path: str):
+        super().__init__(file_path)
+
+    def get_header(self) -> str:
+        shebag_string = BashHeaderTemplate._get_file_shebag(self.file_path) or ""
+
+        return shebag_string \
+            + """# -*- coding: utf-8 -*-
+# Copyright European Organization for Nuclear Research (CERN) since 2012
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""
+
+    def current_header_number_of_lines(self) -> int:
+        with open(self.file_path, "r") as file_obj:
+            file_content = file_obj.readlines()
+
+        ret = 0
+        for line in file_content:
+            if not line.startswith("#"):
+                break
+            ret += 1
+        return ret
+
+
 class PythonHeaderTemplate(HeaderTemplate):
     @staticmethod
     def _should_file_be_ignored(file_path: str) -> bool:
@@ -241,23 +292,18 @@ class PythonHeaderTemplate(HeaderTemplate):
             # File could not be opened, this makes it automatically invalid
             return False
 
-        return os.path.splitext(file_path)[1] == ".py" or is_file_using_shebag
+        return file_path.endswith(".py") or file_path.endswith(".py.mako") or is_file_using_shebag
 
     def __init__(self, file_path: str):
         super().__init__(file_path)
 
     def get_header(self) -> str:
-        file_creation_year = get_git_file_creation_year(self.file_path)
-
         shebag_string = PythonHeaderTemplate._get_file_shebag(self.file_path) or ""
-        copyright_string = "# Copyright CERN" \
-            + (f" since {file_creation_year}" if file_creation_year else "") \
-            + "\n"
 
         return shebag_string \
-            + "# -*- coding: utf-8 -*-\n" \
-            + copyright_string \
-            + """#
+            + """# -*- coding: utf-8 -*-
+# Copyright European Organization for Nuclear Research (CERN) since 2012
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -313,22 +359,36 @@ def template_exists_for_file(file_path: str) -> bool:
         return False
 
 
+def get_all_files_recursive(path: str) -> Iterator[str]:
+    """
+    Returns all files in the project, known to the versioning system. This
+    includes the files in subdirectories.
+
+    :param path: The path which should contain the files.
+    :returns: An Iterator over all files found in the VS.
+    """
+    command = f"cd {path} && git ls-files"
+    command_out = os.popen(command).read().strip()
+
+    if not command_out:
+        logging.warning("This does not seem to be a git project or no files found. We won't traverse the folder here.")
+        return
+
+    for f in command_out.split("\n"):
+        yield f
+
+
 def get_all_suitable_files_recursive(path: str) -> Iterator[str]:
     """
-    Returns all files for which a template exist. This includes the files in
-    subdirectories.
+    Returns all files for which a template exist and which are in the VS. This
+    includes the files in subdirectories.
 
     :param path: The path which should contain the files.
     :returns: An Iterator over all suitable files found.
     """
-    for (dirpath, _, filenames) in os.walk(path):
-        if ".git/" in dirpath:
-            continue
-
-        for f in filenames:
-            f = os.path.join(dirpath, f)
-            if template_exists_for_file(f):
-                yield f
+    for f in get_all_files_recursive(path):
+        if template_exists_for_file(f):
+            yield f
 
 
 def modify_header(header_template: HeaderTemplate) -> None:

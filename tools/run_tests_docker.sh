@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright 2017-2021 CERN
+# -*- coding: utf-8 -*-
+# Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
-# - Mayank Sharma <mayank.sharma@cern.ch>, 2021-2022
 
 memcached -u root -d
 
