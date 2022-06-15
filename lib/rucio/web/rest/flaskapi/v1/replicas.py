@@ -121,26 +121,78 @@ class Replicas(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream', 'application/metalink4+xml'])
     def get(self, scope_name):
         """
-        List all replicas for data identifiers.
-
-        .. :quickref: Replicas; List replicas for DID.
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
-        :reqheader HTTP_ACCEPT: application/metalink4+xml
-        :param scope_name: data identifier (scope)/(name).
-        :resheader Content-Type: application/x-json-stream
-        :resheader Content-Type: application/metalink4+xml
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 404: DID not found.
-        :status 406: Not Acceptable.
-        :returns: A dictionary containing all replicas information.
-        :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
+        ---
+        summary: Get Replicas
+        description: List all replicas for data identifiers.
+        tags:
+          - Replicas
+        parameters:
+        - name: scope_name
+          in: path
+          description: The DID associated with the replicas.
+          schema:
+            type: string
+          style: simple
+        - name: X-Forwarded-For
+          in: header
+          description: The client ip
+          schema:
+            type: string
+        - name: schemes
+          in: query
+          description: The schemes of the replicas.
+          schema:
+            type: string
+        - name: select
+          in: query
+          description: The sorting algorithm.
+          schema:
+            type: string
+            enum: ["geoip", "closeness", "dynamic", "ranking", "random"]
+        - name: limit
+          in: query
+          description: The maximum number of replicas returned.
+          schema:
+            type: integer
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: A list with all replicas.
+                  type: array
+                  items:
+                    description: A replica. Possibly contains more information.
+                    type: object
+                    properties:
+                      scope:
+                        description: The scope of the replica.
+                        type: string
+                      name:
+                        description: The name of the replica.
+                        type: string
+                      bytes:
+                        description: The size of the replica in bytes.
+                        type: integer
+                      md5:
+                        description: The md5 checksum of the replica.
+                        type: string
+                      adler32:
+                        description: The adler32 checksum of the replica.
+                        type: string
+                      pfns:
+                        description: The pfns associated with the replica.
+                        type: array
+                      rses:
+                        description: The rse associated with the replica.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -192,21 +244,81 @@ class Replicas(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Create file replicas at a given RSE.
-
-        .. :quickref: Replicas; create replicas at RSE
-
-        :<json string rse: The RSE name.
-        :<json list files: list of dicts with 'scope', 'name', 'bytes', 'meta' and 'adler32'.
-        :<json bool ignore_availability: Flag to ignore the RSE blocklisting.
-        :status 201: Replica Successfully created.
-        :status 400: Invalid Path.
-        :status 401: Invalid auth token.
-        :status 404: RSE not found.
-        :status 404: Scope not found.
-        :status 409: Replica already exists.
-        :status 409: DID already exists.
-        :status 503: Resource Temporary Unavailable.
+        ---
+        summary: Create File Replicas
+        description: Create file replicas at a given RSE.
+        tags:
+          - Replicas
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - rse
+                - files
+                properties:
+                  rse:
+                    description: The rse for the replication
+                    type: string
+                  files:
+                    description: The files to replicate
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - pfn
+                        - bytes
+                        - name
+                      properties:
+                        pfn:
+                          description: The pfn of the replica.
+                          type: string
+                        name:
+                          description: The DID name.
+                          type: string
+                        bytes:
+                          description: The size of the replica in bytes.
+                          type: integer
+                        state:
+                          description: The state of the replica.
+                          type: string
+                        path:
+                          description: The path of the new replica.
+                          type: string
+                        md5:
+                          description: The md5 checksum.
+                          type: string
+                        adler32:
+                          description: The adler32 checksum.
+                          type: string
+                        lcok_cnt:
+                          description: The lock count.
+                          type: integer
+                        tombstone:
+                          description: The tombstone.
+                          type: string
+                  ignore_availability:
+                    description: The ignore availability.
+                    type: boolean
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          400:
+            description: Invalid Path
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse or scope not found
+          409:
+            description: Replica or Did already exists
+          503:
+            description: Resource temporary unavailable
         """
         parameters = json_parameters(parse_response)
         rse = param_get(parameters, 'rse')
@@ -235,15 +347,54 @@ class Replicas(ErrorHandlingMethodView):
 
     def put(self):
         """
-        Update a file replicas state at a given RSE.
-
-        .. :quickref: Replicas; update replicas state.
-
-        :<json string rse: The RSE name.
-        :<json list files: list of dicts with 'scope', 'name' and 'state'.
-        :status 201: Replica successfully updated.
-        :status 400: Cannot decode json parameter list.
-        :status 401: Invalid auth token.
+        ---
+        summary: Update File Replicas
+        description: Update file replicas state at a given RSE.
+        tags:
+          - Replicas
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - rse
+                - files
+                properties:
+                  rse:
+                    description: The rse for the replication
+                    type: string
+                  files:
+                    description: The files to replicate
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          description: The pfn of the replica.
+                          type: string
+                        state:
+                          description: The pfn of the replica.
+                          type: string
+                        path:
+                          description: The pfn of the replica.
+                          type: string
+                        error_message:
+                          description: The error message if an error occured.
+                          type: string
+                        broken_rule_id:
+                          description: The id of the broken rule if one was found.
+                          type: string
+                        broken_message:
+                          description: The message of the broken rule.
+                          type: string
+        responses:
+          200:
+            description: OK
+          400:
+            description: Cannot decode json parameter list
+          401:
+            description: Invalid Auth Token
         """
         parameters = json_parameters(parse_response)
         rse = param_get(parameters, 'rse')
@@ -258,18 +409,43 @@ class Replicas(ErrorHandlingMethodView):
 
     def delete(self):
         """
-        Delete file replicas at a given RSE.
-
-        .. :quickref: Replicas; Delete replica at RSE.
-
-        :<json string rse: The RSE name.
-        :<json list files: list of dicts with 'scope', 'name'.
-        :<json bool ignore_availability: Flag to ignore the RSE blocklisting.
-        :status 200: Replica successfully deleted.
-        :status 400: Cannot decode json parameter list.
-        :status 401: Invalid auth token.
-        :status 404: RSE not found.
-        :status 404: Replica not found.
+        ---
+        summary: Delete File Replicas
+        description: Delete file replicas at a given RSE.
+        tags:
+          - Replicas
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rse
+                  - files
+                properties:
+                  rse:
+                    description: The rse name.
+                    type: string
+                  files:
+                    description: The files to delete.
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - name
+                      properties:
+                        name:
+                          description: The name of the replica.
+                          type: string
+        responses:
+          200:
+            description: OK
+          400:
+            description: Cannot decode json parameter list.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Rse or Replica not found
         """
         parameters = json_parameters(parse_response)
         rse = param_get(parameters, 'rse')
@@ -298,30 +474,156 @@ class ListReplicas(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream', 'application/metalink4+xml'])
     def post(self):
         """
-        List all replicas for data identifiers.
-
-        .. :quickref: Replicas; List replicas for multiple DIDs.
-
-        :reqheader HTTP_ACCEPT: application/metalink4+xml
-        :query schemes: A list of schemes to filter the replicas.
-        :query sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
-        :<json list dids: list of DIDs.
-        :<json list schemes: A list of schemes to filter the replicas.
-        :<json bool unavailable: (deprecated) Also include unavailable replicas.
-        :<json bool all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
-        :<json string rse_expression: The RSE expression to restrict on a list of RSEs.
-        :<json dict client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site', 'latitude', 'longitude'}.
-        :<json bool sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
-        :<json string domain: The network domain for the call, either None, 'wan' or 'lan'. None is fallback to 'wan', 'all' is both ['lan','wan']
-        :resheader Content-Type: application/x-json-stream
-        :resheader Content-Type: application/metalink4+xml
-        :status 200: OK.
-        :status 400: Cannot decode json parameter list.
-        :status 401: Invalid auth token.
-        :status 404: DID not found.
-        :status 406: Not Acceptable.
-        :returns: A dictionary containing all replicas information.
-        :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
+        ---
+        summary: List Replicas
+        description: List all replicas for a DID.
+        tags:
+          - Replicas
+        parameters:
+        - name: X-Forwarded-For
+          in: header
+          description: The client ip address.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: The maximum number pfns per replica to return.
+          schema:
+            type: integer
+        - name: select
+          in: query
+          description: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
+          schema:
+            type: string
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  client_location:
+                    description: The clients location.
+                    type: string
+                  dids:
+                    description: List of Dids.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        scope:
+                          description: The scope of the did.
+                          type: string
+                        name:
+                          description: The name of the did.
+                          type: string
+                  schemes:
+                    description: A list of schemes to filter the replicas.
+                    type: array
+                    items:
+                      type: string
+                  sort:
+                    description: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
+                    type: string
+                  unavailable:
+                    description: If unavailable rse should be considered.
+                    type: boolean
+                    deprecated: true
+                  ignore_availability:
+                    description: If the availability should be ignored.
+                    type: boolean
+                  rse_expression:
+                    description: The RSE expression to restrict on a list of RSEs.
+                    type: string
+                  all_states:
+                    description: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
+                    type: boolean
+                  domain:
+                    description: The network domain for the call, either None, 'wan' or 'lan'. None is fallback to 'wan', 'all' is both ['lan','wan']
+                    type: string
+                  signature_lifetime:
+                    description: If supported, in seconds, restrict the lifetime of the signed PFN.
+                    type: integer
+                  resolve_archives:
+                    description:  When set to True, find archives which contain the replicas.
+                    type: boolean
+                  resolve_parents:
+                    description: When set to True, find all parent datasets which contain the replicas.
+                    type: boolean
+                  updated_after:
+                    description: datetime object (UTC time), only return replicas updated after this time
+                    type: string
+                  nrandom:
+                    description: The maximum number of replicas to return.
+                    type: integer
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      scope:
+                        description: The scope of the replica.
+                        type: string
+                      name:
+                        description: The name of the replica.
+                        type: string
+                      bytes:
+                        description: The size of the replica in bytes.
+                        type: integer
+                      md5:
+                        description: The md5 checksum.
+                        type: string
+                      adler32:
+                        description: The adler32 checksum.
+                        type: string
+                      pfns:
+                        description: The pfns.
+                        type: array
+                      rses:
+                        description: The RSESs.
+                        type: array
+              application/metalink4+xml:
+                schema:
+                  type: object
+                  properties:
+                    scope:
+                      description: The scope of the replica.
+                      type: string
+                    name:
+                      description: The name of the replica.
+                      type: string
+                    bytes:
+                      description: The size of the replica in bytes.
+                      type: integer
+                    md5:
+                      description: The md5 checksum.
+                      type: string
+                    adler32:
+                      description: The adler32 checksum.
+                      type: string
+                    pfns:
+                      description: The pfns.
+                      type: array
+                    rses:
+                      description: The RSESs.
+                      type: array
+          400:
+            description: Cannot decode json parameter list.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Did not found.
+          406:
+            description: Not acceptable
         """
         content_type = request.accept_mimetypes.best_match(['application/x-json-stream', 'application/metalink4+xml'], 'application/x-json-stream')
         metalink = (content_type == 'application/metalink4+xml')
@@ -431,17 +733,55 @@ class ReplicasDIDs(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def post(self):
         """
-        List the DIDs associated to a list of replicas.
-
-        .. :quickref: ReplicasDIDs; List DIDs for replicas.
-
-        :<json string pfns: The list of PFNs.
-        :<json string rse: The RSE name.
-        :resheader Content-Type: application/x-json-string
-        :status 200: OK.
-        :status 400: Cannot decode json parameter list.
-        :status 406: Not Acceptable.
-        :returns: A list of dictionaries containing the mapping PFNs to DIDs.
+        ---
+        summary: List Replicas Dids
+        description: List the DIDs associated to a list of replicas.
+        tags:
+          - Replicas
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - rse
+                properties:
+                  pfns:
+                    description: The list of pfns.
+                    type: array
+                    items:
+                      type: string
+                  rse:
+                    description: The RSE name.
+                    type: string
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties:
+                      x-additionalPropertiesName: mapped PFNs to DIDs
+                      description: A mapping from a pfn to a did.
+                      type: object
+                      properties:
+                        scope:
+                          description: The scope of the DID.
+                          type: str
+                        name:
+                          description: The name of the DID.
+                          type: str
+          400:
+            description: Cannot decode json parameter list.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
         """
         parameters = json_parameters()
         pfns = param_get(parameters, 'pfns', default=[])
@@ -462,19 +802,39 @@ class BadReplicas(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def post(self):
         """
-        Declare a list of bad replicas.
-
-        .. :quickref: BadReplicasStates; Declare bad replicas.
-
-        :<json string pfns: The list of PFNs.
-        :<json string reason: The reason of the loss.
-        :resheader Content-Type: application/json
-        :status 201: Created.
-        :status 400: Cannot decode json parameter list.
-        :status 401: Invalid auth token.
-        :status 404: RSE not found.
-        :status 404: Replica not found.
-        :returns: A list of not successfully declared files.
+        ---
+        summary: Declare Bad Replicas
+        description: Declares a list of bad replicas.
+        tags:
+          - Replicas
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pfns:
+                    description: The list of pfns.
+                    type: array
+                    items:
+                      type: string
+                  reason:
+                    description: The reason for the declaration.
+                    type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: Returns the not declared files.
+                  type: array
+          400:
+            description: Can not decode json parameter list.
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
         """
         parameters = json_parameters()
         pfns = param_get(parameters, 'pfns', default=[])
@@ -494,18 +854,39 @@ class SuspiciousReplicas(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def post(self):
         """
-        Declare a list of suspicious replicas.
-
-        .. :quickref: SuspiciousReplicas; Declare suspicious replicas.
-
-        :<json string pfns: The list of PFNs.
-        :<json string reason: The reason of the loss.
-        :resheader Content-Type: application/json
-        :status 201: Created.
-        :status 400: Cannot decode json parameter list.
-        :status 401: Invalid auth token.
-        :status 404: Replica not found.
-        :returns: A list of not successfully declared files.
+        ---
+        summary: Declare Suspicious Replicas
+        description: Declare a list of suspicious replicas.
+        tags:
+          - Replicas
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pfns:
+                    description: The list of pfns.
+                    type: array
+                    items:
+                      type: string
+                  reason:
+                    description: The reason for the declaration.
+                    type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: Returns the not declared files.
+                  type: array
+          400:
+            description: Can not decode json parameter list.
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
         """
         parameters = json_parameters(parse_response)
         pfns = param_get(parameters, 'pfns', default=[])
@@ -520,14 +901,61 @@ class SuspiciousReplicas(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """
-        List the suspicious replicas on a list of RSEs.
-
-        .. :quickref: SuspiciousReplicas; Get suspicious replicas.
-
-        :resheader Content-Type: application/json
-        :status 200: OK.
-        :status 406: Not Acceptable.
-        :returns: List of suspicious file replicas.
+        ---
+        summary: List Suspicious Replicas
+        description: List the suspicious replicas on a list of RSEs.
+        tags:
+          - Replicas
+        parameters:
+        - name: rse_expression
+          in: query
+          description: The RSE expression to filter for.
+          schema:
+            type: string
+        - name: younger_than
+          in: query
+          description: Date to filter for.
+          schema:
+            type: string
+        - name: nattempts
+          in: query
+          description: The maximum number of attempts to make.
+          schema:
+            type: integer
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      scope:
+                        description: The scope of the Replica.
+                        type: string
+                      name:
+                        description: The name of the Replica.
+                        type: string
+                      rse:
+                        description: The rse name.
+                        type: string
+                      rse_id:
+                        description: The id of the rse.
+                        type: string
+                      cnt:
+                        description: The number of replicas.
+                        type: integer
+                      created_at:
+                        description: The time when the replica was created.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
         """
         rse_expression, younger_than, nattempts = None, None, None
         if request.query_string:
@@ -553,21 +981,95 @@ class BadReplicasStates(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
-        List the bad or suspicious replicas by states.
-
-        .. :quickref: BadReplicasStates; List bad replicas.
-
-        :query state: The state of the file (SUSPICIOUS or BAD).
-        :query rse: The RSE name.
-        :query younger_than: date in format "%Y-%m-%dT%H:%M:%S.%f" to select bad replicas younger than this date.
-        :query older_than: date in format "%Y-%m-%dT%H:%M:%S.%f" to select bad replicas older than this date.
-        :query limit: The maximum number of replicas returned.
-        :query list_pfns: Flag to include pfns.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 406: Not Acceptable.
-        :returns: List of dicts of bad file replicas.
+        ---
+        summary: List Bad Replicas By States
+        description: List the bad or suspicious replicas by states.
+        tags:
+          - Replicas
+        parameters:
+        - name: state
+          in: query
+          description: The state of the file.
+          schema:
+            type: string
+            enum: [SUSPICIOUS, BAD]
+        - name: rse
+          in: query
+          description: The rse name.
+          schema:
+            type: string
+        - name: younger_than
+          in: query
+          description: Date to select bad replicas younger than this date.
+          schema:
+            type: string
+            format: date-time
+        - name: older_than
+          in: query
+          description: Date to select bad replicas older than this date.
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          description: The maximum number of replicas returned.
+          schema:
+            type: integer
+        - name: list_pfns
+          in: query
+          description: Flag to include pfns.
+          schema:
+            type: boolean
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: A list of all result replicas.
+                  type: array
+                  items:
+                    oneof:
+                      - type: object
+                        properties:
+                          scope:
+                            description: The scope fo the replica.
+                            type: string
+                          name:
+                            description: The name of the replica.
+                            type: string
+                          type:
+                            description: The type of the replica.
+                            type: string
+                      - type: object
+                        properties:
+                          scope:
+                            description: The scope fo the replica.
+                            type: string
+                          name:
+                            description: The name of the replica.
+                            type: string
+                          rse:
+                            description: The name of the associated rse.
+                            type: string
+                          rse_id:
+                            description: The id of the associated rse.
+                            type: string
+                          state:
+                            description: The state of the replica.
+                            type: string
+                          created_at:
+                            description: The date-time the replica was created.
+                            type: string
+                            format: date-time
+                          updated_at:
+                            description: The date-time the replica was updated.
+                            type: string
+                            format: date-time
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
         """
         state, rse, younger_than, older_than, limit, list_pfns = None, None, None, None, None, None
         if request.query_string:
@@ -605,18 +1107,57 @@ class BadReplicasSummary(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
-        Return a summary of the bad replicas by incident.
-
-        .. :quickref: BadReplicasSummary; List bad replicas by incident.
-
-        :query rse_expression: The RSE expression.
-        :query from_date: The start date.
-        :query to_date: The end date.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 406: Not Acceptable.
-        :returns: List of bad replicas by incident.
+        ---
+        summary: Bad Replicas Summary
+        description: Return a summary of the bad replicas by incident.
+        tags:
+          - Replicas
+        parameters:
+        - name: rse_expression
+          in: query
+          description: The RSE expression.
+          schema:
+            type: string
+        - name: from_date
+          in: query
+          description: The start date.
+          schema:
+            type: string
+            format: date-time
+        - name: to_date
+          in: query
+          description: The end date.
+          schema:
+            type: string
+            format: date-time
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: A list of summaries.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      rse:
+                        description: The name of the associated RSE.
+                        type: string
+                      rse_id:
+                        description: The id of the associated RSE.
+                        type: string
+                      created_at:
+                        description: The creation date-time.
+                        type: string
+                        format: date-time
+                      reason:
+                        description: The reason for the incident.
+                        type: string
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
         """
         rse_expression, from_date, to_date = None, None, None
         if request.query_string:
@@ -645,17 +1186,79 @@ class DatasetReplicas(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
         """
-        List dataset replicas.
-
-        .. :quickref: DatasetReplicas; List dataset replicas.
-
-        :param scope_name: data identifier (scope)/(name).
-        :query deep: Flag to ennable lookup at the file level.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 406: Not Acceptable.
-        :returns: A dictionary containing all replicas information.
+        ---
+        summary: List Dataset Replicas
+        description: List dataset replicas.
+        tags:
+          - Replicas
+        parameters:
+        - name: scope_name
+          in: path
+          description: data identifier (scope)/(name).
+          schema:
+            type: string
+          style: simple
+        - name: deep
+          in: query
+          description: Flag to ennable lookup at the file level.
+          schema:
+            type: boolean
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: A list of dataset replicas.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      scope:
+                        description: The scope of the replica.
+                        type: string
+                      name:
+                        description: The name of the replica.
+                        type: string
+                      rse:
+                        description: The name of the associated RSE.
+                        type: string
+                      rse_id:
+                        description: The id of the associated RSE.
+                        type: string
+                      bytes:
+                        description: The size of the replica.
+                        type: integer
+                      length:
+                        description: The length of the replica.
+                        type: integer
+                      available_bytes:
+                        description: The number of available bytes of the replica.
+                        type: integer
+                      available_length:
+                        description: The available length of the replica.
+                        type: integer
+                      state:
+                        description: The state of the replica.
+                        type: string
+                      created_at:
+                        description: The date-time the replica was created.
+                        type: string
+                        format: date-time
+                      updated_at:
+                        description: The date-time the replica was updated.
+                        type: string
+                        format: date-time
+                      accessed_at:
+                        description: The date-time the replica was accessed.
+                        type: string
+                        format: date-time
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -676,17 +1279,90 @@ class DatasetReplicasBulk(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def post(self):
         """
-        List dataset replicas for multiple DIDs.
-
-        .. :quickref: DatasetReplicas; List replicas for multiple DIDs.
-
-        :<json list dids: List of DIDs for querying the datasets.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 400: Bad Request.
-        :status 401: Invalid auth token.
-        :status 406: Not Acceptable.
-        :returns: A dictionary containing all replicas information.
+        ---
+        summary: List Dataset Replicas for Multiple DIDs
+        description: List dataset replicas for multiple dids.
+        tags:
+          - Replicas
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - dids
+                properties:
+                  dids:
+                    description: A list of dids.
+                    type: array
+                    items:
+                      description: A did.
+                      type: object
+                      properties:
+                        scope:
+                          description: The scope of the did.
+                          type: string
+                        name:
+                          description: The name of the did.
+                          type: string
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: A list of dataset replicas.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      scope:
+                        description: The scope of the replica.
+                        type: string
+                      name:
+                        description: The name of the replica.
+                        type: string
+                      rse:
+                        description: The name of the associated RSE.
+                        type: string
+                      rse_id:
+                        description: The id of the associated RSE.
+                        type: string
+                      bytes:
+                        description: The size of the replica.
+                        type: integer
+                      length:
+                        description: The length of the replica.
+                        type: integer
+                      available_bytes:
+                        description: The number of available bytes of the replica.
+                        type: integer
+                      available_length:
+                        description: The available length of the replica.
+                        type: integer
+                      state:
+                        description: The state of the replica.
+                        type: string
+                      created_at:
+                        description: The date-time the replica was created.
+                        type: string
+                        format: date-time
+                      updated_at:
+                        description: The date-time the replica was updated.
+                        type: string
+                        format: date-time
+                      accessed_at:
+                        description: The date-time the replica was accessed.
+                        type: string
+                        format: date-time
+          400:
+            description: Bad Request.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
         """
         parameters = json_parameters(parse_response)
         dids = param_get(parameters, 'dids')
@@ -707,19 +1383,32 @@ class DatasetReplicasVP(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
         """
-        List dataset replicas using the Virtual Placement service.
-
-        NOTICE: This is an RnD function and might change or go away at any time.
-
-        .. :quickref: DatasetReplicas; List dataset replicas with VP.
-
-        :param scope_name: data identifier (scope)/(name).
-        :query deep: Flag to ennable lookup at the file level.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 406: Not Acceptable.
-        :returns: If VP exists a list of dicts of sites, otherwise nothing
+        ---
+        summary: List Dataset Replicas VP
+        description: |
+          List dataset replicas using the Virtual Placement service.
+          This is an RnD function and might change or go away at any time.
+        tags:
+          - Replicas
+        parameters:
+        - name: scope_name
+          in: path
+          description: data identifier (scope)/(name).
+          schema:
+            type: string
+          style: simple
+        - name: deep
+          in: query
+          description: Flag to ennable lookup at the file level.
+          schema:
+            type: boolean
+        responses:
+          200:
+            description: OK. This needs documentation!
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -740,15 +1429,72 @@ class ReplicasRSE(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rse):
         """
-        List dataset replicas per RSE.
-
-        .. :quickref: ReplicasRSE; List dataset replicas per RSE.
-
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 406: Not Acceptable.
-        :returns: A dictionary containing all replicas on the RSE.
+        ---
+        summary: List Dataset Replicas per RSE
+        description: List dataset replicas per RSE.
+        tags:
+          - Replicas
+        parameters:
+        - name: rse
+          in: path
+          description: The rse to filter for.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: A list of dataset replicas.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      scope:
+                        description: The scope of the replica.
+                        type: string
+                      name:
+                        description: The name of the replica.
+                        type: string
+                      rse:
+                        description: The name of the associated RSE.
+                        type: string
+                      rse_id:
+                        description: The id of the associated RSE.
+                        type: string
+                      bytes:
+                        description: The size of the replica.
+                        type: integer
+                      length:
+                        description: The length of the replica.
+                        type: integer
+                      available_bytes:
+                        description: The number of available bytes of the replica.
+                        type: integer
+                      available_length:
+                        description: The available length of the replica.
+                        type: integer
+                      state:
+                        description: The state of the replica.
+                        type: string
+                      created_at:
+                        description: The date-time the replica was created.
+                        type: string
+                        format: date-time
+                      updated_at:
+                        description: The date-time the replica was updated.
+                        type: string
+                        format: date-time
+                      accessed_at:
+                        description: The date-time the replica was accessed.
+                        type: string
+                        format: date-time
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
         """
 
         def generate(vo):
@@ -762,20 +1508,55 @@ class BadDIDs(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Declare a list of bad replicas by DID.
-
-        .. :quickref: BadDIDs; Declare bad replicas by DID.
-
-        :<json string pfns: The list of PFNs.
-        :<json string reason: The reason of the loss.
-        :<json string state: The state is eiher BAD, SUSPICIOUS or TEMPORARY_UNAVAILABLE.
-        :<json string expires_at: The expiration date. Only apply to TEMPORARY_UNAVAILABLE.
-        :resheader Content-Type: application/x-json-string
-        :status 201: Created.
-        :status 400: Cannot decode json parameter list.
-        :status 401: Invalid auth token.
-        :status 404: Replica not found.
-        :returns: A list of not successfully declared files.
+        ---
+        summary: Mark Bad by DID
+        description: Declare a list of bad replicas by DID.
+        tags:
+          - Replicas
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expires_at:
+                    description: The expires at value.
+                    type: string
+                    format: date-time
+                  dids:
+                    description: The list of dids associated with the bad replicas.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        scope:
+                          description: The scope of the did.
+                          type: string
+                        name:
+                          description: The name of the did.
+                          type: string
+                  rse:
+                    description: The name of the rse.
+                    type: string
+                  reason:
+                    description: The reason for the change.
+                    type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: All files not declared as bad.
+                  type: array
+                  items:
+                    type: string
+          400:
+            description: Cannot decode json parameter list.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
         """
         parameters = json_parameters(parse_response)
         expires_at = param_get(parameters, 'expires_at', default=None)
@@ -808,20 +1589,44 @@ class BadPFNs(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Declare a list of bad PFNs.
-
-        .. :quickref: BadPFNs; Declare bad replicas.
-
-        :<json string pfns: The list of PFNs.
-        :<json string reason: The reason of the loss.
-        :<json string state: The state is eiher BAD, SUSPICIOUS or TEMPORARY_UNAVAILABLE.
-        :<json string expires_at: The expiration date. Only apply to TEMPORARY_UNAVAILABLE.
-        :resheader Content-Type: application/x-json-string
-        :status 201: Created.
-        :status 400: Cannot decode json parameter list.
-        :status 401: Invalid auth token.
-        :status 404: Replica not found.
-        :returns: A list of not successfully declared files.
+        ---
+        summary: Declare Bad PFNs
+        description: Declare a list of bad PFNs.
+        tags:
+          - Replicas
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expires_at:
+                    description: The expires at value. Only apply to TEMPORARY_UNAVAILABLE.
+                    type: string
+                    format: date-time
+                  pfns:
+                    description: The list of pfns associated with the bad PFNs.
+                    type: array
+                    items:
+                      type: string
+                  state:
+                    description: The state to set the PFNs to.
+                    type: string
+                    enum: ["BAD", "SUSPICIOUS", "TEMPORARY_UNAVAILABLE"]
+                  reason:
+                    description: The reason for the change.
+                    type: string
+        responses:
+          201:
+            description: Created
+          400:
+            description: Cannot decode json parameter list.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Replica not found
+          409:
+            description: Duplicate
         """
         parameters = json_parameters(parse_response)
         expires_at = param_get(parameters, 'expires_at', default=None)
@@ -853,15 +1658,45 @@ class Tombstone(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Set a tombstone on a list of replicas.
-
-        .. :quickref: Tombstone; Set a tombstone on a list of replicas.
-
-        :<json string replicas: list fo replicas
-        :resheader Content-Type: application/x-json-string
-        :status 201: Created.
-        :status 401: Invalid auth token.
-        :status 404: ReplicaNotFound.
+        ---
+        summary: Set Tombstone
+        description: Set a tombstone on a list of replicas.
+        tags:
+          - Replicas
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  replicas:
+                    description: The replicas to set the tombstone to.
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - rse
+                        - scope
+                        - name
+                      properties:
+                        rse:
+                          description: The rse associated with the tombstone.
+                          type: string
+                        scope:
+                          description: The scope of the replica
+                          type: string
+                        name:
+                          description: The name of the replica.
+                          type: string
+        responses:
+          201:
+            description: Created
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          423:
+            description: Replica is locked.
         """
         parameters = json_parameters(parse_response)
         replicas = param_get(parameters, 'replicas', default=[])
