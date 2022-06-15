@@ -31,8 +31,6 @@ clients_requirements_table = {
         'tabulate',
         'six',
         'jsonschema',
-        'typing',
-        'enum34',
     ],
     'ssh': ['paramiko'],
     'kerberos': [
@@ -60,9 +58,7 @@ dev_requirements = [
     'virtualenv',
     'xmltodict',
     'pytz',
-    'subprocess32',
     'pycodestyle',
-    'mock',
     'pydoc-markdown',
     'docspec_python',
     'sh',
