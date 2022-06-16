@@ -2201,3 +2201,15 @@ class TestBinRucio(unittest.TestCase):
         except OSError as err:
             if err.args[0] != 2:
                 raise err
+
+    def test_admin_rse_update_unsupported_option(self):
+        """ ADMIN CLIENT: Rse update should throw an unsupported option exception on an unsupported exception."""
+        exitcode, out, err = execute("rucio-admin rse update --setting test_with_non_existing_option --value 3 --rse {}".format(self.def_rse))
+        print(out, err)
+        assert exitcode != 0
+        assert "There is an error with one of the input parameters.\nDetails: The key 'test_with_non_existing_option' does not exist for RSE properties.\nThis means that the input you provided did not meet all the requirements." in err
+
+        exitcode, out, err = execute("rucio-admin rse update --setting country_name --value France --rse {}".format(self.def_rse))
+        print(out, err)
+        assert exitcode == 0
+        assert not err

@@ -34,14 +34,16 @@ def import_rses(rses, rse_sync_method='edit', attr_sync_method='edit', protocol_
         if rse_module.rse_exists(rse_name, vo=vo, include_deleted=False, session=session):
             # RSE exists and is active
             rse_id = rse_module.get_rse_id(rse=rse_name, vo=vo, session=session)
-            rse_module.update_rse(rse_id=rse_id, parameters=rse, session=session)
+            selected_rse_properties = {key: rse[key] for key in rse if key in rse_module.MUTABLE_RSE_PROPERTIES}
+            rse_module.update_rse(rse_id=rse_id, parameters=selected_rse_properties, session=session)
         elif rse_module.rse_exists(rse_name, vo=vo, include_deleted=True, session=session):
             # RSE exists but in deleted state
             # Should only modify the RSE if importer is configured for edit or hard sync
             if rse_sync_method in ['edit', 'hard']:
                 rse_id = rse_module.get_rse_id(rse=rse_name, vo=vo, include_deleted=True, session=session)
                 rse_module.restore_rse(rse_id, session=session)
-                rse_module.update_rse(rse_id=rse_id, parameters=rse, session=session)
+                selected_rse_properties = {key: rse[key] for key in rse if key in rse_module.MUTABLE_RSE_PROPERTIES}
+                rse_module.update_rse(rse_id=rse_id, parameters=selected_rse_properties, session=session)
             else:
                 # Config is in RSE append only mode, should not modify the disabled RSE
                 continue
