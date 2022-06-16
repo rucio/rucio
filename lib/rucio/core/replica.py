@@ -1546,6 +1546,9 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
 
 
 def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
+    if not files:
+        return
+
     replica_rse = get_rse(rse_id=rse_id, session=session)
 
     if not (replica_rse.availability & 1) and not ignore_availability:
