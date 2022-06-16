@@ -19,15 +19,24 @@ from datetime import datetime
 from hashlib import sha256
 from os import urandom
 from typing import TYPE_CHECKING
+from requests import session
 
 import sqlalchemy
 from alembic import command, op
 from alembic.config import Config
-from sqlalchemy import func, inspect, Column
+from sqlalchemy import func, inspect, Column, delete
 from sqlalchemy.dialects.postgresql.base import PGInspector
 from sqlalchemy.exc import IntegrityError, DatabaseError
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.schema import CreateSchema, MetaData, Table, CreateTable, DropTable, ForeignKeyConstraint, DropConstraint
+from sqlalchemy.orm import declarative_base
+from sqlalchemy.schema import (
+    CreateSchema,
+    MetaData,
+    Table,
+    CreateTable,
+    DropTable,
+    ForeignKeyConstraint,
+    DropConstraint,
+)
 from sqlalchemy.sql.ddl import DropSchema
 from sqlalchemy.sql.expression import select, text
 
@@ -48,38 +57,45 @@ if TYPE_CHECKING:
 
 
 def build_database():
-    """ Applies the schema to the database. Run this command once to build the database. """
+    """Applies the schema to the database. Run this command once to build the database."""
     engine = get_engine()
 
-    schema = config_get('database', 'schema', raise_exception=False, check_config_table=False)
+    schema = config_get(
+        "database", "schema", raise_exception=False, check_config_table=False
+    )
     if schema:
-        print('Schema set in config, trying to create schema:', schema)
+        print("Schema set in config, trying to create schema:", schema)
         try:
-            engine.execute(CreateSchema(schema))
+            with engine.connect() as conn:
+                with conn.begin():
+                    conn.execute(CreateSchema(schema))
         except Exception as e:
-            print('Cannot create schema, please validate manually if schema creation is needed, continuing:', e)
+            print(
+                "Cannot create schema, please validate manually if schema creation is needed, continuing:",
+                e,
+            )
 
     models.register_models(engine)
 
     # Put the database under version control
-    alembic_cfg = Config(config_get('alembic', 'cfg'))
+    alembic_cfg = Config(config_get("alembic", "cfg"))
     command.stamp(alembic_cfg, "head")
 
 
 def dump_schema():
-    """ Creates a schema dump to a specific database. """
+    """Creates a schema dump to a specific database."""
     engine = get_dump_engine()
     models.register_models(engine)
 
 
 def destroy_database():
-    """ Removes the schema from the database. Only useful for test cases or malicious intents. """
+    """Removes the schema from the database. Only useful for test cases or malicious intents."""
     engine = get_engine()
 
     try:
         models.unregister_models(engine)
     except Exception as e:
-        print('Cannot destroy schema -- assuming already gone, continuing:', e)
+        print("Cannot destroy schema -- assuming already gone, continuing:", e)
 
 
 def drop_everything():
@@ -93,14 +109,15 @@ def drop_everything():
 
     # the transaction only applies if the DB supports
     # transactional DDL, i.e. Postgresql, MS SQL Server
-    with engine.begin() as conn:
+    with engine.connect() as conn:
 
         inspector = inspect(conn)  # type: Union[Inspector, PGInspector]
 
         for tname, fkcs in reversed(
-                inspector.get_sorted_table_and_fkc_names(schema='*')):
+            inspector.get_sorted_table_and_fkc_names(schema="*")
+        ):
             if tname:
-                drop_table_stmt = DropTable(Table(tname, MetaData(), schema='*'))
+                drop_table_stmt = DropTable(Table(tname, MetaData(), schema="*"))
                 conn.execute(drop_table_stmt)
             elif fkcs:
                 if not engine.dialect.supports_alter:
@@ -111,25 +128,27 @@ def drop_everything():
                     drop_constraint_stmt = DropConstraint(fk_constraint)
                     conn.execute(drop_constraint_stmt)
 
-        schema = config_get('database', 'schema', raise_exception=False)
+        schema = config_get("database", "schema", raise_exception=False)
         if schema:
             conn.execute(DropSchema(schema, cascade=True))
 
-        if engine.dialect.name == 'postgresql':
-            assert isinstance(inspector, PGInspector), 'expected a PGInspector'
-            for enum in inspector.get_enums(schema='*'):
+        if engine.dialect.name == "postgresql":
+            assert isinstance(inspector, PGInspector), "expected a PGInspector"
+            for enum in inspector.get_enums(schema="*"):
                 sqlalchemy.Enum(**enum).drop(bind=conn)
 
 
 def create_base_vo():
-    """ Creates the base VO """
+    """Creates the base VO"""
 
-    s = get_session()
-
-    vo = models.VO(vo='def', description='Default base VO', email='N/A')
-
-    s.add_all([vo])
-    s.commit()
+    session = get_session()
+    vo = models.VO(vo="def", description="Default base VO", email="N/A")
+    # the scoped_session vs context manager problem,
+    # see https://github.com/sqlalchemy/sqlalchemy/issues/6519
+    with session() as s:
+        with s.begin():
+            s.add_all([vo])
+            s.commit()
 
 
 def create_root_account(create_counters=True):
@@ -139,101 +158,142 @@ def create_root_account(create_counters=True):
     :param create_counters: If True, create counters for the new account at existing RSEs.
     """
 
-    multi_vo = bool(config_get('common', 'multi_vo', False, False))
+    multi_vo = bool(config_get("common", "multi_vo", False, False))
 
-    up_id = 'ddmlab'
-    up_pwd = 'secret'
-    up_email = 'ph-adp-ddm-lab@cern.ch'
-    x509_id = '/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch'
-    x509_email = 'ph-adp-ddm-lab@cern.ch'
-    gss_id = 'ddmlab@CERN.CH'
-    gss_email = 'ph-adp-ddm-lab@cern.ch'
-    ssh_id = 'ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL614sulXQ7wnIr1aGhGtl8b+HCB/'\
-             '0FhMSMTHwSjX78UbfqEorZV16rXrWPgUpvcbp2hqctw6eCbxwqcgu3uGWaeS5A0iWRw7oXUh6ydn'\
-             'Vy89zGzX1FJFFDZ+AgiZ3ytp55tg1bjqqhK1OSC0pJxdNe878TRVVo5MLI0S/rZY2UovCSGFaQG2'\
-             'iLj14wz/YqI7NFMUuJFR4e6xmNsOP7fCZ4bGMsmnhR0GmY0dWYTupNiP5WdYXAfKExlnvFLTlDI5'\
-             'Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ== ddmlab'
-    ssh_email = 'ph-adp-ddm-lab@cern.ch'
+    up_id = "ddmlab"
+    up_pwd = "secret"
+    up_email = "ph-adp-ddm-lab@cern.ch"
+    x509_id = "/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch"
+    x509_email = "ph-adp-ddm-lab@cern.ch"
+    gss_id = "ddmlab@CERN.CH"
+    gss_email = "ph-adp-ddm-lab@cern.ch"
+    ssh_id = (
+        "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL614sulXQ7wnIr1aGhGtl8b+HCB/"
+        "0FhMSMTHwSjX78UbfqEorZV16rXrWPgUpvcbp2hqctw6eCbxwqcgu3uGWaeS5A0iWRw7oXUh6ydn"
+        "Vy89zGzX1FJFFDZ+AgiZ3ytp55tg1bjqqhK1OSC0pJxdNe878TRVVo5MLI0S/rZY2UovCSGFaQG2"
+        "iLj14wz/YqI7NFMUuJFR4e6xmNsOP7fCZ4bGMsmnhR0GmY0dWYTupNiP5WdYXAfKExlnvFLTlDI5"
+        "Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ== ddmlab"
+    )
+    ssh_email = "ph-adp-ddm-lab@cern.ch"
 
     try:
-        up_id = config_get('bootstrap', 'userpass_identity')
-        up_pwd = config_get('bootstrap', 'userpass_pwd')
-        up_email = config_get('bootstrap', 'userpass_email')
-        x509_id = config_get('bootstrap', 'x509_identity')
-        x509_email = config_get('bootstrap', 'x509_email')
-        gss_id = config_get('bootstrap', 'gss_identity')
-        gss_email = config_get('bootstrap', 'gss_email')
-        ssh_id = config_get('bootstrap', 'ssh_identity')
-        ssh_email = config_get('bootstrap', 'ssh_email')
+        up_id = config_get("bootstrap", "userpass_identity")
+        up_pwd = config_get("bootstrap", "userpass_pwd")
+        up_email = config_get("bootstrap", "userpass_email")
+        x509_id = config_get("bootstrap", "x509_identity")
+        x509_email = config_get("bootstrap", "x509_email")
+        gss_id = config_get("bootstrap", "gss_identity")
+        gss_email = config_get("bootstrap", "gss_email")
+        ssh_id = config_get("bootstrap", "ssh_identity")
+        ssh_email = config_get("bootstrap", "ssh_email")
     except:
         pass
         # print 'Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.'
 
-    s = get_session()
+    session = get_session()
 
     if multi_vo:
-        access = 'super_root'
+        access = "super_root"
     else:
-        access = 'root'
+        access = "root"
 
-    account = models.Account(account=InternalAccount(access, 'def'), account_type=AccountType.SERVICE, status=AccountStatus.ACTIVE)
+    account = models.Account(
+        account=InternalAccount(access, "def"),
+        account_type=AccountType.SERVICE,
+        status=AccountStatus.ACTIVE,
+    )
 
     salt = urandom(255)
     salted_password = salt + up_pwd.encode()
     hashed_password = sha256(salted_password).hexdigest()
-    identity1 = models.Identity(identity=up_id, identity_type=IdentityType.USERPASS, password=hashed_password, salt=salt, email=up_email)
-    iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, identity_type=identity1.identity_type, account=account.account, is_default=True)
+    identity1 = models.Identity(
+        identity=up_id,
+        identity_type=IdentityType.USERPASS,
+        password=hashed_password,
+        salt=salt,
+        email=up_email,
+    )
+    iaa1 = models.IdentityAccountAssociation(
+        identity=identity1.identity,
+        identity_type=identity1.identity_type,
+        account=account.account,
+        is_default=True,
+    )
 
     # X509 authentication
-    identity2 = models.Identity(identity=x509_id, identity_type=IdentityType.X509, email=x509_email)
-    iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, identity_type=identity2.identity_type, account=account.account, is_default=True)
+    identity2 = models.Identity(
+        identity=x509_id, identity_type=IdentityType.X509, email=x509_email
+    )
+    iaa2 = models.IdentityAccountAssociation(
+        identity=identity2.identity,
+        identity_type=identity2.identity_type,
+        account=account.account,
+        is_default=True,
+    )
 
     # GSS authentication
-    identity3 = models.Identity(identity=gss_id, identity_type=IdentityType.GSS, email=gss_email)
-    iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, identity_type=identity3.identity_type, account=account.account, is_default=True)
+    identity3 = models.Identity(
+        identity=gss_id, identity_type=IdentityType.GSS, email=gss_email
+    )
+    iaa3 = models.IdentityAccountAssociation(
+        identity=identity3.identity,
+        identity_type=identity3.identity_type,
+        account=account.account,
+        is_default=True,
+    )
 
     # SSH authentication
-    identity4 = models.Identity(identity=ssh_id, identity_type=IdentityType.SSH, email=ssh_email)
-    iaa4 = models.IdentityAccountAssociation(identity=identity4.identity, identity_type=identity4.identity_type, account=account.account, is_default=True)
+    identity4 = models.Identity(
+        identity=ssh_id, identity_type=IdentityType.SSH, email=ssh_email
+    )
+    iaa4 = models.IdentityAccountAssociation(
+        identity=identity4.identity,
+        identity_type=identity4.identity_type,
+        account=account.account,
+        is_default=True,
+    )
 
-    # Account counters
-    if create_counters:
-        create_counters_for_new_account(account=account.account, session=s)
+    with session() as s:
+        s.begin()
+        # Account counters
+        if create_counters:
+            create_counters_for_new_account(account=account.account, session=s)
 
-    # Apply
-    for identity in [identity1, identity2, identity3, identity4]:
-        try:
-            s.add(identity)
-            s.commit()
-        except IntegrityError:
-            # Identities may already be in the DB when running multi-VO conversion
-            s.rollback()
-    s.add(account)
-    s.commit()
-    s.add_all([iaa1, iaa2, iaa3, iaa4])
-    s.commit()
+        # Apply
+        for identity in [identity1, identity2, identity3, identity4]:
+            try:
+                s.add(identity)
+                s.commit()
+            except IntegrityError:
+                # Identities may already be in the DB when running multi-VO conversion
+                s.rollback()
+        s.add(account)
+        s.flush()
+        s.add_all([iaa1, iaa2, iaa3, iaa4])
+        s.commit()
 
 
 def get_db_time():
-    """ Gives the utc time on the db. """
+    """Gives the utc time on the db."""
     s = get_session()
     try:
         storage_date_format = None
-        if s.bind.dialect.name == 'oracle':
+        if s.bind.dialect.name == "oracle":
             query = select([text("sys_extract_utc(systimestamp)")])
-        elif s.bind.dialect.name == 'mysql':
+        elif s.bind.dialect.name == "mysql":
             query = select([text("utc_timestamp()")])
-        elif s.bind.dialect.name == 'sqlite':
+        elif s.bind.dialect.name == "sqlite":
             query = select([text("datetime('now', 'utc')")])
-            storage_date_format = '%Y-%m-%d  %H:%M:%S'
+            storage_date_format = "%Y-%m-%d  %H:%M:%S"
         else:
             query = select([func.current_date()])
 
-        for now, in s.execute(query):
-            if storage_date_format:
-                return datetime.strptime(now, storage_date_format)
-            return now
-
+        with s() as session:
+            with session.begin():
+                for (now,) in session.execute(query):
+                    if storage_date_format:
+                        return datetime.strptime(now, storage_date_format)
+                    return now
     finally:
         s.remove()
 
@@ -255,15 +315,25 @@ def is_old_db():
     Returns true, if alembic is used and the database is not on the
     same revision as the code base.
     """
-    schema = config_get('database', 'schema', raise_exception=False)
+    schema = config_get("database", "schema", raise_exception=False)
 
     # checks if alembic is being used by looking up the AlembicVersion table
-    if not get_engine().has_table(models.AlembicVersion.__tablename__, schema):
+    inspector = inspect(get_engine())
+    if not inspector.has_table(models.AlembicVersion.__tablename__, schema):
         return False
 
-    s = get_session()
-    query = s.query(models.AlembicVersion.version_num)
-    return query.count() != 0 and str(query.first()[0]) != alembicrevision.ALEMBIC_REVISION
+    Session = get_session()
+    with Session() as s:
+        with s.begin():
+            # query = s.query(models.AlembicVersion.version_num)
+            # New sql
+            query = s.execute(select(models.AlembicVersion)).scalars().all()
+            return (
+                # query.count() != 0
+                len(query) != 0
+                # and str(query.first()[0]) != alembicrevision.ALEMBIC_REVISION
+                and str(query[0].version_num) != alembicrevision.ALEMBIC_REVISION
+            )
 
 
 def json_implemented(session=None):
@@ -277,11 +347,11 @@ def json_implemented(session=None):
     if session is None:
         session = get_session()
 
-    if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection().connection.version.split('.')[0])
+    if session.bind.dialect.name == "oracle":
+        oracle_version = int(session.connection().connection.version.split(".")[0])
         if oracle_version < 12:
             return False
-    elif session.bind.dialect.name == 'sqlite':
+    elif session.bind.dialect.name == "sqlite":
         return False
 
     return True
@@ -298,7 +368,7 @@ def try_drop_constraint(constraint_name, table_name):
     try:
         op.drop_constraint(constraint_name, table_name)
     except DatabaseError as e:
-        assert 'nonexistent constraint' in str(e)
+        assert "nonexistent constraint" in str(e)
 
 
 def create_temp_table(name, *columns, primary_key=None, session=None):
@@ -314,21 +384,21 @@ def create_temp_table(name, *columns, primary_key=None, session=None):
     re-used by sqlalchemy, that's why we have to assume the required temporary table already exist and
     could contain data from a previous transaction. Drop all data from that table.
     """
-    if session.bind.dialect.name == 'oracle':
+    if session.bind.dialect.name == "oracle":
         additional_kwargs = {
-            'oracle_on_commit': 'DROP DEFINITION',
-            'prefixes': ['PRIVATE TEMPORARY'],
+            "oracle_on_commit": "DROP DEFINITION",
+            "prefixes": ["PRIVATE TEMPORARY"],
         }
         # PRIVATE_TEMP_TABLE_PREFIX, which defaults to "ORA$PTT_", _must_ prefix the name
         name = f"ORA$PTT_{name}"
-    elif session.bind.dialect.name == 'postgresql':
+    elif session.bind.dialect.name == "postgresql":
         additional_kwargs = {
-            'postgresql_on_commit': 'DROP',
-            'prefixes': ['TEMPORARY'],
+            "postgresql_on_commit": "DROP",
+            "prefixes": ["TEMPORARY"],
         }
     else:
         additional_kwargs = {
-            'prefixes': ['TEMPORARY'],
+            "prefixes": ["TEMPORARY"],
         }
 
     base = declarative_base()
@@ -349,11 +419,15 @@ def create_temp_table(name, *columns, primary_key=None, session=None):
 
     # Ensure the table exists and is empty. On some database types, it can contain leftover data from a previous transaction
     # executed by sqlalchemy within the same session (which is being re-used now)
-    if session.bind.dialect.name in ('oracle', 'postgresql'):
+    if session.bind.dialect.name in ("oracle", "postgresql"):
         session.execute(CreateTable(table))
     else:
         session.execute(CreateTable(table, if_not_exists=True))
-        session.query(DeclarativeObj).delete()
+        # session.query(DeclarativeObj).delete()
+        session.execute(
+            delete(DeclarativeObj).execution_options(synchronize_session="fetch")
+        )
+
     return DeclarativeObj
 
 
@@ -363,8 +437,8 @@ def create_scope_name_temp_table(name, session):
     """
 
     columns = [
-        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
-        Column("name", String(get_schema_value('NAME_LENGTH'))),
+        Column("scope", InternalScopeString(get_schema_value("SCOPE_LENGTH"))),
+        Column("name", String(get_schema_value("NAME_LENGTH"))),
     ]
     return create_temp_table(
         name,
@@ -380,10 +454,10 @@ def create_association_temp_table(name, session):
     """
 
     columns = [
-        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
-        Column("name", String(get_schema_value('NAME_LENGTH'))),
-        Column("child_scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
-        Column("child_name", String(get_schema_value('NAME_LENGTH'))),
+        Column("scope", InternalScopeString(get_schema_value("SCOPE_LENGTH"))),
+        Column("name", String(get_schema_value("NAME_LENGTH"))),
+        Column("child_scope", InternalScopeString(get_schema_value("SCOPE_LENGTH"))),
+        Column("child_name", String(get_schema_value("NAME_LENGTH"))),
     ]
     return create_temp_table(
         name,
