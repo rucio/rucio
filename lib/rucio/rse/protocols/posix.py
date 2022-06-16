@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import os.path
 import shutil
@@ -210,3 +211,41 @@ class Default(protocol.RSEProtocol):
         """
         path = self.pfn2path(pfn)
         return {'filesize': os.stat(path)[os.path.stat.ST_SIZE], 'adler32': adler32(path)}
+
+
+class Symlink(Default):
+    """ Implementing access to RSEs using the local filesystem, creating a symlink on a get """
+
+    def get(self, pfn, dest, transfer_timeout=None):
+        """ Provides access to files stored inside connected the RSE.
+            A download/get will create a symlink on the local file system pointing to the
+            underlying file. Other operations act directly on the remote file.
+            :param pfn: Physical file name of requested file
+            :param dest: Name and path of the files when stored at the client
+            :param transfer_timeout Transfer timeout (in seconds) - dummy
+            :raises DestinationNotAccessible: if the destination storage was not accessible.
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
+         """
+        path = self.pfn2path(pfn)
+        os.symlink(path, dest)
+        self.logger(logging.DEBUG,
+                    'Symlink {} created for {} from {}'
+                    .format(dest, path, pfn))
+        if not os.lstat(dest):
+            # problem in creating the symlink
+            self.logger(logging.ERROR, 'Symlink {} could not be created'.format(dest))
+            raise exception.DestinationNotAccessible()
+        if not os.path.exists(dest):
+            # could not find the file following the symlink
+            self.logger(logging.ERROR, 'Symlink {} appears to be a broken link to {}'
+                        .format(dest, path))
+            if os.lstat(dest) and os.path.islink(dest):
+                os.unlink(dest)
+            raise exception.SourceNotFound()
+
+    def pfn2path(self, pfn):
+        # obtain path and sanitise from multiple slashes, etc
+        path = os.path.normpath(super().pfn2path(pfn))
+        self.logger(logging.DEBUG, 'Extracted path: {} from: {}'.format(path, pfn))
+        return path
