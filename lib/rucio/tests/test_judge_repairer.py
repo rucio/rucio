@@ -302,7 +302,7 @@ class TestJudgeRepairer(unittest.TestCase):
         rule_repairer(once=True)  # Clean out the repairer
 
         region = make_region().configure(
-            'dogpile.cache.memcached',
+            'dogpile.cache.pymemcache',
             expiration_time=900,
             arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True}
         )
