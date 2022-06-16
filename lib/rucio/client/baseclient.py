@@ -17,8 +17,6 @@
  Client class for callers of the Rucio system
 '''
 
-from __future__ import print_function
-
 import errno
 import getpass
 import os

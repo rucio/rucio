@@ -17,8 +17,6 @@
 Conveyor throttler is a daemon to manage rucio internal queue.
 """
 
-from __future__ import division
-
 import logging
 import math
 import threading

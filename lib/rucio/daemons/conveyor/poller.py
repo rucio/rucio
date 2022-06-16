@@ -17,8 +17,6 @@
 Conveyor is a daemon to manage file transfers.
 """
 
-from __future__ import division
-
 import datetime
 import functools
 import itertools

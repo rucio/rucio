@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
-
 from re import match, compile, error
 from sqlalchemy.exc import IntegrityError
 from traceback import format_exc

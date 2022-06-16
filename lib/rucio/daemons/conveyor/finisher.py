@@ -17,8 +17,6 @@
 Conveyor finisher is a daemon to update replicas and rules based on requests.
 """
 
-from __future__ import division
-
 import datetime
 import functools
 import logging

@@ -20,8 +20,6 @@ or if they are the last remaining copy, on how many suspicious replicas are on a
 Consequently, automatic replica recovery is triggered via necromancer daemon, which creates a rule for such bad replica(s).
 """
 
-from __future__ import print_function
-
 import logging
 import os
 import socket
