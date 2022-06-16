@@ -443,5 +443,31 @@
       }
     },
     "storage_usage_tool": "rucio.rse.protocols.ssh.Default.getSpace"
+  },
+  "MOCK-POSIX-SYMLINK":{
+    "backend_type": "POSIX-SYMLINK",
+    "deterministic": true,
+    "protocols": {
+      "default": "file",
+      "supported": {
+        "file": {
+          "prefix": "/tmp/rucio_rse/",
+          "domains": {
+            "lan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "wan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          },
+          "impl": "rucio.rse.protocols.posix.Symlink"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.posix.Symlink.getSpace"
   }
 }
