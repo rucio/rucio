@@ -21,10 +21,7 @@ import sys
 
 from rucio.common.exception import ConfigNotFound, DatabaseException
 
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+import configparser as ConfigParser
 
 from rucio.common import exception
 

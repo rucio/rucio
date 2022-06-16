@@ -25,10 +25,7 @@ from datetime import datetime, timedelta
 from sys import exc_info
 from traceback import format_exception
 
-try:
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    from configparser import NoOptionError, NoSectionError
+from configparser import NoOptionError, NoSectionError
 
 from sqlalchemy.exc import DatabaseError
 from dogpile.cache.api import NO_VALUE

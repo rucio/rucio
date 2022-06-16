@@ -18,10 +18,7 @@ from __future__ import division
 import json
 import logging
 
-try:
-    from ConfigParser import NoOptionError
-except ImportError:
-    from configparser import NoOptionError
+from configparser import NoOptionError
 
 from copy import deepcopy
 from datetime import datetime, timedelta

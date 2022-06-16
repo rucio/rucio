@@ -23,11 +23,6 @@ from rucio.common.utils import adler32, md5
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 
-try:
-    from exceptions import NotImplementedError
-except ImportError:
-    pass
-
 
 @skip_rse_tests_with_accounts
 class MgrTestCases:

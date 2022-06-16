@@ -21,14 +21,8 @@ along with some of the default methods for LFN2PFN translations.
 import hashlib
 import logging
 
-try:
-    # PY2
-    from ConfigParser import NoOptionError, NoSectionError
-    from urlparse import urlparse
-except ImportError:
-    # PY3
-    from configparser import NoOptionError, NoSectionError
-    from urllib.parse import urlparse
+from configparser import NoOptionError, NoSectionError
+from urllib.parse import urlparse
 
 from rucio.common import config, exception
 from rucio.common.utils import register_policy_package_algorithms

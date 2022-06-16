@@ -20,12 +20,7 @@ RFIO protocol
 import os
 
 from os.path import dirname
-try:
-    # PY2
-    from urlparse import urlparse
-except ImportError:
-    # PY3
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from rucio.common.utils import execute
 from rucio.common import exception
 from rucio.rse.protocols import protocol

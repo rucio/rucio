@@ -261,8 +261,6 @@ def deliver_emails(messages, logger):
     to_delete = []
     for message in messages:
         if message['event_type'] == 'email':
-
-
             msg = MIMEText(message['payload']['body'])
             msg['From'] = email_from
             msg['To'] = ', '.join(message['payload']['to'])

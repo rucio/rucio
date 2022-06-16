@@ -42,10 +42,7 @@ from rucio.core.replica import touch_replica, touch_collection_replicas, declare
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType, BadFilesStatus
 
-try:
-    from Queue import Queue  # py2
-except ImportError:
-    from queue import Queue  # py3
+from queue import Queue
 
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)

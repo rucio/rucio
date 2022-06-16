@@ -39,10 +39,7 @@ from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.jedi_did import JediDIDCollector
 from rucio.daemons.c3po.collectors.workload import WorkloadCollector
 
-try:
-    from Queue import Queue
-except ImportError:
-    from queue import Queue
+from queue import Queue
 
 GRACEFUL_STOP = Event()
 

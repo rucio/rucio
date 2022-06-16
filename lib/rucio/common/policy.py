@@ -18,12 +18,7 @@ import os
 
 from functools import wraps
 
-try:
-    # PY2
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    # PY3
-    from configparser import NoOptionError, NoSectionError
+from configparser import NoOptionError, NoSectionError
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 

@@ -15,19 +15,9 @@
 
 import os
 import re
-try:
-    # PY2
-    import urlparse
-except ImportError:
-    # PY3
-    import urllib.parse as urlparse
+import urllib.parse as urlparse
 
-try:
-    # PY2
-    from commands import getstatusoutput
-except ImportError:
-    # PY3
-    from subprocess import getstatusoutput
+from subprocess import getstatusoutput
 
 from rucio.common import exception
 from rucio.common.utils import execute

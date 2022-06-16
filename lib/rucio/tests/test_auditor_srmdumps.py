@@ -20,12 +20,7 @@ import pytest
 
 from rucio.daemons.auditor import srmdumps
 
-try:
-    # PY2
-    from ConfigParser import ConfigParser
-except ImportError:
-    # PY3
-    from configparser import ConfigParser
+from configparser import ConfigParser
 
 if sys.version_info >= (3, 3):
     from unittest import mock

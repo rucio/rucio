@@ -29,12 +29,7 @@ from rucio.tests.common import make_temp_file
 from rucio.tests.common import mock_open
 from rucio.tests.mocks import gfal2
 
-try:
-    # PY2
-    from StringIO import StringIO
-except ImportError:
-    # PY3
-    from io import StringIO
+from io import StringIO
 
 if sys.version_info >= (3, 3):
     from unittest import mock

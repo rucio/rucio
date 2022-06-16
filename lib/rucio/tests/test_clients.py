@@ -18,14 +18,8 @@ from __future__ import print_function
 import unittest
 from datetime import datetime, timedelta
 
-try:
-    from SimpleHTTPServer import SimpleHTTPRequestHandler
-except ImportError:
-    from http.server import SimpleHTTPRequestHandler
-try:
-    from SocketServer import TCPServer as HTTPServer
-except ImportError:
-    from http.server import HTTPServer
+from http.server import SimpleHTTPRequestHandler
+from http.server import HTTPServer
 from os import remove
 from threading import Thread
 

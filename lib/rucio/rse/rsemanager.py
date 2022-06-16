@@ -20,10 +20,7 @@ import logging
 import random
 from time import sleep
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 from rucio.common import exception, utils, constants
 from rucio.common.config import config_get_int
