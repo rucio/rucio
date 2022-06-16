@@ -27,6 +27,7 @@ from rucio.common.utils import generate_uuid
 from rucio.common.exception import ReplicaNotFound, RequestNotFound
 from rucio.core import config as core_config
 from rucio.core import distance as distance_core
+from rucio.core import message as message_core
 from rucio.core import replica as replica_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
@@ -415,7 +416,7 @@ def test_multisource(vo, did_factory, root_account, replica_client, core_config_
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter and receiver")
-def test_multisource_receiver(vo, did_factory, replica_client, root_account, metrics_mock):
+def test_multisource_receiver(vo, did_factory, replica_client, root_account, metrics_mock, message_mock):
     """
     Run receiver as a background thread to automatically handle fts notifications.
     Ensure that a multi-source job in which the first source fails is correctly handled by receiver.
@@ -461,6 +462,13 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account, met
         # The source was updated to the good one
         assert request['source_rse'] == src_rse1
         assert request['source_rse_id'] == src_rse1_id
+
+        # Test the content of generated messages
+        msgs = message_core.retrieve_messages()
+        msg_submitted = next(msg for msg in msgs if msg['event_type'] == 'transfer-submitted')
+        assert msg_submitted['payload']['request-id'] == request['id']
+        msg_done = next(msg for msg in msgs if msg['event_type'] == 'transfer-done')
+        assert msg_done['payload']['request-id'] == request['id']
     finally:
         receiver_graceful_stop.set()
         receiver_thread.join(timeout=5)
