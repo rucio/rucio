@@ -29,7 +29,6 @@ except ImportError:
     # PY3
     from configparser import NoOptionError, NoSectionError
     from urllib.parse import urlparse
-from six import string_types
 
 from rucio.common import config, exception
 from rucio.common.utils import register_policy_package_algorithms
@@ -395,7 +394,7 @@ class RSEProtocol(object):
             :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
         """
         ret = dict()
-        pfns = [pfns] if isinstance(pfns, string_types) else pfns
+        pfns = [pfns] if isinstance(pfns, str) else pfns
 
         for pfn in pfns:
             parsed = urlparse(pfn)

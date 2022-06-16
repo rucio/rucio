@@ -22,7 +22,7 @@ from re import search
 from typing import TYPE_CHECKING
 
 from flask import Flask, Blueprint, request, Response, redirect, render_template
-from six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 from werkzeug.datastructures import Headers
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, \

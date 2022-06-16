@@ -29,7 +29,6 @@ from traceback import format_exc
 
 import requests
 from dogpile.cache.api import NO_VALUE
-from six import string_types
 from sqlalchemy import func, and_, or_, exists, not_, update, delete, insert
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
@@ -2753,7 +2752,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
             # remember scope, name and rse
             raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (replica['scope'], replica['name'], get_rse_name(replica['rse_id'], session=session)))
 
-        if isinstance(replica['state'], string_types):
+        if isinstance(replica['state'], str):
             replica['state'] = ReplicaState(replica['state'])
 
         values = {'state': replica['state']}
@@ -3740,7 +3739,7 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
     :returns: True is successful.
     """
 
-    if isinstance(state, string_types):
+    if isinstance(state, str):
         rep_state = BadPFNStatus[state]
     else:
         rep_state = state

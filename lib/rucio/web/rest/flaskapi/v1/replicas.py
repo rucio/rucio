@@ -20,7 +20,6 @@ from urllib.parse import parse_qs, unquote
 from xml.sax.saxutils import escape
 
 from flask import Flask, Blueprint, Response, request
-from six import string_types
 
 from rucio.api.replica import add_replicas, list_replicas, list_dataset_replicas, list_dataset_replicas_bulk, \
     delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas, add_bad_dids, add_bad_pfns, \
@@ -1080,7 +1079,7 @@ class BadReplicasStates(ErrorHandlingMethodView):
                 params = parse_qs(query_string)
             if 'state' in params:
                 state = params['state'][0]
-            if isinstance(state, string_types):
+            if isinstance(state, str):
                 state = BadFilesStatus(state)
             if 'rse' in params:
                 rse = params['rse'][0]

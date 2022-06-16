@@ -25,8 +25,8 @@ import sys
 import time
 from socket import gethostname
 
-from six.moves.urllib.parse import urlencode
-from six.moves.urllib.request import urlopen
+from urllib.parse import urlencode
+from urllib.request import urlopen
 
 # The pCache Version
 pcacheversion = "4.2.3"

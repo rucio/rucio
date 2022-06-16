@@ -28,7 +28,6 @@ try:
 except ImportError:
     # PY3
     from subprocess import getstatusoutput
-from six import string_types
 
 from rucio.common import exception
 from rucio.common.utils import execute
@@ -97,7 +96,7 @@ class Default(protocol.RSEProtocol):
         """
 
         ret = dict()
-        pfns = [pfns] if isinstance(pfns, string_types) else pfns
+        pfns = [pfns] if isinstance(pfns, str) else pfns
         for pfn in pfns:
             parsed = urlparse.urlparse(pfn)
             if parsed.path.startswith('/srm/managerv2') or\
@@ -270,7 +269,7 @@ class Default(protocol.RSEProtocol):
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
 
-        pfns = [path] if isinstance(path, string_types) else path
+        pfns = [path] if isinstance(path, str) else path
 
         try:
             pfn_chunks = [pfns[i:i + 20] for i in range(0, len(pfns), 20)]

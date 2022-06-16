@@ -35,7 +35,6 @@ from email.mime.text import MIMEText
 
 import requests
 import stomp
-from six import PY2
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_int, config_get_bool
@@ -263,17 +262,11 @@ def deliver_emails(messages, logger):
     for message in messages:
         if message['event_type'] == 'email':
 
-            if PY2:
-                msg = MIMEText(message['payload']['body'].encode('utf-8'))
-            else:
-                msg = MIMEText(message['payload']['body'])
 
+            msg = MIMEText(message['payload']['body'])
             msg['From'] = email_from
             msg['To'] = ', '.join(message['payload']['to'])
-            if PY2:
-                msg['Subject'] = message['payload']['subject'].encode('utf-8')
-            else:
-                msg['Subject'] = message['payload']['subject']
+            msg['Subject'] = message['payload']['subject']
 
             try:
                 smtp = smtplib.SMTP()

@@ -15,8 +15,6 @@
 
 import uuid
 
-from six import string_types
-
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.dialects.oracle import RAW, CLOB
 from sqlalchemy.dialects.mysql import BINARY
@@ -100,7 +98,7 @@ class BooleanString(TypeDecorator):
             if value:
                 return 'true'
             return 'false'
-        elif isinstance(value, string_types):
+        elif isinstance(value, str):
             if value.lower() == 'true':
                 return 'true'
             elif value.lower() == 'false':
@@ -158,7 +156,7 @@ class InternalAccountString(TypeDecorator):
         if value is None:
             return value
 
-        if isinstance(value, string_types):
+        if isinstance(value, str):
             raise InvalidType('Cannot insert to db. Expected InternalAccount, got string type.')
         else:
             return value.internal
@@ -191,7 +189,7 @@ class InternalScopeString(TypeDecorator):
         if value is None:
             return value
 
-        if isinstance(value, string_types):
+        if isinstance(value, str):
             raise InvalidType('Cannot insert to db. Expected InternalScope, got string type.')
         else:
             return value.internal

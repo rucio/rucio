@@ -30,7 +30,7 @@ import time
 import traceback
 from functools import wraps
 
-from six.moves.configparser import NoOptionError, NoSectionError
+from configparser import NoOptionError, NoSectionError
 from tabulate import tabulate
 
 from rucio import version

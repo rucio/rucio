@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from six import string_types
-
 # List of authorized value types for key
-AUTHORIZED_VALUE_TYPES = (float, int) + string_types
-STRING_TYPES = string_types
+AUTHORIZED_VALUE_TYPES = (float, int, str)
+STRING_TYPES = (str, )

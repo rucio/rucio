@@ -24,7 +24,6 @@ from typing import TYPE_CHECKING
 import sqlalchemy
 import sqlalchemy.orm
 from dogpile.cache.api import NO_VALUE
-from six import string_types
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
@@ -185,7 +184,7 @@ def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region
     :param availability: Availability.
     :param session: The database session in use.
     """
-    if isinstance(rse_type, string_types):
+    if isinstance(rse_type, str):
         rse_type = RSEType(rse_type)
 
     new_rse = models.RSE(rse=rse, vo=vo, deterministic=deterministic, volatile=volatile, city=city,

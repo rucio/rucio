@@ -22,7 +22,6 @@ from hashlib import md5
 from re import match
 from typing import Tuple
 
-from six import string_types
 from sqlalchemy import and_, or_, exists, update, delete
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import Session
@@ -140,7 +139,7 @@ def add_dids(dids, account, session=None):
         for did in dids:
             try:
 
-                if isinstance(did['type'], string_types):
+                if isinstance(did['type'], str):
                     did['type'] = DIDType[did['type']]
 
                 if did['type'] == DIDType.FILE:
@@ -1079,7 +1078,7 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
     )
 
     if did_type:
-        if isinstance(did_type, string_types):
+        if isinstance(did_type, str):
             select_stmt = select_stmt.filter_by(did_type=DIDType[did_type])
         elif isinstance(did_type, Enum):
             select_stmt = select_stmt.filter_by(did_type=did_type)

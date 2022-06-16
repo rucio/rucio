@@ -33,8 +33,8 @@ from dogpile.cache import make_region
 from requests import Session, Response
 from requests.exceptions import ConnectionError
 from requests.status_codes import codes
-from six.moves.configparser import NoOptionError, NoSectionError
-from six.moves.urllib.parse import urlparse
+from configparser import NoOptionError, NoSectionError
+from urllib.parse import urlparse
 
 from rucio import version
 from rucio.common import exception

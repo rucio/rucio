@@ -19,7 +19,7 @@ import json
 from datetime import datetime, timedelta
 
 import pytest
-from six.moves.configparser import NoSectionError
+from configparser import NoSectionError
 
 from rucio.common.exception import UnsupportedOperation, ConfigNotFound
 from rucio.common.policy import REGION

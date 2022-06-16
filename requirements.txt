@@ -3,7 +3,6 @@ requests>=2.20.0,<=2.27.1                                   # Python HTTP for Hu
 urllib3>=1.24.2,<=1.26.8                                    # HTTP library with thread-safe connection pooling, file post, etc.
 dogpile.cache>=1.1.2,<=1.1.5                                # Caching API plugins (1.1.2 is the first version to support pymemcache)
 tabulate~=0.8.0                                             # Pretty-print tabular data
-six>=1.12.0,<=1.16.0                                        # Python 2 and 3 compatibility utilities
 jsonschema~=3.2.0                                           # For JSON schema validation (Policy modules)
 
 # All dependencies needed in extras for rucio client (and server/daemons) should be defined here

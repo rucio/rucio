@@ -17,8 +17,7 @@ from __future__ import print_function
 
 import logging
 
-from six import string_types
-from six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 
 from rucio.common import exception
 from rucio.common.extra import import_extras
@@ -93,7 +92,7 @@ class GlobusRSEProtocol(RSEProtocol):
             :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
         """
         ret = dict()
-        pfns = [pfns] if isinstance(pfns, string_types) else pfns
+        pfns = [pfns] if isinstance(pfns, str) else pfns
 
         for pfn in pfns:
             parsed = urlparse(pfn)

@@ -29,7 +29,6 @@ import traceback
 from email.mime.text import MIMEText
 
 import stomp
-from six import PY2
 from sqlalchemy.orm.exc import NoResultFound
 
 import rucio.db.sqla.util
@@ -93,17 +92,10 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=60, s
             for message in messages:
                 logger(logging.DEBUG, 'submitting: %s', str(message))
 
-                if PY2:
-                    msg = MIMEText(message['payload']['body'].encode('utf-8'))
-                else:
-                    msg = MIMEText(message['payload']['body'])
-
+                msg = MIMEText(message['payload']['body'])
                 msg['From'] = email_from
                 msg['To'] = ', '.join(message['payload']['to'])
-                if PY2:
-                    msg['Subject'] = message['payload']['subject'].encode('utf-8')
-                else:
-                    msg['Subject'] = message['payload']['subject']
+                msg['Subject'] = message['payload']['subject']
 
                 if send_email:
                     smtp = smtplib.SMTP()

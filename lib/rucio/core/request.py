@@ -21,7 +21,6 @@ from collections import namedtuple
 from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING
 
-from six import string_types
 from sqlalchemy import and_, or_, func, update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
@@ -207,9 +206,9 @@ def queue_requests(requests, session=None, logger=logging.log):
     preparer_enabled = config_get_bool('conveyor', 'use_preparer', raise_exception=False, default=False)
     for req in requests:
 
-        if isinstance(req['attributes'], string_types):
+        if isinstance(req['attributes'], str):
             req['attributes'] = json.loads(req['attributes'] or '{}')
-            if isinstance(req['attributes'], string_types):
+            if isinstance(req['attributes'], str):
                 req['attributes'] = json.loads(req['attributes'] or '{}')
 
         if req['request_type'] == RequestType.TRANSFER:

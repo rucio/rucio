@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from six import string_types
 from rucio.common.exception import RSEOperationNotSupported
 from rucio.common.types import InternalAccount
 from rucio.core import rse as rse_module, distance as distance_module, account as account_module, identity as identity_module
@@ -28,7 +27,7 @@ def import_rses(rses, rse_sync_method='edit', attr_sync_method='edit', protocol_
     new_rses = []
     for rse_name in rses:
         rse = rses[rse_name]
-        if isinstance(rse.get('rse_type'), string_types):
+        if isinstance(rse.get('rse_type'), str):
             rse['rse_type'] = RSEType(rse['rse_type'])
 
         if rse_module.rse_exists(rse_name, vo=vo, include_deleted=False, session=session):

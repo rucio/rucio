@@ -21,8 +21,6 @@ import tempfile
 import unittest
 from datetime import datetime
 
-from six import PY3
-
 from rucio.common.dumper.consistency import Consistency
 from rucio.common.dumper.consistency import _try_to_advance
 from rucio.common.dumper.consistency import compare3
@@ -402,12 +400,8 @@ class TestConsistency(unittest.TestCase):
 
         assertion_msg = ('GNU Sort must sort comparing byte by byte (export '
                          'LC_ALL=C) to be faster and consistent with Python 2.')
-        if PY3:
-            with open(sorted_file, encoding='utf-8') as f:
-                assert f.read() == sorted_data, assertion_msg
-        else:
-            with open(sorted_file) as f:
-                assert f.read() == sorted_data, assertion_msg
+        with open(sorted_file, encoding='utf-8') as f:
+            assert f.read() == sorted_data, assertion_msg
 
         os.unlink(path)
         os.unlink(sorted_file)
@@ -427,12 +421,8 @@ class TestConsistency(unittest.TestCase):
         path = make_temp_file(self.tmp_dir, unsorted_data)
         sorted_file = gnu_sort(path, delimiter=',', fieldspec='2', cache_dir=self.tmp_dir)
 
-        if PY3:
-            with open(sorted_file, encoding='utf-8') as f:
-                assert f.read() == sorted_data
-        else:
-            with open(sorted_file) as f:
-                assert f.read() == sorted_data
+        with open(sorted_file, encoding='utf-8') as f:
+            assert f.read() == sorted_data
 
         os.unlink(path)
         os.unlink(sorted_file)

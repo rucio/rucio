@@ -42,10 +42,10 @@ from uuid import uuid4 as uuid
 from xml.etree import ElementTree
 
 import requests
-from six import string_types, text_type, binary_type, ensure_text, PY3
-from six.moves import StringIO, zip_longest as izip_longest
-from six.moves.urllib.parse import urlparse, urlencode, quote, parse_qsl, urlunparse
-from six.moves.configparser import NoOptionError, NoSectionError
+from io import StringIO
+from itertools import zip_longest
+from urllib.parse import urlparse, urlencode, quote, parse_qsl, urlunparse
+from configparser import NoOptionError, NoSectionError
 
 from rucio.common.config import config_get, config_has_section
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException, \
@@ -162,7 +162,7 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         req_scope_present = all(elem in scope for elem in required_scope)
         req_audience_present = all(elem in audience for elem in required_audience)
         return req_scope_present and req_audience_present
-    elif (isinstance(scope, string_types) and isinstance(audience, string_types) and isinstance(required_scope, string_types) and isinstance(required_audience, string_types)):
+    elif (isinstance(scope, str) and isinstance(audience, str) and isinstance(required_scope, str) and isinstance(required_audience, str)):
         scope = str(scope)
         audience = str(audience)
         required_scope = str(required_scope)
@@ -170,7 +170,7 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         req_scope_present = all(elem in scope.split(sepatator) for elem in required_scope.split(sepatator))
         req_audience_present = all(elem in audience.split(sepatator) for elem in required_audience.split(sepatator))
         return req_scope_present and req_audience_present
-    elif (isinstance(scope, list) and isinstance(audience, list) and isinstance(required_scope, string_types) and isinstance(required_audience, string_types)):
+    elif (isinstance(scope, list) and isinstance(audience, list) and isinstance(required_scope, str) and isinstance(required_audience, str)):
         scope = [str(it) for it in scope]
         audience = [str(it) for it in audience]
         required_scope = str(required_scope)
@@ -178,7 +178,7 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         req_scope_present = all(elem in scope for elem in required_scope.split(sepatator))
         req_audience_present = all(elem in audience for elem in required_audience.split(sepatator))
         return req_scope_present and req_audience_present
-    elif (isinstance(scope, string_types) and isinstance(audience, string_types) and isinstance(required_scope, list) and isinstance(required_audience, list)):
+    elif (isinstance(scope, str) and isinstance(audience, str) and isinstance(required_scope, list) and isinstance(required_audience, list)):
         scope = str(scope)
         audience = str(audience)
         required_scope = [str(it) for it in required_scope]
@@ -354,11 +354,11 @@ def val_to_space_sep_str(vallist):
     """
     try:
         if isinstance(vallist, list):
-            return text_type(" ".join(vallist))
+            return str(" ".join(vallist))
         else:
-            return text_type(vallist)
+            return str(vallist)
     except:
-        return text_type('')
+        return str('')
 
 
 def date_to_str(date):
@@ -407,7 +407,7 @@ def datetime_parser(dct):
     """ datetime parser
     """
     for k, v in list(dct.items()):
-        if isinstance(v, string_types) and re.search(" UTC", v):
+        if isinstance(v, str) and re.search(" UTC", v):
             try:
                 dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
             except Exception:
@@ -463,7 +463,7 @@ def grouper(iterable, n, fillvalue=None):
     """ Collect data into fixed-length chunks or blocks """
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
     args = [iter(iterable)] * n
-    return izip_longest(*args, fillvalue=fillvalue)
+    return zip_longest(*args, fillvalue=fillvalue)
 
 
 def chunks(iterable, n):
@@ -956,7 +956,7 @@ def ssh_sign(private_key, message):
     :param message: The message to sign as a string.
     :return: Base64 encoded signature as a string.
     """
-    if PY3 and isinstance(message, str):
+    if isinstance(message, str):
         message = message.encode()
     if not EXTRA_MODULES['paramiko']:
         raise MissingModuleException('The paramiko module is not installed or faulty.')
@@ -966,8 +966,7 @@ def ssh_sign(private_key, message):
     signature_stream = priv_k.sign_ssh_data(message)
     signature_stream.rewind()
     base64_encoded = base64.b64encode(signature_stream.get_remainder())
-    if PY3:
-        base64_encoded = base64_encoded.decode()
+    base64_encoded = base64_encoded.decode()
     return base64_encoded
 
 
@@ -1106,7 +1105,7 @@ def parse_did_filter_from_string(input_string):
                 except ValueError:
                     raise ValueError('Length has to be an integer value.')
                 filters[key] = value
-            elif isinstance(value, string_types):
+            elif isinstance(value, str):
                 if value.lower() == 'true':
                     value = '1'
                 elif value.lower() == 'false':
@@ -1352,7 +1351,7 @@ def run_cmd_process(cmd, timeout=3600):
     """
 
     time_start = datetime.datetime.now().second
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, preexec_fn=os.setsid, universal_newlines=True)
 
     running_time = 0
     while process.poll() is None and running_time < timeout:
@@ -1366,9 +1365,6 @@ def run_cmd_process(cmd, timeout=3600):
         process.kill()
 
     stdout, stderr = process.communicate()
-    if isinstance(stdout, binary_type):
-        stdout = ensure_text(stdout, errors='replace')
-        stderr = ensure_text(stderr, errors='replace')
     if not stderr:
         stderr = ''
     if not stdout:

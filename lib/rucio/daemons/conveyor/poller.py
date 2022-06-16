@@ -30,7 +30,7 @@ import time
 from itertools import groupby
 
 from requests.exceptions import RequestException
-from six.moves.configparser import NoOptionError
+from configparser import NoOptionError
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util

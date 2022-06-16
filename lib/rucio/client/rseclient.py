@@ -16,7 +16,7 @@
 from json import dumps, loads
 
 from requests.status_codes import codes
-from six.moves.urllib.parse import quote
+from urllib.parse import quote
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice

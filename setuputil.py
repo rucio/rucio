@@ -27,7 +27,6 @@ clients_requirements_table = {
         'urllib3',
         'dogpile.cache',
         'tabulate',
-        'six',
         'jsonschema',
     ],
     'ssh': ['paramiko'],
