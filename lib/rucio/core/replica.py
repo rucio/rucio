@@ -354,7 +354,7 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, session
     for did in dids:
         scope = InternalScope(did['scope'], vo=issuer.vo)
         name = did['name']
-        list_replicas.append((scope, name, None))
+        replicas_list.append((scope, name, None))
 
     for scope, name, _, __exists, already_declared, size in __exist_replicas(rse_id=rse_id, replicas=replicas_list, session=session):
         if __exists and not already_declared:

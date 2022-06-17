@@ -36,7 +36,7 @@ from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files
 from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_replicas_state,
                                 get_replica, list_replicas, update_replica_state,
                                 get_RSEcoverage_of_dataset, get_replica_atime,
-                                touch_replica, get_bad_pfns, set_tombstone)
+                                touch_replica, get_bad_pfns, set_tombstone, add_bad_dids)
 from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
@@ -555,6 +555,26 @@ class TestReplicaCore:
         assert len(list(list_replicas([{'scope': mock_scope, 'name': dsn}], updated_after=t1))) == 2
         assert len(list(list_replicas([{'scope': mock_scope, 'name': dsn}], updated_after=t2))) == 1
         assert len(list(list_replicas([{'scope': mock_scope, 'name': dsn}], updated_after=t3))) == 0
+
+    def test_add_bad_dids(self, rse_factory, mock_scope, root_account):
+        """ REPLICA (CORE): Declare a list of replicas as bad.  """
+        _, rse_id = rse_factory.make_mock_rse()
+        dsn = 'ds_ua_test_dsn_%s' % generate_uuid()
+        add_did(scope=mock_scope, name=dsn, did_type='DATASET', account=root_account)
+
+        dids = [{'scope': mock_scope, 'name': f'{dsn}._{file_index}.data'} for file_index in range(3)]
+
+        for did in dids:
+            add_replica(rse_id=rse_id, scope=mock_scope, name=did["name"], bytes_=12345, account=root_account)
+        attach_dids(scope=mock_scope, name=dsn, dids=dids, account=root_account)
+
+        for did in dids:
+            did["scope"] = str(did["scope"])
+
+        add_bad_dids(dids, rse_id, reason="This DID was bad, it needs to be punished.", issuer=root_account)
+
+        for replica in list(list_replicas([{'scope': mock_scope, 'name': dsn}], all_states=True)):
+            assert replica["states"][rse_id] == "BAD"
 
     def test_get_RSE_coverage_of_dataset(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): test RSE coverage retrieval """
