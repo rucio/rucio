@@ -24,7 +24,7 @@ import sqlalchemy
 import sqlalchemy.orm
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, Session
 from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.sql.expression import or_, false, func, case
 
@@ -39,7 +39,6 @@ from rucio.db.sqla.constants import (RSEType, ReplicaState)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 from typing import Any, Dict, Optional, Sequence
-from sqlalchemy.orm import Session
 
 REGION = make_region_memcached(expiration_time=900)
 
@@ -158,6 +157,9 @@ class RseData:
                 rse_data.limits = limits
 
 
+RSE_SETTINGS = ["continent", "city", "region_code", "country_name", "time_zone", "ISP", "ASN"]
+
+
 @transactional_session
 def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
             ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability_read: Optional[bool] = None,
@@ -169,17 +171,17 @@ def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region
     :param vo: the vo to add the RSE to.
     :param deterministic: Boolean to know if the pfn is generated deterministically.
     :param volatile: Boolean for RSE cache.
-    :param city: City for the RSE.
-    :param region_code: The region code for the RSE.
-    :param country_name: The country.
-    :param continent: The continent.
-    :param time_zone: Timezone.
-    :param ISP: Internet service provider.
+    :param city: City for the RSE. Accessed by `locals()`.
+    :param region_code: The region code for the RSE. Accessed by `locals()`.
+    :param country_name: The country. Accessed by `locals()`.
+    :param continent: The continent. Accessed by `locals()`.
+    :param time_zone: Timezone. Accessed by `locals()`.
+    :param ISP: Internet service provider. Accessed by `locals()`.
     :param staging_area: Staging area.
     :param rse_type: RSE type.
     :param latitude: Latitude coordinate of RSE.
     :param longitude: Longitude coordinate of RSE.
-    :param ASN: Access service network.
+    :param ASN: Access service network. Accessed by `locals()`.
     :param availability_read: If the RSE is readable.
     :param availability_write: If the RSE is writable.
     :param availability_delete: If the RSE is deletable.
@@ -188,11 +190,15 @@ def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region
     if isinstance(rse_type, str):
         rse_type = RSEType(rse_type)
 
-    new_rse = models.RSE(rse=rse, vo=vo, deterministic=deterministic, volatile=volatile, city=city,
-                         region_code=region_code, country_name=country_name,
-                         continent=continent, time_zone=time_zone, staging_area=staging_area, ISP=ISP, availability_read=availability_read,
+    new_rse = models.RSE(rse=rse, vo=vo, deterministic=deterministic, volatile=volatile,
+                         staging_area=staging_area, availability_read=availability_read,
                          availability_write=availability_write, availability_delete=availability_delete,
-                         rse_type=rse_type, longitude=longitude, latitude=latitude, ASN=ASN)
+                         rse_type=rse_type, longitude=longitude, latitude=latitude,
+
+                         # The following fields will be deprecated, they are RSE attributes now.
+                         # (Still in the code for backwards compatibility)
+                         city=city, region_code=region_code, country_name=country_name,
+                         continent=continent, time_zone=time_zone, ISP=ISP, ASN=ASN)
     try:
         new_rse.save(session=session)
     except IntegrityError:
@@ -202,6 +208,13 @@ def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region
 
     # Add rse name as a RSE-Tag
     add_rse_attribute(rse_id=new_rse.id, key=rse, value=True, session=session)
+
+    for setting in RSE_SETTINGS:
+        # The value accessed by locals is defined in the code and it can not be
+        # changed by a user request. This thus does not provide a scurity risk.
+        setting_value = locals().get(setting, None)
+        if setting_value:
+            add_rse_attribute(rse_id=new_rse.id, key=setting, value=setting_value, session=session)
 
     # Add counter to monitor the space usage
     add_counter(rse_id=new_rse.id, session=session)
@@ -317,6 +330,21 @@ def rse_is_empty(rse_id, session=None):
 
 
 @read_session
+def get_rse_settings(rse_id: str, session: Optional[Session] = None) -> Dict[str, Any]:
+    """
+    Get all settings for an RSE.
+
+    :param rse_id:  The rse id.
+    :param session: The database session in use.
+    """
+    attributes = session.query(models.RSEAttrAssociation) \
+        .filter(sqlalchemy.and_(models.RSEAttrAssociation.rse_id == rse_id,
+                                models.RSEAttrAssociation.key.in_(RSE_SETTINGS))) \
+        .all() or []
+    return {attribute.key: attribute.value for attribute in attributes}
+
+
+@read_session
 def get_rse(rse_id, session=None):
     """
     Get a RSE or raise if it does not exist.
@@ -334,6 +362,7 @@ def get_rse(rse_id, session=None):
                                    models.RSE.id == rse_id))\
             .one()
         tmp['type'] = tmp.rse_type
+        tmp.update(get_rse_settings(rse_id, session=session))
         return tmp
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE with id \'%s\' cannot be found' % rse_id)
@@ -1376,7 +1405,7 @@ def update_rse(rse_id: str, parameters: 'Dict[str, Any]', session=None):
     Update RSE properties like availability or name.
 
     :param rse_id: the id of the new rse.
-    :param  parameters: A dictionnary with property (name, read, write, delete as keys).
+    :param parameters: A dictionary with property (name, read, write, delete as keys).
     :param session: The database session in use.
 
     :raises RSENotFound: If RSE is not found.
@@ -1412,6 +1441,13 @@ def update_rse(rse_id: str, parameters: 'Dict[str, Any]', session=None):
         if key in ['qos_class']:
             if param[key] and param[key].lower() in ['', 'none', 'null']:
                 param[key] = None
+
+    # handle rse settings
+    for setting in set(param.keys()).intersection(RSE_SETTINGS):
+        if has_rse_attribute(rse_id, setting, session=session):
+            del_rse_attribute(rse_id, setting, session=session)
+        add_rse_attribute(rse_id, setting, param[setting], session=session)
+        del param[setting]
 
     query.update(param)
     if 'rse' in param:
