@@ -31,6 +31,7 @@ import traceback
 from datetime import datetime, timedelta
 from re import match
 from sys import argv
+from typing import List
 
 import json
 
@@ -56,7 +57,7 @@ from rucio.db.sqla.util import get_db_time
 GRACEFUL_STOP = threading.Event()
 
 
-def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vos=None, limit_suspicious_files_on_rse=5, sleep_time=3600, active_mode=False):
+def declare_suspicious_replicas_bad(once: bool = False, younger_than: int = 3, nattempts: int = 10, vos: List[str] = None, limit_suspicious_files_on_rse: int = 5, sleep_time: int = 3600, active_mode: bool = False):
     """
     Main loop to check for available replicas which are labeled as suspicious.
 
