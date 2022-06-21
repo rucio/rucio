@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
+#from __future__ import print_function
 
 from json import dumps
 from requests.status_codes import codes
