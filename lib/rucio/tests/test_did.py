@@ -29,7 +29,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
                             get_metadata, set_metadata, get_did, get_did_access_cnt, add_did_to_followed,
                             get_users_following_did, remove_did_from_followed, set_status)
-from rucio.core.replica import add_replica
+from rucio.core.replica import add_replica, get_replica
 from rucio.db.sqla.constants import DIDType
 from rucio.tests.common import rse_name_generator, scope_name_generator
 
@@ -99,12 +99,13 @@ class TestDIDCore:
         rse, rse_id = rse_factory.make_mock_rse()
         dsn = 'dsn_%s' % generate_uuid()
         lfn = 'lfn.%s' % str(generate_uuid())
-        add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+        add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account, meta='')
 
         files = [{'scope': mock_scope, 'name': lfn,
                   'bytes': 724963570, 'adler32': '0cc737eb',
                   'meta': {'guid': str(generate_uuid()), 'events': 100}}]
         attach_dids(scope=mock_scope, name=dsn, rse_id=rse_id, dids=files, account=root_account)
+        assert get_replica(rse_id=rse_id, scope=mock_scope, name=lfn)
 
         set_metadata(scope=mock_scope, name=lfn, key='adler32', value='0cc737ee')
         assert get_metadata(scope=mock_scope, name=lfn)['adler32'] == '0cc737ee'

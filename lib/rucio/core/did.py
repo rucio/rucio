@@ -262,9 +262,12 @@ def _attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=N
     :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
+    children_temp_table = create_scope_name_temp_table("attach_dids_to_dids_files", session=session)
     parent_dids = list()
+    first_iteration = True
     for attachment in attachments:
         try:
+            children = {(a['scope'], a['name']): a for a in attachment['dids']}
             cont = []
             stmt = select(
                 models.DataIdentifier
@@ -275,13 +278,16 @@ def _attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=N
                 models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
             )
             parent_did = session.execute(stmt).scalar_one()
+            if not first_iteration:
+                session.query(children_temp_table).delete()
+            session.bulk_insert_mappings(children_temp_table, [{'scope': file['scope'], 'name': file['name']} for file in attachment['dids']])
 
             if parent_did.did_type == DIDType.FILE:
                 # check if parent file has the archive extension
                 if is_archive(attachment['name']):
-                    __add_files_to_archive(scope=attachment['scope'],
-                                           name=attachment['name'],
-                                           files=attachment['dids'],
+                    __add_files_to_archive(parent_did=parent_did,
+                                           files_temp_table=children_temp_table,
+                                           files=children,
                                            account=account,
                                            ignore_duplicate=ignore_duplicate,
                                            session=session)
@@ -292,17 +298,20 @@ def _attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=N
                 raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is closed" % attachment)
 
             elif parent_did.did_type == DIDType.DATASET:
-                cont = __add_files_to_dataset(scope=attachment['scope'], name=attachment['name'],
-                                              files=attachment['dids'], account=account,
+                cont = __add_files_to_dataset(parent_did=parent_did,
+                                              files_temp_table=children_temp_table,
+                                              files=children,
+                                              account=account,
                                               ignore_duplicate=ignore_duplicate,
                                               rse_id=attachment.get('rse_id'),
                                               session=session)
 
             elif parent_did.did_type == DIDType.CONTAINER:
-                __add_collections_to_container(scope=attachment['scope'],
-                                               name=attachment['name'],
-                                               collections=attachment['dids'],
-                                               account=account, session=session)
+                __add_collections_to_container(parent_did=parent_did,
+                                               collections_temp_table=children_temp_table,
+                                               collections=children,
+                                               account=account,
+                                               session=session)
 
             if cont:
                 # cont contains the parent of the files and is only filled if the files does not exist yet
@@ -311,6 +320,7 @@ def _attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=N
                                     'rule_evaluation_action': DIDReEvaluation.ATTACH})
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (attachment['scope'], attachment['name']))
+        first_iteration = False
 
     # Remove all duplicated dictionnaries from the list
     # (convert the list of dictionaries into a list of tuple, then to a set of tuple
@@ -319,138 +329,136 @@ def _attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=N
     session.bulk_insert_mappings(models.UpdatedDID, parent_dids)
 
 
-def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, session=None):
+def __add_files_to_archive(parent_did, files_temp_table, files, account, ignore_duplicate=False, session=None):
     """
     Add files to archive.
 
-    :param scope: The scope name.
-    :param name: The data identifier name.
+    :param parent_did: the DataIdentifier object of the parent did
     :param files: archive content.
     :param account: The account owner.
     :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
-    # lookup for existing files
-    files_query = select(
-        models.DataIdentifier.scope,
-        models.DataIdentifier.name,
+    stmt = select(
+        files_temp_table.scope,
+        files_temp_table.name,
+        models.DataIdentifier.scope.label('did_scope'),
         models.DataIdentifier.bytes,
         models.DataIdentifier.guid,
         models.DataIdentifier.events,
         models.DataIdentifier.availability,
         models.DataIdentifier.adler32,
         models.DataIdentifier.md5,
-    ).where(
-        models.DataIdentifier.did_type == DIDType.FILE
-    ).with_hint(
-        models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
+        models.DataIdentifier.is_archive,
+        models.DataIdentifier.constituent,
+        models.DataIdentifier.did_type,
+    ).outerjoin_from(
+        files_temp_table,
+        models.DataIdentifier,
+        and_(
+            models.DataIdentifier.scope == files_temp_table.scope,
+            models.DataIdentifier.name == files_temp_table.name,
+        ),
     )
-
-    file_condition = []
-    for file in files:
-        file_condition.append(and_(models.DataIdentifier.scope == file['scope'],
-                                   models.DataIdentifier.name == file['name']))
-
-    existing_content, existing_files = [], {}
     if ignore_duplicate:
-        # lookup for existing content
-        content_query = select(
-            models.ConstituentAssociation.scope,
-            models.ConstituentAssociation.name,
-            models.ConstituentAssociation.child_scope,
-            models.ConstituentAssociation.child_name
-        ).with_hint(
-            models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle'
+        stmt = stmt.add_columns(
+            models.ConstituentAssociation.scope.label('archive_contents_scope'),
+        ).outerjoin_from(
+            files_temp_table,
+            models.ConstituentAssociation,
+            and_(
+                models.ConstituentAssociation.scope == parent_did.scope,
+                models.ConstituentAssociation.name == parent_did.name,
+                models.ConstituentAssociation.child_scope == files_temp_table.scope,
+                models.ConstituentAssociation.child_name == files_temp_table.name,
+            ),
         )
-        content_condition = []
-        for file in files:
-            content_condition.append(and_(models.ConstituentAssociation.scope == scope,
-                                          models.ConstituentAssociation.name == name,
-                                          models.ConstituentAssociation.child_scope == file['scope'],
-                                          models.ConstituentAssociation.child_name == file['name']))
-        for row in session.execute(content_query.where(or_(*content_condition))):
-            existing_content.append(row)
 
-    for row in session.execute(files_query.where(or_(*file_condition))):
-        existing_files['%s:%s' % (row.scope.internal, row.name)] = {'child_scope': row.scope,
-                                                                    'child_name': row.name,
-                                                                    'scope': scope,
-                                                                    'name': name,
-                                                                    'bytes': row.bytes,
-                                                                    'adler32': row.adler32,
-                                                                    'md5': row.md5,
-                                                                    'guid': row.guid,
-                                                                    'length': row.events}
+    dids_to_add = {}
+    must_set_constituent = False
+    archive_contents_to_add = {}
+    for row in session.execute(stmt):
+        file = files[row.scope, row.name]
 
-    contents = []
-    new_files, existing_files_condition = [], []
-    for file in files:
-        did_tag = '%s:%s' % (file['scope'].internal, file['name'])
-        if did_tag not in existing_files:
-            # For non existing files
-            # Add them to the content
-            contents.append({'child_scope': file['scope'],
-                             'child_name': file['name'],
-                             'scope': scope,
-                             'name': name,
-                             'bytes': file['bytes'],
-                             'adler32': file.get('adler32'),
-                             'md5': file.get('md5'),
-                             'guid': file.get('guid'),
-                             'length': file.get('events')})
+        if ignore_duplicate and row.archive_contents_scope is not None:
+            continue
 
-            file['constituent'] = True
-            file['did_type'] = DIDType.FILE
-            file['account'] = account
+        if (row.scope, row.name) in archive_contents_to_add:
+            # Ignore duplicate input
+            continue
+
+        if row.did_scope is None:
+            new_did = {}
+            new_did.update((k, v) for k, v in file.items() if k != 'meta')
             for key in file.get('meta', {}):
-                file[key] = file['meta'][key]
-            # Prepare new file registrations
-            new_files.append(file)
+                new_did[key] = file['meta'][key]
+            new_did['constituent'] = True
+            new_did['did_type'] = DIDType.FILE
+            new_did['account'] = account
+            dids_to_add[row.scope, row.name] = new_did
+
+            new_content = {
+                'child_scope': file['scope'],
+                'child_name': file['name'],
+                'scope': parent_did.scope,
+                'name': parent_did.name,
+                'bytes': file['bytes'],
+                'adler32': file.get('adler32'),
+                'md5': file.get('md5'),
+                'guid': file.get('guid'),
+                'length': file.get('events')
+            }
         else:
-            # For existing files
-            # Prepare the dids updates
-            existing_files_condition.append(and_(models.DataIdentifier.scope == file['scope'],
-                                                 models.DataIdentifier.name == file['name']))
-            # Check if they are not already in the content
-            if not existing_content or (scope, name, file['scope'], file['name']) not in existing_content:
-                contents.append(existing_files[did_tag])
+            if row.did_type != DIDType.FILE:
+                raise exception.UnsupportedOperation('Data identifier %s:%s of type %s cannot be added to an archive ' % (row.scope, row.name, row.did_type))
+
+            if not row.constituent:
+                must_set_constituent = True
+
+            new_content = {
+                'child_scope': row.scope,
+                'child_name': row.name,
+                'scope': parent_did.scope,
+                'name': parent_did.name,
+                'bytes': row.bytes,
+                'adler32': row.adler32,
+                'md5': row.md5,
+                'guid': row.guid,
+                'length': row.events
+            }
+
+        archive_contents_to_add[row.scope, row.name] = new_content
 
     # insert into archive_contents
     try:
-        new_files and session.bulk_insert_mappings(models.DataIdentifier, new_files)
-        if existing_files_condition:
-            for chunk in chunks(existing_files_condition, 20):
-                stmt = update(
-                    models.DataIdentifier
-                ).prefix_with(
-                    "/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle'
+        dids_to_add and session.bulk_insert_mappings(models.DataIdentifier, dids_to_add.values())
+        archive_contents_to_add and session.bulk_insert_mappings(models.ConstituentAssociation, archive_contents_to_add.values())
+        if must_set_constituent:
+            stmt = update(
+                models.DataIdentifier
+            ).where(
+                exists(
+                    select([1])
                 ).where(
-                    models.DataIdentifier.did_type == DIDType.FILE
-                ).where(
-                    or_(models.DataIdentifier.constituent.is_(None),
-                        models.DataIdentifier.constituent == false())
-                ).where(
-                    or_(*chunk)
-                ).values(
-                    constituent=True
+                    models.DataIdentifier.scope == files_temp_table.scope,
+                    models.DataIdentifier.name == files_temp_table.name
                 )
-                session.execute(stmt)
-        contents and session.bulk_insert_mappings(models.ConstituentAssociation, contents)
+            ).where(
+                or_(models.DataIdentifier.constituent.is_(None),
+                    models.DataIdentifier.constituent == false())
+            ).execution_options(
+                synchronize_session=False
+            ).values(
+                constituent=True
+            )
+            session.execute(stmt)
         session.flush()
     except IntegrityError as error:
         raise exception.RucioException(error.args)
 
-    stmt = select(
-        models.DataIdentifier
-    ).where(
-        models.DataIdentifier.did_type == DIDType.FILE,
-        models.DataIdentifier.scope == scope,
-        models.DataIdentifier.name == name,
-    )
-    archive_did = session.execute(stmt).scalar()
-    if not archive_did.is_archive:
+    if not parent_did.is_archive:
         # mark tha archive file as is_archive
-        archive_did.is_archive = True
+        parent_did.is_archive = True
 
         # mark parent datasets as is_archive = True
         stmt = update(
@@ -459,8 +467,8 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
             exists(
                 select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX) */", dialect="oracle")
             ).where(
-                models.DataIdentifierAssociation.child_scope == scope,
-                models.DataIdentifierAssociation.child_name == name,
+                models.DataIdentifierAssociation.child_scope == parent_did.scope,
+                models.DataIdentifierAssociation.child_name == parent_did.name,
                 models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
                 models.DataIdentifierAssociation.name == models.DataIdentifier.name
             )
@@ -476,13 +484,12 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
 
 
 @transactional_session
-def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate=False, session=None):
+def __add_files_to_dataset(parent_did, files_temp_table, files, account, rse_id, ignore_duplicate=False, session=None):
     """
     Add files to dataset.
 
-    :param scope:              The scope name.
-    :param name:               The data identifier name.
-    :param files:              The list of files.
+    :param parent_did:         the DataIdentifier object of the parent did
+    :param files_temp_table:   Temporary table containing the scope and name of files to add.
     :param account:            The account owner.
     :param rse_id:             The RSE id for the replicas.
     :param ignore_duplicate:   If True, ignore duplicate entries.
@@ -491,78 +498,97 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
     """
     # Get metadata from dataset
     try:
-        dataset_meta = validate_name(scope=scope, name=name, did_type='D')
+        dataset_meta = validate_name(scope=parent_did.scope, name=parent_did.name, did_type='D')
     except Exception:
         dataset_meta = None
 
     if rse_id:
-        rucio.core.replica.add_replicas(rse_id=rse_id, files=files, dataset_meta=dataset_meta,
+        # Tier-0 uses this old work-around to register replicas on the RSE
+        # in the same call as attaching them to a dataset
+        rucio.core.replica.add_replicas(rse_id=rse_id, files=files.values(), dataset_meta=dataset_meta,
                                         account=account, session=session)
 
-    files = get_files(files=files, session=session)
-
-    existing_content = []
-    if ignore_duplicate:
-        content_query = select(
-            models.DataIdentifierAssociation.scope,
-            models.DataIdentifierAssociation.name,
-            models.DataIdentifierAssociation.child_scope,
-            models.DataIdentifierAssociation.child_name
-        ).with_hint(
-            models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle'
-        )
-        content_condition = []
-        for file in files:
-            content_condition.append(and_(models.DataIdentifierAssociation.scope == scope,
-                                          models.DataIdentifierAssociation.name == name,
-                                          models.DataIdentifierAssociation.child_scope == file['scope'],
-                                          models.DataIdentifierAssociation.child_name == file['name']))
-        for row in session.execute(content_query.where(or_(*content_condition))):
-            existing_content.append(row)
-
-    contents = []
-    added_archives_condition = []
-    for file in files:
-        if not existing_content or (scope, name, file['scope'], file['name']) not in existing_content:
-            contents.append({'scope': scope, 'name': name, 'child_scope': file['scope'],
-                             'child_name': file['name'], 'bytes': file['bytes'],
-                             'adler32': file.get('adler32'),
-                             'guid': file['guid'], 'events': file['events'],
-                             'md5': file.get('md5'), 'did_type': DIDType.DATASET,
-                             'child_type': DIDType.FILE, 'rule_evaluation': True})
-            added_archives_condition.append(
-                and_(models.DataIdentifier.scope == file['scope'],
-                     models.DataIdentifier.name == file['name'],
-                     models.DataIdentifier.is_archive == true()))
-
-    # if any of the attached files is an archive, set is_archive = True on the dataset
     stmt = select(
-        models.DataIdentifier
-    ).with_hint(
-        models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
-    ).where(
-        or_(*added_archives_condition)
-    ).limit(
-        1
+        files_temp_table.scope,
+        files_temp_table.name,
+        models.DataIdentifier.scope.label('did_scope'),
+        models.DataIdentifier.bytes,
+        models.DataIdentifier.guid,
+        models.DataIdentifier.events,
+        models.DataIdentifier.availability,
+        models.DataIdentifier.adler32,
+        models.DataIdentifier.md5,
+        models.DataIdentifier.is_archive,
+        models.DataIdentifier.did_type,
+    ).outerjoin_from(
+        files_temp_table,
+        models.DataIdentifier,
+        and_(
+            models.DataIdentifier.scope == files_temp_table.scope,
+            models.DataIdentifier.name == files_temp_table.name,
+        ),
     )
-    if session.execute(stmt).scalar() is not None:
-        stmt = update(
-            models.DataIdentifier
-        ).where(
-            models.DataIdentifier.scope == scope,
-            models.DataIdentifier.name == name,
-        ).where(
-            or_(models.DataIdentifier.is_archive.is_(None),
-                models.DataIdentifier.is_archive == false())
-        ).values(
-            is_archive=True
+    if ignore_duplicate:
+        stmt = stmt.add_columns(
+            models.DataIdentifierAssociation.scope.label('contents_scope'),
+        ).outerjoin_from(
+            files_temp_table,
+            models.DataIdentifierAssociation,
+            and_(
+                models.DataIdentifierAssociation.scope == parent_did.scope,
+                models.DataIdentifierAssociation.name == parent_did.name,
+                models.DataIdentifierAssociation.child_scope == files_temp_table.scope,
+                models.DataIdentifierAssociation.child_name == files_temp_table.name,
+            ),
         )
-        session.execute(stmt)
+
+    files_to_add = {}
+    for row in session.execute(stmt):
+        file = files[row.scope, row.name]
+
+        if row.did_scope is None:
+            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % row)
+
+        if row.availability == DIDAvailability.LOST:
+            raise exception.UnsupportedOperation('File %s:%s is LOST and cannot be attached' % (row.scope, row.name))
+
+        if row.did_type != DIDType.FILE:
+            raise exception.UnsupportedOperation('Data identifier %s:%s of type %s cannot be added to a dataset ' % (row.scope, row.name, row.did_type))
+
+        # Check meta-data, if provided
+        for key in ['bytes', 'adler32', 'md5']:
+            if key in file and str(file[key]) != str(row[key]):
+                raise exception.FileConsistencyMismatch(key + " mismatch for '%(scope)s:%(name)s': " % row + str(file.get(key)) + '!=' + str(row[key]))
+
+        if ignore_duplicate and row.contents_scope is not None:
+            continue
+
+        if (row.scope, row.name) in files_to_add:
+            # Ignore duplicate input files
+            continue
+
+        if row.is_archive and not parent_did.is_archive:
+            parent_did.is_archive = True
+
+        files_to_add[(row.scope, row.name)] = {
+            'scope': parent_did.scope,
+            'name': parent_did.name,
+            'child_scope': row['scope'],
+            'child_name': row['name'],
+            'bytes': row['bytes'],
+            'adler32': row['adler32'],
+            'md5': row['md5'],
+            'guid': row['guid'],
+            'events': row['events'],
+            'did_type': DIDType.DATASET,
+            'child_type': DIDType.FILE,
+            'rule_evaluation': True,
+        }
 
     try:
-        contents and session.bulk_insert_mappings(models.DataIdentifierAssociation, contents)
+        files_to_add and session.bulk_insert_mappings(models.DataIdentifierAssociation, files_to_add.values())
         session.flush()
-        return contents
+        return files_to_add
     except IntegrityError as error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
                 or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
@@ -582,65 +608,64 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
 
 
 @transactional_session
-def __add_collections_to_container(scope, name, collections, account, session):
+def __add_collections_to_container(parent_did, collections_temp_table, collections, account, session):
     """
     Add collections (datasets or containers) to container.
 
-    :param scope: The scope name.
-    :param name: The container name.
+    :param parent_did: the DataIdentifier object of the parent did
     :param collections: .
     :param account: The account owner.
     :param session: The database session in use.
     """
-    container_parents = None
-    condition = []
-    for cond in collections:
 
-        if (scope == cond['scope']) and (name == cond['name']):
-            raise exception.UnsupportedOperation('Self-append is not valid!')
+    if (parent_did.scope, parent_did.name) in collections:
+        raise exception.UnsupportedOperation('Self-append is not valid!')
 
-        condition.append(and_(models.DataIdentifier.scope == cond['scope'],
-                              models.DataIdentifier.name == cond['name']))
-
-    available_dids = {}
-    child_type = None
     stmt = select(
-        models.DataIdentifier.scope,
-        models.DataIdentifier.name,
+        collections_temp_table.scope,
+        collections_temp_table.name,
+        models.DataIdentifier.scope.label('did_scope'),
         models.DataIdentifier.did_type
-    ).with_hint(
-        models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
-    ).where(
-        or_(*condition)
+    ).outerjoin_from(
+        collections_temp_table,
+        models.DataIdentifier,
+        and_(
+            models.DataIdentifier.scope == collections_temp_table.scope,
+            models.DataIdentifier.name == collections_temp_table.name,
+        ),
     )
+
+    container_parents = None
+    child_type = None
     for row in session.execute(stmt):
 
+        if row.did_scope is None:
+            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % row)
+
         if row.did_type == DIDType.FILE:
-            raise exception.UnsupportedOperation("Adding a file (%s:%s) to a container (%s:%s) is forbidden" % (row.scope, row.name, scope, name))
+            raise exception.UnsupportedOperation("Adding a file (%s:%s) to a container (%s:%s) is forbidden" % (row.scope, row.name, parent_did.scope, parent_did.name))
 
         if not child_type:
             child_type = row.did_type
-
-        available_dids['%s:%s' % (row.scope.internal, row.name)] = row.did_type
 
         if child_type != row.did_type:
             raise exception.UnsupportedOperation("Mixed collection is not allowed: '%s:%s' is a %s(expected type: %s)" % (row.scope, row.name, row.did_type, child_type))
 
         if child_type == DIDType.CONTAINER:
             if container_parents is None:
-                container_parents = {(parent['scope'], parent['name']) for parent in list_all_parent_dids(scope=scope, name=name, session=session)}
+                container_parents = {(parent['scope'], parent['name']) for parent in list_all_parent_dids(scope=parent_did.scope, name=parent_did.name, session=session)}
 
             if (row.scope, row.name) in container_parents:
-                raise exception.UnsupportedOperation('Circular attachment detected. %s:%s is already a parent of %s:%s', row.scope, row.name, scope, name)
+                raise exception.UnsupportedOperation('Circular attachment detected. %s:%s is already a parent of %s:%s' % (row.scope, row.name, parent_did.scope, parent_did.name))
 
-    for c in collections:
+    for c in collections.values():
         did_asso = models.DataIdentifierAssociation(
-            scope=scope,
-            name=name,
+            scope=parent_did.scope,
+            name=parent_did.name,
             child_scope=c['scope'],
             child_name=c['name'],
             did_type=DIDType.CONTAINER,
-            child_type=available_dids.get('%s:%s' % (c['scope'].internal, c['name'])),
+            child_type=child_type,
             rule_evaluation=True
         )
         did_asso.save(session=session, flush=False)
@@ -653,8 +678,8 @@ def __add_collections_to_container(scope, name, collections, account, session):
             chld_type = 'UNKNOWN'
 
         message = {'account': account.external,
-                   'scope': scope.external,
-                   'name': name,
+                   'scope': parent_did.scope.external,
+                   'name': parent_did.name,
                    'childscope': c['scope'].external,
                    'childname': c['name'],
                    'childtype': chld_type}
