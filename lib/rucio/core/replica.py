@@ -1554,8 +1554,8 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
                                                      'for deleting' % replica_rse.rse)
 
-    scope_name_temp_table = create_scope_name_temp_table("delete_replicas", session=session)
-    scope_name_temp_table2 = create_scope_name_temp_table("delete_replicas2", session=session)
+    scope_name_temp_table = create_scope_name_temp_table("delete_replicas_0", session=session, oracle_global_idx=0)
+    scope_name_temp_table2 = create_scope_name_temp_table("delete_replicas_1", session=session, oracle_global_idx=1)
     association_temp_table = create_association_temp_table("delete_replicas_association", session=session)
 
     session.bulk_insert_mappings(scope_name_temp_table, [{'scope': file['scope'], 'name': file['name']} for file in files])

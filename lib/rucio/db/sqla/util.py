@@ -21,7 +21,9 @@ from typing import TYPE_CHECKING
 import sqlalchemy
 from alembic import command, op
 from alembic.config import Config
-from sqlalchemy import func, inspect, Column
+from dogpile.cache import make_region
+from dogpile.cache.api import NoValue
+from sqlalchemy import func, inspect, Column, PrimaryKeyConstraint
 from sqlalchemy.dialects.postgresql.base import PGInspector
 from sqlalchemy.exc import IntegrityError, DatabaseError
 from sqlalchemy.ext.declarative import declarative_base
@@ -33,6 +35,7 @@ from rucio import alembicrevision
 from rucio.common.config import config_get
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount
+from rucio.common.utils import generate_uuid
 from rucio.core.account_counter import create_counters_for_new_account
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType
@@ -43,6 +46,8 @@ if TYPE_CHECKING:
     from typing import Optional, Union  # noqa: F401
     from sqlalchemy.orm import Session  # noqa: F401
     from sqlalchemy.engine import Inspector  # noqa: F401
+
+REGION = make_region().configure('dogpile.cache.memory', expiration_time=600)
 
 
 def build_database():
@@ -299,26 +304,68 @@ def try_drop_constraint(constraint_name, table_name):
         assert 'nonexistent constraint' in str(e)
 
 
-def create_temp_table(name, *columns, primary_key=None, session=None):
+def list_oracle_global_temp_tables(session):
+    """
+    Retrieve the list of global temporary tables in oracle
+    """
+    cache_key = 'oracle_global_temp_tables'
+    global_temp_tables = REGION.get(cache_key)
+    if isinstance(global_temp_tables, NoValue):
+        global_temp_tables = inspect(session.bind).get_temp_table_names()
+        REGION.set(cache_key, global_temp_tables)
+    return global_temp_tables
+
+
+def create_temp_table(name, *columns, primary_key=None, oracle_global_name=None, session=None):
     """
     Create a temporary table with the given columns, register it into a declarative base, and return it.
 
+    Attention! calling this function while a table with the same `name` is being used will lead to
+    bad consequences. Don't use it in recursive calls without taking special care.
+
     Declarative definition _requires_ a primary key. It should be a subset of '*columns' argument
     (either a single column, or a list). If not explicitly give, will use the first column as primary key.
-    This primary key is "fake", because it only exists in sqlalchemy and not in the database.
+
+    On oracle, there are 2 possible types of temporary tables: global/private.
+    In the global case, tables are created once and then can be used by any session (with private data).
+    Private tables are created on-the fly, but have many limitations. For example: no indexes allowed.
+    This primary key is "fake" in this case, because it only exists in sqlalchemy and not in the database.
 
     Mysql and sqlite don't support automatic cleanup of temporary tables on commit. This means that a
     temporary table definition is preserved for the lifetime of a session. A session is regularly
     re-used by sqlalchemy, that's why we have to assume the required temporary table already exist and
     could contain data from a previous transaction. Drop all data from that table.
     """
+    if not primary_key:
+        primary_key = columns[0]
+    if not hasattr(primary_key, '__iter__'):
+        primary_key = (primary_key, )
+
+    oracle_table_is_global = False
     if session.bind.dialect.name == 'oracle':
-        additional_kwargs = {
-            'oracle_on_commit': 'DROP DEFINITION',
-            'prefixes': ['PRIVATE TEMPORARY'],
-        }
-        # PRIVATE_TEMP_TABLE_PREFIX, which defaults to "ORA$PTT_", _must_ prefix the name
-        name = f"ORA$PTT_{name}"
+        # Retrieve the list of global temporary tables on oracle.
+        # If the requested table is found to be global, re-use it,
+        # otherwise create a private temporary table with random name
+        global_temp_tables = list_oracle_global_temp_tables(session=session)
+        if oracle_global_name is None:
+            oracle_global_name = name
+        if oracle_global_name in global_temp_tables:
+            oracle_table_is_global = True
+            additional_kwargs = {
+                'oracle_on_commit': 'DELETE ROWS',
+                'prefixes': ['GLOBAL TEMPORARY'],
+            }
+        else:
+            additional_kwargs = {
+                'oracle_on_commit': 'DROP DEFINITION',
+                'prefixes': ['PRIVATE TEMPORARY'],
+            }
+            # PRIVATE_TEMP_TABLE_PREFIX, which defaults to "ORA$PTT_", _must_ prefix the name
+            name = f"ORA$PTT_{name}"
+            # Oracle doesn't support the if_not_exists construct, so add a random suffix to the
+            # name to allow multiple calls to the same function within the same session.
+            # For example: multiple attach_dids_to_dids(..., session=session)
+            name = f'{name}_{generate_uuid()}'
     elif session.bind.dialect.name == 'postgresql':
         additional_kwargs = {
             'postgresql_on_commit': 'DROP',
@@ -331,31 +378,42 @@ def create_temp_table(name, *columns, primary_key=None, session=None):
 
     base = declarative_base()
     table = Table(
-        name,
+        oracle_global_name if oracle_table_is_global else name,
         base.metadata,
         *columns,
         schema=None,  # Temporary tables exist in a special schema, so a schema name cannot be given when creating a temporary table
         **additional_kwargs,
     )
 
+    # Oracle private temporary tables don't support indexes.
+    # So skip adding the constraints to the table in that case.
+    if not session.bind.dialect.name == 'oracle' or oracle_table_is_global:
+        table.append_constraint(PrimaryKeyConstraint(*primary_key))
+
     class DeclarativeObj(base):
         __table__ = table
-        # The declarative base requires a primary key, even if it doesn't exit in the database
+        # The declarative base requires a primary key, even if it doesn't exist in the database.
         __mapper_args__ = {
-            "primary_key": primary_key if primary_key else columns[0],
+            "primary_key": primary_key,
         }
 
-    # Ensure the table exists and is empty. On some database types, it can contain leftover data from a previous transaction
+    # Ensure the table exists and is empty.
+    # If it already exists, it can contain leftover data from a previous transaction
     # executed by sqlalchemy within the same session (which is being re-used now)
-    if session.bind.dialect.name in ('oracle', 'postgresql'):
-        session.execute(CreateTable(table))
+    if session.bind.dialect.name == 'oracle':
+        # Oracle doesn't support if_not_exists.
+        # We ensured the unicity by appending a random string to the table name.
+        if oracle_table_is_global:
+            session.query(DeclarativeObj).delete()
+        else:
+            session.execute(CreateTable(table))
     else:
         session.execute(CreateTable(table, if_not_exists=True))
         session.query(DeclarativeObj).delete()
     return DeclarativeObj
 
 
-def create_scope_name_temp_table(name, session):
+def create_scope_name_temp_table(name, session, oracle_global_idx=0):
     """
     Create a temporary table with columns 'scope' and 'name'
     """
@@ -368,11 +426,12 @@ def create_scope_name_temp_table(name, session):
         name,
         *columns,
         primary_key=columns,
+        oracle_global_name=None if oracle_global_idx is None else f'temporary_scope_name_{oracle_global_idx}',
         session=session,
     )
 
 
-def create_association_temp_table(name, session):
+def create_association_temp_table(name, session, oracle_global_idx=0):
     """
     Create a temporary table with columns 'scope', 'name', 'child_scope'and 'child_name'
     """
@@ -387,11 +446,12 @@ def create_association_temp_table(name, session):
         name,
         *columns,
         primary_key=columns,
+        oracle_global_name=None if oracle_global_idx is None else f'temporary_association_{oracle_global_idx}',
         session=session,
     )
 
 
-def create_id_temp_table(name, session):
+def create_id_temp_table(name, session, oracle_global_idx=0):
     """
     Create a temp table with a single id column of uuid type
     """
@@ -399,5 +459,6 @@ def create_id_temp_table(name, session):
     return create_temp_table(
         name,
         Column("id", models.GUID()),
+        oracle_global_name=None if oracle_global_idx is None else f'temporary_id_{oracle_global_idx}',
         session=session,
     )
