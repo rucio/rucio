@@ -190,8 +190,8 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vo
                         logger(logging.DEBUG, '%s', i)
 
                     # RSEs that aren't available shouldn't have suspicious replicas showing up. Skip to next RSE.
-                    if (rse['availability'] not in {4, 5, 6, 7}) and ((len(suspicious_replicas_avail_elsewhere) > 0) or (len(suspicious_replicas_last_copy) > 0)):
-                        logger(logging.WARNING, "%s is not available (availability: %s), yet it has suspicious replicas. Please investigate. \n", rse_expr, rse['availability'])
+                    if not rse['availability_write'] and ((len(suspicious_replicas_avail_elsewhere) > 0) or (len(suspicious_replicas_last_copy) > 0)):
+                        logger(logging.WARNING, "%s is not available (availability_write: %s), yet it has suspicious replicas. Please investigate. \n", rse_expr, rse['availability_write'])
                         continue
 
                     if suspicious_replicas_avail_elsewhere:
@@ -301,7 +301,10 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vo
                                         if action == "ignore":
                                             files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key])
                                         elif action == "declare bad":
-                                            suspicious_reason = get_suspicious_reason(recoverable_replicas[vo][rse_key][replica_key]["rse_id"], recoverable_replicas[vo][rse_key][replica_key]["scope"], recoverable_replicas[vo][rse_key][replica_key]["name"], nattempts)
+                                            suspicious_reason = get_suspicious_reason(recoverable_replicas[vo][rse_key][replica_key]["rse_id"],
+                                                                                      recoverable_replicas[vo][rse_key][replica_key]["scope"],
+                                                                                      recoverable_replicas[vo][rse_key][replica_key]["name"],
+                                                                                      nattempts)
                                             for reason in suspicious_reason:
                                                 if "auditor" in reason["reason"].lower():
                                                     auditor += 1

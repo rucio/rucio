@@ -763,7 +763,7 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore
                  models.DataIdentifierAssociation.child_name)
 
     if not ignore_availability:
-        replica_query = replica_query.filter(models.RSE.availability.in_((4, 5, 6, 7)))
+        replica_query = replica_query.filter(models.RSE.availability_read == true())
 
     if state_clause is not None:
         replica_query = replica_query.filter(and_(state_clause))
@@ -812,7 +812,7 @@ def _list_replicas_for_constituents(constituent_clause, state_clause, files_wo_r
                  models.ConstituentAssociation.child_name)
 
     if not ignore_availability:
-        constituent_query = constituent_query.filter(models.RSE.availability.in_((4, 5, 6, 7)))
+        constituent_query = constituent_query.filter(models.RSE.availability_read == true())
 
     if state_clause is not None:
         constituent_query = constituent_query.filter(and_(state_clause))
@@ -846,7 +846,7 @@ def _list_replicas_for_files(file_clause, state_clause, files_wo_replica, rse_cl
         ]
 
         if not ignore_availability:
-            filters.append(models.RSE.availability.in_((4, 5, 6, 7)))
+            filters.append(models.RSE.availability_read == true())
 
         if state_clause is not None:
             filters.append(state_clause)
@@ -1450,7 +1450,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     if replica_rse.volatile is True:
         raise exception.UnsupportedOperation('Cannot add replicas on volatile RSE %s ' % (replica_rse.rse))
 
-    if not (replica_rse.availability & 2) and not ignore_availability:
+    if not (replica_rse.availability_write) and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for writing' % replica_rse.rse)
 
     for file in files:
@@ -1551,7 +1551,7 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
 
     replica_rse = get_rse(rse_id=rse_id, session=session)
 
-    if not (replica_rse.availability & 1) and not ignore_availability:
+    if not replica_rse.availability_delete and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
                                                      'for deleting' % replica_rse.rse)
 
@@ -2076,7 +2076,7 @@ def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=Tru
     """
     replica_rse = get_rse(rse_id=rse_id, session=session)
 
-    if not (replica_rse.availability & 1) and not ignore_availability:
+    if not replica_rse.availability_delete and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
                                                      'for deleting' % replica_rse.rse)
 

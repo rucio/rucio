@@ -1861,7 +1861,7 @@ class Availability:
         return iter((self.read, self.write, self.delete))
 
     def __repr__(self):
-        return f"Availability({self.read}, {self.write}, {self.delete})"
+        return "Availability({}, {}, {})".format(self.read, self.write, self.delete)
 
     def __eq__(self, other):
         return self.read == other.read and self.write == other.write and self.delete == other.delete

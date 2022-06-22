@@ -52,7 +52,8 @@ def import_rses(rses, rse_sync_method='edit', attr_sync_method='edit', protocol_
                                         city=rse.get('city'), region_code=rse.get('region_code'), country_name=rse.get('country_name'),
                                         staging_area=rse.get('staging_area'), continent=rse.get('continent'), time_zone=rse.get('time_zone'),
                                         ISP=rse.get('ISP'), rse_type=rse.get('rse_type'), latitude=rse.get('latitude'),
-                                        longitude=rse.get('longitude'), ASN=rse.get('ASN'), availability=rse.get('availability'),
+                                        longitude=rse.get('longitude'), ASN=rse.get('ASN'), availability_read=rse.get('availability_read'),
+                                        availability_write=rse.get('availability_write'), availability_delete=rse.get('availability_delete'),
                                         session=session)
 
         new_rses.append(rse_id)
