@@ -49,6 +49,7 @@ suites:
       - sqlite
   - id: multi_vo
     RDBMS: postgres14
+    RUCIO_HOME: /opt/rucio/etc/multi_vo/tst
   - id: py37py38
     RDBMS: postgres14
 image_identifier:
