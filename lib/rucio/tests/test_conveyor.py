@@ -651,7 +651,7 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
     assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'transfers'}) == 1
     assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'waiting'}) == 1
     request = request_core.get_request_by_did(rse_id=dst_rse_id1, **waiting_did)
-    assert request7['state'] == RequestState.WAITING
+    assert request['state'] == RequestState.WAITING
 
     request = __wait_for_request_state(dst_rse_id=dst_rse_id1, state=RequestState.DONE, **queued_did)
     assert request['state'] == RequestState.DONE
@@ -764,6 +764,8 @@ def test_qos_staging_pin_no_disk_replica(rse_factory, did_factory, root_account)
     rule_id = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
+    assert request['request_type'] == RequestType.TRANSFER
+
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses])
 
     # test that proper lifetime is set on request
@@ -808,6 +810,8 @@ def test_qos_transfer_two_rules_to_tape_and_buffer(rse_factory, did_factory, roo
     rule1_id = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
+    assert request['request_type'] == RequestType.TRANSFER
+
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses])
 
     replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=300, **did)
@@ -821,6 +825,8 @@ def test_qos_transfer_two_rules_to_tape_and_buffer(rse_factory, did_factory, roo
     # now test a second rule to stage data back to "disk" storage
     rule2_id = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=buffer_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
     request = request_core.get_request_by_did(rse_id=buffer_rse_id, **did)
+
+    assert request['request_type'] == RequestType.TRANSFER
 
     # test that proper lifetime is set on request
     assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
