@@ -199,8 +199,13 @@ class BashHeaderTemplate(HeaderTemplate):
 
         if len(file_content) == 0:
             return None
+
+        if "#!/bin/sh" in file_content[0]:
+            return file_content[0]
+
         if "#!/bin/bash" in file_content[0]:
             return file_content[0]
+
         return None
 
     @staticmethod
