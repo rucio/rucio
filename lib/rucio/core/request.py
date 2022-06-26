@@ -1828,15 +1828,13 @@ def __throttler_request_state(activity, source_rse_id, dest_rse_id, session: "Op
 
 
 def get_supported_transfertools(rse_id: str, session=None) -> "Set[str]":
-    transfertool_attr = get_rse_attribute('transfertool', rse_id=rse_id, session=session)
-    if transfertool_attr:
-        result = set()
-        for attr in transfertool_attr:
-            if attr:
-                assert type(attr) == str
-                # split attribute values by comma
-                for transfertool in filter(bool, map(str.strip, attr.split(sep=','))):
-                    result.add(transfertool)
-        if result:
-            return result
-    return {'fts3', 'globus'}
+    transfertool_attr = get_rse_attribute(rse_id, 'transfertool', session=session)
+
+    if not transfertool_attr:
+        return {'fts3', 'globus'}
+
+    result = set()
+    for transfertool in transfertool_attr.split(sep=','):
+        if transfertool.strip():
+            result.add(transfertool)
+    return result
