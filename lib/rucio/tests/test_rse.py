@@ -159,7 +159,7 @@ class TestRSECoreApi(unittest.TestCase):
         rse_name = rse_name_generator()
         rse_id = add_rse(rse_name, **self.vo)
         del_rse_attribute(rse_id=rse_id, key=rse_name)
-        assert get_rse_attribute(key=rse_name, rse_id=rse_id) == []
+        assert get_rse_attribute(rse_id, rse_name) is None
 
         with pytest.raises(RSEAttributeNotFound):
             del_rse_attribute(rse_id=rse_id, key=rse_name)
@@ -417,9 +417,9 @@ class TestRSEClient(unittest.TestCase):
         # Check if updating RSE does not remove RSE tag
         rse = rse_name_generator()
         ret = self.client.add_rse(rse)
-        assert get_rse_attribute(key=rse, rse_id=get_rse_id(rse, **self.vo)) == [True]
+        assert get_rse_attribute(get_rse_id(rse, **self.vo), rse) is True
         self.client.update_rse(rse, {'availability_write': False, 'availability_delete': False})
-        assert get_rse_attribute(key=rse, rse_id=get_rse_id(rse, **self.vo)) == [True]
+        assert get_rse_attribute(get_rse_id(rse, **self.vo), rse) is True
 
         rse = rse_name_generator()
         renamed_rse = 'renamed_rse%s' % rse
@@ -1451,7 +1451,7 @@ class TestRSEClient(unittest.TestCase):
         rse_name = rse_name_generator()
         self.client.add_rse(rse_name)
         self.client.delete_rse_attribute(rse=rse_name, key=rse_name)
-        assert get_rse_attribute(key=rse_name, rse_id=get_rse_id(rse_name, **self.vo)) == []
+        assert get_rse_attribute(get_rse_id(rse_name, **self.vo), rse_name) is None
 
         with pytest.raises(RSEAttributeNotFound):
             self.client.delete_rse_attribute(rse=rse_name, key=rse_name)
@@ -1489,3 +1489,25 @@ class TestRSEClient(unittest.TestCase):
         with pytest.raises(InputValidationError):
             update_rse(rse_id, parameters={'city': 'Not Berlin', 'non_existing_option': 3})
         assert get_rse(rse_id)['city'] == 'Berlin'
+
+
+@pytest.mark.parametrize("use_cache", [
+    False,
+    pytest.param(True, marks=pytest.mark.xfail(reason='FIXME: Calling functions which change the rse attribute should invalidate the cache.')),
+])
+def test_get_rse_attribute(use_cache, rse_factory):
+    _, rse_id = rse_factory.make_mock_rse()
+
+    assert get_rse_attribute(rse_id, "test") is None
+
+    add_rse_attribute(rse_id, "test", "test")
+    assert get_rse_attribute(rse_id, "test", use_cache=use_cache) == "test"
+
+    add_rse_attribute(rse_id, "test", True)
+    assert get_rse_attribute(rse_id, "test", use_cache=use_cache) is True
+
+    add_rse_attribute(rse_id, "test", False)
+    assert get_rse_attribute(rse_id, "test", use_cache=use_cache) is False
+
+    del_rse_attribute(rse_id, "test")
+    assert get_rse_attribute(rse_id, "test", use_cache=use_cache) is None

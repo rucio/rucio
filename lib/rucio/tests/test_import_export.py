@@ -30,8 +30,8 @@ from rucio.core.exporter import export_data, export_rses
 from rucio.core.identity import add_identity, list_identities, add_account_identity, list_accounts_for_identity
 from rucio.core.importer import import_data, import_rses
 from rucio.core.rse import get_rse_id, get_rse_name, add_rse, get_rse, add_protocol, get_rse_protocols, \
-    list_rse_attributes, get_rse_limits, set_rse_limits, add_rse_attribute, list_rses, export_rse, get_rse_attribute, \
-    del_rse
+    list_rse_attributes, get_rse_limits, set_rse_limits, add_rse_attribute, list_rses, export_rse, del_rse, \
+    get_rse_attribute
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType, AccountType, IdentityType, AccountStatus
 from rucio.tests.common import rse_name_generator, headers, auth, hdrdict
@@ -61,8 +61,8 @@ def check_rse(rse_name, test_data, vo='def'):
 def check_protocols(rse, test_data, vo='def'):
     rse_id = get_rse_id(rse=rse, vo=vo)
     protocols = get_rse_protocols(rse_id)
-    assert test_data[rse]['lfn2pfn_algorithm'] == get_rse_attribute('lfn2pfn_algorithm', rse_id=rse_id, use_cache=False)[0]
-    assert test_data[rse]['verify_checksum'] == get_rse_attribute('verify_checksum', rse_id=rse_id, use_cache=False)[0]
+    assert test_data[rse]['lfn2pfn_algorithm'] == get_rse_attribute(rse_id, 'lfn2pfn_algorithm', use_cache=False)
+    assert test_data[rse]['verify_checksum'] == get_rse_attribute(rse_id, 'verify_checksum', use_cache=False)
     assert test_data[rse]['availability_write'] == protocols['availability_write']
     assert test_data[rse]['availability_read'] == protocols['availability_read']
     assert test_data[rse]['availability_delete'] == protocols['availability_delete']
@@ -730,13 +730,13 @@ class TestImporterSyncModes(unittest.TestCase):
         import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='append', **self.vo)
 
         # Check that attributes were added for less_attr_rse
-        assert get_rse_attribute('attr2', rse_id=less_attr_rse_id, use_cache=False) == ['test_new']
+        assert get_rse_attribute(less_attr_rse_id, 'attr2', use_cache=False) == 'test_new'
 
         # Check that attributes were not modified for diff_attr_rse
-        assert get_rse_attribute('attr2', rse_id=diff_attr_rse_id, use_cache=False) == ['test_original']
+        assert get_rse_attribute(diff_attr_rse_id, 'attr2', use_cache=False) == 'test_original'
 
         # Check that attributes were missing from the json are not deleted
-        assert get_rse_attribute('attr3', rse_id=more_attr_rse_id, use_cache=False) == ['test_original']
+        assert get_rse_attribute(more_attr_rse_id, 'attr3', use_cache=False) == 'test_original'
 
     def test_import_attributes_edit(self):
         """ IMPORTER (CORE): test import attributes (EDIT mode). """
@@ -787,13 +787,13 @@ class TestImporterSyncModes(unittest.TestCase):
         import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='edit', **self.vo)
 
         # Check that attributes were added for less_attr_rse
-        assert get_rse_attribute('attr2', rse_id=less_attr_rse_id, use_cache=False) == ['test_new']
+        assert get_rse_attribute(less_attr_rse_id, 'attr2', use_cache=False) == 'test_new'
 
         # Check that attributes were modified for diff_attr_rse
-        assert get_rse_attribute('attr2', rse_id=diff_attr_rse_id, use_cache=False) == ['test_different']
+        assert get_rse_attribute(diff_attr_rse_id, 'attr2', use_cache=False) == 'test_different'
 
         # Check that attributes that were missing from the json are not deleted
-        assert get_rse_attribute('attr3', rse_id=more_attr_rse_id, use_cache=False) == ['test_original']
+        assert get_rse_attribute(more_attr_rse_id, 'attr3', use_cache=False) == 'test_original'
 
     def test_import_attributes_hard(self):
         """ IMPORTER (CORE): test import attributes (HARD mode). """
@@ -844,13 +844,13 @@ class TestImporterSyncModes(unittest.TestCase):
         import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='hard', **self.vo)
 
         # Check that attributes were added for less_attr_rse
-        assert get_rse_attribute('attr2', rse_id=less_attr_rse_id, use_cache=False) == ['test_new']
+        assert get_rse_attribute(less_attr_rse_id, 'attr2', use_cache=False) == 'test_new'
 
         # Check that attributes were modified for diff_attr_rse
-        assert get_rse_attribute('attr2', rse_id=diff_attr_rse_id, use_cache=False) == ['test_different']
+        assert get_rse_attribute(diff_attr_rse_id, 'attr2', use_cache=False) == 'test_different'
 
         # Check that attributes that were missing from the json are deleted
-        assert get_rse_attribute('attr3', rse_id=more_attr_rse_id, use_cache=False) == []
+        assert get_rse_attribute(more_attr_rse_id, 'attr3', use_cache=False) is None
 
     def test_import_protocols_append(self):
         """ IMPORTER (CORE): test import protocols (APPEND mode). """
