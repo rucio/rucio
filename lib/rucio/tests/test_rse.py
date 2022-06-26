@@ -22,14 +22,15 @@ import pytest
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.common import exception
+from rucio.common.cache import ENABLE_CACHING
 from rucio.common.config import config_get_bool
 from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported,
                                     InvalidObject, ResourceTemporaryUnavailable,
                                     RSEAttributeNotFound, RSEOperationNotSupported,
                                     InputValidationError)
 from rucio.common.utils import generate_uuid
-from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses,
-                            rse_exists, add_rse_attribute, list_rse_attributes,
+from rucio.core.rse import (add_rse, get_rse_attribute_without_cache, get_rse_id, del_rse, restore_rse,
+                            list_rses, rse_exists, add_rse_attribute, list_rse_attributes,
                             set_rse_transfer_limits, get_rse_transfer_limits,
                             delete_rse_transfer_limits, get_rse_protocols,
                             del_rse_attribute, get_rse_attribute, get_rse, rse_is_empty,
@@ -157,7 +158,7 @@ class TestRSECoreApi(unittest.TestCase):
         rse_name = rse_name_generator()
         rse_id = add_rse(rse_name, **self.vo)
         del_rse_attribute(rse_id=rse_id, key=rse_name)
-        assert get_rse_attribute(key=rse_name, rse_id=rse_id) == []
+        assert get_rse_attribute(rse_id, rse_name) is None
 
         with pytest.raises(RSEAttributeNotFound):
             del_rse_attribute(rse_id=rse_id, key=rse_name)
@@ -407,9 +408,9 @@ class TestRSEClient(unittest.TestCase):
         # Check if updating RSE does not remove RSE tag
         rse = rse_name_generator()
         ret = self.client.add_rse(rse)
-        assert get_rse_attribute(key=rse, rse_id=get_rse_id(rse, **self.vo)) == [True]
+        assert get_rse_attribute(get_rse_id(rse, **self.vo), rse) is True
         self.client.update_rse(rse, {'availability_write': False, 'availability_delete': False})
-        assert get_rse_attribute(key=rse, rse_id=get_rse_id(rse, **self.vo)) == [True]
+        assert get_rse_attribute(get_rse_id(rse, **self.vo), rse) is True
 
         rse = rse_name_generator()
         renamed_rse = 'renamed_rse%s' % rse
@@ -1441,7 +1442,7 @@ class TestRSEClient(unittest.TestCase):
         rse_name = rse_name_generator()
         self.client.add_rse(rse_name)
         self.client.delete_rse_attribute(rse=rse_name, key=rse_name)
-        assert get_rse_attribute(key=rse_name, rse_id=get_rse_id(rse_name, **self.vo)) == []
+        assert get_rse_attribute(get_rse_id(rse_name, **self.vo), rse_name) is None
 
         with pytest.raises(RSEAttributeNotFound):
             self.client.delete_rse_attribute(rse=rse_name, key=rse_name)
@@ -1479,3 +1480,23 @@ class TestRSEClient(unittest.TestCase):
         with pytest.raises(InputValidationError):
             update_rse(rse_id, parameters={'city': 'Not Berlin', 'non_existing_option': 3})
         assert get_rse(rse_id)['city'] == 'Berlin'
+
+
+def test_get_rse_attribute(rse_factory):
+    _, rse_id = rse_factory.make_mock_rse()
+
+    assert get_rse_attribute(rse_id, "does_not_exist") is None
+
+    add_rse_attribute(rse_id, "test", "test")
+    assert get_rse_attribute(rse_id, "test") == "test"
+
+    add_rse_attribute(rse_id, "test", True)
+    if ENABLE_CACHING:
+        assert get_rse_attribute(rse_id, "test") == "test"
+    assert get_rse_attribute_without_cache(rse_id, "test") is True
+
+    add_rse_attribute(rse_id, "test", False)
+    assert get_rse_attribute_without_cache(rse_id, "test") is False
+
+    del_rse_attribute(rse_id, "test")
+    assert get_rse_attribute_without_cache(rse_id, "test") is None

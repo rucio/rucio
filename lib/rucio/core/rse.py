@@ -19,7 +19,6 @@ import logging
 import traceback
 from io import StringIO
 from re import match
-from typing import TYPE_CHECKING
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -40,9 +39,8 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import (RSEType, ReplicaState)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
-if TYPE_CHECKING:
-    from typing import Any, Dict, Optional, Sequence
-    from sqlalchemy.orm import Session
+from typing import Any, Dict, Optional, Sequence, Union
+from sqlalchemy.orm import Session
 
 REGION = make_region_memcached(expiration_time=900)
 
@@ -662,39 +660,51 @@ def get_rses_with_attribute_value(key, value, lookup_key, vo='def', session=None
 
 
 @read_session
-def get_rse_attribute(key, rse_id=None, value=None, use_cache=True, session=None):
+def get_rse_attribute_without_cache(rse_id: str, key: str, session: Optional[Session] = None) -> Optional[Union[str, bool]]:
     """
-    Retrieve RSE attribute value.
+    Retrieve RSE attribute value from the database.
 
     :param rse_id: The RSE id.
     :param key: The key for the attribute.
-    :param value: Optionally, the desired value for the attribute.
-    :param use_cache: Boolean to use memcached.
     :param session: The database session in use.
 
-    :returns: A list with RSE attribute values for a Key.
+    :returns: The value for the rse attribute, None if it does not exist.
     """
 
-    result = NO_VALUE
-    if use_cache:
-        result = REGION.get('%s-%s-%s' % (key, rse_id, value))
-    if result is NO_VALUE:
+    value = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key).first()
 
-        rse_attrs = []
-        if rse_id:
-            query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key).distinct()
-            if value:
-                query = session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key, value=value).distinct()
-        else:
-            query = session.query(models.RSEAttrAssociation.value).filter_by(key=key).distinct()
-            if value:
-                query = session.query(models.RSEAttrAssociation.value).filter_by(key=key, value=value).distinct()
-        for attr_value in query:
-            rse_attrs.append(attr_value[0])
-        REGION.set('%s-%s-%s' % (key, rse_id, value), rse_attrs)
-        return rse_attrs
+    if value is None:
+        return None
 
-    return result
+    return value.value
+
+
+@read_session
+def get_rse_attribute(rse_id: str, key: str, session: Optional[Session] = None) -> Optional[Union[str, bool]]:
+    """
+    Retrieve RSE attribute value. If it is not cached, look it up in the
+    database. If the value exists and is not cached, it will be added to the
+    cache.
+
+    :param rse_id: The RSE id.
+    :param key: The key for the attribute.
+    :param session: The database session in use.
+
+    :returns: The value for the rse attribute, None if it does not exist.
+    """
+    cache_key = f'rse_attributes_{rse_id}_{key}'
+    value = REGION.get(cache_key)
+
+    if value is not NO_VALUE:
+        return value
+
+    value = get_rse_attribute_without_cache(rse_id, key, session=session)
+
+    if value is None:
+        return None
+
+    REGION.set(cache_key, value)
+    return value
 
 
 def get_rse_attributes(rse_id, session=None):
@@ -725,7 +735,7 @@ def get_rse_supported_checksums(rse_id, session=None):
     """
     Retrieve from the DB and parse the RSE attribute defining the checksum supported by the RSE
     """
-    return parse_checksum_support_attribute(get_rse_attribute(key=CHECKSUM_KEY, rse_id=rse_id, session=session))
+    return parse_checksum_support_attribute([get_rse_attribute(rse_id, CHECKSUM_KEY, session=session)])
 
 
 def get_rse_supported_checksums_from_attributes(rse_attributes):
@@ -1097,18 +1107,17 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
     if not _rse:
         raise exception.RSENotFound('RSE with id \'%s\' not found' % rse_id)
 
-    lfn2pfn_algorithms = get_rse_attribute('lfn2pfn_algorithm', rse_id=_rse.id, session=session)
+    lfn2pfn_algorithm = get_rse_attribute(_rse.id, 'lfn2pfn_algorithm', session=session)
     # Resolve LFN2PFN default algorithm as soon as possible.  This way, we can send back the actual
     # algorithm name in response to REST queries.
-    lfn2pfn_algorithm = get_lfn2pfn_algorithm_default()
-    if lfn2pfn_algorithms:
-        lfn2pfn_algorithm = lfn2pfn_algorithms[0]
+    if not lfn2pfn_algorithm:
+        lfn2pfn_algorithm = get_lfn2pfn_algorithm_default()
 
     # Copy verify_checksum from the attributes, later: assume True if not specified
-    verify_checksum = get_rse_attribute('verify_checksum', rse_id=_rse.id, session=session)
+    verify_checksum = get_rse_attribute(_rse.id, 'verify_checksum', session=session)
 
     # Copy sign_url from the attributes
-    sign_url = get_rse_attribute('sign_url', rse_id=_rse.id, session=session)
+    sign_url = get_rse_attribute(_rse.id, 'sign_url', session=session)
 
     read = True if _rse.availability & 4 else False
     write = True if _rse.availability & 2 else False
@@ -1126,9 +1135,9 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
             'qos_class': _rse.qos_class,
             'rse': _rse.rse,
             'rse_type': _rse.rse_type.name,
-            'sign_url': sign_url[0] if sign_url else None,
+            'sign_url': sign_url if sign_url is not None else None,
             'staging_area': _rse.staging_area,
-            'verify_checksum': verify_checksum[0] if verify_checksum else True,
+            'verify_checksum': verify_checksum if verify_checksum is not None else True,
             'volatile': _rse.volatile}
 
     for op in utils.rse_supported_protocol_operations():

@@ -293,7 +293,7 @@ class RSEAttributeSmallerCheck(BaseExpressionElement):
         rse_dict = {}
         for rse in rse_list:
             try:
-                if float(get_rse_attribute(key=self.key, rse_id=rse['id'], session=session)[0]) < float(self.value):
+                if float(get_rse_attribute(rse['id'], self.key, session=session)) < float(self.value):
                     rse_dict[rse['id']] = rse
                     output.append(rse['id'])
             except ValueError:
@@ -328,7 +328,7 @@ class RSEAttributeLargerCheck(BaseExpressionElement):
         rse_dict = {}
         for rse in rse_list:
             try:
-                if float(get_rse_attribute(key=self.key, rse_id=rse['id'], session=session)[0]) > float(self.value):
+                if float(get_rse_attribute(rse['id'], self.key, session=session)) > float(self.value):
                     rse_dict[rse['id']] = rse
                     output.append(rse['id'])
             except ValueError:
