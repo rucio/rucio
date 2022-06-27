@@ -185,6 +185,8 @@ def __get_init_oidc_client(token_object: models.Token = None, token_type: str = 
                 token_type = kwargs.get('token_type', None)
             if token_type == 'subject_token':
                 token = token_object.token
+                # do not remove - even though None, oic expects this key to exist
+                auth_args["redirect_uri"] = None
             if token_type == 'refresh_token':
                 token = token_object.refresh_token
                 # do not remove - even though None, oic expects this key to exist
