@@ -16,6 +16,7 @@
 from __future__ import absolute_import, division
 import datetime
 import json
+from typing import Any, Dict, Set
 try:
     from json.decoder import JSONDecodeError
 except ImportError:
@@ -98,59 +99,39 @@ def oidc_supported(transfer_hop) -> bool:
     return True
 
 
-def checksum_validation_strategy(src_attributes, dst_attributes, logger):
+def checksum_validation_strategy(
+    src_attributes: Dict[str, Any],
+    dst_attributes: Dict[str, Any],
+    logger
+) -> Set[str]:
     """
     Compute the checksum validation strategy (none, source, destination or both) and the
     supported checksums from the attributes of the source and destination RSE.
     """
-    source_supported_checksums = get_rse_supported_checksums_from_attributes(src_attributes)
-    dest_supported_checksums = get_rse_supported_checksums_from_attributes(dst_attributes)
-    common_checksum_names = set(source_supported_checksums).intersection(dest_supported_checksums)
 
-    verify_checksum = 'both'
-    if not dst_attributes.get('verify_checksum', True):
-        if not src_attributes.get('verify_checksum', True):
-            verify_checksum = 'none'
-        else:
-            verify_checksum = 'source'
+    if src_attributes.get('verify_checksum', True):
+        src_checksums = set(get_rse_supported_checksums_from_attributes(src_attributes))
     else:
-        if not src_attributes.get('verify_checksum', True):
-            verify_checksum = 'destination'
-        else:
-            verify_checksum = 'both'
+        src_checksums = set()
 
-    if len(common_checksum_names) == 0:
+    if dst_attributes.get('verify_checksum', True):
+        dst_checksums = set(get_rse_supported_checksums_from_attributes(dst_attributes))
+    else:
+        dst_checksums = set()
+
+    intersection = src_checksums.intersection(dst_checksums)
+
+    if intersection:
+        return 'both', intersection
+    elif dst_checksums:
         logger(logging.INFO, 'No common checksum method. Verifying destination only.')
-        verify_checksum = 'destination'
-
-    if source_supported_checksums == ['none']:
-        if dest_supported_checksums == ['none']:
-            # both endpoints support none
-            verify_checksum = 'none'
-        else:
-            # src supports none but dst does
-            verify_checksum = 'destination'
+        return 'destination', dst_checksums
+    elif src_checksums:
+        logger(logging.INFO, 'No common checksum method. Verifying source only.')
+        return 'source', src_checksums
     else:
-        if dest_supported_checksums == ['none']:
-            # source supports some but destination does not
-            verify_checksum = 'source'
-        else:
-            if len(common_checksum_names) == 0:
-                # source and dst support some bot none in common (dst priority)
-                verify_checksum = 'destination'
-            else:
-                # Don't override the value in the file_metadata
-                pass
-
-    checksums_to_use = ['none']
-    if verify_checksum == 'both':
-        checksums_to_use = common_checksum_names
-    elif verify_checksum == 'source':
-        checksums_to_use = source_supported_checksums
-    elif verify_checksum == 'destination':
-        checksums_to_use = dest_supported_checksums
-
-    return verify_checksum, checksums_to_use
+        logger(logging.INFO, 'No common checksum method. Not verifying source nor destination.')
+        return 'none', set()
 
 
 def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archive_timeout_override, max_time_in_queue, logger, multihop=False):
