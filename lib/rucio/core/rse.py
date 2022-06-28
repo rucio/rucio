@@ -32,7 +32,7 @@ import rucio.core.account_counter
 from rucio.common import exception, utils
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import get_lfn2pfn_algorithm_default
-from rucio.common.utils import CHECKSUM_KEY, Availability, is_checksum_valid, GLOBALLY_SUPPORTED_CHECKSUMS
+from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import (RSEType, ReplicaState)
@@ -710,14 +710,6 @@ def get_rse_attributes(rse_id, session=None):
     return result
 
 
-@read_session
-def get_rse_supported_checksums(rse_id, session=None):
-    """
-    Retrieve from the DB and parse the RSE attribute defining the checksum supported by the RSE
-    """
-    return parse_checksum_support_attribute(get_rse_attribute(key=CHECKSUM_KEY, rse_id=rse_id, session=session))
-
-
 def get_rse_supported_checksums_from_attributes(rse_attributes):
     """
     Parse the RSE attribute defining the checksum supported by the RSE
@@ -739,27 +731,10 @@ def parse_checksum_support_attribute(checksum_attribute):
     if not checksum_attribute:
         return GLOBALLY_SUPPORTED_CHECKSUMS
     else:
-        supported_checksum_list = checksum_attribute[0].split(',')
+        supported_checksum_list = [c.strip() for c in checksum_attribute.split(',') if c.strip()]
         if 'none' in supported_checksum_list:
             return []
         return supported_checksum_list
-
-
-@read_session
-def get_rse_is_checksum_supported(checksum_name, rse_id=None, session=None):
-    """
-    Retrieve RSE attribute value.
-
-    :param checksum_name: The desired checksum name for the attribute.
-    :param rse_id: The RSE id.
-    :param session: The database session in use.
-
-    :returns: True if required checksum is supported, False otherwise.
-    """
-    if is_checksum_valid(checksum_name):
-        return checksum_name in get_rse_supported_checksums(rse_id=rse_id, session=session)
-    else:
-        return False
 
 
 @transactional_session

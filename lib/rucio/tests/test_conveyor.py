@@ -855,10 +855,9 @@ class FTSWrapper(FTS3Transfertool):
     def on_receive(job_response):
         pass
 
-    @classmethod
-    def _FTS3Transfertool__file_from_transfer(cls, transfer, job_params):
-        file = super()._FTS3Transfertool__file_from_transfer(transfer, job_params)
-        cls.on_submit(file)
+    def _FTS3Transfertool__file_from_transfer(self, transfer):
+        file = super()._FTS3Transfertool__file_from_transfer(transfer)
+        self.on_submit(file)
         return file
 
     def _FTS3Transfertool__bulk_query_responses(self, jobs_response, requests_by_eid):
@@ -1294,3 +1293,56 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
     for rse_id in [rse2_id, rse3_id, rse4_id, rse6_id]:
         with pytest.raises(ReplicaNotFound):
             replica_core.get_replica(rse_id=rse_id, **did)
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+def test_checksum_validation(rse_factory, did_factory, root_account):
+    """
+    Ensure that the correct checksum validation strategy is applied on submission
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse1, dst_rse1_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse2, dst_rse2_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse3, dst_rse3_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    all_rses = [src_rse_id, dst_rse1_id, dst_rse2_id, dst_rse3_id]
+
+    for rse_id in [dst_rse1_id, dst_rse2_id, dst_rse3_id]:
+        distance_core.add_distance(src_rse_id, rse_id, ranking=10)
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+
+    rse_core.add_rse_attribute(src_rse_id, 'supported_checksums', 'adler32')
+    rse_core.add_rse_attribute(dst_rse1_id, 'verify_checksum', False)
+    rse_core.add_rse_attribute(dst_rse2_id, 'supported_checksums', 'md5')
+    rse_core.add_rse_attribute(dst_rse3_id, 'supported_checksums', 'md5,adler32')
+
+    did = did_factory.upload_test_file(src_rse)
+    replica = replica_core.get_replica(rse_id=src_rse_id, **did)
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=3, rse_expression=f'{dst_rse1}|{dst_rse2}|{dst_rse3}', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    class _FTSWrapper(FTSWrapper):
+        @staticmethod
+        def on_submit(file):
+            # Set the correct checksum on source and simulate a wrong checksum on destination
+            file['sources'] = [set_query_parameters(s_url, {'checksum': replica['adler32']}) for s_url in file['sources']]
+            file['destinations'] = [set_query_parameters(d_url, {'checksum': 'randomString2'}) for d_url in file['destinations']]
+
+    with patch('rucio.daemons.conveyor.submitter.TRANSFERTOOL_CLASSES_BY_NAME') as tt_mock:
+        tt_mock.__getitem__.return_value = _FTSWrapper
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
+
+    # Checksum verification disabled on this rse, so the transfer must use source validation and succeed
+    request = __wait_for_request_state(dst_rse_id=dst_rse1_id, state=RequestState.DONE, **did)
+    assert request['state'] == RequestState.DONE
+
+    # No common supported checksum between the source and destination rse. It will verify the destination rse checksum and fail
+    request = __wait_for_request_state(dst_rse_id=dst_rse2_id, state=RequestState.FAILED, **did)
+    assert request['state'] == RequestState.FAILED
+    assert 'User and destination checksums do not match' in request['err_msg']
+
+    # Common checksum exists between the two. It must use "both" validation strategy and fail
+    request = __wait_for_request_state(dst_rse_id=dst_rse3_id, state=RequestState.FAILED, **did)
+    assert 'Source and destination checksums do not match' in request['err_msg']
+    assert request['state'] == RequestState.FAILED

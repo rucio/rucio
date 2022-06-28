@@ -20,7 +20,7 @@ import logging
 import time
 import traceback
 import uuid
-from typing import Any, Dict, Set
+from typing import Any, Callable, Tuple, TYPE_CHECKING
 from urllib.parse import urlparse
 
 import requests
@@ -35,13 +35,16 @@ from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import FTS_JOB_TYPE, FTS_STATE, FTS_COMPLETE_STATE
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
-from rucio.common.utils import APIEncoder, chunks, set_checksum_value
+from rucio.common.utils import APIEncoder, chunks, PREFERRED_CHECKSUM
 from rucio.core.request import get_source_rse, get_transfer_error
 from rucio.core.rse import get_rse_supported_checksums_from_attributes
 from rucio.core.oidc import get_token_for_account_operation
 from rucio.core.monitor import record_counter, record_timer, MultiCounter
 from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
 from rucio.db.sqla.constants import RequestState
+
+if TYPE_CHECKING:
+    from rucio.core.transfer import DirectTransferDefinition
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 disable_warnings()
@@ -91,21 +94,21 @@ def oidc_supported(transfer_hop) -> bool:
     return True
 
 
-def checksum_validation_strategy(
-    src_attributes: Dict[str, Any],
-    dst_attributes: Dict[str, Any],
-    logger
-) -> Set[str]:
+def _checksum_validation_strategy(
+    transfer: "DirectTransferDefinition",
+    logger: Callable[..., Any],
+) -> Tuple[str, str]:
     """
-    Compute the checksum validation strategy (none, source, destination or both) and the
-    supported checksums from the attributes of the source and destination RSE.
+    Compute the checksum validation strategy (none, source, destination or both) and the checksum
+    to use (in the format accepted by FTS) from the attributes of the source and destination RSE.
     """
-
+    src_attributes = transfer.src.rse.attributes
     if src_attributes.get('verify_checksum', True):
         src_checksums = set(get_rse_supported_checksums_from_attributes(src_attributes))
     else:
         src_checksums = set()
 
+    dst_attributes = transfer.dst.rse.attributes
     if dst_attributes.get('verify_checksum', True):
         dst_checksums = set(get_rse_supported_checksums_from_attributes(dst_attributes))
     else:
@@ -114,16 +117,29 @@ def checksum_validation_strategy(
     intersection = src_checksums.intersection(dst_checksums)
 
     if intersection:
-        return 'both', intersection
+        strategy, possible_checksums = 'both', intersection
     elif dst_checksums:
+        # The prioritization of destination over source here is desired, not random
         logger(logging.INFO, 'No common checksum method. Verifying destination only.')
-        return 'destination', dst_checksums
+        strategy, possible_checksums = 'target', dst_checksums
     elif src_checksums:
         logger(logging.INFO, 'No common checksum method. Verifying source only.')
-        return 'source', src_checksums
+        strategy, possible_checksums = 'source', src_checksums
     else:
         logger(logging.INFO, 'No common checksum method. Not verifying source nor destination.')
-        return 'none', set()
+        strategy, possible_checksums = 'none', set()
+
+    checksum_to_use = None
+    for checksum_name in possible_checksums:
+        checksum_value = getattr(transfer.rws, checksum_name, '')
+        if not checksum_value:
+            continue
+
+        checksum_to_use = '%s:%s' % (checksum_name.upper(), checksum_value)
+        if checksum_name == PREFERRED_CHECKSUM:
+            break
+
+    return strategy, checksum_to_use
 
 
 def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archive_timeout_override, max_time_in_queue, logger, multihop=False):
@@ -148,8 +164,7 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
     strict_copy = transfer.dst.rse.attributes.get('strict_copy', False)
     archive_timeout = transfer.dst.rse.attributes.get('archive_timeout', None)
 
-    verify_checksum, checksums_to_use = checksum_validation_strategy(transfer.src.rse.attributes, transfer.dst.rse.attributes, logger=logger)
-    transfer['checksums_to_use'] = checksums_to_use
+    verify_checksum, _checksum_to_use = _checksum_validation_strategy(transfer, logger=logger)
 
     job_params = {'account': transfer.rws.account,
                   'verify_checksum': verify_checksum,
@@ -706,9 +721,9 @@ class FTS3Transfertool(Transfertool):
         )
         return jobs
 
-    @classmethod
-    def __file_from_transfer(cls, transfer, job_params):
+    def __file_from_transfer(self, transfer):
         rws = transfer.rws
+        _verify_checksum, checksum_to_use = _checksum_validation_strategy(transfer, logger=self.logger)
         t_file = {
             'sources': [s[1] for s in transfer.legacy_sources],
             'destinations': [transfer.dest_url],
@@ -729,14 +744,10 @@ class FTS3Transfertool(Transfertool):
                 'adler32': rws.adler32
             },
             'filesize': rws.byte_count,
-            'checksum': None,
-            'verify_checksum': job_params['verify_checksum'],
+            'checksum': checksum_to_use,
             'selection_strategy': transfer['selection_strategy'],
-            'request_type': rws.request_type,
             'activity': rws.activity
         }
-        if t_file['verify_checksum'] != 'none':
-            set_checksum_value(t_file, transfer['checksums_to_use'])
         return t_file
 
     def submit(self, transfers, job_params, timeout=None):
@@ -757,7 +768,7 @@ class FTS3Transfertool(Transfertool):
                 files.append(transfer)
                 continue
 
-            files.append(self.__file_from_transfer(transfer, job_params))
+            files.append(self.__file_from_transfer(transfer))
 
         # FTS3 expects 'davs' as the scheme identifier instead of https
         for transfer_file in files:

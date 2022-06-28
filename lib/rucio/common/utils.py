@@ -228,14 +228,6 @@ def set_preferred_checksum(checksum_name):
         PREFERRED_CHECKSUM = checksum_name
 
 
-def set_checksum_value(file, checksum_names_list):
-    for checksum_name in checksum_names_list:
-        if checksum_name in file['metadata'].keys() and file['metadata'][checksum_name]:
-            file['checksum'] = '%s:%s' % (checksum_name.upper(), str(file['metadata'][checksum_name]))
-            if checksum_name == PREFERRED_CHECKSUM:
-                break
-
-
 def adler32(file):
     """
     An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B
