@@ -57,7 +57,7 @@ def minos(bulk: int = 1000, once: bool = False, sleep_time: int = 60) -> None:
         graceful_stop=graceful_stop,
         executable='minos',
         logger_prefix='minos',
-        partition_wait_time=1,
+        partition_wait_time=10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
             run_once,

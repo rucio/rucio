@@ -54,9 +54,9 @@ def minos_tu_expiration(bulk: int = 1000, once: bool = False, sleep_time: int = 
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable='minos_tu_expiration',
-        logger_prefix='minos_tu_expiration',
-        partition_wait_time=1,
+        executable='minos-temporary-expiration',
+        logger_prefix='minos-temporary-expiration',
+        partition_wait_time=10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
             run_once,
@@ -105,6 +105,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             session.rollback()  # pylint: disable=no-member
             logger(logging.WARNING, 'One of the replicas does not exist anymore. Updating and deleting one by one. Error : %s', str(error))
             for replica in chunk:
+                _, _, logger = heartbeat_handler.live()
                 scope, name, rse_id = replica[0], replica[1], replica[2]
                 logger(logging.DEBUG, 'Working on %s:%s on %s', scope, name, rse_id)
                 try:

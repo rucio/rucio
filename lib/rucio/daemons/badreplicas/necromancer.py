@@ -20,7 +20,6 @@ import threading
 import time
 from typing import TYPE_CHECKING
 from datetime import datetime, timedelta
-from configparser import NoOptionError, NoSectionError
 
 from sqlalchemy.exc import DatabaseError
 from dogpile.cache.api import NO_VALUE
@@ -29,7 +28,7 @@ import rucio.db.sqla.util
 from rucio.db.sqla.constants import ReplicaState
 from rucio.common import exception
 from rucio.common.cache import make_region_memcached
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get_int
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
 from rucio.core import monitor
@@ -59,7 +58,7 @@ def necromancer(bulk: int, once: bool = False, sleep_time: int = 60) -> None:
         graceful_stop=graceful_stop,
         executable='necromancer',
         logger_prefix='necromancer',
-        partition_wait_time=1,
+        partition_wait_time=10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
             run_once,
@@ -74,18 +73,11 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     must_sleep = True
 
     # Check if there is a Judge Evaluator backlog
-    try:
-        max_evaluator_backlog_count = config_get('necromancer', 'max_evaluator_backlog_count')
-        max_evaluator_backlog_count = int(max_evaluator_backlog_count)
-    except (NoOptionError, NoSectionError, RuntimeError, ValueError):
-        max_evaluator_backlog_count = None
-    try:
-        max_evaluator_backlog_duration = config_get('necromancer', 'max_evaluator_backlog_duration')
-        max_evaluator_backlog_duration = int(max_evaluator_backlog_duration)
-    except (NoOptionError, NoSectionError, RuntimeError, ValueError):
-        max_evaluator_backlog_duration = None
+    max_evaluator_backlog_count = config_get_int('necromancer', 'max_evaluator_backlog_count', default=0, raise_exception=False)
+    max_evaluator_backlog_duration = config_get_int('necromancer', 'max_evaluator_backlog_duration', default=0, raise_exception=False)
+    backlog_refresh_time = config_get_int('necromancer', 'backlog_refresh_time', default=60, raise_exception=False)
     if max_evaluator_backlog_count or max_evaluator_backlog_duration:
-        evaluator_backlog_count, evaluator_backlog_duration = get_evaluation_backlog(expiration_time=60)
+        evaluator_backlog_count, evaluator_backlog_duration = get_evaluation_backlog(expiration_time=backlog_refresh_time)
         if max_evaluator_backlog_count and \
            evaluator_backlog_count and \
            max_evaluator_backlog_duration and \
@@ -102,11 +94,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             return must_sleep
 
     # Check how many bad replicas are queued
-    try:
-        max_bad_replicas_backlog_count = config_get('necromancer', 'max_bad_replicas_backlog_count')
-        max_bad_replicas_backlog_count = int(max_bad_replicas_backlog_count)
-    except (NoOptionError, NoSectionError, RuntimeError, ValueError):
-        max_bad_replicas_backlog_count = None
+    max_bad_replicas_backlog_count = config_get_int('necromancer', 'max_bad_replicas_backlog_count', default=0, raise_exception=False)
     bad_replicas_backlog = REGION.get('bad_replicas_backlog')
     if bad_replicas_backlog is NO_VALUE:
         bad_replicas_backlog = get_bad_replicas_backlog()
