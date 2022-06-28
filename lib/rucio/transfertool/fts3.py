@@ -78,6 +78,27 @@ FINAL_FTS_JOB_STATES = (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHED
 FINAL_FTS_FILE_STATES = (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHED, FTS_STATE.NOT_USED)
 
 
+def _configured_source_strategy(activity: str, logger: Callable[..., Any]) -> str:
+    """
+    Retrieve from the configuration the source selection strategy for the given activity
+    """
+    try:
+        default_source_strategy = config_get(section='conveyor', option='default-source-strategy')
+    except (NoOptionError, NoSectionError, RuntimeError):
+        default_source_strategy = 'orderly'
+
+    try:
+        activity_source_strategy = config_get(section='conveyor', option='activity-source-strategy')
+        activity_source_strategy = loads(activity_source_strategy)
+    except (NoOptionError, NoSectionError, RuntimeError):
+        activity_source_strategy = {}
+    except ValueError:
+        logger(logging.WARNING, 'activity_source_strategy not properly defined')
+        activity_source_strategy = {}
+
+    return activity_source_strategy.get(str(activity), default_source_strategy)
+
+
 def oidc_supported(transfer_hop) -> bool:
     """
     checking OIDC AuthN/Z support per destination and source RSEs;
@@ -228,24 +249,6 @@ def bulk_group_transfers(transfer_paths, policy='rule', group_bulk=200, source_s
 
     grouped_transfers = {}
     grouped_jobs = []
-
-    try:
-        default_source_strategy = config_get(section='conveyor', option='default-source-strategy')
-    except (NoOptionError, NoSectionError, RuntimeError):
-        default_source_strategy = 'orderly'
-
-    try:
-        activity_source_strategy = config_get(section='conveyor', option='activity-source-strategy')
-        activity_source_strategy = loads(activity_source_strategy)
-    except (NoOptionError, NoSectionError, RuntimeError):
-        activity_source_strategy = {}
-    except ValueError:
-        logger(logging.WARNING, 'activity_source_strategy not properly defined')
-        activity_source_strategy = {}
-
-    for transfer_path in transfer_paths:
-        for i, transfer in enumerate(transfer_path):
-            transfer['selection_strategy'] = source_strategy if source_strategy else activity_source_strategy.get(str(transfer.rws.activity), default_source_strategy)
 
     _build_job_params = functools.partial(job_params_for_fts_transfer,
                                           bring_online=bring_online,
@@ -745,7 +748,7 @@ class FTS3Transfertool(Transfertool):
             },
             'filesize': rws.byte_count,
             'checksum': checksum_to_use,
-            'selection_strategy': transfer['selection_strategy'],
+            'selection_strategy': self.source_strategy if self.source_strategy else _configured_source_strategy(transfer.rws.activity, logger=self.logger),
             'activity': rws.activity
         }
         return t_file

@@ -137,8 +137,6 @@ class DirectTransferDefinition:
         self.operation_src = operation_src
         self.operation_dest = operation_dest
 
-        self.dict_attributes = {}
-
         self._dest_url = None
         self._legacy_sources = None
 
@@ -156,15 +154,6 @@ class DirectTransferDefinition:
     @property
     def dst(self):
         return self.destination
-
-    def __setitem__(self, key, value):
-        self.dict_attributes[key] = value
-
-    def __getitem__(self, key):
-        return self.dict_attributes[key]
-
-    def get(self, key, default=None):
-        return self.dict_attributes.get(key, default)
 
     @property
     def dest_url(self):
