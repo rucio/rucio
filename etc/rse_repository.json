@@ -573,7 +573,7 @@
     },
     "storage_usage_tool": "rucio.rse.protocols.xrootd.Default.getSpace"
   },
-  "SSH_DISK":{
+  "SSH-DISK":{
     "backend_type": "SSH",
     "deterministic": true,
     "protocols": {
