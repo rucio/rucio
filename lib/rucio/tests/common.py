@@ -103,17 +103,18 @@ def did_name_generator(did_type='file', name_prefix='', name_suffix='', cnt=0, p
     if os.getenv('POLICY') == 'belleii':
         if path is not None:
             return path
-        path = '/belle/mock' + name_prefix
-        if path[-1] != '/':
-            path += '/'
-        path += 'cont_%s' % str(uuid())
+
+        container_path = os.path.join("/belle", "mock", name_prefix, 'cont_%s' % str(uuid()))
         if did_type == 'container':
-            return path
-        path += 'dataset_%s' % str(uuid())
+            return container_path
+
+        dataset_path = os.path.join(container_path, 'dataset_%s' % str(uuid()))
         if did_type == 'dataset':
-            return path
-        path += 'file_%s' % str(uuid())
-        return path
+            return dataset_path
+
+        file_path = os.path.join(dataset_path, 'file_%s' % str(uuid()))
+        return file_path
+
     if path is not None:
         return os.path.basename(path)
     if name_prefix:
