@@ -17,8 +17,6 @@
 Reaper is a daemon to manage file deletion.
 '''
 
-from __future__ import division
-
 import functools
 import logging
 import os

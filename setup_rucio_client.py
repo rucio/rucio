@@ -13,16 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
-
 import os
 import shutil
 import sys
 
 from setuptools import setup
 
-if sys.version_info < (2, 7):
-    print('ERROR: Rucio Client requires at least Python 2.7 to run.')
+if sys.version_info < (3, 6):
+    print('ERROR: Rucio Client requires at least Python 3.6 to run.')
     sys.exit(1)
 
 try:
@@ -66,7 +64,7 @@ setup(
     description=description,
     license="Apache License, Version 2.0",
     url="https://rucio.cern.ch/",
-    python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, <4",
+    python_requires=">=3.6, <4",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: Apache Software License',
@@ -75,7 +73,6 @@ setup(
         'Operating System :: POSIX :: Linux',
         'Natural Language :: English',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',

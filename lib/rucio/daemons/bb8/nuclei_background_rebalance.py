@@ -16,7 +16,6 @@
 """
 This script is to be used to background rebalance ATLAS t2 datadisks
 """
-from __future__ import print_function, division
 
 from sqlalchemy import or_
 

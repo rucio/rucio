@@ -17,8 +17,6 @@
 Conveyor is a daemon to manage file transfers.
 """
 
-from __future__ import division
-
 import datetime
 import functools
 import itertools
@@ -30,7 +28,7 @@ import time
 from itertools import groupby
 
 from requests.exceptions import RequestException
-from six.moves.configparser import NoOptionError
+from configparser import NoOptionError
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util

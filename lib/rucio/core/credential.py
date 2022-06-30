@@ -23,8 +23,7 @@ import boto3
 from botocore.client import Config
 from dogpile.cache.api import NO_VALUE
 from google.oauth2.service_account import Credentials
-from six import integer_types
-from six.moves.urllib.parse import urlparse, urlencode
+from urllib.parse import urlparse, urlencode
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, get_rse_credentials
@@ -62,7 +61,7 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
         raise UnsupportedOperation('URL must not be empty')
 
     if lifetime:
-        if not isinstance(lifetime, integer_types):
+        if not isinstance(lifetime, int):
             try:
                 lifetime = int(lifetime)
             except:

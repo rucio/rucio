@@ -20,12 +20,7 @@ import pytest
 from rucio.common import config
 from rucio.rse.protocols.protocol import RSEDeterministicTranslation
 
-try:
-    # PY2
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    # PY3
-    from configparser import NoOptionError, NoSectionError
+from configparser import NoOptionError, NoSectionError
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE, changes global configuration value')

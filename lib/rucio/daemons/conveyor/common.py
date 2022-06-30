@@ -17,8 +17,6 @@
 Methods common to different conveyor submitter daemons.
 """
 
-from __future__ import division
-
 import datetime
 import logging
 import re

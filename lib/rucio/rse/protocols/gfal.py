@@ -19,12 +19,7 @@ import logging
 import os
 import re
 import subprocess
-try:
-    # PY2
-    import urlparse
-except ImportError:
-    # PY3
-    import urllib.parse as urlparse
+import urllib.parse as urlparse
 
 from threading import Timer
 

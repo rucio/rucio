@@ -13,13 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-try:
-    # PY2
-    from exceptions import NotImplementedError
-except ImportError:
-    # PY3
-    pass
-
 from rucio.rse.protocols import protocol
 
 

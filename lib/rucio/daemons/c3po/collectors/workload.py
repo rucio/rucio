@@ -17,8 +17,6 @@
 C3PO PanDA workload collector
 """
 
-from __future__ import division
-
 import logging
 from json import loads
 from time import time

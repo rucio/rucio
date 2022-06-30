@@ -17,8 +17,6 @@
  Client class for callers of the Rucio system
 '''
 
-from __future__ import print_function
-
 import errno
 import getpass
 import os
@@ -33,8 +31,8 @@ from dogpile.cache import make_region
 from requests import Session, Response
 from requests.exceptions import ConnectionError
 from requests.status_codes import codes
-from six.moves.configparser import NoOptionError, NoSectionError
-from six.moves.urllib.parse import urlparse
+from configparser import NoOptionError, NoSectionError
+from urllib.parse import urlparse
 
 from rucio import version
 from rucio.common import exception
@@ -586,12 +584,7 @@ class BaseClient(object):
                 print("Copy paste the code from the browser to the terminal and press enter:")
                 count = 0
                 while count < 3:
-                    # Python3 default
-                    get_input = input
-                    # if Python version <= 2.7 use raw_input
-                    if sys.version_info[:2] <= (2, 7):
-                        get_input = raw_input  # noqa: F821 pylint: disable=undefined-variable
-                    fetchcode = get_input()
+                    fetchcode = input()
                     fetch_url = build_url(self.auth_host, path='auth/oidc_redirect', params=fetchcode)
                     result = self._send_request(fetch_url, headers=headers, get_token=True)
                     if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:

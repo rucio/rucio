@@ -13,14 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
-
 import subprocess
 import sys
 
 from pkg_resources import safe_name, parse_requirements
-
-PY3 = sys.version_info > (3, 0)
 
 
 clients_requirements_table = {
@@ -29,10 +25,7 @@ clients_requirements_table = {
         'urllib3',
         'dogpile.cache',
         'tabulate',
-        'six',
         'jsonschema',
-        'typing',
-        'enum34',
     ],
     'ssh': ['paramiko'],
     'kerberos': [
@@ -60,9 +53,7 @@ dev_requirements = [
     'virtualenv',
     'xmltodict',
     'pytz',
-    'subprocess32',
     'pycodestyle',
-    'mock',
     'pydoc-markdown',
     'docspec_python',
     'sh',
@@ -155,20 +146,13 @@ def match_define_requirements(requirements_table):
         for req in parse_requirements(fhandle.readlines()):
             if req.key in req_table_by_key:
                 for group in req_table_by_key[req.key]:
-                    if PY3:
-                        print("requirement found", group, req, file=sys.stderr)
-                    else:
-                        sys.stderr.write("requirement found " + str(group) + " " + str(req) + "\n")
-
+                    print("requirement found", group, req, file=sys.stderr)
                     if group == 'install_requires':
                         install_requires.append(str(req))
                     else:
                         extras_require[group].append(str(req))
             else:
-                if PY3:
-                    print("requirement unused", req, "(from " + req.key + ")", file=sys.stderr)
-                else:
-                    sys.stderr.write("requirement unused " + str(req) + " (from " + str(req.key) + ")\n")
+                print("requirement unused", req, "(from " + req.key + ")", file=sys.stderr)
         sys.stderr.flush()
 
     for extra, deps in extras_require.items():

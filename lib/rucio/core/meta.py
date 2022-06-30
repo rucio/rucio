@@ -13,9 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
 from re import match
-from six import string_types
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
@@ -46,7 +44,7 @@ def add_key(key, key_type, value_type=None, value_regexp=None, session=None):
         raise UnsupportedValueType('The type \'%(value_type)s\' is not supported for values!' % locals())
 
     # Convert key_type
-    if isinstance(key_type, string_types):
+    if isinstance(key_type, str):
         key_type = str(key_type)
     else:
         key_type = str(key_type.value)

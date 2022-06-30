@@ -15,10 +15,7 @@
 
 from os import environ
 
-try:
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    from configparser import NoOptionError, NoSectionError
+from configparser import NoOptionError, NoSectionError
 from rucio.common import config, exception
 
 import importlib

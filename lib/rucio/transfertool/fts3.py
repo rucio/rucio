@@ -13,21 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import, division
 import datetime
 import json
-try:
-    from json.decoder import JSONDecodeError
-except ImportError:
-    JSONDecodeError = ValueError
 import functools
 import logging
 import time
 import traceback
-try:
-    from urlparse import urlparse  # py2
-except ImportError:
-    from urllib.parse import urlparse  # py3
+from urllib.parse import urlparse
 import uuid
 
 import requests
@@ -829,7 +821,7 @@ class FTS3Transfertool(Transfertool):
             record_timer('transfertool.fts3.submit_transfer.{host}', (time.time() - start_time) * 1000 / len(files), labels=labels)
         except ReadTimeout as error:
             raise TransferToolTimeout(error)
-        except JSONDecodeError as error:
+        except json.JSONDecodeError as error:
             raise TransferToolWrongAnswer(error)
         except Exception as error:
             self.logger(logging.WARNING, 'Could not submit transfer to %s - %s' % (self.external_host, str(error)))
@@ -1012,7 +1004,7 @@ class FTS3Transfertool(Transfertool):
                 responses = self.__bulk_query_responses(jobs_response, requests_by_eid)
             except ReadTimeout as error:
                 raise TransferToolTimeout(error)
-            except JSONDecodeError as error:
+            except json.JSONDecodeError as error:
                 raise TransferToolWrongAnswer(error)
             except Exception as error:
                 raise Exception("Failed to parse the job response: %s, error: %s" % (str(jobs), str(error)))
@@ -1203,7 +1195,7 @@ class FTS3Transfertool(Transfertool):
                                               timeout=5)
                 except ReadTimeout as error:
                     raise TransferToolTimeout(error)
-                except JSONDecodeError as error:
+                except json.JSONDecodeError as error:
                     raise TransferToolWrongAnswer(error)
                 except Exception as error:
                     self.logger(logging.WARNING, 'Could not get baseid and voname from %s - %s' % (self.external_host, str(error)))

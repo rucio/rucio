@@ -28,7 +28,6 @@ from uuid import uuid4
 from requests import post
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
-from six import string_types
 
 import rucio.db.sqla.util
 from rucio.client import Client
@@ -40,10 +39,7 @@ from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.jedi_did import JediDIDCollector
 from rucio.daemons.c3po.collectors.workload import WorkloadCollector
 
-try:
-    from Queue import Queue
-except ImportError:
-    from queue import Queue
+from queue import Queue
 
 GRACEFUL_STOP = Event()
 
@@ -205,7 +201,7 @@ def place_replica(once=False,
 
             for _ in range(0, len_dids):
                 did = did_queue.get()
-                if isinstance(did[0], string_types):
+                if isinstance(did[0], str):
                     did[0] = InternalScope(did[0], vo=vo)
                 for algorithm, instance in instances.items():
                     logging.info('(%s:%s) Retrieved %s:%s from queue. Run placement algorithm' % (algorithm, instance_id, did[0], did[1]))

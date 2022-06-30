@@ -32,8 +32,6 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
-from six import string_types
-
 
 @transactional_session
 def add_account(account, type_, email, session=None):
@@ -127,7 +125,7 @@ def update_account(account, key, value, session=None):
     except exc.NoResultFound:
         raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
     if key == 'status':
-        if isinstance(value, string_types):
+        if isinstance(value, str):
             value = AccountStatus[value]
         if value == AccountStatus.SUSPENDED:
             query.update({'status': value, 'suspended_at': datetime.utcnow()})
@@ -152,7 +150,7 @@ def list_accounts(filter_=None, session=None):
                           models.Account.email).filter_by(status=AccountStatus.ACTIVE)
     for filter_type in filter_:
         if filter_type == 'account_type':
-            if isinstance(filter_['account_type'], string_types):
+            if isinstance(filter_['account_type'], str):
                 query = query.filter_by(account_type=AccountType[filter_['account_type']])
             elif isinstance(filter_['account_type'], Enum):
                 query = query.filter_by(account_type=filter_['account_type'])

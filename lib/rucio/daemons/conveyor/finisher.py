@@ -17,8 +17,6 @@
 Conveyor finisher is a daemon to update replicas and rules based on requests.
 """
 
-from __future__ import division
-
 import datetime
 import functools
 import logging
@@ -45,10 +43,7 @@ from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, Bad
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager
 
-try:
-    from urlparse import urlparse  # py2
-except ImportError:
-    from urllib.parse import urlparse  # py3
+from urllib.parse import urlparse
 
 graceful_stop = threading.Event()
 

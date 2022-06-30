@@ -18,10 +18,7 @@ import importlib
 from rucio.common import config, exception
 from rucio.db.sqla.session import read_session
 
-try:
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    from configparser import NoOptionError, NoSectionError
+from configparser import NoOptionError, NoSectionError
 
 # Set default modules.
 #

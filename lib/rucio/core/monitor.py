@@ -17,8 +17,6 @@
 Graphite counters
 """
 
-from __future__ import division
-
 import atexit
 import logging
 import os

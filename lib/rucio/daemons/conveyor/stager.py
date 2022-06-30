@@ -17,14 +17,12 @@
 Conveyor stager is a daemon to manage stagein file transfers.
 """
 
-from __future__ import division
-
 import functools
 import logging
 import threading
 import time
 
-from six.moves.configparser import NoOptionError
+from configparser import NoOptionError
 
 import rucio.db.sqla.util
 from rucio.common import exception

@@ -1101,7 +1101,6 @@ def __set_replica_unavailable(replica, session=None):
 
 # # debug helper functions used in apply_rule
 #
-# from __future__ import print_function
 # def prnt(x, header=None):
 #     print()
 #     if header:

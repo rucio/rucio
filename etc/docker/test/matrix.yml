@@ -2,7 +2,6 @@ dists:
   - id: centos7
     allow:
       python:
-        - "2.7"
         - "3.6"
         - "3.7"
   - id: fedora32
@@ -14,11 +13,6 @@ dists:
       python:
         - "3.9"
 python:
-  - id: "2.7"
-    allow:
-      suites:
-        - client
-        - client_syntax
   - "3.6"
   - id: "3.7"
     allow:
@@ -37,8 +31,6 @@ suites:
     RUN_HTTPD: false
   - id: client_syntax
     RUN_HTTPD: false
-    allow:
-      python: "2.7"
   - id: client
     RDBMS: sqlite
   - id: all

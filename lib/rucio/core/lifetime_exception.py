@@ -13,12 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import division
-
 from re import match
 from datetime import datetime, timedelta
-from six import string_types
-from six.moves.configparser import NoSectionError
+from configparser import NoSectionError
 
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
@@ -88,7 +85,7 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
             if not expires_at:
                 expires_at = datetime.utcnow() + timedelta(days=max_extension)
             else:
-                if isinstance(expires_at, string_types):
+                if isinstance(expires_at, str):
                     expires_at = str_to_date(expires_at)
                 if expires_at > datetime.utcnow() + timedelta(days=max_extension):
                     expires_at = datetime.utcnow() + timedelta(days=max_extension)
@@ -159,7 +156,7 @@ def __add_exception(dids, account, pattern, comments, expires_at, estimated_volu
         text += 'The estimated logical volume is %s\n' % estimated_volume
     if volume:
         text += 'The estimated physical volume is %s\n' % volume
-    if expires_at and isinstance(expires_at, string_types):
+    if expires_at and isinstance(expires_at, str):
         lifetime = str_to_date(expires_at)
         text += 'The lifetime exception should expires on %s\n' % str(expires_at)
     elif isinstance(expires_at, datetime):
@@ -173,7 +170,7 @@ def __add_exception(dids, account, pattern, comments, expires_at, estimated_volu
     for did in dids:
         did_type = None
         if 'did_type' in did:
-            if isinstance(did['did_type'], string_types):
+            if isinstance(did['did_type'], str):
                 did_type = DIDType[did['did_type']]
             else:
                 did_type = did['did_type']

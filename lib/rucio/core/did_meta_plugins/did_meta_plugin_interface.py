@@ -15,13 +15,10 @@
 
 from abc import ABCMeta, abstractmethod
 
-from six import add_metaclass
-
 from rucio.db.sqla.session import transactional_session
 
 
-@add_metaclass(ABCMeta)
-class DidMetaPlugin(object):
+class DidMetaPlugin(object, metaclass=ABCMeta):
     """
     Interface for plugins managing metadata of DIDs
     """

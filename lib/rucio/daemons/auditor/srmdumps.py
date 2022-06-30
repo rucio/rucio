@@ -17,14 +17,8 @@ from rucio.common.config import get_config_dirs
 from rucio.common.dumper import DUMPS_CACHE_DIR
 from rucio.common.dumper import http_download_to_file, gfal_download_to_file, ddmendpoint_url, temp_file
 
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
-try:
-    import HTMLParser
-except ImportError:
-    import html.parser as HTMLParser
+import configparser as ConfigParser
+import html.parser as HTMLParser
 import datetime
 import glob
 import hashlib

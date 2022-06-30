@@ -13,15 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import division
-
 import json
 import logging
 
-try:
-    from ConfigParser import NoOptionError
-except ImportError:
-    from configparser import NoOptionError
+from configparser import NoOptionError
 
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -30,7 +25,6 @@ from string import Template
 from typing import Dict, Any, Optional
 
 from dogpile.cache.api import NO_VALUE
-from six import string_types
 
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
@@ -735,16 +729,16 @@ def list_rules(filters={}, session=None):
                 query = query.filter(models.ReplicationRule.updated_at >= str_to_date(value))
                 continue
             elif key == 'state':
-                if isinstance(value, string_types):
+                if isinstance(value, str):
                     value = RuleState(value)
                 else:
                     try:
                         value = RuleState[value]
                     except ValueError:
                         pass
-            elif key == 'did_type' and isinstance(value, string_types):
+            elif key == 'did_type' and isinstance(value, str):
                 value = DIDType(value)
-            elif key == 'grouping' and isinstance(value, string_types):
+            elif key == 'grouping' and isinstance(value, str):
                 value = RuleGrouping(value)
             query = query.filter(getattr(models.ReplicationRule, key) == value)
 

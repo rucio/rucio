@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
-
 import os
 import os.path
 import tempfile
@@ -22,11 +20,6 @@ import tempfile
 from rucio.common.utils import adler32, md5
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
-
-try:
-    from exceptions import NotImplementedError
-except ImportError:
-    pass
 
 
 @skip_rse_tests_with_accounts

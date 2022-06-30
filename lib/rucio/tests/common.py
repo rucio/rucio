@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
-
 import contextlib
 import itertools
 import json
@@ -24,7 +22,6 @@ from random import choice
 from string import ascii_uppercase
 
 import pytest
-from six import PY3
 
 from rucio.common.config import config_get, config_get_bool, get_config_dirs
 from rucio.common.utils import generate_uuid as uuid, execute
@@ -111,12 +108,8 @@ def make_temp_file(dir_, data):
     :returns: Name of the temporal file.
     """
     fd, path = tempfile.mkstemp(dir=dir_)
-    if PY3:
-        with os.fdopen(fd, 'w', encoding='utf-8') as f:
-            f.write(data)
-    else:
-        with os.fdopen(fd, 'w') as f:
-            f.write(data)
+    with os.fdopen(fd, 'w', encoding='utf-8') as f:
+        f.write(data)
     return path
 
 

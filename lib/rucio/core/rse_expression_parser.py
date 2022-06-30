@@ -18,7 +18,6 @@ import re
 
 from dogpile.cache.api import NoValue
 from hashlib import sha256
-from six import add_metaclass
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
@@ -206,8 +205,7 @@ def __extract_term(expression):
     raise SystemError('This point in the code should not be reachable')
 
 
-@add_metaclass(abc.ABCMeta)
-class BaseExpressionElement:
+class BaseExpressionElement(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def resolve_elements(self, session):
         """
@@ -336,8 +334,7 @@ class RSEAttributeLargerCheck(BaseExpressionElement):
         return (set(output), rse_dict)
 
 
-@add_metaclass(abc.ABCMeta)
-class BaseRSEOperator(BaseExpressionElement):
+class BaseRSEOperator(BaseExpressionElement, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def set_left_term(self, left_term):
         """

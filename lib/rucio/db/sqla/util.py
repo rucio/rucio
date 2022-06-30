@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
-
 from datetime import datetime
 from hashlib import sha256
 from os import urandom

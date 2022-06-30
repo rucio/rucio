@@ -21,7 +21,7 @@ from os.path import dirname, join
 from time import time
 
 from flask import request, render_template, redirect, make_response
-from six.moves.urllib.parse import quote, unquote
+from urllib.parse import quote, unquote
 
 from rucio.api import authentication as auth, identity
 from rucio.api.account import account_exists, get_account_info, list_account_attributes

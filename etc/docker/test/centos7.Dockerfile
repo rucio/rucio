@@ -27,7 +27,6 @@ RUN yum install -y epel-release.noarch && \
     yum -y install gcc httpd gmp-devel krb5-devel mod_ssl mod_auth_kerb git openssl-devel bzip2-devel gridsite which libaio memcached ffi-devel nmap-ncat nodejs npm && \
     yum -y install https://repo.ius.io/ius-release-el7.rpm && \
     yum -y install libxml2-devel xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel python && \
-    if [ "$PYTHON" == "2.7" ] ; then yum -y install python-devel python-pip python36u python36u-devel python36u-pip python36u-mod_wsgi gfal2-python3 ; fi && \
     if [ "$PYTHON" == "3.6" ] ; then yum -y install python36u python36u-devel python36u-pip python36u-mod_wsgi gfal2-python3 ; fi && \
     if [ "$PYTHON" == "3.7" ] ; then yum -y install httpd-devel ncurses-devel sqlite-devel libffi-devel uuid-devel rpm-build rpmdevtools redhat-rpm-config boost-devel \
             gcc-c++ libicu-devel libstdc++-devel m4 mpich-devel openmpi-devel python2-devel zlib-devel chrpath docbook-dtds docbook-style-xsl cmake glib2-devel gfal2-devel ; fi && \
@@ -35,16 +34,7 @@ RUN yum install -y epel-release.noarch && \
 
 WORKDIR /usr/local/src
 
-RUN if [ "$PYTHON" == "2.7" ] ; then \
-        python2 -m pip --no-cache-dir install --upgrade 'pip<21' && \
-        python2 -m pip --no-cache-dir install --upgrade setuptools wheel && \
-        python3 -m pip --no-cache-dir install --upgrade pip && \
-        python3 -m pip --no-cache-dir install --upgrade setuptools wheel && \
-        rm -f /usr/bin/python && \
-        ln -sf python2.7 /usr/bin/python && \
-        ln -sf pip2.7 /usr/bin/pip && \
-        rm -f /usr/local/bin/pip ; \
-    elif [ "$PYTHON" == "3.6" ] ; then \
+RUN if [ "$PYTHON" == "3.6" ] ; then \
         python3.6 -m pip --no-cache-dir install --upgrade pip && \
         python3.6 -m pip --no-cache-dir install --upgrade setuptools wheel && \
         rm -f /usr/bin/python && \
@@ -116,14 +106,7 @@ WORKDIR /usr/local/src/rucio
 COPY requirements.txt setuputil.py ./
 
 # pre-install requirements
-RUN if [[ "$PYTHON" == "2.7" ]] ; then \
-        python3 -m pip --no-cache-dir install --upgrade -r requirements.txt && \
-        python3 -c "from setuputil import *; clients_requirements_table.update({'dev': dev_requirements}); list_all_requirements(clients_requirements_table)" > py2_requirements.txt && \
-        python2 -m pip --no-cache-dir install --upgrade -r py2_requirements.txt && \
-        python2 -m pip list ; \
-    else \
-        python -m pip --no-cache-dir install --upgrade -r requirements.txt ; \
-    fi
+RUN python -m pip --no-cache-dir install --upgrade -r requirements.txt
 
 COPY etc etc
 
@@ -151,7 +134,7 @@ COPY bin bin
 COPY lib lib
 
 # Install Rucio server + dependencies
-RUN if [ "$PYTHON" == "2.7" ] ; then PYEXEC=python3 ; else PYEXEC=python ; fi ; \
+RUN PYEXEC=python ; \
     $PYEXEC -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,saml,dev] && \
     $PYEXEC -m pip list
 

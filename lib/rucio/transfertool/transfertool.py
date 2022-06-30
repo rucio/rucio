@@ -16,7 +16,6 @@
 import logging
 
 from abc import ABCMeta, abstractmethod
-from six import add_metaclass
 
 from rucio.core.request import get_request
 
@@ -48,8 +47,7 @@ class TransferToolBuilder(object):
         return self.transfertool_class(**all_kwargs)
 
 
-@add_metaclass(ABCMeta)
-class TransferStatusReport(object):
+class TransferStatusReport(object, metaclass=ABCMeta):
     """
     Allows to compute the changes which have to be applied to the database
     to reflect the current status reported by the external transfertool into
@@ -109,8 +107,7 @@ class TransferStatusReport(object):
         return updates
 
 
-@add_metaclass(ABCMeta)
-class Transfertool(object):
+class Transfertool(object, metaclass=ABCMeta):
     """
     Interface definition of the Rucio transfertool
     """

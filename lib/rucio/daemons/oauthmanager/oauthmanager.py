@@ -26,8 +26,6 @@ can be specified by 'max_rows' parameter.
 
 """
 
-from __future__ import print_function
-
 import logging
 import os
 import socket

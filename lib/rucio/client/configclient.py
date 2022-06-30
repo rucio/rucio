@@ -17,11 +17,6 @@ from json import dumps
 
 from requests.status_codes import codes
 
-try:
-    from exceptions import ValueError
-except ImportError:
-    pass
-
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
 from rucio.common.utils import build_url

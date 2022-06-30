@@ -13,12 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import division
-
-try:
-    import Queue
-except ImportError:
-    import queue as Queue
+import queue as Queue
 import bz2
 import glob
 import logging

@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from six import string_types
-
-
 class InternalType(object):
     '''
     Base for Internal representations of string types
@@ -25,7 +22,7 @@ class InternalType(object):
             self.external = None
             self.internal = None
             self.vo = vo
-        elif not isinstance(value, string_types):
+        elif not isinstance(value, str):
             raise TypeError('Expected value to be string type, got %s' % type(value))
         elif fromExternal:
             self.external = value

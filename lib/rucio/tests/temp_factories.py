@@ -32,7 +32,6 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import file_generator, rse_name_generator
-from six import PY3
 from sqlalchemy import and_, or_
 
 
@@ -376,12 +375,8 @@ class TemporaryFileFactory:
             self.non_basedir_files.append(fp)
 
         if data is not None:
-            if PY3:
-                with open(fp, 'w', encoding='utf-8') as f:
-                    f.write(data)
-            else:
-                with open(fp, 'w') as f:
-                    f.write(data)
+            with open(fp, 'w', encoding='utf-8') as f:
+                f.write(data)
         else:
             execute('dd if=/dev/urandom of={0} count={1} bs=1'.format(fp, size))
 

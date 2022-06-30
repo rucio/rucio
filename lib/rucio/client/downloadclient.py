@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import division
-
 import copy
 import enum
 import itertools
@@ -25,10 +23,7 @@ import shutil
 import signal
 import time
 
-try:
-    from Queue import Queue, Empty, deque
-except ImportError:
-    from queue import Queue, Empty, deque
+from queue import Queue, Empty, deque
 from threading import Thread
 
 from rucio.client.client import Client
@@ -810,10 +805,7 @@ class DownloadClient:
         :raises RucioException: if the process or the proxy could not be created
         """
         logger = self.logger
-        try:
-            from xmlrpclib import ServerProxy as RPCServerProxy  # py2
-        except ImportError:
-            from xmlrpc.client import ServerProxy as RPCServerProxy
+        from xmlrpc.client import ServerProxy as RPCServerProxy
 
         cmd = 'aria2c '\
               '--enable-rpc '\

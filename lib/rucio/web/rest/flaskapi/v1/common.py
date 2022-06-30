@@ -22,7 +22,6 @@ from time import time
 from typing import TYPE_CHECKING
 
 import flask
-import six
 from flask.views import MethodView
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException
@@ -182,11 +181,7 @@ def error_headers(exc_cls: str, exc_msg):
     def strip_newlines(msg):
         if msg is None:
             return None
-        elif isinstance(msg, six.binary_type):
-            msg = six.ensure_text(msg, errors='replace')
-        elif not isinstance(msg, six.string_types):
-            # any objects will be converted to their string representation in unicode
-            msg = six.ensure_text(str(msg), errors='replace')
+
         return msg.replace('\n', ' ').replace('\r', ' ')
 
     exc_msg = strip_newlines(exc_msg)
