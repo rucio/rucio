@@ -44,13 +44,18 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 from rucio.db.sqla.util import create_scope_name_temp_table
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Tuple, Optional
+    from typing import Any, Dict, Tuple, Optional, Sequence
     from sqlalchemy.orm import Session
-    from rucio.common.types import InternalScope
+    from rucio.common.types import InternalAccount, InternalScope
 
 
 @read_session
-def list_expired_dids(worker_number=None, total_workers=None, limit=None, session=None):
+def list_expired_dids(
+        worker_number: int = None,
+        total_workers: int = None,
+        limit: int = None,
+        session: "Optional[Session]" = None
+):
     """
     List expired data identifiers.
 
@@ -107,8 +112,19 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
 
 
 @transactional_session
-def add_did(scope, name, did_type, account, statuses=None, meta=None, rules=None,
-            lifetime=None, dids=None, rse_id=None, session=None):
+def add_did(
+        scope: "InternalScope",
+        name: str,
+        did_type: "DIDType",
+        account: "InternalAccount",
+        statuses: "Optional[Dict[str, Any]]" = None,
+        meta: "Optional[Dict[str, Any]]" = None,
+        rules: "Optional[Sequence[str]]" = None,
+        lifetime: "Optional[int]" = None,
+        dids: "Optional[Dict[str, Any]]" = None,
+        rse_id: "Optional[str]" = None,
+        session: "Optional[Session]" = None,
+):
     """
     Add data identifier.
 
@@ -132,7 +148,11 @@ def add_did(scope, name, did_type, account, statuses=None, meta=None, rules=None
 
 
 @transactional_session
-def add_dids(dids, account, session=None):
+def add_dids(
+        dids: "Dict[str, Any]",
+        account: "InternalAccount",
+        session: "Optional[Session]" = None,
+):
     """
     Bulk add data identifiers.
 
@@ -221,7 +241,14 @@ def add_dids(dids, account, session=None):
 
 
 @transactional_session
-def attach_dids(scope, name, dids, account, rse_id=None, session=None):
+def attach_dids(
+        scope: "InternalScope",
+        name: str,
+        dids: "Dict[str, Any]",
+        account: "InternalAccount",
+        rse_id: "Optional[str]" = None,
+        session: "Optional[Session]" = None,
+):
     """
     Append data identifier.
 
@@ -236,7 +263,12 @@ def attach_dids(scope, name, dids, account, rse_id=None, session=None):
 
 
 @transactional_session
-def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=None):
+def attach_dids_to_dids(
+        attachments: "Dict[str, Any]",
+        account: "InternalAccount",
+        ignore_duplicate: bool = False,
+        session: "Optional[Session]" = None,
+):
     """
     Append content to dids.
 
@@ -253,7 +285,12 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
 
 
 @transactional_session
-def _attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=None):
+def _attach_dids_to_dids(
+        attachments: "Dict[str, Any]",
+        account: "InternalAccount",
+        ignore_duplicate: bool = False,
+        session: "Optional[Session]" = None,
+):
     """
     Append content to dids.
 
