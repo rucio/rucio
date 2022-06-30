@@ -29,6 +29,7 @@ import traceback
 from datetime import datetime, timedelta
 from re import match
 from sys import argv
+from typing import List
 
 import json
 
@@ -46,6 +47,7 @@ from rucio.core.monitor import record_counter
 from rucio.core.did import get_metadata
 from rucio.core.replica import list_replicas, get_suspicious_files, add_bad_pfns, declare_bad_file_replicas, get_suspicious_reason
 from rucio.core.rse_expression_parser import parse_expression
+from rucio.core.rule import add_rule
 
 from rucio.core.vo import list_vos
 from rucio.db.sqla.util import get_db_time
@@ -53,7 +55,7 @@ from rucio.db.sqla.util import get_db_time
 GRACEFUL_STOP = threading.Event()
 
 
-def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vos=None, limit_suspicious_files_on_rse=5, sleep_time=3600, active_mode=False):
+def declare_suspicious_replicas_bad(once: bool = False, younger_than: int = 3, nattempts: int = 10, vos: List[str] = None, limit_suspicious_files_on_rse: int = 5, sleep_time: int = 3600, active_mode: bool = False):
     """
     Main loop to check for available replicas which are labeled as suspicious.
 
@@ -154,12 +156,23 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vo
                               'nattempts': nattempts,
                               'exclude_states': ['B', 'R', 'D', 'L', 'T'],
                               'is_suspicious': True}
+            getfileskwargs_nattempts_1 = {'younger_than': younger_than,
+                                          'nattempts': 1,
+                                          'nattempts_exact': True,
+                                          'exclude_states': ['B', 'R', 'D', 'L', 'T'],
+                                          'is_suspicious': True}
 
             for vo in vos:
                 logger(logging.INFO, 'Start replica recovery for VO: %s', vo)
                 recoverable_replicas = {}
                 if vo not in recoverable_replicas:
                     recoverable_replicas[vo] = {}
+                # Separate replicas that have only been declared suspicious once from the rest,
+                # as they will be handled differently and shouldn't be considered when deciding
+                # if an RSE is problematic (due to a high number of suspicious replicas)
+                replicas_nattempts_1 = {}
+                if vo not in replicas_nattempts_1:
+                    replicas_nattempts_1[vo] = {}
 
                 # rse_list = sorted([rse for rse in parse_expression('enable_suspicious_file_recovery=true', filter={'vo': vo})], key=lambda k: k['rse'])
                 rse_list = sorted([rse for rse in parse_expression('enable_suspicious_file_recovery=true') if rse['vo'] == vo], key=lambda k: k['rse'])
@@ -172,12 +185,17 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vo
                     time_start_rse = time.time()
                     rse_expr = rse['rse']
                     cnt_surl_not_found = 0
+                    cnt_surl_not_found_nattempts_1 = 0
                     if rse_expr not in recoverable_replicas[vo]:
                         recoverable_replicas[vo][rse_expr] = {}
+                    if rse_expr not in replicas_nattempts_1[vo]:
+                        replicas_nattempts_1[vo][rse_expr] = {}
                     # Get a dictionary of the suspicious replicas on the RSE that have available copies on other RSEs
                     suspicious_replicas_avail_elsewhere = get_suspicious_files(rse_expr, available_elsewhere=SuspiciousAvailability["EXIST_COPIES"].value, filter_={'vo': vo}, **getfileskwargs)
                     # Get the suspicious replicas that are the last remaining copies
                     suspicious_replicas_last_copy = get_suspicious_files(rse_expr, available_elsewhere=SuspiciousAvailability["LAST_COPY"].value, filter_={'vo': vo}, **getfileskwargs)
+                    # Get the suspicious replicas that have only been declared once
+                    suspicious_replicas_nattempts_1 = get_suspicious_files(rse_expr, available_elsewhere=SuspiciousAvailability["ALL"].value, filter_={'vo': vo}, **getfileskwargs_nattempts_1)
 
                     logger(logging.DEBUG, 'Suspicious replicas on %s:', rse_expr)
                     logger(logging.DEBUG, 'Replicas with copies on other RSEs (%s):', len(suspicious_replicas_avail_elsewhere))
@@ -185,6 +203,9 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vo
                         logger(logging.DEBUG, '%s', i)
                     logger(logging.DEBUG, 'Replicas that are the last remaining copy (%s):', len(suspicious_replicas_last_copy))
                     for i in suspicious_replicas_last_copy:
+                        logger(logging.DEBUG, '%s', i)
+                    logger(logging.DEBUG, 'Replicas that have only been declared once (%s):', len(suspicious_replicas_nattempts_1))
+                    for i in suspicious_replicas_nattempts_1:
                         logger(logging.DEBUG, '%s', i)
 
                     # RSEs that aren't available shouldn't have suspicious replicas showing up. Skip to next RSE.
@@ -223,17 +244,64 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vo
                                     cnt_surl_not_found += 1
                                     logger(logging.WARNING, 'Skipping suspicious replica %s on %s, no surls were found.', rep_name, rse_expr)
 
-                    logger(logging.INFO, 'Suspicious replica query took %s seconds on %s and found %i suspicious replicas. The pfns for %s/%s replicas were found.',
-                           time.time() - time_start_rse, rse_expr, len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy),
-                           len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy) - cnt_surl_not_found, len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy))
+                    if suspicious_replicas_nattempts_1:
+                        for replica in suspicious_replicas_nattempts_1:
+                            if vo == replica['scope'].vo:
+                                scope = replica['scope']
+                                rep_name = replica['name']
+                                rse_id = replica['rse_id']
+                                surl_not_found = True
+                                for rep in list_replicas([{'scope': scope, 'name': rep_name}]):
+                                    for rse_ in rep['rses']:
+                                        if rse_ == rse_id:
+                                            replicas_nattempts_1[vo][rse_expr][rep_name] = {'name': rep_name, 'rse_id': rse_id, 'scope': scope, 'surl': rep['rses'][rse_][0], 'available_elsewhere': True}
+                                            surl_not_found = False
+                                if surl_not_found:
+                                    cnt_surl_not_found_nattempts_1 += 1
+                                    logger(logging.WARNING, 'Skipping suspicious replica %s on %s, no surls were found.', rep_name, rse_expr)
+
+                    logger(logging.INFO, 'Suspicious replica query took %s seconds on %s and found %i suspicious replica(s) with a minimum of nattempts=%i. The pfns for %s/%s replicas were found.',
+                           time.time() - time_start_rse,
+                           rse_expr,
+                           len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy),
+                           nattempts,
+                           len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy) - cnt_surl_not_found,
+                           len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy))
+
+                    logger(logging.INFO, 'A total of %i replicas with exactly nattempts=1 were found. The pfns for %s/%s replicas were found.',
+                           len(suspicious_replicas_nattempts_1),
+                           len(suspicious_replicas_nattempts_1) - cnt_surl_not_found_nattempts_1,
+                           len(suspicious_replicas_nattempts_1))
 
                     if len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy) != 0:
                         logger(logging.DEBUG, 'List of replicas on %s for which the pfns have been found:', rse_expr)
                         for i in recoverable_replicas[vo][rse_expr]:
                             logger(logging.DEBUG, '%s', i)
 
-                # Log file is long and hard to read -> implement some spacing
+                    if len(suspicious_replicas_nattempts_1) != 0:
+                        logger(logging.DEBUG, 'List of replicas on %s with nattempts=1 for which the pfns have been found:', rse_expr)
+                        for i in replicas_nattempts_1[vo][rse_expr]:
+                            logger(logging.DEBUG, '%s', i)
+
                 logger(logging.INFO, 'All RSEs have been checked for suspicious replicas. Total time: %s seconds.', time.time() - start)
+
+                logger(logging.INFO, 'Create rules for replicas with nattempts=1.')
+
+                for rse_key in replicas_nattempts_1[vo]:
+                    dids_nattempts_1 = []
+                    for replica_values in replicas_nattempts_1[vo][rse_key].values():
+                        dids = {'scope': replica_values['scope'], 'name': replica_values['name'], 'rse': rse_key}
+                        dids_nattempts_1.append(dids)
+
+                    if active_mode:
+                        # Create as many rules as necessary for the replicas to be picked up by the daemon on the next run
+                        if len(dids_nattempts_1) > 0:
+                            add_rule(dids=dids_nattempts_1, account=InternalAccount('root', vo=vo), copies=nattempts, rse_expression='type=SCRATCHDISK', grouping=None, weight=None, lifetime=24 * 3600, locked=False, subscription_id=None)
+
+                            logger(logging.INFO, 'Rules have been created for %i replicas on %s.', len(dids_nattempts_1), rse_key)
+                        else:
+                            logger(logging.INFO, 'No replicas on %s with nattempts=1.', rse_key)
+
                 logger(logging.INFO, 'Begin check for problematic RSEs.')
                 time_start_check_probl = time.time()
 
@@ -299,7 +367,10 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, vo
                                         if action == "ignore":
                                             files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key])
                                         elif action == "declare bad":
-                                            suspicious_reason = get_suspicious_reason(recoverable_replicas[vo][rse_key][replica_key]["rse_id"], recoverable_replicas[vo][rse_key][replica_key]["scope"], recoverable_replicas[vo][rse_key][replica_key]["name"], nattempts)
+                                            suspicious_reason = get_suspicious_reason(recoverable_replicas[vo][rse_key][replica_key]["rse_id"],
+                                                                                      recoverable_replicas[vo][rse_key][replica_key]["scope"],
+                                                                                      recoverable_replicas[vo][rse_key][replica_key]["name"],
+                                                                                      nattempts)
                                             for reason in suspicious_reason:
                                                 if "auditor" in reason["reason"].lower():
                                                     auditor += 1
