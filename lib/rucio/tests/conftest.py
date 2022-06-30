@@ -17,6 +17,8 @@ import traceback
 
 import pytest
 
+from rucio.common.cache import disable_cache
+
 
 # local imports in the fixtures to make this file loadable in e.g. client tests
 
@@ -401,6 +403,9 @@ def file_config_mock(request):
 @pytest.fixture
 def caches_mock(request):
     """
+    Warning: This cache behavior is deprecated. We strongly encurage you to use
+    the :ref:func:lib.rucio.common.cache.cache: decorator.
+
     Fixture which overrides the different internal caches with in-memory ones for the duration
     of a particular test.
 
@@ -427,6 +432,19 @@ def caches_mock(request):
             mocked_caches.append(region)
 
         yield mocked_caches
+
+
+@pytest.fixture
+def disable_cache_fixture():
+    """
+    Disables the caching for functions, which are decorated with the
+    :ref:func:lib.rucio.common.cache.cache: decorator.
+
+    This override only works in tests which use core function calls directly, not in the ones
+    working via API.
+    """
+    with disable_cache() as region:
+        yield region
 
 
 @pytest.fixture
