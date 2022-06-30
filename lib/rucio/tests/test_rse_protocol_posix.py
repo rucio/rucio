@@ -233,3 +233,186 @@ class TestRsePOSIX(unittest.TestCase):
     def test_change_scope_mgr_ok_single_pfn(self):
         """POSIX (RSE/PROTOCOLS): Change the scope of a single file on storage using PFN (Success)"""
         self.mtc.test_change_scope_mgr_ok_single_pfn()
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason='creates and removes a test directory with a fixed name')
+class TestRsePOSIXSymlink(unittest.TestCase):
+    """
+    Test the posix protocol using Symlink implementation
+    """
+
+    tmpdir = None
+    user = None
+
+    @classmethod
+    def setUpClass(cls):
+        """POSIX-SYMLINK (RSE/PROTOCOLS): Creating necessary directories and files """
+        # Creating local files
+        cls.tmpdir = tempfile.mkdtemp()
+        cls.user = uuid()
+
+        with open("%s/data.raw" % cls.tmpdir, "wb") as out:
+            out.seek((1024 * 1024) - 1)  # 1 MB
+            out.write(b'\0')
+        for f in MgrTestCases.files_local:
+            shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
+
+        data = load_test_conf_file('rse_repository.json')
+        prefix = data['MOCK-POSIX-SYMLINK']['protocols']['supported']['file']['prefix']
+        try:
+            os.mkdir(prefix)
+        except Exception as e:
+            print(e)
+        os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
+        cls.static_file = '%s/data.raw' % prefix
+        for f in MgrTestCases.files_remote:
+            protocol = mgr.create_protocol(mgr.get_rse_info('MOCK-POSIX-SYMLINK'), 'write')
+            pfn = list(mgr.lfns2pfns(mgr.get_rse_info('MOCK-POSIX-SYMLINK'),
+                                     {'name': f, 'scope': 'user.%s' % cls.user}).values())[0]
+            path = protocol.pfn2path(pfn)
+            dirs = os.path.dirname(path)
+            if not os.path.exists(dirs):
+                os.makedirs(dirs)
+            shutil.copy('%s/data.raw' % prefix, path)
+
+    @classmethod
+    def tearDownClass(cls):
+        """POSIX (RSE/PROTOCOLS): Removing created directories and files """
+        data = load_test_conf_file('rse_repository.json')
+        prefix = data['MOCK-POSIX-SYMLINK']['protocols']['supported']['file']['prefix']
+        shutil.rmtree(prefix)
+        shutil.rmtree(cls.tmpdir)
+
+    def setUp(self):
+        """POSIX (RSE/PROTOCOLS): Creating Mgr-instance """
+        self.tmpdir = self.__class__.tmpdir
+        self.rse_id = 'MOCK-POSIX-SYMLINK'
+        self.mtc = MgrTestCases(self.tmpdir, 'MOCK-POSIX-SYMLINK', self.__class__.user, self.__class__.static_file)
+
+    # # Mgr-Tests: GET
+    # Get tests will fail as rsemanager.download has been removed
+
+    # Mgr-Tests: PUT
+    def test_put_mgr_ok_multi(self):
+        """POSIX (RSE/PROTOCOLS): Put multiple files to storage providing LFNs and PFNs (Success)"""
+        self.mtc.test_put_mgr_ok_multi()
+
+    def test_put_mgr_ok_single(self):
+        """POSIX (RSE/PROTOCOLS): Put a single file to storage (Success)"""
+        self.mtc.test_put_mgr_ok_single()
+
+    def test_put_mgr_SourceNotFound_multi(self):
+        """POSIX (RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_put_mgr_SourceNotFound_multi()
+
+    def test_put_mgr_SourceNotFound_single(self):
+        """POSIX (RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_put_mgr_SourceNotFound_single()
+
+    def test_put_mgr_FileReplicaAlreadyExists_multi(self):
+        """POSIX (RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
+        with pytest.raises(exception.FileReplicaAlreadyExists):
+            self.mtc.test_put_mgr_FileReplicaAlreadyExists_multi()
+
+    def test_put_mgr_FileReplicaAlreadyExists_single(self):
+        """POSIX (RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
+        with pytest.raises(exception.FileReplicaAlreadyExists):
+            self.mtc.test_put_mgr_FileReplicaAlreadyExists_single()
+
+    # MGR-Tests: DELETE
+    def test_delete_mgr_ok_multi(self):
+        """POSIX (RSE/PROTOCOLS): Delete multiple files from storage (Success)"""
+        self.mtc.test_delete_mgr_ok_multi()
+
+    def test_delete_mgr_ok_single(self):
+        """POSIX (RSE/PROTOCOLS): Delete a single file from storage (Success)"""
+        self.mtc.test_delete_mgr_ok_single()
+
+    def test_delete_mgr_SourceNotFound_multi(self):
+        """POSIX (RSE/PROTOCOLS): Delete multiple files from storage (SourceNotFound)"""
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_delete_mgr_SourceNotFound_multi()
+
+    def test_delete_mgr_SourceNotFound_single(self):
+        """POSIX (RSE/PROTOCOLS): Delete a single file from storage (SourceNotFound)"""
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_delete_mgr_SourceNotFound_single()
+
+    # MGR-Tests: EXISTS
+    def test_exists_mgr_ok_multi(self):
+        """POSIX (RSE/PROTOCOLS): Check multiple files on storage (Success)"""
+        self.mtc.test_exists_mgr_ok_multi()
+
+    def test_exists_mgr_ok_single_lfn(self):
+        """POSIX (RSE/PROTOCOLS): Check a single file on storage using LFN (Success)"""
+        self.mtc.test_exists_mgr_ok_single_lfn()
+
+    def test_exists_mgr_ok_single_pfn(self):
+        """POSIX (RSE/PROTOCOLS): Check a single file on storage using PFN (Success)"""
+        self.mtc.test_exists_mgr_ok_single_pfn()
+
+    def test_exists_mgr_false_multi(self):
+        """POSIX (RSE/PROTOCOLS): Check multiple files on storage (Fail)"""
+        self.mtc.test_exists_mgr_false_multi()
+
+    def test_exists_mgr_false_single(self):
+        """POSIX (RSE/PROTOCOLS): Check a single file on storage using LFN (Fail)"""
+        self.mtc.test_exists_mgr_false_single_lfn()
+
+    def test_exists_mgr_false_single_pfn(self):
+        """POSIX (RSE/PROTOCOLS): Check a single file on storage using PFN (Fail)"""
+        self.mtc.test_exists_mgr_false_single_pfn()
+
+    # MGR-Tests: RENAME
+    def test_rename_mgr_ok_multi(self):
+        """POSIX (RSE/PROTOCOLS): Rename multiple files on storage (Success)"""
+        self.mtc.test_rename_mgr_ok_multi()
+
+    def test_rename_mgr_ok_single_lfn(self):
+        """POSIX (RSE/PROTOCOLS): Rename a single file on storage using LFN (Success)"""
+        self.mtc.test_rename_mgr_ok_single_lfn()
+
+    def test_rename_mgr_ok_single_pfn(self):
+        """POSIX (RSE/PROTOCOLS): Rename a single file on storage using PFN (Success)"""
+        self.mtc.test_rename_mgr_ok_single_pfn()
+
+    def test_rename_mgr_FileReplicaAlreadyExists_multi(self):
+        """POSIX (RSE/PROTOCOLS): Rename multiple files on storage (FileReplicaAlreadyExists)"""
+        with pytest.raises(exception.FileReplicaAlreadyExists):
+            self.mtc.test_rename_mgr_FileReplicaAlreadyExists_multi()
+
+    def test_rename_mgr_FileReplicaAlreadyExists_single_lfn(self):
+        """POSIX (RSE/PROTOCOLS): Rename a single file on storage using LFN(FileReplicaAlreadyExists)"""
+        with pytest.raises(exception.FileReplicaAlreadyExists):
+            self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_lfn()
+
+    def test_rename_mgr_FileReplicaAlreadyExists_single_pfn(self):
+        """POSIX (RSE/PROTOCOLS): Rename a single file on storage using PFN (FileReplicaAlreadyExists)"""
+        with pytest.raises(exception.FileReplicaAlreadyExists):
+            self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_pfn()
+
+    def test_rename_mgr_SourceNotFound_multi(self):
+        """POSIX (RSE/PROTOCOLS): Rename multiple files on storage (SourceNotFound)"""
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_rename_mgr_SourceNotFound_multi()
+
+    def test_rename_mgr_SourceNotFound_single_lfn(self):
+        """POSIX (RSE/PROTOCOLS): Rename a single file on storage using LFN (SourceNotFound)"""
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_rename_mgr_SourceNotFound_single_lfn()
+
+    def test_rename_mgr_SourceNotFound_single_pfn(self):
+        """POSIX (RSE/PROTOCOLS): Rename a single file on storage using PFN (SourceNotFound)"""
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_rename_mgr_SourceNotFound_single_pfn()
+
+    def test_change_scope_mgr_ok_single_lfn(self):
+        """POSIX (RSE/PROTOCOLS): Change the scope of a single file on storage using LFN (Success)"""
+        self.mtc.test_change_scope_mgr_ok_single_lfn()
+
+    def test_change_scope_mgr_ok_single_pfn(self):
+        """POSIX (RSE/PROTOCOLS): Change the scope of a single file on storage using PFN (Success)"""
+        self.mtc.test_change_scope_mgr_ok_single_pfn()
