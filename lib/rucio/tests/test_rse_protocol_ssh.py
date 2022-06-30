@@ -40,9 +40,9 @@ def load_rse_info(request, containerized_rses):
     rses = [rse for rse in containerized_rses if rse[0] == 'SSH1']
 
     data = load_test_conf_file('rse_repository.json')
-    request.cls.prefix = data['SSH_DISK']['protocols']['supported']['ssh']['prefix']
-    request.cls.port = data['SSH_DISK']['protocols']['supported']['ssh']['port']
-    request.cls.sshuser = data['SSH_DISK']['protocols']['supported']['ssh']['extended_attributes']['user']
+    request.cls.prefix = data['SSH-DISK']['protocols']['supported']['ssh']['prefix']
+    request.cls.port = data['SSH-DISK']['protocols']['supported']['ssh']['port']
+    request.cls.sshuser = data['SSH-DISK']['protocols']['supported']['ssh']['extended_attributes']['user']
 
     if len(rses) == 0:
         request.cls.rse_id = 'SSH-RSE'
