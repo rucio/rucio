@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from datetime import datetime
 from hashlib import sha256
 from os import urandom
@@ -316,7 +317,7 @@ def list_oracle_global_temp_tables(session):
     return global_temp_tables
 
 
-def create_temp_table(name, *columns, primary_key=None, oracle_global_name=None, session=None):
+def _create_temp_table(name, *columns, primary_key=None, oracle_global_name=None, session=None, logger=logging.log):
     """
     Create a temporary table with the given columns, register it into a declarative base, and return it.
 
@@ -356,6 +357,7 @@ def create_temp_table(name, *columns, primary_key=None, oracle_global_name=None,
                 'prefixes': ['GLOBAL TEMPORARY'],
             }
         else:
+            logger(logging.WARNING, f"Global temporary table {name} doesn't exist. Using private temporary table.")
             additional_kwargs = {
                 'oracle_on_commit': 'DROP DEFINITION',
                 'prefixes': ['PRIVATE TEMPORARY'],
@@ -413,52 +415,85 @@ def create_temp_table(name, *columns, primary_key=None, oracle_global_name=None,
     return DeclarativeObj
 
 
-def create_scope_name_temp_table(name, session, oracle_global_idx=0):
+class TempTableManager:
     """
-    Create a temporary table with columns 'scope' and 'name'
-    """
+    A class which manages temporary tables created during a session.
 
-    columns = [
-        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
-        Column("name", String(get_schema_value('NAME_LENGTH'))),
-    ]
-    return create_temp_table(
-        name,
-        *columns,
-        primary_key=columns,
-        oracle_global_name=None if oracle_global_idx is None else f'temporary_scope_name_{oracle_global_idx}',
-        session=session,
-    )
+    Attempts to create multiple temporary tables with the same name during a session will
+    result in creation of unique tables with an integer "index" suffix added to their name.
+    Without this, there would be a risk that a temporary table containing needed data are
+    cleaned up during a recursive function call, resulting in unexpected behavior.
+    The recursive call may be indirect and hard to catch. For example:
+    functionA -> functionB -> functionC -> functionA
 
-
-def create_association_temp_table(name, session, oracle_global_idx=0):
-    """
-    Create a temporary table with columns 'scope', 'name', 'child_scope'and 'child_name'
+    The lifecycle of this object is bound to a particular session. In rucio, we naver use
+    sessions in multiple threads at a time, so no need to protect indexes with a mutex.
     """
 
-    columns = [
-        Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
-        Column("name", String(get_schema_value('NAME_LENGTH'))),
-        Column("child_scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
-        Column("child_name", String(get_schema_value('NAME_LENGTH'))),
-    ]
-    return create_temp_table(
-        name,
-        *columns,
-        primary_key=columns,
-        oracle_global_name=None if oracle_global_idx is None else f'temporary_association_{oracle_global_idx}',
-        session=session,
-    )
+    def __init__(self, session):
+        self.session = session
+
+        self.next_idx_to_use = {}
+
+    def create_temp_table(self, name, *columns, primary_key=None, logger=logging.log):
+        idx = self.next_idx_to_use.setdefault(name, 0)
+        table = _create_temp_table(f'{name}_{idx}', *columns, primary_key=primary_key, session=self.session, logger=logger)
+        self.next_idx_to_use[name] = idx + 1
+        return table
+
+    def create_scope_name_table(self, logger=logging.log):
+        """
+        Create a temporary table with columns 'scope' and 'name'
+        """
+
+        columns = [
+            Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
+            Column("name", String(get_schema_value('NAME_LENGTH'))),
+        ]
+        return self.create_temp_table(
+            'temporary_scope_name',
+            *columns,
+            primary_key=columns,
+            logger=logger,
+        )
+
+    def create_association_table(self, logger=logging.log):
+        """
+        Create a temporary table with columns 'scope', 'name', 'child_scope'and 'child_name'
+        """
+
+        columns = [
+            Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
+            Column("name", String(get_schema_value('NAME_LENGTH'))),
+            Column("child_scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
+            Column("child_name", String(get_schema_value('NAME_LENGTH'))),
+        ]
+        return self.create_temp_table(
+            'temporary_association',
+            *columns,
+            primary_key=columns,
+            logger=logger,
+        )
+
+    def create_id_table(self, logger=logging.log):
+        """
+        Create a temp table with a single id column of uuid type
+        """
+
+        return self.create_temp_table(
+            'temporary_id',
+            Column("id", models.GUID()),
+            logger=logger,
+        )
 
 
-def create_id_temp_table(name, session, oracle_global_idx=0):
+def temp_table_mngr(session: "Session") -> TempTableManager:
     """
-    Create a temp table with a single id column of uuid type
+    Creates (if doesn't yet exist) and returns a TempTableManager instance associated to the session
     """
-
-    return create_temp_table(
-        name,
-        Column("id", models.GUID()),
-        oracle_global_name=None if oracle_global_idx is None else f'temporary_id_{oracle_global_idx}',
-        session=session,
-    )
+    key = 'temp_table_mngr'
+    mngr = session.info.get(key)
+    if not mngr:
+        mngr = TempTableManager(session)
+        session.info[key] = mngr
+    return mngr

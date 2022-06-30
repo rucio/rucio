@@ -41,7 +41,7 @@ from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState, BadFilesStatus
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
-from rucio.db.sqla.util import create_scope_name_temp_table
+from rucio.db.sqla.util import temp_table_mngr
 
 if TYPE_CHECKING:
     from typing import Any, Dict, Tuple, Optional, Sequence
@@ -299,7 +299,7 @@ def _attach_dids_to_dids(
     :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
-    children_temp_table = create_scope_name_temp_table("attach_dids_to_dids_files", session=session)
+    children_temp_table = temp_table_mngr(session).create_scope_name_table()
     parent_dids = list()
     first_iteration = True
     for attachment in attachments:
@@ -2622,7 +2622,7 @@ def __resolve_bytes_length_events_did(
 
         use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
         if use_temp_tables and len(datasets) > 1:
-            temp_table = create_scope_name_temp_table('resolve_byte_length', session=session)
+            temp_table = temp_table_mngr(session).create_scope_name_table()
             session.bulk_insert_mappings(temp_table, datasets)
 
             if dynamic_depth == DIDType.FILE:

@@ -36,7 +36,7 @@ from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, ge
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
-from rucio.db.sqla.util import create_id_temp_table
+from rucio.db.sqla.util import temp_table_mngr
 
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
@@ -421,7 +421,7 @@ def list_transfer_requests_and_source_replicas(
 
     use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
     if rses and use_temp_tables:
-        temp_table_cls = create_id_temp_table("list_transfer_requests_and_source_replicas", session=session)
+        temp_table_cls = temp_table_mngr(session).create_id_table()
 
         session.bulk_insert_mappings(temp_table_cls, [{'id': rse_id} for rse_id in rses])
 
