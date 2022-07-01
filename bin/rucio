@@ -863,7 +863,7 @@ def stat(args):
         if i > 0:
             print('------')
         scope, name = get_scope(did, client)
-        info = client.get_did(scope=scope, name=name)
+        info = client.get_did(scope=scope, name=name, dynamic_depth='DATASET')
         table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
         print(tabulate(table, tablefmt='plain', disable_numparse=True))
     return SUCCESS

@@ -1013,7 +1013,7 @@ def repair_rule(rule_id, session=None, logger=logging.log):
         # make the decisison on soft or hard repair.
         hard_repair = False
         if did.did_type != DIDType.FILE:
-            nr_files = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic=True, session=session)['length']
+            nr_files = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic_depth=DIDType.FILE, session=session)['length']
         else:
             nr_files = 1
         if nr_files * rule.copies != (rule.locks_ok_cnt + rule.locks_stuck_cnt + rule.locks_replicating_cnt):
@@ -2976,7 +2976,7 @@ def __create_rule_approval_email(rule, session=None):
     with open('%s/rule_approval_request.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
         template = Template(templatefile.read())
 
-    did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic=True, session=session)
+    did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic_depth=DIDType.FILE, session=session)
     rses = [rep['rse_id'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
 
     # RSE occupancy

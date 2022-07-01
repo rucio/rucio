@@ -110,24 +110,48 @@ class TestDIDCore:
         set_metadata(scope=mock_scope, name=lfn, key='bytes', value=724963577)
         assert get_metadata(scope=mock_scope, name=lfn)['bytes'] == 724963577
 
-    def test_get_did_with_dynamic(self, vo, mock_scope, root_account, rse_factory):
+    @pytest.mark.parametrize("file_config_mock", [
+        # Run test twice: with, and without, temp tables
+        {"overrides": [('core', 'use_temp_tables', 'True')]},
+        {"overrides": [('core', 'use_temp_tables', 'False')]},
+    ], indirect=True)
+    def test_get_did_with_dynamic(self, root_account, rse_factory, did_factory, file_config_mock):
         """ DATA IDENTIFIERS (CORE): Get did with dynamic resolve of size"""
-        rse, rse_id = rse_factory.make_mock_rse()
-        tmp_dsn1 = 'dsn_%s' % generate_uuid()
-        tmp_dsn2 = 'dsn_%s' % generate_uuid()
-        tmp_dsn3 = 'dsn_%s' % generate_uuid()
-        tmp_dsn4 = 'dsn_%s' % generate_uuid()
+        rse_name, rse_id = rse_factory.make_mock_rse()
 
-        add_did(scope=mock_scope, name=tmp_dsn1, did_type=DIDType.DATASET, account=root_account)
-        add_replica(rse_id=rse_id, scope=mock_scope, name=tmp_dsn2, bytes_=10, account=root_account)
-        add_replica(rse_id=rse_id, scope=mock_scope, name=tmp_dsn3, bytes_=10, account=root_account)
-        attach_dids(scope=mock_scope, name=tmp_dsn1, dids=[{'scope': mock_scope, 'name': tmp_dsn2}, {'scope': mock_scope, 'name': tmp_dsn3}], account=root_account)
+        # make a dataset with 2 files in it and verify get_did(dynamic) on dataset
+        dataset1 = did_factory.make_dataset()
+        file1 = did_factory.random_did()
+        file2 = did_factory.random_did()
+        add_replica(rse_id=rse_id, bytes_=10, account=root_account, **file1)
+        add_replica(rse_id=rse_id, bytes_=10, account=root_account, **file2)
+        attach_dids(dids=[file1, file2], account=root_account, **dataset1)
+        did1 = get_did(dynamic_depth=DIDType.FILE, **dataset1)
+        assert did1['length'] == 2
+        assert did1['bytes'] == 20
 
-        add_did(scope=mock_scope, name=tmp_dsn4, did_type=DIDType.CONTAINER, account=root_account)
-        attach_dids(scope=mock_scope, name=tmp_dsn4, dids=[{'scope': mock_scope, 'name': tmp_dsn1}], account=root_account)
+        # attach dataset to container and verify get_did(dynamic) on container
+        container = did_factory.make_container()
+        attach_dids(dids=[dataset1], account=root_account, **container)
+        did1 = get_did(dynamic_depth=DIDType.FILE, **container)
+        assert did1['length'] == 2
+        assert did1['bytes'] == 20
 
-        assert get_did(scope=mock_scope, name=tmp_dsn1, dynamic=True)['bytes'] == 20
-        assert get_did(scope=mock_scope, name=tmp_dsn4, dynamic=True)['bytes'] == 20
+        # make another dataset with one file in it and attach to previously created container
+        dataset2 = did_factory.make_dataset()
+        file3 = did_factory.random_did()
+        add_replica(rse_id=rse_id, bytes_=10, account=root_account, **file3)
+        attach_dids(dids=[dataset2], account=root_account, **container)
+        attach_dids(dids=[file3], account=root_account, **dataset2)
+        did1 = get_did(dynamic_depth=DIDType.FILE, **container)
+        assert did1['length'] == 3
+        assert did1['bytes'] == 30
+
+        # if resolve_depth is dataset, the result will be incorrect, but this is by design,
+        # dataset has to be re-evaluated
+        did1 = get_did(dynamic_depth=DIDType.DATASET, **container)
+        assert did1['length'] == 0
+        assert did1['bytes'] == 0
 
     def test_reattach_dids(self, vo, mock_scope, root_account, rse_factory):
         """ DATA IDENTIFIERS (CORE): Repeatedly attach and detach DIDs """

@@ -20,11 +20,10 @@ from datetime import datetime, timedelta
 from enum import Enum
 from hashlib import md5
 from re import match
-from typing import Tuple
+from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, or_, exists, update, delete
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
 from sqlalchemy.sql.expression import bindparam, case, select, true, false
@@ -32,6 +31,7 @@ from sqlalchemy.sql.expression import bindparam, case, select, true, false
 import rucio.core.replica  # import add_replicas
 import rucio.core.rule
 from rucio.common import exception
+from rucio.common.config import config_get_bool
 from rucio.common.utils import is_archive, chunks
 from rucio.core import did_meta_plugins, config as config_core
 from rucio.core.message import add_message
@@ -41,6 +41,12 @@ from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState, BadFilesStatus
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
+from rucio.db.sqla.util import create_scope_name_temp_table
+
+if TYPE_CHECKING:
+    from typing import Any, Dict, Tuple, Optional
+    from sqlalchemy.orm import Session
+    from rucio.common.types import InternalScope
 
 
 @read_session
@@ -1460,33 +1466,48 @@ def scope_list(scope, name=None, recursive=False, session=None):
 
 
 @read_session
-def get_did(scope, name, dynamic=False, session=None):
+def __get_did(scope, name, session=None):
+    try:
+        stmt = select(
+            models.DataIdentifier
+        ).with_hint(
+            models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
+        ).where(
+            models.DataIdentifier.scope == scope,
+            models.DataIdentifier.name == name,
+        )
+        return session.execute(stmt).scalar_one()
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@read_session
+def get_did(scope: "InternalScope", name: str, dynamic_depth: "Optional[DIDType]" = None, session: "Optional[Session]" = None) -> "Dict[str, Any]":
     """
     Retrieve a single data identifier.
 
-    :param scope:    The scope name.
-    :param name:     The data identifier name.
-    :param dynamic:  Dynamically resolve the bytes and length of the did.
-    :param session:  The database session in use.
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param dynamic_depth: the DID type to use as source for estimation of this DIDs length/bytes.
+    If set to None, or to a value which doesn't make sense (ex: requesting depth = CONTAINER for a did of type DATASET)
+    will not compute the size dynamically.
+    :param session: The database session in use.
     """
-    try:
-        result = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
-            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
-        if result.did_type == DIDType.FILE:
-            return {'scope': result.scope, 'name': result.name, 'type': result.did_type,
-                    'account': result.account, 'bytes': result.bytes, 'length': 1,
-                    'md5': result.md5, 'adler32': result.adler32}
-        else:
-            if dynamic:
-                bytes_, length, events = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
-            else:
-                bytes_, length = result.bytes, result.length
-            return {'scope': result.scope, 'name': result.name, 'type': result.did_type,
-                    'account': result.account, 'open': result.is_open,
-                    'monotonic': result.monotonic, 'expired_at': result.expired_at,
-                    'length': length, 'bytes': bytes_}
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+    did = __get_did(scope=scope, name=name, session=session)
+
+    bytes_, length = did.bytes, did.length
+    if dynamic_depth:
+        bytes_, length, events = __resolve_bytes_length_events_did(did=did, dynamic_depth=dynamic_depth, session=session)
+
+    if did.did_type == DIDType.FILE:
+        return {'scope': did.scope, 'name': did.name, 'type': did.did_type,
+                'account': did.account, 'bytes': bytes_, 'length': 1,
+                'md5': did.md5, 'adler32': did.adler32}
+    else:
+        return {'scope': did.scope, 'name': did.name, 'type': did.did_type,
+                'account': did.account, 'open': did.is_open,
+                'monotonic': did.monotonic, 'expired_at': did.expired_at,
+                'length': length, 'bytes': bytes_}
 
 
 @read_session
@@ -1755,7 +1776,8 @@ def set_status(scope, name, session=None, **kwargs):
                     models.DataIdentifier.did_type != DIDType.FILE
                 )
                 values['is_open'], values['closed_at'] = False, datetime.utcnow()
-                values['bytes'], values['length'], values['events'] = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
+                values['bytes'], values['length'], values['events'] = __resolve_bytes_length_events_did(did=__get_did(scope=scope, name=name, session=session),
+                                                                                                        session=session)
                 # Update datasetlocks as well
                 stmt = update(
                     models.DatasetLock
@@ -2066,52 +2088,98 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, accoun
 
 
 @transactional_session
-def __resolve_bytes_length_events_did(scope: str, name: str, session: Session) -> Tuple[int, int, int]:
+def __resolve_bytes_length_events_did(
+        did: models.DataIdentifier,
+        dynamic_depth: "DIDType" = DIDType.FILE,
+        session: "Optional[Session]" = None,
+) -> "Tuple[int, int, int]":
     """
     Resolve bytes, length and events of a did
 
-    :param scope:   The scope of the DID.
-    :param name:    The name of the DID.
+    :did: the DID ORM object for which we perform the resolution
+    :param dynamic_depth: the DID type to use as source for estimation of this DIDs length/bytes.
+    If set to None, or to a value which doesn't make sense (ex: requesting depth = DATASET for a did of type FILE)
+    will not compute the size dynamically.
     :param session: The database session in use.
     """
 
-    try:
-        did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
-
     bytes_, length, events = 0, 0, 0
-    if did.did_type == DIDType.FILE:
-        bytes_, length, events = did.bytes, 1, did.events
-    elif did.did_type == DIDType.DATASET:
-        try:
-            length, bytes_, events = session.query(func.count(models.DataIdentifierAssociation.scope),
-                                                   func.sum(models.DataIdentifierAssociation.bytes),
-                                                   func.sum(models.DataIdentifierAssociation.events)).\
-                filter_by(scope=scope, name=name).\
-                one()
 
-            bytes_ = bytes_ or 0
-            length = length or 0
-            events = events or 0
-        except NoResultFound:
-            length, bytes_, events = 0, 0, 0
+    if did.did_type == DIDType.DATASET and dynamic_depth == DIDType.FILE or \
+            did.did_type == DIDType.CONTAINER and dynamic_depth in (DIDType.FILE, DIDType.DATASET):
 
-    elif did.did_type == DIDType.CONTAINER:
-        for dataset in list_child_datasets(scope=scope, name=name, session=session):
+        if did.did_type == DIDType.DATASET:
+            datasets = [{'scope': did.scope, 'name': did.name}]
+        else:
+            datasets = list_child_datasets(scope=did.scope, name=did.name, session=session)
+
+        use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
+        if use_temp_tables and len(datasets) > 1:
+            temp_table = create_scope_name_temp_table('resolve_byte_length', session=session)
+            session.bulk_insert_mappings(temp_table, datasets)
+
+            if dynamic_depth == DIDType.FILE:
+                stmt = select(
+                    func.count(),
+                    func.sum(models.DataIdentifierAssociation.bytes),
+                    func.sum(models.DataIdentifierAssociation.events),
+                ).join_from(
+                    temp_table,
+                    models.DataIdentifierAssociation,
+                    and_(models.DataIdentifierAssociation.scope == temp_table.scope,
+                         models.DataIdentifierAssociation.name == temp_table.name),
+                )
+            else:
+                stmt = select(
+                    func.sum(models.DataIdentifier.length),
+                    func.sum(models.DataIdentifier.bytes),
+                    func.sum(models.DataIdentifier.events),
+                ).join_from(
+                    temp_table,
+                    models.DataIdentifier,
+                    and_(models.DataIdentifier.scope == temp_table.scope,
+                         models.DataIdentifier.name == temp_table.name),
+                )
             try:
-                tmp_length, tmp_bytes, tmp_events = session.query(func.count(models.DataIdentifierAssociation.scope),
-                                                                  func.sum(models.DataIdentifierAssociation.bytes),
-                                                                  func.sum(models.DataIdentifierAssociation.events)).\
-                    filter_by(scope=dataset['scope'], name=dataset['name']).\
-                    one()
+                length, bytes_, events = session.execute(stmt).one()
+                length = length or 0
+                bytes_ = bytes_ or 0
+                events = events or 0
             except NoResultFound:
-                tmp_length, tmp_bytes, tmp_events = 0, 0, 0
-
-            bytes_ += tmp_bytes or 0
-            length += tmp_length or 0
-            events += tmp_events or 0
-    return (bytes_, length, events)
+                bytes_, length, events = 0, 0, 0
+        else:
+            for dataset in datasets:
+                if dynamic_depth == DIDType.FILE:
+                    stmt = select(
+                        func.count(),
+                        func.sum(models.DataIdentifierAssociation.bytes),
+                        func.sum(models.DataIdentifierAssociation.events),
+                    ).where(
+                        models.DataIdentifierAssociation.scope == dataset['scope'],
+                        models.DataIdentifierAssociation.name == dataset['name'],
+                    )
+                else:
+                    stmt = select(
+                        func.sum(models.DataIdentifier.length),
+                        func.sum(models.DataIdentifier.bytes),
+                        func.sum(models.DataIdentifier.events),
+                    ).where(
+                        models.DataIdentifier.scope == dataset['scope'],
+                        models.DataIdentifier.name == dataset['name'],
+                    )
+                try:
+                    tmp_length, tmp_bytes, tmp_events = session.execute(stmt).one()
+                    bytes_ += tmp_bytes or 0
+                    length += tmp_length or 0
+                    events += tmp_events or 0
+                except NoResultFound:
+                    bytes_, length, events = 0, 0, 0
+                    break
+    elif did.did_type == DIDType.FILE:
+        bytes_, length, events = did.bytes, 1, did.events
+    else:
+        bytes_, length, events = did.bytes, did.length, did.events
+    return bytes_, length, events
 
 
 @transactional_session
