@@ -22,7 +22,7 @@ from re import match
 import pytest
 
 from rucio.common.exception import InvalidType
-from rucio.common.utils import md5, adler32, parse_did_filter_from_string
+from rucio.common.utils import md5, adler32, parse_did_filter_from_string, Availability
 from rucio.common.logging import formatted_logger
 
 
@@ -83,6 +83,76 @@ class TestUtils(unittest.TestCase):
         with pytest.raises(InvalidType):
             input_ = 'type=g'
             parse_did_filter_from_string(input_)
+
+    def test_availability_data_class(self):
+        Availability
+
+        availability = Availability()
+
+        assert availability.read is None
+        assert availability.write is None
+        assert availability.delete is None
+
+        availability = Availability(True, False, True)
+
+        assert availability.read
+        assert not availability.write
+        assert availability.delete
+
+    def test_availability_tuple_unpacking(self):
+        read, write, delete = Availability(True, False, True)
+
+        assert read
+        assert not write
+        assert delete
+
+    def test_availability_hash(self):
+        hash(Availability(True, True, True))
+
+    def test_availability_with_none(self):
+        assert Availability(write=False).integer == 5
+
+    def test_availability_from_integer_None(self):
+        assert Availability.from_integer(None) == Availability(None, None, None)
+
+
+@pytest.mark.parametrize(
+    "integer,tuple_values",
+    [
+        #   (read,  write, delete)
+        (7, (None, None, None)),
+        (6, (True, None, False)),
+        (5, (None, False, None)),
+    ],
+)
+def test_availability_convert_with_none(integer, tuple_values):
+    """
+    This tests the conversion to an integer with missing values. Missing values
+    should be interpreted as `True`, since this is the default value.
+    """
+    assert integer == Availability(*tuple_values).integer
+
+
+@pytest.mark.parametrize(
+    "before,after",
+    [
+        #   (read,  write, delete)
+        (7, (True, True, True)),
+        (6, (True, True, False)),
+        (5, (True, False, True)),
+        (4, (True, False, False)),
+        (3, (False, True, True)),
+        (2, (False, True, False)),
+        (1, (False, False, True)),
+        (0, (False, False, False)),
+    ],
+)
+def test_availability_translation(before, after):
+    assert Availability.from_integer(before) == Availability(*after)
+    assert tuple(Availability.from_integer(before)) == after
+
+    assert Availability.from_integer(before).integer == before
+    assert Availability(*after).integer == before
 
 
 def test_formatted_logger():

@@ -760,7 +760,10 @@ class RSE(BASE, SoftModelBase):
     ASN = Column(String(255))
     longitude = Column(Float())
     latitude = Column(Float())
-    availability = Column(Integer, server_default='7')
+    availability = Column(Integer, server_default='7')  # Deprecated, will be removedx
+    availability_read = Column(Boolean, default=True)
+    availability_write = Column(Boolean, default=True)
+    availability_delete = Column(Boolean, default=True)
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
     qos_class = Column(String(64))
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),

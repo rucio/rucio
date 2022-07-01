@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Optional
+
 from rucio.api import permission
 from rucio.common import exception
 from rucio.common.schema import validate_schema
@@ -27,7 +29,8 @@ from rucio.db.sqla.session import read_session, stream_session, transactional_se
 def add_rse(rse, issuer, vo='def', deterministic=True, volatile=False, city=None, region_code=None,
             country_name=None, continent=None, time_zone=None, ISP=None,
             staging_area=False, rse_type=None, latitude=None, longitude=None, ASN=None,
-            availability=None, session=None):
+            availability_read: Optional[bool] = None, availability_write: Optional[bool] = None,
+            availability_delete: Optional[bool] = None, session=None):
     """
     Creates a new Rucio Storage Element(RSE).
 
@@ -47,7 +50,9 @@ def add_rse(rse, issuer, vo='def', deterministic=True, volatile=False, city=None
     :param latitude: Latitude coordinate of RSE.
     :param longitude: Longitude coordinate of RSE.
     :param ASN: Access service network.
-    :param availability: Availability.
+    :param availability_read: If the RSE is readable.
+    :param availability_write: If the RSE is writable.
+    :param availability_delete: If the RSE is deletable.
     :param session: The database session in use.
     """
     validate_schema(name='rse', obj=rse, vo=vo)
@@ -58,7 +63,8 @@ def add_rse(rse, issuer, vo='def', deterministic=True, volatile=False, city=None
     return rse_module.add_rse(rse, vo=vo, deterministic=deterministic, volatile=volatile, city=city,
                               region_code=region_code, country_name=country_name, staging_area=staging_area,
                               continent=continent, time_zone=time_zone, ISP=ISP, rse_type=rse_type, latitude=latitude,
-                              longitude=longitude, ASN=ASN, availability=availability, session=session)
+                              longitude=longitude, ASN=ASN, availability_read=availability_read,
+                              availability_write=availability_write, availability_delete=availability_delete, session=session)
 
 
 @read_session

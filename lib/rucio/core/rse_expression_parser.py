@@ -43,7 +43,7 @@ def parse_expression(expression, filter_=None, session=None):
     Parse a RSE expression and return the list of RSE dictionaries.
 
     :param expression:    RSE expression, e.g: 'CERN|BNL'.
-    :param filter_:        Availability filter (dictionary) used for the RSEs. e.g.: {'availability_write': True}
+    :param filter_:       Availability filter (dictionary) used for the RSEs. e.g.: {'availability_write': True}
     :param session:       Database session in use.
     :returns:             A list of rse dictionaries.
     :raises:              InvalidRSEExpression, RSENotFound, RSEWriteBlocked
@@ -96,7 +96,7 @@ def parse_expression(expression, filter_=None, session=None):
     if filter_:
         for rse in vo_result:
             if filter_.get('availability_write', False):
-                if rse.get('availability') & 2:
+                if rse.get('availability_write'):
                     final_result.append(rse)
         if not final_result:
             raise RSEWriteBlocked('RSE excluded; not available for writing.')

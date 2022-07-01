@@ -209,8 +209,8 @@ def declare_suspicious_replicas_bad(once: bool = False, younger_than: int = 3, n
                         logger(logging.DEBUG, '%s', i)
 
                     # RSEs that aren't available shouldn't have suspicious replicas showing up. Skip to next RSE.
-                    if (rse['availability'] not in {4, 5, 6, 7}) and ((len(suspicious_replicas_avail_elsewhere) > 0) or (len(suspicious_replicas_last_copy) > 0)):
-                        logger(logging.WARNING, "%s is not available (availability: %s), yet it has suspicious replicas. Please investigate. \n", rse_expr, rse['availability'])
+                    if not rse['availability_write'] and ((len(suspicious_replicas_avail_elsewhere) > 0) or (len(suspicious_replicas_last_copy) > 0)):
+                        logger(logging.WARNING, "%s is not available (availability_write: %s), yet it has suspicious replicas. Please investigate. \n", rse_expr, rse['availability_write'])
                         continue
 
                     if suspicious_replicas_avail_elsewhere:

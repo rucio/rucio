@@ -513,7 +513,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
     tot_needed_free_space = 0
     for rse in rses_to_process:
         # Check if RSE is blocklisted
-        if rse.columns['availability'] % 2 == 0:
+        if not rse.columns['availability_write']:
             logger(logging.DEBUG, 'RSE %s is blocklisted for delete', rse.name)
             continue
         rse.ensure_loaded(load_attributes=True)
