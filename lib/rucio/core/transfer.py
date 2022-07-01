@@ -267,7 +267,7 @@ class DirectTransferDefinition:
             dsn = get_dsn(rws.scope, rws.name, rws.attributes.get('dsn', None))
             # DQ2 path always starts with /, but prefix might not end with /
             naming_convention = dst.rse.attributes.get('naming_convention', None)
-            dest_path = construct_surl(dsn, rws.name, naming_convention)
+            dest_path = construct_surl(dsn, rws.scope.external, rws.name, naming_convention)
             if dst.rse.is_tape():
                 if rws.retry_count or rws.activity == 'Recovery':
                     dest_path = '%s_%i' % (dest_path, int(time.time()))
