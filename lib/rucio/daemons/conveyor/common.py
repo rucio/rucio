@@ -171,7 +171,7 @@ def assign_paths_to_transfertool_and_create_hops(
             )
         except DatabaseException as e:
             if re.match('.*SOURCES_(REQ_ID|REPLICA|RSES|DEST_RSES)_FK.*', str(e.args[0])):
-                logger(logging.WARNING, '%s: Cannot sync DB sources. Skip the transfer for now.')
+                logger(logging.WARNING, '%s: Cannot sync DB sources. Skip the transfer for now.', request_id)
                 continue
             raise
 
