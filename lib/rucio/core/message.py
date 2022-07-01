@@ -14,22 +14,17 @@
 # limitations under the License.
 
 import json
-from configparser import NoOptionError, NoSectionError
 
 from sqlalchemy import or_, delete, update
 from sqlalchemy.exc import IntegrityError
 
-from dogpile.cache.api import NO_VALUE
-
-from rucio.common.cache import make_region_memcached
-from rucio.common.config import config_get
+from rucio.common.constants import HermesService, MAX_MESSAGE_LENGTH
+from rucio.common.config import config_get_list
 from rucio.common.exception import InvalidObject, RucioException
 from rucio.common.utils import APIEncoder
 from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
-
-REGION = make_region_memcached(expiration_time=900)
 
 
 @transactional_session
@@ -43,39 +38,41 @@ def add_message(event_type, payload, session=None):
     :param payload: The message payload. Will be persisted as JSON.
     :param session: The database session to use.
     """
-
-    services_list = REGION.get('services_list')
-    if services_list == NO_VALUE:
-        try:
-            services_list = config_get('hermes', 'services_list')
-        except (NoOptionError, NoSectionError, RuntimeError):
-            services_list = None
-        REGION.set('services_list', services_list)
-
     try:
         payload = json.dumps(payload, cls=APIEncoder)
-    except TypeError as e:  # noqa: F841
-        raise InvalidObject('Invalid JSON for payload: %(e)s' % locals())
+    except TypeError as err:  # noqa: F841
+        raise InvalidObject('Invalid JSON for payload: %(err)s' % locals())
 
-    if len(payload) > 4000:
-        new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload, services=services_list)
-    else:
-        new_message = Message(event_type=event_type, payload=payload, services=services_list)
+    for service in config_get_list('hermes', 'services_list', raise_exception=False, default='activemq,email', session=session):
+        try:
+            HermesService(service.upper())
+        except ValueError as err:
+            raise RucioException(str(err))
+        if event_type == 'email' and service != 'email':
+            continue
+        if service == 'email' and event_type != 'email':
+            continue
 
-    new_message.save(session=session, flush=False)
+        if len(payload) > MAX_MESSAGE_LENGTH:
+            new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload, services=service)
+        else:
+            new_message = Message(event_type=event_type, payload=payload, services=service)
+
+        new_message.save(session=session, flush=False)
 
 
 @transactional_session
 def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=None,
-                      lock=False, session=None):
+                      lock=False, old_mode=True, session=None):
     """
     Retrieve up to $bulk messages.
 
     :param bulk: Number of messages as an integer.
     :param thread: Identifier of the caller thread as an integer.
     :param total_threads: Maximum number of threads as an integer.
-    :param event_type: Return only specified event_type. If None, returns everything except email.
+    :param event_type: Return only specified event_type. If None, returns everything.
     :param lock: Select exclusively some rows.
+    :param old_mode: If True, doesn't return email if event_type is None.
     :param session: The database session to use.
 
     :returns messages: List of dictionaries {id, created_at, event_type, payload, services}
@@ -86,7 +83,7 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
         subquery = filter_thread_work(session=session, query=subquery, total_threads=total_threads, thread_id=thread)
         if event_type:
             subquery = subquery.filter_by(event_type=event_type)
-        else:
+        elif old_mode:
             subquery = subquery.filter(Message.event_type != 'email')
 
         # Step 1:
@@ -151,7 +148,7 @@ def delete_messages(messages, session=None):
     message_condition = []
     for message in messages:
         message_condition.append(Message.id == message['id'])
-        if len(message['payload']) > 4000:
+        if len(message['payload']) > MAX_MESSAGE_LENGTH:
             message['payload_nolimit'] = message.pop('payload')
 
     try:
@@ -193,7 +190,7 @@ def update_messages_services(messages, services, session=None):
     message_condition = []
     for message in messages:
         message_condition.append(Message.id == message['id'])
-        if len(message['payload']) > 4000:
+        if len(message['payload']) > MAX_MESSAGE_LENGTH:
             message['payload_nolimit'] = message.pop('payload')
 
     try:

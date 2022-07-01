@@ -224,7 +224,8 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
 
             messages = retrieve_messages(bulk=bulk,
                                          thread=heartbeat['assign_thread'],
-                                         total_threads=heartbeat['nr_threads'])
+                                         total_threads=heartbeat['nr_threads'],
+                                         old_mode=True)
 
             if messages:
                 logger(logging.DEBUG, 'retrieved %i messages',

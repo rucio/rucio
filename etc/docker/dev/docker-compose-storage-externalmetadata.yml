@@ -121,3 +121,18 @@ services:
   mongo:
     image: docker.io/mongo:5.0
     network_mode: "service:rucio"
+  influxdb:
+    image: influxdb:latest
+    network_mode: "service:rucio"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=myusername
+      - DOCKER_INFLUXDB_INIT_PASSWORD=passwordpasswordpassword
+      - DOCKER_INFLUXDB_INIT_ORG=rucio
+      - DOCKER_INFLUXDB_INIT_BUCKET=rucio
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
+  elasticsearch:
+    image: docker.io/elasticsearch:7.4.0
+    network_mode: "service:rucio"
+    environment:
+      - discovery.type=single-node

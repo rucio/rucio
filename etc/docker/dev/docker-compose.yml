@@ -1,13 +1,21 @@
+version: "3"
 services:
   rucio:
     image: docker.io/rucio/rucio-dev
     extra_hosts:
       - "ruciodb:127.0.0.1"
       - "graphite:127.0.0.1"
+      - "influxdb:127.0.0.1"
+      - "elasticsearch:127.0.0.1"
+      - "activemq:127.0.0.1"
     ports:
       - "127.0.0.1:8443:443"
       - "127.0.0.1:5432:5432"
       - "127.0.0.1:8080:80"
+      - "127.0.0.1:8086:8086"
+      - "127.0.0.1:9200:9200"
+      - "127.0.0.1:9300:9300"
+      - "127.0.0.1:61613:61613"
     volumes:
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
@@ -27,3 +35,31 @@ services:
   graphite:
     image: docker.io/graphiteapp/graphite-statsd
     network_mode: "service:rucio"
+  influxdb:
+    image: influxdb:latest
+    network_mode: "service:rucio"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=myusername
+      - DOCKER_INFLUXDB_INIT_PASSWORD=passwordpasswordpassword
+      - DOCKER_INFLUXDB_INIT_ORG=rucio
+      - DOCKER_INFLUXDB_INIT_BUCKET=rucio
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
+  elasticsearch:
+    image: docker.io/elasticsearch:7.4.0
+    network_mode: "service:rucio"
+    environment:
+      - discovery.type=single-node
+  activemq:
+    image: docker.io/webcenter/activemq:latest
+    network_mode: "service:rucio"
+    environment:
+      - ACTIVEMQ_CONFIG_NAME=activemq
+      - ACTIVEMQ_CONFIG_DEFAULTACCOUNT=false
+      - ACTIVEMQ_USERS_fts=supersecret
+      - ACTIVEMQ_GROUPS_writes=fts
+      - ACTIVEMQ_USERS_receiver=supersecret
+      - ACTIVEMQ_GROUPS_reads=receiver
+      - ACTIVEMQ_CONFIG_SCHEDULERENABLED=true
+      - ACTIVEMQ_USERS_hermes=supersecret
+      - ACTIVEMQ_CONFIG_QUEUES_events=/queue/events'

@@ -241,6 +241,55 @@ def config_get_bool(section, option, raise_exception=True, default=None, check_c
     ))
 
 
+def config_get_list(section, option, raise_exception=True, default=None, check_config_table=True, session=None,
+                    use_cache=True, expiration_time=900):
+    """
+    Return a list for a given option in a section
+
+    :param section: the named section.
+    :param option: the named option.
+    :param raise_exception: Boolean to raise or not NoOptionError, NoSectionError or RuntimeError.
+    :param default: the default value if not found.
+    :param check_config_table: if not set, avoid looking at config table even if it is called from server/daemon
+    :param session: The database session in use. Only used if not found in config file and if it is called from
+                    server/daemon
+    :param use_cache: Boolean if the cache should be used. Only used if not found in config file and if it is called
+                      from server/daemon
+    :param expiration_time: Time after that the cached value gets ignored. Only used if not found in config file and if
+                            it is called from server/daemon
+.
+    :returns: the configuration value.
+
+    :raises NoOptionError
+    :raises NoSectionError
+    :raises RuntimeError
+    :raises ValueError
+    """
+    string = config_get(
+        section,
+        option,
+        raise_exception=raise_exception,
+        default=default,
+        check_config_table=check_config_table,
+        session=session,
+        use_cache=True,
+        expiration_time=expiration_time,
+        extract_function=ConfigParser.ConfigParser.get
+    )
+    return __convert_string_to_list(string)
+
+
+def __convert_string_to_list(string):
+    """
+    Convert a comma separated string to a list
+    :param string: The input string.
+
+    :returns: A list extracted from the string.
+    """
+    string = string.split(',')
+    return [item.strip(' ') for item in string]
+
+
 def __config_get_table(section, option, raise_exception=True, default=None, clean_cached=False, session=None,
                        use_cache=True, expiration_time=900):
     """

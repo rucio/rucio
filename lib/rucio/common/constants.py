@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from collections import namedtuple
-from enum import Enum
+import enum
 
 from rucio.common.config import config_get
 
@@ -60,13 +60,18 @@ FTS_COMPLETE_STATE = namedtuple('FTS_COMPLETE_STATE', ['OK', 'ERROR'])('Ok', 'Er
 FTS_JOB_TYPE = namedtuple('FTS_JOB_TYPE', ['MULTIPLE_REPLICA', 'MULTI_HOP', 'SESSION_REUSE', 'REGULAR'])('R', 'H', 'Y', 'N')
 
 
-class SuspiciousAvailability(Enum):
+# Messages constants
+
+MAX_MESSAGE_LENGTH = 4000
+
+
+class SuspiciousAvailability(enum.Enum):
     ALL = 0
     EXIST_COPIES = 1
     LAST_COPY = 2
 
 
-class ReplicaState(Enum):
+class ReplicaState(enum.Enum):
     # From rucio.db.sqla.constants, update that file at the same time as this
     AVAILABLE = 'A'
     UNAVAILABLE = 'U'
@@ -74,3 +79,14 @@ class ReplicaState(Enum):
     BEING_DELETED = 'B'
     BAD = 'D'
     TEMPORARY_UNAVAILABLE = 'T'
+
+
+@enum.unique
+class HermesService(str, enum.Enum):
+    """
+    The services supported by Hermes2.
+    """
+    INFLUX = "INFLUX"
+    ELASTIC = "ELASTIC"
+    EMAIL = "EMAIL"
+    ACTIVEMQ = "ACTIVEMQ"
