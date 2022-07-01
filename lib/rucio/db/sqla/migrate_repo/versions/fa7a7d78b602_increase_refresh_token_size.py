@@ -22,7 +22,7 @@ from alembic.op import alter_column
 
 # Alembic revision identifiers
 revision = 'fa7a7d78b602'
-down_revision = 'fe1a65b176c9'
+down_revision = '1677d4d803c8'
 
 
 def upgrade():
