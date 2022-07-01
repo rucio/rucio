@@ -62,9 +62,9 @@ function get_link(elmnt, base_url) {
         <a href="" class="btn btn-block btn-outline-cern btn-lg" role="button" onclick="get_link(this, 'saml')" height="auto"> <i class="fab fa-2x icon-cern vertical-align-middle"></i><span class="inline-block padding-bottom-2">   CERN SSO Log-In</span></a>
     {% endif %}
     {# TODO: Fix OIDC buttons #}
-    {% if oidc_issuers == 1 %}
-        <a href="" class="btn btn-block btn-outline-warning btn-lg" role="button" onclick="this.href='/oidc?account='+document.getElementById('accountname').value+'&vo='+document.getElementById('voname').value+'&issuer='+&quot;$oidc_issuers[0]&quot;" height="auto"> <i class="fa-2x icon-openid vertical-align-middle"></i><span class="inline-block padding-bottom-2"> $oidc_issuers[0]</span></a>
-    {% endif %}
+    {% for issuer in oidc_issuers %}
+        <a href="" class="btn btn-block btn-outline-warning btn-lg" role="button" onclick="this.href='/oidc?account='+document.getElementById('accountname').value+'&vo='+document.getElementById('voname').value+'&issuer='+&quot;{{ issuer }}&quot;" height="auto"> <i class="fa-2x icon-openid vertical-align-middle"></i><span class="inline-block padding-bottom-2"> {{ issuer }}</span></a>
+    {% endfor %}
 
   </p>
   <form>

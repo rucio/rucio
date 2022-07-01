@@ -59,7 +59,7 @@ def oidc():
     if not MULTI_VO:
         vo = 'def'
 
-    if not account or not issuer:
+    if not issuer:
         return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get token OIDC auth url from the server.')
 
     return oidc_auth(account, issuer, vo)
