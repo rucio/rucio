@@ -2564,6 +2564,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             models.RSEFileAssociation.bytes,
             models.RSEFileAssociation.tombstone,
             models.RSEFileAssociation.state,
+            models.DataIdentifier.datatype,
         ).join_from(
             temp_table_cls,
             models.RSEFileAssociation,
@@ -2583,8 +2584,13 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             models.Request,
             and_(models.RSEFileAssociation.scope == models.Request.scope,
                  models.RSEFileAssociation.name == models.Request.name)
+        ).join(
+            models.DataIdentifier,
+            and_(models.RSEFileAssociation.scope == models.DataIdentifier.scope,
+                 models.RSEFileAssociation.name == models.DataIdentifier.name)
         ).group_by(
-            models.RSEFileAssociation
+            models.RSEFileAssociation,
+            models.DataIdentifier.datatype,
         ).having(
             case([(func.count(replicas_alias.scope) > 0, True),  # Can delete this replica if it's not the last replica
                   (func.count(models.Request.scope) == 0, True)],  # If it's the last replica, only can delete if there are no requests using it
@@ -2595,7 +2601,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             limit - len(rows)
         )
 
-        for scope, name, path, bytes_, tombstone, state in session.execute(stmt):
+        for scope, name, path, bytes_, tombstone, state, datatype in session.execute(stmt):
             if len(rows) >= limit or (needed_space is not None and total_bytes > needed_space):
                 break
             if state != ReplicaState.UNAVAILABLE:
@@ -2603,7 +2609,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
 
             rows.append({'scope': scope, 'name': name, 'path': path,
                          'bytes': bytes_, 'tombstone': tombstone,
-                         'state': state})
+                         'state': state, 'datatype': datatype})
         if len(rows) >= limit or (needed_space is not None and total_bytes > needed_space):
             break
 
@@ -2650,8 +2656,11 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
                           models.RSEFileAssociation.path,
                           models.RSEFileAssociation.bytes,
                           models.RSEFileAssociation.tombstone,
-                          models.RSEFileAssociation.state).\
+                          models.RSEFileAssociation.state,
+                          models.DataIdentifier.datatype).\
         with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
+        join(models.DataIdentifier, and_(models.RSEFileAssociation.scope == models.DataIdentifier.scope,
+                                         models.RSEFileAssociation.name == models.DataIdentifier.name)).\
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
         filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
@@ -2668,7 +2677,7 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
     total_bytes, total_files = 0, 0
     rows = []
     replica_clause = []
-    for (scope, name, path, bytes_, tombstone, state) in query.yield_per(1000):
+    for (scope, name, path, bytes_, tombstone, state, datatype) in query.yield_per(1000):
         # Check if more than one replica is available
         replica_cnt = session.query(func.count(models.RSEFileAssociation.scope)).\
             with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
@@ -2690,7 +2699,7 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
 
             rows.append({'scope': scope, 'name': name, 'path': path,
                          'bytes': bytes_, 'tombstone': tombstone,
-                         'state': state})
+                         'state': state, 'datatype': datatype})
             replica_clause.append(and_(models.RSEFileAssociation.scope == scope,
                                        models.RSEFileAssociation.name == name,
                                        models.RSEFileAssociation.rse_id == rse_id))
@@ -2717,7 +2726,7 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
 
                 rows.append({'scope': scope, 'name': name, 'path': path,
                              'bytes': bytes_, 'tombstone': tombstone,
-                             'state': state})
+                             'state': state, 'datatype': datatype})
 
                 replica_clause.append(and_(models.RSEFileAssociation.scope == scope,
                                            models.RSEFileAssociation.name == name,

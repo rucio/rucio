@@ -1533,6 +1533,14 @@ def add_monitor_message(new_state, request, additional_fields, session=None):
         transfer_status = 'transfer-%s' % new_state.name
     transfer_status = transfer_status.lower()
 
+    stmt = select(
+        models.DataIdentifier.datatype
+    ).where(
+        models.DataIdentifier.scope == request['scope'],
+        models.DataIdentifier.name == request['name'],
+    )
+    datatype = session.execute(stmt).scalar_one_or_none()
+
     # Start by filling up fields from database request or with defaults.
     message = {'activity': request.get('activity', None),
                'request-id': request['id'],
@@ -1546,6 +1554,8 @@ def add_monitor_message(new_state, request, additional_fields, session=None):
                'protocol': None,
                'scope': request['scope'],
                'name': request['name'],
+               'dataset': None,
+               'datasetScope': None,
                'src-type': None,
                'src-rse': request.get('source_rse', None),
                'src-url': None,
@@ -1561,13 +1571,20 @@ def add_monitor_message(new_state, request, additional_fields, session=None):
                'started_at': request.get('started_at', None),
                'transferred_at': request.get('transferred_at', None),
                'tool-id': 'rucio-conveyor',
-               'account': request.get('account', None)}
+               'account': request.get('account', None),
+               'datatype': datatype}
 
     # Add (or override) existing fields
     message.update(additional_fields)
 
     if message['started_at'] and message['transferred_at']:
         message['duration'] = (message['transferred_at'] - message['started_at']).seconds
+    ds_scope = request['attributes'].get('ds_scope')
+    if not message['datasetScope'] and ds_scope:
+        message['datasetScope'] = ds_scope
+    ds_name = request['attributes'].get('ds_name')
+    if not message['dataset'] and ds_name:
+        message['dataset'] = ds_name
     if not message.get('protocol'):
         dst_url = message['dst-url']
         if dst_url and ':' in dst_url:

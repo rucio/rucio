@@ -150,7 +150,8 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                                  'file-size': replica['bytes'],
                                  'bytes': replica['bytes'],
                                  'url': replica['pfn'],
-                                 'protocol': prot.attributes['scheme']}
+                                 'protocol': prot.attributes['scheme'],
+                                 'datatype': replica['datatype']}
                 if replica['scope'].vo != 'def':
                     deletion_dict['vo'] = replica['scope'].vo
                 logger(logging.DEBUG, 'Deletion ATTEMPT of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
