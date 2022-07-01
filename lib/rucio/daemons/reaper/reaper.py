@@ -407,7 +407,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     """
 
     executable = 'reaper'
-    oidc_account = config_get_bool('reaper', 'oidc_account', False, '')
+    oidc_account = config_get('reaper', 'oidc_account', False, 'root')
     oidc_scope = config_get('reaper', 'oidc_scope', False, 'delete')
     oidc_audience = config_get('reaper', 'oidc_audience', False, 'rse')
 
