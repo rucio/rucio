@@ -17,7 +17,7 @@ import os
 import sys
 
 from functools import wraps
-from inspect import isgeneratorfunction
+from inspect import isgeneratorfunction, signature
 from retrying import retry
 from threading import Lock
 from os.path import basename
@@ -323,6 +323,7 @@ def read_session(function):
         except Exception:
             raise
     new_funct.__doc__ = function.__doc__
+    new_funct.__signature__ = signature(function)
     return new_funct
 
 
@@ -369,6 +370,7 @@ def stream_session(function):
             except:
                 raise
     new_funct.__doc__ = function.__doc__
+    new_funct.__signature__ = signature(function)
     return new_funct
 
 
@@ -402,4 +404,5 @@ def transactional_session(function):
             result = function(*args, **kwargs)
         return result
     new_funct.__doc__ = function.__doc__
+    new_funct.__signature__ = signature(function)
     return new_funct

@@ -13,10 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from inspect import getfullargspec
+
 import pytest
 
-from rucio.db.sqla.session import get_session, _get_engine_poolclass, NullPool, QueuePool, SingletonThreadPool
 from rucio.common.exception import InputValidationError
+from rucio.db.sqla.session import (NullPool, QueuePool, SingletonThreadPool,
+                                   _get_engine_poolclass, get_session,
+                                   read_session, stream_session,
+                                   transactional_session)
 
 
 def test_db_connection():
@@ -36,3 +41,13 @@ def test_config_poolclass():
 
     with pytest.raises(InputValidationError, match='Unknown poolclass: unknown'):
         _get_engine_poolclass('unknown')
+
+
+@pytest.mark.parametrize("session_type", [read_session, transactional_session, stream_session])
+def test_session_decorator_preserves_function_signature(session_type):
+    def function(a, b, c, d=3, *, e=5, f=None):
+        pass
+
+    decorated_func = session_type(function)
+
+    assert getfullargspec(function) == getfullargspec(decorated_func)
