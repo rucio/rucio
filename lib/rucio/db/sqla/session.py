@@ -26,9 +26,10 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, TimeoutError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.pool import QueuePool, SingletonThreadPool, NullPool
 
 from rucio.common.config import config_get
-from rucio.common.exception import RucioException, DatabaseException
+from rucio.common.exception import RucioException, DatabaseException, InputValidationError
 from rucio.common.extra import import_extras
 
 EXTRA_MODULES = import_extras(['MySQLdb', 'pymysql'])
@@ -156,6 +157,29 @@ def my_on_connect(dbapi_con, connection_record):
     dbapi_con.action = caller
 
 
+def _get_engine_poolclass(poolclass):
+    """Resolve the correct SQLAlchemy Pool type to use from the
+    poolclass config option.
+
+    :param poolclass: User-selected pool class from config file.
+    :returns: The corresponding SQLAlchemy Pool class.
+    :raises InputValidationError: if config value doesn't correspond to an SQLAlchemy Pool class.
+    """
+
+    SQLA_CONFIG_POOLCLASS_MAPPING = {
+        'queuepool': QueuePool,
+        'singletonthreadpool': SingletonThreadPool,
+        'nullpool': NullPool,
+    }
+
+    poolclass = poolclass.lower()
+
+    if poolclass not in SQLA_CONFIG_POOLCLASS_MAPPING:
+        raise InputValidationError('Unknown poolclass: %s' % poolclass)
+
+    return SQLA_CONFIG_POOLCLASS_MAPPING[poolclass]
+
+
 def get_engine():
     """ Creates a engine to a specific database.
         :returns: engine
@@ -165,7 +189,8 @@ def get_engine():
         sql_connection = config_get(DATABASE_SECTION, 'default', check_config_table=False)
         config_params = [('pool_size', int), ('max_overflow', int), ('pool_timeout', int),
                          ('pool_recycle', int), ('echo', int), ('echo_pool', str),
-                         ('pool_reset_on_return', str), ('use_threadlocal', int)]
+                         ('pool_reset_on_return', str), ('use_threadlocal', int),
+                         ('poolclass', _get_engine_poolclass)]
         params = {}
         if 'mysql' in sql_connection:
             conv = mysql_convert_decimal_to_float(pymysql=sql_connection.startswith('mysql+pymysql'))

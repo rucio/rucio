@@ -13,7 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.db.sqla.session import get_session
+import pytest
+
+from rucio.db.sqla.session import get_session, _get_engine_poolclass, NullPool, QueuePool, SingletonThreadPool
+from rucio.common.exception import InputValidationError
 
 
 def test_db_connection():
@@ -24,3 +27,12 @@ def test_db_connection():
     else:
         session.execute('select 1')
     session.close()
+
+
+def test_config_poolclass():
+    assert _get_engine_poolclass('nullpool') is NullPool
+    assert _get_engine_poolclass('queuepool') is QueuePool
+    assert _get_engine_poolclass('singletonthreadpool') is SingletonThreadPool
+
+    with pytest.raises(InputValidationError, match='Unknown poolclass: unknown'):
+        _get_engine_poolclass('unknown')

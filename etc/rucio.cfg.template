@@ -81,6 +81,8 @@ default = sqlite:////tmp/rucio.db
 pool_recycle=3600
 echo=0
 pool_reset_on_return=rollback
+# Uncomment the following line to disable database connection pooling.
+#poolclass = nullpool
 
 [bootstrap]
 # Hardcoded salt = 0, String = secret, Python: hashlib.sha256("0secret").hexdigest()
