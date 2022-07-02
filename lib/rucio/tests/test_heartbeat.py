@@ -83,6 +83,14 @@ class TestHeartbeat(unittest.TestCase):
         die('test0', 'host2', pids[2], threads[2])
         assert live('test0', 'host3', pids[3], threads[3]) == {'assign_thread': 1, 'nr_threads': 2}
 
+    def test_heartbeat_3(self):
+        """ HEARTBEAT (CORE): Single instance without thread. """
+
+        pids = [self.__pid() for _ in range(3)]
+        assert live('test0', 'host0', pids[0]) == {'assign_thread': 0, 'nr_threads': 1}
+        assert live('test0', 'host1', pids[1]) == {'assign_thread': 1, 'nr_threads': 2}
+        assert live('test0', 'host0', pids[0]) == {'assign_thread': 0, 'nr_threads': 2}
+
     def test_heartbeat_payload(self):
         """ HEARTBEAT (CORE): Test heartbeat with payload"""
 

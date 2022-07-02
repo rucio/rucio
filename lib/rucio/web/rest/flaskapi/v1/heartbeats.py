@@ -75,9 +75,6 @@ class Heartbeat(ErrorHandlingMethodView):
                   pid:
                     description: UNIX Process ID as a number, e.g., 1234.
                     type: integer
-                  thread:
-                    description: Python thread object.
-                    type: object
                   older_than:
                     description: Ignore specified heartbeats older than specified nr of seconds.
                     type: integer
@@ -100,7 +97,6 @@ class Heartbeat(ErrorHandlingMethodView):
                 executable=param_get(parameters, 'executable'),
                 hostname=param_get(parameters, 'hostname'),
                 pid=param_get(parameters, 'pid'),
-                thread=param_get(parameters, 'thread'),
                 older_than=param_get(parameters, 'older_than', default=None),
                 payload=param_get(parameters, 'payload', default=None),
                 issuer=request.environ.get('issuer'),

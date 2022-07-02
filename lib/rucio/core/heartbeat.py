@@ -80,7 +80,7 @@ def _sanity_check(executable, hostname, hash_executable=None, expiration_delay=D
 
 
 @transactional_session
-def live(executable, hostname, pid, thread, older_than=600, hash_executable=None, payload=None, session=None):
+def live(executable, hostname, pid, thread=None, older_than=600, hash_executable=None, payload=None, session=None):
     """
     Register a heartbeat for a process/thread on a given node.
     The executable name is used for the calculation of thread assignments.
@@ -102,20 +102,27 @@ def live(executable, hostname, pid, thread, older_than=600, hash_executable=None
     if not hash_executable:
         hash_executable = calc_hash(executable)
 
+    if thread:
+        thread_id = thread.ident
+        thread_name = thread.name
+    else:
+        thread_id = 0
+        thread_name = "thread"
+
     # upsert the heartbeat
     rowcount = session.query(Heartbeats)\
         .filter_by(executable=hash_executable,
                    hostname=hostname,
                    pid=pid,
-                   thread_id=thread.ident)\
+                   thread_id=thread_id)\
         .update({'updated_at': datetime.datetime.utcnow(), 'payload': payload})
     if not rowcount:
         Heartbeats(executable=hash_executable,
                    readable=executable,
                    hostname=hostname,
                    pid=pid,
-                   thread_id=thread.ident,
-                   thread_name=thread.name,
+                   thread_id=thread_id,
+                   thread_name=thread_name,
                    payload=payload).save(session=session)
 
     # assign thread identifier
@@ -137,7 +144,7 @@ def live(executable, hostname, pid, thread, older_than=600, hash_executable=None
     # so we have to do it in Python
     assign_thread = 0
     for r in range(len(result)):
-        if result[r][0] == hostname and result[r][1] == pid and result[r][2] == thread.ident:
+        if result[r][0] == hostname and result[r][1] == pid and result[r][2] == thread_id:
             assign_thread = r
             break
 
