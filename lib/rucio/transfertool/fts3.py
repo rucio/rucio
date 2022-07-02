@@ -355,6 +355,7 @@ class Fts3TransferStatusReport(TransferStatusReport):
         # Initialized in child class initialize():
         self._reason = None
         self._src_rse = None
+        self._fts_address = self.external_host
         # Supported db fields bellow:
         self.state = None
         self.external_id = None
@@ -390,7 +391,7 @@ class Fts3TransferStatusReport(TransferStatusReport):
         return fields
 
     def _transfer_link(self):
-        return '%s/fts3/ftsmon/#/job/%s' % (self.external_host.replace('8446', '8449'), self._transfer_id)
+        return '%s/fts3/ftsmon/#/job/%s' % (self._fts_address.replace('8446', '8449'), self._transfer_id)
 
     def _find_attribute_updates(self, request, new_state, reason, overwrite_corrupted_files):
         attributes = None
@@ -511,6 +512,7 @@ class FTS3CompletionMessageTransferStatusReport(Fts3TransferStatusReport):
 
                 self._reason = reason
                 self._src_rse = src_rse_name
+                self._fts_address = request['external_host'] or self._fts_address
 
                 self.state = new_state
                 self.external_id = transfer_id
