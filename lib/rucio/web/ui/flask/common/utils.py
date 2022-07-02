@@ -254,7 +254,7 @@ def finalize_auth(token, identity_type, cookie_dict_extra=None):
     cookie = []
     valid_token_dict = validate_webui_token(from_cookie=False, session_token=token)
     if not valid_token_dict:
-        return render_template("problem.html", msg="It was not possible to validate and finalize your login with the provided token.")
+        return render_template("problem.html", msg="It was not possible to validate and finalize your login with the provided token: " + token)
     try:
         attribs = list_account_attributes(valid_token_dict['account'], valid_token_dict['vo'])
         accounts = identity.list_accounts_for_identity(valid_token_dict['identity'], identity_type)

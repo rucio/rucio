@@ -40,6 +40,15 @@ function get_link(elmnt, base_url) {
   elmnt.href = url;
 }
 </script>
+<script type="text/javascript">
+function get_link_oidc(elmnt, base_url, issuer) {
+  var url = '/' + base_url + '?' + 'account='+document.getElementById('accountname').value+'&vo='+document.getElementById('voname').value+'&issuer='+issuer;
+  if (elmnt.href.indexOf('/ui/') != -1) {
+    url = '/ui' + url;
+  }
+  elmnt.href = url;
+}
+</script>
 <link rel="stylesheet" href="/static/select_login_method.css">
 <!--  move the functional part of this template to JS
 <input id='oidc_issuers' type="hidden" value="$oidc_issuers">
@@ -58,15 +67,16 @@ function get_link(elmnt, base_url) {
   <p>
     <a href="" class="btn btn-block btn-outline-primary btn-lg" role="button" onclick="get_link(this, 'x509')" height="auto"><i class="fab fa-2x icon-certificate vertical-align-middle"></i><span class="inline-block padding-bottom-2">   X509 Certificate</span></a>
     <a href="" class="btn btn-block btn-outline-rucio btn-lg" role="button" onclick="get_link(this, 'login')" height="auto"> <i class="fab fa-2x icon-rucio vertical-align-middle"></i><span class="inline-block padding-bottom-2">   Rucio Userpass</span></a>
-    {% if saml_support %}
+    <!-- {% if saml_support %}
         <a href="" class="btn btn-block btn-outline-cern btn-lg" role="button" onclick="get_link(this, 'saml')" height="auto"> <i class="fab fa-2x icon-cern vertical-align-middle"></i><span class="inline-block padding-bottom-2">   CERN SSO Log-In</span></a>
-    {% endif %}
-    {# TODO: Fix OIDC buttons #}
-    {% if oidc_issuers == 1 %}
-        <a href="" class="btn btn-block btn-outline-warning btn-lg" role="button" onclick="this.href='/oidc?account='+document.getElementById('accountname').value+'&vo='+document.getElementById('voname').value+'&issuer='+&quot;$oidc_issuers[0]&quot;" height="auto"> <i class="fa-2x icon-openid vertical-align-middle"></i><span class="inline-block padding-bottom-2"> $oidc_issuers[0]</span></a>
-    {% endif %}
+    {% endif %} -->
+
+    {% for idp in oidc_issuers %}
+        <a href="" class="btn btn-block btn-outline-warning btn-lg" role="button" onclick="get_link_oidc(this, 'oidc', '{{idp}}')" height="auto"><i class="fa-2x icon-openid vertical-align-middle"></i><span class="inline-block padding-bottom-2">   {{ idp }} </span></a>
+    {% endfor %}
 
   </p>
+
   <form>
   <div class="form-group">
     <div class="input-group">

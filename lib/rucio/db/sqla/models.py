@@ -1480,7 +1480,7 @@ class Token(BASE, ModelBase):
     __tablename__ = 'tokens'
     token = Column(String(3072))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
-    refresh_token = Column(String(315), default=None)
+    refresh_token = Column(String(3072), default=None)
     refresh = Column(Boolean(name='TOKENS_REFRESH_CHK', create_constraint=True),
                      default=False)
     refresh_start = Column(DateTime, default=None)

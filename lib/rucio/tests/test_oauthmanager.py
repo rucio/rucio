@@ -166,7 +166,7 @@ def new_tokens_ok(account):
 class MockClientOIDC(MagicMock):
 
     @classmethod
-    def do_access_token_refresh(self, state=None):
+    def do_access_token_refresh(self, state=None, skew=120):
         new_token_dict['access_token'] = rndstr()
         new_token_dict['refresh_token'] = state
         return new_token_dict
