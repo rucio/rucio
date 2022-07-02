@@ -36,8 +36,8 @@ from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_
                                 get_RSEcoverage_of_dataset, get_replica_atime,
                                 touch_replica, get_bad_pfns, set_tombstone, add_bad_dids)
 from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
-from rucio.daemons.badreplicas.minos import run as minos_run
-from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
+from rucio.daemons.badreplicas.minos import minos
+from rucio.daemons.badreplicas.minos_temporary_expiration import minos_tu_expiration
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, ReplicaState, BadPFNStatus, OBSOLETE
 from rucio.db.sqla.session import transactional_session
@@ -823,7 +823,7 @@ def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_
         replica_client.add_bad_pfns(pfns=list_rep, reason=str(reason_str), state='BADSTATE', expires_at=now.isoformat())
 
     # Run minos once
-    minos_run(threads=1, bulk=10000, once=True)
+    minos(bulk=10000, once=True)
     result = get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None)
     pfns = [res['pfn'] for res in result if res['pfn'] in bad_pfns]
     res_pfns = []
@@ -839,14 +839,17 @@ def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_
 
     rep = []
     for did in files:
+        print(did)
         did['state'] = ReplicaState.TEMPORARY_UNAVAILABLE
         rep.append(did)
 
+    time.sleep(10)  # Test broken if minos_tu_expiration excuted immediately. Threading effect ?
     # Run the minos expiration
-    minos_temp_run(threads=1, once=True)
+    minos_tu_expiration(once=True)
     # Check the state in the replica table
     for did in files:
         rep = get_replicas_state(scope=mock_scope, name=did['name'])
+        print(rep)
         assert list(rep.keys())[0] == ReplicaState.AVAILABLE
 
 
