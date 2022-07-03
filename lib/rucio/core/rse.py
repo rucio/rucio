@@ -1396,6 +1396,7 @@ MUTABLE_RSE_PROPERTIES = {
     'city',
     'staging_area',
     'qos_class',
+    'continent',
 }
 
 
