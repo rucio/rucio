@@ -34,6 +34,7 @@ from sqlalchemy.exc import DatabaseError
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
+from rucio.common.types import InternalAccount
 from rucio.common.logging import setup_logging
 from rucio.common.utils import dict_chunks
 from rucio.core import transfer as transfer_core, request as request_core
@@ -51,7 +52,7 @@ TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)  # NOTE: Thi
 FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)  # NOTE: TRANSFERTOOL to filter requests on
 
 
-def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, activity, heartbeat_handler):
+def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, activity, heartbeat_handler, oidc_account: str):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     start_time = time.time()
@@ -95,7 +96,10 @@ def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, 
                 if TRANSFER_TOOL == 'globus':
                     transfertool_obj = GlobusTransferTool(external_host=None)
                 else:
-                    transfertool_obj = FTS3Transfertool(external_host=external_host, vo=vo)
+                    account = None
+                    if oidc_account:
+                        account = InternalAccount(oidc_account, vo=vo)
+                    transfertool_obj = FTS3Transfertool(external_host=external_host, vo=vo, oidc_account=account)
                 worker_number, total_workers, logger = heartbeat_handler.live()
                 poll_transfers(transfertool_obj=transfertool_obj, transfers_by_eid=chunk, timeout=timeout, logger=logger)
             except Exception:
@@ -122,7 +126,10 @@ def poller(once=False, activities=None, sleep_time=60,
         timeout = None
 
     multi_vo = config_get_bool('common', 'multi_vo', False, None)
+    oidc_account = config_get('conveyor', 'poller_oidc_account', False, None)
+
     logger_prefix = executable = 'conveyor-poller'
+
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)
@@ -147,6 +154,7 @@ def poller(once=False, activities=None, sleep_time=60,
             activity_shares=activity_shares,
             multi_vo=multi_vo,
             timeout=timeout,
+            oidc_account=oidc_account,
         ),
         activities=activities,
     )
