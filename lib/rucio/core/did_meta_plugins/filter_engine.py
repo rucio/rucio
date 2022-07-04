@@ -48,6 +48,16 @@ ORACLE_OP_MAP = {
     operator.le: "<="
 }
 
+# lookup table converting pythonic operators to postgres operators
+POSTGRES_OP_MAP = {
+    operator.eq: "=",
+    operator.ne: "!=",
+    operator.gt: ">",
+    operator.lt: "<",
+    operator.ge: ">=",
+    operator.le: "<="
+}
+
 # understood date formats.
 VALID_DATE_FORMATS = (
     '%Y-%m-%d %H:%M:%S',
@@ -312,6 +322,79 @@ class FilterEngine:
 
         return query_str
 
+    def create_postgres_query(self, additional_filters={}, fixed_table_columns=('scope', 'name', 'vo'),
+                              jsonb_column='data'):
+        """
+        Returns a single postgres query describing the filters expression.
+
+        :param additional_filters: additional filters to be applied to all clauses.
+        :param fixed_table_columns: the table columns
+        :returns: a postgres query string describing the filters expression.
+        """
+        # Add additional filters, applied as AND clauses to each OR group.
+        for or_group in self._filters:
+            for _filter in additional_filters:
+                or_group.append(list(_filter))
+
+        or_expressions = []
+        for or_group in self._filters:
+            and_expressions = []
+            for and_group in or_group:
+                key, oper, value = and_group
+                if key in fixed_table_columns:                                              # is this key filtering on a column or in the jsonb?
+                    is_in_json_column = False
+                else:
+                    is_in_json_column = True
+                if isinstance(value, str) and any([char in value for char in ['*', '%']]):  # wildcards
+                    if value in ('*', '%', u'*', u'%'):                                     # match wildcard exactly == no filtering on key
+                        continue
+                    else:                                                                   # partial match with wildcard == like || notlike
+                        if oper == operator.eq:
+                            if is_in_json_column:
+                                expression = "{}->>'{}' LIKE '{}' ".format(jsonb_column, key, value.replace('*', '%').replace('_', '\_'))       # NOQA: W605
+                            else:
+                                expression = "{} LIKE '{}' ".format(key, value.replace('*', '%').replace('_', '\_'))                            # NOQA: W605
+                        elif oper == operator.ne:
+                            if is_in_json_column:
+                                expression = "{}->>'{}' NOT LIKE '{}' ".format(jsonb_column, key, value.replace('*', '%').replace('_', '\_'))   # NOQA: W605
+                            else:
+                                expression = "{} NOT LIKE '{}' ".format(key, value.replace('*', '%').replace('_', '\_'))                        # NOQA: W605
+                else:
+                    # Infer what type key should be cast to from typecasting the value in the expression.
+                    try:
+                        if isinstance(value, int):                                          # this could be bool or int (as bool subclass of int)
+                            if type(value) == bool:
+                                if is_in_json_column:
+                                    expression = "({}->>'{}')::boolean {} {}".format(jsonb_column, key, POSTGRES_OP_MAP[oper], str(value).lower())
+                                else:
+                                    expression = "{}::boolean {} {}".format(key, POSTGRES_OP_MAP[oper], str(value).lower())
+                            else:
+                                # cast as float, not integer, to avoid potentially losing precision in key
+                                if is_in_json_column:
+                                    expression = "({}->>'{}')::float {} {}".format(jsonb_column, key, POSTGRES_OP_MAP[oper], value)
+                                else:
+                                    expression = "{}::float {} {}".format(key, POSTGRES_OP_MAP[oper], value)
+                        elif isinstance(value, float):
+                            if is_in_json_column:
+                                expression = "({}->>'{}')::float {} {}".format(jsonb_column, key, POSTGRES_OP_MAP[oper], value)
+                            else:
+                                expression = "{}::float {} {}".format(key, POSTGRES_OP_MAP[oper], value)
+                        elif isinstance(value, datetime):
+                            if is_in_json_column:
+                                expression = "({}->>'{}')::timestamp {} '{}'".format(jsonb_column, key, POSTGRES_OP_MAP[oper], value)
+                            else:
+                                expression = "{}::timestamp {} '{}'".format(key, POSTGRES_OP_MAP[oper], value)
+                        else:
+                            if is_in_json_column:
+                                expression = "{}->>'{}' {} '{}'".format(jsonb_column, key, POSTGRES_OP_MAP[oper], value)
+                            else:
+                                expression = "{} {} '{}'".format(key, POSTGRES_OP_MAP[oper], value)
+                    except Exception as e:
+                        raise exception.FilterEngineGenericError(e)
+                and_expressions.append(expression)
+            or_expressions.append(' AND '.join(and_expressions))
+        return ' OR '.join(or_expressions)
+
     @read_session
     def create_sqla_query(self, session=None, additional_model_attributes=[], additional_filters={}, json_column=None):
         """
@@ -449,7 +532,7 @@ class FilterEngine:
     @staticmethod
     def print_query(statement, dialect=sqlalchemy.dialects.postgresql.dialect()):
         """
-        Generates SQL expression with parameters rendered inline.
+        Generates SQL expression from SQLA expression with parameters rendered inline.
 
         For debugging ONLY.
 

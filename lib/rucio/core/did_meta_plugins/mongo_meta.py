@@ -59,6 +59,7 @@ class MongoDidMeta(DidMetaPlugin):
         :param scope: The scope name
         :param name: The data identifier name
         :param session: The database session in use
+        :returns: The metadata for the did
         """
         # get first document with this did == _id
         doc = self.col.find_one({
@@ -89,7 +90,7 @@ class MongoDidMeta(DidMetaPlugin):
 
     def set_metadata_bulk(self, scope, name, meta, recursive=False, session=None):
         """
-        Set single metadata key.
+        Bulk set metadata keys.
 
         :param scope: the scope of did
         :param name: the name of the did

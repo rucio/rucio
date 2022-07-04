@@ -27,6 +27,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, delete_dids, set_metadata_bulk, set_dids_metadata_bulk
 from rucio.core.did_meta_plugins import list_dids, get_metadata, set_metadata
 from rucio.core.did_meta_plugins.mongo_meta import MongoDidMeta
+from rucio.core.did_meta_plugins.postgres_meta import ExternalPostgresJSONDidMeta
 from rucio.db.sqla.session import get_session
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import skip_rse_tests_with_accounts
@@ -302,6 +303,107 @@ class TestDidMetaMongo(unittest.TestCase):
         assert [tmp_dsn3] == results
 
         dids = self.mongo_meta.list_dids(self.tmp_scope, {meta_key1: meta_value1, meta_key2: meta_value2})
+        results = []
+        for d in dids:
+            results.append(d)
+        assert len(results) == 1
+        # assert [{'scope': (tmp_scope), 'name': tmp_dsn4}] == results
+        assert [tmp_dsn4] == results
+
+
+@pytest.mark.noparallel(reason='race condition on try-create table')
+@skip_rse_tests_with_accounts
+class TestDidMetaExternalPostgresJSON(unittest.TestCase):
+
+    def setUp(self):
+        self.session = get_session()
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': get_vo()}
+        else:
+            self.vo = {}
+        self.tmp_scope = InternalScope('mock', **self.vo)
+        self.root = InternalAccount('root', **self.vo)
+
+        self.postgres_json_meta = ExternalPostgresJSONDidMeta(
+            host='postgres',
+            port=5433,
+            db='metadata',
+            user='rucio',
+            password='secret',
+            db_schema='public',
+            table='dids',
+            table_is_managed=True,
+            table_column_vo='vo',
+            table_column_scope='scope',
+            table_column_name='name',
+            table_column_data='data',
+        )
+
+    def tearDown(self):
+        pass
+
+    @pytest.mark.dirty
+    def test_set_get_metadata(self):
+        """ DID Meta (POSTGRES_JSON): Get/set did meta """
+
+        did_name = 'mock_did_%s' % generate_uuid()
+        meta_key = 'my_key_%s' % generate_uuid()
+        meta_value = 'my_value_%s' % generate_uuid()
+        add_did(scope=self.tmp_scope, name=did_name, did_type='DATASET', account=self.root)
+        self.postgres_json_meta.set_metadata(scope=self.tmp_scope, name=did_name, key=meta_key, value=meta_value)
+        assert self.postgres_json_meta.get_metadata(scope=self.tmp_scope, name=did_name)[meta_key] == meta_value
+
+    @pytest.mark.dirty
+    def test_list_did_meta(self):
+        """ DID Meta (POSTGRES_JSON): List did meta """
+
+        meta_key1 = 'my_key_%s' % generate_uuid()
+        meta_key2 = 'my_key_%s' % generate_uuid()
+        meta_value1 = 'my_value_%s' % generate_uuid()
+        meta_value2 = 'my_value_%s' % generate_uuid()
+
+        tmp_dsn1 = 'dsn_%s' % generate_uuid()
+        add_did(scope=self.tmp_scope, name=tmp_dsn1, did_type="DATASET", account=self.root)
+        self.postgres_json_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn1, key=meta_key1, value=meta_value1)
+
+        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+        add_did(scope=self.tmp_scope, name=tmp_dsn2, did_type="DATASET", account=self.root)
+        self.postgres_json_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn2, key=meta_key1, value=meta_value2)
+
+        tmp_dsn3 = 'dsn_%s' % generate_uuid()
+        add_did(scope=self.tmp_scope, name=tmp_dsn3, did_type="DATASET", account=self.root)
+        self.postgres_json_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn3, key=meta_key2, value=meta_value1)
+
+        tmp_dsn4 = 'dsn_%s' % generate_uuid()
+        add_did(scope=self.tmp_scope, name=tmp_dsn4, did_type="DATASET", account=self.root)
+        self.postgres_json_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn4, key=meta_key1, value=meta_value1)
+        self.postgres_json_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn4, key=meta_key2, value=meta_value2)
+
+        dids = self.postgres_json_meta.list_dids(self.tmp_scope, {meta_key1: meta_value1})
+        results = sorted(list(dids))
+
+        assert len(results) == 2
+        # assert sorted([{'scope': tmp_scope, 'name': tmp_dsn1}, {'scope': tmp_scope, 'name': tmp_dsn4}]) == sorted(results)
+        expected = sorted([tmp_dsn1, tmp_dsn4])
+        assert expected == results
+
+        dids = self.postgres_json_meta.list_dids(self.tmp_scope, {meta_key1: meta_value2})
+        results = []
+        for d in dids:
+            results.append(d)
+        assert len(results) == 1
+        # assert [{'scope': (tmp_scope), 'name': str(tmp_dsn2)}] == results
+        assert [tmp_dsn2] == results
+
+        dids = self.postgres_json_meta.list_dids(self.tmp_scope, {meta_key2: meta_value1})
+        results = []
+        for d in dids:
+            results.append(d)
+        assert len(results) == 1
+        # assert [{'scope': (tmp_scope), 'name': tmp_dsn3}] == results
+        assert [tmp_dsn3] == results
+
+        dids = self.postgres_json_meta.list_dids(self.tmp_scope, {meta_key1: meta_value1, meta_key2: meta_value2})
         results = []
         for d in dids:
             results.append(d)
