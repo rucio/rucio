@@ -1049,3 +1049,13 @@ class FilterEngineGenericError(RucioException):
         super(FilterEngineGenericError, self).__init__(*args, **kwargs)
         self._message = 'Generic filter engine error.'
         self.error_code = 101
+
+
+class MetadataSchemaMismatchError(RucioException):
+    """
+    External table does not match expected table schema.
+    """
+    def __init__(self, *args, **kwargs):
+        super(MetadataSchemaMismatchError, self).__init__(*args, **kwargs)
+        self._message = 'The external table does not match the expected table schema.'
+        self.error_code = 102

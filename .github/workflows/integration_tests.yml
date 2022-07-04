@@ -168,5 +168,7 @@ jobs:
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_download.py::test_download_from_archive_on_xrd
       - name: Test external metadata plugin (mongo)
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_did_meta_plugins.py::TestDidMetaMongo
+      - name: Test external metadata plugin (postgres)
+        run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_did_meta_plugins.py::TestDidMetaExternalPostgresJSON
       - name: Stop containers
         run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage-externalmetadata.yml down
