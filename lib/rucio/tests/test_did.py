@@ -29,7 +29,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
                             get_metadata, set_metadata, get_did, get_did_access_cnt, add_did_to_followed,
                             get_users_following_did, remove_did_from_followed, set_status)
-from rucio.core.replica import add_replica
+from rucio.core.replica import add_replica, get_replica
 from rucio.db.sqla.constants import DIDType
 from rucio.tests.common import rse_name_generator, scope_name_generator
 
@@ -89,17 +89,23 @@ class TestDIDCore:
         assert 100 == get_did_access_cnt(scope=mock_scope, name=tmp_dsn1)
         assert get_did_access_cnt(scope=mock_scope, name=tmp_dsn2) is None
 
-    def test_update_dids(self, vo, mock_scope, root_account, rse_factory):
+    @pytest.mark.parametrize("file_config_mock", [
+        # Run test twice: with, and without, temp tables
+        {"overrides": [('core', 'use_temp_tables', 'True')]},
+        {"overrides": [('core', 'use_temp_tables', 'False')]},
+    ], indirect=True)
+    def test_update_dids(self, vo, mock_scope, root_account, rse_factory, file_config_mock):
         """ DATA IDENTIFIERS (CORE): Update file size and checksum"""
         rse, rse_id = rse_factory.make_mock_rse()
         dsn = 'dsn_%s' % generate_uuid()
         lfn = 'lfn.%s' % str(generate_uuid())
-        add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+        add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account, meta='')
 
         files = [{'scope': mock_scope, 'name': lfn,
                   'bytes': 724963570, 'adler32': '0cc737eb',
                   'meta': {'guid': str(generate_uuid()), 'events': 100}}]
         attach_dids(scope=mock_scope, name=dsn, rse_id=rse_id, dids=files, account=root_account)
+        assert get_replica(rse_id=rse_id, scope=mock_scope, name=lfn)
 
         set_metadata(scope=mock_scope, name=lfn, key='adler32', value='0cc737ee')
         assert get_metadata(scope=mock_scope, name=lfn)['adler32'] == '0cc737ee'
@@ -153,7 +159,12 @@ class TestDIDCore:
         assert did1['length'] == 0
         assert did1['bytes'] == 0
 
-    def test_reattach_dids(self, vo, mock_scope, root_account, rse_factory):
+    @pytest.mark.parametrize("file_config_mock", [
+        # Run test twice: with, and without, temp tables
+        {"overrides": [('core', 'use_temp_tables', 'True')]},
+        {"overrides": [('core', 'use_temp_tables', 'False')]},
+    ], indirect=True)
+    def test_reattach_dids(self, vo, mock_scope, root_account, rse_factory, file_config_mock):
         """ DATA IDENTIFIERS (CORE): Repeatedly attach and detach DIDs """
         rse, rse_id = rse_factory.make_mock_rse()
         parent_name = 'parent_%s' % generate_uuid()
@@ -224,7 +235,12 @@ class TestDIDCore:
 
         assert rows == 0
 
-    def test_circular_attach(self, root_account, rse_factory, did_factory):
+    @pytest.mark.parametrize("file_config_mock", [
+        # Run test twice: with, and without, temp tables
+        {"overrides": [('core', 'use_temp_tables', 'True')]},
+        {"overrides": [('core', 'use_temp_tables', 'False')]},
+    ], indirect=True)
+    def test_circular_attach(self, root_account, rse_factory, did_factory, file_config_mock):
         """ Ensure that it's not possible to create a circular attachment of containers"""
         container1 = did_factory.make_container()
         container2 = did_factory.make_container()
