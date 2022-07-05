@@ -58,7 +58,7 @@ if __name__ == "__main__":
     PARSER = get_parser()
     ARGS = PARSER.parse_args()
     try:
-        run(once=ARGS.run_once, max_rows=ARGS.max_rows, loop_rate=ARGS.loop_rate, threads=ARGS.threads,
+        run(once=ARGS.run_once, max_rows=ARGS.max_rows, threads=ARGS.threads,
             sleep_time=ARGS.sleep_time)
     except KeyboardInterrupt:
         stop()
