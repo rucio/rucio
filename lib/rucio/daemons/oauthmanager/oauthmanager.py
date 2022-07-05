@@ -170,7 +170,7 @@ def run_once(heartbeat_handler, max_rows, sleep_time, **_kwargs):
     return
 
 
-def run(once: bool = False, threads: int = 1, loop_rate: int = 300, max_rows: int = 100, sleep_time: int = 300) -> None:
+def run(once: bool = False, threads: int = 1, max_rows: int = 100, sleep_time: int = 300) -> None:
     """
     Starts up the OAuth Manager threads.
     """

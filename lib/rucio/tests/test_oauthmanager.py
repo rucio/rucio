@@ -258,7 +258,7 @@ class TestOAuthManager(unittest.TestCase):
 
         # Run replica recoverer once
         try:
-            run(once=True, max_rows=100, loop_rate=600)
+            run(once=True, max_rows=100)
         except KeyboardInterrupt:
             stop()
 
