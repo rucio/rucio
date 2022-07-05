@@ -969,19 +969,8 @@ def _sort_replica_file_pfns(file):
             file['rses'][t_rse] = [t_pfn]
 
 
-def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
-                   schemes, files_wo_replica, rse_clause, client_location, domain,
-                   sign_urls, signature_lifetime, constituent_clause, resolve_parents,
-                   updated_after, filters, ignore_availability,
-                   session):
-
-    # iterator which merges multiple sorted replica sources into a combine sorted result without loading everything into the memory
-    replicas = heapq.merge(
-        _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session),
-        _list_replicas_for_files(file_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session),
-        _list_replicas_for_constituents(constituent_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session),
-        key=lambda t: (t[0], t[1]),  # sort by scope, name
-    )
+def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_location, domain,
+                   sign_urls, signature_lifetime, resolve_parents, filters, session):
 
     # we need to retain knowledge of the original domain selection by the user
     # in case we have to loop over replicas with a potential outgoing proxy
@@ -1252,13 +1241,18 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
         for rse in parse_expression(expression=rse_expression, filter_=filter_, session=session):
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
 
+    # iterator which merges multiple sorted replica sources into a combine sorted result without loading everything into the memory
+    replica_tuples = heapq.merge(
+        _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session),
+        _list_replicas_for_files(file_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session),
+        _list_replicas_for_constituents(constituent_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session),
+        key=lambda t: (t[0], t[1]),  # sort by scope, name
+    )
+
     yield from _pick_n_random(
         nrandom,
-        _list_replicas(dataset_clause, file_clause, state_clause, pfns,
-                       schemes, files_wo_replica, rse_clause, client_location, domain,
-                       sign_urls, signature_lifetime, constituent_clause, resolve_parents,
-                       updated_after, filter_, ignore_availability,
-                       session)
+        _list_replicas(replica_tuples, pfns, schemes, files_wo_replica, client_location, domain,
+                       sign_urls, signature_lifetime, resolve_parents, filter_, session)
     )
 
 
