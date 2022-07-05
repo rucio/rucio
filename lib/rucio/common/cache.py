@@ -14,7 +14,6 @@
 # limitations under the License.
 from __future__ import absolute_import
 
-import logging
 from dogpile.cache import make_region
 
 from rucio.common.config import config_get
@@ -32,10 +31,8 @@ try:
         _mc_client = pymemcache.Client(CACHE_URL, connect_timeout=1, timeout=1)
         _mc_client.version()
 except IOError:
-    logging.warning("Cannot connect to memcached at {}. Caching will be disabled".format(CACHE_URL))
     ENABLE_CACHING = False
 except ImportError:
-    logging.warning("Cannot import pymemcache. Caching will be disabled")
     ENABLE_CACHING = False
 finally:
     if _mc_client:
