@@ -227,8 +227,8 @@ class TestReplicaRecoverer(unittest.TestCase):
                 assert replica['states'][self.rse4suspicious_id] == 'AVAILABLE'
                 assert (self.rse4recovery_id in replica['states']) is False
             if replica['name'] == path.basename(self.tmp_file4):
-                # The key 'state' only exists if the replica is available on at least one RSE. It shouldn't exist for tmp_file4.
-                assert ('states' in replica) is False
+                # The 'states' should be empty if the replica isn't available on at least one RSE
+                assert not replica.get('states')
             if replica['name'] == path.basename(self.tmp_file5):
                 assert replica['states'][self.rse4suspicious_id] == 'AVAILABLE'
                 assert (self.rse4recovery_id in replica['states']) is False

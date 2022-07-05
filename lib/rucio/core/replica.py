@@ -35,7 +35,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
 from sqlalchemy.sql import label
-from sqlalchemy.sql.expression import case, select, text, false, true, null
+from sqlalchemy.sql.expression import case, select, text, false, true, null, literal
 
 import rucio.core.did
 import rucio.core.lock
@@ -59,7 +59,7 @@ from rucio.db.sqla.util import temp_table_mngr
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Tuple, Optional, Sequence
+    from typing import Any, Dict, Optional, Sequence
     from sqlalchemy.orm import Session
 
 REGION = make_region_memcached(expiration_time=60)
@@ -623,79 +623,22 @@ def get_did_from_pfns(pfns, rse_id=None, vo='def', session=None):
                 yield {pfndict[pfn]: {'scope': scope, 'name': name}}
 
 
-def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_archives, session):
+def _resolve_datasets(input_dids_temp_table, session):
     """
-    Resolve list of DIDs into a list of conditions.
-
-    :param dids: The list of data identifiers (DIDs).
-    :param unavailable: (deprecated) Also include unavailable replicas in the list.
-    :param ignore_availability: Ignore the RSE blocklisting.
-    :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
-    :param resolve_archives: When set to true, find archives which contain the replicas.
-    :param session: The database session in use.
+    Resolve all containers from the input data into datasets and return them in a newly
+    created temporary table.
     """
-    did_clause, dataset_clause, file_clause, constituent_clause = [], [], [], []
-    # Accumulate all the dids which were requested explicitly (not via a container/dataset).
-    # If any replicas for these dids will be found latter, the associated did will be removed from the list,
-    # leaving, at the end, only the requested dids which didn't have any replicas at all.
-    files_wo_replica = []
-    for did in [dict(tupleized) for tupleized in set(tuple(item.items()) for item in dids)]:
-        if 'type' in did and did['type'] in (DIDType.FILE, DIDType.FILE.value) or 'did_type' in did and did['did_type'] in (DIDType.FILE, DIDType.FILE.value):  # pylint: disable=no-member
-            files_wo_replica.append({'scope': did['scope'], 'name': did['name']})
-            file_clause.append(and_(models.RSEFileAssociation.scope == did['scope'],
-                                    models.RSEFileAssociation.name == did['name']))
+    resolved_datasets_temp_table = temp_table_mngr(session).create_scope_name_table()
 
-        else:
-            did_clause.append(and_(models.DataIdentifier.scope == did['scope'],
-                                   models.DataIdentifier.name == did['name']))
+    stmt = insert(
+        resolved_datasets_temp_table
+    ).from_select(
+        ['scope', 'name'],
+        rucio.core.did.list_child_dids_stmt(input_dids_temp_table, did_type=DIDType.DATASET, including_input_dids=True)
+    )
+    session.execute(stmt)
 
-    if did_clause:
-        for scope, name, did_type, constituent in session.query(models.DataIdentifier.scope,
-                                                                models.DataIdentifier.name,
-                                                                models.DataIdentifier.did_type,
-                                                                models.DataIdentifier.constituent)\
-                                                         .with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')\
-                                                         .filter(or_(*did_clause)):
-            if resolve_archives and constituent:
-                constituent_clause.append(and_(models.ConstituentAssociation.child_scope == scope,
-                                               models.ConstituentAssociation.child_name == name))
-
-            if did_type == DIDType.FILE:
-                files_wo_replica.append({'scope': scope, 'name': name})
-                file_clause.append(and_(models.RSEFileAssociation.scope == scope,
-                                        models.RSEFileAssociation.name == name))
-
-            elif did_type == DIDType.DATASET:
-                dataset_clause.append(and_(models.DataIdentifierAssociation.scope == scope,
-                                           models.DataIdentifierAssociation.name == name))
-
-            else:  # Container
-                content_query = session.query(models.DataIdentifierAssociation.child_scope,
-                                              models.DataIdentifierAssociation.child_name,
-                                              models.DataIdentifierAssociation.child_type)
-                content_query = content_query.with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
-                child_dids = [(scope, name)]
-                while child_dids:
-                    s, n = child_dids.pop()
-                    for tmp_did in content_query.filter_by(scope=s, name=n):
-                        if tmp_did.child_type == DIDType.DATASET:
-                            dataset_clause.append(and_(models.DataIdentifierAssociation.scope == tmp_did.child_scope,
-                                                       models.DataIdentifierAssociation.name == tmp_did.child_name))
-
-                        else:
-                            child_dids.append((tmp_did.child_scope, tmp_did.child_name))
-
-    state_clause = None
-    if not all_states:
-        if not unavailable:
-            state_clause = and_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
-
-        else:
-            state_clause = or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                               models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
-                               models.RSEFileAssociation.state == ReplicaState.COPYING)
-
-    return file_clause, dataset_clause, state_clause, constituent_clause, files_wo_replica
+    return resolved_datasets_temp_table
 
 
 def _pick_n_random(nrandom, generator):
@@ -733,153 +676,118 @@ def _pick_n_random(nrandom, generator):
         yield r
 
 
-def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session):
+def _list_replicas_for_datasets(datasets_temp_table, replicas_subquery, session):
     """
     List file replicas for a list of datasets.
 
     :param session: The database session in use.
     """
-    if not dataset_clause:
-        return
 
-    replica_query = session.query(models.DataIdentifierAssociation.child_scope,
-                                  models.DataIdentifierAssociation.child_name,
-                                  models.DataIdentifierAssociation.bytes,
-                                  models.DataIdentifierAssociation.md5,
-                                  models.DataIdentifierAssociation.adler32,
-                                  models.RSEFileAssociation.path,
-                                  models.RSEFileAssociation.state,
-                                  models.RSE.id,
-                                  models.RSE.rse,
-                                  models.RSE.rse_type,
-                                  models.RSE.volatile).\
-        with_hint(models.RSEFileAssociation,
-                  text="INDEX_RS_ASC(CONTENTS CONTENTS_PK) INDEX_RS_ASC(REPLICAS REPLICAS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                  dialect_name='oracle').\
-        outerjoin(models.RSEFileAssociation,
-                  and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                       models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)).\
-        join(models.RSE, models.RSE.id == models.RSEFileAssociation.rse_id).\
-        filter(models.RSE.deleted == false()).\
-        filter(or_(*dataset_clause)).\
-        order_by(models.DataIdentifierAssociation.child_scope,
-                 models.DataIdentifierAssociation.child_name)
-
-    if not ignore_availability:
-        replica_query = replica_query.filter(models.RSE.availability.in_((4, 5, 6, 7)))
-
-    if state_clause is not None:
-        replica_query = replica_query.filter(and_(state_clause))
-
-    if rse_clause is not None:
-        replica_query = replica_query.filter(or_(*rse_clause))
-
-    if updated_after:
-        replica_query = replica_query.filter(models.RSEFileAssociation.updated_at >= updated_after)
-
-    for scope, name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_query.yield_per(500):
-        yield scope, name, None, None, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile
+    stmt = select(
+        models.DataIdentifierAssociation.child_scope.label('scope'),
+        models.DataIdentifierAssociation.child_name.label('name'),
+        literal(None).label('archive_scope'),
+        literal(None).label('archive_name'),
+        models.DataIdentifierAssociation.bytes,
+        models.DataIdentifierAssociation.md5,
+        models.DataIdentifierAssociation.adler32,
+        replicas_subquery.c.path,
+        replicas_subquery.c.state,
+        replicas_subquery.c.rse_id,
+        replicas_subquery.c.rse_name,
+        replicas_subquery.c.rse_type,
+        replicas_subquery.c.volatile,
+    ).join_from(
+        datasets_temp_table,
+        models.DataIdentifierAssociation,
+        and_(models.DataIdentifierAssociation.scope == datasets_temp_table.scope,
+             models.DataIdentifierAssociation.name == datasets_temp_table.name),
+    ).join(
+        replicas_subquery,
+        and_(models.DataIdentifierAssociation.child_scope == replicas_subquery.c.scope,
+             models.DataIdentifierAssociation.child_name == replicas_subquery.c.name),
+    ).order_by(
+        models.DataIdentifierAssociation.child_scope,
+        models.DataIdentifierAssociation.child_name,
+    )
+    yield from session.execute(stmt)
 
 
-def _list_replicas_for_constituents(constituent_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session):
+def _list_replicas_for_constituents(input_dids_temp_table, replicas_subquery, session):
     """
     List file replicas for archive constituents.
     """
-    if not constituent_clause:
-        return
-
-    constituent_query = session.query(models.ConstituentAssociation.child_scope,
-                                      models.ConstituentAssociation.child_name,
-                                      models.ConstituentAssociation.scope,
-                                      models.ConstituentAssociation.name,
-                                      models.ConstituentAssociation.bytes,
-                                      models.ConstituentAssociation.md5,
-                                      models.ConstituentAssociation.adler32,
-                                      models.RSEFileAssociation.path,
-                                      models.RSEFileAssociation.state,
-                                      models.RSE.id,
-                                      models.RSE.rse,
-                                      models.RSE.rse_type,
-                                      models.RSE.volatile). \
-        with_hint(models.RSEFileAssociation,
-                  text="INDEX_RS_ASC(CONTENTS CONTENTS_PK) INDEX_RS_ASC(REPLICAS REPLICAS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                  dialect_name='oracle'). \
-        with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle'). \
-        outerjoin(models.RSEFileAssociation,
-                  and_(models.ConstituentAssociation.scope == models.RSEFileAssociation.scope,
-                       models.ConstituentAssociation.name == models.RSEFileAssociation.name)). \
-        join(models.RSE, models.RSE.id == models.RSEFileAssociation.rse_id). \
-        filter(models.RSE.deleted == false()). \
-        filter(or_(*constituent_clause)). \
-        order_by(models.ConstituentAssociation.child_scope,
-                 models.ConstituentAssociation.child_name)
-
-    if not ignore_availability:
-        constituent_query = constituent_query.filter(models.RSE.availability.in_((4, 5, 6, 7)))
-
-    if state_clause is not None:
-        constituent_query = constituent_query.filter(and_(state_clause))
-
-    if rse_clause is not None:
-        constituent_query = constituent_query.filter(or_(*rse_clause))
-
-    if updated_after:
-        constituent_query = constituent_query.filter(models.RSEFileAssociation.updated_at >= updated_after)
-
-    for replica in constituent_query.yield_per(500):
-        scope, name = replica[0], replica[1]
-        {'scope': scope, 'name': name} in files_wo_replica and files_wo_replica.remove({'scope': scope, 'name': name})
-        yield replica
+    stmt = select(
+        models.ConstituentAssociation.child_scope.label('scope'),
+        models.ConstituentAssociation.child_name.label('name'),
+        models.ConstituentAssociation.scope.label('archive_scope'),
+        models.ConstituentAssociation.name.label('archive_name'),
+        models.ConstituentAssociation.bytes,
+        models.ConstituentAssociation.md5,
+        models.ConstituentAssociation.adler32,
+        replicas_subquery.c.path,
+        replicas_subquery.c.state,
+        replicas_subquery.c.rse_id,
+        replicas_subquery.c.rse_name,
+        replicas_subquery.c.rse_type,
+        replicas_subquery.c.volatile,
+    ).join_from(
+        input_dids_temp_table,
+        models.DataIdentifier,
+        and_(models.DataIdentifier.scope == input_dids_temp_table.scope,
+             models.DataIdentifier.name == input_dids_temp_table.name,
+             models.DataIdentifier.did_type == DIDType.FILE,
+             models.DataIdentifier.constituent == true()),
+    ).join(
+        models.ConstituentAssociation,
+        and_(models.ConstituentAssociation.child_scope == input_dids_temp_table.scope,
+             models.ConstituentAssociation.child_name == input_dids_temp_table.name)
+    ).join(
+        replicas_subquery,
+        and_(replicas_subquery.c.scope == models.ConstituentAssociation.scope,
+             replicas_subquery.c.name == models.ConstituentAssociation.name),
+    ).order_by(
+        models.ConstituentAssociation.child_scope,
+        models.ConstituentAssociation.child_name,
+    )
+    yield from session.execute(stmt)
 
 
-def _list_replicas_for_files(file_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session):
+def _list_replicas_for_files(input_dids_temp_table, replicas_subquery, session):
     """
     List file replicas for a list of files.
 
     :param session: The database session in use.
     """
-    if not file_clause:
-        return
-
-    for replica_condition in chunks(file_clause, 50):
-        filters = [
-            models.RSEFileAssociation.rse_id == models.RSE.id,
-            models.RSE.deleted == false(),
-            or_(*replica_condition),
-        ]
-
-        if not ignore_availability:
-            filters.append(models.RSE.availability.in_((4, 5, 6, 7)))
-
-        if state_clause is not None:
-            filters.append(state_clause)
-
-        if rse_clause:
-            filters.append(or_(*rse_clause))
-
-        if updated_after:
-            filters.append(models.RSEFileAssociation.updated_at >= updated_after)
-
-        replica_query = session.query(
-            models.RSEFileAssociation.scope,
-            models.RSEFileAssociation.name,
-            models.RSEFileAssociation.bytes,
-            models.RSEFileAssociation.md5,
-            models.RSEFileAssociation.adler32,
-            models.RSEFileAssociation.path,
-            models.RSEFileAssociation.state,
-            models.RSE.id,
-            models.RSE.rse,
-            models.RSE.rse_type,
-            models.RSE.volatile,
-        ) \
-            .filter(and_(*filters)) \
-            .order_by(models.RSEFileAssociation.scope, models.RSEFileAssociation.name) \
-            .with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle')
-
-        for scope, name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_query.all():
-            {'scope': scope, 'name': name} in files_wo_replica and files_wo_replica.remove({'scope': scope, 'name': name})
-            yield scope, name, None, None, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile
+    stmt = select(
+        input_dids_temp_table.scope.label('scope'),
+        input_dids_temp_table.name.label('name'),
+        literal(None).label('archive_scope'),
+        literal(None).label('archive_name'),
+        models.DataIdentifier.bytes,
+        models.DataIdentifier.md5,
+        models.DataIdentifier.adler32,
+        replicas_subquery.c.path,
+        replicas_subquery.c.state,
+        replicas_subquery.c.rse_id,
+        replicas_subquery.c.rse_name,
+        replicas_subquery.c.rse_type,
+        replicas_subquery.c.volatile,
+    ).join_from(
+        input_dids_temp_table,
+        models.DataIdentifier,
+        and_(models.DataIdentifier.scope == input_dids_temp_table.scope,
+             models.DataIdentifier.name == input_dids_temp_table.name,
+             models.DataIdentifier.did_type == DIDType.FILE),
+    ).outerjoin(
+        replicas_subquery,
+        and_(replicas_subquery.c.scope == input_dids_temp_table.scope,
+             replicas_subquery.c.name == input_dids_temp_table.name),
+    ).order_by(
+        input_dids_temp_table.scope,
+        input_dids_temp_table.name,
+    )
+    yield from session.execute(stmt)
 
 
 def _list_files_wo_replicas(files_wo_replica, session):
@@ -992,7 +900,8 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
     file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
 
     for scope, name, archive_scope, archive_name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replicas:
-
+        if isinstance(archive_scope, str):
+            archive_scope = InternalScope(archive_scope, fromExternal=False)
         pfns = []
 
         # reset the domain selection to original user's choice (as this could get overwritten each iteration)
@@ -1270,36 +1179,86 @@ def _list_replicas_with_temp_tables(
         updated_after: "Optional[datetime]" = None,
         session: "Optional[Session]" = None,
 ):
+
+    def _replicas_filter_subquery():
+        """
+        Build the sub-query used to filter replicas according to list_replica's input arguments
+        """
+        stmt = select(
+            models.RSEFileAssociation.scope,
+            models.RSEFileAssociation.name,
+            models.RSEFileAssociation.path,
+            models.RSEFileAssociation.state,
+            models.RSE.id.label('rse_id'),
+            models.RSE.rse.label('rse_name'),
+            models.RSE.rse_type,
+            models.RSE.volatile,
+        ).join(
+            models.RSE,
+            and_(models.RSE.id == models.RSEFileAssociation.rse_id,
+                 models.RSE.deleted == false())
+        )
+
+        if not ignore_availability:
+            stmt = stmt.where(models.RSE.availability.in_((4, 5, 6, 7)))
+
+        if updated_after:
+            stmt = stmt.where(models.RSEFileAssociation.updated_at >= updated_after)
+
+        if rse_expression:
+            rses = parse_expression(expression=rse_expression, filter_=filter_, session=session)
+            # When the number of RSEs is small, don't go through the overhead of
+            # creating and using a temporary table. Rely on a simple "in" query.
+            # The number "4" was picked without any particular reason
+            if 0 < len(rses) < 4:
+                stmt = stmt.where(models.RSE.id.in_([rse['id'] for rse in rses]))
+            else:
+                rses_temp_table = temp_table_mngr(session).create_id_table()
+                session.bulk_insert_mappings(rses_temp_table, [{'id': rse['id'] for rse in rses}])
+                stmt = stmt.join(rses_temp_table, models.RSE.id == rses_temp_table.id)
+
+        if not all_states:
+            if not unavailable:
+                state_clause = models.RSEFileAssociation.state == ReplicaState.AVAILABLE
+            else:
+                state_clause = or_(
+                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                    models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
+                    models.RSEFileAssociation.state == ReplicaState.COPYING
+                )
+            stmt = stmt.where(state_clause)
+
+        return stmt.subquery()
+
     if dids:
         filter_ = {'vo': dids[0]['scope'].vo}
     else:
         filter_ = {'vo': 'def'}
 
-    file_clause, dataset_clause, state_clause, constituent_clause, files_wo_replica = _resolve_dids(
-        dids=dids,
-        unavailable=unavailable,
-        ignore_availability=ignore_availability,
-        all_states=all_states,
-        resolve_archives=resolve_archives,
-        session=session
-    )
+    dids = {(did['scope'], did['name']): did for did in dids}  # Deduplicate input
+    input_dids_temp_table = temp_table_mngr(session).create_scope_name_table()
+    session.bulk_insert_mappings(input_dids_temp_table, [{'scope': s, 'name': n} for s, n in dids])
 
-    rse_clause = []
-    if rse_expression:
-        for rse in parse_expression(expression=rse_expression, filter_=filter_, session=session):
-            rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
+    datasets_temp_table = _resolve_datasets(input_dids_temp_table, session)
+    replicas_subquery = _replicas_filter_subquery()
 
-    # iterator which merges multiple sorted replica sources into a combine sorted result without loading everything into the memory
+    replica_sources = [
+        _list_replicas_for_datasets(datasets_temp_table, replicas_subquery, session=session),
+        _list_replicas_for_files(input_dids_temp_table, replicas_subquery, session=session),
+    ]
+    if resolve_archives:
+        replica_sources.append(
+            _list_replicas_for_constituents(input_dids_temp_table, replicas_subquery, session=session),
+        )
+
     replica_tuples = heapq.merge(
-        _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session),
-        _list_replicas_for_files(file_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session),
-        _list_replicas_for_constituents(constituent_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session),
+        *replica_sources,
         key=lambda t: (t[0], t[1]),  # sort by scope, name
     )
 
     yield from _pick_n_random(
         nrandom,
-        _list_replicas(replica_tuples, pfns, schemes, files_wo_replica, client_location, domain,
+        _list_replicas(replica_tuples, pfns, schemes, [], client_location, domain,
                        sign_urls, signature_lifetime, resolve_parents, filter_, session)
     )
 
