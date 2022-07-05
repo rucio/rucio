@@ -48,7 +48,7 @@ from rucio.daemons.common import run_daemon
 graceful_stop = threading.Event()
 
 
-def OAuthManager(once=False, max_rows=100, sleep_time=300):
+def OAuthManager(once: bool = False, max_rows: int = 100, sleep_time: int = 300) -> None:
     """
     Main loop to delete all expired tokens, refresh tokens eligible
     for refresh and delete all expired OAuth session parameters.
@@ -162,7 +162,7 @@ def run_once(heartbeat_handler, max_rows, sleep_time, **_kwargs):
         return
 
 
-def run(once=False, threads=1, loop_rate=300, max_rows=100, sleep_time=300):
+def run(once: bool = False, threads: int = 1, loop_rate: int = 300, max_rows: int = 100, sleep_time: int = 300) -> None:
     """
     Starts up the OAuth Manager threads.
     """
@@ -187,7 +187,7 @@ def run(once=False, threads=1, loop_rate=300, max_rows=100, sleep_time=300):
             _ = [t.join(timeout=3.14) for t in threads]
 
 
-def stop():
+def stop() -> None:
     """
     Graceful exit.
     """
