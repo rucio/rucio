@@ -26,8 +26,8 @@ can be specified by 'max_rows' parameter.
 
 """
 
+import functools
 import logging
-import os
 import socket
 import threading
 import time
@@ -38,51 +38,56 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException
-from rucio.common.logging import setup_logging, formatted_logger
-from rucio.common.utils import daemon_sleep
+from rucio.common.logging import setup_logging
 from rucio.core.authentication import delete_expired_tokens
-from rucio.core.heartbeat import die, live, sanity_check
-from rucio.core.monitor import record_counter, Timer
+from rucio.core.heartbeat import sanity_check
+from rucio.core.monitor import record_counter, record_timer
 from rucio.core.oidc import delete_expired_oauthrequests, refresh_jwt_tokens
+from rucio.daemons.common import run_daemon
 
-GRACEFUL_STOP = threading.Event()
+graceful_stop = threading.Event()
 
 
-def OAuthManager(once=False, loop_rate=300, max_rows=100, sleep_time=300):
+def OAuthManager(once=False, max_rows=100, sleep_time=300):
     """
     Main loop to delete all expired tokens, refresh tokens eligible
     for refresh and delete all expired OAuth session parameters.
     It was decided to have only 1 daemon for all 3 of these cleanup activities.
 
     :param once: If True, the loop is run just once, otherwise the daemon continues looping until stopped.
-    :param loop_rate: obsolete, please use sleep_time instead. The number of seconds the daemon will wait before running next loop of operations.
     :param max_rows: Max number of DB rows to deal with per operation.
     :param sleep_time: The number of seconds the daemon will wait before running next loop of operations.
 
     :returns: None
     """
-    if sleep_time == OAuthManager.__defaults__[3] and loop_rate != OAuthManager.__defaults__[1]:
-        sleep_time = loop_rate
 
-    executable = 'oauth-manager'
+    run_daemon(
+        once=once,
+        graceful_stop=graceful_stop,
+        executable='oauth-manager',
+        logger_prefix='OAuthManager',
+        partition_wait_time=1,
+        sleep_time=sleep_time,
+        run_once_fnc=functools.partial(
+            run_once,
+            max_rows=max_rows,
+            sleep_time=sleep_time
+        ),
+    )
 
-    sanity_check(executable=executable, hostname=socket.gethostname())
 
-    # make an initial heartbeat
-    heartbeat = live(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
-    prepend_str = 'oauth_manager [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-    logger = formatted_logger(logging.log, prepend_str + '%s')
+def run_once(heartbeat_handler, max_rows, sleep_time, **_kwargs):
+
+    _, _, logger = heartbeat_handler.live()
 
     # wait a moment in case all workers started at the same time
-    GRACEFUL_STOP.wait(1)
+    graceful_stop.wait(1)
 
-    while not GRACEFUL_STOP.is_set():
-        start_time = time.time()
-        timer = Timer()
-        # issuing the heartbeat for a second time to make all workers aware of each other
-        heartbeat = live(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
-        prepend_str = 'oauth_manager [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-        logger = formatted_logger(logging.log, prepend_str + '%s')
+    if True:
+        start = time.time()
+
+        worker_number, total_workers, logger = heartbeat_handler.live()
+
         ndeleted = 0
         ndeletedreq = 0
         nrefreshed = 0
@@ -91,7 +96,7 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100, sleep_time=300):
             # ACCESS TOKEN REFRESH - better to run first (in case some of the refreshed tokens needed deletion after this step)
             logger(logging.INFO, '----- START ----- ACCESS TOKEN REFRESH ----- ')
             logger(logging.INFO, 'starting to query tokens for automatic refresh')
-            nrefreshed = refresh_jwt_tokens(heartbeat['nr_threads'], heartbeat['assign_thread'] + 1, refreshrate=int(sleep_time), limit=max_rows)
+            nrefreshed = refresh_jwt_tokens(total_workers, worker_number, refreshrate=int(sleep_time), limit=max_rows)
             logger(logging.INFO, 'successfully refreshed %i tokens', nrefreshed)
             logger(logging.INFO, '----- END ----- ACCESS TOKEN REFRESH ----- ')
             record_counter(name='oauth_manager.tokens.refreshed', delta=nrefreshed)
@@ -106,18 +111,16 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100, sleep_time=300):
             else:
                 logger(logging.CRITICAL, traceback.format_exc())
                 record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
-        except Exception as err:
-            logger(logging.CRITICAL, traceback.format_exc())
-            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
 
         try:
             # waiting 1 sec as DBs does not store milisecond and tokens
             # eligible for deletion after refresh might not get dleeted otherwise
-            GRACEFUL_STOP.wait(1)
+            graceful_stop.wait(1)
+
             # EXPIRED TOKEN DELETION
             logger(logging.INFO, '----- START ----- DELETION OF EXPIRED TOKENS ----- ')
             logger(logging.INFO, 'starting to delete expired tokens')
-            ndeleted += delete_expired_tokens(heartbeat['nr_threads'], heartbeat['assign_thread'] + 1, limit=max_rows)
+            ndeleted += delete_expired_tokens(total_workers, worker_number, limit=max_rows)
             logger(logging.INFO, 'deleted %i expired tokens', ndeleted)
             logger(logging.INFO, '----- END ----- DELETION OF EXPIRED TOKENS ----- ')
             record_counter(name='oauth_manager.tokens.deleted', delta=ndeleted)
@@ -132,15 +135,12 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100, sleep_time=300):
             else:
                 logger(logging.CRITICAL, traceback.format_exc())
                 record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
-        except Exception as err:
-            logger(logging.CRITICAL, traceback.format_exc())
-            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
 
         try:
             # DELETING EXPIRED OAUTH SESSION PARAMETERS
             logger(logging.INFO, '----- START ----- DELETION OF EXPIRED OAUTH SESSION REQUESTS ----- ')
             logger(logging.INFO, 'starting deletion of expired OAuth session requests')
-            ndeletedreq += delete_expired_oauthrequests(heartbeat['nr_threads'], heartbeat['assign_thread'] + 1, limit=max_rows)
+            ndeletedreq += delete_expired_oauthrequests(total_workers, worker_number, limit=max_rows)
             logger(logging.INFO, 'expired parameters of %i authentication requests were deleted', ndeletedreq)
             logger(logging.INFO, '----- END ----- DELETION OF EXPIRED OAUTH SESSION REQUESTS ----- ')
             record_counter(name='oauth_manager.oauthreq.deleted', delta=ndeletedreq)
@@ -155,21 +155,11 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100, sleep_time=300):
             else:
                 logger(logging.CRITICAL, traceback.format_exc())
                 record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
-        except Exception as err:
-            logger(logging.CRITICAL, traceback.format_exc())
-            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
 
-        timer.stop()
-        logger(logging.INFO, 'took %f seconds to delete %i tokens, %i session parameters and refreshed %i tokens', timer.elapsed, ndeleted, ndeletedreq, nrefreshed)
-        timer.record('oauth_manager.duration')
-
-        if once:
-            break
-        else:
-            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
-
-    die(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
-    logger(logging.INFO, 'graceful stop done')
+        tottime = time.time() - start
+        logger(logging.INFO, 'took %f seconds to delete %i tokens, %i session parameters and refreshed %i tokens', tottime, ndeleted, ndeletedreq, nrefreshed)
+        record_timer(name='oauth_manager.duration', time=1000 * tottime)
+        return
 
 
 def run(once=False, threads=1, loop_rate=300, max_rows=100, sleep_time=300):
@@ -184,22 +174,21 @@ def run(once=False, threads=1, loop_rate=300, max_rows=100, sleep_time=300):
     sanity_check(executable='OAuthManager', hostname=socket.gethostname())
 
     if once:
-        OAuthManager(once, loop_rate, max_rows, sleep_time)
+        OAuthManager(once, max_rows, sleep_time)
     else:
         logging.info('OAuth Manager starting %s threads', str(threads))
         threads = [threading.Thread(target=OAuthManager,
                                     kwargs={'once': once,
-                                            'loop_rate': int(loop_rate),
                                             'max_rows': max_rows,
                                             'sleep_time': sleep_time}) for i in range(0, threads)]
-        [t.start() for t in threads]
+        _ = [t.start() for t in threads]
         # Interruptible joins require a timeout.
         while threads[0].is_alive():
-            [t.join(timeout=3.14) for t in threads]
+            _ = [t.join(timeout=3.14) for t in threads]
 
 
 def stop():
     """
     Graceful exit.
     """
-    GRACEFUL_STOP.set()
+    graceful_stop.set()
