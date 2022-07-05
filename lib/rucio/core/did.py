@@ -46,6 +46,7 @@ from rucio.db.sqla.util import temp_table_mngr
 if TYPE_CHECKING:
     from typing import Any, Dict, Tuple, Optional, Sequence, Callable
     from sqlalchemy.orm import Session
+    from sqlalchemy.schema import Table
     from rucio.common.types import InternalAccount, InternalScope
 
     LoggerFunction = Callable[..., Any]
@@ -2117,15 +2118,100 @@ def list_all_parent_dids(scope, name, session=None):
             yield {'scope': pdid['scope'], 'name': pdid['name'], 'type': pdid['type']}
 
 
-def list_child_datasets_stmt(
-        scope: "InternalScope",
-        name: str,
+def list_child_dids_stmt(
+        input_dids_table: "Table",
+        did_type: DIDType,
+        including_input_dids: bool = False,
 ):
     """
-    Returns the sqlalchemy query for fetching the child datasets of the given container.
+    Build and returns a query which recursively lists children dids of type `did_type`
+    for the dids given as input in a scope/name (temporary) table.
 
-    Uses a recursive SQL CTE (Common Table Expressions)
+    did_type defines the desired type of DIDs in the result. If set to DIDType.Dataset,
+    will only resolve containers and return datasets. If set to DIDType.File, will
+    also resolve the datasets and return files.
     """
+    if did_type == DIDType.DATASET:
+        dids_to_resolve = [DIDType.CONTAINER]
+    else:
+        dids_to_resolve = [DIDType.CONTAINER, DIDType.DATASET]
+
+    # Uses a recursive SQL CTE (Common Table Expressions)
+    initial_set = select(
+        models.DataIdentifierAssociation.child_scope,
+        models.DataIdentifierAssociation.child_name,
+        models.DataIdentifierAssociation.child_type,
+    ).join_from(
+        input_dids_table,
+        models.DataIdentifierAssociation,
+        and_(
+            models.DataIdentifierAssociation.scope == input_dids_table.scope,
+            models.DataIdentifierAssociation.name == input_dids_table.name,
+            models.DataIdentifierAssociation.did_type.in_(dids_to_resolve),
+        ),
+    ).cte(
+        recursive=True,
+    )
+    # Oracle doesn't support union() in recursive CTEs, so use UNION ALL
+    # and a "distinct" filter later
+    child_datasets_cte = initial_set.union_all(
+        select(
+            models.DataIdentifierAssociation.child_scope,
+            models.DataIdentifierAssociation.child_name,
+            models.DataIdentifierAssociation.child_type,
+        ).where(
+            models.DataIdentifierAssociation.scope == initial_set.c.child_scope,
+            models.DataIdentifierAssociation.name == initial_set.c.child_name,
+            models.DataIdentifierAssociation.did_type.in_(dids_to_resolve),
+        )
+    )
+
+    stmt = select(
+        child_datasets_cte.c.child_scope,
+        child_datasets_cte.c.child_name,
+    ).distinct(
+    ).where(
+        child_datasets_cte.c.child_type == did_type,
+    )
+
+    if including_input_dids:
+        # Also include into the result the DIDs of the desired type present
+        # in the input list.
+        stmt = stmt.union(
+            select(
+                input_dids_table.scope,
+                input_dids_table.name,
+            ).join_from(
+                input_dids_table,
+                models.DataIdentifier,
+                and_(models.DataIdentifier.scope == input_dids_table.scope,
+                     models.DataIdentifier.name == input_dids_table.name,
+                     models.DataIdentifier.did_type == did_type),
+            )
+        )
+    return stmt
+
+
+def list_one_did_childs_stmt(
+        scope: "InternalScope",
+        name: str,
+        did_type: DIDType,
+        including_input_dids: bool = False,
+):
+    """
+    Returns the sqlalchemy query for recursively fetching the child dids of type
+    'did_type' for the input did.
+
+    did_type defines the desired type of DIDs in the result. If set to DIDType.Dataset,
+    will only resolve containers and return datasets. If set to DIDType.File, will
+    also resolve the datasets and return files.
+    """
+    if did_type == DIDType.DATASET:
+        dids_to_resolve = [DIDType.CONTAINER]
+    else:
+        dids_to_resolve = [DIDType.CONTAINER, DIDType.DATASET]
+
+    # Uses a recursive SQL CTE (Common Table Expressions)
     initial_set = select(
         models.DataIdentifierAssociation.child_scope,
         models.DataIdentifierAssociation.child_name,
@@ -2133,6 +2219,7 @@ def list_child_datasets_stmt(
     ).where(
         models.DataIdentifierAssociation.scope == scope,
         models.DataIdentifierAssociation.name == name,
+        models.DataIdentifierAssociation.did_type.in_(dids_to_resolve),
     ).cte(
         recursive=True,
     )
@@ -2147,7 +2234,7 @@ def list_child_datasets_stmt(
         ).where(
             models.DataIdentifierAssociation.scope == initial_set.c.child_scope,
             models.DataIdentifierAssociation.name == initial_set.c.child_name,
-            models.DataIdentifierAssociation.did_type == DIDType.CONTAINER,
+            models.DataIdentifierAssociation.did_type.in_(dids_to_resolve),
         )
     )
 
@@ -2156,9 +2243,20 @@ def list_child_datasets_stmt(
         child_datasets_cte.c.child_name.label('name'),
     ).distinct(
     ).where(
-        child_datasets_cte.c.child_type == DIDType.DATASET,
+        child_datasets_cte.c.child_type == did_type,
     )
-
+    if including_input_dids:
+        # Additionally, add the input did if it's of the desired type
+        stmt = stmt.union(
+            select(
+                models.DataIdentifier.scope,
+                models.DataIdentifier.name,
+            ).where(
+                models.DataIdentifier.scope == scope,
+                models.DataIdentifier.name == name,
+                models.DataIdentifier.did_type == did_type,
+            )
+        )
     return stmt
 
 
@@ -2177,7 +2275,7 @@ def list_child_datasets(
     :returns:         List of dids
     :rtype:           Generator
     """
-    stmt = list_child_datasets_stmt(scope, name)
+    stmt = list_one_did_childs_stmt(scope, name, did_type=DIDType.DATASET)
     result = []
     for row in session.execute(stmt):
         result.append({'scope': row.scope, 'name': row.name})
@@ -3033,7 +3131,7 @@ def __resolve_bytes_length_events_did(
                     temp_table
                 ).from_select(
                     ['scope', 'name'],
-                    list_child_datasets_stmt(did.scope, did.name),
+                    list_one_did_childs_stmt(did.scope, did.name, did_type=DIDType.DATASET),
                 )
             session.execute(stmt)
 
