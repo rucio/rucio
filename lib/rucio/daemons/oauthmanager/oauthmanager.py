@@ -95,7 +95,7 @@ def run_once(heartbeat_handler, max_rows, sleep_time, **_kwargs):
 
         # make a heartbeat
         worker_number, total_workers, logger = heartbeat_handler.live()
-        
+
         logger(logging.INFO, '----- START ----- ACCESS TOKEN REFRESH ----- ')
         logger(logging.INFO, 'starting to query tokens for automatic refresh')
         nrefreshed = refresh_jwt_tokens(total_workers, worker_number, refreshrate=int(sleep_time), limit=max_rows)
