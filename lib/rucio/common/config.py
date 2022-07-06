@@ -57,9 +57,12 @@ def config_get(section, option, raise_exception=True, default=None, clean_cached
     try:
         return extract_function(get_config(), section, option)
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, RuntimeError) as err:
-        legacy_config = get_legacy_config(section, option, extract_function)
-        if legacy_config is not None:
-            return legacy_config
+        try:
+            legacy_config = get_legacy_config(section, option, extract_function)
+            if legacy_config is not None:
+                return legacy_config
+        except RuntimeError:
+            pass
 
         from rucio.common.utils import is_client
         client_mode = is_client()
