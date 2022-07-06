@@ -53,9 +53,7 @@ class TestRSECoreApi(unittest.TestCase):
         invalid_rse = 'BLAHBLAH'
         properties = {
             'ASN': 'ASN',
-            'availability_read': False,
-            'availability_write': True,
-            'availability_delete': False,
+            'availability': 2,
             'deterministic': True,
             'volatile': True,
             'city': 'city',
@@ -87,9 +85,7 @@ class TestRSECoreApi(unittest.TestCase):
         assert rse.longitude == properties['longitude']
         assert rse.latitude == properties['latitude']
         assert rse.ASN == properties['ASN']
-        assert rse.availability_read == properties['availability_read']
-        assert rse.availability_write == properties['availability_write']
-        assert rse.availability_delete == properties['availability_delete']
+        assert rse.availability == properties['availability']
         assert not rse_exists(invalid_rse, **self.vo)
 
         with pytest.raises(Duplicate):
@@ -227,9 +223,7 @@ def test_create_rse_success(vo, rest_client, auth_token):
     headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
     properties = {
         'ASN': 'ASN',
-        'availability_read': False,
-        'availability_write': True,
-        'availability_delete': False,
+        'availability': 2,
         'deterministic': True,
         'volatile': True,
         'city': 'city',
@@ -260,9 +254,7 @@ def test_create_rse_success(vo, rest_client, auth_token):
     assert rse.longitude == properties['longitude']
     assert rse.latitude == properties['latitude']
     assert rse.ASN == properties['ASN']
-    assert rse.availability_read == properties['availability_read']
-    assert rse.availability_write == properties['availability_write']
-    assert rse.availability_delete == properties['availability_delete']
+    assert rse.availability == properties['availability']
 
     response = rest_client.post('/rses/' + rse_name, headers=headers(auth(auth_token), hdrdict(headers_dict)))
     assert response.status_code == 409
@@ -368,9 +360,7 @@ class TestRSEClient(unittest.TestCase):
         rse_name = rse_name_generator()
         properties = {
             'ASN': 'ASN',
-            'availability_read': False,
-            'availability_write': True,
-            'availability_delete': False,
+            'availability': 2,
             'deterministic': True,
             'volatile': True,
             'city': 'city',
@@ -401,9 +391,7 @@ class TestRSEClient(unittest.TestCase):
         assert rse.longitude == properties['longitude']
         assert rse.latitude == properties['latitude']
         assert rse.ASN == properties['ASN']
-        assert rse.availability_read == properties['availability_read']
-        assert rse.availability_write == properties['availability_write']
-        assert rse.availability_delete == properties['availability_delete']
+        assert rse.availability == properties['availability']
 
         with pytest.raises(Duplicate):
             self.client.add_rse(rse_name)

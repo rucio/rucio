@@ -404,7 +404,7 @@ def list_transfer_requests_and_source_replicas(
     )
 
     if not ignore_availability:
-        sub_requests = sub_requests.where(models.RSE.availability_write == true())
+        sub_requests = sub_requests.where(models.RSE.availability.in_((2, 3, 6, 7)))
 
     if isinstance(older_than, datetime.datetime):
         sub_requests = sub_requests.where(models.Request.requested_at < older_than)

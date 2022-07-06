@@ -216,14 +216,14 @@ def run_once(
             "Excluding RSEs as destinations which are not available for write:",
         )
         for des in rses_under_ratio:
-            if not des["availability_write"]:
+            if des["availability"] & 2 == 0:
                 logger(logging.DEBUG, "Excluding %s", des["rse"])
                 rses_under_ratio.remove(des)
         logger(
             logging.DEBUG, "Excluding RSEs as sources which are not available for read:"
         )
         for src in rses_over_ratio:
-            if not src["availability_read"]:
+            if src["availability"] & 4 == 0:
                 logger(logging.DEBUG, "Excluding %s", src["rse"])
                 rses_over_ratio.remove(src)
 
