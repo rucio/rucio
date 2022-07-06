@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 
 from http.server import SimpleHTTPRequestHandler
 from http.server import HTTPServer
-from os import remove
+from os import remove, rename
 from threading import Thread
 
 import pytest
@@ -27,7 +27,7 @@ from rucio.client.baseclient import BaseClient
 from rucio.client.client import Client
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, RucioException
-from rucio.common.utils import get_tmp_dir
+from rucio.common.utils import execute, get_tmp_dir
 from rucio.tests.common import get_long_vo
 
 
@@ -187,3 +187,23 @@ class TestRucioClients(unittest.TestCase):
         client = Client(account='root', ca_cert=self.cacert, auth_type='userpass', creds=creds, **self.vo)
 
         print(client.ping())
+
+    @pytest.mark.noparallel(reason='We temporarily remove the config file.')
+    def test_import_without_config_file(self):
+        """
+        The Client should be importable without a config file, since it is
+        configurable afterwards.
+
+        We are in a fully configured environment with a default config file. We
+        thus have to disable the access to it (move it) and make sure to run the
+        code in a different environment.
+        """
+        rename("/opt/rucio/etc/rucio.cfg", "/opt/rucio/etc/rucio.cfg.tmp")
+        try:
+            exitcode, _, err = execute("python -c 'from rucio.client import Client'")
+            print(exitcode, err)
+            assert exitcode == 0
+            assert "RuntimeError: Could not load Rucio configuration file." not in err
+        finally:
+            # This is utterly important to not mess up the environment.
+            rename("/opt/rucio/etc/rucio.cfg.tmp", "/opt/rucio/etc/rucio.cfg")
