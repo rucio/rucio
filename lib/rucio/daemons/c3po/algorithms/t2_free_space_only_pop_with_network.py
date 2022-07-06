@@ -176,7 +176,7 @@ class PlacementAlgorithm:
                 continue
             if rse_attr['type'] != 'DATADISK':
                 continue
-            if not src_rse_info['availability_read']:
+            if src_rse_info['availability'] & 4 == 0:
                 continue
 
             if rep['state'] == ReplicaState.AVAILABLE:
@@ -201,7 +201,7 @@ class PlacementAlgorithm:
                         dst_rse_id = self._sites[dst_site]['rse_id']
                         dst_rse_info = get_rse(rse_id=dst_rse_id)
 
-                        if not dst_rse_info['availability_write']:
+                        if dst_rse_info['availability'] & 2 == 0:
                             continue
 
                         site_added_bytes = sum(self._added_bytes.get_series(dst_rse_id))

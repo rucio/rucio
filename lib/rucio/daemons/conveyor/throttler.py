@@ -174,9 +174,9 @@ def run_once(worker_number=0, logger=logging.log, session=None, **kwargs):
         if direction == 'destination' or direction == 'source':
             for rse_id in result_dict:
                 rse_name = result_dict[rse_id]['rse']
-                rse = get_rse(rse_id)
+                availability = get_rse(rse_id).availability
                 # dest_rse is not blocklisted for write or src_rse is not blocklisted for read
-                if (direction == 'destination' and rse.availability_write) or (direction == 'source' and rse.availability_read):
+                if (direction == 'destination' and availability & 2) or (direction == 'source' and availability & 4):
                     if all_activities:
                         __release_all_activities(result_dict[rse_id], direction, rse_name, rse_id, logger=logger, session=session)
                     else:
