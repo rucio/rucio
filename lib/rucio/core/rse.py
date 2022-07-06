@@ -1450,7 +1450,6 @@ def update_rse(rse_id: str, parameters: 'Dict[str, Any]', session=None):
         if has_rse_attribute(rse_id, setting, session=session):
             del_rse_attribute(rse_id, setting, session=session)
         add_rse_attribute(rse_id, setting, param[setting], session=session)
-        del param[setting]
 
     query.update(param)
     if 'rse' in param:
