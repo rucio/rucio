@@ -33,7 +33,7 @@ import rucio.core.account_counter
 from rucio.common import exception, utils
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import get_lfn2pfn_algorithm_default
-from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
+from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import (RSEType, ReplicaState)
@@ -182,14 +182,19 @@ def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region
     :param longitude: Longitude coordinate of RSE.
     :param ASN: Access service network. Accessed by `locals()`.
     :param availability: Availability.
+    :param availability_read: If the RSE is readable.
+    :param availability_write: If the RSE is writable.
+    :param availability_delete: If the RSE is deletable.
     :param session: The database session in use.
     """
     if isinstance(rse_type, str):
         rse_type = RSEType(rse_type)
 
+    availability_values = Availability.from_integer(availability)
     new_rse = models.RSE(rse=rse, vo=vo, deterministic=deterministic, volatile=volatile,
                          staging_area=staging_area, rse_type=rse_type, longitude=longitude,
-                         latitude=latitude, availability=availability,
+                         latitude=latitude, availability=availability, availability_read=availability_values.read,
+                         availability_write=availability_values.write, availability_delete=availability_values.delete,
 
                          # The following fields will be deprecated, they are RSE attributes now.
                          # (Still in the code for backwards compatibility)
@@ -1427,6 +1432,12 @@ def update_rse(rse_id: str, parameters: 'Dict[str, Any]', session=None):
         elif key in MUTABLE_RSE_PROPERTIES - {'name', 'availability_read', 'availability_write', 'availability_delete'}:
             param[key] = parameters[key]
     param['availability'] = availability or param['availability']
+
+    if 'availability' in param:
+        availability_values = Availability.from_integer(param['availability'])
+        param['availability_read'] = availability_values.read
+        param['availability_write'] = availability_values.write
+        param['availability_delete'] = availability_values.delete
 
     # handle null-able keys
     for key in parameters:
