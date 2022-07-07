@@ -312,7 +312,7 @@ def list_oracle_global_temp_tables(session):
     cache_key = 'oracle_global_temp_tables'
     global_temp_tables = REGION.get(cache_key)
     if isinstance(global_temp_tables, NoValue):
-        global_temp_tables = inspect(session.bind).get_temp_table_names()
+        global_temp_tables = [t.upper() for t in inspect(session.bind).get_temp_table_names()]
         REGION.set(cache_key, global_temp_tables)
     return global_temp_tables
 
@@ -350,7 +350,7 @@ def _create_temp_table(name, *columns, primary_key=None, oracle_global_name=None
         global_temp_tables = list_oracle_global_temp_tables(session=session)
         if oracle_global_name is None:
             oracle_global_name = name
-        if oracle_global_name in global_temp_tables:
+        if oracle_global_name.upper() in global_temp_tables:
             oracle_table_is_global = True
             additional_kwargs = {
                 'oracle_on_commit': 'DELETE ROWS',
@@ -451,7 +451,7 @@ class TempTableManager:
             Column("name", String(get_schema_value('NAME_LENGTH'))),
         ]
         return self.create_temp_table(
-            'temporary_scope_name',
+            'TEMPORARY_SCOPE_NAME',
             *columns,
             primary_key=columns,
             logger=logger,
@@ -469,7 +469,7 @@ class TempTableManager:
             Column("child_name", String(get_schema_value('NAME_LENGTH'))),
         ]
         return self.create_temp_table(
-            'temporary_association',
+            'TEMPORARY_ASSOCIATION',
             *columns,
             primary_key=columns,
             logger=logger,
@@ -481,7 +481,7 @@ class TempTableManager:
         """
 
         return self.create_temp_table(
-            'temporary_id',
+            'TEMPORARY_ID',
             Column("id", models.GUID()),
             logger=logger,
         )

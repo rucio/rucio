@@ -39,14 +39,14 @@ def upgrade():
         }
         for idx in range(5):
             create_table(
-                f'temporary_scope_name_{idx}',
+                f'TEMPORARY_SCOPE_NAME_{idx}',
                 sa.Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
                 sa.Column("name", String(get_schema_value('NAME_LENGTH'))),
                 sa.PrimaryKeyConstraint('scope', 'name', name=f'TEMPORARY_SCOPE_NAME_{idx}_PK'),
                 **additional_kwargs,
             )
             create_table(
-                f'temporary_association_{idx}',
+                f'TEMPORARY_ASSOCIATION_{idx}',
                 sa.Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
                 sa.Column("name", String(get_schema_value('NAME_LENGTH'))),
                 sa.Column("child_scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
@@ -55,7 +55,7 @@ def upgrade():
                 **additional_kwargs,
             )
             create_table(
-                f'temporary_id_{idx}',
+                f'TEMPORARY_ID_{idx}',
                 sa.Column("id", GUID()),
                 sa.PrimaryKeyConstraint('id', name=f'TEMPORARY_ID_{idx}_PK'),
                 **additional_kwargs,
@@ -70,6 +70,6 @@ def downgrade():
     if context.get_context().dialect.name == 'oracle':
         global_temp_tables = sa.inspect(context.get_bind()).get_temp_table_names()
         for idx in range(5):
-            for table_name in [f'temporary_id_{idx}', f'temporary_association_{idx}', f'temporary_scope_name_{idx}']:
+            for table_name in [f'TEMPORARY_ID_{idx}', f'TEMPORARY_ASSOCIATION_{idx}', f'TEMPORARY_SCOPE_NAME_{idx}']:
                 if table_name in global_temp_tables:
                     drop_table(table_name)
