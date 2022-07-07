@@ -20,7 +20,6 @@ Conveyor transfer submitter is a daemon to manage non-tape file transfers.
 import functools
 import logging
 import threading
-import time
 
 from configparser import NoOptionError
 
@@ -29,7 +28,7 @@ from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
-from rucio.core.monitor import MultiCounter, record_timer
+from rucio.core.monitor import MultiCounter, record_timer, Stopwatch
 from rucio.core.transfer import transfer_path_str
 from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, next_transfers_to_submit
 from rucio.daemons.common import run_daemon
@@ -59,7 +58,7 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
              heartbeat_handler, activity):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
-    start_time = time.time()
+    timer = Stopwatch()
     transfers = next_transfers_to_submit(
         total_workers=total_workers,
         worker_number=worker_number,
@@ -78,10 +77,10 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
     )
     total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
 
-    record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (total_transfers or 1))
+    timer.record('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', divisor=total_transfers or 1)
     GET_TRANSFERS_COUNTER.inc(total_transfers)
     record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', total_transfers)
-    logger(logging.INFO, 'Got %s transfers for %s in %s seconds', total_transfers, activity, time.time() - start_time)
+    logger(logging.INFO, 'Got %s transfers for %s in %s seconds', total_transfers, activity, timer.elapsed)
 
     for builder, transfer_paths in transfers.items():
         # Globus Transfertool is not yet production-ready, but we need to partially activate it
@@ -98,10 +97,10 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
             continue
 
         transfertool_obj = builder.make_transfertool(logger=logger, **transfertool_kwargs.get(builder.transfertool_class, {}))
-        start_time = time.time()
+        timer = Stopwatch()
         logger(logging.DEBUG, 'Starting to group transfers for %s (%s)', activity, transfertool_obj)
         grouped_jobs = transfertool_obj.group_into_submit_jobs(transfer_paths)
-        record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfer_paths) or 1))
+        timer.record('daemons.conveyor.transfer_submitter.bulk_group_transfer', divisor=len(transfer_paths) or 1)
 
         logger(logging.DEBUG, 'Starting to submit transfers for %s (%s)', activity, transfertool_obj)
         for job in grouped_jobs:

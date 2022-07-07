@@ -42,7 +42,7 @@ from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.utils import daemon_sleep
 from rucio.core.authentication import delete_expired_tokens
 from rucio.core.heartbeat import die, live, sanity_check
-from rucio.core.monitor import record_counter, record_timer
+from rucio.core.monitor import record_counter, Stopwatch
 from rucio.core.oidc import delete_expired_oauthrequests, refresh_jwt_tokens
 
 GRACEFUL_STOP = threading.Event()
@@ -77,7 +77,8 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100, sleep_time=300):
     GRACEFUL_STOP.wait(1)
 
     while not GRACEFUL_STOP.is_set():
-        start = time.time()
+        start_time = time.time()
+        timer = Stopwatch()
         # issuing the heartbeat for a second time to make all workers aware of each other
         heartbeat = live(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
         prepend_str = 'oauth_manager [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
@@ -158,14 +159,14 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100, sleep_time=300):
             logger(logging.CRITICAL, traceback.format_exc())
             record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
 
-        tottime = time.time() - start
-        logger(logging.INFO, 'took %f seconds to delete %i tokens, %i session parameters and refreshed %i tokens', tottime, ndeleted, ndeletedreq, nrefreshed)
-        record_timer(name='oauth_manager.duration', time=1000 * tottime)
+        timer.stop()
+        logger(logging.INFO, 'took %f seconds to delete %i tokens, %i session parameters and refreshed %i tokens', timer.elapsed, ndeleted, ndeletedreq, nrefreshed)
+        timer.record('oauth_manager.duration')
 
         if once:
             break
         else:
-            daemon_sleep(start_time=start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
+            daemon_sleep(start_time=start_time, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
 
     die(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
     logger(logging.INFO, 'graceful stop done')

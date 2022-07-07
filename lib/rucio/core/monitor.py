@@ -25,6 +25,7 @@ import time
 from abc import abstractmethod
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
 from retrying import retry
 from threading import Lock
 
@@ -238,12 +239,12 @@ def record_gauge(name, value, labels=None):
         gauge.set(value)
 
 
-def record_timer(name, time, labels=None):
+def record_timer(name: str, time: float, labels: Optional[Dict] = None):
     """
      Log timing information for a single stat (in miliseconds)
 
     :param name: The name of the stat to be updated.
-    :param time: The time to log.
+    :param time: The time (in seconds) to log.
     :param labels: labels used to parametrize the metric
     """
     timing = TIMINGS.get(name)
@@ -256,12 +257,56 @@ def record_timer(name, time, labels=None):
         timing.observe(time)
 
 
+class Stopwatch:
+    """Stopwatch to measure and record time durations.
+
+    Note: The stopwatch is started on initialization.
+    """
+
+    _t_start: float
+    _t_end: Optional[float]
+
+    def __init__(self) -> None:
+        self.restart()
+
+    def _now(self) -> float:
+        # TODO: change to time.monotonic_ns() if python 3.6 support is dropped.
+        return time.monotonic()
+
+    def restart(self) -> None:
+        """Resets and starts the stopwatch."""
+        self._t_start = self._now()
+        self._t_end = None
+
+    def stop(self) -> None:
+        """Stops the stopwatch."""
+        self._t_end = self._now()
+
+    def record(self, name: str, divisor: float = 1, labels: Optional[Dict] = None) -> None:
+        """Records the currently elapsed time and lets the clock continue running.
+
+        :param name: Name of recorded metric.
+        :param divisor: Optional divisor to scale the elapsed time by.
+        :param labels: Optional dictionary of additional information.
+        """
+        record_timer(name=name, time=self.elapsed / divisor, labels=labels)
+
+    @property
+    def elapsed(self) -> float:
+        """Returns the total number of elapsed seconds."""
+        if self._t_end is None:
+            return self._now() - self._t_start
+        else:
+            return self._t_end - self._t_start
+
+
 class record_timer_block(object):
     """
     A context manager for timing a block of code.
 
     :param stats: The name of the stat or list of stats that should be updated.
-        Each stat can be a simple string or a tuple (string, divisor)
+        Each stat can be a simple string or a tuple (string, divisor).
+        The divisors can take any value except zero.
 
     Usage:
         with monitor.record_timer_block('test.context_timer'):
@@ -273,23 +318,31 @@ class record_timer_block(object):
             stuff2()
     """
 
-    def __init__(self, stats, labels=None):
-        if not isinstance(stats, list):
-            stats = [stats]
-        self.stats = stats
-        self.labels = labels
+    def __init__(self,
+                 stats: Union[str, Tuple[str, float], List[str], List[Tuple[str, float]]],
+                 labels: Optional[Dict] = None
+                 ) -> None:
+        self._stats = self._make_stats(stats)
+        self._labels = labels
+        self._stopwatch = Stopwatch()
+
+    def _make_stats(self,
+                    stats: Union[str, Tuple[str, float], List[str], List[Tuple[str, float]]]
+                    ) -> List[Tuple[str, float]]:
+        """Transform the many-shaped stats parameter to a sensible list of tuples."""
+        list_of_stats = stats if isinstance(stats, list) else [stats]
+        list_of_tuples = [stat if isinstance(stat, tuple) else (stat, 1.0) for stat in list_of_stats]
+        if any(div == 0 for _, div in list_of_tuples):
+            raise ValueError('Divisor cannot be zero.')
+        return list_of_tuples
 
     def __enter__(self):
-        self.start = time.time()
+        """Starts the internal stopwatch (or restarts it if it's already running)."""
+        self._stopwatch.restart()
         return self
 
     def __exit__(self, typ, value, tb):
-        dt = time.time() - self.start
-        ms = int(round(1000 * dt))  # Convert to ms.
-        for s in self.stats:
-            if isinstance(s, str):
-                record_timer(s, ms, labels=self.labels)
-            elif isinstance(s, tuple):
-                if s[1] != 0:
-                    ms = ms / s[1]
-                    record_timer(s[0], ms, labels=self.labels)
+        """Stops the stopwatch and records all planned stats."""
+        self._stopwatch.stop()
+        for name, divisor in self._stats:
+            self._stopwatch.record(name, divisor, labels=self._labels)
