@@ -395,7 +395,7 @@ def _create_temp_table(name, *columns, primary_key=None, oracle_global_name=None
         oracle_global_name if oracle_table_is_global else name,
         base.metadata,
         *columns,
-        schema=None,  # Temporary tables exist in a special schema, so a schema name cannot be given when creating a temporary table
+        schema=models.BASE.metadata.schema if oracle_table_is_global else None,  # Temporary tables exist in a special schema, so a schema name cannot be given when creating a temporary table
         **additional_kwargs,
     )
 
