@@ -18,6 +18,7 @@
 import sqlalchemy as sa
 from alembic import context
 from alembic.op import add_column, drop_column, get_bind
+from sqlalchemy.sql.expression import true
 
 from rucio.db.sqla.types import GUID
 
@@ -42,9 +43,9 @@ def upgrade():
             "rses",
             sa.Column("id", GUID()),
             sa.Column("availability", sa.Integer),
-            sa.Column("availability_read", sa.Boolean),
-            sa.Column("availability_write", sa.Boolean),
-            sa.Column("availability_delete", sa.Boolean),
+            sa.Column("availability_read", sa.Boolean, default=true()),
+            sa.Column("availability_write", sa.Boolean, default=true()),
+            sa.Column("availability_delete", sa.Boolean, default=true()),
             schema=schema,
         )
 
