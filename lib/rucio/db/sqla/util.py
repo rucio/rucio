@@ -312,7 +312,19 @@ def list_oracle_global_temp_tables(session):
     cache_key = 'oracle_global_temp_tables'
     global_temp_tables = REGION.get(cache_key)
     if isinstance(global_temp_tables, NoValue):
-        global_temp_tables = [t.upper() for t in inspect(session.bind).get_temp_table_names()]
+        # As of time of writing, get_temp_table_names doesn't allow setting the correct schema when called
+        # (like get_table_names allows). This may be fixed in a later version of sqlalchemy:
+        # FIXME: substitute with something like this:
+        # global_temp_tables = [t.upper() for t in inspect(session.bind).get_temp_table_names()]
+        global_temp_tables = [
+            str(t[0]).upper()
+            for t in session.execute(
+                text('SELECT UPPER(table_name) '
+                     'FROM all_tables '
+                     'WHERE OWNER = :owner AND IOT_NAME IS NULL AND DURATION IS NOT NULL'),
+                dict(owner=models.BASE.metadata.schema.upper())
+            )
+        ]
         REGION.set(cache_key, global_temp_tables)
     return global_temp_tables
 
