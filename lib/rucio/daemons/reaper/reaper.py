@@ -155,7 +155,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 if replica['scope'].vo != 'def':
                     deletion_dict['vo'] = replica['scope'].vo
                 logger(logging.DEBUG, 'Deletion ATTEMPT of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
-                start = time.time()
+                timer = monitor.Stopwatch()
                 # For STAGING RSEs, no physical deletion
                 if is_staging:
                     logger(logging.WARNING, 'Deletion STAGING of %s:%s as %s on %s, will only delete the catalog and not do physical deletion', replica['scope'], replica['name'], replica['pfn'], rse_name)
@@ -174,8 +174,9 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 else:
                     logger(logging.WARNING, 'Deletion UNAVAILABLE of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
 
-                monitor.record_timer('daemons.reaper.delete.{scheme}.{rse}', (time.time() - start) * 1000, labels={'scheme': prot.attributes['scheme'], 'rse': rse_name})
-                duration = time.time() - start
+                timer.stop()
+                timer.record('daemons.reaper.delete.{scheme}.{rse}', labels={'scheme': prot.attributes['scheme'], 'rse': rse_name})
+                duration = timer.elapsed
 
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
@@ -184,7 +185,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %.2f seconds', replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
 
             except SourceNotFound:
-                duration = time.time() - start
+                duration = timer.elapsed
                 err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s in %.2f seconds' % (replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
                 logger(logging.WARNING, '%s', err_msg)
                 deletion_dict['reason'] = 'File Not Found'
@@ -193,7 +194,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
             except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
-                duration = time.time() - start
+                duration = timer.elapsed
                 logger(logging.WARNING, 'Deletion NOACCESS of %s:%s as %s on %s: %s in %.2f', replica['scope'], replica['name'], replica['pfn'], rse_name, str(error), duration)
                 deletion_dict['reason'] = str(error)
                 deletion_dict['duration'] = duration
@@ -206,7 +207,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                     break
 
             except Exception as error:
-                duration = time.time() - start
+                duration = timer.elapsed
                 logger(logging.CRITICAL, 'Deletion CRITICAL of %s:%s as %s on %s in %.2f seconds : %s', replica['scope'], replica['name'], replica['pfn'], rse_name, duration, str(traceback.format_exc()))
                 deletion_dict['reason'] = str(error)
                 deletion_dict['duration'] = duration
