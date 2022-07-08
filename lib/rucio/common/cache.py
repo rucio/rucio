@@ -14,10 +14,14 @@
 # limitations under the License.
 from __future__ import absolute_import
 
+from typing import TYPE_CHECKING
 from dogpile.cache import make_region
 
 from rucio.common.config import config_get
 from rucio.common.utils import is_client
+
+if TYPE_CHECKING:
+    from typing import Callable, Optional
 
 CACHE_URL = config_get('cache', 'url', False, '127.0.0.1:11211', check_config_table=False)
 
@@ -39,7 +43,11 @@ finally:
         _mc_client.close()
 
 
-def make_region_memcached(expiration_time, function_key_generator=None):
+def make_region_memcached(
+        expiration_time: int,
+        function_key_generator: "Optional[Callable]" = None,
+        memcached_expire_time: "Optional[int]" = None
+):
     """
     Make and configure a dogpile.cache.pymemcache region
     """
@@ -55,7 +63,7 @@ def make_region_memcached(expiration_time, function_key_generator=None):
             arguments={
                 'url': CACHE_URL,
                 'distributed_lock': True,
-                'memcached_expire_time': expiration_time + 60,  # must be bigger than expiration_time
+                'memcached_expire_time': memcached_expire_time if memcached_expire_time else expiration_time + 60,  # must be bigger than expiration_time
             }
         )
     else:
