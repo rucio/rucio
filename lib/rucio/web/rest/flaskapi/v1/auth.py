@@ -20,7 +20,7 @@ from re import search
 from typing import TYPE_CHECKING
 
 from flask import Flask, Blueprint, request, Response, redirect, render_template
-# from urllib.parse import urlparse
+from urllib.parse import urlparse
 from werkzeug.datastructures import Headers
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, \
@@ -403,11 +403,13 @@ class TokenOIDC(ErrorHandlingMethodView):
                 headers.set('Content-Type', 'text/html')
                 return render_template('auth_crash.html', crashtype='unknown_identity'), 401, headers
             # domain setting is necessary so that the token gets distributed also to the webui server
-            # domain = '.'.join(urlparse(webhome).netloc.split('.')[1:])
+            domain = '.'.join(urlparse(webhome).netloc.split('.')[1:])
             response = redirect(webhome, code=303)
             response.headers.extend(headers)
-            response.set_cookie('x-rucio-auth-token', value=result['token']['token'])
-            response.set_cookie('rucio-auth-token-created-at', value=str(time.time()))
+            response.set_cookie('x-rucio-auth-token', value=result['token']['token'], domain=domain, path='/')
+            response.set_cookie('rucio-auth-token-created-at', value=str(time.time()), domain=domain, path='/')
+            #response.set_cookie('x-rucio-auth-token', value=result['token']['token'])
+            #response.set_cookie('rucio-auth-token-created-at', value=str(time.time()))
             return response
         else:
             return '', 400, headers
