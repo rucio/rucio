@@ -408,8 +408,8 @@ class TokenOIDC(ErrorHandlingMethodView):
             response.headers.extend(headers)
             response.set_cookie('x-rucio-auth-token', value=result['token']['token'], domain=domain, path='/')
             response.set_cookie('rucio-auth-token-created-at', value=str(time.time()), domain=domain, path='/')
-            #response.set_cookie('x-rucio-auth-token', value=result['token']['token'])
-            #response.set_cookie('rucio-auth-token-created-at', value=str(time.time()))
+            # response.set_cookie('x-rucio-auth-token', value=result['token']['token'])
+            # response.set_cookie('rucio-auth-token-created-at', value=str(time.time()))
             return response
         else:
             return '', 400, headers
