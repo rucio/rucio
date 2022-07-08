@@ -22,7 +22,6 @@ from typing import TYPE_CHECKING
 import sqlalchemy
 from alembic import command, op
 from alembic.config import Config
-from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from sqlalchemy import func, inspect, Column, PrimaryKeyConstraint
 from sqlalchemy.dialects.postgresql.base import PGInspector
@@ -33,7 +32,8 @@ from sqlalchemy.sql.ddl import DropSchema
 from sqlalchemy.sql.expression import select, text
 
 from rucio import alembicrevision
-from rucio.common.config import config_get
+from rucio.common.cache import make_region_memcached
+from rucio.common.config import config_get, config_get_list
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid
@@ -48,7 +48,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session  # noqa: F401
     from sqlalchemy.engine import Inspector  # noqa: F401
 
-REGION = make_region().configure('dogpile.cache.memory', expiration_time=600)
+REGION = make_region_memcached(expiration_time=600, memcached_expire_time=3660)
 
 
 def build_database():
@@ -309,8 +309,13 @@ def list_oracle_global_temp_tables(session):
     """
     Retrieve the list of global temporary tables in oracle
     """
+    global_temp_tables = config_get_list('core', 'oracle_global_temp_tables', raise_exception=False, check_config_table=False, default='')
+    if global_temp_tables:
+        return [t.upper() for t in global_temp_tables]
+
     cache_key = 'oracle_global_temp_tables'
-    global_temp_tables = REGION.get(cache_key)
+    # Set long expiration time to avoid hammering the database with this costly query
+    global_temp_tables = REGION.get(cache_key, expiration_time=3600)
     if isinstance(global_temp_tables, NoValue):
         # As of time of writing, get_temp_table_names doesn't allow setting the correct schema when called
         # (like get_table_names allows). This may be fixed in a later version of sqlalchemy:
