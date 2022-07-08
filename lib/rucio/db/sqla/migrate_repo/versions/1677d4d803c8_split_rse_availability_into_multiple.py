@@ -35,17 +35,17 @@ def upgrade():
     if context.get_context().dialect.name in ["oracle", "mysql", "postgresql"]:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ""
 
-        add_column("rses", sa.Column("availability_read", sa.Boolean), schema=schema)
-        add_column("rses", sa.Column("availability_write", sa.Boolean), schema=schema)
-        add_column("rses", sa.Column("availability_delete", sa.Boolean), schema=schema)
+        add_column("rses", sa.Column("availability_read", sa.Boolean, server_default=true()), schema=schema)
+        add_column("rses", sa.Column("availability_write", sa.Boolean, server_default=true()), schema=schema)
+        add_column("rses", sa.Column("availability_delete", sa.Boolean, server_default=true()), schema=schema)
 
         RSE = sa.sql.table(
             "rses",
             sa.Column("id", GUID()),
             sa.Column("availability", sa.Integer),
-            sa.Column("availability_read", sa.Boolean, default=true()),
-            sa.Column("availability_write", sa.Boolean, default=true()),
-            sa.Column("availability_delete", sa.Boolean, default=true()),
+            sa.Column("availability_read", sa.Boolean, server_default=true()),
+            sa.Column("availability_write", sa.Boolean, server_default=true()),
+            sa.Column("availability_delete", sa.Boolean, server_default=true()),
             schema=schema,
         )
 
