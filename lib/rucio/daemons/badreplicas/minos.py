@@ -20,6 +20,7 @@ import re
 import threading
 from datetime import datetime
 from typing import TYPE_CHECKING
+from typing import Tuple, Dict
 
 from sqlalchemy.exc import DatabaseError
 
@@ -41,6 +42,34 @@ if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
+
+
+def __classify_bad_pfns(pfns: list) -> Tuple[Dict, Dict]:
+    """
+    Function that takes a list of PFNs and classify them in 2 dictionaries : bad_replicas and temporary_unvailables
+    :param pfns: List of PFNs
+
+    :returns: Tuple (bad_replicas, temporary_unvailables)
+    """
+    states_mapping = {BadPFNStatus.BAD: BadFilesStatus.BAD,
+                      BadPFNStatus.SUSPICIOUS: BadFilesStatus.SUSPICIOUS,
+                      BadPFNStatus.TEMPORARY_UNAVAILABLE: BadFilesStatus.TEMPORARY_UNAVAILABLE}
+    bad_replicas, temporary_unvailables = {}, {}
+    for pfn in pfns:
+        path = pfn['pfn']
+        account = pfn['account']
+        reason = pfn['reason']
+        expires_at = pfn['expires_at']
+        state = states_mapping[pfn['state']]
+        if state in [BadFilesStatus.BAD, BadFilesStatus.SUSPICIOUS]:
+            if (account, reason, state) not in bad_replicas:
+                bad_replicas[(account, reason, state)] = []
+            bad_replicas[(account, reason, state)].append(path)
+        elif state == BadFilesStatus.TEMPORARY_UNAVAILABLE:
+            if (account, reason, expires_at) not in temporary_unvailables:
+                temporary_unvailables[(account, reason, expires_at)] = []
+            temporary_unvailables[(account, reason, expires_at)].append(path)
+    return bad_replicas, temporary_unvailables
 
 
 def minos(bulk: int = 1000, once: bool = False, sleep_time: int = 60) -> None:
@@ -68,34 +97,14 @@ def minos(bulk: int = 1000, once: bool = False, sleep_time: int = 60) -> None:
 
 def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> bool:
     worker_number, total_workers, logger = heartbeat_handler.live()
-    states_mapping = {BadPFNStatus.BAD: BadFilesStatus.BAD,
-                      BadPFNStatus.SUSPICIOUS: BadFilesStatus.SUSPICIOUS,
-                      BadPFNStatus.TEMPORARY_UNAVAILABLE: BadFilesStatus.TEMPORARY_UNAVAILABLE}
     logger(logging.INFO, 'Minos started')
 
     chunk_size = 10  # The chunk size used for the commits
 
-    pfns = []
-
-    bad_replicas = {}
-    temporary_unvailables = {}
     pfns = get_bad_pfns(thread=worker_number, total_threads=total_workers, limit=bulk)
 
     # Class the PFNs into bad_replicas and temporary_unavailable
-    for pfn in pfns:
-        path = pfn['pfn']
-        account = pfn['account']
-        reason = pfn['reason']
-        expires_at = pfn['expires_at']
-        state = states_mapping[pfn['state']]
-        if state in [BadFilesStatus.BAD, BadFilesStatus.SUSPICIOUS]:
-            if (account, reason, state) not in bad_replicas:
-                bad_replicas[(account, reason, state)] = []
-            bad_replicas[(account, reason, state)].append(path)
-        elif state == BadFilesStatus.TEMPORARY_UNAVAILABLE:
-            if (account, reason, expires_at) not in temporary_unvailables:
-                temporary_unvailables[(account, reason, expires_at)] = []
-            temporary_unvailables[(account, reason, expires_at)].append(path)
+    bad_replicas, temporary_unvailables = __classify_bad_pfns(pfns)
 
     # Process the bad and suspicious files
     # The scope, name, rse_id are extracted and filled into the bad_replicas table
