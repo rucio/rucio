@@ -20,7 +20,7 @@ import re
 import threading
 from datetime import datetime
 from typing import TYPE_CHECKING
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Callable
 
 from sqlalchemy.exc import DatabaseError
 
@@ -72,6 +72,38 @@ def __classify_bad_pfns(pfns: list) -> Tuple[Dict, Dict]:
     return bad_replicas, temporary_unvailables
 
 
+def __clean_unknown_replicas(pfns: list, vo: str, logger: "Callable") -> dict:
+    """
+    Identify from the list of PFNs the one that are unknown and remove them from the bad_pfns table
+    :param pfns: List of PFNs
+
+    :returns: Dictionary cleaned from unkwnon replicas
+    """
+    schemes = {}
+    dict_rse = {}
+    unknown_replicas = []
+    # Splitting the PFNs by schemes
+    for pfn in pfns:
+        scheme = pfn.split(':')[0]
+        if scheme not in schemes:
+            schemes[scheme] = []
+        schemes[scheme].append(pfn)
+    for scheme in schemes:
+        _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme], vo=vo)
+        for rse_id in tmp_dict_rse:
+            if rse_id not in dict_rse:
+                dict_rse[rse_id] = {}
+            if scheme not in dict_rse[rse_id]:
+                dict_rse[rse_id][scheme] = []
+            dict_rse[rse_id][scheme].extend(tmp_dict_rse[rse_id])
+        unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
+    # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
+    if unknown_replicas:
+        logger(logging.INFO, 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
+        bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
+    return dict_rse
+
+
 def minos(bulk: int = 1000, once: bool = False, sleep_time: int = 60) -> None:
     """
     Creates a Minos Worker that gets a list of bad PFNs,
@@ -113,30 +145,8 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
         pfns = bad_replicas[(account, reason, state)]
         logger(logging.INFO, 'Declaring %s replicas with state %s and reason %s' % (len(pfns), str(state), reason))
         session = get_session()
-        schemes = {}
-        dict_rse = {}
-        unknown_replicas = []
         try:
-            # Splitting the PFNs by schemes
-            for pfn in pfns:
-                scheme = pfn.split(':')[0]
-                if scheme not in schemes:
-                    schemes[scheme] = []
-                schemes[scheme].append(pfn)
-            for scheme in schemes:
-                _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme], vo=vo)
-                for rse_id in tmp_dict_rse:
-                    if rse_id not in dict_rse:
-                        dict_rse[rse_id] = {}
-                    if scheme not in dict_rse[rse_id]:
-                        dict_rse[rse_id][scheme] = []
-                    dict_rse[rse_id][scheme].extend(tmp_dict_rse[rse_id])
-                unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
-            # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
-            if unknown_replicas:
-                logger(logging.INFO, 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
-                bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
-
+            dict_rse = __clean_unknown_replicas(pfns, vo, logger)
             for rse_id, pfns_by_scheme in dict_rse.items():
                 for scheme, pfns in pfns_by_scheme.items():
                     vo_str = '' if vo == 'def' else ' on VO ' + vo
@@ -169,39 +179,20 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
         pfns = temporary_unvailables[(account, reason, expires_at)]
         logger(logging.INFO, 'Declaring %s replicas temporary available with timeout %s and reason %s' % (len(pfns), str(expires_at), reason))
         logger(logging.DEBUG, 'Extracting RSEs')
-        schemes = {}
-        dict_rse = {}
-        unknown_replicas = []
 
-        # Splitting the PFNs by schemes
-        for pfn in pfns:
-            scheme = pfn.split(':')[0]
-            if scheme not in schemes:
-                schemes[scheme] = []
-            schemes[scheme].append(pfn)
-        for scheme in schemes:
-            _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme], vo=vo)
-            for rse_id in tmp_dict_rse:
-                if rse_id not in dict_rse:
-                    dict_rse[rse_id] = []
-                dict_rse[rse_id].extend(tmp_dict_rse[rse_id])
-                unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
-
-        # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
-        if unknown_replicas:
-            logger(logging.INFO, 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
-            bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
-
+        dict_rse = __clean_unknown_replicas(pfns, vo, logger)
         for rse_id in dict_rse:
             replicas = []
             rse = get_rse_name(rse_id=rse_id, session=None)
             rse_vo_str = rse if vo == 'def' else '{} on {}'.format(rse, vo)
             logger(logging.DEBUG, 'Running on RSE %s' % rse_vo_str)
-            for rep in get_did_from_pfns(pfns=dict_rse[rse_id], rse_id=None, vo=vo, session=None):
-                for pfn in rep:
-                    scope = rep[pfn]['scope']
-                    name = rep[pfn]['name']
-                    replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.TEMPORARY_UNAVAILABLE, 'pfn': pfn})
+            for rse_id, pfns_by_scheme in dict_rse.items():
+                for scheme, pfns in pfns_by_scheme.items():
+                    for rep in get_did_from_pfns(pfns=pfns, rse_id=None, vo=vo, session=None):
+                        for pfn in rep:
+                            scope = rep[pfn]['scope']
+                            name = rep[pfn]['name']
+                            replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.TEMPORARY_UNAVAILABLE, 'pfn': pfn})
             # The following part needs to be atomic
             # We update the replicas states to TEMPORARY_UNAVAILABLE
             # then insert a row in the bad_replicas table. TODO Update the row if it already exists
