@@ -27,6 +27,7 @@ from rucio.common.types import InternalScope
 from rucio.core.replica import (update_replica_state, list_replicas, list_bad_replicas_status)
 from rucio.core.rse import add_rse_attribute
 from rucio.core.did import set_metadata
+from rucio.core import rse_expression_parser
 from rucio.daemons.replicarecoverer.suspicious_replica_recoverer import run, stop
 from rucio.db.sqla.constants import DIDType, BadFilesStatus, ReplicaState
 from rucio.tests.common import execute, file_generator
@@ -84,6 +85,9 @@ class TestReplicaRecoverer(unittest.TestCase):
         remove(self.tmp_file3)
         remove(self.tmp_file4)
         remove(self.tmp_file5)
+
+        # Reset the cache to include the new RSEs
+        rse_expression_parser.REGION.invalidate()
 
         # Gather replica info
         replicalist = list_replicas(dids=self.listdids)
