@@ -30,6 +30,7 @@ from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, 
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import SubscriptionState
 from rucio.db.sqla.session import transactional_session, stream_session, read_session
+from rucio.db.sqla.util import result_to_dict
 
 
 @transactional_session
@@ -275,11 +276,7 @@ def get_subscription_by_id(subscription_id, session=None):
 
     try:
         subscription = session.query(models.Subscription).filter_by(id=subscription_id).one()
-        result = {}
-        for column in subscription.__table__.columns:
-            result[column.name] = getattr(subscription, column.name)
-        return result
-
+        return result_to_dict(subscription)
     except NoResultFound:
         raise SubscriptionNotFound('No subscription with the id %s found' % (subscription_id))
     except StatementError:

@@ -22,6 +22,7 @@ from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import subscription
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
+from rucio.db.sqla.util import result_to_dict
 
 
 SubscriptionRuleState = namedtuple('SubscriptionRuleState', ['account', 'name', 'state', 'count'])
@@ -204,7 +205,7 @@ def list_subscription_rule_states(name=None, account=None, vo='def', session=Non
     subs = subscription.list_subscription_rule_states(name, account, session=session)
     for sub in subs:
         # sub is an immutable Row so return new named tuple with edited entries
-        d = sub._asdict()
+        d = result_to_dict(sub)
         d['account'] = d['account'].external
         yield SubscriptionRuleState(**d)
 

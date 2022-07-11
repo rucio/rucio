@@ -17,7 +17,7 @@ import logging
 from datetime import datetime
 from hashlib import sha256
 from os import urandom
-from typing import TYPE_CHECKING
+from typing import Any, Dict, Iterable, Union
 
 import sqlalchemy
 from alembic import command, op
@@ -25,8 +25,10 @@ from alembic.config import Config
 from dogpile.cache.api import NoValue
 from sqlalchemy import func, inspect, Column, PrimaryKeyConstraint
 from sqlalchemy.dialects.postgresql.base import PGInspector
+from sqlalchemy.engine import Inspector, Result
 from sqlalchemy.exc import IntegrityError, DatabaseError
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session, Query
 from sqlalchemy.schema import CreateSchema, MetaData, Table, CreateTable, DropTable, ForeignKeyConstraint, DropConstraint
 from sqlalchemy.sql.ddl import DropSchema
 from sqlalchemy.sql.expression import select, text
@@ -37,16 +39,10 @@ from rucio.common.config import config_get, config_get_list
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid
-from rucio.core.account_counter import create_counters_for_new_account
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType
 from rucio.db.sqla.session import get_engine, get_session, get_dump_engine
 from rucio.db.sqla.types import InternalScopeString, String
-
-if TYPE_CHECKING:
-    from typing import Optional, Union  # noqa: F401
-    from sqlalchemy.orm import Session  # noqa: F401
-    from sqlalchemy.engine import Inspector  # noqa: F401
 
 REGION = make_region_memcached(expiration_time=600, memcached_expire_time=3660)
 
@@ -202,6 +198,9 @@ def create_root_account(create_counters=True):
 
     # Account counters
     if create_counters:
+        # Importing rucio core creates a cyclic dependency issue. We should only
+        # import it when we really need it.
+        from rucio.core.account_counter import create_counters_for_new_account
         create_counters_for_new_account(account=account.account, session=s)
 
     # Apply
@@ -514,3 +513,30 @@ def temp_table_mngr(session: "Session") -> TempTableManager:
         mngr = TempTableManager(session)
         session.info[key] = mngr
     return mngr
+
+
+def result_to_dict(res: Result) -> Dict[str, Any]:
+    """
+    Constructs a dictionary from a sqlalchemy result.
+
+    :param res: One result of a sqlalchemy query.
+    :returns: A dicitonary with the items of the res parameter.
+    """
+    SQLALCHEMY_FIELDS = ["_sa_instance_state"]
+
+    res_dict = dict(res)
+    for sa_keyword in SQLALCHEMY_FIELDS:
+        _ = res_dict.pop(sa_keyword, None)
+
+    return res_dict
+
+
+def query_to_list_of_dicts(query: Query) -> Iterable[Dict[str, Any]]:
+    """
+    Constructs an iterator of dictionaries from an sqlalchemy query. This evaluates
+    the query.
+
+    :param query: The query to evaluate and translate.
+    :returns: An iterator of dicitonaries with the items of the query output.
+    """
+    yield from map(result_to_dict, query)

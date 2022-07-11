@@ -29,6 +29,7 @@ from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import stream_session, read_session, transactional_session
+from rucio.db.sqla.util import result_to_dict
 
 
 class DidColumnMeta(DidMetaPlugin):
@@ -51,10 +52,7 @@ class DidColumnMeta(DidMetaPlugin):
         try:
             row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
-            d = {}
-            for column in row.__table__.columns:
-                d[column.name] = getattr(row, column.name)
-            return d
+            return result_to_dict(row)
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 

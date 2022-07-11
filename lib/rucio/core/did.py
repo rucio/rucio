@@ -41,7 +41,7 @@ from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState, BadFilesStatus
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
-from rucio.db.sqla.util import temp_table_mngr
+from rucio.db.sqla.util import result_to_dict, temp_table_mngr
 
 if TYPE_CHECKING:
     from typing import Any, Dict, Tuple, Optional, Sequence
@@ -2048,7 +2048,7 @@ def get_files(files, session=None):
 
     rows = []
     for row in session.execute(stmt):
-        file = row._asdict()
+        file = result_to_dict(row)
         rows.append(file)
         if file['availability'] == DIDAvailability.LOST:
             raise exception.UnsupportedOperation('File %s:%s is LOST and cannot be attached' % (file['scope'], file['name']))
@@ -2226,10 +2226,7 @@ def get_metadata_bulk(dids, inherit=False, session=None):
                     or_(*chunk)
                 )
                 for row in session.execute(stmt).scalars():
-                    data = {}
-                    for column in row.__table__.columns:
-                        data[column.name] = getattr(row, column.name)
-                    yield data
+                    yield result_to_dict(row)
         except NoResultFound:
             raise exception.DataIdentifierNotFound('No Data Identifiers found')
 

@@ -15,7 +15,9 @@
 
 import pytest
 
+from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session, _get_engine_poolclass, NullPool, QueuePool, SingletonThreadPool
+from rucio.db.sqla.util import query_to_list_of_dicts, result_to_dict
 from rucio.common.exception import InputValidationError
 
 
@@ -36,3 +38,49 @@ def test_config_poolclass():
 
     with pytest.raises(InputValidationError, match='Unknown poolclass: unknown'):
         _get_engine_poolclass('unknown')
+
+
+def test_result_to_dict_contains_all_keys(db_session, rse_factory):
+    _, rse_id = rse_factory.make_mock_rse()
+    rse_result = db_session.query(models.RSE).filter(models.RSE.id == rse_id).one()
+
+    assert result_to_dict(rse_result).keys() == dict(models.RSE.__table__.columns).keys()
+
+
+def test_result_to_dict(db_session, rse_factory):
+    _, rse_id = rse_factory.make_mock_rse()
+    rse_result = db_session.query(models.RSE).filter(models.RSE.id == rse_id).one()
+
+    expected = {}
+    for column in rse_result.__table__.columns:
+        expected[column.name] = getattr(rse_result, column.name)
+
+    assert result_to_dict(rse_result) == expected
+
+
+def test_query_to_list_of_dicts_empty_result(db_session):
+    query = db_session.query(models.RSE).filter(models.RSE.id.is_(None))
+    assert list(query_to_list_of_dicts(query)) == list()
+
+
+def test_query_to_list_of_dicts_contains_all_keys(db_session, rse_factory):
+    _, rse_id = rse_factory.make_mock_rse()
+    query = db_session.query(models.RSE).filter(models.RSE.id == rse_id)
+
+    res = list(query_to_list_of_dicts(query))
+    assert len(res) == 1
+    assert res[0].keys() == dict(models.RSE.__table__.columns).keys()
+
+
+def test_query_to_list_of_dicts(db_session, rse_factory):
+    _, rse_id = rse_factory.make_mock_rse()
+    query = db_session.query(models.RSE).filter(models.RSE.id == rse_id)
+
+    expected = []
+    for item in query:
+        tmp = {}
+        for column in item.__table__.columns:
+            tmp[column.name] = getattr(item, column.name)
+        expected.append(tmp)
+
+    assert list(query_to_list_of_dicts(query)) == expected

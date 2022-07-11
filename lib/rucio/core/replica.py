@@ -54,7 +54,7 @@ from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailab
                                      BadFilesStatus, RuleState, BadPFNStatus)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
                                    DEFAULT_SCHEMA_NAME, BASE)
-from rucio.db.sqla.util import temp_table_mngr
+from rucio.db.sqla.util import query_to_list_of_dicts, result_to_dict, temp_table_mngr
 from rucio.rse import rsemanager as rsemgr
 
 REGION = make_region_memcached(expiration_time=60)
@@ -2492,10 +2492,7 @@ def get_replica(rse_id, scope, name, session=None):
     """
     try:
         row = session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id, scope=scope, name=name).one()
-        result = {}
-        for column in row.__table__.columns:
-            result[column.name] = getattr(row, column.name)
-        return result
+        return result_to_dict(row)
     except NoResultFound:
         raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
 
@@ -3179,8 +3176,7 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
             .filter(models.CollectionReplica.rse_id == models.RSE.id)\
             .filter(models.RSE.deleted == false())
 
-        for row in query:
-            yield row._asdict()
+        yield from query_to_list_of_dicts(query)
 
     else:
 
@@ -3295,7 +3291,7 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
         final_query = query.union_all(full_query_archives)
 
         for row in final_query.all():
-            replica = row._asdict()
+            replica = result_to_dict(row)
             replica['length'], replica['bytes'] = length, bytes_
             if replica['length'] == row.available_length:
                 replica['state'] = ReplicaState.AVAILABLE
@@ -3338,8 +3334,7 @@ def list_dataset_replicas_bulk(names_by_intscope, session=None):
                 .filter(models.CollectionReplica.rse_id == models.RSE.id) \
                 .filter(or_(*chunk)) \
                 .filter(models.RSE.deleted == false())
-            for row in query:
-                yield row._asdict()
+            yield from query_to_list_of_dicts(query)
     except NoResultFound:
         raise exception.DataIdentifierNotFound('No Data Identifiers found')
 
@@ -3450,8 +3445,7 @@ def list_datasets_per_rse(rse_id, filters=None, limit=None, session=None):
     if limit:
         query = query.limit(limit)
 
-    for row in query:
-        yield row._asdict()
+    yield from query_to_list_of_dicts(query)
 
 
 @transactional_session

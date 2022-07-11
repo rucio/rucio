@@ -62,6 +62,7 @@ from rucio.db.sqla.constants import (LockState, ReplicaState, RuleState, RuleGro
                                      DIDAvailability, DIDReEvaluation, DIDType, BadFilesStatus,
                                      RequestType, RuleNotification, OBSOLETE, RSEType)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
+from rucio.db.sqla.util import query_to_list_of_dicts, result_to_dict
 
 
 REGION = make_region_memcached(expiration_time=900)
@@ -743,11 +744,7 @@ def list_rules(filters={}, session=None):
             query = query.filter(getattr(models.ReplicationRule, key) == value)
 
     try:
-        for rule in query.yield_per(5):
-            d = {}
-            for column in rule.__table__.columns:
-                d[column.name] = getattr(rule, column.name)
-            yield d
+        yield from query_to_list_of_dicts(query.yield_per(5))
     except StatementError:
         raise RucioException('Badly formatted input (IDs?)')
 
@@ -821,11 +818,7 @@ def list_associated_rules_for_file(scope, name, session=None):
         join(models.ReplicaLock, models.ReplicationRule.id == models.ReplicaLock.rule_id).\
         filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name).distinct()
     try:
-        for rule in query.yield_per(5):
-            d = {}
-            for column in rule.__table__.columns:
-                d[column.name] = getattr(rule, column.name)
-            yield d
+        yield from query_to_list_of_dicts(query.yield_per(5))
     except StatementError:
         raise RucioException('Badly formatted input (IDs?)')
 
@@ -1158,11 +1151,7 @@ def get_rule(rule_id, session=None):
 
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
-        d = {}
-        for column in rule.__table__.columns:
-            d[column.name] = getattr(rule, column.name)
-        return d
-
+        return result_to_dict(rule)
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:

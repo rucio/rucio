@@ -38,6 +38,7 @@ from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import (RSEType, ReplicaState)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
+from rucio.db.sqla.util import query_to_list_of_dicts
 
 
 REGION = make_region_memcached(expiration_time=900)
@@ -482,7 +483,6 @@ def list_rses(filters={}, session=None):
     :returns: a list of dictionaries.
     """
 
-    rse_list = []
     availability_mask1 = 0
     availability_mask2 = 7
     availability_mapping = {'availability_read': 4, 'availability_write': 2, 'availability_delete': 1}
@@ -534,13 +534,7 @@ def list_rses(filters={}, session=None):
     if vo:
         query = query.filter(getattr(models.RSE, 'vo') == vo)
 
-    for row in query:
-        dic = {}
-        for column in row.__table__.columns:
-            dic[column.name] = getattr(row, column.name)
-        rse_list.append(dic)
-
-    return rse_list
+    return list(query_to_list_of_dicts(query))
 
 
 @transactional_session
@@ -630,19 +624,11 @@ def get_rses_with_attribute(key, session=None):
 
     :returns: List of rse dictionaries
     """
-    rse_list = []
-
     query = session.query(models.RSE).\
         join(models.RSEAttrAssociation, models.RSE.id == models.RSEAttrAssociation.rse_id).\
         filter(models.RSE.deleted == False, models.RSEAttrAssociation.key == key).group_by(models.RSE)  # NOQA
 
-    for row in query:
-        d = {}
-        for column in row.__table__.columns:
-            d[column.name] = getattr(row, column.name)
-        rse_list.append(d)
-
-    return rse_list
+    return list(query_to_list_of_dicts(query))
 
 
 @read_session

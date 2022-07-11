@@ -24,6 +24,7 @@ from rucio.common.cache import make_region_memcached
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import KeyType
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.util import query_to_list_of_dicts
 
 REGION = make_region_memcached(expiration_time=900)
 
@@ -100,7 +101,7 @@ def list_naming_conventions(session=None):
     """
     query = session.query(models.NamingConvention.scope,
                           models.NamingConvention.regexp)
-    return [row._asdict() for row in query]
+    return list(query_to_list_of_dicts(query))
 
 
 @read_session
