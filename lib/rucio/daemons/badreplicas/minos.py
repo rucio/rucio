@@ -99,7 +99,7 @@ def __clean_unknown_replicas(pfns: list, vo: str, logger: "Callable") -> dict:
         unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
     # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
     if unknown_replicas:
-        logger(logging.INFO, 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
+        logger(logging.INFO, 'The following replicas are unknown and will be removed : %s', str(unknown_replicas))
         bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
     return dict_rse
 
@@ -143,22 +143,23 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     for account, reason, state in bad_replicas:
         vo = account.vo
         pfns = bad_replicas[(account, reason, state)]
-        logger(logging.INFO, 'Declaring %s replicas with state %s and reason %s' % (len(pfns), str(state), reason))
+        logger(logging.INFO, 'Declaring %s replicas with state %s and reason %s', len(pfns), str(state), reason)
         session = get_session()
         try:
             dict_rse = __clean_unknown_replicas(pfns, vo, logger)
             for rse_id, pfns_by_scheme in dict_rse.items():
+                rse = get_rse_name(rse_id=rse_id, session=None)
+                rse_vo_str = rse if vo == 'def' else '{} on VO {}'.format(rse, vo)
                 for scheme, pfns in pfns_by_scheme.items():
-                    vo_str = '' if vo == 'def' else ' on VO ' + vo
-                    logger(logging.DEBUG, 'Running on RSE %s%s with %s replicas' % (get_rse_name(rse_id=rse_id), vo_str, len(pfns)))
+                    logger(logging.DEBUG, 'Running on RSE %s with %s replicas', rse_vo_str, len(pfns))
                     nchunk = 0
                     tot_chunk = int(math.ceil(len(pfns) / chunk_size))
                     for chunk in chunks(pfns, chunk_size):
                         nchunk += 1
-                        logger(logging.DEBUG, 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
+                        logger(logging.DEBUG, 'Running on %s chunk out of %s', nchunk, tot_chunk)
                         unknown_replicas = declare_bad_file_replicas(pfns=chunk, reason=reason, issuer=account, status=state, session=session)
                         if unknown_replicas:
-                            logger(logging.DEBUG, 'Unknown replicas : %s' % (str(unknown_replicas)))
+                            logger(logging.DEBUG, 'Unknown replicas : %s', str(unknown_replicas))
                         bulk_delete_bad_pfns(pfns=chunk, session=session)
                         session.commit()  # pylint: disable=no-member
         except (DatabaseException, DatabaseError) as error:
@@ -177,15 +178,15 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     for account, reason, expires_at in temporary_unvailables:
         vo = account.vo
         pfns = temporary_unvailables[(account, reason, expires_at)]
-        logger(logging.INFO, 'Declaring %s replicas temporary available with timeout %s and reason %s' % (len(pfns), str(expires_at), reason))
+        logger(logging.INFO, 'Declaring %s replicas temporary available with timeout %s and reason %s', len(pfns), str(expires_at), reason)
         logger(logging.DEBUG, 'Extracting RSEs')
 
         dict_rse = __clean_unknown_replicas(pfns, vo, logger)
         for rse_id in dict_rse:
             replicas = []
             rse = get_rse_name(rse_id=rse_id, session=None)
-            rse_vo_str = rse if vo == 'def' else '{} on {}'.format(rse, vo)
-            logger(logging.DEBUG, 'Running on RSE %s' % rse_vo_str)
+            rse_vo_str = rse if vo == 'def' else '{} on VO {}'.format(rse, vo)
+            logger(logging.DEBUG, 'Running on RSE %s', rse_vo_str)
             for rse_id, pfns_by_scheme in dict_rse.items():
                 for scheme, pfns in pfns_by_scheme.items():
                     for rep in get_did_from_pfns(pfns=pfns, rse_id=None, vo=vo, session=None):
@@ -197,14 +198,14 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             # We update the replicas states to TEMPORARY_UNAVAILABLE
             # then insert a row in the bad_replicas table. TODO Update the row if it already exists
             # then delete the corresponding rows into the bad_pfns table
-            logger(logging.DEBUG, 'Running on %s replicas on RSE %s' % (len(replicas), rse_vo_str))
+            logger(logging.DEBUG, 'Running on %s replicas on RSE %s', len(replicas), rse_vo_str)
             nchunk = 0
             tot_chunk = int(math.ceil(len(replicas) / float(chunk_size)))
             session = get_session()
             for chunk in chunks(replicas, chunk_size):
                 try:
                     nchunk += 1
-                    logger(logging.DEBUG, 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
+                    logger(logging.DEBUG, 'Running on %s chunk out of %s', nchunk, tot_chunk)
                     update_replicas_states(chunk, nowait=False, session=session)
                     bulk_add_bad_replicas(chunk, account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=reason, expires_at=expires_at, session=session)
                     pfns = [entry['pfn'] for entry in chunk]
@@ -212,9 +213,9 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     session.commit()  # pylint: disable=no-member
                 except (UnsupportedOperation, ReplicaNotFound) as error:
                     session.rollback()  # pylint: disable=no-member
-                    logger(logging.ERROR, 'Problem to bulk update PFNs. PFNs will be updated individually. Error : %s' % str(error))
+                    logger(logging.ERROR, 'Problem to bulk update PFNs. PFNs will be updated individually. Error : %s', str(error))
                     for rep in chunk:
-                        logger(logging.DEBUG, 'Working on %s' % (str(rep)))
+                        logger(logging.DEBUG, 'Working on %s', str(rep))
                         try:
                             get_metadata(rep['scope'], rep['name'])
                             unavailable_states = []
@@ -224,11 +225,11 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                             unavailable_states.extend(rep_state.get(ReplicaState.BAD, []))
                             # If the replica is already not available, it is removed from the bad PFNs table
                             if rep['rse_id'] in unavailable_states:
-                                logger(logging.INFO, '%s is in unavailable state. Will be removed from the list of bad PFNs' % str(rep['pfn']))
+                                logger(logging.INFO, '%s is in unavailable state. Will be removed from the list of bad PFNs', str(rep['pfn']))
                                 bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
                             # If the expiration date of the TEMPORARY_UNAVAILABLE is in the past, it is removed from the bad PFNs table
                             elif expires_at < datetime.now():
-                                logger(logging.INFO, 'PFN %s expiration time (%s) is older than now and is not in unavailable state. Removing the PFNs from bad_pfns' % (str(rep['pfn']), expires_at))
+                                logger(logging.INFO, 'PFN %s expiration time (%s) is older than now and is not in unavailable state. Removing the PFNs from bad_pfns', str(rep['pfn']), expires_at)
                                 bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
                             # Else update everything in the same transaction
                             else:
@@ -239,9 +240,9 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                                     bulk_delete_bad_pfns(pfns=[rep['pfn']], session=session)
                                     session.commit()  # pylint: disable=no-member
                                 except Exception:
-                                    logger(logging.ERROR, 'Cannot update state of %s' % str(rep['pfn']))
+                                    logger(logging.ERROR, 'Cannot update state of %s', str(rep['pfn']))
                         except (DataIdentifierNotFound, ReplicaNotFound):
-                            logger(logging.ERROR, 'Will remove %s from the list of bad PFNs' % str(rep['pfn']))
+                            logger(logging.ERROR, 'Will remove %s from the list of bad PFNs', str(rep['pfn']))
                             bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
                     session = get_session()
                 except (DatabaseException, DatabaseError) as error:
