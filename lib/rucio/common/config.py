@@ -289,6 +289,8 @@ def __convert_string_to_list(string):
 
     :returns: A list extracted from the string.
     """
+    if not string or not string.strip():
+        return []
     string = string.split(',')
     return [item.strip(' ') for item in string]
 
