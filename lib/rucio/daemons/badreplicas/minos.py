@@ -41,6 +41,7 @@ from rucio.db.sqla.session import get_session
 
 if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
+    from rucio.common.types import InternalAccount
 
 graceful_stop = threading.Event()
 
@@ -77,6 +78,8 @@ def __clean_unknown_replicas(pfns: list, vo: str, logger: "Callable") -> dict:
     """
     Identify from the list of PFNs the one that are unknown and remove them from the bad_pfns table
     :param pfns: List of PFNs
+    :param vo: The VO name
+    :param logger: The logger
 
     :returns: Dictionary cleaned from unkwnon replicas
     """
@@ -103,6 +106,48 @@ def __clean_unknown_replicas(pfns: list, vo: str, logger: "Callable") -> dict:
         logger(logging.INFO, 'The following replicas are unknown and will be removed : %s', str(unknown_replicas))
         bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
     return dict_rse
+
+
+def __update_temporary_unavailable(chunk: list, reason: str, expires_at: datetime, account: "InternalAccount", logger: "Callable") -> None:
+    """
+    Update temporary unavailable replicas one by one
+    :param chunk: List of unvailable replicas to update
+    :param reason: Reason of the temporary unavailable replica
+    :param expires_at: Expiration date of the temporary unavailability
+    :param account: Account who declared the replica
+    :param logger: The logger
+
+    """
+    for rep in chunk:
+        logger(logging.DEBUG, 'Working on %s', str(rep))
+        try:
+            get_metadata(rep['scope'], rep['name'])
+            unavailable_states = []
+            rep_state = get_replicas_state(rep['scope'], rep['name'])
+            unavailable_states.extend(rep_state.get(ReplicaState.TEMPORARY_UNAVAILABLE, []))
+            unavailable_states.extend(rep_state.get(ReplicaState.BEING_DELETED, []))
+            unavailable_states.extend(rep_state.get(ReplicaState.BAD, []))
+            # If the replica is already not available, it is removed from the bad PFNs table
+            if rep['rse_id'] in unavailable_states:
+                logger(logging.INFO, '%s is in unavailable state. Will be removed from the list of bad PFNs', str(rep['pfn']))
+                bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
+            # If the expiration date of the TEMPORARY_UNAVAILABLE is in the past, it is removed from the bad PFNs table
+            elif expires_at < datetime.now():
+                logger(logging.INFO, 'PFN %s expiration time (%s) is older than now and is not in unavailable state. Removing the PFNs from bad_pfns', str(rep['pfn']), expires_at)
+                bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
+            # Else update everything in the same transaction
+            else:
+                try:
+                    session = get_session()
+                    update_replicas_states([rep], nowait=False, session=session)
+                    bulk_add_bad_replicas([rep], account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=reason, expires_at=expires_at, session=session)
+                    bulk_delete_bad_pfns(pfns=[rep['pfn']], session=session)
+                    session.commit()  # pylint: disable=no-member
+                except Exception:
+                    logger(logging.ERROR, 'Cannot update state of %s', str(rep['pfn']))
+        except (DataIdentifierNotFound, ReplicaNotFound):
+            logger(logging.ERROR, 'Will remove %s from the list of bad PFNs', str(rep['pfn']))
+            bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
 
 
 def minos(bulk: int = 1000, once: bool = False, sleep_time: int = 60) -> None:
@@ -211,36 +256,8 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                 except (UnsupportedOperation, ReplicaNotFound) as error:
                     session.rollback()  # pylint: disable=no-member
                     logger(logging.ERROR, 'Problem to bulk update PFNs. PFNs will be updated individually. Error : %s', str(error))
-                    for rep in chunk:
-                        logger(logging.DEBUG, 'Working on %s', str(rep))
-                        try:
-                            get_metadata(rep['scope'], rep['name'])
-                            unavailable_states = []
-                            rep_state = get_replicas_state(rep['scope'], rep['name'])
-                            unavailable_states.extend(rep_state.get(ReplicaState.TEMPORARY_UNAVAILABLE, []))
-                            unavailable_states.extend(rep_state.get(ReplicaState.BEING_DELETED, []))
-                            unavailable_states.extend(rep_state.get(ReplicaState.BAD, []))
-                            # If the replica is already not available, it is removed from the bad PFNs table
-                            if rep['rse_id'] in unavailable_states:
-                                logger(logging.INFO, '%s is in unavailable state. Will be removed from the list of bad PFNs', str(rep['pfn']))
-                                bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
-                            # If the expiration date of the TEMPORARY_UNAVAILABLE is in the past, it is removed from the bad PFNs table
-                            elif expires_at < datetime.now():
-                                logger(logging.INFO, 'PFN %s expiration time (%s) is older than now and is not in unavailable state. Removing the PFNs from bad_pfns', str(rep['pfn']), expires_at)
-                                bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
-                            # Else update everything in the same transaction
-                            else:
-                                try:
-                                    session = get_session()
-                                    update_replicas_states([rep], nowait=False, session=session)
-                                    bulk_add_bad_replicas([rep], account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=reason, expires_at=expires_at, session=session)
-                                    bulk_delete_bad_pfns(pfns=[rep['pfn']], session=session)
-                                    session.commit()  # pylint: disable=no-member
-                                except Exception:
-                                    logger(logging.ERROR, 'Cannot update state of %s', str(rep['pfn']))
-                        except (DataIdentifierNotFound, ReplicaNotFound):
-                            logger(logging.ERROR, 'Will remove %s from the list of bad PFNs', str(rep['pfn']))
-                            bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
+                    # Update all the replicas one by one
+                    __update_temporary_unavailable(chunk=chunk, reason=reason, expires_at=expires_at, account=account, logger=logger)
                     session = get_session()
                 except (DatabaseException, DatabaseError) as error:
                     if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
