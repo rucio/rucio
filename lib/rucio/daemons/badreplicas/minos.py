@@ -152,11 +152,9 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                 rse_vo_str = rse if vo == 'def' else '{} on VO {}'.format(rse, vo)
                 for scheme, pfns in pfns_by_scheme.items():
                     logger(logging.DEBUG, 'Running on RSE %s with %s replicas', rse_vo_str, len(pfns))
-                    nchunk = 0
                     tot_chunk = int(math.ceil(len(pfns) / chunk_size))
-                    for chunk in chunks(pfns, chunk_size):
-                        nchunk += 1
-                        logger(logging.DEBUG, 'Running on %s chunk out of %s', nchunk, tot_chunk)
+                    for nchunk, chunk in enumerate(chunks(pfns, chunk_size)):
+                        logger(logging.DEBUG, 'Running on %s chunk out of %s', nchunk + 1, tot_chunk)
                         unknown_replicas = declare_bad_file_replicas(pfns=chunk, reason=reason, issuer=account, status=state, session=session)
                         if unknown_replicas:
                             logger(logging.DEBUG, 'Unknown replicas : %s', str(unknown_replicas))
@@ -199,13 +197,11 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             # then insert a row in the bad_replicas table. TODO Update the row if it already exists
             # then delete the corresponding rows into the bad_pfns table
             logger(logging.DEBUG, 'Running on %s replicas on RSE %s', len(replicas), rse_vo_str)
-            nchunk = 0
             tot_chunk = int(math.ceil(len(replicas) / float(chunk_size)))
             session = get_session()
-            for chunk in chunks(replicas, chunk_size):
+            for nchunk, chunk in enumerate(chunks(replicas, chunk_size)):
                 try:
-                    nchunk += 1
-                    logger(logging.DEBUG, 'Running on %s chunk out of %s', nchunk, tot_chunk)
+                    logger(logging.DEBUG, 'Running on %s chunk out of %s', nchunk + 1, tot_chunk)
                     update_replicas_states(chunk, nowait=False, session=session)
                     bulk_add_bad_replicas(chunk, account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=reason, expires_at=expires_at, session=session)
                     pfns = [entry['pfn'] for entry in chunk]
