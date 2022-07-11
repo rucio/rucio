@@ -25,6 +25,7 @@ from typing import Tuple, Dict, Callable
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
+from rucio.common.config import config_get_int
 from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound, ReplicaNotFound, DatabaseException
 from rucio.common.logging import setup_logging
 from rucio.common.utils import chunks
@@ -131,7 +132,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     worker_number, total_workers, logger = heartbeat_handler.live()
     logger(logging.INFO, 'Minos started')
 
-    chunk_size = 10  # The chunk size used for the commits
+    chunk_size = config_get_int('minos', 'commit_size', default=10, raise_exception=False)  # The chunk size used for the commits
 
     pfns = get_bad_pfns(thread=worker_number, total_threads=total_workers, limit=bulk)
 
