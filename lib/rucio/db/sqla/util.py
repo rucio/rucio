@@ -417,16 +417,17 @@ def _create_temp_table(name, *columns, primary_key=None, oracle_global_name=None
         }
 
     # Ensure the table exists and is empty.
-    # If it already exists, it can contain leftover data from a previous transaction
-    # executed by sqlalchemy within the same session (which is being re-used now)
     if session.bind.dialect.name == 'oracle':
         # Oracle doesn't support if_not_exists.
         # We ensured the unicity by appending a random string to the table name.
-        if oracle_table_is_global:
-            session.query(DeclarativeObj).delete()
-        else:
+        if not oracle_table_is_global:
             session.execute(CreateTable(table))
+    elif session.bind.dialect.name == 'postgresql':
+        session.execute(CreateTable(table))
     else:
+        # If it already exists, it can contain leftover data from a previous transaction
+        # executed by sqlalchemy within the same session (which is being re-used now)
+        # This is not the case for oracle and postgresql thanks to their "on_commit" support.
         session.execute(CreateTable(table, if_not_exists=True))
         session.query(DeclarativeObj).delete()
     return DeclarativeObj
