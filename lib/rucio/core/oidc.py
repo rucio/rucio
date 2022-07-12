@@ -42,7 +42,7 @@ from rucio.common.utils import all_oidc_req_claims_present, build_url, val_to_sp
 from rucio.common import types
 from rucio.core.account import account_exists
 from rucio.core.identity import exist_identity_account, get_default_account
-from rucio.core.monitor import record_counter, Stopwatch
+from rucio.core.monitor import record_counter, Timer
 from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
@@ -298,7 +298,7 @@ def get_auth_oidc(account: str, session=None, **kwargs) -> str:
             return None
 
     try:
-        timer = Stopwatch()
+        timer = Timer()
         # redirect_url needs to be specified & one of those defined
         # in the Rucio OIDC Client configuration
         redirect_to = "auth/oidc_code"
@@ -369,7 +369,7 @@ def get_token_oidc(auth_query_string: str, ip: str = None, session=None):
               (no auto, auto, polling).
     """
     try:
-        timer = Stopwatch()
+        timer = Timer()
         parsed_authquery = parse_qs(auth_query_string)
         state = parsed_authquery["state"][0]
         code = parsed_authquery["code"][0]
@@ -764,7 +764,7 @@ def __exchange_token_oidc(subject_token_object: models.Token, session=None, **kw
     if not grant_type:
         grant_type = EXCHANGE_GRANT_TYPE
     try:
-        timer = Stopwatch()
+        timer = Timer()
 
         record_counter(name='IdP_authentication.code_granted')
         oidc_dict = __get_init_oidc_client(token_object=subject_token_object, token_type="subject_token")
@@ -968,7 +968,7 @@ def __refresh_token_oidc(token_object: models.Token, session=None):
         constraints. Otherwise, throws an an Exception.
     """
     try:
-        timer = Stopwatch()
+        timer = Timer()
         record_counter(name='IdP_authorization.refresh_token.request')
         jwt_row_dict, extra_dict = {}, {}
         jwt_row_dict['account'] = token_object.account

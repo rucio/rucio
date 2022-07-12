@@ -27,7 +27,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.logging import setup_logging
-from rucio.core.monitor import record_counter, record_timer, Stopwatch
+from rucio.core.monitor import record_counter, record_timer, Timer
 from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, next_transfers_to_submit
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestType
@@ -39,7 +39,7 @@ graceful_stop = threading.Event()
 def run_once(bulk, group_bulk, rse_ids, scheme, failover_scheme, transfertool_kwargs, heartbeat_handler, activity):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
-    timer = Stopwatch()
+    timer = Timer()
     transfers = next_transfers_to_submit(
         total_workers=total_workers,
         worker_number=worker_number,
@@ -62,9 +62,9 @@ def run_once(bulk, group_bulk, rse_ids, scheme, failover_scheme, transfertool_kw
     for builder, transfer_paths in transfers.items():
         transfertool_obj = builder.make_transfertool(logger=logger, **transfertool_kwargs.get(builder.transfertool_class, {}))
         logger(logging.INFO, 'Starting to group transfers for %s (%s)' % (activity, transfertool_obj))
-        timer = Stopwatch()
-        grouped_jobs = transfertool_obj.group_into_submit_jobs(transfer_paths)
-        timer.record('daemons.conveyor.stager.bulk_group_transfer', divisor=len(transfer_paths) or 1)
+
+        with Timer('daemons.conveyor.stager.bulk_group_transfer', divisor=len(transfer_paths) or 1):
+            grouped_jobs = transfertool_obj.group_into_submit_jobs(transfer_paths)
 
         logger(logging.INFO, 'Starting to submit transfers for %s (%s)' % (activity, transfertool_obj))
         for job in grouped_jobs:

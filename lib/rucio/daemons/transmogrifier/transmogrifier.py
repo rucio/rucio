@@ -309,7 +309,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
         return must_sleep
 
     results = {}
-    timer = monitor.Stopwatch()
+    timer = monitor.Timer()
     blocklisted_rse_id = [rse["id"] for rse in list_rses({"availability_write": False})]
     identifiers = []
     #  Loop over all the new dids
@@ -667,7 +667,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             )
 
     #  Mark the DIDs as processed
-    flag_timer = monitor.Stopwatch()
+    flag_timer = monitor.Timer()
     for identifier in chunks(identifiers, 100):
         _retrial(set_new_dids, identifier, None)
     logger(logging.DEBUG, "Time to set the new flag : %f" % flag_timer.elapsed)
