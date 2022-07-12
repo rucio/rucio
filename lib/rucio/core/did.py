@@ -35,7 +35,7 @@ from rucio.common.config import config_get_bool
 from rucio.common.utils import is_archive, chunks
 from rucio.core import did_meta_plugins, config as config_core
 from rucio.core.message import add_message
-from rucio.core.monitor import record_timer_block, record_counter
+from rucio.core.monitor import Timer, record_counter
 from rucio.core.naming_convention import validate_name
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models, filter_thread_work
@@ -1246,7 +1246,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     # Delete rules on did
     skip_deletion = False  # Skip deletion in case of expiration of a rule
     if rule_id_clause:
-        with record_timer_block('undertaker.rules'):
+        with Timer('undertaker.rules'):
             stmt = select(
                 models.ReplicationRule.id,
                 models.ReplicationRule.scope,
@@ -1281,7 +1281,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     # Detach from parent dids:
     existing_parent_dids = False
     if parent_content_clause:
-        with record_timer_block('undertaker.parent_content'):
+        with Timer('undertaker.parent_content'):
             stmt = select(
                 models.DataIdentifierAssociation
             ).where(
@@ -1293,7 +1293,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
 
     # Set Epoch tombstone for the files replicas inside the did
     if config_core.get('undertaker', 'purge_all_replicas', default=False, session=session) and file_content_clause:
-        with record_timer_block('undertaker.file_content'):
+        with Timer('undertaker.file_content'):
             stmt = select(
                 models.DataIdentifierAssociation.child_scope,
                 models.DataIdentifierAssociation.child_name,
@@ -1335,7 +1335,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
 
     # Remove content
     if content_clause:
-        with record_timer_block('undertaker.content'):
+        with Timer('undertaker.content'):
             stmt = delete(
                 models.DataIdentifierAssociation
             ).where(
@@ -1348,7 +1348,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
 
     # Remove CollectionReplica
     if collection_replica_clause:
-        with record_timer_block('undertaker.dids'):
+        with Timer('undertaker.dids'):
             stmt = delete(
                 models.CollectionReplica
             ).where(
@@ -1370,10 +1370,10 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
         if session.bind.dialect.name == 'oracle':
             oracle_version = int(session.connection().connection.version.split('.')[0])
             if oracle_version >= 12:
-                with record_timer_block('undertaker.did_meta'):
+                with Timer('undertaker.did_meta'):
                     session.execute(stmt)
         else:
-            with record_timer_block('undertaker.did_meta'):
+            with Timer('undertaker.did_meta'):
                 session.execute(stmt)
 
     # Update bad_replicas if exist
@@ -1397,7 +1397,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
         return
 
     if did_clause:
-        with record_timer_block('undertaker.dids'):
+        with Timer('undertaker.dids'):
             stmt = delete(
                 models.DataIdentifier
             ).where(
@@ -1413,7 +1413,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
                 insert_deleted_dids(filter_=or_(*did_clause), session=session)
 
     if did_followed_clause:
-        with record_timer_block('undertaker.dids'):
+        with Timer('undertaker.dids'):
             stmt = delete(
                 models.DidsFollowed
             ).where(

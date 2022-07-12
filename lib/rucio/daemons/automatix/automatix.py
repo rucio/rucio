@@ -214,7 +214,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
         for site in sites:
 
             for retry in range(0, totretries):
-                timer = monitor.Stopwatch()
+                timer = monitor.Timer()
                 tmpdir = tempfile.mkdtemp()
                 logger(logging.INFO, 'Running on site %s', site)
                 dic = choose_element(probabilities, data)

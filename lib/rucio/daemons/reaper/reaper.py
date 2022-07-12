@@ -155,7 +155,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 if replica['scope'].vo != 'def':
                     deletion_dict['vo'] = replica['scope'].vo
                 logger(logging.DEBUG, 'Deletion ATTEMPT of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
-                timer = monitor.Stopwatch()
+                timer = monitor.Timer()
                 # For STAGING RSEs, no physical deletion
                 if is_staging:
                     logger(logging.WARNING, 'Deletion STAGING of %s:%s as %s on %s, will only delete the catalog and not do physical deletion', replica['scope'], replica['name'], replica['pfn'], rse_name)
@@ -575,7 +575,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
         del_start_time = time.time()
         try:
             use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
-            with monitor.record_timer_block('reaper.list_unlocked_replicas'):
+            with monitor.Timer('reaper.list_unlocked_replicas'):
                 if only_delete_obsolete:
                     logger(logging.DEBUG, 'Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', rse.name)
                 if use_temp_tables:
@@ -639,7 +639,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
 
                 # Then finally delete the replicas
                 del_start = time.time()
-                with monitor.record_timer_block('reaper.delete_replicas'):
+                with monitor.Timer('reaper.delete_replicas'):
                     delete_replicas(rse_id=rse.id, files=deleted_files)
                 logger(logging.DEBUG, 'delete_replicas successed on %s : %s replicas in %s seconds', rse.name, len(deleted_files), time.time() - del_start)
                 DELETION_COUNTER.inc(len(deleted_files))

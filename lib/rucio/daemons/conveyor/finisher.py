@@ -35,7 +35,7 @@ from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
 from rucio.core import request as request_core, replica as replica_core
 from rucio.core.config import items
-from rucio.core.monitor import record_counter, record_timer_block, Stopwatch
+from rucio.core.monitor import record_counter, Timer
 from rucio.core.rse import list_rses
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, BadFilesStatus
@@ -55,7 +55,7 @@ def run_once(bulk, db_bulk, suspicious_patterns, retry_protocol_mismatches, hear
     try:
         logger(logging.DEBUG, 'Working on activity %s', activity)
 
-        with record_timer_block('daemons.conveyor.finisher.get_next'):
+        with Timer('daemons.conveyor.finisher.get_next'):
             reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                          state=[RequestState.DONE, RequestState.FAILED,
                                                 RequestState.LOST, RequestState.SUBMITTING,
@@ -72,16 +72,18 @@ def run_once(bulk, db_bulk, suspicious_patterns, retry_protocol_mismatches, hear
         if reqs:
             logger(logging.DEBUG, 'Updating %i requests for activity %s', len(reqs), activity)
 
-        timer = Stopwatch()
+        timer = Timer()
 
         for chunk in chunks(reqs, bulk):
             try:
                 worker_number, total_workers, logger = heartbeat_handler.live()
-                with record_timer_block(('daemons.conveyor.finisher.handle_requests_time', len(chunk) or 1)):
+                with Timer('daemons.conveyor.finisher.handle_requests_time', divisor=len(chunk) or 1):
                     __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
                 record_counter('daemons.conveyor.finisher.handle_requests', delta=len(chunk))
             except Exception as error:
                 logger(logging.WARNING, '%s', str(error))
+
+        timer.stop()
 
         if reqs:
             logger(logging.DEBUG, 'Finish to update %s finished requests for activity %s in %s seconds', len(reqs), activity, timer.elapsed)
@@ -225,7 +227,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
             # Standard failure from the transfer tool
             elif req['state'] == RequestState.FAILED:
                 __check_suspicious_files(req, suspicious_patterns, logger=logger)
-                timer = Stopwatch()
+                timer = Timer()
                 try:
                     if request_core.should_retry_request(req, retry_protocol_mismatches):
                         new_req = request_core.requeue_and_archive(req, source_ranking_update=True, retry_protocol_mismatches=retry_protocol_mismatches, logger=logger)
@@ -253,7 +255,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
                     # To prevent race conditions
                     continue
                 try:
-                    timer = Stopwatch()
+                    timer = Timer()
                     if request_core.should_retry_request(req, retry_protocol_mismatches):
                         new_req = request_core.requeue_and_archive(req, source_ranking_update=False, retry_protocol_mismatches=retry_protocol_mismatches, logger=logger)
                         timer.record('daemons.conveyor.common.update_request_state.request_requeue_and_archive')

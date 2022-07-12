@@ -38,7 +38,7 @@ from rucio.common.types import InternalAccount
 from rucio.common.logging import setup_logging
 from rucio.common.utils import dict_chunks
 from rucio.core import transfer as transfer_core, request as request_core
-from rucio.core.monitor import record_timer_block, record_counter, Stopwatch
+from rucio.core.monitor import Timer, record_counter
 from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.daemons.common import run_daemon
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -55,7 +55,7 @@ FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)
 def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, activity, heartbeat_handler, oidc_account: str):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
-    with record_timer_block('daemons.conveyor.poller.get_next'):
+    with Timer('daemons.conveyor.poller.get_next'):
         logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))
         transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                         state=[RequestState.SUBMITTED],
@@ -251,7 +251,7 @@ def _poll_transfers(transfertool_obj, transfers_by_eid, timeout, logger):
     """
     is_bulk = len(transfers_by_eid) > 1
     try:
-        timer = Stopwatch()
+        timer = Timer()
         logger(logging.INFO, 'Polling %i transfers against %s with timeout %s' % (len(transfers_by_eid), transfertool_obj, timeout))
         resps = transfertool_obj.bulk_query(requests_by_eid=transfers_by_eid, timeout=timeout)
         timer.stop()

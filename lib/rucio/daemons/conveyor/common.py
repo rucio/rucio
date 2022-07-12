@@ -26,7 +26,7 @@ from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
                                     DuplicateFileTransferSubmission, VONotFound, DatabaseException)
 from rucio.core import request as request_core, transfer as transfer_core
-from rucio.core.monitor import record_counter, record_timer, Stopwatch
+from rucio.core.monitor import record_counter, record_timer, Timer
 from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
 from rucio.core.request import set_request_state, queue_requests
 from rucio.core.rse import list_rses
@@ -396,7 +396,7 @@ def _submit_transfers(transfertool_obj, transfers, job_params, submitter='submit
     # A eid is returned if the job is properly submitted otherwise an exception is raised
     is_bulk = len(transfers) > 1
     eid = None
-    timer = Stopwatch()
+    timer = Timer()
     state_to_set = RequestState.SUBMISSION_FAILED
     try:
         record_counter('core.request.submit_transfer')

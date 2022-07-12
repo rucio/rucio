@@ -32,14 +32,15 @@ class TestMonitor:
 
     def test_context_record_timer(self):
         """MONITOR (CORE): Send a timer message to graphite using context """
-        with monitor.record_timer_block('test.context_timer'):
+        with monitor.Timer('test.context_timer'):
             var_a = 2 * 100
             var_a = var_a * 1
 
-        with monitor.record_timer_block(['test.context_timer']):
+        with monitor.Timer('test.context_timer'):
             var_a = 2 * 100
             var_a = var_a * 1
 
-        with monitor.record_timer_block(['test.context_timer', ('test.context_timer_normal10', 10)]):
+        with monitor.Timer('test.context_timer'), \
+                monitor.Timer('test.context_timer_normal10', divisor=10):
             var_a = 2 * 100
             var_a = var_a * 1
