@@ -4,6 +4,7 @@ urllib3>=1.24.2,<=1.26.8                                    # HTTP library with 
 dogpile.cache>=1.1.2,<=1.1.5                                # Caching API plugins (1.1.2 is the first version to support pymemcache)
 tabulate~=0.8.0                                             # Pretty-print tabular data
 jsonschema~=3.2.0                                           # For JSON schema validation (Policy modules)
+dataclasses==0.8.0; python_version == '3.6'
 
 # All dependencies needed in extras for rucio client (and server/daemons) should be defined here
 paramiko~=2.10.3                                            # ssh_extras; SSH2 protocol library (also needed in the server) Race condition before 2.10.1 (https://github.com/advisories/GHSA-f8q4-jwww-x3wv)
