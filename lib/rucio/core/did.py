@@ -121,7 +121,7 @@ def add_did(
         meta: "Optional[Dict[str, Any]]" = None,
         rules: "Optional[Sequence[str]]" = None,
         lifetime: "Optional[int]" = None,
-        dids: "Optional[Dict[str, Any]]" = None,
+        dids: "Optional[Sequence[Dict[str, Any]]]" = None,
         rse_id: "Optional[str]" = None,
         session: "Optional[Session]" = None,
 ):
@@ -149,7 +149,7 @@ def add_did(
 
 @transactional_session
 def add_dids(
-        dids: "Dict[str, Any]",
+        dids: "Sequence[Dict[str, Any]]",
         account: "InternalAccount",
         session: "Optional[Session]" = None,
 ):
@@ -244,7 +244,7 @@ def add_dids(
 def attach_dids(
         scope: "InternalScope",
         name: str,
-        dids: "Dict[str, Any]",
+        dids: "Sequence[Dict[str, Any]]",
         account: "InternalAccount",
         rse_id: "Optional[str]" = None,
         session: "Optional[Session]" = None,
