@@ -44,9 +44,11 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 from rucio.db.sqla.util import temp_table_mngr
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Tuple, Optional, Sequence
+    from typing import Any, Dict, Tuple, Optional, Sequence, Callable
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount, InternalScope
+
+    LoggerFunction = Callable[..., Any]
 
 
 @read_session
@@ -1171,7 +1173,13 @@ def _attach_dids_to_dids_without_temp_tables(attachments, account, ignore_duplic
 
 
 @transactional_session
-def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.log):
+def delete_dids(
+        dids: "Sequence[Dict[str, Any]]",
+        account: "InternalAccount",
+        expire_rules: bool = False,
+        session: "Optional[Session]" = None,
+        logger: "LoggerFunction" = logging.log,
+):
     """
     Delete data identifiers
 
@@ -1183,6 +1191,282 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     :param session:       The database session in use.
     :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     """
+    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False, session=session)
+    if use_temp_tables:
+        return _delete_dids(dids, account, expire_rules, session, logger)
+    else:
+        return _delete_dids_wo_temp_tables(dids, account, expire_rules, session, logger)
+
+
+def _delete_dids(
+        dids: "Sequence[Dict[str, Any]]",
+        account: "InternalAccount",
+        expire_rules: bool = False,
+        session: "Optional[Session]" = None,
+        logger: "LoggerFunction" = logging.log,
+):
+    rule_id_clause, content_clause = [], []
+    parent_content_clause, did_clause = [], []
+    collection_replica_clause, file_clause = [], []
+    not_purge_replicas = []
+    did_followed_clause = []
+    metadata_to_delete = []
+    file_content_clause = []
+    bad_replicas_clause = []
+
+    archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
+
+    for did in dids:
+        logger(logging.INFO, 'Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
+        if did['did_type'] == DIDType.FILE:
+            file_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
+            bad_replicas_clause.append(and_(models.BadReplicas.scope == did['scope'], models.BadReplicas.name == did['name']))
+        else:
+            did_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
+            content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
+            file_content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name'], models.DataIdentifierAssociation.child_type == DIDType.FILE))
+            collection_replica_clause.append(and_(models.CollectionReplica.scope == did['scope'],
+                                                  models.CollectionReplica.name == did['name']))
+            did_followed_clause.append(and_(models.DidsFollowed.scope == did['scope'], models.DidsFollowed.name == did['name']))
+
+        # ATLAS LOCALGROUPDISK Archive policy
+        if did['did_type'] == DIDType.DATASET and did['scope'].external != 'archive':
+            try:
+                rucio.core.rule.archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
+            except exception.UndefinedPolicy:
+                pass
+
+        if did['purge_replicas'] is False:
+            not_purge_replicas.append((did['scope'], did['name']))
+
+            # Archive content
+        archive_content = config_core.get('deletion', 'archive_content', default=False, session=session)
+        if archive_content:
+            insert_content_history(filter_=[and_(models.DataIdentifierAssociation.scope == did['scope'],
+                                                 models.DataIdentifierAssociation.name == did['name'])],
+                                   did_created_at=did.get('created_at'),
+                                   session=session)
+
+        parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
+        rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
+
+        if session.bind.dialect.name == 'oracle':
+            oracle_version = int(session.connection().connection.version.split('.')[0])
+            if oracle_version >= 12:
+                metadata_to_delete.append(and_(models.DidMeta.scope == did['scope'], models.DidMeta.name == did['name']))
+        else:
+            metadata_to_delete.append(and_(models.DidMeta.scope == did['scope'], models.DidMeta.name == did['name']))
+
+        # Send message
+        message = {'account': account.external,
+                   'scope': did['scope'].external,
+                   'name': did['name']}
+        if did['scope'].vo != 'def':
+            message['vo'] = did['scope'].vo
+
+        add_message('ERASE', message, session=session)
+    # Delete rules on did
+    skip_deletion = False  # Skip deletion in case of expiration of a rule
+    if rule_id_clause:
+        with record_timer_block('undertaker.rules'):
+            stmt = select(
+                models.ReplicationRule.id,
+                models.ReplicationRule.scope,
+                models.ReplicationRule.name,
+                models.ReplicationRule.rse_expression,
+                models.ReplicationRule.locks_ok_cnt,
+                models.ReplicationRule.locks_replicating_cnt,
+                models.ReplicationRule.locks_stuck_cnt
+            ).where(
+                or_(*rule_id_clause)
+            )
+            for (rule_id, scope, name, rse_expression, locks_ok_cnt, locks_replicating_cnt, locks_stuck_cnt) in session.execute(stmt):
+                logger(logging.DEBUG, 'Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
+
+                # Propagate purge_replicas from did to rules
+                if (scope, name) in not_purge_replicas:
+                    purge_replicas = False
+                else:
+                    purge_replicas = True
+                if expire_rules and locks_ok_cnt + locks_replicating_cnt + locks_stuck_cnt > int(config_core.get('undertaker', 'expire_rules_locks_size', default=10000, session=session)):
+                    # Expire the rule (soft=True)
+                    rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True, delete_parent=True, nowait=True, session=session)
+                    # Update expiration of did
+                    set_metadata(scope=scope, name=name, key='lifetime', value=3600 * 24, session=session)
+                    skip_deletion = True
+                else:
+                    rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, delete_parent=True, nowait=True, session=session)
+
+    if skip_deletion:
+        return
+
+    # Detach from parent dids:
+    existing_parent_dids = False
+    if parent_content_clause:
+        with record_timer_block('undertaker.parent_content'):
+            stmt = select(
+                models.DataIdentifierAssociation
+            ).where(
+                or_(*parent_content_clause)
+            )
+            for parent_did in session.execute(stmt).scalars():
+                existing_parent_dids = True
+                detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_name}], session=session)
+
+    # Set Epoch tombstone for the files replicas inside the did
+    if config_core.get('undertaker', 'purge_all_replicas', default=False, session=session) and file_content_clause:
+        with record_timer_block('undertaker.file_content'):
+            stmt = select(
+                models.DataIdentifierAssociation.child_scope,
+                models.DataIdentifierAssociation.child_name,
+            ).where(
+                or_(*file_content_clause)
+            )
+            file_replicas_clause = [and_(models.RSEFileAssociation.scope == child_scope,
+                                         models.RSEFileAssociation.name == child_name)
+                                    for child_scope, child_name in session.execute(stmt)]
+            none_value = None  # Hack to get pep8 happy
+            for chunk in chunks(file_replicas_clause, 100):
+                stmt = update(
+                    models.RSEFileAssociation
+                ).prefix_with(
+                    "/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle'
+                ).where(
+                    or_(*chunk)
+                ).where(
+                    models.RSEFileAssociation.lock_cnt == 0,
+                    models.RSEFileAssociation.tombstone != none_value
+                ).execution_options(
+                    synchronize_session=False
+                ).values(
+                    tombstone=datetime(1970, 1, 1)
+                )
+                session.execute(stmt)
+
+    # Get bad files from dataset content
+    if file_content_clause:
+        stmt = select(
+            models.DataIdentifierAssociation.child_scope,
+            models.DataIdentifierAssociation.child_name,
+        ).where(
+            or_(*file_content_clause)
+        )
+        bad_replicas_clause.extend([and_(models.BadReplicas.scope == child_scope,
+                                         models.BadReplicas.name == child_name)
+                                    for child_scope, child_name in session.execute(stmt)])
+
+    # Remove content
+    if content_clause:
+        with record_timer_block('undertaker.content'):
+            stmt = delete(
+                models.DataIdentifierAssociation
+            ).where(
+                or_(*content_clause)
+            ).execution_options(
+                synchronize_session=False
+            )
+            rowcount = session.execute(stmt).rowcount
+        record_counter(name='undertaker.content.rowcount', delta=rowcount)
+
+    # Remove CollectionReplica
+    if collection_replica_clause:
+        with record_timer_block('undertaker.dids'):
+            stmt = delete(
+                models.CollectionReplica
+            ).where(
+                or_(*collection_replica_clause)
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
+
+    # Remove generic did metadata
+    if metadata_to_delete:
+        stmt = delete(
+            models.DidMeta
+        ).where(
+            or_(*metadata_to_delete)
+        ).execution_options(
+            synchronize_session=False
+        )
+        if session.bind.dialect.name == 'oracle':
+            oracle_version = int(session.connection().connection.version.split('.')[0])
+            if oracle_version >= 12:
+                with record_timer_block('undertaker.did_meta'):
+                    session.execute(stmt)
+        else:
+            with record_timer_block('undertaker.did_meta'):
+                session.execute(stmt)
+
+    # Update bad_replicas if exist
+    if bad_replicas_clause:
+        stmt = update(
+            models.BadReplicas
+        ).where(
+            or_(*bad_replicas_clause)
+        ).where(
+            models.BadReplicas.state == BadFilesStatus.BAD
+        ).values(
+            state=BadFilesStatus.DELETED,
+            updated_at=datetime.utcnow(),
+        )
+        session.execute(stmt)
+
+    # remove data identifier
+    if existing_parent_dids:
+        # Exit method early to give Judge time to remove locks (Otherwise, due to foreign keys, did removal does not work
+        logger(logging.DEBUG, 'Leaving delete_dids early for Judge-Evaluator checks')
+        return
+
+    if did_clause:
+        with record_timer_block('undertaker.dids'):
+            stmt = delete(
+                models.DataIdentifier
+            ).where(
+                or_(*did_clause)
+            ).where(
+                or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
+                    models.DataIdentifier.did_type == DIDType.DATASET)
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
+            if archive_dids:
+                insert_deleted_dids(filter_=or_(*did_clause), session=session)
+
+    if did_followed_clause:
+        with record_timer_block('undertaker.dids'):
+            stmt = delete(
+                models.DidsFollowed
+            ).where(
+                or_(*did_followed_clause)
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
+
+    if file_clause:
+        stmt = update(
+            models.DataIdentifier
+        ).where(
+            or_(*file_clause)
+        ).where(
+            models.DataIdentifier.did_type == DIDType.FILE
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            expired_at=None
+        )
+        session.execute(stmt)
+
+
+def _delete_dids_wo_temp_tables(
+        dids: "Sequence[Dict[str, Any]]",
+        account: "InternalAccount",
+        expire_rules: bool = False,
+        session: "Optional[Session]" = None,
+        logger: "LoggerFunction" = logging.log,
+):
     rule_id_clause, content_clause = [], []
     parent_content_clause, did_clause = [], []
     collection_replica_clause, file_clause = [], []
