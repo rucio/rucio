@@ -1439,7 +1439,7 @@ def _delete_dids(
         record_counter(name='undertaker.content.rowcount', delta=rowcount)
 
         # Remove CollectionReplica
-        with record_timer_block('undertaker.dids'):
+        with record_timer_block('undertaker.collection_replicas'):
             stmt = delete(
                 models.CollectionReplica
             ).where(
@@ -1466,7 +1466,7 @@ def _delete_dids(
             session.bulk_insert_mappings(temp_table, collection_dids.values())
             data_in_temp_table = collection_dids
 
-        with record_timer_block('undertaker.dids'):
+        with record_timer_block('undertaker.dids_followed'):
             stmt = delete(
                 models.DidsFollowed
             ).where(
