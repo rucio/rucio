@@ -26,7 +26,7 @@ from sqlalchemy import and_, or_, exists, update, delete, insert
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, case, select, true, false
+from sqlalchemy.sql.expression import bindparam, case, select, true, false, null
 
 import rucio.core.replica  # import add_replicas
 import rucio.core.rule
@@ -1251,7 +1251,13 @@ def _delete_dids(
         add_message('ERASE', message, session=session)
 
     temp_table = temp_table_mngr(session).create_scope_name_table()
-    session.bulk_insert_mappings(temp_table, all_dids.values())
+    if not file_dids:
+        data_in_temp_table = all_dids = collection_dids
+    elif not collection_dids:
+        data_in_temp_table = all_dids = file_dids
+    else:
+        data_in_temp_table = all_dids
+    session.bulk_insert_mappings(temp_table, data_in_temp_table.values())
 
     # Delete rules on did
     skip_deletion = False  # Skip deletion in case of expiration of a rule
@@ -1307,8 +1313,64 @@ def _delete_dids(
                 existing_parent_dids = True
                 detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_name}], session=session)
 
-    resolved_files_temp_table = None
+
+    # Remove generic did metadata
+    must_delete_did_meta = True
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection().connection.version.split('.')[0])
+        if oracle_version < 12:
+            must_delete_did_meta = False
+    if must_delete_did_meta:
+        stmt = delete(
+            models.DidMeta
+        ).where(
+            exists(
+                select([1])
+            ).where(
+                models.DidMeta.scope == temp_table.scope,
+                models.DidMeta.name == temp_table.name
+            )
+        ).execution_options(
+            synchronize_session=False
+        )
+        with record_timer_block('undertaker.did_meta'):
+            session.execute(stmt)
+
+    # Prepare the common part of the query for updating bad replicas if they exist
+    bad_replica_stmt = update(
+        models.BadReplicas
+    ).where(
+        models.BadReplicas.state == BadFilesStatus.BAD
+    ).values(
+        state=BadFilesStatus.DELETED,
+        updated_at=datetime.utcnow(),
+    ).execution_options(
+        synchronize_session=False
+    )
+
+    if file_dids:
+        if data_in_temp_table is not file_dids:
+            session.execute(delete(temp_table))
+            session.bulk_insert_mappings(temp_table, file_dids.values())
+            data_in_temp_table = file_dids
+
+        # update bad files passed directly as input
+        stmt = bad_replica_stmt.where(
+            exists(
+                select([1])
+            ).where(
+                models.BadReplicas.scope == temp_table.scope,
+                models.BadReplicas.name == temp_table.name
+            )
+        )
+        session.execute(stmt)
+
     if collection_dids:
+        if data_in_temp_table is not collection_dids:
+            session.execute(delete(temp_table))
+            session.bulk_insert_mappings(temp_table, collection_dids.values())
+            data_in_temp_table = collection_dids
+
         # Find files of datasets passed as input and put them in a separate temp table
         resolved_files_temp_table = temp_table_mngr(session).create_scope_name_table()
         stmt = insert(
@@ -1329,14 +1391,20 @@ def _delete_dids(
         )
         session.execute(stmt)
 
-    # Set Epoch tombstone for the files replicas inside the did
-    if config_core.get('undertaker', 'purge_all_replicas', default=False, session=session) and collection_dids:
-        session.execute(delete(temp_table))
-        session.bulk_insert_mappings(temp_table, collection_dids.values())
+        # update bad files from datasets
+        stmt = bad_replica_stmt.where(
+            exists(
+                select([1])
+            ).where(
+                models.BadReplicas.scope == resolved_files_temp_table.scope,
+                models.BadReplicas.name == resolved_files_temp_table.name
+            )
+        )
+        session.execute(stmt)
 
-        with record_timer_block('undertaker.file_content'):
-            none_value = None  # Hack to get pep8 happy
-            if True:
+        # Set Epoch tombstone for the files replicas inside the did
+        if config_core.get('undertaker', 'purge_all_replicas', default=False, session=session):
+            with record_timer_block('undertaker.file_content'):
                 stmt = update(
                     models.RSEFileAssociation
                 ).where(
@@ -1348,7 +1416,7 @@ def _delete_dids(
                     )
                 ).where(
                     models.RSEFileAssociation.lock_cnt == 0,
-                    models.RSEFileAssociation.tombstone != none_value
+                    models.RSEFileAssociation.tombstone != null()
                 ).execution_options(
                     synchronize_session=False
                 ).values(
@@ -1356,10 +1424,7 @@ def _delete_dids(
                 )
                 session.execute(stmt)
 
-    # Remove content
-    if collection_dids:
-        session.execute(delete(temp_table))
-        session.bulk_insert_mappings(temp_table, collection_dids.values())
+        # Remove content
         with record_timer_block('undertaker.content'):
             stmt = delete(
                 models.DataIdentifierAssociation
@@ -1376,10 +1441,7 @@ def _delete_dids(
             rowcount = session.execute(stmt).rowcount
         record_counter(name='undertaker.content.rowcount', delta=rowcount)
 
-    # Remove CollectionReplica
-    if collection_dids:
-        session.execute(delete(temp_table))
-        session.bulk_insert_mappings(temp_table, collection_dids.values())
+        # Remove CollectionReplica
         with record_timer_block('undertaker.dids'):
             stmt = delete(
                 models.CollectionReplica
@@ -1395,67 +1457,6 @@ def _delete_dids(
             )
             session.execute(stmt)
 
-    # Remove generic did metadata
-    must_delete_did_meta = True
-    if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection().connection.version.split('.')[0])
-        if oracle_version < 12:
-            must_delete_did_meta = False
-    if must_delete_did_meta:
-        session.execute(delete(temp_table))
-        session.bulk_insert_mappings(temp_table, all_dids.values())
-        stmt = delete(
-            models.DidMeta
-        ).where(
-            exists(
-                select([1])
-            ).where(
-                models.DidMeta.scope == temp_table.scope,
-                models.DidMeta.name == temp_table.name
-            )
-        ).execution_options(
-            synchronize_session=False
-        )
-        with record_timer_block('undertaker.did_meta'):
-            session.execute(stmt)
-
-    # Update bad_replicas if exist
-    if True:
-        bad_replica_stmt = update(
-            models.BadReplicas
-        ).where(
-            models.BadReplicas.state == BadFilesStatus.BAD
-        ).values(
-            state=BadFilesStatus.DELETED,
-            updated_at=datetime.utcnow(),
-        ).execution_options(
-            synchronize_session=False
-        )
-        if file_dids:
-            session.execute(delete(temp_table))
-            session.bulk_insert_mappings(temp_table, file_dids.values())
-            # update bad files passed directly as input
-            stmt = bad_replica_stmt.where(
-                exists(
-                    select([1])
-                ).where(
-                    models.BadReplicas.scope == temp_table.scope,
-                    models.BadReplicas.name == temp_table.name
-                )
-            )
-            session.execute(stmt)
-        if collection_dids:
-            # update bad files from datasets
-            stmt = bad_replica_stmt.where(
-                exists(
-                    select([1])
-                ).where(
-                    models.BadReplicas.scope == resolved_files_temp_table.scope,
-                    models.BadReplicas.name == resolved_files_temp_table.name
-                )
-            )
-            session.execute(stmt)
-
     # remove data identifier
     if existing_parent_dids:
         # Exit method early to give Judge time to remove locks (Otherwise, due to foreign keys, did removal does not work
@@ -1463,8 +1464,11 @@ def _delete_dids(
         return
 
     if collection_dids:
-        session.execute(delete(temp_table))
-        session.bulk_insert_mappings(temp_table, collection_dids.values())
+        if data_in_temp_table is not collection_dids:
+            session.execute(delete(temp_table))
+            session.bulk_insert_mappings(temp_table, collection_dids.values())
+            data_in_temp_table = collection_dids
+
         with record_timer_block('undertaker.dids'):
             dids_to_delete_filter = exists(
                 select([1])
@@ -1486,9 +1490,6 @@ def _delete_dids(
             )
             session.execute(stmt)
 
-    if collection_dids:
-        session.execute(delete(temp_table))
-        session.bulk_insert_mappings(temp_table, collection_dids.values())
         with record_timer_block('undertaker.dids'):
             stmt = delete(
                 models.DidsFollowed
@@ -1505,8 +1506,10 @@ def _delete_dids(
             session.execute(stmt)
 
     if file_dids:
-        session.execute(delete(temp_table))
-        session.bulk_insert_mappings(temp_table, file_dids.values())
+        if data_in_temp_table is not file_dids:
+            session.execute(delete(temp_table))
+            session.bulk_insert_mappings(temp_table, file_dids.values())
+            data_in_temp_table = file_dids
         stmt = update(
             models.DataIdentifier
         ).where(
