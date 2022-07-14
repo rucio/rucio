@@ -1470,6 +1470,21 @@ def _delete_dids(
             data_in_temp_table = collection_dids
 
         with record_timer_block('undertaker.dids'):
+            stmt = delete(
+                models.DidsFollowed
+            ).where(
+                exists(
+                    select([1])
+                ).where(
+                    models.DidsFollowed.scope == temp_table.scope,
+                    models.DidsFollowed.name == temp_table.name
+                )
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
+
+        with record_timer_block('undertaker.dids'):
             dids_to_delete_filter = exists(
                 select([1])
             ).where(
@@ -1485,21 +1500,6 @@ def _delete_dids(
                 models.DataIdentifier
             ).where(
                 dids_to_delete_filter,
-            ).execution_options(
-                synchronize_session=False
-            )
-            session.execute(stmt)
-
-        with record_timer_block('undertaker.dids'):
-            stmt = delete(
-                models.DidsFollowed
-            ).where(
-                exists(
-                    select([1])
-                ).where(
-                    models.DidsFollowed.scope == temp_table.scope,
-                    models.DidsFollowed.name == temp_table.name
-                )
             ).execution_options(
                 synchronize_session=False
             )
