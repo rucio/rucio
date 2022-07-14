@@ -1960,37 +1960,54 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
 
 
 @transactional_session
-def generate_email_for_rule_ok_notification(rule, session=None):
+def generate_email_for_rule_ok_notification(rule, session=None, logger=logging.log):
     """
     Generate (If necessary) an eMail for a rule with notification mode Y.
 
     :param rule:     The rule object.
     :param session:  The Database session
+    :param logger:   Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
     session.flush()
 
     if rule.state == RuleState.OK and rule.notification == RuleNotification.YES:
         try:
-            with open('%s/rule_ok_notification.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+            template_path = '%s/rule_ok_notification.tmpl' % config_get('common', 'mailtemplatedir')
+        except NoOptionError as ex:
+            logger(logging.ERROR, "Missing configuration option 'mailtemplatedir'.", exc_info=ex)
+            return
+
+        try:
+            with open(template_path, 'r') as templatefile:
                 template = Template(templatefile.read())
-            email = get_account(account=rule.account, session=session).email
-            if email:
-                email_body = template.safe_substitute({'rule_id': str(rule.id),
-                                                       'created_at': str(rule.created_at),
-                                                       'expires_at': str(rule.expires_at),
-                                                       'rse_expression': rule.rse_expression,
-                                                       'comment': rule.comments,
-                                                       'scope': rule.scope.external,
-                                                       'name': rule.name,
-                                                       'did_type': rule.did_type})
-                add_message(event_type='email',
-                            payload={'body': email_body,
-                                     'to': [email],
-                                     'subject': '[RUCIO] Replication rule %s has been succesfully transferred' % (str(rule.id))},
-                            session=session)
-        except (IOError, NoOptionError):
-            pass
+        except IOError as ex:
+            logger(logging.ERROR, "Couldn't open file '%s'", template_path, exc_info=ex)
+            return
+
+        email = get_account(account=rule.account, session=session).email
+        if not email:
+            logger(logging.INFO, 'No email associated with rule ID %s.', rule.id)
+            return
+
+        try:
+            email_body = template.safe_substitute({'rule_id': str(rule.id),
+                                                   'created_at': str(rule.created_at),
+                                                   'expires_at': str(rule.expires_at),
+                                                   'rse_expression': rule.rse_expression,
+                                                   'comment': rule.comments,
+                                                   'scope': rule.scope.external,
+                                                   'name': rule.name,
+                                                   'did_type': rule.did_type})
+        except ValueError as ex:
+            logger(logging.ERROR, "Invalid mail template.", exc_info=ex)
+            return
+
+        add_message(event_type='email',
+                    payload={'body': email_body,
+                             'to': [email],
+                             'subject': '[RUCIO] Replication rule %s has been succesfully transferred' % (str(rule.id))},
+                    session=session)
 
 
 @transactional_session
