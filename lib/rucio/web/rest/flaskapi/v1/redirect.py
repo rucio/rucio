@@ -344,14 +344,14 @@ class HeaderRedirector(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error, headers=headers)
 
 
-def blueprint(no_doc=True):
+def blueprint(with_doc=False):
     bp = Blueprint('redirect', __name__, url_prefix='/redirect')
 
     metalink_redirector_view = MetaLinkRedirector.as_view('metalink_redirector')
     bp.add_url_rule('/<path:scope_name>/metalink', view_func=metalink_redirector_view, methods=['get', ])
     header_redirector_view = HeaderRedirector.as_view('header_redirector')
     bp.add_url_rule('/<path:scope_name>', view_func=header_redirector_view, methods=['get', ])
-    if no_doc:
+    if not with_doc:
         bp.add_url_rule('/<path:scope_name>/', view_func=header_redirector_view, methods=['get', ])
 
     return bp
@@ -360,5 +360,5 @@ def blueprint(no_doc=True):
 def make_doc():
     """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(blueprint(no_doc=False))
+    doc_app.register_blueprint(blueprint(with_doc=True))
     return doc_app

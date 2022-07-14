@@ -97,7 +97,7 @@ class AddFiles(ErrorHandlingMethodView):
         return 'Created', 201
 
 
-def blueprint(no_doc=True):
+def blueprint(with_doc=False):
     bp = Blueprint('dirac', __name__, url_prefix='/dirac')
 
     add_file_view = AddFiles.as_view('addfiles')
@@ -112,5 +112,5 @@ def blueprint(no_doc=True):
 def make_doc():
     """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(blueprint(no_doc=False))
+    doc_app.register_blueprint(blueprint(with_doc=True))
     return doc_app
