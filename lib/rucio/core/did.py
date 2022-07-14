@@ -1191,6 +1191,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     metadata_to_delete = []
     file_content_clause = []
     bad_replicas_clause = []
+    dataset_clause = []
 
     archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
 
@@ -1206,6 +1207,8 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
             collection_replica_clause.append(and_(models.CollectionReplica.scope == did['scope'],
                                                   models.CollectionReplica.name == did['name']))
             did_followed_clause.append(and_(models.DidsFollowed.scope == did['scope'], models.DidsFollowed.name == did['name']))
+            if did['did_type'] == DIDType.DATASET:
+                dataset_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
 
         # ATLAS LOCALGROUPDISK Archive policy
         if did['did_type'] == DIDType.DATASET and did['scope'].external != 'archive':
@@ -1321,17 +1324,43 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
                 )
                 session.execute(stmt)
 
-    # Get bad files from dataset content
-    if file_content_clause:
-        stmt = select(
-            models.DataIdentifierAssociation.child_scope,
-            models.DataIdentifierAssociation.child_name,
-        ).where(
-            or_(*file_content_clause)
-        )
-        bad_replicas_clause.extend([and_(models.BadReplicas.scope == child_scope,
-                                         models.BadReplicas.name == child_name)
-                                    for child_scope, child_name in session.execute(stmt)])
+    # Update bad_replicas if exist
+    if bad_replicas_clause:
+        for chunk in chunks(bad_replicas_clause, 50):
+            stmt = update(
+                models.BadReplicas
+            ).where(
+                or_(*chunk)
+            ).where(
+                models.BadReplicas.state == BadFilesStatus.BAD
+            ).values(
+                state=BadFilesStatus.DELETED,
+                updated_at=datetime.utcnow(),
+            )
+        session.execute(stmt)
+    if dataset_clause:
+        for dataset in dataset_clause:
+            sub_query = select(
+                [1]
+            ).where(
+                models.BadReplicas.scope == models.DataIdentifierAssociation.child_scope,
+                models.BadReplicas.name == models.DataIdentifierAssociation.child_name
+            ).where(
+                dataset
+            )
+            stmt = update(
+                models.BadReplicas
+            ).where(
+                exists(sub_query)
+            ).where(
+                models.BadReplicas.state == BadFilesStatus.BAD
+            ).values(
+                state=BadFilesStatus.DELETED,
+                updated_at=datetime.utcnow(),
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
 
     # Remove content
     if content_clause:
@@ -1375,20 +1404,6 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
         else:
             with record_timer_block('undertaker.did_meta'):
                 session.execute(stmt)
-
-    # Update bad_replicas if exist
-    if bad_replicas_clause:
-        stmt = update(
-            models.BadReplicas
-        ).where(
-            or_(*bad_replicas_clause)
-        ).where(
-            models.BadReplicas.state == BadFilesStatus.BAD
-        ).values(
-            state=BadFilesStatus.DELETED,
-            updated_at=datetime.utcnow(),
-        )
-        session.execute(stmt)
 
     # remove data identifier
     if existing_parent_dids:
