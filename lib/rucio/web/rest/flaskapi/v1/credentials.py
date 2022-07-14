@@ -165,12 +165,12 @@ class SignURL(ErrorHandlingMethodView):
         return str(result), 200, headers
 
 
-def blueprint(no_doc=True):
+def blueprint(with_doc=False):
     bp = Blueprint('credentials', __name__, url_prefix='/credentials')
 
     signurl_view = SignURL.as_view('signurl')
     bp.add_url_rule('/signurl', view_func=signurl_view, methods=['get', 'options'])
-    if no_doc:
+    if not with_doc:
         # yes, /signur ~= '/signurl?$'
         bp.add_url_rule('/signur', view_func=signurl_view, methods=['get', 'options'])
 
@@ -180,5 +180,5 @@ def blueprint(no_doc=True):
 def make_doc():
     """ Only used for sphinx documentation to add the prefix """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(blueprint(no_doc=False))
+    doc_app.register_blueprint(blueprint(with_doc=True))
     return doc_app

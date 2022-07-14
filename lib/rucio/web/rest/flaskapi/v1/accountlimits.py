@@ -212,12 +212,12 @@ class GlobalAccountLimit(ErrorHandlingMethodView):
         return '', 200
 
 
-def blueprint(no_doc=True):
+def blueprint(with_doc=False):
     bp = Blueprint('accountlimits', __name__, url_prefix='/accountlimits')
 
     local_account_limit_view = LocalAccountLimit.as_view('local_account_limit')
     bp.add_url_rule('/local/<account>/<rse>', view_func=local_account_limit_view, methods=['post', 'delete'])
-    if no_doc:
+    if not with_doc:
         bp.add_url_rule('/<account>/<rse>', view_func=local_account_limit_view, methods=['post', 'delete'])
     global_account_limit_view = GlobalAccountLimit.as_view('global_account_limit')
     bp.add_url_rule('/global/<account>/<rse_expression>', view_func=global_account_limit_view, methods=['post', 'delete'])
@@ -230,5 +230,5 @@ def blueprint(no_doc=True):
 def make_doc():
     """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(blueprint(no_doc=False))
+    doc_app.register_blueprint(blueprint(with_doc=True))
     return doc_app
