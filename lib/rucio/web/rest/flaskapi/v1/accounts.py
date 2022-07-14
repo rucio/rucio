@@ -1034,7 +1034,7 @@ class GlobalUsage(ErrorHandlingMethodView):
             return generate_http_error_flask(401, error)
 
 
-def blueprint(no_doc=True):
+def blueprint(with_doc=False):
     bp = Blueprint('accounts', __name__, url_prefix='/accounts')
 
     attributes_view = Attributes.as_view('attributes')
@@ -1060,7 +1060,7 @@ def blueprint(no_doc=True):
     usage_view = LocalUsage.as_view('usage')
     bp.add_url_rule('/<account>/usage/local', view_func=usage_view, methods=['get', ])
     bp.add_url_rule('/<account>/usage', view_func=usage_view, methods=['get', ])
-    if no_doc:
+    if not with_doc:
         # for backwards-compatibility
         # rule without trailing slash needs to be added before rule with trailing slash
         bp.add_url_rule('/<account>/usage/', view_func=usage_view, methods=['get', ])
@@ -1072,7 +1072,7 @@ def blueprint(no_doc=True):
     account_parameter_view = AccountParameter.as_view('account_parameter')
     bp.add_url_rule('/<account>', view_func=account_parameter_view, methods=['get', 'put', 'post', 'delete'])
     account_view = Account.as_view('account')
-    if no_doc:
+    if not with_doc:
         # rule without trailing slash needs to be added before rule with trailing slash
         bp.add_url_rule('', view_func=account_view, methods=['get', ])
     bp.add_url_rule('/', view_func=account_view, methods=['get', ])
@@ -1085,5 +1085,5 @@ def blueprint(no_doc=True):
 def make_doc():
     """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(blueprint(no_doc=False))
+    doc_app.register_blueprint(blueprint(with_doc=True))
     return doc_app

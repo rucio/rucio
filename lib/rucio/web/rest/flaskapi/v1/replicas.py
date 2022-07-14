@@ -1717,13 +1717,13 @@ class Tombstone(ErrorHandlingMethodView):
         return 'Created', 201
 
 
-def blueprint(no_doc=True):
+def blueprint(with_doc=False):
     bp = Blueprint('replicas', __name__, url_prefix='/replicas')
 
     list_replicas_view = ListReplicas.as_view('list_replicas')
     bp.add_url_rule('/list', view_func=list_replicas_view, methods=['post', ])
     replicas_view = Replicas.as_view('replicas')
-    if no_doc:
+    if not with_doc:
         # rule without trailing slash needs to be added before rule with trailing slash
         bp.add_url_rule('', view_func=replicas_view, methods=['post', 'put', 'delete'])
     bp.add_url_rule('/', view_func=replicas_view, methods=['post', 'put', 'delete'])
@@ -1752,7 +1752,7 @@ def blueprint(no_doc=True):
     set_tombstone_view = Tombstone.as_view('set_tombstone')
     bp.add_url_rule('/tombstone', view_func=set_tombstone_view, methods=['post', ])
 
-    if no_doc:
+    if not with_doc:
         bp.add_url_rule('/list/', view_func=list_replicas_view, methods=['post', ])
         bp.add_url_rule('/suspicious/', view_func=suspicious_replicas_view, methods=['get', 'post'])
         bp.add_url_rule('/bad/states/', view_func=bad_replicas_states_view, methods=['get', ])
@@ -1775,5 +1775,5 @@ def blueprint(no_doc=True):
 def make_doc():
     """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(blueprint(no_doc=False))
+    doc_app.register_blueprint(blueprint(with_doc=True))
     return doc_app

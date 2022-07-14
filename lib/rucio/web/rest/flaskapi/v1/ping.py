@@ -69,11 +69,11 @@ class Ping(ErrorHandlingMethodView):
         return response
 
 
-def blueprint(no_doc=True):
+def blueprint(with_doc=False):
     bp = Blueprint('ping', __name__, url_prefix='/ping')
 
     ping_view = Ping.as_view('ping')
-    if no_doc:
+    if not with_doc:
         # rule without trailing slash needs to be added before rule with trailing slash
         bp.add_url_rule('', view_func=ping_view, methods=['get', ])
     bp.add_url_rule('/', view_func=ping_view, methods=['get', ])
@@ -85,5 +85,5 @@ def blueprint(no_doc=True):
 def make_doc():
     """ Only used for sphinx documentation to add the prefix """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(blueprint(no_doc=False))
+    doc_app.register_blueprint(blueprint(with_doc=True))
     return doc_app
