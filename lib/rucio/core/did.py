@@ -695,6 +695,7 @@ def __add_collections_to_container(parent_did, collections_temp_table, collectio
             if (row.scope, row.name) in container_parents:
                 raise exception.UnsupportedOperation('Circular attachment detected. %s:%s is already a parent of %s:%s' % (row.scope, row.name, parent_did.scope, parent_did.name))
 
+    messages = []
     for c in collections.values():
         did_asso = models.DataIdentifierAssociation(
             scope=parent_did.scope,
@@ -722,9 +723,11 @@ def __add_collections_to_container(parent_did, collections_temp_table, collectio
                    'childtype': chld_type}
         if account.vo != 'def':
             message['vo'] = account.vo
+        messages.append(message)
 
-        add_message('REGISTER_CNT', message, session=session)
     try:
+        for message in messages:
+            add_message('REGISTER_CNT', message, session=session)
         session.flush()
     except IntegrityError as error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
@@ -1056,6 +1059,7 @@ def __add_collections_to_container_without_temp_tables(scope, name, collections,
             if (row.scope, row.name) in container_parents:
                 raise exception.UnsupportedOperation('Circular attachment detected. %s:%s is already a parent of %s:%s', row.scope, row.name, scope, name)
 
+    messages = []
     for c in collections:
         did_asso = models.DataIdentifierAssociation(
             scope=scope,
@@ -1083,9 +1087,11 @@ def __add_collections_to_container_without_temp_tables(scope, name, collections,
                    'childtype': chld_type}
         if account.vo != 'def':
             message['vo'] = account.vo
+        messages.append(message)
 
-        add_message('REGISTER_CNT', message, session=session)
     try:
+        for message in messages:
+            add_message('REGISTER_CNT', message, session=session)
         session.flush()
     except IntegrityError as error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
