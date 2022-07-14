@@ -96,84 +96,82 @@ def run_once(
     logger(logging.INFO, 'Starting Dark Reaper on RSEs: %s', ', '.join(rses))
 
     nothing_to_do = True
-    if True:  # TODO: deindent in a later commit
-        if True:  # TODO: deindent in a later commit
-            rses_to_process = list(set(rses) & set(list_rses_with_quarantined_replicas()))
-            random.shuffle(rses_to_process)
-            for rse_id in rses_to_process:
+    rses_to_process = list(set(rses) & set(list_rses_with_quarantined_replicas()))
+    random.shuffle(rses_to_process)
+    for rse_id in rses_to_process:
+        worker_number, total_workers, logger = heartbeat_handler.live()
+        # The following query returns the list of real replicas (deleted_replicas) and list of dark replicas (dark_replicas)
+        # Real replicas can be directly removed from the quarantine table
+        deleted_replicas, dark_replicas = list_quarantined_replicas(rse_id=rse_id,
+                                                                    limit=chunk_size,
+                                                                    worker_number=worker_number,
+                                                                    total_workers=total_workers)
+
+        rse_info = rsemgr.get_rse_info(rse_id=rse_id)
+        rse = rse_info['rse']
+        prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
+
+        try:
+            prot.connect()
+            for replica in dark_replicas:
                 worker_number, total_workers, logger = heartbeat_handler.live()
-                # The following query returns the list of real replicas (deleted_replicas) and list of dark replicas (dark_replicas)
-                # Real replicas can be directly removed from the quarantine table
-                deleted_replicas, dark_replicas = list_quarantined_replicas(rse_id=rse_id,
-                                                                            limit=chunk_size,
-                                                                            worker_number=worker_number,
-                                                                            total_workers=total_workers)
-
-                rse_info = rsemgr.get_rse_info(rse_id=rse_id)
-                rse = rse_info['rse']
-                prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
-
+                nothing_to_do = False
+                scope = ''
+                if replica['scope']:
+                    scope = replica['scope'].external
                 try:
-                    prot.connect()
-                    for replica in dark_replicas:
-                        worker_number, total_workers, logger = heartbeat_handler.live()
-                        nothing_to_do = False
-                        scope = ''
-                        if replica['scope']:
-                            scope = replica['scope'].external
-                        try:
-                            pfn = str(list(rsemgr.lfns2pfns(rse_settings=rse_info,
-                                                            lfns=[{'scope': scope,
-                                                                   'name': replica['name'],
-                                                                   'path': replica['path']}],
-                                                            operation='delete',
-                                                            scheme=scheme).values())[0])
-                            logger(logging.INFO, 'Deletion ATTEMPT of %s:%s as %s on %s', scope, replica['name'], pfn, rse)
-                            start = time.time()
-                            prot.delete(pfn)
-                            duration = time.time() - start
-                            logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %s seconds', scope, replica['name'], pfn, rse, duration)
-                            payload = {'scope': scope,
-                                       'name': replica['name'],
-                                       'rse': rse,
-                                       'rse_id': rse_id,
-                                       'file-size': replica.get('bytes') or 0,
-                                       'bytes': replica.get('bytes') or 0,
-                                       'url': pfn,
-                                       'duration': duration,
-                                       'protocol': prot.attributes['scheme']}
-                            if replica['scope'].vo != 'def':
-                                payload['vo'] = replica['scope'].vo
-                            add_message('deletion-done', payload)
-                            deleted_replicas.append(replica)
-                        except SourceNotFound:
-                            err_msg = ('Deletion NOTFOUND of %s:%s as %s on %s'
-                                       % (scope, replica['name'], pfn, rse))
-                            logger(logging.WARNING, err_msg)
-                            deleted_replicas.append(replica)
-                        except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
-                            err_msg = ('Deletion NOACCESS of %s:%s as %s on %s: %s'
-                                       % (scope, replica['name'], pfn, rse, str(error)))
-                            logger(logging.WARNING, err_msg)
-                            payload = {'scope': scope,
-                                       'name': replica['name'],
-                                       'rse': rse,
-                                       'rse_id': rse_id,
-                                       'file-size': replica['bytes'] or 0,
-                                       'bytes': replica['bytes'] or 0,
-                                       'url': pfn,
-                                       'reason': str(error),
-                                       'protocol': prot.attributes['scheme']}
-                            if replica['scope'].vo != 'def':
-                                payload['vo'] = replica['scope'].vo
-                            add_message('deletion-failed', payload)
+                    pfn = str(list(rsemgr.lfns2pfns(rse_settings=rse_info,
+                                                    lfns=[{'scope': scope,
+                                                           'name': replica['name'],
+                                                           'path': replica['path']}],
+                                                    operation='delete',
+                                                    scheme=scheme).values())[0])
+                    logger(logging.INFO, 'Deletion ATTEMPT of %s:%s as %s on %s', scope, replica['name'], pfn, rse)
+                    start = time.time()
+                    prot.delete(pfn)
+                    duration = time.time() - start
+                    logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %s seconds', scope, replica['name'], pfn, rse, duration)
+                    payload = {'scope': scope,
+                               'name': replica['name'],
+                               'rse': rse,
+                               'rse_id': rse_id,
+                               'file-size': replica.get('bytes') or 0,
+                               'bytes': replica.get('bytes') or 0,
+                               'url': pfn,
+                               'duration': duration,
+                               'protocol': prot.attributes['scheme']}
+                    if replica['scope'].vo != 'def':
+                        payload['vo'] = replica['scope'].vo
+                    add_message('deletion-done', payload)
+                    deleted_replicas.append(replica)
+                except SourceNotFound:
+                    err_msg = ('Deletion NOTFOUND of %s:%s as %s on %s'
+                               % (scope, replica['name'], pfn, rse))
+                    logger(logging.WARNING, err_msg)
+                    deleted_replicas.append(replica)
+                except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
+                    err_msg = ('Deletion NOACCESS of %s:%s as %s on %s: %s'
+                               % (scope, replica['name'], pfn, rse, str(error)))
+                    logger(logging.WARNING, err_msg)
+                    payload = {'scope': scope,
+                               'name': replica['name'],
+                               'rse': rse,
+                               'rse_id': rse_id,
+                               'file-size': replica['bytes'] or 0,
+                               'bytes': replica['bytes'] or 0,
+                               'url': pfn,
+                               'reason': str(error),
+                               'protocol': prot.attributes['scheme']}
+                    if replica['scope'].vo != 'def':
+                        payload['vo'] = replica['scope'].vo
+                    add_message('deletion-failed', payload)
 
-                        except Exception:
-                            logging.critical(traceback.format_exc())
-                finally:
-                    prot.close()
+                except Exception:
+                    logging.critical(traceback.format_exc())
+        finally:
+            prot.close()
 
-                delete_quarantined_replicas(rse_id=rse_id, replicas=deleted_replicas)
+        delete_quarantined_replicas(rse_id=rse_id, replicas=deleted_replicas)
 
     must_sleep = False
     if nothing_to_do:
