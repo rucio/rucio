@@ -1261,58 +1261,55 @@ def _delete_dids(
 
     # Delete rules on did
     skip_deletion = False  # Skip deletion in case of expiration of a rule
-    if True:
-        with record_timer_block('undertaker.rules'):
-            stmt = select(
-                models.ReplicationRule.id,
-                models.ReplicationRule.scope,
-                models.ReplicationRule.name,
-                models.ReplicationRule.rse_expression,
-                models.ReplicationRule.locks_ok_cnt,
-                models.ReplicationRule.locks_replicating_cnt,
-                models.ReplicationRule.locks_stuck_cnt
-            ).join_from(
-                temp_table,
-                models.ReplicationRule,
-                and_(models.ReplicationRule.scope == temp_table.scope,
-                     models.ReplicationRule.name == temp_table.name)
-            )
-            for (rule_id, scope, name, rse_expression, locks_ok_cnt, locks_replicating_cnt, locks_stuck_cnt) in session.execute(stmt):
-                logger(logging.DEBUG, 'Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
+    with record_timer_block('undertaker.rules'):
+        stmt = select(
+            models.ReplicationRule.id,
+            models.ReplicationRule.scope,
+            models.ReplicationRule.name,
+            models.ReplicationRule.rse_expression,
+            models.ReplicationRule.locks_ok_cnt,
+            models.ReplicationRule.locks_replicating_cnt,
+            models.ReplicationRule.locks_stuck_cnt
+        ).join_from(
+            temp_table,
+            models.ReplicationRule,
+            and_(models.ReplicationRule.scope == temp_table.scope,
+                 models.ReplicationRule.name == temp_table.name)
+        )
+        for (rule_id, scope, name, rse_expression, locks_ok_cnt, locks_replicating_cnt, locks_stuck_cnt) in session.execute(stmt):
+            logger(logging.DEBUG, 'Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
 
-                # Propagate purge_replicas from did to rules
-                if (scope, name) in not_purge_replicas:
-                    purge_replicas = False
-                else:
-                    purge_replicas = True
-                if expire_rules and locks_ok_cnt + locks_replicating_cnt + locks_stuck_cnt > int(config_core.get('undertaker', 'expire_rules_locks_size', default=10000, session=session)):
-                    # Expire the rule (soft=True)
-                    rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True, delete_parent=True, nowait=True, session=session)
-                    # Update expiration of did
-                    set_metadata(scope=scope, name=name, key='lifetime', value=3600 * 24, session=session)
-                    skip_deletion = True
-                else:
-                    rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, delete_parent=True, nowait=True, session=session)
+            # Propagate purge_replicas from did to rules
+            if (scope, name) in not_purge_replicas:
+                purge_replicas = False
+            else:
+                purge_replicas = True
+            if expire_rules and locks_ok_cnt + locks_replicating_cnt + locks_stuck_cnt > int(config_core.get('undertaker', 'expire_rules_locks_size', default=10000, session=session)):
+                # Expire the rule (soft=True)
+                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True, delete_parent=True, nowait=True, session=session)
+                # Update expiration of did
+                set_metadata(scope=scope, name=name, key='lifetime', value=3600 * 24, session=session)
+                skip_deletion = True
+            else:
+                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, delete_parent=True, nowait=True, session=session)
 
     if skip_deletion:
         return
 
     # Detach from parent dids:
     existing_parent_dids = False
-    if True:
-        with record_timer_block('undertaker.parent_content'):
-            stmt = select(
-                models.DataIdentifierAssociation
-            ).join_from(
-                temp_table,
-                models.DataIdentifierAssociation,
-                and_(models.DataIdentifierAssociation.child_scope == temp_table.scope,
-                     models.DataIdentifierAssociation.child_name == temp_table.name)
-            )
-            for parent_did in session.execute(stmt).scalars():
-                existing_parent_dids = True
-                detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_name}], session=session)
-
+    with record_timer_block('undertaker.parent_content'):
+        stmt = select(
+            models.DataIdentifierAssociation
+        ).join_from(
+            temp_table,
+            models.DataIdentifierAssociation,
+            and_(models.DataIdentifierAssociation.child_scope == temp_table.scope,
+                 models.DataIdentifierAssociation.child_name == temp_table.name)
+        )
+        for parent_did in session.execute(stmt).scalars():
+            existing_parent_dids = True
+            detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_name}], session=session)
 
     # Remove generic did metadata
     must_delete_did_meta = True
