@@ -623,24 +623,6 @@ def get_did_from_pfns(pfns, rse_id=None, vo='def', session=None):
                 yield {pfndict[pfn]: {'scope': scope, 'name': name}}
 
 
-def _resolve_collection_files(input_dids_temp_table, session):
-    """
-    Resolve all collection from the input data into files and return them in a newly
-    created temporary table.
-    """
-    resolved_files_temp_table = temp_table_mngr(session).create_scope_name_table()
-
-    stmt = insert(
-        resolved_files_temp_table
-    ).from_select(
-        ['scope', 'name'],
-        rucio.core.did.list_child_dids_stmt(input_dids_temp_table, did_type=DIDType.FILE)
-    )
-    result = session.execute(stmt)
-
-    return result.rowcount, resolved_files_temp_table
-
-
 def _pick_n_random(nrandom, generator):
     """
     Select n random elements from the generator
@@ -674,103 +656,6 @@ def _pick_n_random(nrandom, generator):
 
     for r in selected:
         yield r
-
-
-def _list_replicas_for_collection_files_stmt(resolved_dids_temp_table, replicas_subquery):
-    """
-    List replicas for files resolved from containers/datasets
-    """
-    stmt = select(
-        resolved_dids_temp_table.scope.label('scope'),
-        resolved_dids_temp_table.name.label('name'),
-        literal(None).label('archive_scope'),
-        literal(None).label('archive_name'),
-        replicas_subquery.c.bytes,
-        replicas_subquery.c.md5,
-        replicas_subquery.c.adler32,
-        replicas_subquery.c.path,
-        replicas_subquery.c.state,
-        replicas_subquery.c.rse_id,
-        replicas_subquery.c.rse_name,
-        replicas_subquery.c.rse_type,
-        replicas_subquery.c.volatile,
-    ).join_from(
-        resolved_dids_temp_table,
-        replicas_subquery,
-        and_(replicas_subquery.c.scope == resolved_dids_temp_table.scope,
-             replicas_subquery.c.name == resolved_dids_temp_table.name),
-    )
-    return stmt
-
-
-def _list_replicas_for_constituents_stmt(input_dids_temp_table, replicas_subquery):
-    """
-    List file replicas for archive constituents.
-    """
-    stmt = select(
-        models.ConstituentAssociation.child_scope.label('scope'),
-        models.ConstituentAssociation.child_name.label('name'),
-        models.ConstituentAssociation.scope.label('archive_scope'),
-        models.ConstituentAssociation.name.label('archive_name'),
-        models.ConstituentAssociation.bytes,
-        models.ConstituentAssociation.md5,
-        models.ConstituentAssociation.adler32,
-        replicas_subquery.c.path,
-        replicas_subquery.c.state,
-        replicas_subquery.c.rse_id,
-        replicas_subquery.c.rse_name,
-        replicas_subquery.c.rse_type,
-        replicas_subquery.c.volatile,
-    ).join_from(
-        input_dids_temp_table,
-        models.DataIdentifier,
-        and_(models.DataIdentifier.scope == input_dids_temp_table.scope,
-             models.DataIdentifier.name == input_dids_temp_table.name,
-             models.DataIdentifier.did_type == DIDType.FILE,
-             models.DataIdentifier.constituent == true()),
-    ).join(
-        models.ConstituentAssociation,
-        and_(models.ConstituentAssociation.child_scope == input_dids_temp_table.scope,
-             models.ConstituentAssociation.child_name == input_dids_temp_table.name)
-    ).join(
-        replicas_subquery,
-        and_(replicas_subquery.c.scope == models.ConstituentAssociation.scope,
-             replicas_subquery.c.name == models.ConstituentAssociation.name),
-    )
-    return stmt
-
-
-def _list_replicas_for_input_files_stmt(input_dids_temp_table, replicas_subquery):
-    """
-    List replicas for dids of type FILE from user input.
-    We must return these dids even if they have no replicas, hence the outerjoin with replicas subquery.
-    """
-    stmt = select(
-        input_dids_temp_table.scope.label('scope'),
-        input_dids_temp_table.name.label('name'),
-        literal(None).label('archive_scope'),
-        literal(None).label('archive_name'),
-        models.DataIdentifier.bytes,
-        models.DataIdentifier.md5,
-        models.DataIdentifier.adler32,
-        replicas_subquery.c.path,
-        replicas_subquery.c.state,
-        replicas_subquery.c.rse_id,
-        replicas_subquery.c.rse_name,
-        replicas_subquery.c.rse_type,
-        replicas_subquery.c.volatile,
-    ).join_from(
-        input_dids_temp_table,
-        models.DataIdentifier,
-        and_(models.DataIdentifier.scope == input_dids_temp_table.scope,
-             models.DataIdentifier.name == input_dids_temp_table.name,
-             models.DataIdentifier.did_type == DIDType.FILE),
-    ).outerjoin(
-        replicas_subquery,
-        and_(replicas_subquery.c.scope == input_dids_temp_table.scope,
-             replicas_subquery.c.name == input_dids_temp_table.name),
-    )
-    return stmt
 
 
 def _list_files_wo_replicas(files_wo_replica, session):
@@ -1219,6 +1104,144 @@ def _list_replicas_with_temp_tables(
 
         return stmt.subquery()
 
+    def _resolve_collection_files(temp_table, session):
+        """
+        Find all FILE dids contained in collections from temp_table and return them in a newly
+        created temporary table.
+        """
+        resolved_files_temp_table = temp_table_mngr(session).create_scope_name_table()
+
+        stmt = insert(
+            resolved_files_temp_table
+        ).from_select(
+            ['scope', 'name'],
+            rucio.core.did.list_child_dids_stmt(temp_table, did_type=DIDType.FILE)
+        )
+        result = session.execute(stmt)
+
+        return result.rowcount, resolved_files_temp_table
+
+    def _list_replicas_for_collection_files_stmt(temp_table, replicas_subquery):
+        """
+        Build a query for listing replicas of files resolved from containers/datasets
+
+        The query assumes that temp_table only contains DIDs of type FILE.
+        """
+        return select(
+            temp_table.scope.label('scope'),
+            temp_table.name.label('name'),
+            literal(None).label('archive_scope'),
+            literal(None).label('archive_name'),
+            replicas_subquery.c.bytes,
+            replicas_subquery.c.md5,
+            replicas_subquery.c.adler32,
+            replicas_subquery.c.path,
+            replicas_subquery.c.state,
+            replicas_subquery.c.rse_id,
+            replicas_subquery.c.rse_name,
+            replicas_subquery.c.rse_type,
+            replicas_subquery.c.volatile,
+        ).join_from(
+            temp_table,
+            replicas_subquery,
+            and_(replicas_subquery.c.scope == temp_table.scope,
+                 replicas_subquery.c.name == temp_table.name),
+        )
+
+    def _list_replicas_for_constituents_stmt(temp_table, replicas_subquery):
+        """
+        Build a query for listing replicas of archives containing the files(constituents) given as input.
+        i.e. for a file scope:file.log which exists in scope:archive.tar.gz, it will return the replicas
+        (rse, path, state, etc) of archive.tar.gz, but with bytes/md5/adler of file.log
+        """
+        return select(
+            models.ConstituentAssociation.child_scope.label('scope'),
+            models.ConstituentAssociation.child_name.label('name'),
+            models.ConstituentAssociation.scope.label('archive_scope'),
+            models.ConstituentAssociation.name.label('archive_name'),
+            models.ConstituentAssociation.bytes,
+            models.ConstituentAssociation.md5,
+            models.ConstituentAssociation.adler32,
+            replicas_subquery.c.path,
+            replicas_subquery.c.state,
+            replicas_subquery.c.rse_id,
+            replicas_subquery.c.rse_name,
+            replicas_subquery.c.rse_type,
+            replicas_subquery.c.volatile,
+        ).join_from(
+            temp_table,
+            models.DataIdentifier,
+            and_(models.DataIdentifier.scope == temp_table.scope,
+                 models.DataIdentifier.name == temp_table.name,
+                 models.DataIdentifier.did_type == DIDType.FILE,
+                 models.DataIdentifier.constituent == true()),
+        ).join(
+            models.ConstituentAssociation,
+            and_(models.ConstituentAssociation.child_scope == temp_table.scope,
+                 models.ConstituentAssociation.child_name == temp_table.name)
+        ).join(
+            replicas_subquery,
+            and_(replicas_subquery.c.scope == models.ConstituentAssociation.scope,
+                 replicas_subquery.c.name == models.ConstituentAssociation.name),
+        )
+
+    def _list_replicas_for_input_files_stmt(temp_table, replicas_subquery):
+        """
+        Builds a query which list the replicas of FILEs from users input, but ignores
+        collections in the same input.
+
+        Note: These FILE dids must be returned to the user even if they don't have replicas,
+        hence the outerjoin against the replicas_subquery.
+        """
+        return select(
+            temp_table.scope.label('scope'),
+            temp_table.name.label('name'),
+            literal(None).label('archive_scope'),
+            literal(None).label('archive_name'),
+            models.DataIdentifier.bytes,
+            models.DataIdentifier.md5,
+            models.DataIdentifier.adler32,
+            replicas_subquery.c.path,
+            replicas_subquery.c.state,
+            replicas_subquery.c.rse_id,
+            replicas_subquery.c.rse_name,
+            replicas_subquery.c.rse_type,
+            replicas_subquery.c.volatile,
+        ).join_from(
+            temp_table,
+            models.DataIdentifier,
+            and_(models.DataIdentifier.scope == temp_table.scope,
+                 models.DataIdentifier.name == temp_table.name,
+                 models.DataIdentifier.did_type == DIDType.FILE),
+        ).outerjoin(
+            replicas_subquery,
+            and_(replicas_subquery.c.scope == temp_table.scope,
+                 replicas_subquery.c.name == temp_table.name),
+        )
+
+    def _inspect_dids(temp_table, session):
+        """
+        Find how many files, collections and constituents are among the dids in the temp_table
+        """
+        stmt = select(
+            func.sum(
+                case([(models.DataIdentifier.did_type == DIDType.FILE, 1)], else_=0)
+            ).label('num_files'),
+            func.sum(
+                case([(models.DataIdentifier.did_type.in_([DIDType.CONTAINER, DIDType.DATASET]), 1)], else_=0)
+            ).label('num_collections'),
+            func.sum(
+                case([(models.DataIdentifier.constituent, 1)], else_=0)
+            ).label('num_constituents'),
+        ).join_from(
+            temp_table,
+            models.DataIdentifier,
+            and_(models.DataIdentifier.scope == temp_table.scope,
+                 models.DataIdentifier.name == temp_table.name),
+        )
+        num_files, num_collections, num_constituents = session.execute(stmt).one()  # returns None on empty input
+        return num_files or 0, num_collections or 0, num_constituents or 0
+
     if dids:
         filter_ = {'vo': dids[0]['scope'].vo}
     else:
@@ -1228,25 +1251,7 @@ def _list_replicas_with_temp_tables(
     input_dids_temp_table = temp_table_mngr(session).create_scope_name_table()
     session.bulk_insert_mappings(input_dids_temp_table, [{'scope': s, 'name': n} for s, n in dids])
 
-    # Inspect input DIDs
-    stmt = select(
-        func.sum(
-            case([(models.DataIdentifier.did_type == DIDType.FILE, 1)], else_=0)
-        ).label('num_files'),
-        func.sum(
-            case([(models.DataIdentifier.did_type.in_([DIDType.CONTAINER, DIDType.DATASET]), 1)], else_=0)
-        ).label('num_collections'),
-        func.sum(
-            case([(models.DataIdentifier.constituent, 1)], else_=0)
-        ).label('num_constituents'),
-    ).join_from(
-        input_dids_temp_table,
-        models.DataIdentifier,
-        and_(models.DataIdentifier.scope == input_dids_temp_table.scope,
-             models.DataIdentifier.name == input_dids_temp_table.name),
-    )
-    num_files, num_collections, num_constituents = session.execute(stmt).one()  # returns None on empty input
-    num_files, num_collections, num_constituents = num_files or 0, num_collections or 0, num_constituents or 0
+    num_files, num_collections, num_constituents = _inspect_dids(input_dids_temp_table, session)
 
     num_files_in_collections, resolved_files_temp_table = 0, None
     if num_collections:
