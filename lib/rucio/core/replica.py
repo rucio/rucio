@@ -30,7 +30,7 @@ from traceback import format_exc
 
 import requests
 from dogpile.cache.api import NO_VALUE
-from sqlalchemy import func, and_, or_, exists, not_, update, delete, insert
+from sqlalchemy import func, and_, or_, exists, not_, update, delete, insert, union
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
@@ -676,7 +676,7 @@ def _pick_n_random(nrandom, generator):
         yield r
 
 
-def _list_replicas_for_collection_files(resolved_dids_temp_table, replicas_subquery, session):
+def _list_replicas_for_collection_files_stmt(resolved_dids_temp_table, replicas_subquery):
     """
     List replicas for files resolved from containers/datasets
     """
@@ -699,14 +699,11 @@ def _list_replicas_for_collection_files(resolved_dids_temp_table, replicas_subqu
         replicas_subquery,
         and_(replicas_subquery.c.scope == resolved_dids_temp_table.scope,
              replicas_subquery.c.name == resolved_dids_temp_table.name),
-    ).order_by(
-        resolved_dids_temp_table.scope,
-        resolved_dids_temp_table.name,
     )
-    yield from session.execute(stmt)
+    return stmt
 
 
-def _list_replicas_for_constituents(input_dids_temp_table, replicas_subquery, session):
+def _list_replicas_for_constituents_stmt(input_dids_temp_table, replicas_subquery):
     """
     List file replicas for archive constituents.
     """
@@ -739,14 +736,11 @@ def _list_replicas_for_constituents(input_dids_temp_table, replicas_subquery, se
         replicas_subquery,
         and_(replicas_subquery.c.scope == models.ConstituentAssociation.scope,
              replicas_subquery.c.name == models.ConstituentAssociation.name),
-    ).order_by(
-        models.ConstituentAssociation.child_scope,
-        models.ConstituentAssociation.child_name,
     )
-    yield from session.execute(stmt)
+    return stmt
 
 
-def _list_replicas_for_input_files(input_dids_temp_table, replicas_subquery, session):
+def _list_replicas_for_input_files_stmt(input_dids_temp_table, replicas_subquery):
     """
     List replicas for dids of type FILE from user input.
     We must return these dids even if they have no replicas, hence the outerjoin with replicas subquery.
@@ -775,11 +769,8 @@ def _list_replicas_for_input_files(input_dids_temp_table, replicas_subquery, ses
         replicas_subquery,
         and_(replicas_subquery.c.scope == input_dids_temp_table.scope,
              replicas_subquery.c.name == input_dids_temp_table.name),
-    ).order_by(
-        input_dids_temp_table.scope,
-        input_dids_temp_table.name,
     )
-    yield from session.execute(stmt)
+    return stmt
 
 
 def _list_files_wo_replicas(files_wo_replica, session):
@@ -1265,21 +1256,25 @@ def _list_replicas_with_temp_tables(
     replica_sources = []
     if num_files:
         replica_sources.append(
-            _list_replicas_for_input_files(input_dids_temp_table, replicas_subquery, session=session)
+            _list_replicas_for_input_files_stmt(input_dids_temp_table, replicas_subquery)
         )
     if num_constituents and resolve_archives:
         replica_sources.append(
-            _list_replicas_for_constituents(input_dids_temp_table, replicas_subquery, session=session)
+            _list_replicas_for_constituents_stmt(input_dids_temp_table, replicas_subquery)
         )
     if num_files_in_collections:
         replica_sources.append(
-            _list_replicas_for_collection_files(resolved_files_temp_table, replicas_subquery, session=session)
+            _list_replicas_for_collection_files_stmt(resolved_files_temp_table, replicas_subquery)
         )
 
-    replica_tuples = heapq.merge(
-        *replica_sources,
-        key=lambda t: (t[0], t[1]),  # sort by scope, name
-    )
+    if not replica_sources:
+        return
+    elif len(replica_sources) == 1:
+        stmt = replica_sources[0]
+    else:
+        stmt = union(*replica_sources)
+    stmt = stmt.order_by('scope', 'name')
+    replica_tuples = session.execute(stmt)
 
     yield from _pick_n_random(
         nrandom,
