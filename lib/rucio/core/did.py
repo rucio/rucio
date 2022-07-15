@@ -1208,7 +1208,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
                                                   models.CollectionReplica.name == did['name']))
             did_followed_clause.append(and_(models.DidsFollowed.scope == did['scope'], models.DidsFollowed.name == did['name']))
             if did['did_type'] == DIDType.DATASET:
-                dataset_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
+                dataset_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
 
         # ATLAS LOCALGROUPDISK Archive policy
         if did['did_type'] == DIDType.DATASET and did['scope'].external != 'archive':
