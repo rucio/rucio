@@ -624,22 +624,22 @@ def get_did_from_pfns(pfns, rse_id=None, vo='def', session=None):
                 yield {pfndict[pfn]: {'scope': scope, 'name': name}}
 
 
-def _resolve_datasets(input_dids_temp_table, session):
+def _resolve_collection_files(input_dids_temp_table, session):
     """
-    Resolve all containers from the input data into datasets and return them in a newly
+    Resolve all collection from the input data into files and return them in a newly
     created temporary table.
     """
-    resolved_datasets_temp_table = temp_table_mngr(session).create_scope_name_table()
+    resolved_files_temp_table = temp_table_mngr(session).create_scope_name_table()
 
     stmt = insert(
-        resolved_datasets_temp_table
+        resolved_files_temp_table
     ).from_select(
         ['scope', 'name'],
-        rucio.core.did.list_child_dids_stmt(input_dids_temp_table, did_type=DIDType.DATASET, including_input_dids=True)
+        rucio.core.did.list_child_dids_stmt(input_dids_temp_table, did_type=DIDType.FILE)
     )
-    session.execute(stmt)
+    result = session.execute(stmt)
 
-    return resolved_datasets_temp_table
+    return result.rowcount, resolved_files_temp_table
 
 
 def _pick_n_random(nrandom, generator):
@@ -677,21 +677,18 @@ def _pick_n_random(nrandom, generator):
         yield r
 
 
-def _list_replicas_for_datasets(datasets_temp_table, replicas_subquery, session):
+def _list_replicas_for_collection_files(resolved_dids_temp_table, replicas_subquery, session):
     """
-    List file replicas for a list of datasets.
-
-    :param session: The database session in use.
+    List replicas for files resolved from containers/datasets
     """
-
     stmt = select(
-        models.DataIdentifierAssociation.child_scope.label('scope'),
-        models.DataIdentifierAssociation.child_name.label('name'),
+        resolved_dids_temp_table.scope.label('scope'),
+        resolved_dids_temp_table.name.label('name'),
         literal(None).label('archive_scope'),
         literal(None).label('archive_name'),
-        models.DataIdentifierAssociation.bytes,
-        models.DataIdentifierAssociation.md5,
-        models.DataIdentifierAssociation.adler32,
+        replicas_subquery.c.bytes,
+        replicas_subquery.c.md5,
+        replicas_subquery.c.adler32,
         replicas_subquery.c.path,
         replicas_subquery.c.state,
         replicas_subquery.c.rse_id,
@@ -699,17 +696,13 @@ def _list_replicas_for_datasets(datasets_temp_table, replicas_subquery, session)
         replicas_subquery.c.rse_type,
         replicas_subquery.c.volatile,
     ).join_from(
-        datasets_temp_table,
-        models.DataIdentifierAssociation,
-        and_(models.DataIdentifierAssociation.scope == datasets_temp_table.scope,
-             models.DataIdentifierAssociation.name == datasets_temp_table.name),
-    ).join(
+        resolved_dids_temp_table,
         replicas_subquery,
-        and_(models.DataIdentifierAssociation.child_scope == replicas_subquery.c.scope,
-             models.DataIdentifierAssociation.child_name == replicas_subquery.c.name),
+        and_(replicas_subquery.c.scope == resolved_dids_temp_table.scope,
+             replicas_subquery.c.name == resolved_dids_temp_table.name),
     ).order_by(
-        models.DataIdentifierAssociation.child_scope,
-        models.DataIdentifierAssociation.child_name,
+        resolved_dids_temp_table.scope,
+        resolved_dids_temp_table.name,
     )
     yield from session.execute(stmt)
 
@@ -754,11 +747,10 @@ def _list_replicas_for_constituents(input_dids_temp_table, replicas_subquery, se
     yield from session.execute(stmt)
 
 
-def _list_replicas_for_files(input_dids_temp_table, replicas_subquery, session):
+def _list_replicas_for_input_files(input_dids_temp_table, replicas_subquery, session):
     """
-    List file replicas for a list of files.
-
-    :param session: The database session in use.
+    List replicas for dids of type FILE from user input.
+    We must return these dids even if they have no replicas, hence the outerjoin with replicas subquery.
     """
     stmt = select(
         input_dids_temp_table.scope.label('scope'),
@@ -1148,6 +1140,9 @@ def list_replicas(
     :param updated_after: datetime (UTC time), only return replicas updated after this time
     :param session: The database session in use.
     """
+    # For historical reasons:
+    # - list_replicas([some_file_did]), must return the file even if it doesn't have replicas
+    # - list_replicas([some_collection_did]) must only return files with replicas
     use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
     if use_temp_tables:
         yield from _list_replicas_with_temp_tables(
@@ -1190,6 +1185,9 @@ def _list_replicas_with_temp_tables(
             models.RSEFileAssociation.name,
             models.RSEFileAssociation.path,
             models.RSEFileAssociation.state,
+            models.RSEFileAssociation.bytes,
+            models.RSEFileAssociation.md5,
+            models.RSEFileAssociation.adler32,
             models.RSE.id.label('rse_id'),
             models.RSE.rse.label('rse_name'),
             models.RSE.rse_type,
@@ -1240,16 +1238,43 @@ def _list_replicas_with_temp_tables(
     input_dids_temp_table = temp_table_mngr(session).create_scope_name_table()
     session.bulk_insert_mappings(input_dids_temp_table, [{'scope': s, 'name': n} for s, n in dids])
 
-    datasets_temp_table = _resolve_datasets(input_dids_temp_table, session)
-    replicas_subquery = _replicas_filter_subquery()
+    # Inspect input DIDs
+    stmt = select(
+        func.sum(
+            case([(models.DataIdentifier.did_type == DIDType.FILE, 1)], else_=0)
+        ).label('num_files'),
+        func.sum(
+            case([(models.DataIdentifier.did_type.in_([DIDType.CONTAINER, DIDType.DATASET]), 1)], else_=0)
+        ).label('num_collections'),
+        func.sum(
+            case([(models.DataIdentifier.constituent, 1)], else_=0)
+        ).label('num_constituents'),
+    ).join_from(
+        input_dids_temp_table,
+        models.DataIdentifier,
+        and_(models.DataIdentifier.scope == input_dids_temp_table.scope,
+             models.DataIdentifier.name == input_dids_temp_table.name),
+    )
+    num_files, num_collections, num_constituents = session.execute(stmt).one()  # returns None on empty input
+    num_files, num_collections, num_constituents = num_files or 0, num_collections or 0, num_constituents or 0
 
-    replica_sources = [
-        _list_replicas_for_datasets(datasets_temp_table, replicas_subquery, session=session),
-        _list_replicas_for_files(input_dids_temp_table, replicas_subquery, session=session),
-    ]
-    if resolve_archives:
+    num_files_in_collections, resolved_files_temp_table = 0, None
+    if num_collections:
+        num_files_in_collections, resolved_files_temp_table = _resolve_collection_files(input_dids_temp_table, session)
+
+    replicas_subquery = _replicas_filter_subquery()
+    replica_sources = []
+    if num_files:
         replica_sources.append(
-            _list_replicas_for_constituents(input_dids_temp_table, replicas_subquery, session=session),
+            _list_replicas_for_input_files(input_dids_temp_table, replicas_subquery, session=session)
+        )
+    if num_constituents and resolve_archives:
+        replica_sources.append(
+            _list_replicas_for_constituents(input_dids_temp_table, replicas_subquery, session=session)
+        )
+    if num_files_in_collections:
+        replica_sources.append(
+            _list_replicas_for_collection_files(resolved_files_temp_table, replicas_subquery, session=session)
         )
 
     replica_tuples = heapq.merge(
