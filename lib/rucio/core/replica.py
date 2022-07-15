@@ -1270,6 +1270,66 @@ def _list_replicas_with_temp_tables(
 
     if not replica_sources:
         return
+
+    # In the simple case that somebody calls list_replicas on big collections with nrandom set,
+    # opportunistically try to reduce the number of fetched and analyzed rows.
+    if (
+            nrandom
+            # Only try this optimisation if list_replicas was called on collection(s).
+            # I didn't consider handling the case when list_replica is called with a mix of
+            # file/archive/collection dids: database queries in those cases are more complex
+            # and people don't usually call list_replicas with nrandom on file/archive_constituents anyway.
+            and (num_files_in_collections and not num_constituents and not num_files)
+            # The following code introduces overhead if it fails to pick n random replicas.
+            # Only execute when nrandom is much smaller than the total number of candidate files.
+            # 64 was picked without any particular reason as "seems good enough".
+            and 0 < nrandom < num_files_in_collections / 64
+    ):
+        # Randomly select a subset of file DIDs which have at least one replica matching the RSE/replica
+        # filters applied on database side. Some filters are applied later in python code
+        # (for example: scheme; or client_location/domain). We don't have any guarantee that
+        # those, python, filters will not drop the replicas which we just selected randomly.
+        stmt = select(
+            resolved_files_temp_table.scope.label('scope'),
+            resolved_files_temp_table.name.label('name'),
+        ).where(
+            exists(
+                select([1])
+            ).where(
+                replicas_subquery.c.scope == resolved_files_temp_table.scope,
+                replicas_subquery.c.name == resolved_files_temp_table.name
+            )
+        ).order_by(
+            func.random()
+        ).limit(
+            # slightly overshoot to reduce the probability that python-side filtering will
+            # leave us with less than nrandom replicas.
+            nrandom * 4
+        )
+        # Re-use input temp table. We don't need its content anymore
+        random_dids_temp_table = input_dids_temp_table
+        session.execute(delete(random_dids_temp_table))
+        session.execute(insert(random_dids_temp_table).from_select(['scope', 'name'], stmt))
+
+        # Fetch all replicas for randomly selected dids and apply filters on python side
+        stmt = _list_replicas_for_collection_files_stmt(random_dids_temp_table, replicas_subquery)
+        stmt = stmt.order_by('scope', 'name')
+        replica_tuples = session.execute(stmt)
+        random_replicas = list(
+            _pick_n_random(
+                nrandom,
+                _list_replicas(replica_tuples, pfns, schemes, [], client_location, domain,
+                               sign_urls, signature_lifetime, resolve_parents, filter_, session)
+            )
+        )
+        if len(random_replicas) == nrandom:
+            yield from random_replicas
+            return
+        else:
+            # Our opportunistic attempt to pick nrandom replicas without fetching all database rows failed,
+            # continue with the normal list_replicas flow and fetch all replicas
+            pass
+
     elif len(replica_sources) == 1:
         stmt = replica_sources[0]
     else:
