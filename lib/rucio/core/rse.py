@@ -1431,7 +1431,9 @@ def update_rse(rse_id: str, parameters: 'Dict[str, Any]', session=None):
                 availability = availability & ~availability_mapping[key]
         elif key in MUTABLE_RSE_PROPERTIES - {'name', 'availability_read', 'availability_write', 'availability_delete'}:
             param[key] = parameters[key]
-    param['availability'] = availability or param['availability']
+
+    if 'availability' not in param:
+        param['availability'] = availability
 
     if 'availability' in param:
         availability_values = Availability.from_integer(param['availability'])
