@@ -763,7 +763,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
             except Exception:
                 pass  # do not hard fail if site cannot be resolved or is empty
 
-    file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
+    file, tmp_protocols, pfns_cache = {}, {}, {}
 
     for scope, name, archive_scope, archive_name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replicas:
         if isinstance(archive_scope, str):
@@ -771,14 +771,6 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
         pfns = []
 
         if show_pfns and rse_id:
-            if rse_id not in rse_info:
-                rse_info[rse_id] = rsemgr.get_rse_info(rse_id=rse_id, session=session)
-
-            # assign scheme priorities, and don't forget to exclude disabled protocols
-            # 0 in RSE protocol definition = disabled, 1 = highest priority
-            rse_info[rse_id]['priority_wan'] = {p['scheme']: p['domains']['wan']['read'] for p in rse_info[rse_id]['protocols'] if p['domains']['wan']['read'] > 0}
-            rse_info[rse_id]['priority_lan'] = {p['scheme']: p['domains']['lan']['read'] for p in rse_info[rse_id]['protocols'] if p['domains']['lan']['read'] > 0}
-
             if rse_id not in tmp_protocols:
                 # select the lan door in autoselect mode, otherwise use the wan door
                 domain = input_domain
@@ -788,11 +780,19 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                         domain = 'lan'
                 domains = ['wan', 'lan'] if domain == 'all' else [domain]
 
+                rse_info = rsemgr.get_rse_info(rse_id=rse_id, session=session)
+                # compute scheme priorities, and don't forget to exclude disabled protocols
+                # 0 in RSE protocol definition = disabled, 1 = highest priority
+                scheme_priorities = {
+                    'wan': {p['scheme']: p['domains']['wan']['read'] for p in rse_info['protocols'] if p['domains']['wan']['read'] > 0},
+                    'lan': {p['scheme']: p['domains']['lan']['read'] for p in rse_info['protocols'] if p['domains']['lan']['read'] > 0},
+                }
+
                 rse_schemes = schemes or []
                 if not rse_schemes:
                     try:
                         for domain in domains:
-                            rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse_id],
+                            rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info,
                                                                       operation='read',
                                                                       domain=domain)['scheme'])
                     except exception.RSEProtocolNotSupported:
@@ -807,11 +807,11 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                 for s in rse_schemes:
                     try:
                         for domain in domains:
-                            protocols.append((domain, rsemgr.create_protocol(rse_settings=rse_info[rse_id],
+                            protocols.append((domain, rsemgr.create_protocol(rse_settings=rse_info,
                                                                              operation='read',
                                                                              scheme=s,
                                                                              domain=domain),
-                                              rse_info[rse_id]['priority_%s' % domain][s]))
+                                              scheme_priorities[domain][s]))
                     except exception.RSEProtocolNotSupported:
                         pass  # no need to be verbose
                     except Exception:
