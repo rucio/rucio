@@ -58,7 +58,8 @@ from rucio.db.sqla.util import temp_table_mngr
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Optional, Sequence
+    from rucio.rse.protocols.protocol import RSEProtocol
+    from typing import Any, Dict, List, Optional, Sequence, Tuple
     from sqlalchemy.orm import Session
 
 REGION = make_region_memcached(expiration_time=60)
@@ -748,6 +749,122 @@ def _sort_replica_file_pfns(file):
             file['rses'][t_rse] = [t_pfn]
 
 
+def _get_list_replicas_protocols(
+        rse_id: str,
+        domain: str,
+        schemes: "Sequence[str]",
+        additional_schemes: "Sequence[str]",
+        session: "Session"
+) -> "List[Tuple[str, RSEProtocol, int]]":
+    """
+    Select the protocols to be used by list_replicas to build the PFNs for all replicas on the given RSE
+    """
+    domains = ['wan', 'lan'] if domain == 'all' else [domain]
+
+    rse_info = rsemgr.get_rse_info(rse_id=rse_id, session=session)
+    # compute scheme priorities, and don't forget to exclude disabled protocols
+    # 0 in RSE protocol definition = disabled, 1 = highest priority
+    scheme_priorities = {
+        'wan': {p['scheme']: p['domains']['wan']['read'] for p in rse_info['protocols'] if p['domains']['wan']['read'] > 0},
+        'lan': {p['scheme']: p['domains']['lan']['read'] for p in rse_info['protocols'] if p['domains']['lan']['read'] > 0},
+    }
+
+    rse_schemes = schemes or []
+    if not rse_schemes:
+        try:
+            for domain in domains:
+                rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info,
+                                                          operation='read',
+                                                          domain=domain)['scheme'])
+        except exception.RSEProtocolNotSupported:
+            pass  # no need to be verbose
+        except Exception:
+            print(format_exc())
+
+    for s in additional_schemes:
+        if s not in rse_schemes:
+            rse_schemes.append(s)
+
+    protocols = []
+    for s in rse_schemes:
+        try:
+            for domain in domains:
+                protocol = rsemgr.create_protocol(rse_settings=rse_info, operation='read', scheme=s, domain=domain)
+                priority = scheme_priorities[domain][s]
+
+                protocols.append((domain, protocol, priority))
+        except exception.RSEProtocolNotSupported:
+            pass  # no need to be verbose
+        except Exception:
+            print(format_exc())
+    return protocols
+
+
+def _build_list_replicas_pfn(
+        scope: "InternalScope",
+        name: str,
+        rse_id: str,
+        domain: str,
+        protocol: "RSEProtocol",
+        path: str,
+        sign_urls: bool,
+        signature_lifetime: int,
+        client_location: "Dict[str, Any]",
+        session: "Session",
+) -> str:
+    """
+    Generate the PFN for the given scope/name on the rse.
+    If needed, sign the PFN url
+    If relevant, add the server-side root proxy to te pfn url
+    """
+    pfn = list(protocol.lfns2pfns(lfns={'scope': scope.external,
+                                        'name': name,
+                                        'path': path}).values())[0]
+
+    # do we need to sign the URLs?
+    if sign_urls and protocol.attributes['scheme'] == 'https':
+        service = get_rse_attribute(rse_id, 'sign_url', session=session)
+        if service:
+            pfn = get_signed_url(rse_id=rse_id, service=service, operation='read', url=pfn, lifetime=signature_lifetime)
+
+    # server side root proxy handling if location is set.
+    # supports root and http destinations
+    # cannot be pushed into protocols because we need to lookup rse attributes.
+    # ultra-conservative implementation.
+    if domain == 'wan' and protocol.attributes['scheme'] in ['root', 'http', 'https'] and client_location:
+
+        if 'site' in client_location and client_location['site']:
+            replica_site = get_rse_attribute(rse_id, 'site', session=session)
+
+            # does it match with the client? if not, it's an outgoing connection
+            # therefore the internal proxy must be prepended
+            if client_location['site'] != replica_site:
+                cache_site = config_get('clientcachemap', client_location['site'], default='', session=session)
+                if cache_site != '':
+                    # print('client', client_location['site'], 'has cache:', cache_site)
+                    # print('filename', name)
+                    selected_prefix = get_multi_cache_prefix(cache_site, name)
+                    if selected_prefix:
+                        pfn = 'root://' + selected_prefix + '//' + pfn.replace('davs://', 'root://')
+                else:
+                    # print('site:', client_location['site'], 'has no cache')
+                    # print('lets check if it has defined an internal root proxy ')
+                    root_proxy_internal = config_get('root-proxy-internal',    # section
+                                                     client_location['site'],  # option
+                                                     default='',               # empty string to circumvent exception
+                                                     session=session)
+
+                    if root_proxy_internal:
+                        # TODO: XCache does not seem to grab signed URLs. Doublecheck with XCache devs.
+                        #       For now -> skip prepending XCache for GCS.
+                        if 'storage.googleapis.com' in pfn or 'atlas-google-cloud.cern.ch' in pfn or 'amazonaws.com' in pfn:
+                            pass  # ATLAS HACK
+                        else:
+                            # don't forget to mangle gfal-style davs URL into generic https URL
+                            pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
+    return pfn
+
+
 def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_location, domain,
                    sign_urls, signature_lifetime, resolve_parents, filters, session):
 
@@ -778,46 +895,21 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                     domain = 'wan'
                     if local_rses and rse_id in local_rses:
                         domain = 'lan'
-                domains = ['wan', 'lan'] if domain == 'all' else [domain]
 
-                rse_info = rsemgr.get_rse_info(rse_id=rse_id, session=session)
-                # compute scheme priorities, and don't forget to exclude disabled protocols
-                # 0 in RSE protocol definition = disabled, 1 = highest priority
-                scheme_priorities = {
-                    'wan': {p['scheme']: p['domains']['wan']['read'] for p in rse_info['protocols'] if p['domains']['wan']['read'] > 0},
-                    'lan': {p['scheme']: p['domains']['lan']['read'] for p in rse_info['protocols'] if p['domains']['lan']['read'] > 0},
-                }
-
-                rse_schemes = schemes or []
-                if not rse_schemes:
-                    try:
-                        for domain in domains:
-                            rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info,
-                                                                      operation='read',
-                                                                      domain=domain)['scheme'])
-                    except exception.RSEProtocolNotSupported:
-                        pass  # no need to be verbose
-                    except Exception:
-                        print(format_exc())
-
-                if archive_scope and archive_name and 'root' not in rse_schemes:
-                    rse_schemes.append('root')
-
-                protocols = []
-                for s in rse_schemes:
-                    try:
-                        for domain in domains:
-                            protocol = rsemgr.create_protocol(rse_settings=rse_info, operation='read', scheme=s, domain=domain)
-                            priority = scheme_priorities[domain][s]
-                            protocols.append((domain, protocol, priority))
-                    except exception.RSEProtocolNotSupported:
-                        pass  # no need to be verbose
-                    except Exception:
-                        print(format_exc())
-
+                # FIXME: if a list_replicas call iterates over both non-archive and archive replicas
+                # on the same rse_id, the protocols will not be correctly initialized for whatever comes
+                # second. This is because of the "additional_schemes" logic:
+                protocols = _get_list_replicas_protocols(
+                    rse_id=rse_id,
+                    domain=domain,
+                    schemes=schemes,
+                    # We want 'root' for archives even if it wasn't included into 'schemes'
+                    additional_schemes=['root'] if archive_scope and archive_name else [],
+                    session=session,
+                )
                 protocols_by_rse_id[rse_id] = protocols
 
-            # get pfns
+            # build the pfns
             for domain, protocol, priority in protocols_by_rse_id[rse_id]:
                 # If the current "replica" is a constituent inside an archive, we must construct the pfn for the
                 # parent (archive) file and append the xrdcl.unzip query string to it.
@@ -836,54 +928,19 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                         pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], t_scope.internal, t_name)] = path
 
                 try:
-                    pfn = list(protocol.lfns2pfns(lfns={'scope': t_scope.external,
-                                                        'name': t_name,
-                                                        'path': path}).values())[0]
+                    pfn = _build_list_replicas_pfn(
+                        scope=t_scope,
+                        name=t_name,
+                        rse_id=rse_id,
+                        domain=domain,
+                        protocol=protocol,
+                        path=path,
+                        sign_urls=sign_urls,
+                        signature_lifetime=signature_lifetime,
+                        client_location=client_location,
+                        session=session,
+                    )
 
-                    # do we need to sign the URLs?
-                    if sign_urls and protocol.attributes['scheme'] == 'https':
-                        service = get_rse_attribute(rse_id, 'sign_url', session=session)
-                        if service:
-                            pfn = get_signed_url(rse_id=rse_id, service=service, operation='read', url=pfn, lifetime=signature_lifetime)
-
-                    # server side root proxy handling if location is set.
-                    # supports root and http destinations
-                    # cannot be pushed into protocols because we need to lookup rse attributes.
-                    # ultra-conservative implementation.
-                    if domain == 'wan' and protocol.attributes['scheme'] in ['root', 'http', 'https'] and client_location:
-
-                        if 'site' in client_location and client_location['site']:
-                            replica_site = get_rse_attribute(rse_id, 'site', session=session)
-
-                            # does it match with the client? if not, it's an outgoing connection
-                            # therefore the internal proxy must be prepended
-                            if client_location['site'] != replica_site:
-                                cache_site = config_get('clientcachemap', client_location['site'], default='', session=session)
-                                if cache_site != '':
-                                    # print('client', client_location['site'], 'has cache:', cache_site)
-                                    # print('filename', name)
-                                    selected_prefix = get_multi_cache_prefix(cache_site, t_name)
-                                    if selected_prefix:
-                                        pfn = 'root://' + selected_prefix + '//' + pfn.replace('davs://', 'root://')
-                                else:
-                                    # print('site:', client_location['site'], 'has no cache')
-                                    # print('lets check if it has defined an internal root proxy ')
-                                    root_proxy_internal = config_get('root-proxy-internal',    # section
-                                                                     client_location['site'],  # option
-                                                                     default='',               # empty string to circumvent exception
-                                                                     session=session)
-
-                                    if root_proxy_internal:
-                                        # TODO: XCache does not seem to grab signed URLs. Doublecheck with XCache devs.
-                                        #       For now -> skip prepending XCache for GCS.
-                                        if 'storage.googleapis.com' in pfn or 'atlas-google-cloud.cern.ch' in pfn or 'amazonaws.com' in pfn:
-                                            pass  # ATLAS HACK
-                                        else:
-                                            # don't forget to mangle gfal-style davs URL into generic https URL
-                                            pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
-
-                    # PFNs don't have concepts, therefore quickly encapsulate in a tuple
-                    # ('pfn', 'domain', 'priority', 'client_extract')
                     client_extract = False
                     if archive_scope and archive_name:
                         domain = 'zip'
