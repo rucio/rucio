@@ -763,7 +763,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
             except Exception:
                 pass  # do not hard fail if site cannot be resolved or is empty
 
-    file, tmp_protocols, pfns_cache = {}, {}, {}
+    file, protocols_by_rse_id, pfns_cache = {}, {}, {}
 
     for scope, name, archive_scope, archive_name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replicas:
         if isinstance(archive_scope, str):
@@ -771,7 +771,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
         pfns = []
 
         if show_pfns and rse_id:
-            if rse_id not in tmp_protocols:
+            if rse_id not in protocols_by_rse_id:
                 # select the lan door in autoselect mode, otherwise use the wan door
                 domain = input_domain
                 if domain is None:
@@ -807,20 +807,18 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                 for s in rse_schemes:
                     try:
                         for domain in domains:
-                            protocols.append((domain, rsemgr.create_protocol(rse_settings=rse_info,
-                                                                             operation='read',
-                                                                             scheme=s,
-                                                                             domain=domain),
-                                              scheme_priorities[domain][s]))
+                            protocol = rsemgr.create_protocol(rse_settings=rse_info, operation='read', scheme=s, domain=domain)
+                            priority = scheme_priorities[domain][s]
+                            protocols.append((domain, protocol, priority))
                     except exception.RSEProtocolNotSupported:
                         pass  # no need to be verbose
                     except Exception:
                         print(format_exc())
 
-                tmp_protocols[rse_id] = protocols
+                protocols_by_rse_id[rse_id] = protocols
 
             # get pfns
-            for tmp_protocol in tmp_protocols[rse_id]:
+            for domain, protocol, priority in protocols_by_rse_id[rse_id]:
                 # If the current "replica" is a constituent inside an archive, we must construct the pfn for the
                 # parent (archive) file and append the xrdcl.unzip query string to it.
                 if archive_scope and archive_name:
@@ -829,8 +827,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                 else:
                     t_scope = scope
                     t_name = name
-                domain = tmp_protocol[0]
-                protocol = tmp_protocol[1]
+
                 if 'determinism_type' in protocol.attributes:  # PFN is cachable
                     try:
                         path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], t_scope.internal, t_name)]
@@ -887,19 +884,17 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
 
                     # PFNs don't have concepts, therefore quickly encapsulate in a tuple
                     # ('pfn', 'domain', 'priority', 'client_extract')
-                    t_domain = tmp_protocol[0]
-                    t_priority = tmp_protocol[2]
-                    t_client_extract = False
+                    client_extract = False
                     if archive_scope and archive_name:
-                        t_domain = 'zip'
+                        domain = 'zip'
                         pfn = add_url_query(pfn, {'xrdcl.unzip': name})
                         if protocol.attributes['scheme'] == 'root':
                             # xroot supports downloading files directly from inside an archive. Disable client_extract and prioritize xroot.
-                            t_client_extract = False
-                            t_priority = -1
+                            client_extract = False
+                            priority = -1
                         else:
-                            t_client_extract = True
-                    pfns.append((pfn, t_domain, t_priority, t_client_extract))
+                            client_extract = True
+                    pfns.append((pfn, domain, priority, client_extract))
                 except Exception:
                     # never end up here
                     print(format_exc())
@@ -922,17 +917,17 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
             file['pfns'], file['rses'], file['states'] = {}, defaultdict(list), {}
 
         if rse_id:
-            file['rses'][rse_id] += list(set([tmp_pfn[0] for tmp_pfn in pfns]))
+            file['rses'][rse_id] += list(set([pfn for pfn, *_ in pfns]))
             file['states'][rse_id] = str(state.name if state else state)
 
-            for tmp_pfn in pfns:
-                file['pfns'][tmp_pfn[0]] = {'rse_id': rse_id,
-                                            'rse': rse,
-                                            'type': str(rse_type.name),
-                                            'volatile': volatile,
-                                            'domain': tmp_pfn[1],
-                                            'priority': tmp_pfn[2],
-                                            'client_extract': tmp_pfn[3]}
+            for pfn, domain, priority, client_extract in pfns:
+                file['pfns'][pfn] = {'rse_id': rse_id,
+                                     'rse': rse,
+                                     'type': str(rse_type.name),
+                                     'volatile': volatile,
+                                     'domain': domain,
+                                     'priority': priority,
+                                     'client_extract': client_extract}
 
         if resolve_parents and not file.get('parents'):
             file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
