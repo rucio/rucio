@@ -18,7 +18,6 @@ import logging
 import math
 import random
 from collections import defaultdict, namedtuple
-from copy import deepcopy
 from curses.ascii import isprint
 from datetime import datetime, timedelta
 from hashlib import sha256
@@ -752,13 +751,12 @@ def _sort_replica_file_pfns(file):
 def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_location, domain,
                    sign_urls, signature_lifetime, resolve_parents, filters, session):
 
-    # we need to retain knowledge of the original domain selection by the user
-    # in case we have to loop over replicas with a potential outgoing proxy
-    original_domain = deepcopy(domain)
+    # the `domain` variable name will be re-used throughout the function with different values
+    input_domain = domain
 
     # find all RSEs local to the client's location in autoselect mode (i.e., when domain is None)
     local_rses = []
-    if domain is None:
+    if input_domain is None:
         if client_location and 'site' in client_location and client_location['site']:
             try:
                 local_rses = [rse['id'] for rse in parse_expression('site=%s' % client_location['site'], filter_=filters, session=session)]
@@ -772,9 +770,6 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
             archive_scope = InternalScope(archive_scope, fromExternal=False)
         pfns = []
 
-        # reset the domain selection to original user's choice (as this could get overwritten each iteration)
-        domain = deepcopy(original_domain)
-
         if show_pfns and rse_id:
             if rse_id not in rse_info:
                 rse_info[rse_id] = rsemgr.get_rse_info(rse_id=rse_id, session=session)
@@ -784,25 +779,19 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
             rse_info[rse_id]['priority_wan'] = {p['scheme']: p['domains']['wan']['read'] for p in rse_info[rse_id]['protocols'] if p['domains']['wan']['read'] > 0}
             rse_info[rse_id]['priority_lan'] = {p['scheme']: p['domains']['lan']['read'] for p in rse_info[rse_id]['protocols'] if p['domains']['lan']['read'] > 0}
 
-            # select the lan door in autoselect mode, otherwise use the wan door
-            if domain is None:
-                domain = 'wan'
-                if local_rses and rse_id in local_rses:
-                    domain = 'lan'
-
             if rse_id not in tmp_protocols:
+                # select the lan door in autoselect mode, otherwise use the wan door
+                domain = input_domain
+                if domain is None:
+                    domain = 'wan'
+                    if local_rses and rse_id in local_rses:
+                        domain = 'lan'
+                domains = ['wan', 'lan'] if domain == 'all' else [domain]
 
                 rse_schemes = schemes or []
                 if not rse_schemes:
                     try:
-                        if domain == 'all':
-                            rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse_id],
-                                                                      operation='read',
-                                                                      domain='wan')['scheme'])
-                            rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse_id],
-                                                                      operation='read',
-                                                                      domain='lan')['scheme'])
-                        else:
+                        for domain in domains:
                             rse_schemes.append(rsemgr.select_protocol(rse_settings=rse_info[rse_id],
                                                                       operation='read',
                                                                       domain=domain)['scheme'])
@@ -817,18 +806,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                 protocols = []
                 for s in rse_schemes:
                     try:
-                        if domain == 'all':
-                            protocols.append(('lan', rsemgr.create_protocol(rse_settings=rse_info[rse_id],
-                                                                            operation='read',
-                                                                            scheme=s,
-                                                                            domain='lan'),
-                                              rse_info[rse_id]['priority_lan'][s]))
-                            protocols.append(('wan', rsemgr.create_protocol(rse_settings=rse_info[rse_id],
-                                                                            operation='read',
-                                                                            scheme=s,
-                                                                            domain='wan'),
-                                              rse_info[rse_id]['priority_wan'][s]))
-                        else:
+                        for domain in domains:
                             protocols.append((domain, rsemgr.create_protocol(rse_settings=rse_info[rse_id],
                                                                              operation='read',
                                                                              scheme=s,
@@ -851,6 +829,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                 else:
                     t_scope = scope
                     t_name = name
+                domain = tmp_protocol[0]
                 protocol = tmp_protocol[1]
                 if 'determinism_type' in protocol.attributes:  # PFN is cachable
                     try:
