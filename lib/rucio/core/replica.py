@@ -21,6 +21,7 @@ from collections import defaultdict, namedtuple
 from curses.ascii import isprint
 from datetime import datetime, timedelta
 from hashlib import sha256
+from itertools import groupby
 from json import dumps
 from re import match
 from struct import unpack
@@ -882,12 +883,31 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
 
     file, protocols_by_rse_id, pfns_cache = {}, {}, {}
 
-    for scope, name, archive_scope, archive_name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replicas:
-        if isinstance(archive_scope, str):
-            archive_scope = InternalScope(archive_scope, fromExternal=False)
-        pfns = []
+    for _, replica_group in groupby(replicas, key=lambda x: (x[0], x[1])):  # Group by scope/name
+        file = {}
+        for scope, name, archive_scope, archive_name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_group:
+            if isinstance(archive_scope, str):
+                archive_scope = InternalScope(archive_scope, fromExternal=False)
 
-        if show_pfns and rse_id:
+            # it is the first row in the scope/name group
+            if not file:
+                file['scope'], file['name'] = scope, name
+                file['bytes'], file['md5'], file['adler32'] = bytes_, md5, adler32
+                file['pfns'], file['rses'], file['states'] = {}, defaultdict(list), {}
+                if resolve_parents:
+                    file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
+                                       for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
+
+            if not rse_id:
+                continue
+
+            file['states'][rse_id] = str(state.name if state else state)
+            file['rses'][rse_id] = []
+
+            if not show_pfns:
+                continue
+
+            # It's the first time we see this RSE, initialize the protocols needed for PFN generation
             if rse_id not in protocols_by_rse_id:
                 # select the lan door in autoselect mode, otherwise use the wan door
                 domain = input_domain
@@ -951,7 +971,18 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                             priority = -1
                         else:
                             client_extract = True
-                    pfns.append((pfn, domain, priority, client_extract))
+
+                    file['pfns'][pfn] = {
+                        'rse_id': rse_id,
+                        'rse': rse,
+                        'type': str(rse_type.name),
+                        'volatile': volatile,
+                        'domain': domain,
+                        'priority': priority,
+                        'client_extract': client_extract
+                    }
+                    file['rses'][rse_id].append(pfn)
+
                 except Exception:
                     # never end up here
                     print(format_exc())
@@ -962,38 +993,9 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                     except KeyError:
                         file['space_token'] = None
 
-        # Finished the replicas of the previous scope/name. Yield the file and start fresh with current scope/name
-        if 'scope' in file and 'name' in file and not (file['scope'] == scope and file['name'] == name):
+        if file:
             _sort_replica_file_pfns(file)
             yield file
-            file = {}
-
-        if not ('scope' in file and 'name' in file):
-            file['scope'], file['name'] = scope, name
-            file['bytes'], file['md5'], file['adler32'] = bytes_, md5, adler32
-            file['pfns'], file['rses'], file['states'] = {}, defaultdict(list), {}
-
-        if rse_id:
-            file['rses'][rse_id] += list(set([pfn for pfn, *_ in pfns]))
-            file['states'][rse_id] = str(state.name if state else state)
-
-            for pfn, domain, priority, client_extract in pfns:
-                file['pfns'][pfn] = {'rse_id': rse_id,
-                                     'rse': rse,
-                                     'type': str(rse_type.name),
-                                     'volatile': volatile,
-                                     'domain': domain,
-                                     'priority': priority,
-                                     'client_extract': client_extract}
-
-        if resolve_parents and not file.get('parents'):
-            file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
-                               for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
-
-    # Handle the last file
-    if 'scope' in file and 'name' in file:
-        _sort_replica_file_pfns(file)
-        yield file
 
     for scope, name, bytes_, md5, adler32 in _list_files_wo_replicas(files_wo_replica, session):
         yield {
