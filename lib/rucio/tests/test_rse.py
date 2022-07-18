@@ -437,6 +437,13 @@ class TestRSEClient(unittest.TestCase):
         with pytest.raises(ResourceTemporaryUnavailable):
             replica_client.add_replicas(rse=renamed_rse, files=files2, ignore_availability=False)
 
+    def test_update_rse_availability_all_false(self):
+        """ RSE (CLIENTS): update rse should be able to set all availability options to False."""
+        rse = rse_name_generator()
+        ret = self.client.add_rse(rse)
+        assert ret
+        self.client.update_rse(rse, {"availability_read": False, "availability_write": False, "availability_delete": False})
+
     def test_list_rses(self):
         """ RSE (CLIENTS): try to list rses."""
         rse_list = [rse_name_generator() for i in range(5)]
