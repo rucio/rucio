@@ -350,15 +350,24 @@ def mark_submitting(
                                                                                                           external_host)
     logger(logging.DEBUG, "%s", log_str)
 
-    rowcount = session.query(models.Request)\
-                      .filter_by(id=transfer.rws.request_id)\
-                      .filter(models.Request.state == RequestState.QUEUED)\
-                      .update({'state': RequestState.SUBMITTING,
-                               'external_id': None,
-                               'external_host': external_host,
-                               'dest_url': transfer.dest_url,
-                               'submitted_at': datetime.datetime.utcnow()},
-                              synchronize_session=False)
+    stmt = update(
+        models.Request
+    ).where(
+        models.Request.id == transfer.rws.request_id,
+        models.Request.state == RequestState.QUEUED
+    ).execution_options(
+        synchronize_session=False
+    ).values(
+        {
+            'state': RequestState.SUBMITTING,
+            'external_id': None,
+            'external_host': external_host,
+            'dest_url': transfer.dest_url,
+            'submitted_at': datetime.datetime.utcnow(),
+        }
+    )
+    rowcount = session.execute(stmt).rowcount
+
     if rowcount == 0:
         raise RequestNotFound("Failed to prepare transfer: request %s does not exist or is not in queued state" % transfer.rws)
 
@@ -393,10 +402,17 @@ def ensure_db_sources(
                 desired_sources.append({'request_id': transfer_path[-1].rws.request_id, **common_source_attrs})
 
     for source in desired_sources:
-        src_rowcount = session.query(models.Source)\
-                              .filter_by(request_id=source['request_id'])\
-                              .filter(models.Source.rse_id == source['rse_id'])\
-                              .update({'is_using': True}, synchronize_session=False)
+        stmt = update(
+            models.Source
+        ).where(
+            models.Source.request_id == source['request_id'],
+            models.Source.rse_id == source['rse_id']
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            is_using=True
+        )
+        src_rowcount = session.execute(stmt).rowcount
         if src_rowcount == 0:
             models.Source(**source).save(session=session, flush=False)
 
@@ -415,15 +431,23 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
         for transfer in transfers:
             rws = transfer.rws
             logger(logging.DEBUG, 'COPYING REQUEST %s DID %s:%s USING %s with state(%s) with eid(%s)' % (rws.request_id, rws.scope, rws.name, external_host, state, external_id))
-            rowcount = session.query(models.Request)\
-                              .filter_by(id=transfer.rws.request_id)\
-                              .filter(models.Request.state == RequestState.SUBMITTING)\
-                              .update({'state': state,
-                                       'external_id': external_id,
-                                       'external_host': external_host,
-                                       'source_rse_id': transfer.src.rse.id,
-                                       'submitted_at': submitted_at},
-                                      synchronize_session=False)
+            stmt = update(
+                models.Request
+            ).where(
+                models.Request.id == transfer.rws.request_id,
+                models.Request.state == RequestState.SUBMITTING
+            ).execution_options(
+                synchronize_session=False
+            ).values(
+                {
+                    'state': state,
+                    'external_id': external_id,
+                    'external_host': external_host,
+                    'source_rse_id': transfer.src.rse.id,
+                    'submitted_at': submitted_at,
+                }
+            )
+            rowcount = session.execute(stmt).rowcount
 
             if rowcount == 0:
                 raise RucioException("%s: failed to set transfer state: request doesn't exist or is not in SUBMITTING state" % rws)
@@ -504,7 +528,17 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
     record_counter('core.request.set_transfer_update_time')
 
     try:
-        rowcount = session.query(models.Request).filter_by(external_id=transfer_id, state=RequestState.SUBMITTED).update({'updated_at': update_time}, synchronize_session=False)
+        stmt = update(
+            models.Request
+        ).where(
+            models.Request.external_id == transfer_id,
+            models.Request.state == RequestState.SUBMITTED
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            updated_at=update_time
+        )
+        rowcount = session.executet(stmt).rowcount
     except IntegrityError as error:
         raise RucioException(error.args)
 
@@ -525,12 +559,19 @@ def touch_transfer(external_host, transfer_id, session=None):
 
     try:
         # don't touch it if it's already touched in 30 seconds
-        stmt = update(models.Request).prefix_with("/*+ INDEX(REQUESTS REQUESTS_EXTERNALID_UQ) */", dialect='oracle')\
-                                     .filter_by(external_id=transfer_id)\
-                                     .where(models.Request.state == RequestState.SUBMITTED)\
-                                     .where(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=30))\
-                                     .execution_options(synchronize_session=False)\
-                                     .values(updated_at=datetime.datetime.utcnow())
+        stmt = update(
+            models.Request
+        ).prefix_with(
+            "/*+ INDEX(REQUESTS REQUESTS_EXTERNALID_UQ) */", dialect='oracle'
+        ).where(
+            models.Request.external_id == transfer_id,
+            models.Request.state == RequestState.SUBMITTED,
+            models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=30)
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            updated_at=datetime.datetime.utcnow()
+        )
         session.execute(stmt)
     except IntegrityError as error:
         raise RucioException(error.args)
@@ -1274,9 +1315,16 @@ def __load_inbound_distances_node(rse_id, session=None):
     result = REGION_SHORT.get('inbound_edges_%s' % str(rse_id))
     if isinstance(result, NoValue):
         inbound_edges = {}
-        for distance in session.query(models.Distance).join(models.RSE, models.RSE.id == models.Distance.src_rse_id) \
-                .filter(models.Distance.dest_rse_id == rse_id) \
-                .filter(models.RSE.deleted == false()).all():
+        stmt = select(
+            models.Distance
+        ).join(
+            models.RSE,
+            models.RSE.id == models.Distance.src_rse_id
+        ).where(
+            models.Distance.dest_rse_id == rse_id,
+            models.RSE.deleted == false()
+        )
+        for distance in session.execute(stmt).scalars():
             if distance.ranking is None:
                 continue
             ranking = distance.ranking if distance.ranking >= 0 else 0
@@ -1298,9 +1346,16 @@ def __load_outgoing_distances_node(rse_id, session=None):
     result = REGION_SHORT.get('outgoing_edges_%s' % str(rse_id))
     if isinstance(result, NoValue):
         outgoing_edges = {}
-        for distance in session.query(models.Distance).join(models.RSE, models.RSE.id == models.Distance.dest_rse_id)\
-                               .filter(models.Distance.src_rse_id == rse_id)\
-                               .filter(models.RSE.deleted == false()).all():
+        stmt = select(
+            models.Distance
+        ).join(
+            models.RSE,
+            models.RSE.id == models.Distance.dest_rse_id
+        ).where(
+            models.Distance.src_rse_id == rse_id,
+            models.RSE.deleted == false()
+        )
+        for distance in session.execute(stmt).scalars():
             if distance.ranking is None:
                 continue
             ranking = distance.ranking if distance.ranking >= 0 else 0
