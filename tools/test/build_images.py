@@ -83,6 +83,7 @@ def build_images(matrix, script_args):
                 continue
 
             args = ()
+            env = {"DOCKER_BUILDKIT": "1"}
             if buildargs.IMAGE_IDENTIFIER == 'integration-test':
                 if buildargs.PYTHON == '3.6':
                     buildfile = pathlib.Path(script_args.buildfiles_dir) / 'Dockerfile'
@@ -114,9 +115,8 @@ def build_images(matrix, script_args):
             if not args:
                 print("Error defining build arguments from", buildargs, file=sys.stderr, flush=True)
                 sys.exit(1)
-
             print("Running", " ".join(args), file=sys.stderr, flush=True)
-            subprocess.run(args, stdout=sys.stderr, check=True)
+            subprocess.run(args, stdout=sys.stderr, check=True, env=env)
             print("Finished building image", imagetag, file=sys.stderr, flush=True)
 
             if script_args.push_cache:

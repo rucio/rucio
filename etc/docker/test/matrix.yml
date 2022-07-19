@@ -1,21 +1,32 @@
 dists:
-  - id: centos7
+  # - id: centos7
+  #   allow:
+  #     python:
+  #       - "3.6"
+  #       - "3.7"
+  #   deny:
+  #     suites:
+  #       - sqlite
+  - id: stream8
     allow:
       python:
         - "3.6"
         - "3.7"
-    deny:
-      suites:
-        - sqlite
-  - id: fedora32
-    allow:
-      python:
         - "3.8"
+        - "3.9"
         - "3.10"
-  - id: fedora33
+  - id: stream9
     allow:
       python:
         - "3.9"
+        - "3.10"
+  # - id: fedora34
+  #   allow:
+  #     python:
+  #       - "3.9"
+  - id: fedora35
+    allow:
+      python:
         - "3.10"
 python:
   - "3.6"
@@ -29,8 +40,20 @@ python:
         - py37py38
         - client
         - sqlite
-  - "3.9"
-  - "3.10"
+  - id: "3.9"
+    allow:
+      suites:
+        - remote_dbs
+        - multi_vo
+        - client
+  - id: "3.10"
+    allow:
+      suites:
+        - remote_dbs
+        - multi_vo
+        - client
+        - client_synxtax
+
 suites:
   - id: syntax
     SYNTAX_REPORT: 1
