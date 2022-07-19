@@ -388,6 +388,7 @@ class TestSubscriptionClient(unittest.TestCase):
         result = [sub['id'] for sub in self.sub_client.list_subscriptions(name=subscription_name)]
         assert subid == result[0]
 
+    @pytest.mark.noparallel(reason='runs transfmogrifier. Cannot be run at the same time with other tests running it')
     def test_run_transmogrifier(self):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier and the split_rule mode """
         rse1, _ = self.rse_factory.make_mock_rse()
@@ -412,6 +413,7 @@ class TestSubscriptionClient(unittest.TestCase):
         rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
 
+    @pytest.mark.noparallel(reason='runs transfmogrifier. Cannot be run at the same time with other tests running it')
     def test_run_transmogrifier_did_type(self):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with did_type subscriptions """
         rse1, _ = self.rse_factory.make_mock_rse()
