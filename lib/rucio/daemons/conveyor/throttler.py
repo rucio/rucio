@@ -100,14 +100,19 @@ def __get_request_stats(all_activities=False, direction='destination'):
     """
     logging.info("Throttler retrieve requests statistics")
 
-    results = get_stats_by_activity_direction_state(state=[RequestState.QUEUED,
-                                                           RequestState.SUBMITTING,
-                                                           RequestState.SUBMITTED,
-                                                           RequestState.WAITING], all_activities=all_activities, direction=direction)
     result_dict = {}
-    limits = get_rse_transfer_limits()
-    for result in results:
-        if direction == 'destination' or direction == 'source':
+    if direction == 'destination' or direction == 'source':
+        results = get_stats_by_activity_direction_state(
+            state=[RequestState.QUEUED,
+                   RequestState.SUBMITTING,
+                   RequestState.SUBMITTED,
+                   RequestState.WAITING],
+            all_activities=all_activities,
+            direction=direction
+        )
+
+        limits = get_rse_transfer_limits()
+        for result in results:
             account = result[0]
             state = result[1]
             rse = result[2]

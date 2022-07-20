@@ -1174,52 +1174,52 @@ def get_stats_by_activity_direction_state(state, all_activities=False, direction
     """
 
     if type(state) is not list:
-        state = [state, state]
+        state = [state]
 
     try:
-        subquery = None
-        inner_select = [models.Request.account, models.Request.state,
-                        func.count(1).label('counter')]
-        if direction == 'destination' and all_activities:
-            inner_select.append(models.Request.dest_rse_id)
-            group_by = (models.Request.dest_rse_id, )
-        elif direction == 'source' and all_activities:
-            inner_select.append(models.Request.source_rse_id)
-            group_by = (models.Request.source_rse_id, )
-        elif direction == 'destination' and not all_activities:
-            inner_select.append(models.Request.activity)
-            inner_select.append(models.Request.dest_rse_id)
-            group_by = (models.Request.dest_rse_id, models.Request.activity)
-        elif direction == 'source' and not all_activities:
-            inner_select.append(models.Request.activity)
-            inner_select.append(models.Request.source_rse_id)
-            group_by = (models.Request.source_rse_id, models.Request.activity)
+        rse_id_column = models.Request.source_rse_id if direction == 'source' else models.Request.dest_rse_id
 
-        subquery = session.query(*inner_select)\
-                          .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-                          .filter(models.Request.state.in_(state))\
-                          .group_by(models.Request.account,
-                                    models.Request.state)\
-                          .group_by(*group_by)\
-                          .subquery()
-
-        outer_select = [subquery.c.account,
-                        subquery.c.state,
-                        models.RSE.rse,
-                        subquery.c.counter]
-        if direction == 'destination':
-            outer_select.append(subquery.c.dest_rse_id)
-            filter_condition = (models.RSE.id == subquery.c.dest_rse_id)
-        elif direction == 'source':
-            outer_select.append(subquery.c.source_rse_id)
-            filter_condition = (models.RSE.id == subquery.c.source_rse_id)
-
+        additional_columns = []
         if not all_activities:
-            outer_select.append(subquery.c.activity)
+            additional_columns = [
+                models.Request.activity
+            ]
 
-        return session.query(*outer_select)\
-                      .with_hint(models.RSE, "INDEX(RSES RSES_PK)", 'oracle')\
-                      .filter(filter_condition).all()
+        subquery = select(
+            models.Request.account,
+            models.Request.state,
+            func.count(1).label('counter'),
+            rse_id_column.label('rse_id'),
+            *additional_columns,
+        ).with_hint(
+            models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle'
+        ).where(
+            models.Request.state.in_(state)
+        ).group_by(
+            models.Request.account,
+            models.Request.state,
+            rse_id_column,
+            *additional_columns,
+        ).subquery()
+
+        stmt = select(
+            subquery.c.account,
+            subquery.c.state,
+            models.RSE.rse,
+            subquery.c.counter,
+            subquery.c.rse_id
+        ).with_hint(
+            models.RSE, "INDEX(RSES RSES_PK)", 'oracle'
+        ).join(
+            models.RSE,
+            models.RSE.id == subquery.c.rse_id,
+        )
+        if not all_activities:
+            stmt = stmt.add_columns(
+                subquery.c.activity
+            )
+
+        return session.execute(stmt).all()
 
     except IntegrityError as error:
         raise RucioException(error.args)
