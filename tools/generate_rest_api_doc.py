@@ -95,7 +95,13 @@ spec = APISpec(
     version=VERSION_INFO['version'],
     openapi_version="3.0.2",
     plugins=[FlaskPlugin()],
-    options={"info": {"description": description_text}}
+    info={
+        "description": description_text,
+        "license": {
+            "name": "Apache 2.0",
+            "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
+        },
+    },
 )
 
 with application.test_request_context():
