@@ -26,7 +26,7 @@ from rucio.core import account_counter, rse_counter, request as request_core
 import rucio.core.did
 import rucio.core.lock
 import rucio.core.replica
-from rucio.core.rse import get_rse
+from rucio.core.rse import get_rse, get_rse_attribute, get_rse_name
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE
 from rucio.db.sqla.session import transactional_session
@@ -842,6 +842,14 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                         lifetime=lifetime,
                                                         session=session))
 
+    # If staging_required type RSE then set pin to RSE attribute maximum_pin_lifetime
+    staging_required = next(iter(get_rse_attribute('staging_required', rse_id=rse_id, session=session)), False)
+    maximum_pin_lifetime = next(iter(get_rse_attribute('maximum_pin_lifetime', rse_id=rse_id, session=session)), None)
+
+    if staging_required:
+        rse_name = get_rse_name(rse_id=rse_id, session=session)
+        logger(logging.INFO, f'Destination RSE {rse_name} is type staging_required and if replica exists create STAGEIN request.')
+
     existing_replicas = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == rse_id]
 
     if existing_replicas:  # A replica already exists (But could be UNAVAILABLE)
@@ -855,12 +863,27 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                      name=file['name'],
                                      bytes_=file['bytes'],
                                      existing_replica=existing_replica,
-                                     state=LockState.OK)
+                                     state=LockState.OK if not staging_required else LockState.REPLICATING)
             if rse_id not in locks_to_create:
                 locks_to_create[rse_id] = []
             locks_to_create[rse_id].append(new_lock)
             locks[(file['scope'], file['name'])].append(new_lock)
-            return False
+            if not staging_required:
+                return False
+
+            transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
+                                                            request_type=RequestType.STAGEIN,
+                                                            scope=file['scope'],
+                                                            name=file['name'],
+                                                            rule=rule,
+                                                            lock=new_lock,
+                                                            bytes_=file['bytes'],
+                                                            md5=file['md5'],
+                                                            adler32=file['adler32'],
+                                                            ds_scope=dataset['scope'],
+                                                            ds_name=dataset['name'],
+                                                            lifetime=maximum_pin_lifetime if staging_required else None,
+                                                            session=session))
 
         # Replica is not available -- UNAVAILABLE
         elif existing_replica.state == ReplicaState.UNAVAILABLE:
@@ -893,6 +916,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                                 adler32=file['adler32'],
                                                                 ds_scope=dataset['scope'],
                                                                 ds_name=dataset['name'],
+                                                                lifetime=maximum_pin_lifetime if staging_required else None,
                                                                 session=session))
                 return True
             return False
@@ -954,6 +978,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                             adler32=file['adler32'],
                                                             ds_scope=dataset['scope'],
                                                             ds_name=dataset['name'],
+                                                            lifetime=maximum_pin_lifetime if staging_required else None,
                                                             session=session))
             return True
         return False
