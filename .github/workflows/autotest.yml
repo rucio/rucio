@@ -39,7 +39,7 @@ jobs:
       - name: Checkout ancestor commit with rucio/master
         uses: ./.github/actions/checkout_ancestor_commit
         with:
-          files_to_copy: |
+          paths_to_copy: |
             tools/count_missing_type_annotations.sh
             tools/count_missing_type_annotations_utils.sh
       - name: Count initial number of missing type annotations
