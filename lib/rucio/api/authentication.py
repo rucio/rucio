@@ -94,6 +94,11 @@ def get_auth_oidc(account, vo='def', session=None, **kwargs):
     # no permission layer for the moment !
 
     account = InternalAccount(account, vo=vo)
+    # First
+    oidc.get_auth_oidc(account, session=session, **kwargs)
+    # Second
+    oidc.get_auth_oidc(account, session=session, **kwargs)
+    # Third
     return oidc.get_auth_oidc(account, session=session, **kwargs)
 
 
