@@ -17,7 +17,6 @@ import datetime
 import json
 import functools
 import logging
-import time
 import traceback
 import uuid
 from typing import Any, Callable, Tuple, TYPE_CHECKING
@@ -39,7 +38,7 @@ from rucio.common.utils import APIEncoder, chunks, PREFERRED_CHECKSUM
 from rucio.core.request import get_source_rse, get_transfer_error
 from rucio.core.rse import get_rse_supported_checksums_from_attributes
 from rucio.core.oidc import get_token_for_account_operation
-from rucio.core.monitor import record_counter, record_timer, MultiCounter
+from rucio.core.monitor import record_counter, Timer, MultiCounter
 from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
 from rucio.db.sqla.constants import RequestState
 
@@ -762,7 +761,6 @@ class FTS3Transfertool(Transfertool):
         :param timeout:      Timeout in seconds.
         :returns:            FTS transfer identifier.
         """
-        start_time = time.time()
         files = []
         for transfer in transfers:
             if isinstance(transfer, dict):
@@ -809,7 +807,7 @@ class FTS3Transfertool(Transfertool):
 
         post_result = None
         try:
-            start_time = time.time()
+            timer = Timer()
             post_result = requests.post('%s/jobs' % self.external_host,
                                         verify=self.verify,
                                         cert=self.cert,
@@ -817,7 +815,7 @@ class FTS3Transfertool(Transfertool):
                                         headers=self.headers,
                                         timeout=timeout)
             labels = {'host': self.__extract_host(self.external_host)}
-            record_timer('transfertool.fts3.submit_transfer.{host}', (time.time() - start_time) * 1000 / len(files), labels=labels)
+            timer.record('transfertool.fts3.submit_transfer.{host}', divisor=len(files), labels=labels)
         except ReadTimeout as error:
             raise TransferToolTimeout(error)
         except json.JSONDecodeError as error:
@@ -841,7 +839,7 @@ class FTS3Transfertool(Transfertool):
 
         if not transfer_id:
             raise TransferToolWrongAnswer('No transfer id returned by %s' % self.external_host)
-        record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(transfers))
+        timer.record('core.request.submit_transfers_fts3', divisor=len(transfers))
         return transfer_id
 
     def cancel(self, transfer_ids, timeout=None):

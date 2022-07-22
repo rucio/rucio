@@ -38,7 +38,7 @@ from rucio.common.types import InternalAccount
 from rucio.common.logging import setup_logging
 from rucio.common.utils import dict_chunks
 from rucio.core import transfer as transfer_core, request as request_core
-from rucio.core.monitor import record_timer, record_counter
+from rucio.core.monitor import Timer, record_counter
 from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.daemons.common import run_daemon
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -55,21 +55,19 @@ FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)
 def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, activity, heartbeat_handler, oidc_account: str):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
-    start_time = time.time()
-    logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))
-    transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                    state=[RequestState.SUBMITTED],
-                                    limit=db_bulk,
-                                    older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
-                                    total_workers=total_workers,
-                                    worker_number=worker_number,
-                                    mode_all=True,
-                                    hash_variable='id',
-                                    activity=activity,
-                                    activity_shares=activity_shares,
-                                    transfertool=FILTER_TRANSFERTOOL)
-
-    record_timer('daemons.conveyor.poller.get_next', (time.time() - start_time) * 1000)
+    with Timer('daemons.conveyor.poller.get_next'):
+        logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))
+        transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                                        state=[RequestState.SUBMITTED],
+                                        limit=db_bulk,
+                                        older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
+                                        total_workers=total_workers,
+                                        worker_number=worker_number,
+                                        mode_all=True,
+                                        hash_variable='id',
+                                        activity=activity,
+                                        activity_shares=activity_shares,
+                                        transfertool=FILTER_TRANSFERTOOL)
 
     if TRANSFER_TOOL and not FILTER_TRANSFERTOOL:
         # only keep transfers which don't have any transfertool set, or have one equal to TRANSFER_TOOL
@@ -253,12 +251,12 @@ def _poll_transfers(transfertool_obj, transfers_by_eid, timeout, logger):
     """
     is_bulk = len(transfers_by_eid) > 1
     try:
-        tss = time.time()
+        timer = Timer()
         logger(logging.INFO, 'Polling %i transfers against %s with timeout %s' % (len(transfers_by_eid), transfertool_obj, timeout))
         resps = transfertool_obj.bulk_query(requests_by_eid=transfers_by_eid, timeout=timeout)
-        duration = time.time() - tss
-        record_timer('daemons.conveyor.poller.bulk_query_transfers', duration * 1000 / len(transfers_by_eid))
-        logger(logging.DEBUG, 'Polled %s transfer requests status in %s seconds' % (len(transfers_by_eid), duration))
+        timer.stop()
+        timer.record('daemons.conveyor.poller.bulk_query_transfers', divisor=len(transfers_by_eid))
+        logger(logging.DEBUG, 'Polled %s transfer requests status in %s seconds' % (len(transfers_by_eid), timer.elapsed))
     except TransferToolTimeout as error:
         logger(logging.ERROR, str(error))
         return

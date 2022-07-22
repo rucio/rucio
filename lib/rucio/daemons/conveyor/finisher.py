@@ -23,7 +23,6 @@ import logging
 import os
 import re
 import threading
-import time
 
 from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError
@@ -36,7 +35,7 @@ from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
 from rucio.core import request as request_core, replica as replica_core
 from rucio.core.config import items
-from rucio.core.monitor import record_timer, record_counter
+from rucio.core.monitor import record_counter, Timer
 from rucio.core.rse import list_rses
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, BadFilesStatus
@@ -55,35 +54,39 @@ def run_once(bulk, db_bulk, suspicious_patterns, retry_protocol_mismatches, hear
 
     try:
         logger(logging.DEBUG, 'Working on activity %s', activity)
-        time1 = time.time()
-        reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                     state=[RequestState.DONE, RequestState.FAILED,
-                                            RequestState.LOST, RequestState.SUBMITTING,
-                                            RequestState.SUBMISSION_FAILED, RequestState.NO_SOURCES,
-                                            RequestState.ONLY_TAPE_SOURCES, RequestState.MISMATCH_SCHEME],
-                                     limit=db_bulk,
-                                     older_than=datetime.datetime.utcnow(),
-                                     total_workers=total_workers,
-                                     worker_number=worker_number,
-                                     mode_all=True,
-                                     include_dependent=False,
-                                     hash_variable='rule_id')
-        record_timer('daemons.conveyor.finisher.get_next', (time.time() - time1) * 1000)
-        time2 = time.time()
+
+        with Timer('daemons.conveyor.finisher.get_next'):
+            reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                                         state=[RequestState.DONE, RequestState.FAILED,
+                                                RequestState.LOST, RequestState.SUBMITTING,
+                                                RequestState.SUBMISSION_FAILED, RequestState.NO_SOURCES,
+                                                RequestState.ONLY_TAPE_SOURCES, RequestState.MISMATCH_SCHEME],
+                                         limit=db_bulk,
+                                         older_than=datetime.datetime.utcnow(),
+                                         total_workers=total_workers,
+                                         worker_number=worker_number,
+                                         mode_all=True,
+                                         include_dependent=False,
+                                         hash_variable='rule_id')
+
         if reqs:
             logger(logging.DEBUG, 'Updating %i requests for activity %s', len(reqs), activity)
+
+        timer = Timer()
 
         for chunk in chunks(reqs, bulk):
             try:
                 worker_number, total_workers, logger = heartbeat_handler.live()
-                time3 = time.time()
-                __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
-                record_timer('daemons.conveyor.finisher.handle_requests_time', (time.time() - time3) * 1000 / (len(chunk) if chunk else 1))
+                with Timer('daemons.conveyor.finisher.handle_requests_time', divisor=len(chunk) or 1):
+                    __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
                 record_counter('daemons.conveyor.finisher.handle_requests', delta=len(chunk))
             except Exception as error:
                 logger(logging.WARNING, '%s', str(error))
+
+        timer.stop()
+
         if reqs:
-            logger(logging.DEBUG, 'Finish to update %s finished requests for activity %s in %s seconds', len(reqs), activity, time.time() - time2)
+            logger(logging.DEBUG, 'Finish to update %s finished requests for activity %s in %s seconds', len(reqs), activity, timer.elapsed)
 
     except (DatabaseException, DatabaseError) as error:
         if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
@@ -224,13 +227,13 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
             # Standard failure from the transfer tool
             elif req['state'] == RequestState.FAILED:
                 __check_suspicious_files(req, suspicious_patterns, logger=logger)
-                tss = time.time()
+                timer = Timer()
                 try:
                     if request_core.should_retry_request(req, retry_protocol_mismatches):
                         new_req = request_core.requeue_and_archive(req, source_ranking_update=True, retry_protocol_mismatches=retry_protocol_mismatches, logger=logger)
                         # should_retry_request and requeue_and_archive are not in one session,
                         # another process can requeue_and_archive and this one will return None.
-                        record_timer('daemons.conveyor.common.update_request_state.request_requeue_and_archive', (time.time() - tss) * 1000)
+                        timer.record('daemons.conveyor.common.update_request_state.request_requeue_and_archive')
                         logger(logging.WARNING, 'REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                                 req['name'],
                                                                                                 req['request_id'],
@@ -252,10 +255,10 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
                     # To prevent race conditions
                     continue
                 try:
-                    tss = time.time()
+                    timer = Timer()
                     if request_core.should_retry_request(req, retry_protocol_mismatches):
                         new_req = request_core.requeue_and_archive(req, source_ranking_update=False, retry_protocol_mismatches=retry_protocol_mismatches, logger=logger)
-                        record_timer('daemons.conveyor.common.update_request_state.request_requeue_and_archive', (time.time() - tss) * 1000)
+                        timer.record('daemons.conveyor.common.update_request_state.request_requeue_and_archive')
                         logger(logging.WARNING, 'REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                                            req['name'],
                                                                                                            req['request_id'],

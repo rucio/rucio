@@ -214,7 +214,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
         for site in sites:
 
             for retry in range(0, totretries):
-                start_time = time()
+                timer = monitor.Timer()
                 tmpdir = tempfile.mkdtemp()
                 logger(logging.INFO, 'Running on site %s', site)
                 dic = choose_element(probabilities, data)
@@ -250,7 +250,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
                 if status:
                     monitor.record_counter(name='automatix.addnewdataset.done', delta=1)
                     monitor.record_counter(name='automatix.addnewfile.done', delta=nbfiles)
-                    monitor.record_timer('automatix.datasetinjection', (time() - start_time) * 1000)
+                    timer.record('automatix.datasetinjection')
                     break
                 else:
                     logger(logging.INFO, 'Failed to upload files. Will retry another time (attempt %s/%s)', str(retry + 1), str(totretries))

@@ -28,7 +28,7 @@ from urllib.parse import urlparse, urlencode
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, get_rse_credentials
 from rucio.common.exception import UnsupportedOperation
-from rucio.core.monitor import record_timer_block
+from rucio.core.monitor import Timer
 
 CREDS_GCS = None
 
@@ -142,7 +142,7 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
         else:
             s3op = 'delete_object'
 
-        with record_timer_block('credential.signs3'):
+        with Timer('credential.signs3'):
             s3 = boto3.client('s3', endpoint_url='https://' + host + ':' + port, aws_access_key_id=access_key, aws_secret_access_key=secret_key, config=Config(signature_version=signature_version, region_name=region_name))
 
             signed_url = s3.generate_presigned_url(s3op, Params={'Bucket': bucket, 'Key': key}, ExpiresIn=lifetime)
@@ -178,7 +178,7 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
         expires = int(time.time() + lifetime)
 
         # create signed URL
-        with record_timer_block('credential.signswift'):
+        with Timer('credential.signswift'):
             hmac_body = u'%s\n%s\n%s' % (swiftop, expires, components.path)
             # Python 3 hmac only accepts bytes or bytearray
             sig = hmac.new(bytearray(tempurl_key, 'utf-8'), bytearray(hmac_body, 'utf-8'), sha1).hexdigest()
