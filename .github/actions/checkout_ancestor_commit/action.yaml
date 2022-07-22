@@ -16,9 +16,9 @@ inputs:
       `repository_owner/repository_name` of the repository containing the
       reference commit. For example, rucio/rucio.
     default: rucio/rucio
-  files_to_copy:
+  paths_to_copy:
     description: >-
-      Necessary files to copy (e.g. scripts, configurations, ...) to run code in
+      Necessary paths to copy (e.g. scripts, configurations, ...) to run code in
       the older version of the project. This is for the case an ancestor commit
       gets checked out wich does not contain the required files.
 
@@ -45,19 +45,19 @@ runs:
         FORK_POINT=$(git merge-base $COMMON_ANCESTOR_REPO/${{ inputs.ref }} HEAD)
         echo "The fork point of the current branch with the master is $FORK_POINT"
 
-        echo "Backup all specified files since they could be changed."
+        echo "Backup all specified paths since they could be changed."
         IFS=$'\n'
-        FILES_TO_COPY=$'.github/actions/checkout_ancestor_commit/action.yaml\n${{ inputs.files_to_copy }}'
-        for f in $FILES_TO_COPY; do
+        PATHS_TO_COPY=$'.github/actions/checkout_ancestor_commit/action.yaml\n${{ inputs.paths_to_copy }}'
+        for f in $PATHS_TO_COPY; do
           mkdir -p ../tmp/$(dirname $f)
-          cp $f ../tmp/$f
+          cp --recursive $f ../tmp/$f
         done
 
         echo "Checking out the fork point"
         git checkout $FORK_POINT
 
-        echo "Restore backed up files."
-        for f in $FILES_TO_COPY; do
+        echo "Restore backed up paths."
+        for f in $PATHS_TO_COPY; do
           mkdir -p $(dirname $f)
-          cp ../tmp/$f $f
+          cp --recursive ../tmp/$f $f
         done
