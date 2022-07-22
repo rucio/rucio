@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import datetime
+import hashlib
 import logging
 import os
 import socket
@@ -45,6 +46,7 @@ class HeartbeatHandler:
         self.hostname = socket.getfqdn()
         self.pid = os.getpid()
         self.hb_thread = threading.current_thread()
+        self.logger_id = hashlib.sha1(f'{self.hostname}:{self.pid}:{self.hb_thread}'.encode('utf-8')).hexdigest()[:7]
 
         self.logger = None
         self.last_heart_beat = None
@@ -75,7 +77,7 @@ class HeartbeatHandler:
             else:
                 self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread, payload=payload)
 
-            prefix = '%s[%i/%i]: ' % (self.logger_prefix, self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'])
+            prefix = '%s[%s:%i/%i]: ' % (self.logger_prefix, self.logger_id, self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'])
             self.logger = formatted_logger(logging.log, prefix + '%s')
 
             if not self.last_time:
