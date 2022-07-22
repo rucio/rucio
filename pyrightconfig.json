@@ -1,0 +1,8 @@
+{
+    "include": [
+        "lib"
+    ],
+    "pythonVersion": "3.6",
+    "typeCheckingMode": "basic",
+    "useLibraryCodeForTypes": true
+}
