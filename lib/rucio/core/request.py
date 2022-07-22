@@ -696,6 +696,11 @@ def set_request_state(request_id, state, external_id=None, transferred_at=None, 
             update_items['attributes'] = json.dumps(attributes)
 
         request = get_request(request_id, session=session)
+        if not request:
+            # The request was deleted in the meantime. Ignore it.
+            logger(logging.WARNING, "Request %s not found. Cannot set its state to %s", request_id, state)
+            return
+
         if state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST] and (request["external_id"] != external_id):
             logger(logging.ERROR, "Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
         else:

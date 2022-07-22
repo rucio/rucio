@@ -505,7 +505,10 @@ class FTS3CompletionMessageTransferStatusReport(Fts3TransferStatusReport):
         transfer_id = self._transfer_id
         if new_state:
             request = self.request(session)
-            if request['external_id'] == transfer_id and request['state'] != new_state:
+            if not request:
+                logger(logging.WARNING, '%s: no request with this id in the database. Skipping. external_id: %s (%s). new_state: %s', request_id, transfer_id, self.external_host, new_state)
+                return
+            if request and request['external_id'] == transfer_id and request['state'] != new_state:
                 src_rse_name, src_rse_id = self._find_used_source_rse(session, logger)
 
                 self._reason = reason
@@ -590,6 +593,9 @@ class FTS3ApiTransferStatusReport(Fts3TransferStatusReport):
         transfer_id = self._transfer_id
         if new_state:
             request = self.request(session)
+            if not request:
+                logger(logging.WARNING, '%s: no request with this id in the database. Skipping. external_id: %s (%s). new_state: %s', request_id, transfer_id, self.external_host, new_state)
+                return
             if request['external_id'] == transfer_id and request['state'] != new_state:
                 src_rse_name, src_rse_id = self._find_used_source_rse(session, logger)
 
