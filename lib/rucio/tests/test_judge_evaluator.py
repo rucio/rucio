@@ -138,6 +138,53 @@ class TestJudgeEvaluator(unittest.TestCase):
         dataset_locks = [lock for lock in get_dataset_locks(scope=scope, name=dataset)]
         assert(len(dataset_locks) == 2)
 
+    @pytest.mark.xfail(reason="This is a test for a known bug. See issue 5251")
+    @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
+    def test_judge_dataset_grouping_all(self):
+        """ JUDGE EVALUATOR: Test the judge when adding dataset to existing container with ALL grouping"""
+
+        # create a container
+        scope = InternalScope('mock', **self.vo)
+        parent_container = 'container_' + str(uuid())
+        add_did(scope, parent_container, DIDType.CONTAINER, self.jdoe)
+
+        # create a dataset, populate it with an "existing" file and declare that they reside in the T1 RSE
+        files = create_files(1, scope, self.rse1_id)        # rse1 has T1 tag
+        dataset1 = 'dataset_' + str(uuid())
+        add_did(scope, dataset1, DIDType.DATASET, self.jdoe)
+        attach_dids(scope, dataset1, files, self.jdoe)
+
+        # attach the dataset to the container
+        attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset1}], self.jdoe)
+
+        # add rule to copy everything in this container to T1, use grouping=ALL
+        add_rule(dids=[{'scope': scope, 'name': parent_container}],
+                 account=self.jdoe,
+                 copies=1, rse_expression=self.T1, grouping='ALL',
+                 weight=None, lifetime=None, locked=False, subscription_id=None
+                 )
+
+        re_evaluator(once=True, did_limit=1000)         # to clear any history
+
+        # create another dataset, populate it with "new" files and declare that they reside in a T2 RSE
+        new_files = create_files(5, scope, self.rse4_id)        # rse4 has T2 tag
+        dataset2 = 'dataset_' + str(uuid())
+        add_did(scope, dataset2, DIDType.DATASET, self.jdoe)
+        attach_dids(scope, dataset2, new_files, self.jdoe)
+
+        # attach the new dataset to the container
+        attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset2}], self.jdoe)
+
+        # re-run the evaluator
+        re_evaluator(once=True, did_limit=1000)
+
+        # check if the evaluator created locks to move the new files to the same RSE where old files are
+        for file in new_files:
+            locks = get_replica_locks(scope=file['scope'], name=file['name'])
+            assert len(locks) == 1
+            lock = locks[0]
+            assert lock["rse_id"] == self.rse1_id
+
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_account_counter_judge_evaluate_attach(self):
         """ JUDGE EVALUATOR: Test if the account counter is updated correctly when a file is added to a DS"""

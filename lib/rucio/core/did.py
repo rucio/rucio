@@ -1132,6 +1132,7 @@ def _attach_dids_to_dids_without_temp_tables(attachments, account, ignore_duplic
                 models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
             )
             parent_did = session.execute(stmt).scalar_one()
+            update_parent = False
 
             if parent_did.did_type == DIDType.FILE:
                 # check if parent file has the archive extension
@@ -1155,13 +1156,16 @@ def _attach_dids_to_dids_without_temp_tables(attachments, account, ignore_duplic
                                                                   rse_id=attachment.get('rse_id'),
                                                                   session=session)
 
+                update_parent = len(cont) > 0
+                
             elif parent_did.did_type == DIDType.CONTAINER:
                 __add_collections_to_container_without_temp_tables(scope=attachment['scope'],
                                                                    name=attachment['name'],
                                                                    collections=attachment['dids'],
                                                                    account=account, session=session)
+                update_parent = True
 
-            if cont:
+            if update_parent:
                 # cont contains the parent of the files and is only filled if the files does not exist yet
                 parent_dids.append({'scope': parent_did.scope,
                                     'name': parent_did.name,
