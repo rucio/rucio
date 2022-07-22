@@ -31,6 +31,7 @@ from rucio.core import replica as replica_core
 from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
 from rucio.daemons.reaper.reaper import reaper
+from rucio.daemons.reaper.dark_reaper import reaper as dark_reaper
 from rucio.daemons.reaper.reaper import run as run_reaper
 from rucio.db.sqla.models import ConstituentAssociationHistory
 from rucio.db.sqla.session import read_session
@@ -105,6 +106,10 @@ def test_reaper(vo, caches_mock, file_config_mock, message_mock):
     msgs = message_core.retrieve_messages()
     assert len(msgs) == 50  # one for each deleted file
     assert all(msg['payload']['datatype'] == 'SOME_DATATYPE' for msg in msgs)
+
+    # run dark reaper just to catch the simplest possible errors in this daemon.
+    # TODO: remove this when/if we implement good testing for dark reaper
+    dark_reaper(once=True, rses=[rse_id])
 
 
 @pytest.mark.parametrize("file_config_mock", [
