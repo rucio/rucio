@@ -1267,7 +1267,7 @@ def _delete_dids(
 
     # Delete rules on did
     skip_deletion = False  # Skip deletion in case of expiration of a rule
-    with record_timer_block('undertaker.rules'):
+    with Timer('undertaker.rules'):
         stmt = select(
             models.ReplicationRule.id,
             models.ReplicationRule.scope,
@@ -1304,7 +1304,7 @@ def _delete_dids(
 
     # Detach from parent dids:
     existing_parent_dids = False
-    with record_timer_block('undertaker.parent_content'):
+    with Timer('undertaker.parent_content'):
         stmt = select(
             models.DataIdentifierAssociation
         ).join_from(
@@ -1336,7 +1336,7 @@ def _delete_dids(
         ).execution_options(
             synchronize_session=False
         )
-        with record_timer_block('undertaker.did_meta'):
+        with Timer('undertaker.did_meta'):
             session.execute(stmt)
 
     # Prepare the common part of the query for updating bad replicas if they exist
@@ -1407,7 +1407,7 @@ def _delete_dids(
 
         # Set Epoch tombstone for the files replicas inside the did
         if config_core.get('undertaker', 'purge_all_replicas', default=False, session=session):
-            with record_timer_block('undertaker.file_content'):
+            with Timer('undertaker.file_content'):
                 stmt = update(
                     models.RSEFileAssociation
                 ).where(
@@ -1428,7 +1428,7 @@ def _delete_dids(
                 session.execute(stmt)
 
         # Remove content
-        with record_timer_block('undertaker.content'):
+        with Timer('undertaker.content'):
             stmt = delete(
                 models.DataIdentifierAssociation
             ).where(
@@ -1445,7 +1445,7 @@ def _delete_dids(
         record_counter(name='undertaker.content.rowcount', delta=rowcount)
 
         # Remove CollectionReplica
-        with record_timer_block('undertaker.collection_replicas'):
+        with Timer('undertaker.collection_replicas'):
             stmt = delete(
                 models.CollectionReplica
             ).where(
@@ -1472,7 +1472,7 @@ def _delete_dids(
             session.bulk_insert_mappings(temp_table, collection_dids.values())
             data_in_temp_table = collection_dids
 
-        with record_timer_block('undertaker.dids_followed'):
+        with Timer('undertaker.dids_followed'):
             stmt = delete(
                 models.DidsFollowed
             ).where(
@@ -1487,7 +1487,7 @@ def _delete_dids(
             )
             session.execute(stmt)
 
-        with record_timer_block('undertaker.dids'):
+        with Timer('undertaker.dids'):
             dids_to_delete_filter = exists(
                 select([1])
             ).where(
