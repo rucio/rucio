@@ -46,7 +46,12 @@ class TestDIDCore:
         for d in list_dids(scope=InternalScope('data13_hip', vo=vo), filters={'name': '*'}, did_type='collection'):
             print(d)
 
-    def test_delete_dids(self, mock_scope, root_account):
+    @pytest.mark.parametrize("file_config_mock", [
+        # Run test twice: with, and without, temp tables
+        {"overrides": [('core', 'use_temp_tables', 'True')]},
+        {"overrides": [('core', 'use_temp_tables', 'False')]},
+    ], indirect=True)
+    def test_delete_dids(self, mock_scope, root_account, file_config_mock):
         """ DATA IDENTIFIERS (CORE): Delete dids """
         dsns = [{'name': 'dsn_%s' % generate_uuid(),
                  'scope': mock_scope,

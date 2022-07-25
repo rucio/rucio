@@ -544,7 +544,7 @@ class TestDidMetaClient(unittest.TestCase):
 
 
 @pytest.fixture
-def testdid(vo):
+def testdid(vo, file_config_mock):
     did_name = 'testdid_%s' % generate_uuid()
     mock_scope = InternalScope('mock', vo=vo)
     didtype = 'DATASET'
@@ -555,7 +555,12 @@ def testdid(vo):
     delete_dids(dids=[{'name': did_name, 'scope': mock_scope, 'did_type': didtype, 'purge_replicas': True}], account=account)
 
 
-def test_did_set_metadata_bulk_single(testdid):
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {"overrides": [('core', 'use_temp_tables', 'True')]},
+    {"overrides": [('core', 'use_temp_tables', 'False')]},
+], indirect=True)
+def test_did_set_metadata_bulk_single(testdid, file_config_mock):
     """ DID (CORE) : Test setting metadata in bulk with a single key-value pair """
     skip_without_json()
 
@@ -569,7 +574,12 @@ def test_did_set_metadata_bulk_single(testdid):
     assert testkey in meta and meta[testkey] == testmeta[testkey]
 
 
-def test_did_set_metadata_bulk_multi(testdid):
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {"overrides": [('core', 'use_temp_tables', 'True')]},
+    {"overrides": [('core', 'use_temp_tables', 'False')]},
+], indirect=True)
+def test_did_set_metadata_bulk_multi(testdid, file_config_mock):
     """ DID (CORE) : Test setting metadata in bulk with multiple key-values """
     skip_without_json()
 
@@ -608,7 +618,12 @@ def test_set_dids_metadata_bulk_multi(did_factory):
             assert testkey in meta and meta[testkey] == testmeta[testkey]
 
 
-def test_did_set_metadata_bulk_multi_client(testdid):
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {"overrides": [('core', 'use_temp_tables', 'True')]},
+    {"overrides": [('core', 'use_temp_tables', 'False')]},
+], indirect=True)
+def test_did_set_metadata_bulk_multi_client(testdid, file_config_mock):
     """ DID (CLIENT) : Test setting metadata in bulk with multiple key-values """
     skip_without_json()
 
