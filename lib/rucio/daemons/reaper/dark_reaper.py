@@ -20,6 +20,7 @@ Dark Reaper is a daemon to manage quarantined file deletion.
 import functools
 import logging
 import random
+import sys
 import threading
 import time
 import traceback
@@ -61,7 +62,7 @@ def reaper(
 ):
     executable = 'dark-reaper'
     if rses:
-        executable += ' --rses ' + ''.join(rses)
+        executable += ' '.join(sys.argv[1:])
     logger_prefix = 'dark-reaper'
     run_daemon(
         once=once,
