@@ -726,6 +726,7 @@ class FTS3Transfertool(Transfertool):
             bring_online=self.bring_online,
             default_lifetime=self.default_lifetime,
             archive_timeout_override=self.archive_timeout_override,
+            logger=self.logger,
         )
         return jobs
 
