@@ -96,7 +96,10 @@ def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, 
                 else:
                     account = None
                     if oidc_account:
-                        account = InternalAccount(oidc_account, vo=vo)
+                        if vo:
+                            account = InternalAccount(oidc_account, vo=vo)
+                        else:
+                            account = InternalAccount(oidc_account)
                     transfertool_obj = FTS3Transfertool(external_host=external_host, vo=vo, oidc_account=account)
                 worker_number, total_workers, logger = heartbeat_handler.live()
                 poll_transfers(transfertool_obj=transfertool_obj, transfers_by_eid=chunk, timeout=timeout, logger=logger)
