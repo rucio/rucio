@@ -19,79 +19,89 @@ from pathlib import Path
 from typing import List, Tuple
 
 from .models import Report, ReportDiagnostic, ReportDiagnosticWithoutRange, Severity
-from .utils import group_by, load_json
+from .utils import group_by, load_json, indent
+from .program import Program
 
 
-def setup_parser(parser: ArgumentParser) -> None:
-    parser.description = """
-    Compares two Pyright reports and outputs newly introduced warnings and errors.
+class CompareProgram(Program):
 
-    If new errors are introduced (or warnings with --Werror) the exit code is 2,
-    otherwise 0.
-    """
-    parser.add_argument('old', type=Path, help='First report of comparison.')
-    parser.add_argument('new', type=Path, help='Second report of comparison.')
-    parser.add_argument('--Werror', action='store_true', help='Treat warnings as errors.')
-    parser.set_defaults(func=compare)
+    @staticmethod
+    def setup_parser(parser: ArgumentParser) -> None:
+        parser.description = """
+        Compares two Pyright reports and outputs newly introduced warnings and errors.
 
+        If new errors are introduced (or warnings with --Werror) the exit code is 2,
+        otherwise 0.
+        """
+        parser.add_argument('old', type=Path, help='First report of comparison.')
+        parser.add_argument('new', type=Path, help='Second report of comparison.')
+        parser.add_argument('--Werror', action='store_true', help='Treat warnings as errors.')
 
-def compare(args: Namespace) -> int:
-    """Compares two reports to find new warnings and errors."""
-    old_report = Report.from_dict(load_json(args.old))
-    new_report = Report.from_dict(load_json(args.new))
-    new_diagnostics = _compare_reports(new_report, old_report)
+    @classmethod
+    def init_program(cls, args: Namespace):
+        old = args.old
+        new = args.new
+        werror = args.Werror
+        return cls(old, new, werror)
 
-    print_regressions(new_diagnostics, new_report)
+    def __init__(self, old_path: Path, new_path: Path, werror: bool) -> None:
+        self.old_path = old_path
+        self.new_path = new_path
+        self.werror = werror
 
-    num_errors = sum(count for err, count in new_diagnostics if err.severity == Severity.ERROR)
-    num_warnings = sum(count for err, count in new_diagnostics if err.severity == Severity.WARNING)
+    def run(self) -> int:
+        """Compares two reports to find new warnings and errors."""
+        old_report = Report.from_dict(load_json(self.old_path)).relative_paths()
+        new_report = Report.from_dict(load_json(self.new_path)).relative_paths()
+        return self.compare_reports(old_report, new_report)
 
-    print('Summary:')
-    print(f'    {num_errors} new errors.')
-    print(f'    {num_warnings} new warnings.')
+    def compare_reports(self, old_report: Report, new_report: Report) -> int:
+        """Compares two reports to find new warnings and errors."""
+        new_diagnostics = self._compare_reports(new_report, old_report)
+        self.print_regressions(new_diagnostics, new_report)
 
-    if args.Werror:
-        num_errors += num_warnings
+        num_errors = sum(count for err, count in new_diagnostics if err.severity == Severity.ERROR)
+        num_warnings = sum(count for err, count in new_diagnostics if err.severity == Severity.WARNING)
 
-    return 2 if num_errors else 0
+        print('Summary:')
+        print(f'    {num_errors} new errors.')
+        print(f'    {num_warnings} new warnings.')
 
+        if self.werror:
+            num_errors += num_warnings
 
-def _compare_reports(new_report: Report, old_report: Report):
-    """Counts instances of each diagnostic and returns those which have increased in the latest report."""
-    old_count = Counter(map(ReportDiagnostic.without_range, old_report.diagnostics))
-    new_count = Counter(map(ReportDiagnostic.without_range, new_report.diagnostics))
+        return 2 if num_errors else 0
 
-    diff = new_count
-    diff.subtract(old_count)
+    def print_regressions(self, collection: List[Tuple[ReportDiagnosticWithoutRange, int]], report: Report) -> None:
+        """Takes the output of `_compare_reports` and prints it in a human-readable way."""
+        all_problems = group_by(report.diagnostics, key=lambda elem: elem.without_range())
+        diagnostics_by_file = group_by(collection, key=lambda elem: elem[0].file)
 
-    new_diagnostics = [(err, count) for err, count in diff.most_common() if count > 0]
-    return new_diagnostics
+        for file, diagnostics in diagnostics_by_file.items():
+            num_diagnostics = sum(count for _, count in diagnostics)
+            print(f'Found {num_diagnostics} new problems in {file}')
+            for diagnostic, count in diagnostics:
+                candidate_line_list: List[str] = []
+                for candidate in all_problems.get(diagnostic, []):
+                    if candidate.range_start_line == candidate.range_end_line:
+                        candidate_line_list.append(f'{candidate.range_start_line+1}')
+                    else:
+                        candidate_line_list.append(f'{candidate.range_start_line+1}-{candidate.range_end_line+1}')
 
+                prefix = f'  - {count} {diagnostic.severity.value}s with message'
+                message = indent(diagnostic.message, ' ' * (len(prefix) + 4))
+                candidate_lines = ', '.join(candidate_line_list)
 
-def _indent(text: str, prefix: str) -> str:
-    """Prepends `prefix` to each line in `text` except the first."""
-    return text.replace('\n', '\n' + prefix)
+                print(f'{prefix} """{message}""".')
+                print(f'    Candidates: line {candidate_lines}')
 
+    def _compare_reports(self, new_report: Report, old_report: Report):
+        """Counts instances of each diagnostic and returns those which have increased in the latest report."""
+        old_count = Counter(map(ReportDiagnostic.without_range, old_report.diagnostics))
+        new_count = Counter(map(ReportDiagnostic.without_range, new_report.diagnostics))
 
-def print_regressions(collection: List[Tuple[ReportDiagnosticWithoutRange, int]], report: Report) -> None:
-    """Takes the output of `_compare_reports` and prints it in a human-readable way."""
-    all_problems = group_by(report.diagnostics, key=lambda elem: elem.without_range())
-    diagnostics_by_file = group_by(collection, key=lambda elem: elem[0].file)
+        diff = new_count
+        diff.subtract(old_count)
 
-    for file, diagnostics in diagnostics_by_file.items():
-        num_diagnostics = sum(count for _, count in diagnostics)
-        print(f'Found {num_diagnostics} new problems in {file}')
-        for diagnostic, count in diagnostics:
-            candidate_line_list: List[str] = []
-            for candidate in all_problems.get(diagnostic, []):
-                if candidate.range_start_line == candidate.range_end_line:
-                    candidate_line_list.append(f'{candidate.range_start_line+1}')
-                else:
-                    candidate_line_list.append(f'{candidate.range_start_line+1}-{candidate.range_end_line+1}')
-
-            prefix = f'  - {count} {diagnostic.severity.value}s with message'
-            message = _indent(diagnostic.message, ' ' * (len(prefix) + 4))
-            candidate_lines = ', '.join(candidate_line_list)
-
-            print(f'{prefix} """{message}""".')
-            print(f'    Candidates: line {candidate_lines}')
+        new_diagnostics = [(err, count) for err, count in diff.most_common() if count > 0]
+        return new_diagnostics

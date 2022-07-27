@@ -14,10 +14,9 @@
 # limitations under the License.
 
 import json
+import threading
 from pathlib import Path
 from typing import Any, TypeVar, Iterable, Callable, Dict, List
-
-from .models import ReportDict
 
 
 _T = TypeVar('_T')
@@ -32,7 +31,7 @@ def group_by(iterable: Iterable[_T], key: Callable[[_T], _K]) -> Dict[_K, List[_
     return result
 
 
-def load_json(path: Path) -> ReportDict:
+def load_json(path: Path) -> Any:
     with open(path, 'r') as f:
         return json.load(f)
 
@@ -41,3 +40,25 @@ def save_json(path: Path, data: Dict[str, Any]) -> None:
     with open(path, 'w') as file:
         json.dump(data, file, indent=4)
         file.write('\n')
+
+
+def indent(text: str, prefix: str) -> str:
+    """Prepends `prefix` to each line in `text` except the first."""
+    return text.replace('\n', '\n' + prefix)
+
+
+def run_in_background(func: Callable[..., _T], *args, **kwargs) -> Callable[[], _T]:
+    return_value: _T
+
+    def run():
+        nonlocal return_value
+        return_value = func(*args, **kwargs)
+
+    thread = threading.Thread(target=run)
+    thread.start()
+
+    def waiter() -> _T:
+        thread.join()
+        return return_value
+
+    return waiter

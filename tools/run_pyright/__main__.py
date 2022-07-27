@@ -16,9 +16,13 @@
 
 import sys
 from argparse import ArgumentParser
+from typing import Type
 
-from . import generate
-from . import compare
+from .generate import GenerateProgram
+from .generate_for_commit import GenerateForCommitProgram
+from .compare import CompareProgram
+from .compare_with_commit import CompareWithCommitProgram
+from .program import Program
 
 
 def parse_arguments():
@@ -26,18 +30,23 @@ def parse_arguments():
     subparser = parser.add_subparsers(dest='command')
     subparser.required = True
 
-    parse_generate = subparser.add_parser('generate')
-    generate.setup_parser(parse_generate)
+    def register(command: str, program: Type[Program]) -> None:
+        program_parser = subparser.add_parser(command)
+        program_parser.set_defaults(program=program.init_program)
+        program.setup_parser(program_parser)
 
-    parse_compare = subparser.add_parser('compare')
-    compare.setup_parser(parse_compare)
+    register('generate', GenerateProgram)
+    register('compare', CompareProgram)
+    register('generate-for-commit', GenerateForCommitProgram)
+    register('compare-with-commit', CompareWithCommitProgram)
 
     return parser.parse_args()
 
 
 def main():
     args = parse_arguments()
-    exit_code = args.func(args)
+    program: Program = args.program(args)
+    exit_code = program.run()
     sys.exit(exit_code)
 
 

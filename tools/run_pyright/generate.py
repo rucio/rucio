@@ -19,47 +19,23 @@ import json
 import subprocess
 import sys
 
+from . import utils
 from .models import ReportDict, Report
-from .utils import save_json
+from .program import Program
 
 
-PATHS = (
-    'lib/',
-)
-
-
-def setup_parser(parser: ArgumentParser) -> None:
-    parser.description = """
-    Invokes Pyright to generate a report of current typing errors and warnings.
-    """
-    parser.add_argument('out', type=Path, help='Store the Pyright report at this path.')
-    parser.set_defaults(func=generate)
-
-
-def generate(args: Namespace) -> int:
-    """Generate a Pyright report and save it at the specified path."""
-    reportdict = _run_pyright()
-
-    save_json(args.out, reportdict)
-
-    report = Report.from_dict(reportdict)
-
-    print('Summary:')
-    print(f'    {report.summary.num_files} files checked.')
-    print(f'    {report.summary.num_errors} errors.')
-    print(f'    {report.summary.num_warnings} warnings.')
-    print(f'    {report.summary.num_information} notes.')
-    print(f'    Duration: {report.summary.time_seconds:.1f} seconds.')
-
-    return 0
-
-
-def _run_pyright() -> ReportDict:
+def run_pyright(config: Path, silent: bool) -> ReportDict:
     """Runs the pyright type-checker and returns its output as json."""
-    cmdline = ['pyright', '--outputjson', *PATHS]
+    config = config.absolute()
+    cmdline = ['pyright', '--project', str(config), '--outputjson']
+    stderr = subprocess.DEVNULL if silent else None
     try:
-        process = subprocess.run(cmdline, stdout=subprocess.PIPE)
-        return json.loads(process.stdout)
+        process = subprocess.run(cmdline, stdout=subprocess.PIPE, stderr=stderr)
+        result = json.loads(process.stdout)
+        result['rucio'] = {
+            'root': str(config.parent)
+        }
+        return result
     except FileNotFoundError as ex:
         print('Error running pyright.'
               ' This could be due to pyright not being installed on your system,'
@@ -67,3 +43,47 @@ def _run_pyright() -> ReportDict:
               'Additional details:', ex,
               file=sys.stderr)
         sys.exit(1)
+
+
+class GenerateProgram(Program):
+
+    @staticmethod
+    def setup_parser(parser: ArgumentParser) -> None:
+        parser.description = """
+        Invokes Pyright to generate a report of current typing errors and warnings.
+        """
+        parser.add_argument('out', type=Path, help='Store the Pyright report at this path.')
+        parser.add_argument('--config', type=Path, help='Optional Pyright config file to use.',
+                            default=Path('pyrightconfig.json'))
+
+    @classmethod
+    def init_program(cls, args: Namespace):
+        """Generate a Pyright report and save it at the specified path."""
+        out = args.out
+        config = args.config
+        return cls(out, config)
+
+    def __init__(self, out: Path, config: Path):
+        self.out = out
+        self.config = config
+
+    def run(self) -> int:
+        reportdict = self.generate_report()
+        self.save_report(reportdict)
+        self.print_summary(reportdict)
+        return 0
+
+    def save_report(self, reportdict: ReportDict) -> None:
+        utils.save_json(self.out, reportdict)
+
+    def print_summary(self, reportdict: ReportDict) -> None:
+        report = Report.from_dict(reportdict)
+        print('Summary:')
+        print(f'    {report.summary.num_files} files checked.')
+        print(f'    {report.summary.num_errors} errors.')
+        print(f'    {report.summary.num_warnings} warnings.')
+        print(f'    {report.summary.num_information} notes.')
+        print(f'    Duration: {report.summary.time_seconds:.1f} seconds.')
+
+    def generate_report(self) -> ReportDict:
+        return run_pyright(self.config, silent=False)

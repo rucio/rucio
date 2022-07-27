@@ -14,8 +14,10 @@
 # limitations under the License.
 
 from enum import Enum
+from functools import partial
+from pathlib import Path
 from typing import Any, Dict, List
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 ReportDict = Dict[str, Any]
@@ -30,7 +32,7 @@ class Severity(Enum):
 @dataclass(frozen=True)
 class ReportDiagnosticWithoutRange:
     severity: Severity
-    file: str
+    file: Path
     rule: str
     message: str
 
@@ -38,7 +40,7 @@ class ReportDiagnosticWithoutRange:
 @dataclass(frozen=True)
 class ReportDiagnostic:
     severity: Severity
-    file: str
+    file: Path
     rule: str
     message: str
     range_start_line: int
@@ -50,7 +52,7 @@ class ReportDiagnostic:
     def from_dict(cls, obj: Dict[str, Any]):
         return cls(
             severity=Severity(obj['severity']),
-            file=obj['file'],
+            file=Path(obj['file']),
             rule=obj['rule'],
             message=obj['message'],
             range_start_line=obj['range']['start']['line'],
@@ -64,8 +66,11 @@ class ReportDiagnostic:
             self.severity, self.file, self.rule, self.message
         )  # type: ignore
 
+    def relative_to(self, path: Path) -> 'ReportDiagnostic':
+        return replace(self, file=self.file.relative_to(path))
 
-@dataclass
+
+@dataclass(frozen=True)
 class ReportSummary:
     num_files: int
     num_errors: int
@@ -81,17 +86,23 @@ class ReportSummary:
             num_warnings=obj['warningCount'],
             num_information=obj['informationCount'],
             time_seconds=obj['timeInSec']
-        )
+        )  # type: ignore
 
 
 @dataclass
 class Report:
     summary: ReportSummary
     diagnostics: List[ReportDiagnostic]
+    root: Path
 
     @classmethod
     def from_dict(cls, obj: ReportDict):
-        return cls(
-            summary=ReportSummary.from_dict(obj['summary']),
-            diagnostics=list(map(ReportDiagnostic.from_dict, obj['generalDiagnostics'])),
-        )
+        summary = ReportSummary.from_dict(obj['summary'])
+        diagnostics = list(map(ReportDiagnostic.from_dict, obj['generalDiagnostics']))
+        root = Path(obj['rucio']['root'])
+        return cls(summary=summary, diagnostics=diagnostics, root=root)
+
+    def relative_paths(self) -> 'Report':
+        diagnostics = list(map(partial(ReportDiagnostic.relative_to, path=self.root),
+                               self.diagnostics))
+        return replace(self, diagnostics=diagnostics)
