@@ -1184,7 +1184,7 @@ class FTS3Transfertool(Transfertool):
         """
         result = (None, None)
         try:
-            key = 'voname: %s' % self.external_host
+            key = 'voname:%s' % self.external_host
             result = REGION_SHORT.get(key)
             if isinstance(result, NoValue):
                 self.logger(logging.DEBUG, "Refresh transfer baseid and voname for %s", self.external_host)
