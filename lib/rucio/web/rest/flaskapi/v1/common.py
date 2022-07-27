@@ -172,7 +172,7 @@ def try_stream(generator, content_type=None) -> "flask.Response":
     it = iter(generator)
     try:
         peek = next(it)
-        return flask.Response(itertools.chain((peek,), it), content_type=content_type)
+        return flask.Response(flask.stream_with_context(itertools.chain((peek,), it)), content_type=content_type)
     except StopIteration:
         return flask.Response('', content_type=content_type)
 
