@@ -1317,8 +1317,8 @@ def update_rule(rule_id, options, session=None):
             raise error
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
-    except StatementError:
-        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+    except StatementError as e:
+        raise RucioException(f"A StatementError occurred while processing rule {rule_id}") from e
 
 
 @transactional_session
