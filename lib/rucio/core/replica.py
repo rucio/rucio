@@ -1096,11 +1096,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
                     # do we need to sign the URLs?
                     if sign_urls and protocol.attributes['scheme'] == 'https':
-                        service = get_rse_attribute('sign_url',
-                                                    rse_id=rse_id,
-                                                    session=session)
-                        if service and isinstance(service, list):
-                            pfn = get_signed_url(rse_id=rse_id, service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
+                        service = get_rse_attribute(rse_id, 'sign_url', session=session)
+                        if service:
+                            pfn = get_signed_url(rse_id=rse_id, service=service, operation='read', url=pfn, lifetime=signature_lifetime)
 
                     # server side root proxy handling if location is set.
                     # supports root and http destinations
@@ -1109,11 +1107,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     if domain == 'wan' and protocol.attributes['scheme'] in ['root', 'http', 'https'] and client_location:
 
                         if 'site' in client_location and client_location['site']:
-                            # is the RSE site-configured?
-                            rse_site_attr = get_rse_attribute('site', rse_id, session=session)
-                            replica_site = ['']
-                            if isinstance(rse_site_attr, list) and rse_site_attr:
-                                replica_site = rse_site_attr[0]
+                            replica_site = get_rse_attribute(rse_id, 'site', session=session)
 
                             # does it match with the client? if not, it's an outgoing connection
                             # therefore the internal proxy must be prepended
@@ -1388,7 +1382,7 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
         filter(or_(*condition))
     available_replicas = [dict([(column, getattr(row, column)) for column in row._fields]) for row in query]
 
-    default_tombstone_delay = next(iter(get_rse_attribute('tombstone_delay', rse_id=rse_id, session=session)), None)
+    default_tombstone_delay = get_rse_attribute(rse_id, 'tombstone_delay', session=session)
     default_tombstone = tombstone_from_delay(default_tombstone_delay)
 
     new_replicas = []
