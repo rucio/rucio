@@ -15,9 +15,10 @@
 
 import os
 import sys
+from typing import Optional, Tuple
+from dataclasses import dataclass
 
 import xml.etree.ElementTree as ET
-from xml.parsers import expat
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -89,56 +90,63 @@ class IterableToFileAdapter(object):
         return self.length
 
 
-class Parser:
+@dataclass(frozen=True)
+class _PropfindFile:
+    """Contains the properties of one file from a PROPFIND response."""
 
-    """ Parser to parse XML output for PROPFIND ."""
+    href: str
+    size: Optional[int]
 
-    def __init__(self):
-        """ Initializes the object"""
-        self._parser = expat.ParserCreate()
-        self._parser.StartElementHandler = self.start
-        self._parser.EndElementHandler = self.end
-        self._parser.CharacterDataHandler = self.data
-        self.hrefflag = 0
-        self.href = ''
-        self.status = 0
-        self.size = 0
-        self.dict = {}
-        self.sizes = {}
-        self.list = []
+    @classmethod
+    def from_xml_node(cls, node: ET.Element):
+        """Extract file properties from a `<{DAV:}response>` node."""
 
-    def feed(self, data):
-        """ Feed the parser with data"""
-        self._parser.Parse(data, 0)
+        xml_href = node.find('./{DAV:}href')
+        if xml_href is None or xml_href.text is None:
+            raise ValueError('Response is missing mandatory field "href".')
+        else:
+            href = xml_href.text
 
-    def close(self):
-        self._parser.Parse("", 1)
-        del self._parser
+        xml_size = node.find('./{DAV:}propstat/{DAV:}prop/{DAV:}getcontentlength')
+        if xml_size is None or xml_size.text is None:
+            size = None
+        else:
+            size = int(xml_size.text)
 
-    def start(self, tag, attrs):
-        if tag == 'D:href' or tag == 'd:href':
-            self.hrefflag = 1
-        if tag == 'D:status' or tag == 'd:status':
-            self.status = 1
-        if tag == 'D:getcontentlength' or tag == 'd:getcontentlength':
-            self.size = 1
+        return cls(href=href, size=size)  # type: ignore
 
-    def end(self, tag):
-        if tag == 'D:href' or tag == 'd:href':
-            self.hrefflag = 0
-        if tag == 'D:status' or tag == 'd:status':
-            self.status = 0
-        if tag == 'D:getcontentlength' or tag == 'd:getcontentlength':
-            self.size = 0
 
-    def data(self, data):
-        if self.hrefflag:
-            self.href = str(data)
-            self.list.append(self.href)
-        if self.status:
-            self.dict[self.href] = data
-        if self.size:
-            self.sizes[self.href] = data
+@dataclass(frozen=True)
+class _PropfindResponse:
+    """Contains all the files from a PROPFIND response."""
+
+    files: Tuple[_PropfindFile]
+
+    @classmethod
+    def parse(cls, document: str):
+        """Parses the XML document of a WebDAV PROPFIND response.
+
+        The PROPFIND response is described in RFC 4918.
+        This method expects the document root to be a node with tag `{DAV:}multistatus`.
+
+        :param document: XML document to parse.
+        :raises ValueError: if the XML document couldn't be parsed.
+        :returns: The parsed response.
+        """
+
+        try:
+            xml = ET.fromstring(document)
+        except ET.ParseError as ex:
+            raise ValueError("Couldn't parse XML document") from ex
+
+        if xml.tag != '{DAV:}multistatus':
+            raise ValueError('Root element is not "{DAV:}multistatus".')
+
+        files = []
+        for xml_response in xml.findall('./{DAV:}response'):
+            files.append(_PropfindFile.from_xml_node(xml_response))
+
+        return cls(files=tuple(files))  # type: ignore
 
 
 class Default(protocol.RSEProtocol):
@@ -443,9 +451,14 @@ class Default(protocol.RSEProtocol):
                 raise exception.SourceNotFound()
             elif result.status_code in [401, ]:
                 raise exception.RSEAccessDenied()
-            parser = Parser()
-            parser.feed(result.text)
-            list_files = [self.server + p_file for p_file in parser.list]
+
+            try:
+                propfind = _PropfindResponse.parse(result.text)
+            except ValueError:
+                raise exception.ServiceUnavailable("Couldn't parse WebDAV response.")
+
+            list_files = [self.server + file.href for file in propfind.files if file.href is not None]
+
             try:
                 list_files.remove(filename + '/')
             except ValueError:
@@ -454,7 +467,7 @@ class Default(protocol.RSEProtocol):
                 list_files.remove(filename)
             except ValueError:
                 pass
-            parser.close()
+
             return list_files
         except requests.exceptions.ConnectionError as error:
             raise exception.ServiceUnavailable(error)
@@ -483,17 +496,32 @@ class Default(protocol.RSEProtocol):
                 raise exception.RSEAccessDenied()
             if result.status_code in [400, ]:
                 raise exception.InvalidRequest()
-            parser = Parser()
-            parser.feed(result.text)
-            for file_name in parser.sizes:
-                if '%s%s' % (self.server, file_name) == path:
-                    dict_['filesize'] = parser.sizes[file_name]
-            parser.close()
-            return dict_
         except requests.exceptions.ConnectionError as error:
             raise exception.ServiceUnavailable(error)
         except requests.exceptions.ReadTimeout as error:
             raise exception.ServiceUnavailable(error)
+
+        path_parts = self.parse_pfns(path)[path]
+        local_path = os.path.join(path_parts['prefix'], path_parts['path'][1:], path_parts['name'])
+
+        try:
+            propfind = _PropfindResponse.parse(result.text)
+        except ValueError:
+            raise exception.ServiceUnavailable("Couldn't parse WebDAV response.")
+
+        for file in propfind.files:
+            if file.href != str(local_path):
+                continue
+
+            if file.size is None:
+                continue
+
+            dict_['filesize'] = file.size
+            break
+        else:
+            raise exception.ServiceUnavailable("WebDAV response didn't include content length for requested path.")
+
+        return dict_
 
     def get_space_usage(self):
         """
