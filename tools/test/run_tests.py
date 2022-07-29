@@ -71,9 +71,7 @@ def case_log(caseid, msg, file=sys.stderr):
     print(caseid, msg, file=file, flush=True)
 
 
-def main():
-    obj = json.load(sys.stdin)
-    cases = (obj["matrix"],) if isinstance(obj["matrix"], dict) else obj["matrix"]
+def run_tests(cases: "typing.List", images: "typing.Dict"):
     use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
     parallel = 'PARALLEL_AUTOTESTS' in os.environ and os.environ['PARALLEL_AUTOTESTS'] == '1'
     failfast = 'PARALLEL_AUTOTESTS_FAILFAST' in os.environ and os.environ['PARALLEL_AUTOTESTS_FAILFAST'] == '1'
@@ -86,7 +84,7 @@ def main():
         use_httpd = case.get('RUN_HTTPD', True)
         return {
             'caseenv': stringify_dict(case),
-            'image': find_image(images=obj["images"], case=case),
+            'image': find_image(images=images, case=case),
             'use_podman': use_podman,
             'use_namespace': use_podman and parallel,
             'use_httpd': use_httpd,
@@ -95,9 +93,8 @@ def main():
         }
 
     if parallel:
-        with multiprocessing.Pool(
-            processes=min(int(os.environ.get('PARALLEL_AUTOTESTS_PROCNUM', 3)), len(cases)), maxtasksperchild=1
-        ) as prpool:
+        parallel_num = min(int(os.environ.get('PARALLEL_AUTOTESTS_PROCNUM', 3)), len(cases))
+        with multiprocessing.Pool(processes=parallel_num, maxtasksperchild=1) as prpool:
             tasks = [
                 (
                     _case,
@@ -134,7 +131,7 @@ def main():
 
 def run_case_logger(run_case_kwargs: typing.Dict, stdlog=sys.stderr):
     caseid = case_id(run_case_kwargs['caseenv'])
-    case_log(caseid, 'started task.')
+    case_log(caseid, 'started task. Logging to ' + repr(stdlog))
     defaultstderr = sys.stderr
     startmsg = f'{("=" * 80)}\nStarting test case {caseid}\n  at {datetime.now().isoformat()}\n{"=" * 80}\n'
     if isinstance(stdlog, pathlib.PurePath):
@@ -332,6 +329,12 @@ def run_with_httpd(
                     )
             run('docker', *namespace_args, 'rm', '-v', cid, check=False)
     return False
+
+
+def main():
+    obj = json.load(sys.stdin)
+    cases = (obj["matrix"],) if isinstance(obj["matrix"], dict) else obj["matrix"]
+    run_tests(cases, obj["images"])
 
 
 if __name__ == "__main__":

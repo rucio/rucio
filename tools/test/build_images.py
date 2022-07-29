@@ -75,6 +75,14 @@ def build_images(matrix, script_args):
                 print("Running", " ".join(args), file=sys.stderr, flush=True)
                 subprocess.run(args, stdout=sys.stderr, check=False)
                 cache_args = ('--cache-from', imagetag)
+
+            # add image to output
+            images[imagetag] = {DIST_KEY: dist, **buildargs._asdict()}
+
+            if script_args.download_only:
+                # skip building
+                continue
+
             args = ()
             if buildargs.IMAGE_IDENTIFIER == 'integration-test':
                 if buildargs.PYTHON == '3.6':
@@ -117,9 +125,29 @@ def build_images(matrix, script_args):
                 print("Running", " ".join(args), file=sys.stderr, flush=True)
                 subprocess.run(args, stdout=sys.stderr, check=True)
 
-            images[imagetag] = {DIST_KEY: dist, **buildargs._asdict()}
-
     return images
+
+
+def build_arguments(parser):
+    parser.add_argument('buildfiles_dir', metavar='build directory', type=str, nargs='?', default='.',
+                        help='the directory of Dockerfiles')
+    parser.add_argument('-n', '--build-no-cache', dest='build_no_cache', action='store_true',
+                        help='build images without cache')
+    parser.add_argument('-r', '--cache-repo', dest='cache_repo', type=str, default='ghcr.io/rucio/rucio',
+                        help='use the following cache repository, like ghcr.io/USER/REPO')
+    parser.add_argument('-d', '--download-only', dest='download_only', action='store_true',
+                        help='only downloads images from the cache repo and skips building')
+    parser.add_argument('-p', '--push-cache', dest='push_cache', action='store_true',
+                        help='push the images to the cache repo')
+    parser.add_argument('-b', '--branch', dest='branch', type=str, default='master',
+                        help='the branch used to build the images from (used for the image name)')
+
+
+def build_main(matrix, args):
+    parser = argparse.ArgumentParser(description='Build images special entry point.')
+    build_arguments(parser)
+    build_args = parser.parse_args(args)
+    return build_images(matrix, build_args)
 
 
 def output_version():
@@ -127,11 +155,11 @@ def output_version():
     sys.exit(0)
 
 
-def test_version(args):
+def test_version(given_version: str):
     try:
-        parsed_version = tuple(map(int, str(args.version_test).split('.')))
+        parsed_version = tuple(map(int, given_version.split('.')))
     except ValueError:
-        print("Cannot parse version:", args.version_test)
+        print("Cannot parse version:", given_version)
         sys.exit(1)
 
     if parsed_version <= VERSION:
@@ -142,28 +170,20 @@ def test_version(args):
 
 def main():
     parser = argparse.ArgumentParser(description='Build images according to the test matrix read from stdin.')
-    parser.add_argument('buildfiles_dir', metavar='build directory', type=str, nargs='?', default='.',
-                        help='the directory of Dockerfiles')
     parser.add_argument('-o', '--output', dest='output', type=str, choices=['list', 'dict'], default='dict',
                         help='the output of this command')
-    parser.add_argument('-n', '--build-no-cache', dest='build_no_cache', action='store_true',
-                        help='build images without cache')
-    parser.add_argument('-r', '--cache-repo', dest='cache_repo', type=str, default='ghcr.io/rucio/rucio',
-                        help='use the following cache repository, like ghcr.io/USER/REPO')
-    parser.add_argument('-p', '--push-cache', dest='push_cache', action='store_true',
-                        help='push the images to the cache repo')
-    parser.add_argument('-b', '--branch', dest='branch', type=str, default='master',
-                        help='the branch used to build the images from (used for the image name)')
     parser.add_argument('-v', '--version', dest='version', action='store_true',
                         help='returns the version and exits')
     parser.add_argument('--version-test', dest='version_test', type=str, required=False,
                         help='tests if the scripts version is equal or higher than the given version and exits with code 0 if true, 1 otherwise')
+    build_group = parser.add_argument_group('build', 'Arguments regarding the building of images')
+    build_arguments(build_group)
     script_args = parser.parse_args()
 
     if script_args.version:
         output_version()
     elif script_args.version_test:
-        test_version(script_args)
+        test_version(str(script_args.version_test))
 
     matrix = json.load(sys.stdin)
     matrix = (matrix,) if isinstance(matrix, dict) else matrix
