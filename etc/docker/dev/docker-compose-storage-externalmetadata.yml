@@ -124,7 +124,7 @@ services:
     image: docker.io/mongo:5.0
     network_mode: "service:rucio"
   influxdb:
-    image: influxdb:latest
+    image: docker.io/influxdb:latest
     network_mode: "service:rucio"
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup

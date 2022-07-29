@@ -132,9 +132,9 @@ if [ "$RESTART_HTTPD" == "1" ]; then
 fi
 
 if [ "$SERVICES" == "influxdb_elastic" ]; then
-docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS -e DOCKER_INFLUXDB_INIT_MODE=setup -e DOCKER_INFLUXDB_INIT_USERNAME=myusername -e DOCKER_INFLUXDB_INIT_PASSWORD=passwordpasswordpassword -e DOCKER_INFLUXDB_INIT_ORG=rucio -e DOCKER_INFLUXDB_INIT_BUCKET=rucio -e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken influxdb:latest
-docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS -e discovery.type=single-node docker.elastic.co/elasticsearch/elasticsearch:6.4.2
-docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO sh -c 'echo 127.0.0.1 influxdb elasticsearch >> /etc/hosts'
+    docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS -e DOCKER_INFLUXDB_INIT_MODE=setup -e DOCKER_INFLUXDB_INIT_USERNAME=myusername -e DOCKER_INFLUXDB_INIT_PASSWORD=passwordpasswordpassword -e DOCKER_INFLUXDB_INIT_ORG=rucio -e DOCKER_INFLUXDB_INIT_BUCKET=rucio -e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken docker.io/influxdb:latest
+    docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS -e discovery.type=single-node docker.elastic.co/elasticsearch/elasticsearch:6.4.2
+    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO sh -c 'echo 127.0.0.1 influxdb elasticsearch >> /etc/hosts'
 fi
 
 docker $CONTAINER_RUNTIME_ARGS ps -a
