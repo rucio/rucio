@@ -401,7 +401,7 @@ def declare_suspicious_replicas_bad(once: bool = False, younger_than: int = 3, n
                         logger(logging.INFO, 'Number of replicas that were declared suspicious by the auditor: %i', auditor)
 
                         if active_mode:
-                            declare_bad_file_replicas(pfns=files_to_be_declared_bad, reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), session=None)
+                            declare_bad_file_replicas(files_to_be_declared_bad, reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), session=None)
 
                         logger(logging.INFO, 'Finished declaring bad replicas on %s.\n', rse_key)
                     else:
