@@ -384,32 +384,31 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, session
 
 
 @transactional_session
-def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, session=None):
+def declare_bad_file_replicas(replicas, reason, issuer, status=BadFilesStatus.BAD, session=None):
     """
     Declare a list of bad replicas.
 
-    :param pfns: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id>}.
+    :param replicas: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id>}.
     :param reason: The reason of the loss.
     :param issuer: The issuer account.
     :param status: The status of the file (SUSPICIOUS or BAD).
     :param session: The database session in use.
+    :returns: Dictionary {rse_id -> [reploicas failed to declare]}
     """
     unknown_replicas = {}
-    if pfns:
-        type_ = type(pfns[0])
+    if replicas:
+        type_ = type(replicas[0])
         files_to_declare = {}
-        for pfn in pfns:
-            if not isinstance(pfn, type_):
-                raise exception.InvalidType('The PFNs must be either a list of string or list of dict')
+        scheme = None
+        for replica in replicas:
+            if not isinstance(replica, type_):
+                raise exception.InvalidType('Replicas must be specified either as a list of string or a list of dicts')
         if type_ == str:
-            scheme, files_to_declare, unknown_replicas = get_pfn_to_rse(pfns, vo=issuer.vo, session=session)
+            scheme, files_to_declare, unknown_replicas = get_pfn_to_rse(replicas, vo=issuer.vo, session=session)
         else:
-            scheme = None
-            for pfn in pfns:
-                rse_id = pfn['rse_id']
-                if rse_id not in files_to_declare:
-                    files_to_declare[rse_id] = []
-                files_to_declare[rse_id].append(pfn)
+            for replica in replicas:
+                rse_id = replica['rse_id']
+                files_to_declare.setdefault(rse_id, []).append(replica)
         for rse_id in files_to_declare:
             notdeclared = __declare_bad_file_replicas(files_to_declare[rse_id], rse_id, reason, issuer, status=status, scheme=scheme, session=session)
             if notdeclared:

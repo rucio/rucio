@@ -29,14 +29,34 @@ class ReplicaClient(BaseClient):
 
     REPLICAS_BASEURL = 'replicas'
 
-    def declare_bad_file_replicas(self, pfns, reason):
+    def quarantine_replicas(self, replicas, rse=None, rse_id=None):
+        """
+        Add quaratined replicas for RSE.
+
+        :param replicas: List of replica infos: {'scope': <scope> (optional), 'name': <name> (optional), 'path':<path> (required)}.
+        :param rse: RSE name.
+        :param rse_id: RSE id. Either RSE name or RSE id must be specified, but not both
+        """
+
+        if (rse is None) == (rse_id is None):
+            raise ValueError("Either RSE name or RSE id must be specified, but not both")
+
+        data = {'rse': rse, 'rse_id': rse_id, 'replicas': replicas}
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'quarantine']))
+        headers = {}
+        r = self._send_request(url, headers=headers, type_='POST', data=dumps(data))
+        if r.status_code // 100 != 2:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def declare_bad_file_replicas(self, replicas, reason):
         """
         Declare a list of bad replicas.
 
-        :param pfns: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id>}.
+        :param replicas: Either a list of PFNs (string) or a list of dicts {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or 'rse': <rse_name>}
         :param reason: The reason of the loss.
         """
-        data = {'reason': reason, 'pfns': pfns}
+        data = {'reason': reason, 'replicas': replicas}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'bad']))
         headers = {}
         r = self._send_request(url, headers=headers, type_='POST', data=dumps(data))
