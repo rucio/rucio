@@ -21,10 +21,10 @@ import socket
 import stomp
 
 from rucio.common.config import config_get, config_get_int
+from rucio.common.logging import rucio_log_formatter
 from rucio.core.monitor import record_counter
 
 CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
-CONFIG_COMMON_LOGFORMAT = config_get('common', 'logformat', raise_exception=False, default='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get('nongrid-trace', 'loglevel', raise_exception=False, default='DEBUG').upper())
 CONFIG_TRACE_LOGFORMAT = config_get('nongrid-trace', 'logformat', raise_exception=False, default='%(message)s')
@@ -42,7 +42,7 @@ ROTATING_LOGGER = logging.getLogger('nongrid_trace_buffer')
 ROTATING_LOGGER.setLevel(CONFIG_TRACE_LOGLEVEL)
 
 HANDLER = logging.StreamHandler()
-FORMATTER = logging.Formatter(CONFIG_COMMON_LOGFORMAT)
+FORMATTER = rucio_log_formatter()
 HANDLER.setFormatter(FORMATTER)
 LOGGER.addHandler(HANDLER)
 
