@@ -237,7 +237,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
 
 
 @transactional_session
-def __declare_bad_file_replicas(pfns: object, rse_id: object, reason: object, issuer: object, status: object = BadFilesStatus.BAD, scheme: object = 'srm', session: object = None):
+def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', session=None):
     """
     Declare a list of bad replicas.
 
