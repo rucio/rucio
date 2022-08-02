@@ -1394,6 +1394,7 @@ def _delete_dids(
                      models.DataIdentifierAssociation.name == temp_table.name)
             ).where(
                 models.DataIdentifierAssociation.child_type == DIDType.FILE
+            ).distinct(
             )
         )
         session.execute(stmt)
