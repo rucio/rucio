@@ -16,6 +16,8 @@
 from datetime import datetime
 from enum import Enum
 
+from rucio.common.types.enums import ReplicaState  # noqa
+
 # Individual constants
 
 OBSOLETE = datetime(year=1970, month=1, day=1)  # Tombstone value to mark obsolete replicas
@@ -102,16 +104,6 @@ class LockState(Enum):
     REPLICATING = 'R'
     OK = 'O'
     STUCK = 'S'
-
-
-class ReplicaState(Enum):
-    # Update rucio.common.constants at the same time than this
-    AVAILABLE = 'A'
-    UNAVAILABLE = 'U'
-    COPYING = 'C'
-    BEING_DELETED = 'B'
-    BAD = 'D'
-    TEMPORARY_UNAVAILABLE = 'T'
 
 
 class RequestErrMsg(Enum):

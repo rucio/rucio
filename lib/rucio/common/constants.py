@@ -17,6 +17,7 @@ from collections import namedtuple
 import enum
 
 from rucio.common.config import config_get
+from rucio.common.types.enums import ReplicaState  # noqa
 
 """
 Constants.
@@ -69,16 +70,6 @@ class SuspiciousAvailability(enum.Enum):
     ALL = 0
     EXIST_COPIES = 1
     LAST_COPY = 2
-
-
-class ReplicaState(enum.Enum):
-    # From rucio.db.sqla.constants, update that file at the same time as this
-    AVAILABLE = 'A'
-    UNAVAILABLE = 'U'
-    COPYING = 'C'
-    BEING_DELETED = 'B'
-    BAD = 'D'
-    TEMPORARY_UNAVAILABLE = 'T'
 
 
 @enum.unique
