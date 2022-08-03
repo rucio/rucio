@@ -29,7 +29,6 @@ can be specified by 'max_rows' parameter.
 import functools
 import logging
 import threading
-import time
 import traceback
 from re import match
 
@@ -39,7 +38,7 @@ import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
 from rucio.core.authentication import delete_expired_tokens
-from rucio.core.monitor import record_counter, record_timer
+from rucio.core.monitor import record_counter, Timer
 from rucio.core.oidc import delete_expired_oauthrequests, refresh_jwt_tokens
 from rucio.daemons.common import run_daemon
 from rucio.daemons.common import HeartbeatHandler
@@ -80,7 +79,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, max_rows: int, sleep_time: int
     # make an initial heartbeat
     heartbeat_handler.live()
 
-    start = time.time()
+    timer = Timer()
 
     ndeleted = 0
     ndeletedreq = 0
@@ -160,9 +159,9 @@ def run_once(heartbeat_handler: HeartbeatHandler, max_rows: int, sleep_time: int
             logger(logging.CRITICAL, traceback.format_exc())
             record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
 
-    tottime = time.time() - start
-    logger(logging.INFO, 'took %f seconds to delete %i tokens, %i session parameters and refreshed %i tokens', tottime, ndeleted, ndeletedreq, nrefreshed)
-    record_timer(name='oauth_manager.duration', time=1000 * tottime)
+    timer.stop()
+    logger(logging.INFO, 'took %f seconds to delete %i tokens, %i session parameters and refreshed %i tokens', timer.elapsed, ndeleted, ndeletedreq, nrefreshed)
+    timer.record('oauth_manager.duration')
 
 
 def run(once: bool = False, threads: int = 1, max_rows: int = 100, sleep_time: int = 300) -> None:
