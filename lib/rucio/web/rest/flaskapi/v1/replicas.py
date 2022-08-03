@@ -266,15 +266,18 @@ class Replicas(ErrorHandlingMethodView):
                     items:
                       type: object
                       required:
-                        - pfn
-                        - bytes
                         - name
+                        - scope
+                        - bytes
                       properties:
                         pfn:
                           description: The pfn of the replica.
                           type: string
                         name:
                           description: The DID name.
+                          type: string
+                        scope:
+                          description: The DID scope.
                           type: string
                         bytes:
                           description: The size of the replica in bytes.
@@ -291,7 +294,7 @@ class Replicas(ErrorHandlingMethodView):
                         adler32:
                           description: The adler32 checksum.
                           type: string
-                        lcok_cnt:
+                        lock_cnt:
                           description: The lock count.
                           type: integer
                         tombstone:
@@ -586,10 +589,21 @@ class ListReplicas(ErrorHandlingMethodView):
                         type: string
                       pfns:
                         description: The pfns.
-                        type: array
+                        type: object
+                        additionalProperties:
+                          type: object
                       rses:
                         description: The RSESs.
-                        type: array
+                        type: object
+                        additionalProperties:
+                          type: array
+                          items:
+                            type: string
+                      states:
+                        description: The replica state on each RSE.
+                        type: object
+                        additionalProperties:
+                          type: string
               application/metalink4+xml:
                 schema:
                   type: object
@@ -816,7 +830,16 @@ class BadReplicas(ErrorHandlingMethodView):
                     description: The list of pfns or list of dicts with "scope", "name", "rse_id"/"rse"
                     type: array
                     items:
-                      type: string
+                      oneOf:
+                        - type: string
+                        - type: object
+                          properties:
+                            scope:
+                              type: string
+                            name:
+                              type: string
+                            rse_id:
+                              type: string
                   reason:
                     description: The reason for the declaration.
                     type: string
@@ -879,7 +902,11 @@ class SuspiciousReplicas(ErrorHandlingMethodView):
               application/json:
                 schema:
                   description: Returns the not declared files.
-                  type: array
+                  type: object
+                  additionalProperties:
+                    type: array
+                    items:
+                      type: string
           400:
             description: Can not decode json parameter list.
           404:
