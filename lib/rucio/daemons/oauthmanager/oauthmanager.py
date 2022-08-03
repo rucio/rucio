@@ -28,7 +28,6 @@ can be specified by 'max_rows' parameter.
 
 import functools
 import logging
-import socket
 import threading
 import time
 import traceback
@@ -40,10 +39,10 @@ import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
 from rucio.core.authentication import delete_expired_tokens
-from rucio.core.heartbeat import sanity_check
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.oidc import delete_expired_oauthrequests, refresh_jwt_tokens
 from rucio.daemons.common import run_daemon
+from rucio.daemons.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
 
@@ -65,7 +64,7 @@ def OAuthManager(once: bool = False, max_rows: int = 100, sleep_time: int = 300)
         once=once,
         graceful_stop=graceful_stop,
         executable='oauth-manager',
-        logger_prefix='OAuthManager',
+        logger_prefix='oauth-manager',
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -76,13 +75,10 @@ def OAuthManager(once: bool = False, max_rows: int = 100, sleep_time: int = 300)
     )
 
 
-def run_once(heartbeat_handler, max_rows, sleep_time, **_kwargs):
+def run_once(heartbeat_handler: HeartbeatHandler, max_rows: int, sleep_time: int, **_kwargs) -> None:
 
     # make an initial heartbeat
     heartbeat_handler.live()
-
-    # wait a moment in case all workers started at the same time
-    graceful_stop.wait(1)
 
     start = time.time()
 
@@ -167,7 +163,6 @@ def run_once(heartbeat_handler, max_rows, sleep_time, **_kwargs):
     tottime = time.time() - start
     logger(logging.INFO, 'took %f seconds to delete %i tokens, %i session parameters and refreshed %i tokens', tottime, ndeleted, ndeletedreq, nrefreshed)
     record_timer(name='oauth_manager.duration', time=1000 * tottime)
-    return
 
 
 def run(once: bool = False, threads: int = 1, max_rows: int = 100, sleep_time: int = 300) -> None:
@@ -178,8 +173,6 @@ def run(once: bool = False, threads: int = 1, max_rows: int = 100, sleep_time: i
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
-
-    sanity_check(executable='OAuthManager', hostname=socket.gethostname())
 
     if once:
         OAuthManager(once, max_rows, sleep_time)
