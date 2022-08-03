@@ -780,8 +780,11 @@ def list_parent_dids(args):
     """
     client = get_client(args)
     if args.pfns:
+        if not args.rse:
+            print('Cannot use --pfn without specifying a RSE')
+            return FAILURE
         dict_datasets = {}
-        for res in client.get_did_from_pfns(args.pfns):
+        for res in client.get_did_from_pfns(args.pfns, args.rse):
             for key in res:
                 if key not in dict_datasets:
                     dict_datasets[key] = []
@@ -2234,6 +2237,7 @@ You can filter by key/value, e.g.::
     list_parent_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
     list_parent_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
     list_parent_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
+    list_parent_parser.add_argument('--rse', help='RSE for the specified PFNs.')
 
     # argparse 2.7 does not allow aliases for commands, thus the list-parent-datasets is a copy&paste from list-parent-dids
     list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List parent DIDs for a given DID', description='List all parents Data IDentifier that contains the target Data IDentifier.',
@@ -2254,6 +2258,7 @@ You can filter by key/value, e.g.::
     list_parent_datasets_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
     list_parent_datasets_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
     list_parent_datasets_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
+    list_parent_datasets_parser.add_argument('--rse', help='RSE for the specified PFNs.')
 
     # The list-scopes command
     scope_list_parser = subparsers.add_parser('list-scopes', help='List all available scopes.',
