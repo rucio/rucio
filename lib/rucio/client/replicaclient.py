@@ -15,6 +15,7 @@
 
 from datetime import datetime
 from json import dumps, loads
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from requests.status_codes import codes
 from urllib.parse import quote_plus
@@ -22,6 +23,13 @@ from urllib.parse import quote_plus
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
 from rucio.common.utils import build_url, render_json
+from rucio.common.types.dicts import (
+    ReplicaDict, ReplicaRSEDict, ReplicaRSEIdDict, ReplicaRSENameDict,
+    SuspiciousReplicaDict, AddReplicaDict, DatasetReplicaDict, QuarantineReplicaDict,
+    DidDict, ClientLocationDict, UpdateReplicaStateDict,
+)
+from rucio.common.types.literals import ReplicaSortLiteral, BadPFNStateLiteral
+from typing_extensions import Literal
 
 
 class ReplicaClient(BaseClient):
@@ -29,7 +37,7 @@ class ReplicaClient(BaseClient):
 
     REPLICAS_BASEURL = 'replicas'
 
-    def quarantine_replicas(self, replicas, rse=None, rse_id=None):
+    def quarantine_replicas(self, replicas: List[QuarantineReplicaDict], rse: Optional[str] = None, rse_id: Optional[str] = None) -> None:
         """
         Add quaratined replicas for RSE.
 
@@ -49,7 +57,7 @@ class ReplicaClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def declare_bad_file_replicas(self, replicas, reason):
+    def declare_bad_file_replicas(self, replicas: Union[List[str], List[ReplicaRSEDict]], reason: str) -> Dict[str, List[str]]:
         """
         Declare a list of bad replicas.
 
@@ -65,7 +73,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def declare_bad_did_replicas(self, rse, dids, reason):
+    def declare_bad_did_replicas(self, rse: str, dids: List[DidDict], reason: str) -> List[str]:
         """
         Declare a list of bad replicas.
 
@@ -82,11 +90,11 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def declare_suspicious_file_replicas(self, pfns, reason):
+    def declare_suspicious_file_replicas(self, pfns: Union[List[str], List[ReplicaRSEIdDict]], reason: str) -> Dict[str, List[str]]:
         """
         Declare a list of bad replicas.
 
-        :param pfns: The list of PFNs.
+        :param pfns: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id>}.
         :param reason: The reason of the loss.
         """
         data = {'reason': reason, 'pfns': pfns}
@@ -98,7 +106,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def get_did_from_pfns(self, pfns, rse=None):
+    def get_did_from_pfns(self, pfns: List[str], rse: str) -> Iterable[Dict[str, DidDict]]:
         """
         Get the DIDs associated to a PFN on one given RSE
 
@@ -115,12 +123,21 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_replicas(self, dids, schemes=None, ignore_availability=True,
-                      all_states=False, metalink=False, rse_expression=None,
-                      client_location=None, sort=None, domain=None,
-                      signature_lifetime=None, nrandom=None,
-                      resolve_archives=True, resolve_parents=False,
-                      updated_after=None):
+    def list_replicas(self, dids: List[DidDict],
+                      schemes: Optional[List[str]] = None,
+                      ignore_availability: bool = True,
+                      all_states: bool = False,
+                      metalink: bool = False,
+                      rse_expression: Optional[str] = None,
+                      client_location: Optional[ClientLocationDict] = None,
+                      sort: Optional[ReplicaSortLiteral] = None,
+                      domain: Literal['all', 'wan', 'lan', None] = None,
+                      signature_lifetime: Optional[int] = None,
+                      nrandom: Optional[int] = None,
+                      resolve_archives: bool = True,
+                      resolve_parents: bool = False,
+                      updated_after: Union[datetime, str, None] = None
+                      ) -> Iterable[ReplicaDict]:
         """
         List file replicas for a list of data identifiers (DIDs).
 
@@ -196,15 +213,17 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_suspicious_replicas(self, rse_expression=None, younger_than=None, nattempts=None):
+    def list_suspicious_replicas(self,
+                                 rse_expression: Optional[str] = None,
+                                 younger_than: Optional[datetime] = None,
+                                 nattempts: Optional[int] = None
+                                 ) -> Iterable[SuspiciousReplicaDict]:
         """
         List file replicas tagged as suspicious.
 
         :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
         :param younger_than: Datetime object to select the replicas which were declared since younger_than date. Default value = 10 days ago.
         :param nattempts: The minimum number of replica appearances in the bad_replica DB table from younger_than date. Default value = 0.
-        :param state: State of the replica, either 'BAD' or 'SUSPICIOUS'. No value returns replicas with either state.
-
         """
         params = {}
         if rse_expression:
@@ -224,7 +243,15 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def add_replica(self, rse, scope, name, bytes_, adler32, pfn=None, md5=None, meta={}):
+    def add_replica(self,
+                    rse: str,
+                    scope: str,
+                    name: str,
+                    bytes_: int,
+                    adler32: str,
+                    pfn: Optional[str] = None,
+                    md5: Optional[str] = None,
+                    meta: Dict[str, Any] = {}) -> Literal[True]:
         """
         Add file replicas to a RSE.
 
@@ -240,14 +267,14 @@ class ReplicaClient(BaseClient):
         :return: True if files were created successfully.
 
         """
-        dict_ = {'scope': scope, 'name': name, 'bytes': bytes_, 'meta': meta, 'adler32': adler32}
+        dict_: AddReplicaDict = {'scope': scope, 'name': name, 'bytes': bytes_, 'meta': meta, 'adler32': adler32}
         if md5:
             dict_['md5'] = md5
         if pfn:
             dict_['pfn'] = pfn
         return self.add_replicas(rse=rse, files=[dict_])
 
-    def add_replicas(self, rse, files, ignore_availability=True):
+    def add_replicas(self, rse: str, files: List[AddReplicaDict], ignore_availability: bool = True) -> Literal[True]:
         """
         Bulk add file replicas to a RSE.
 
@@ -287,7 +314,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def update_replicas_states(self, rse, files):
+    def update_replicas_states(self, rse: str, files: List[UpdateReplicaStateDict]) -> Literal[True]:
         """
         Bulk update the file replicas states from a RSE.
 
@@ -312,7 +339,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_dataset_replicas(self, scope, name, deep=False):
+    def list_dataset_replicas(self, scope: str, name: str, deep: bool = False) -> Iterable[DatasetReplicaDict]:
         """
         List dataset replicas for a did (scope:name).
 
@@ -336,7 +363,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_dataset_replicas_bulk(self, dids):
+    def list_dataset_replicas_bulk(self, dids: Iterable[DidDict]) -> Iterable[DatasetReplicaDict]:
         """
         List dataset replicas for a did (scope:name).
 
@@ -352,7 +379,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_dataset_replicas_vp(self, scope, name, deep=False):
+    def list_dataset_replicas_vp(self, scope: str, name: str, deep=False) -> Iterable[Any]:
         """
         List dataset replicas for a DID (scope:name) using the
         Virtual Placement service.
@@ -378,7 +405,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_datasets_per_rse(self, rse, filters=None, limit=None):
+    def list_datasets_per_rse(self, rse: str, filters=None, limit=None) -> Iterable[DatasetReplicaDict]:
         """
         List datasets at a RSE.
 
@@ -397,7 +424,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def add_bad_pfns(self, pfns, reason, state, expires_at):
+    def add_bad_pfns(self, pfns, reason: str, state: BadPFNStateLiteral, expires_at: Optional[str]) -> Literal[True]:
         """
         Declare a list of bad replicas.
 
@@ -418,7 +445,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def set_tombstone(self, replicas):
+    def set_tombstone(self, replicas: List[ReplicaRSENameDict]) -> Literal[True]:
         """
         Set a tombstone on a list of replicas.
 
