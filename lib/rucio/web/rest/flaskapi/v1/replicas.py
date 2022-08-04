@@ -994,7 +994,7 @@ class SuspiciousReplicas(ErrorHandlingMethodView):
             if 'rse_expression' in params:
                 rse_expression = params['rse_expression'][0]
             if 'younger_than' in params and params['younger_than'][0]:
-                younger_than = datetime.strptime(params['younger_than'][0], "%Y-%m-%dT%H:%M:%S")
+                younger_than = datetime.strptime(params['younger_than'][0], "%Y-%m-%dT%H:%M:%S.%f")
             if 'nattempts' in params:
                 nattempts = int(params['nattempts'][0])
 

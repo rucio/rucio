@@ -232,7 +232,7 @@ class ReplicaClient(BaseClient):
             params['rse_expression'] = rse_expression
 
         if younger_than:
-            params['younger_than'] = younger_than
+            params['younger_than'] = younger_than.strftime("%Y-%m-%dT%H:%M:%S.%f")
 
         if nattempts:
             params['nattempts'] = nattempts
@@ -426,7 +426,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def add_bad_pfns(self, pfns, reason: str, state: BadPFNStateLiteral, expires_at: Optional[str]) -> Literal[True]:
+    def add_bad_pfns(self, pfns, reason: str, state: BadPFNStateLiteral, expires_at: Union[str, datetime, None]) -> Literal[True]:
         """
         Declare a list of bad replicas.
 
@@ -438,6 +438,9 @@ class ReplicaClient(BaseClient):
         :return: True if PFNs were created successfully.
 
         """
+        if isinstance(expires_at, datetime):
+            expires_at = expires_at.strftime('%Y-%m-%dT%H:%M:%S.%f')
+
         data = {'reason': reason, 'pfns': pfns, 'state': state, 'expires_at': expires_at}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'bad/pfns']))
         headers = {}
