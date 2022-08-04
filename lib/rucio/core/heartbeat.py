@@ -118,7 +118,7 @@ def live(executable, hostname, pid, thread=None, older_than=600, hash_executable
         .update({'updated_at': datetime.datetime.utcnow(), 'payload': payload})
     if not rowcount:
         Heartbeats(executable=hash_executable,
-                   readable=executable,
+                   readable=executable[:Heartbeats.readable.property.columns[0].type.length],
                    hostname=hostname,
                    pid=pid,
                    thread_id=thread_id,

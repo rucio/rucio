@@ -23,20 +23,19 @@ import logging
 import os
 import re
 import threading
-import time
 
 from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.cache import make_region_memcached
-from rucio.common.exception import DatabaseException, ConfigNotFound, UnsupportedOperation, ReplicaNotFound, RequestNotFound
+from rucio.common.exception import DatabaseException, ConfigNotFound, UnsupportedOperation, ReplicaNotFound, RequestNotFound, RSEProtocolNotSupported
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
 from rucio.core import request as request_core, replica as replica_core
 from rucio.core.config import items
-from rucio.core.monitor import record_timer, record_counter
+from rucio.core.monitor import record_counter, Timer
 from rucio.core.rse import list_rses
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, BadFilesStatus
@@ -55,35 +54,39 @@ def run_once(bulk, db_bulk, suspicious_patterns, retry_protocol_mismatches, hear
 
     try:
         logger(logging.DEBUG, 'Working on activity %s', activity)
-        time1 = time.time()
-        reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                     state=[RequestState.DONE, RequestState.FAILED,
-                                            RequestState.LOST, RequestState.SUBMITTING,
-                                            RequestState.SUBMISSION_FAILED, RequestState.NO_SOURCES,
-                                            RequestState.ONLY_TAPE_SOURCES, RequestState.MISMATCH_SCHEME],
-                                     limit=db_bulk,
-                                     older_than=datetime.datetime.utcnow(),
-                                     total_workers=total_workers,
-                                     worker_number=worker_number,
-                                     mode_all=True,
-                                     include_dependent=False,
-                                     hash_variable='rule_id')
-        record_timer('daemons.conveyor.finisher.get_next', (time.time() - time1) * 1000)
-        time2 = time.time()
+
+        with Timer('daemons.conveyor.finisher.get_next'):
+            reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                                         state=[RequestState.DONE, RequestState.FAILED,
+                                                RequestState.LOST, RequestState.SUBMITTING,
+                                                RequestState.SUBMISSION_FAILED, RequestState.NO_SOURCES,
+                                                RequestState.ONLY_TAPE_SOURCES, RequestState.MISMATCH_SCHEME],
+                                         limit=db_bulk,
+                                         older_than=datetime.datetime.utcnow(),
+                                         total_workers=total_workers,
+                                         worker_number=worker_number,
+                                         mode_all=True,
+                                         include_dependent=False,
+                                         hash_variable='rule_id')
+
         if reqs:
             logger(logging.DEBUG, 'Updating %i requests for activity %s', len(reqs), activity)
+
+        timer = Timer()
 
         for chunk in chunks(reqs, bulk):
             try:
                 worker_number, total_workers, logger = heartbeat_handler.live()
-                time3 = time.time()
-                __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
-                record_timer('daemons.conveyor.finisher.handle_requests_time', (time.time() - time3) * 1000 / (len(chunk) if chunk else 1))
+                with Timer('daemons.conveyor.finisher.handle_requests_time', divisor=len(chunk) or 1):
+                    __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
                 record_counter('daemons.conveyor.finisher.handle_requests', delta=len(chunk))
             except Exception as error:
                 logger(logging.WARNING, '%s', str(error))
+
+        timer.stop()
+
         if reqs:
-            logger(logging.DEBUG, 'Finish to update %s finished requests for activity %s in %s seconds', len(reqs), activity, time.time() - time2)
+            logger(logging.DEBUG, 'Finish to update %s finished requests for activity %s in %s seconds', len(reqs), activity, timer.elapsed)
 
     except (DatabaseException, DatabaseError) as error:
         if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
@@ -224,13 +227,13 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
             # Standard failure from the transfer tool
             elif req['state'] == RequestState.FAILED:
                 __check_suspicious_files(req, suspicious_patterns, logger=logger)
-                tss = time.time()
+                timer = Timer()
                 try:
                     if request_core.should_retry_request(req, retry_protocol_mismatches):
                         new_req = request_core.requeue_and_archive(req, source_ranking_update=True, retry_protocol_mismatches=retry_protocol_mismatches, logger=logger)
                         # should_retry_request and requeue_and_archive are not in one session,
                         # another process can requeue_and_archive and this one will return None.
-                        record_timer('daemons.conveyor.common.update_request_state.request_requeue_and_archive', (time.time() - tss) * 1000)
+                        timer.record('daemons.conveyor.common.update_request_state.request_requeue_and_archive')
                         logger(logging.WARNING, 'REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                                 req['name'],
                                                                                                 req['request_id'],
@@ -252,10 +255,10 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
                     # To prevent race conditions
                     continue
                 try:
-                    tss = time.time()
+                    timer = Timer()
                     if request_core.should_retry_request(req, retry_protocol_mismatches):
                         new_req = request_core.requeue_and_archive(req, source_ranking_update=False, retry_protocol_mismatches=retry_protocol_mismatches, logger=logger)
-                        record_timer('daemons.conveyor.common.update_request_state.request_requeue_and_archive', (time.time() - tss) * 1000)
+                        timer.record('daemons.conveyor.common.update_request_state.request_requeue_and_archive')
                         logger(logging.WARNING, 'REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                                            req['name'],
                                                                                                            req['request_id'],
@@ -402,32 +405,48 @@ def __update_replica(replica, session=None, logger=logging.log):
     :param session:               The database session to use.
     :returns commit_or_rollback:  Boolean.
     """
-
     try:
-        replica_core.update_replicas_states([replica], nowait=True, session=session)
+        replica_found = True
+        try:
+            replica_core.update_replicas_states([replica], nowait=True, session=session)
+        except ReplicaNotFound:
+            replica_found = False
+
+        if not replica_found and replica['state'] == ReplicaState.AVAILABLE and replica['request_type'] != RequestType.STAGEIN:
+            # FTS tells us that the Replica was successfully transferred, but there is no such replica in Rucio,
+            # this can happen if the replica was deleted from rucio in the meantime. As fts tells us that the
+            # replica is available, there is a high probability that we just generated dark data.
+            # This opportunistic workflow tries to cleanup this dark data by adding a replica with an expired
+            # tombstone and letting reaper take care of its deletion.
+            logger(logging.INFO, "Replica cannot be found. Adding a replica %s:%s AT RSE %s with tombstone=utcnow", replica['scope'], replica['name'], replica['rse_id'])
+            add_replica_kwargs = {
+                'rse_id': replica['rse_id'],
+                'scope': replica['scope'],
+                'name': replica['name'],
+                'bytes_': replica['bytes'],
+                'account': InternalAccount('root', vo=replica['scope'].vo),  # it will deleted immediately, do we need to get the accurate account from rule?
+                'adler32': replica['adler32'],
+                'tombstone': datetime.datetime.utcnow(),
+            }
+            try:
+                try:
+                    replica_core.add_replica(**add_replica_kwargs, pfn=replica['pfn'] if 'pfn' in replica else None, session=session)
+                except RSEProtocolNotSupported as error:
+                    # The pfn cannot be matched to any of the protocols configured on the RSE.
+                    # Most probably the RSE protocol configuration changed since the submission.
+                    # Try again without explicit pfn. On non-deterministic RSEs it will fail
+                    # with UnsupportedOperation exception
+                    logger(logging.ERROR, 'Protocol not supported for DID %s:%s at RSE %s - potential dark data - %s', replica['scope'], replica['name'], replica['rse_id'], str(error))
+                    replica_core.add_replica(**add_replica_kwargs, pfn=None, session=session)
+            except Exception as error:
+                logger(logging.ERROR, 'Cannot register replica for DID %s:%s at RSE %s - potential dark data - %s', replica['scope'], replica['name'], replica['rse_id'], str(error))
+                raise
+
         if not replica['archived']:
             request_core.archive_request(replica['request_id'], session=session)
-        logger(logging.INFO, "HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
-    except (UnsupportedOperation, ReplicaNotFound) as error:
-        logger(logging.WARNING, "ERROR WHEN HANDLING REQUEST %s DID %s:%s AT RSE %s STATE %s: %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']), str(error))
-        # replica cannot be found. register it and schedule it for deletion
-        try:
-            if replica['state'] == ReplicaState.AVAILABLE and replica['request_type'] != RequestType.STAGEIN:
-                logger(logging.INFO, "Replica cannot be found. Adding a replica %s:%s AT RSE %s with tombstone=utcnow", replica['scope'], replica['name'], replica['rse_id'])
-                replica_core.add_replica(replica['rse_id'],
-                                         replica['scope'],
-                                         replica['name'],
-                                         replica['bytes'],
-                                         pfn=replica['pfn'] if 'pfn' in replica else None,
-                                         account=InternalAccount('root', vo=replica['scope'].vo),  # it will deleted immediately, do we need to get the accurate account from rule?
-                                         adler32=replica['adler32'],
-                                         tombstone=datetime.datetime.utcnow(),
-                                         session=session)
-            if not replica['archived']:
-                request_core.archive_request(replica['request_id'], session=session)
-            logger(logging.INFO, "HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
-        except Exception as error:
-            logger(logging.ERROR, 'Cannot register replica for DID %s:%s at RSE %s - potential dark data - %s', replica['scope'], replica['name'], replica['rse_id'], str(error))
-            raise
 
-    return True
+    except Exception as error:
+        logger(logging.WARNING, "ERROR WHEN HANDLING REQUEST %s DID %s:%s AT RSE %s STATE %s: %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']), str(error))
+        raise
+
+    logger(logging.INFO, "HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))

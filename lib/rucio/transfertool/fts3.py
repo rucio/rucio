@@ -17,7 +17,6 @@ import datetime
 import json
 import functools
 import logging
-import time
 import traceback
 import uuid
 from typing import Any, Callable, Tuple, TYPE_CHECKING
@@ -39,7 +38,7 @@ from rucio.common.utils import APIEncoder, chunks, PREFERRED_CHECKSUM
 from rucio.core.request import get_source_rse, get_transfer_error
 from rucio.core.rse import get_rse_supported_checksums_from_attributes
 from rucio.core.oidc import get_token_for_account_operation
-from rucio.core.monitor import record_counter, record_timer, MultiCounter
+from rucio.core.monitor import record_counter, Timer, MultiCounter
 from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
 from rucio.db.sqla.constants import RequestState
 
@@ -506,7 +505,10 @@ class FTS3CompletionMessageTransferStatusReport(Fts3TransferStatusReport):
         transfer_id = self._transfer_id
         if new_state:
             request = self.request(session)
-            if request['external_id'] == transfer_id and request['state'] != new_state:
+            if not request:
+                logger(logging.WARNING, '%s: no request with this id in the database. Skipping. external_id: %s (%s). new_state: %s', request_id, transfer_id, self.external_host, new_state)
+                return
+            if request and request['external_id'] == transfer_id and request['state'] != new_state:
                 src_rse_name, src_rse_id = self._find_used_source_rse(session, logger)
 
                 self._reason = reason
@@ -591,6 +593,9 @@ class FTS3ApiTransferStatusReport(Fts3TransferStatusReport):
         transfer_id = self._transfer_id
         if new_state:
             request = self.request(session)
+            if not request:
+                logger(logging.WARNING, '%s: no request with this id in the database. Skipping. external_id: %s (%s). new_state: %s', request_id, transfer_id, self.external_host, new_state)
+                return
             if request['external_id'] == transfer_id and request['state'] != new_state:
                 src_rse_name, src_rse_id = self._find_used_source_rse(session, logger)
 
@@ -762,7 +767,6 @@ class FTS3Transfertool(Transfertool):
         :param timeout:      Timeout in seconds.
         :returns:            FTS transfer identifier.
         """
-        start_time = time.time()
         files = []
         for transfer in transfers:
             if isinstance(transfer, dict):
@@ -809,7 +813,7 @@ class FTS3Transfertool(Transfertool):
 
         post_result = None
         try:
-            start_time = time.time()
+            timer = Timer()
             post_result = requests.post('%s/jobs' % self.external_host,
                                         verify=self.verify,
                                         cert=self.cert,
@@ -817,7 +821,7 @@ class FTS3Transfertool(Transfertool):
                                         headers=self.headers,
                                         timeout=timeout)
             labels = {'host': self.__extract_host(self.external_host)}
-            record_timer('transfertool.fts3.submit_transfer.{host}', (time.time() - start_time) * 1000 / len(files), labels=labels)
+            timer.record('transfertool.fts3.submit_transfer.{host}', divisor=len(files), labels=labels)
         except ReadTimeout as error:
             raise TransferToolTimeout(error)
         except json.JSONDecodeError as error:
@@ -841,7 +845,7 @@ class FTS3Transfertool(Transfertool):
 
         if not transfer_id:
             raise TransferToolWrongAnswer('No transfer id returned by %s' % self.external_host)
-        record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(transfers))
+        timer.record('core.request.submit_transfers_fts3', divisor=len(transfers))
         return transfer_id
 
     def cancel(self, transfer_ids, timeout=None):
@@ -1180,7 +1184,7 @@ class FTS3Transfertool(Transfertool):
         """
         result = (None, None)
         try:
-            key = 'voname: %s' % self.external_host
+            key = 'voname:%s' % self.external_host
             result = REGION_SHORT.get(key)
             if isinstance(result, NoValue):
                 self.logger(logging.DEBUG, "Refresh transfer baseid and voname for %s", self.external_host)

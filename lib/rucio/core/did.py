@@ -22,11 +22,11 @@ from hashlib import md5
 from re import match
 from typing import TYPE_CHECKING
 
-from sqlalchemy import and_, or_, exists, update, delete
+from sqlalchemy import and_, or_, exists, update, delete, insert
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, case, select, true, false
+from sqlalchemy.sql.expression import bindparam, case, select, true, false, null
 
 import rucio.core.replica  # import add_replicas
 import rucio.core.rule
@@ -35,7 +35,7 @@ from rucio.common.config import config_get_bool
 from rucio.common.utils import is_archive, chunks
 from rucio.core import did_meta_plugins, config as config_core
 from rucio.core.message import add_message
-from rucio.core.monitor import record_timer_block, record_counter
+from rucio.core.monitor import Timer, record_counter
 from rucio.core.naming_convention import validate_name
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models, filter_thread_work
@@ -44,9 +44,11 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 from rucio.db.sqla.util import temp_table_mngr
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Tuple, Optional, Sequence
+    from typing import Any, Dict, Tuple, Optional, Sequence, Callable
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount, InternalScope
+
+    LoggerFunction = Callable[..., Any]
 
 
 @read_session
@@ -121,7 +123,7 @@ def add_did(
         meta: "Optional[Dict[str, Any]]" = None,
         rules: "Optional[Sequence[str]]" = None,
         lifetime: "Optional[int]" = None,
-        dids: "Optional[Dict[str, Any]]" = None,
+        dids: "Optional[Sequence[Dict[str, Any]]]" = None,
         rse_id: "Optional[str]" = None,
         session: "Optional[Session]" = None,
 ):
@@ -149,7 +151,7 @@ def add_did(
 
 @transactional_session
 def add_dids(
-        dids: "Dict[str, Any]",
+        dids: "Sequence[Dict[str, Any]]",
         account: "InternalAccount",
         session: "Optional[Session]" = None,
 ):
@@ -244,7 +246,7 @@ def add_dids(
 def attach_dids(
         scope: "InternalScope",
         name: str,
-        dids: "Dict[str, Any]",
+        dids: "Sequence[Dict[str, Any]]",
         account: "InternalAccount",
         rse_id: "Optional[str]" = None,
         session: "Optional[Session]" = None,
@@ -695,6 +697,7 @@ def __add_collections_to_container(parent_did, collections_temp_table, collectio
             if (row.scope, row.name) in container_parents:
                 raise exception.UnsupportedOperation('Circular attachment detected. %s:%s is already a parent of %s:%s' % (row.scope, row.name, parent_did.scope, parent_did.name))
 
+    messages = []
     for c in collections.values():
         did_asso = models.DataIdentifierAssociation(
             scope=parent_did.scope,
@@ -722,9 +725,11 @@ def __add_collections_to_container(parent_did, collections_temp_table, collectio
                    'childtype': chld_type}
         if account.vo != 'def':
             message['vo'] = account.vo
+        messages.append(message)
 
-        add_message('REGISTER_CNT', message, session=session)
     try:
+        for message in messages:
+            add_message('REGISTER_CNT', message, session=session)
         session.flush()
     except IntegrityError as error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
@@ -1056,6 +1061,7 @@ def __add_collections_to_container_without_temp_tables(scope, name, collections,
             if (row.scope, row.name) in container_parents:
                 raise exception.UnsupportedOperation('Circular attachment detected. %s:%s is already a parent of %s:%s', row.scope, row.name, scope, name)
 
+    messages = []
     for c in collections:
         did_asso = models.DataIdentifierAssociation(
             scope=scope,
@@ -1083,9 +1089,11 @@ def __add_collections_to_container_without_temp_tables(scope, name, collections,
                    'childtype': chld_type}
         if account.vo != 'def':
             message['vo'] = account.vo
+        messages.append(message)
 
-        add_message('REGISTER_CNT', message, session=session)
     try:
+        for message in messages:
+            add_message('REGISTER_CNT', message, session=session)
         session.flush()
     except IntegrityError as error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
@@ -1126,6 +1134,7 @@ def _attach_dids_to_dids_without_temp_tables(attachments, account, ignore_duplic
                 models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
             )
             parent_did = session.execute(stmt).scalar_one()
+            update_parent = False
 
             if parent_did.did_type == DIDType.FILE:
                 # check if parent file has the archive extension
@@ -1149,13 +1158,16 @@ def _attach_dids_to_dids_without_temp_tables(attachments, account, ignore_duplic
                                                                   rse_id=attachment.get('rse_id'),
                                                                   session=session)
 
+                update_parent = len(cont) > 0
+
             elif parent_did.did_type == DIDType.CONTAINER:
                 __add_collections_to_container_without_temp_tables(scope=attachment['scope'],
                                                                    name=attachment['name'],
                                                                    collections=attachment['dids'],
                                                                    account=account, session=session)
+                update_parent = True
 
-            if cont:
+            if update_parent:
                 # cont contains the parent of the files and is only filled if the files does not exist yet
                 parent_dids.append({'scope': parent_did.scope,
                                     'name': parent_did.name,
@@ -1171,7 +1183,13 @@ def _attach_dids_to_dids_without_temp_tables(attachments, account, ignore_duplic
 
 
 @transactional_session
-def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.log):
+def delete_dids(
+        dids: "Sequence[Dict[str, Any]]",
+        account: "InternalAccount",
+        expire_rules: bool = False,
+        session: "Optional[Session]" = None,
+        logger: "LoggerFunction" = logging.log,
+):
     """
     Delete data identifiers
 
@@ -1183,6 +1201,348 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     :param session:       The database session in use.
     :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     """
+    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False, session=session)
+    if use_temp_tables:
+        return _delete_dids(dids, account, expire_rules, session, logger)
+    else:
+        return _delete_dids_wo_temp_tables(dids, account, expire_rules, session, logger)
+
+
+def _delete_dids(
+        dids: "Sequence[Dict[str, Any]]",
+        account: "InternalAccount",
+        expire_rules: bool = False,
+        session: "Optional[Session]" = None,
+        logger: "LoggerFunction" = logging.log,
+):
+    if not dids:
+        return
+
+    not_purge_replicas = []
+
+    archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
+    archive_content = config_core.get('deletion', 'archive_content', default=False, session=session)
+
+    file_dids = {}
+    collection_dids = {}
+    all_dids = {}
+    for did in dids:
+        scope, name = did['scope'], did['name']
+        logger(logging.INFO, 'Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
+        all_dids[scope, name] = {'scope': scope, 'name': name}
+        if did['did_type'] == DIDType.FILE:
+            file_dids[scope, name] = {'scope': scope, 'name': name}
+        else:
+            collection_dids[scope, name] = {'scope': scope, 'name': name}
+
+        # ATLAS LOCALGROUPDISK Archive policy
+        if did['did_type'] == DIDType.DATASET and did['scope'].external != 'archive':
+            try:
+                rucio.core.rule.archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
+            except exception.UndefinedPolicy:
+                pass
+
+        if did['purge_replicas'] is False:
+            not_purge_replicas.append((did['scope'], did['name']))
+
+        if archive_content:
+            insert_content_history(filter_=[and_(models.DataIdentifierAssociation.scope == did['scope'],
+                                                 models.DataIdentifierAssociation.name == did['name'])],
+                                   did_created_at=did.get('created_at'),
+                                   session=session)
+
+        # Send message
+        message = {'account': account.external,
+                   'scope': did['scope'].external,
+                   'name': did['name']}
+        if did['scope'].vo != 'def':
+            message['vo'] = did['scope'].vo
+
+        add_message('ERASE', message, session=session)
+
+    temp_table = temp_table_mngr(session).create_scope_name_table()
+    if not file_dids:
+        data_in_temp_table = all_dids = collection_dids
+    elif not collection_dids:
+        data_in_temp_table = all_dids = file_dids
+    else:
+        data_in_temp_table = all_dids
+    session.bulk_insert_mappings(temp_table, data_in_temp_table.values())
+
+    # Delete rules on did
+    skip_deletion = False  # Skip deletion in case of expiration of a rule
+    with Timer('undertaker.rules'):
+        stmt = select(
+            models.ReplicationRule.id,
+            models.ReplicationRule.scope,
+            models.ReplicationRule.name,
+            models.ReplicationRule.rse_expression,
+            models.ReplicationRule.locks_ok_cnt,
+            models.ReplicationRule.locks_replicating_cnt,
+            models.ReplicationRule.locks_stuck_cnt
+        ).join_from(
+            temp_table,
+            models.ReplicationRule,
+            and_(models.ReplicationRule.scope == temp_table.scope,
+                 models.ReplicationRule.name == temp_table.name)
+        )
+        for (rule_id, scope, name, rse_expression, locks_ok_cnt, locks_replicating_cnt, locks_stuck_cnt) in session.execute(stmt):
+            logger(logging.DEBUG, 'Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
+
+            # Propagate purge_replicas from did to rules
+            if (scope, name) in not_purge_replicas:
+                purge_replicas = False
+            else:
+                purge_replicas = True
+            if expire_rules and locks_ok_cnt + locks_replicating_cnt + locks_stuck_cnt > int(config_core.get('undertaker', 'expire_rules_locks_size', default=10000, session=session)):
+                # Expire the rule (soft=True)
+                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True, delete_parent=True, nowait=True, session=session)
+                # Update expiration of did
+                set_metadata(scope=scope, name=name, key='lifetime', value=3600 * 24, session=session)
+                skip_deletion = True
+            else:
+                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, delete_parent=True, nowait=True, session=session)
+
+    if skip_deletion:
+        return
+
+    # Detach from parent dids:
+    existing_parent_dids = False
+    with Timer('undertaker.parent_content'):
+        stmt = select(
+            models.DataIdentifierAssociation
+        ).join_from(
+            temp_table,
+            models.DataIdentifierAssociation,
+            and_(models.DataIdentifierAssociation.child_scope == temp_table.scope,
+                 models.DataIdentifierAssociation.child_name == temp_table.name)
+        )
+        for parent_did in session.execute(stmt).scalars():
+            existing_parent_dids = True
+            detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_name}], session=session)
+
+    # Remove generic did metadata
+    must_delete_did_meta = True
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection().connection.version.split('.')[0])
+        if oracle_version < 12:
+            must_delete_did_meta = False
+    if must_delete_did_meta:
+        stmt = delete(
+            models.DidMeta
+        ).where(
+            exists(
+                select([1])
+            ).where(
+                models.DidMeta.scope == temp_table.scope,
+                models.DidMeta.name == temp_table.name
+            )
+        ).execution_options(
+            synchronize_session=False
+        )
+        with Timer('undertaker.did_meta'):
+            session.execute(stmt)
+
+    # Prepare the common part of the query for updating bad replicas if they exist
+    bad_replica_stmt = update(
+        models.BadReplicas
+    ).where(
+        models.BadReplicas.state == BadFilesStatus.BAD
+    ).values(
+        state=BadFilesStatus.DELETED,
+        updated_at=datetime.utcnow(),
+    ).execution_options(
+        synchronize_session=False
+    )
+
+    if file_dids:
+        if data_in_temp_table is not file_dids:
+            session.execute(delete(temp_table))
+            session.bulk_insert_mappings(temp_table, file_dids.values())
+            data_in_temp_table = file_dids
+
+        # update bad files passed directly as input
+        stmt = bad_replica_stmt.where(
+            exists(
+                select([1])
+            ).where(
+                models.BadReplicas.scope == temp_table.scope,
+                models.BadReplicas.name == temp_table.name
+            )
+        )
+        session.execute(stmt)
+
+    if collection_dids:
+        if data_in_temp_table is not collection_dids:
+            session.execute(delete(temp_table))
+            session.bulk_insert_mappings(temp_table, collection_dids.values())
+            data_in_temp_table = collection_dids
+
+        # Find files of datasets passed as input and put them in a separate temp table
+        resolved_files_temp_table = temp_table_mngr(session).create_scope_name_table()
+        stmt = insert(
+            resolved_files_temp_table,
+        ).from_select(
+            ['scope', 'name'],
+            select(
+                models.DataIdentifierAssociation.child_scope,
+                models.DataIdentifierAssociation.child_name,
+            ).join_from(
+                temp_table,
+                models.DataIdentifierAssociation,
+                and_(models.DataIdentifierAssociation.scope == temp_table.scope,
+                     models.DataIdentifierAssociation.name == temp_table.name)
+            ).where(
+                models.DataIdentifierAssociation.child_type == DIDType.FILE
+            )
+        )
+        session.execute(stmt)
+
+        # update bad files from datasets
+        stmt = bad_replica_stmt.where(
+            exists(
+                select([1])
+            ).where(
+                models.BadReplicas.scope == resolved_files_temp_table.scope,
+                models.BadReplicas.name == resolved_files_temp_table.name
+            )
+        )
+        session.execute(stmt)
+
+        # Set Epoch tombstone for the files replicas inside the did
+        if config_core.get('undertaker', 'purge_all_replicas', default=False, session=session):
+            with Timer('undertaker.file_content'):
+                stmt = update(
+                    models.RSEFileAssociation
+                ).where(
+                    exists(
+                        select([1])
+                    ).where(
+                        models.RSEFileAssociation.scope == resolved_files_temp_table.scope,
+                        models.RSEFileAssociation.name == resolved_files_temp_table.name
+                    )
+                ).where(
+                    models.RSEFileAssociation.lock_cnt == 0,
+                    models.RSEFileAssociation.tombstone != null()
+                ).execution_options(
+                    synchronize_session=False
+                ).values(
+                    tombstone=datetime(1970, 1, 1)
+                )
+                session.execute(stmt)
+
+        # Remove content
+        with Timer('undertaker.content'):
+            stmt = delete(
+                models.DataIdentifierAssociation
+            ).where(
+                exists(
+                    select([1])
+                ).where(
+                    models.DataIdentifierAssociation.scope == temp_table.scope,
+                    models.DataIdentifierAssociation.name == temp_table.name
+                )
+            ).execution_options(
+                synchronize_session=False
+            )
+            rowcount = session.execute(stmt).rowcount
+        record_counter(name='undertaker.content.rowcount', delta=rowcount)
+
+        # Remove CollectionReplica
+        with Timer('undertaker.collection_replicas'):
+            stmt = delete(
+                models.CollectionReplica
+            ).where(
+                exists(
+                    select([1])
+                ).where(
+                    models.CollectionReplica.scope == temp_table.scope,
+                    models.CollectionReplica.name == temp_table.name
+                )
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
+
+    # remove data identifier
+    if existing_parent_dids:
+        # Exit method early to give Judge time to remove locks (Otherwise, due to foreign keys, did removal does not work
+        logger(logging.DEBUG, 'Leaving delete_dids early for Judge-Evaluator checks')
+        return
+
+    if collection_dids:
+        if data_in_temp_table is not collection_dids:
+            session.execute(delete(temp_table))
+            session.bulk_insert_mappings(temp_table, collection_dids.values())
+            data_in_temp_table = collection_dids
+
+        with Timer('undertaker.dids_followed'):
+            stmt = delete(
+                models.DidsFollowed
+            ).where(
+                exists(
+                    select([1])
+                ).where(
+                    models.DidsFollowed.scope == temp_table.scope,
+                    models.DidsFollowed.name == temp_table.name
+                )
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
+
+        with Timer('undertaker.dids'):
+            dids_to_delete_filter = exists(
+                select([1])
+            ).where(
+                models.DataIdentifier.scope == temp_table.scope,
+                models.DataIdentifier.name == temp_table.name,
+                models.DataIdentifier.did_type.in_([DIDType.CONTAINER, DIDType.DATASET])
+            )
+
+            if archive_dids:
+                insert_deleted_dids(filter_=dids_to_delete_filter, session=session)
+
+            stmt = delete(
+                models.DataIdentifier
+            ).where(
+                dids_to_delete_filter,
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
+
+    if file_dids:
+        if data_in_temp_table is not file_dids:
+            session.execute(delete(temp_table))
+            session.bulk_insert_mappings(temp_table, file_dids.values())
+            data_in_temp_table = file_dids
+        stmt = update(
+            models.DataIdentifier
+        ).where(
+            exists(
+                select([1])
+            ).where(
+                models.DataIdentifier.scope == temp_table.scope,
+                models.DataIdentifier.name == temp_table.name
+            )
+        ).where(
+            models.DataIdentifier.did_type == DIDType.FILE
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            expired_at=None
+        )
+        session.execute(stmt)
+
+
+def _delete_dids_wo_temp_tables(
+        dids: "Sequence[Dict[str, Any]]",
+        account: "InternalAccount",
+        expire_rules: bool = False,
+        session: "Optional[Session]" = None,
+        logger: "LoggerFunction" = logging.log,
+):
     rule_id_clause, content_clause = [], []
     parent_content_clause, did_clause = [], []
     collection_replica_clause, file_clause = [], []
@@ -1191,6 +1551,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     metadata_to_delete = []
     file_content_clause = []
     bad_replicas_clause = []
+    dataset_clause = []
 
     archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
 
@@ -1206,6 +1567,8 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
             collection_replica_clause.append(and_(models.CollectionReplica.scope == did['scope'],
                                                   models.CollectionReplica.name == did['name']))
             did_followed_clause.append(and_(models.DidsFollowed.scope == did['scope'], models.DidsFollowed.name == did['name']))
+            if did['did_type'] == DIDType.DATASET:
+                dataset_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
 
         # ATLAS LOCALGROUPDISK Archive policy
         if did['did_type'] == DIDType.DATASET and did['scope'].external != 'archive':
@@ -1246,7 +1609,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     # Delete rules on did
     skip_deletion = False  # Skip deletion in case of expiration of a rule
     if rule_id_clause:
-        with record_timer_block('undertaker.rules'):
+        with Timer('undertaker.rules'):
             stmt = select(
                 models.ReplicationRule.id,
                 models.ReplicationRule.scope,
@@ -1281,7 +1644,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
     # Detach from parent dids:
     existing_parent_dids = False
     if parent_content_clause:
-        with record_timer_block('undertaker.parent_content'):
+        with Timer('undertaker.parent_content'):
             stmt = select(
                 models.DataIdentifierAssociation
             ).where(
@@ -1293,7 +1656,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
 
     # Set Epoch tombstone for the files replicas inside the did
     if config_core.get('undertaker', 'purge_all_replicas', default=False, session=session) and file_content_clause:
-        with record_timer_block('undertaker.file_content'):
+        with Timer('undertaker.file_content'):
             stmt = select(
                 models.DataIdentifierAssociation.child_scope,
                 models.DataIdentifierAssociation.child_name,
@@ -1321,21 +1684,47 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
                 )
                 session.execute(stmt)
 
-    # Get bad files from dataset content
-    if file_content_clause:
-        stmt = select(
-            models.DataIdentifierAssociation.child_scope,
-            models.DataIdentifierAssociation.child_name,
-        ).where(
-            or_(*file_content_clause)
-        )
-        bad_replicas_clause.extend([and_(models.BadReplicas.scope == child_scope,
-                                         models.BadReplicas.name == child_name)
-                                    for child_scope, child_name in session.execute(stmt)])
+    # Update bad_replicas if exist
+    if bad_replicas_clause:
+        for chunk in chunks(bad_replicas_clause, 50):
+            stmt = update(
+                models.BadReplicas
+            ).where(
+                or_(*chunk)
+            ).where(
+                models.BadReplicas.state == BadFilesStatus.BAD
+            ).values(
+                state=BadFilesStatus.DELETED,
+                updated_at=datetime.utcnow(),
+            )
+        session.execute(stmt)
+    if dataset_clause:
+        for dataset in dataset_clause:
+            sub_query = select(
+                [1]
+            ).where(
+                models.BadReplicas.scope == models.DataIdentifierAssociation.child_scope,
+                models.BadReplicas.name == models.DataIdentifierAssociation.child_name
+            ).where(
+                dataset
+            )
+            stmt = update(
+                models.BadReplicas
+            ).where(
+                exists(sub_query)
+            ).where(
+                models.BadReplicas.state == BadFilesStatus.BAD
+            ).values(
+                state=BadFilesStatus.DELETED,
+                updated_at=datetime.utcnow(),
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
 
     # Remove content
     if content_clause:
-        with record_timer_block('undertaker.content'):
+        with Timer('undertaker.content'):
             stmt = delete(
                 models.DataIdentifierAssociation
             ).where(
@@ -1348,7 +1737,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
 
     # Remove CollectionReplica
     if collection_replica_clause:
-        with record_timer_block('undertaker.dids'):
+        with Timer('undertaker.dids'):
             stmt = delete(
                 models.CollectionReplica
             ).where(
@@ -1370,25 +1759,11 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
         if session.bind.dialect.name == 'oracle':
             oracle_version = int(session.connection().connection.version.split('.')[0])
             if oracle_version >= 12:
-                with record_timer_block('undertaker.did_meta'):
+                with Timer('undertaker.did_meta'):
                     session.execute(stmt)
         else:
-            with record_timer_block('undertaker.did_meta'):
+            with Timer('undertaker.did_meta'):
                 session.execute(stmt)
-
-    # Update bad_replicas if exist
-    if bad_replicas_clause:
-        stmt = update(
-            models.BadReplicas
-        ).where(
-            or_(*bad_replicas_clause)
-        ).where(
-            models.BadReplicas.state == BadFilesStatus.BAD
-        ).values(
-            state=BadFilesStatus.DELETED,
-            updated_at=datetime.utcnow(),
-        )
-        session.execute(stmt)
 
     # remove data identifier
     if existing_parent_dids:
@@ -1397,7 +1772,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
         return
 
     if did_clause:
-        with record_timer_block('undertaker.dids'):
+        with Timer('undertaker.dids'):
             stmt = delete(
                 models.DataIdentifier
             ).where(
@@ -1413,7 +1788,7 @@ def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.
                 insert_deleted_dids(filter_=or_(*did_clause), session=session)
 
     if did_followed_clause:
-        with record_timer_block('undertaker.dids'):
+        with Timer('undertaker.dids'):
             stmt = delete(
                 models.DidsFollowed
             ).where(

@@ -155,7 +155,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 if replica['scope'].vo != 'def':
                     deletion_dict['vo'] = replica['scope'].vo
                 logger(logging.DEBUG, 'Deletion ATTEMPT of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
-                start = time.time()
+                timer = monitor.Timer()
                 # For STAGING RSEs, no physical deletion
                 if is_staging:
                     logger(logging.WARNING, 'Deletion STAGING of %s:%s as %s on %s, will only delete the catalog and not do physical deletion', replica['scope'], replica['name'], replica['pfn'], rse_name)
@@ -174,8 +174,9 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 else:
                     logger(logging.WARNING, 'Deletion UNAVAILABLE of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
 
-                monitor.record_timer('daemons.reaper.delete.{scheme}.{rse}', (time.time() - start) * 1000, labels={'scheme': prot.attributes['scheme'], 'rse': rse_name})
-                duration = time.time() - start
+                timer.stop()
+                timer.record('daemons.reaper.delete.{scheme}.{rse}', labels={'scheme': prot.attributes['scheme'], 'rse': rse_name})
+                duration = timer.elapsed
 
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
@@ -184,7 +185,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %.2f seconds', replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
 
             except SourceNotFound:
-                duration = time.time() - start
+                duration = timer.elapsed
                 err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s in %.2f seconds' % (replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
                 logger(logging.WARNING, '%s', err_msg)
                 deletion_dict['reason'] = 'File Not Found'
@@ -193,7 +194,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
             except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
-                duration = time.time() - start
+                duration = timer.elapsed
                 logger(logging.WARNING, 'Deletion NOACCESS of %s:%s as %s on %s: %s in %.2f', replica['scope'], replica['name'], replica['pfn'], rse_name, str(error), duration)
                 deletion_dict['reason'] = str(error)
                 deletion_dict['duration'] = duration
@@ -206,7 +207,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                     break
 
             except Exception as error:
-                duration = time.time() - start
+                duration = timer.elapsed
                 logger(logging.CRITICAL, 'Deletion CRITICAL of %s:%s as %s on %s in %.2f seconds : %s', replica['scope'], replica['name'], replica['pfn'], rse_name, duration, str(traceback.format_exc()))
                 deletion_dict['reason'] = str(error)
                 deletion_dict['duration'] = duration
@@ -574,7 +575,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
         del_start_time = time.time()
         try:
             use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
-            with monitor.record_timer_block('reaper.list_unlocked_replicas'):
+            with monitor.Timer('reaper.list_unlocked_replicas'):
                 if only_delete_obsolete:
                     logger(logging.DEBUG, 'Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', rse.name)
                 if use_temp_tables:
@@ -638,7 +639,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
 
                 # Then finally delete the replicas
                 del_start = time.time()
-                with monitor.record_timer_block('reaper.delete_replicas'):
+                with monitor.Timer('reaper.delete_replicas'):
                     delete_replicas(rse_id=rse.id, files=deleted_files)
                 logger(logging.DEBUG, 'delete_replicas successed on %s : %s replicas in %s seconds', rse.name, len(deleted_files), time.time() - del_start)
                 DELETION_COUNTER.inc(len(deleted_files))

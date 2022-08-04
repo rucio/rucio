@@ -17,7 +17,6 @@ import json
 import random
 import subprocess
 import logging
-import time
 import traceback
 from datetime import datetime, timedelta
 from math import floor
@@ -43,11 +42,12 @@ from rucio.common.utils import all_oidc_req_claims_present, build_url, val_to_sp
 from rucio.common import types
 from rucio.core.account import account_exists
 from rucio.core.identity import exist_identity_account, get_default_account
-from rucio.core.monitor import record_counter, record_timer
+from rucio.core.monitor import record_counter, Timer
 from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
+
 
 # worokaround for a bug in pyoidc (as of Dec 2019)
 REQUEST2ENDPOINT['CCAccessTokenRequest'] = 'token_endpoint'
@@ -298,7 +298,7 @@ def get_auth_oidc(account: str, session=None, **kwargs) -> str:
             return None
 
     try:
-        start = time.time()
+        timer = Timer()
         # redirect_url needs to be specified & one of those defined
         # in the Rucio OIDC Client configuration
         redirect_to = "auth/oidc_code"
@@ -346,7 +346,7 @@ def get_auth_oidc(account: str, session=None, **kwargs) -> str:
             auth_url = build_url('https://' + auth_server.netloc, path='{}auth/oidc_redirect'.format(
                 auth_server.path.split('auth/')[0].lstrip('/')), params=access_msg)
 
-        record_timer(name='IdP_authentication.request', time=time.time() - start)
+        timer.record('IdP_authentication.request')
         return auth_url
 
     except Exception as error:
@@ -369,7 +369,7 @@ def get_token_oidc(auth_query_string: str, ip: str = None, session=None):
               (no auto, auto, polling).
     """
     try:
-        start = time.time()
+        timer = Timer()
         parsed_authquery = parse_qs(auth_query_string)
         state = parsed_authquery["state"][0]
         code = parsed_authquery["code"][0]
@@ -476,7 +476,7 @@ def get_token_oidc(auth_query_string: str, ip: str = None, session=None):
                            .update({models.OAuthRequest.access_msg: oauth_req_params.access_msg,
                                     models.OAuthRequest.redirect_msg: new_token['token']})
                 session.commit()
-            record_timer(name='IdP_authorization', time=time.time() - start)
+            timer.record('IdP_authorization')
             if '_polling' in oauth_req_params.access_msg:
                 return {'polling': True}
             elif 'http' in oauth_req_params.access_msg:
@@ -484,7 +484,7 @@ def get_token_oidc(auth_query_string: str, ip: str = None, session=None):
             else:
                 return {'fetchcode': fetchcode}
         else:
-            record_timer(name='IdP_authorization', time=time.time() - start)
+            timer.record('IdP_authorization')
             return {'token': new_token}
 
     except Exception:
@@ -764,7 +764,7 @@ def __exchange_token_oidc(subject_token_object: models.Token, session=None, **kw
     if not grant_type:
         grant_type = EXCHANGE_GRANT_TYPE
     try:
-        start = time.time()
+        timer = Timer()
 
         record_counter(name='IdP_authentication.code_granted')
         oidc_dict = __get_init_oidc_client(token_object=subject_token_object, token_type="subject_token")
@@ -808,7 +808,7 @@ def __exchange_token_oidc(subject_token_object: models.Token, session=None, **kw
         record_counter(name='IdP_authorization.access_token.saved')
         if 'refresh_token' in oidc_tokens:
             record_counter(name='IdP_authorization.refresh_token.saved')
-        record_timer(name='IdP_authorization.token_exchange', time=time.time() - start)
+        timer.record('IdP_authorization.token_exchange')
         return new_token
 
     except Exception:
@@ -968,7 +968,7 @@ def __refresh_token_oidc(token_object: models.Token, session=None):
         constraints. Otherwise, throws an an Exception.
     """
     try:
-        start = time.time()
+        timer = Timer()
         record_counter(name='IdP_authorization.refresh_token.request')
         jwt_row_dict, extra_dict = {}, {}
         jwt_row_dict['account'] = token_object.account
@@ -1025,7 +1025,7 @@ def __refresh_token_oidc(token_object: models.Token, session=None):
         else:
             raise CannotAuthorize("OIDC identity '%s' of the '%s' account is did not " % (token_object.identity, token_object.account)
                                   + "succeed requesting a new access and refresh tokens.")  # NOQA: W503
-        record_timer(name='IdP_authorization.refresh_token', time=time.time() - start)
+        timer.record('IdP_authorization.refresh_token')
         return new_token
 
     except Exception as error:

@@ -36,7 +36,7 @@ from rucio.common.stomp_utils import get_stomp_brokers
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.did import touch_dids, list_parent_dids
 from rucio.core.lock import touch_dataset_locks
-from rucio.core.monitor import record_counter, record_timer
+from rucio.core.monitor import record_counter, Timer
 from rucio.core.replica import touch_replica, touch_collection_replicas, declare_bad_file_replicas
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType, BadFilesStatus
@@ -269,7 +269,7 @@ class AMQConsumer(object):
         self.__logger(logging.DEBUG, "trying to update replicas: %s", replicas)
 
         try:
-            start_time = time()
+            timer = Timer()
             for replica in replicas:
                 # if touch replica hits a locked row put the trace back into queue for later retry
                 if not touch_replica(replica):
@@ -285,7 +285,7 @@ class AMQConsumer(object):
                         resubmit['vo'] = replica['scope'].vo
                     self.__conn.send(body=jdumps(resubmit), destination=self.__queue, headers={'appversion': 'rucio', 'resubmitted': '1'})
                     record_counter('daemons.tracer.kronos.sent_resubmitted')
-            record_timer('daemons.tracer.kronos.update_atime', (time() - start_time) * 1000)
+            timer.record('daemons.tracer.kronos.update_atime')
         except Exception:
             self.__logger(logging.ERROR, "Cannot update replicas.", exc_info=True)
             record_counter('daemons.tracer.kronos.update_error')

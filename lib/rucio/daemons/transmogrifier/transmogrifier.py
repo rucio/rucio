@@ -249,7 +249,6 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
 
     worker_number, total_workers, logger = heartbeat_handler.live()
     dids, subscriptions = [], []
-    tottime = 0
     try:
         #  Get the new DIDs based on the is_new flag
         logger(logging.DEBUG, "Listing new dids")
@@ -310,7 +309,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
         return must_sleep
 
     results = {}
-    start_time = time.time()
+    timer = monitor.Timer()
     blocklisted_rse_id = [rse["id"] for rse in list_rses({"availability_write": False})]
     identifiers = []
     #  Loop over all the new dids
@@ -667,24 +666,24 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                 }
             )
 
-    time1 = time.time()
-
     #  Mark the DIDs as processed
+    flag_timer = monitor.Timer()
     for identifier in chunks(identifiers, 100):
         _retrial(set_new_dids, identifier, None)
+    logger(logging.DEBUG, "Time to set the new flag : %f" % flag_timer.elapsed)
 
-    logger(logging.DEBUG, "Time to set the new flag : %f" % (time.time() - time1))
-    tottime = time.time() - start_time
+    timer.stop()
+
     for sub in subscriptions:
         update_subscription(
             name=sub["name"],
             account=sub["account"],
             metadata={"last_processed": datetime.now()},
         )
-    logger(logging.INFO, "It took %f seconds to process %i DIDs" % (tottime, len(dids)))
+    logger(logging.INFO, "It took %f seconds to process %i DIDs" % (timer.elapsed, len(dids)))
     logger(logging.DEBUG, "DIDs processed : %s" % (str(dids)))
     monitor.record_counter(name="transmogrifier.job.done", delta=1)
-    monitor.record_timer(name="transmogrifier.job.duration", time=1000 * tottime)
+    timer.record("transmogrifier.job.duration")
     must_sleep = True
     return must_sleep
 

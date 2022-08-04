@@ -38,7 +38,7 @@ class GlobusRSEProtocol(RSEProtocol):
             :param props: Properties of the requested protocol
         """
         super(GlobusRSEProtocol, self).__init__(protocol_attr, rse_settings, logger=logger)
-        self.globus_endpoint_id = get_rse_attribute(key='globus_endpoint_id', rse_id=self.rse.get('id'))
+        self.globus_endpoint_id = get_rse_attribute(self.rse.get('id'), 'globus_endpoint_id')
         self.logger = logger
 
     def lfns2pfns(self, lfns):
@@ -151,7 +151,7 @@ class GlobusRSEProtocol(RSEProtocol):
 
         if self.globus_endpoint_id:
             try:
-                resp = transfer_client.operation_ls(endpoint_id=self.globus_endpoint_id[0], path=filepath)
+                resp = transfer_client.operation_ls(endpoint_id=self.globus_endpoint_id, path=filepath)
                 exists = len([r for r in resp if r['name'] == filename]) > 0
             except TransferAPIError as err:
                 print(err)
@@ -176,7 +176,7 @@ class GlobusRSEProtocol(RSEProtocol):
 
         if self.globus_endpoint_id:
             try:
-                resp = transfer_client.operation_ls(endpoint_id=self.globus_endpoint_id[0], path=path)
+                resp = transfer_client.operation_ls(endpoint_id=self.globus_endpoint_id, path=path)
                 items = resp['DATA']
             except TransferAPIError as err:
                 print(err)
@@ -196,7 +196,7 @@ class GlobusRSEProtocol(RSEProtocol):
         """
         if self.globus_endpoint_id:
             try:
-                delete_response = send_delete_task(endpoint_id=self.globus_endpoint_id[0], path=path, logger=self.logger)
+                delete_response = send_delete_task(endpoint_id=self.globus_endpoint_id, path=path, logger=self.logger)
             except TransferAPIError as err:
                 print(err)
         else:
@@ -216,7 +216,7 @@ class GlobusRSEProtocol(RSEProtocol):
         """
         if self.globus_endpoint_id:
             try:
-                bulk_delete_response = send_bulk_delete_task(endpoint_id=self.globus_endpoint_id[0], pfns=pfns, logger=self.logger)
+                bulk_delete_response = send_bulk_delete_task(endpoint_id=self.globus_endpoint_id, pfns=pfns, logger=self.logger)
             except TransferAPIError as err:
                 self.logger(logging.WARNING, str(err))
         else:

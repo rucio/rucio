@@ -21,10 +21,10 @@ import atexit
 import logging
 import os
 import string
-import time
 from abc import abstractmethod
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Dict, Iterable, Optional
 from retrying import retry
 from threading import Lock
 
@@ -32,6 +32,7 @@ from prometheus_client import start_http_server, Counter, Gauge, Histogram, REGI
 from statsd import StatsClient
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.stopwatch import Stopwatch
 
 PROMETHEUS_MULTIPROC_DIR = os.environ.get('PROMETHEUS_MULTIPROC_DIR', os.environ.get('prometheus_multiproc_dir', None))
 
@@ -85,6 +86,9 @@ if ENABLE_METRICS:
 COUNTERS = {}
 GAUGES = {}
 TIMINGS = {}
+
+
+_HISTOGRAM_DEFAULT_BUCKETS = Histogram.DEFAULT_BUCKETS
 
 
 def _cleanup_old_prometheus_files(path, file_pattern, cleanup_delay, logger):
@@ -191,12 +195,19 @@ class MultiGauge(MultiMetric):
 
 class MultiTiming(MultiMetric):
 
-    def observe(self, value):
+    def __init__(self,
+                 statsd, prom=None, documentation=None, labelnames=(), registry=None,
+                 buckets: Iterable[float] = _HISTOGRAM_DEFAULT_BUCKETS,
+                 ) -> None:
+        self._histogram_buckets = tuple(buckets)
+        super().__init__(statsd, prom, documentation, labelnames, registry)
+
+    def observe(self, value: float):
         self._prom.observe(value)
-        CLIENT.timing(self._statsd, value)
+        CLIENT.timing(self._statsd, value * 1000)
 
     def init_prometheus_metric(self, name, documentation, labelnames=()):
-        return Histogram(name, documentation, labelnames=labelnames, registry=self._registry)
+        return Histogram(name, documentation, labelnames=labelnames, registry=self._registry, buckets=self._histogram_buckets)
 
 
 def record_counter(name, delta=1, labels=None):
@@ -222,7 +233,7 @@ def record_counter(name, delta=1, labels=None):
 
 def record_gauge(name, value, labels=None):
     """
-     Log gauge information for a single stat
+    Log gauge information for a single stat
 
     :param name: The name of the stat to be updated.
     :param value: The value to log.
@@ -238,58 +249,120 @@ def record_gauge(name, value, labels=None):
         gauge.set(value)
 
 
-def record_timer(name, time, labels=None):
+def record_timer(name: str,
+                 time: float,
+                 *,
+                 labels: Optional[Dict] = None,
+                 buckets: Iterable[float] = _HISTOGRAM_DEFAULT_BUCKETS
+                 ) -> None:
     """
-     Log timing information for a single stat (in miliseconds)
+    Log a time measurement.
 
     :param name: The name of the stat to be updated.
-    :param time: The time to log.
+    :param time: The time (in seconds) to log.
     :param labels: labels used to parametrize the metric
+    :param buckets: Optional iterable of histogram bucket separators.
     """
-    timing = TIMINGS.get(name)
-    if not timing:
-        TIMINGS[name] = timing = MultiTiming(statsd=name, labelnames=labels.keys() if labels else ())
+    if name not in TIMINGS:
+        TIMINGS[name] = MultiTiming(statsd=name, labelnames=labels.keys() if labels else (), buckets=buckets)
+
+    histogram = TIMINGS[name]
 
     if labels:
-        timing.labels(**labels).observe(time)
+        histogram.labels(**labels).observe(time)
     else:
-        timing.observe(time)
+        histogram.observe(time)
 
 
-class record_timer_block(object):
+class Timer:
     """
-    A context manager for timing a block of code.
+    Class for timing code execution and recording statistics to Prometheus/statsd.
+    Can be used both inline and as a context manager.
 
-    :param stats: The name of the stat or list of stats that should be updated.
-        Each stat can be a simple string or a tuple (string, divisor)
+    Inline usage:
+    ```
+    timer = Timer('test.inline_timer', divisor=3, buckets=[1, 5, 10, 100])
+    stuff1()
+    timer.record('test.inline_timer.stuff1')
+    stuff2()
+    timer.record() # records to the key 'test.inline_timer'
+    ```
 
-    Usage:
-        with monitor.record_timer_block('test.context_timer'):
-            stuff1()
-            stuff2()
-
-       with monitor.record_timer_block(['test.context_timer', ('test.context_timer_normalised', 10)]):
-            stuff1()
-            stuff2()
+    As a context manager:
+    ```
+    with Timer('test.context_timer'), \\
+            Timer('test.context_timer_normalized', divisor=10):
+        stuff1()
+        stuff2()
+        # records to both 'test.context_timer' and 'test.context_timer_normalized' on exit
+    ```
     """
 
-    def __init__(self, stats, labels=None):
-        if not isinstance(stats, list):
-            stats = [stats]
-        self.stats = stats
-        self.labels = labels
+    def __init__(self,
+                 name: Optional[str] = None,
+                 *,
+                 divisor: float = 1,
+                 labels: Optional[Dict] = None,
+                 buckets: Iterable[float] = _HISTOGRAM_DEFAULT_BUCKETS
+                 ) -> None:
+        if divisor == 0:
+            raise ValueError('Divisor cannot be zero.')
+        self._name = name
+        self._divisor = divisor
+        self._labels = labels
+        self._buckets = tuple(buckets)
+        self._stopwatch = Stopwatch()
+
+    @property
+    def elapsed(self) -> float:
+        """Returns the total number of elapsed seconds."""
+        return self._stopwatch.elapsed
+
+    def restart(self) -> None:
+        """Restarts the timer."""
+        self._stopwatch.restart()
+
+    def stop(self) -> None:
+        """Stops the timer (without recording statistics)."""
+        self._stopwatch.stop()
+
+    def record(self,
+               name: Optional[str] = None,
+               *,
+               divisor: Optional[float] = None,
+               labels: Optional[Dict] = None,
+               buckets: Optional[Iterable[float]] = None,
+               ) -> None:
+        """Records the currently elapsed time and lets the clock continue running.
+
+        :param name: Name of recorded metric.
+        :param divisor: Optional divisor to scale the elapsed time by.
+        :param labels: Optional dictionary of additional information.
+        :param buckets: Optional iterable of histogram bucket separators.
+        """
+        if divisor == 0:
+            raise ValueError('Divisor cannot be zero.')
+
+        name = self._name if name is None else name
+        if name is None:
+            raise ValueError("Missing argument 'name'.")
+
+        divisor = self._divisor if divisor is None else divisor
+        if divisor is None:
+            raise ValueError("Missing argument 'divisor'.")
+
+        scaled_time = self._stopwatch.elapsed / divisor
+        record_timer(name=name,
+                     time=scaled_time,
+                     labels=self._labels if labels is None else labels,
+                     buckets=self._buckets if buckets is None else buckets)
 
     def __enter__(self):
-        self.start = time.time()
+        """Starts the internal timer (or restarts it if it's already running)."""
+        self._stopwatch.restart()
         return self
 
     def __exit__(self, typ, value, tb):
-        dt = time.time() - self.start
-        ms = int(round(1000 * dt))  # Convert to ms.
-        for s in self.stats:
-            if isinstance(s, str):
-                record_timer(s, ms, labels=self.labels)
-            elif isinstance(s, tuple):
-                if s[1] != 0:
-                    ms = ms / s[1]
-                    record_timer(s[0], ms, labels=self.labels)
+        """Stops the internal timer and records elapsed time."""
+        self._stopwatch.stop()
+        self.record()
