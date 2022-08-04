@@ -398,10 +398,10 @@ def failed_transfer(scope, name, rse_id, error_message=None, broken_rule_id=None
     :param session:         The database session in use.
     """
 
-    staging_required = next(iter(get_rse_attribute('staging_required', rse_id=rse_id, session=session)), False)
+    staging_required = get_rse_attribute(rse_id, 'staging_required', session=session)
     if staging_required:
         rse_name = get_rse_name(rse_id=rse_id, session=session)
-        logger(logging.INFO, f'Destination RSE {rse_name} is type staging_required so do not update other OK replica locks.')
+        logger(logging.DEBUG, f'Destination RSE {rse_name} is type staging_required so do not update other OK replica locks.')
         locks = session.query(models.ReplicaLock).with_for_update(nowait=nowait).filter_by(scope=scope, name=name, rse_id=rse_id, state=LockState.REPLICATING)
     else:
         locks = session.query(models.ReplicaLock).with_for_update(nowait=nowait).filter_by(scope=scope, name=name, rse_id=rse_id)

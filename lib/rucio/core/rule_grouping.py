@@ -825,10 +825,10 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
     :attention:                  This method modifies the contents of the locks, locks_to_create, replicas_to_create and replicas input parameters.
     """
 
+    rule_lifetime = rule.expires_at - datetime.utcnow()
+    rule_lifetime = rule_lifetime.seconds + rule_lifetime.days * 24 * 3600
     # If it is a Staging Area, the pin has to be extended
     if staging_area:
-        lifetime = rule.expires_at - datetime.utcnow()
-        lifetime = lifetime.seconds + lifetime.days * 24 * 3600
         transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
                                                         request_type=RequestType.STAGEIN,
                                                         scope=file['scope'],
@@ -839,16 +839,18 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                         adler32=file['adler32'],
                                                         ds_scope=dataset['scope'],
                                                         ds_name=dataset['name'],
-                                                        lifetime=lifetime,
+                                                        lifetime=rule_lifetime,
                                                         session=session))
 
     # If staging_required type RSE then set pin to RSE attribute maximum_pin_lifetime
-    staging_required = next(iter(get_rse_attribute('staging_required', rse_id=rse_id, session=session)), False)
-    maximum_pin_lifetime = next(iter(get_rse_attribute('maximum_pin_lifetime', rse_id=rse_id, session=session)), None)
+    staging_required = get_rse_attribute(rse_id, 'staging_required', session=session)
+    maximum_pin_lifetime = get_rse_attribute(rse_id, 'maximum_pin_lifetime', session=session)
+    if rule_lifetime < maximum_pin_lifetime:  # use what was passed with the rule for staging_required RSEs
+        maximum_pin_lifetime = rule_lifetime
 
     if staging_required:
         rse_name = get_rse_name(rse_id=rse_id, session=session)
-        logger(logging.INFO, f'Destination RSE {rse_name} is type staging_required and if replica exists create STAGEIN request.')
+        logger(logging.DEBUG, f'Destination RSE {rse_name} is type staging_required and if replica exists create STAGEIN request.')
 
     existing_replicas = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == rse_id]
 

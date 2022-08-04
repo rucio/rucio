@@ -763,7 +763,8 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_transfer_to_mas_new_replica(rse_factory, did_factory, root_account):
     """
-    Test qos: transfer from tape to disk
+    Test qos: transfer from disk to tape
+    Test a QoS transfer from some RSE in the world to MAS
     Assert rse maximum_pin_lifetime is passed to transfer tool in the transfer request
     Test rule and lock state transitions
     """
@@ -807,7 +808,7 @@ def test_transfer_to_mas_new_replica(rse_factory, did_factory, root_account):
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_failed_transfer_to_mas_new_replica(rse_factory, did_factory, root_account):
     """
-    Test a qos failed transfer from tape to disk
+    Test a qos failed transfer from disk to tape
     Assert rse maximum_pin_lifetime is passed to transfer tool in the transfer request
     Test rule and lock state transitions
     """
@@ -843,6 +844,7 @@ def test_failed_transfer_to_mas_new_replica(rse_factory, did_factory, root_accou
 
     assert rule_core.get_rule(rule_id)['state'] == RuleState.STUCK
     assert lock_core.get_replica_locks_for_rule_id(rule_id=rule_id)[0]['state'] == LockState.STUCK
+    assert replica_core.get_replica(rse_id=dst_rse_id, **did)['state'] == ReplicaState.UNAVAILABLE
 
 
 @skip_rse_tests_with_accounts
@@ -894,7 +896,7 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
 
     assert request['request_type'] == RequestType.STAGEIN
 
-    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
+    stager(once=True, rses=[{'id': dst_rse_id}])
 
     assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
     assert lock_core.get_replica_locks_for_rule_id(rule_id=rule2_id)[0]['state'] == LockState.REPLICATING
