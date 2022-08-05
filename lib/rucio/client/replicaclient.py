@@ -61,7 +61,7 @@ class ReplicaClient(BaseClient):
         """
         Declare a list of bad replicas.
 
-        :param replicas: Either a list of PFNs (string) or a list of dicts {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or 'rse': <rse_name>}
+        :param replicas: Either a list of PFNs (string) or a list of replica dicts {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or 'rse': <rse_name>}.
         :param reason: The reason of the loss.
         """
         data = {'reason': reason, 'replicas': replicas}
@@ -94,7 +94,7 @@ class ReplicaClient(BaseClient):
         """
         Declare a list of bad replicas.
 
-        :param pfns: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id>}.
+        :param pfns: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse': <rse name>}.
         :param reason: The reason of the loss.
         """
         data = {'reason': reason, 'pfns': pfns}
@@ -112,7 +112,7 @@ class ReplicaClient(BaseClient):
 
         :param pfns: The list of PFNs.
         :param rse: The RSE name.
-        :returns: A list of dictionaries {pfn: {'scope': scope, 'name': name}}
+        :returns: An iterable of dictionaries {pfn: {'scope': scope, 'name': name}}
         """
         data = {'rse': rse, 'pfns': pfns}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'dids']))
@@ -224,6 +224,8 @@ class ReplicaClient(BaseClient):
         :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
         :param younger_than: Datetime object to select the replicas which were declared since younger_than date. Default value = 10 days ago.
         :param nattempts: The minimum number of replica appearances in the bad_replica DB table from younger_than date. Default value = 0.
+
+        :returns: An iterable of replicas.
         """
         params = {}
         if rse_expression:
@@ -347,7 +349,7 @@ class ReplicaClient(BaseClient):
         :param name: The name of the dataset.
         :param deep: Lookup at the file level.
 
-        :returns: A list of dict dataset replicas.
+        :returns: An iterable of dataset replicas.
 
         """
         payload = {}
@@ -369,7 +371,7 @@ class ReplicaClient(BaseClient):
 
         :param dids: The list of DIDs of the datasets.
 
-        :returns: A list of dict dataset replicas.
+        :returns: An iterable of dataset replicas.
         """
         payload = {'dids': list(dids)}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'datasets_bulk']))
@@ -390,7 +392,7 @@ class ReplicaClient(BaseClient):
         :param name: The name of the dataset.
         :param deep: Lookup at the file level.
 
-        :returns: If VP exists a list of dicts of sites
+        :returns: If VP exists, an iterable of dicts of sites
         """
         payload = {}
         if deep:
@@ -410,11 +412,11 @@ class ReplicaClient(BaseClient):
         List datasets at a RSE.
 
         :param rse: the rse name.
-        :param filters: dictionary of attributes by which the results should be filtered.
-        :param limit: limit number.
 
-        :returns: A list of dict dataset replicas.
+        :param filters: (unused) dictionary of attributes by which the results should be filtered.
+        :param limit: (unused) limit number.
 
+        :returns: An iterable of dataset replicas.
         """
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'rse', rse]))
         r = self._send_request(url, type_='GET')
