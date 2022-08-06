@@ -106,6 +106,7 @@ class ReplicaClient(BaseClient):
 
         :param dids: The list of data identifiers (DIDs) like :
             [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
+            each dictionary may also contain "type":"FILE" to speed up the query on the server side
         :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
         :param ignore_availability: Also include replicas from blocked RSEs into the list
         :param metalink: ``False`` (default) retrieves as JSON,

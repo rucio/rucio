@@ -623,7 +623,8 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
     """
     Resolve list of DIDs into a list of conditions.
 
-    :param dids: The list of data identifiers (DIDs).
+    :param dids: The list of discionaries [{"scope":..., "name":...}, ...]
+        optionally, the dictionary may contain "type":"FILE" to speed-up the DID resolution on the server side
     :param unavailable: (deprecated) Also include unavailable replicas in the list.
     :param ignore_availability: Ignore the RSE blocklisting.
     :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
@@ -635,7 +636,13 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
     # If any replicas for these dids will be found latter, the associated did will be removed from the list,
     # leaving, at the end, only the requested dids which didn't have any replicas at all.
     files_wo_replica = []
-    for did in [dict(tupleized) for tupleized in set(tuple(item.items()) for item in dids)]:
+
+    #
+    # remove duplicates from the dids list. make sure to sort each dict items() because the order of items() is not guaranteed
+    #
+    dids = {tuple(sorted(item.items())): item for item in dids}.values()
+
+    for did in dids:
         if 'type' in did and did['type'] in (DIDType.FILE, DIDType.FILE.value) or 'did_type' in did and did['did_type'] in (DIDType.FILE, DIDType.FILE.value):  # pylint: disable=no-member
             files_wo_replica.append({'scope': did['scope'], 'name': did['name']})
             file_clause.append(and_(models.RSEFileAssociation.scope == did['scope'],
@@ -764,10 +771,10 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, ignore
     if not ignore_availability:
         replica_query = replica_query.filter(models.RSE.availability.in_((4, 5, 6, 7)))
 
-    if state_clause is not None:
+    if state_clause:
         replica_query = replica_query.filter(and_(state_clause))
 
-    if rse_clause is not None:
+    if rse_clause:
         replica_query = replica_query.filter(or_(*rse_clause))
 
     if updated_after:
@@ -813,10 +820,10 @@ def _list_replicas_for_constituents(constituent_clause, state_clause, files_wo_r
     if not ignore_availability:
         constituent_query = constituent_query.filter(models.RSE.availability.in_((4, 5, 6, 7)))
 
-    if state_clause is not None:
+    if state_clause:
         constituent_query = constituent_query.filter(and_(state_clause))
 
-    if rse_clause is not None:
+    if rse_clause:
         constituent_query = constituent_query.filter(or_(*rse_clause))
 
     if updated_after:
@@ -972,7 +979,7 @@ def _sort_replica_file_pfns(file):
 def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                    schemes, files_wo_replica, rse_clause, client_location, domain,
                    sign_urls, signature_lifetime, constituent_clause, resolve_parents,
-                   updated_after, filters, ignore_availability,
+                   updated_after, filters, ignore_availability, by_rse_name,
                    session):
 
     # iterator which merges multiple sorted replica sources into a combine sorted result without loading everything into the memory
@@ -1173,8 +1180,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
             file['pfns'], file['rses'], file['states'] = {}, defaultdict(list), {}
 
         if rse_id:
-            file['rses'][rse_id] += list(set([tmp_pfn[0] for tmp_pfn in pfns]))
-            file['states'][rse_id] = str(state.name if state else state)
+            rse_k = rse if by_rse_name else rse_id
+            file['rses'][rse_k] += list(set([tmp_pfn[0] for tmp_pfn in pfns]))
+            file['states'][rse_k] = str(state.name if state else state)
 
             for tmp_pfn in pfns:
                 file['pfns'][tmp_pfn[0]] = {'rse_id': rse_id,
@@ -1212,7 +1220,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   rse_expression=None, client_location=None, domain=None,
                   sign_urls=False, signature_lifetime=None, resolve_archives=True,
                   resolve_parents=False, nrandom=None,
-                  updated_after=None,
+                  updated_after=None, by_rse_name=False,
                   session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
@@ -1231,6 +1239,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param resolve_archives: When set to true, find archives which contain the replicas.
     :param resolve_parents: When set to true, find all parent datasets which contain the replicas.
     :param updated_after: datetime (UTC time), only return replicas updated after this time
+    :param by_rse_name: boolean. If true, the "rses" and "states" subdictionaries will be indexed by RSE name, otherwise - RSE id.
     :param session: The database session in use.
     """
     if dids:
@@ -1257,7 +1266,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
         _list_replicas(dataset_clause, file_clause, state_clause, pfns,
                        schemes, files_wo_replica, rse_clause, client_location, domain,
                        sign_urls, signature_lifetime, constituent_clause, resolve_parents,
-                       updated_after, filter_, ignore_availability,
+                       updated_after, filter_, ignore_availability, by_rse_name,
                        session)
     )
 

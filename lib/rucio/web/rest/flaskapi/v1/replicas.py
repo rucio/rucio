@@ -520,6 +520,9 @@ class ListReplicas(ErrorHandlingMethodView):
                         name:
                           description: The name of the did.
                           type: string
+                        type:
+                          description: DID type. If it is "FILE", the query can be optimized. Other values are ignored for now.
+                          type: string
                   schemes:
                     description: A list of schemes to filter the replicas.
                     type: array
