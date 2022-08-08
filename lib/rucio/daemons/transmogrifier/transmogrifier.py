@@ -664,7 +664,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
         update_subscription(
             name=sub["name"],
             account=sub["account"],
-            metadata={"last_processed": datetime.now()},
+            metadata={"last_processed": datetime.utcnow()},
         )
     logger(
         logging.INFO,

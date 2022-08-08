@@ -142,7 +142,7 @@ class TestReplicaRecoverer(unittest.TestCase):
                 assert (self.rse4recovery_id in replica['states']) is False
 
         # Checking if self.tmp_file2 and self.tmp_file6 were declared as 'BAD'
-        self.from_date = datetime.now() - timedelta(days=1)
+        self.from_date = datetime.utcnow() - timedelta(days=1)
         bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4suspicious_id, younger_than=self.from_date, **self.vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
 

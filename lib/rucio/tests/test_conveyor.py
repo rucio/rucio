@@ -750,7 +750,7 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
                                            'request_type': RequestType.STAGEIN,
                                            'retry_count': 0,
                                            'account': root_account,
-                                           'requested_at': datetime.now()}])
+                                           'requested_at': datetime.utcnow()}])
     stager(once=True, rses=[{'id': rse_id} for rse_id in all_rses])
 
     replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=2 * MAX_POLL_WAIT_SECONDS, **did)

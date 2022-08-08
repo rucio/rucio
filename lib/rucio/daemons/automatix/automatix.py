@@ -172,7 +172,7 @@ def generate_didname(metadata, dsn, did_type):
     file_name = ''
     for field in fields:
         if field == 'date':
-            field_str = str(datetime.now().date())
+            field_str = str(datetime.utcnow().date())
         elif field == 'did_prefix':
             field_str = did_prefix
         elif field == 'dsn':

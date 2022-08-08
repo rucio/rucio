@@ -56,7 +56,7 @@ class TestReplicaFromHDFS(unittest.TestCase):
         mock_hdfs_get.return_value = FakeHDFSGet(files)
         merged_file_path = hdfs.ReplicaFromHDFS.download(
             'FAKE_RSE',
-            datetime.now(),
+            datetime.utcnow(),
             cache_dir=self.work_dir,
         )
 
@@ -73,7 +73,7 @@ class TestReplicaFromHDFS(unittest.TestCase):
         mock_hdfs_get.return_value = FakeHDFSGet(files)
         merged_file_path = hdfs.ReplicaFromHDFS.download(
             'FAKE_RSE',
-            datetime.now(),
+            datetime.utcnow(),
             cache_dir=self.work_dir,
             buffer_size=2,
         )

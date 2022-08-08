@@ -79,7 +79,7 @@ def test_queue_requests_state(vo, use_preparer):
         'scope': scope,
         'rule_id': generate_uuid(),
         'retry_count': 1,
-        'requested_at': datetime.now().replace(year=2015),
+        'requested_at': datetime.utcnow().replace(year=2015),
         'attributes': {
             'activity': user_activity,
             'bytes': 10,
@@ -95,7 +95,7 @@ def test_queue_requests_state(vo, use_preparer):
         'scope': scope,
         'rule_id': generate_uuid(),
         'retry_count': 1,
-        'requested_at': datetime.now().replace(year=2015),
+        'requested_at': datetime.utcnow().replace(year=2015),
         'attributes': {
             'activity': 'unknown',
             'bytes': 10,
@@ -111,7 +111,7 @@ def test_queue_requests_state(vo, use_preparer):
         'scope': scope,
         'rule_id': generate_uuid(),
         'retry_count': 1,
-        'requested_at': datetime.now().replace(year=2015),
+        'requested_at': datetime.utcnow().replace(year=2015),
         'attributes': {
             'activity': user_activity,
             'bytes': 10,

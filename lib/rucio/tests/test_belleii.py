@@ -65,7 +65,7 @@ def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac
         rules = [rule for rule in did_client.list_did_rules(scope, name)]
         assert len(rules) == 1
         assert rules[0]['rse_expression'] == rse1
-        assert datetime.now() - rules[0]['expires_at'] < timedelta(hours=24)
+        assert datetime.utcnow() - rules[0]['expires_at'] < timedelta(hours=24)
 
 
 @skip_non_belleii

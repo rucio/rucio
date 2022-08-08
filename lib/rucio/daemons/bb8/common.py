@@ -303,7 +303,7 @@ def list_rebalance_rule_candidates(rse_id, mode=None, session=None):
         expiration_time=3600,
     )
     if min_created_days > 0:
-        min_created_days = datetime.now() - timedelta(days=min_created_days)
+        min_created_days = datetime.utcnow() - timedelta(days=min_created_days)
         rule_clause.append(models.ReplicationRule.created_at < min_created_days)
 
     # Only move rules which are owned by <allowed_accounts> (coma separated accounts, e.g. panda,root,ddmadmin,jdoe)

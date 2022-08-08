@@ -326,7 +326,7 @@ def __create_missing_replicas_and_requests(
                         'request_type': rws.request_type,
                         'retry_count': rws.retry_count,
                         'account': rws.account,
-                        'requested_at': datetime.datetime.now()}
+                        'requested_at': datetime.datetime.utcnow()}
         if rws.transfertool:
             req_to_queue['transfertool'] = rws.transfertool
         new_req = queue_requests(requests=[req_to_queue], session=session)

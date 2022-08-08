@@ -279,7 +279,7 @@ class TestApiExternalRepresentation(unittest.TestCase):
             'account': self.account_name,
             'rule_id': generate_uuid(),
             'retry_count': 1,
-            'requested_at': datetime.now(),
+            'requested_at': datetime.utcnow(),
             'attributes': {
                 'activity': 'Functional Test',
                 'bytes': 10,

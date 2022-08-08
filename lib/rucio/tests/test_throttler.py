@@ -59,7 +59,7 @@ def _add_test_replicas_and_request(request_configs, vo=None, scope=None, account
             'scope': scope,
             'retry_count': 1,
             'rule_id': generate_uuid(),
-            'requested_at': datetime.now(),
+            'requested_at': datetime.utcnow(),
             'account': account,
             'attributes': {
                 'activity': 'User Subscription',
@@ -133,19 +133,19 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
                 {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2000),
+                    'requested_at': datetime.utcnow().replace(year=2000),
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2020),
+                    'requested_at': datetime.utcnow().replace(year=2020),
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2021),  # requested after the request below but small enough for max_volume check
+                    'requested_at': datetime.utcnow().replace(year=2021),  # requested after the request below but small enough for max_volume check
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2020),
+                    'requested_at': datetime.utcnow().replace(year=2020),
                     'attributes': {'bytes': 3000},
                 },
             ]
@@ -298,8 +298,8 @@ class TestThrottlerFIFO(unittest.TestCase):
         name1, name2 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
             ]
         )
         self.db_session.query(models.RSETransferLimit).delete()
@@ -322,7 +322,7 @@ class TestThrottlerFIFO(unittest.TestCase):
         name1, = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2018)},
             ]
         )
         preparer.run_once(session=self.db_session, logger=print)
@@ -345,8 +345,8 @@ class TestThrottlerFIFO(unittest.TestCase):
         name1, name2 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
             ]
         )
         preparer.run_once(session=self.db_session, logger=print)
@@ -368,8 +368,8 @@ class TestThrottlerFIFO(unittest.TestCase):
         name1, name2 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
             ]
         )
         self.db_session.commit()
@@ -422,17 +422,17 @@ class TestThrottlerFIFOSRCACT:
                 {
                     'source_rse_id': source_rse_id,
                     'dest_rse_id': dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2018),
+                    'requested_at': datetime.utcnow().replace(year=2018),
                     'attributes': {'activity': self.user_activity},
                 }, {
                     'source_rse_id': source_rse_id,
                     'dest_rse_id': dest_rse_id2,
-                    'requested_at': datetime.now().replace(year=2020),
+                    'requested_at': datetime.utcnow().replace(year=2020),
                     'attributes': {'activity': self.user_activity},
                 }, {
                     'source_rse_id': source_rse_id,
                     'dest_rse_id': dest_rse_id3,
-                    'requested_at': datetime.now().replace(year=2020),
+                    'requested_at': datetime.utcnow().replace(year=2020),
                     'attributes': {'activity': self.user_activity2},
                 },
             ]
@@ -503,8 +503,8 @@ class TestThrottlerFIFOSRCALLACT(unittest.TestCase):
         name1, name2 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
             ]
         )
         preparer.run_once(session=self.db_session, logger=print)
@@ -580,17 +580,17 @@ class TestThrottlerFIFODESTALLACT(unittest.TestCase):
                 {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2018),
+                    'requested_at': datetime.utcnow().replace(year=2018),
                     'attributes': {'activity': self.user_activity},
                 }, {
                     'source_rse_id': self.source_rse_id2,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2020),
+                    'requested_at': datetime.utcnow().replace(year=2020),
                     'attributes': {'activity': self.user_activity2},
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id2,
-                    'requested_at': datetime.now().replace(year=2020),
+                    'requested_at': datetime.utcnow().replace(year=2020),
                     'attributes': {'activity': self.user_activity2},
                 },
             ]
@@ -667,22 +667,22 @@ class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
                 {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2000),
+                    'requested_at': datetime.utcnow().replace(year=2000),
                     'attributes': {'activity': self.user_activity},
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id_2,
-                    'requested_at': datetime.now().replace(year=2020),
+                    'requested_at': datetime.utcnow().replace(year=2020),
                     'attributes': {'activity': self.all_activities},
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2021),
+                    'requested_at': datetime.utcnow().replace(year=2021),
                     'attributes': {'activity': self.all_activities},
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id_2,
-                    'requested_at': datetime.now().replace(year=2020),
+                    'requested_at': datetime.utcnow().replace(year=2020),
                     'attributes': {'activity': self.all_activities},
                 },
             ]
@@ -781,17 +781,17 @@ class TestRequestCoreRelease(unittest.TestCase):
                 {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2015),
+                    'requested_at': datetime.utcnow().replace(year=2015),
                     'attributes': {'bytes': 8},
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2020),
+                    'requested_at': datetime.utcnow().replace(year=2020),
                     'attributes': {'bytes': 2},
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2000),
+                    'requested_at': datetime.utcnow().replace(year=2000),
                     'attributes': {'bytes': 10},
                 },
             ]
@@ -822,22 +822,22 @@ class TestRequestCoreRelease(unittest.TestCase):
                 {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2015),
+                    'requested_at': datetime.utcnow().replace(year=2015),
                     'attributes': {'bytes': 6},
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2020),
+                    'requested_at': datetime.utcnow().replace(year=2020),
                     'attributes': {'bytes': 2},
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2000),
+                    'requested_at': datetime.utcnow().replace(year=2000),
                     'attributes': {'bytes': 10},
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2030),
+                    'requested_at': datetime.utcnow().replace(year=2030),
                     'attributes': {'bytes': 2},
                 },
             ]
@@ -870,7 +870,7 @@ class TestRequestCoreRelease(unittest.TestCase):
         name1, = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2015)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2015)},
             ]
         )
         preparer.run_once(session=self.db_session, logger=print)
@@ -892,7 +892,7 @@ class TestRequestCoreRelease(unittest.TestCase):
         name, = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2015)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2015)},
             ]
         )
 
@@ -908,7 +908,7 @@ class TestRequestCoreRelease(unittest.TestCase):
         name, = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2015)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2015)},
             ]
         )
         dataset_name = generate_uuid()
@@ -926,11 +926,11 @@ class TestRequestCoreRelease(unittest.TestCase):
         name1, name2, name3, name4, name5 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2000)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2015)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2010)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2000)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2015)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2010)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2018)},
             ]
         )
         dataset_1_name = generate_uuid()
@@ -960,11 +960,11 @@ class TestRequestCoreRelease(unittest.TestCase):
         name1, name2, name3, name4 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2000)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2000)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
                 # 2021: requested after the request below but small enough for max_volume check
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2021)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020), 'attributes': {'bytes': 3000}},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2021)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020), 'attributes': {'bytes': 3000}},
             ]
         )
         dataset_1_name = generate_uuid()
@@ -998,10 +998,10 @@ class TestRequestCoreRelease(unittest.TestCase):
         name1, name2, name3, name4 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2000)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020), 'attributes': {'bytes': 2}},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2000)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020), 'attributes': {'bytes': 2}},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
             ]
         )
         dataset_1_name = generate_uuid()
@@ -1030,8 +1030,8 @@ class TestRequestCoreRelease(unittest.TestCase):
         name1, name2 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now() - timedelta(hours=2)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now()},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow() - timedelta(hours=2)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow()},
             ]
         )
 
@@ -1052,8 +1052,8 @@ class TestRequestCoreRelease(unittest.TestCase):
         name1, name2 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
             ]
         )
         preparer.run_once(session=self.db_session, logger=print)
@@ -1074,21 +1074,21 @@ class TestRequestCoreRelease(unittest.TestCase):
                 {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2018),
+                    'requested_at': datetime.utcnow().replace(year=2018),
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2020),
+                    'requested_at': datetime.utcnow().replace(year=2020),
                     'attributes': {'activity': 'ignore'},
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2020),
+                    'requested_at': datetime.utcnow().replace(year=2020),
                     'account': InternalAccount('jdoe', **self.vo),
                 }, {
                     'source_rse_id': self.source_rse_id,
                     'dest_rse_id': self.dest_rse_id,
-                    'requested_at': datetime.now().replace(year=2020),  # requested latest but account and activity are correct
+                    'requested_at': datetime.utcnow().replace(year=2020),  # requested latest but account and activity are correct
                 },
             ]
         )
@@ -1109,8 +1109,8 @@ class TestRequestCoreRelease(unittest.TestCase):
         name1, name2 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2018)},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2018)},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
             ]
         )
         preparer.run_once(session=self.db_session, logger=print)
@@ -1130,8 +1130,8 @@ class TestRequestCoreRelease(unittest.TestCase):
         name1, name2 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now() - two_hours},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now()},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow() - two_hours},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow()},
             ]
         )
         preparer.run_once(session=self.db_session, logger=print)
@@ -1146,9 +1146,9 @@ class TestRequestCoreRelease(unittest.TestCase):
         name1, name2, name3 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now() - two_hours},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now()},
-                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now()},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow() - two_hours},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow()},
+                {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.utcnow()},
             ]
         )
         dataset_name = generate_uuid()
