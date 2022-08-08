@@ -201,7 +201,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     tot_chunk = int(math.ceil(len(pfns) / chunk_size))
                     for nchunk, chunk in enumerate(chunks(pfns, chunk_size)):
                         logger(logging.DEBUG, 'Running on %s chunk out of %s', nchunk + 1, tot_chunk)
-                        unknown_replicas = declare_bad_file_replicas(pfns=chunk, reason=reason, issuer=account, status=state, session=session)
+                        unknown_replicas = declare_bad_file_replicas(chunk, reason=reason, issuer=account, status=state, session=session)
                         if unknown_replicas:
                             logger(logging.DEBUG, 'Unknown replicas : %s', str(unknown_replicas))
                         bulk_delete_bad_pfns(pfns=chunk, session=session)
