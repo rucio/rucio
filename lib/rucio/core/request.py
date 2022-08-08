@@ -1835,6 +1835,7 @@ def get_source_rse(request_id, src_url, session=None, logger=logging.log):
             return None, None
 
         sources = get_sources(request_id, session=session)
+        sources = sources or []
         for source in sources:
             if source['url'] == src_url:
                 src_rse_id = source['rse_id']
