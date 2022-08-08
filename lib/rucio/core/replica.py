@@ -3974,7 +3974,7 @@ def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logg
     if not isinstance(nattempts, int):
         nattempts = 0
     if not isinstance(younger_than, datetime):
-        younger_than = datetime.now() - timedelta(days=10)
+        younger_than = datetime.now() - timedelta(days=younger_than if younger_than is not None else 10)
 
     # assembling exclude_states_clause
     exclude_states_clause = []
