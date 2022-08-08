@@ -71,9 +71,9 @@ except RuntimeError:
 if not endpoints:
     endpoints = DEFAULT_ENDPOINTS
 
-setup_logging()
 application = Flask(__name__)
 apply_endpoints(application, endpoints)
+setup_logging(application)
 
 
 if __name__ == '__main__':
