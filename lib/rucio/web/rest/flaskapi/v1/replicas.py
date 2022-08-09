@@ -812,8 +812,8 @@ class BadReplicas(ErrorHandlingMethodView):
               schema:
                 type: object
                 properties:
-                  pfns:
-                    description: The list of pfns.
+                  replicas:
+                    description: The list of pfns or list of dicts with "scope", "name", "rse_id"/"rse"
                     type: array
                     items:
                       type: string
@@ -836,11 +836,11 @@ class BadReplicas(ErrorHandlingMethodView):
             description: Not acceptable
         """
         parameters = json_parameters()
-        pfns = param_get(parameters, 'pfns', default=[])
+        replicas = param_get(parameters, 'replicas', default=[])
         reason = param_get(parameters, 'reason', default=None)
 
         try:
-            not_declared_files = declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            not_declared_files = declare_bad_file_replicas(replicas, reason=reason, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
             return not_declared_files, 201
         except AccessDenied as error:
             return generate_http_error_flask(401, error)

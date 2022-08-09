@@ -37,16 +37,18 @@ def add_quarantined_replicas(rse_id, replicas, session=None):
     # safeguard against potential issues in the Auditor.
     file_clause = []
     for replica in replicas:
-        file_clause.append(and_(models.RSEFileAssociation.scope == replica.get('scope', None),
-                                models.RSEFileAssociation.name == replica.get('name', None),
-                                models.RSEFileAssociation.rse_id == rse_id))
-    file_query = session.query(models.RSEFileAssociation.scope,
-                               models.RSEFileAssociation.name,
-                               models.RSEFileAssociation.rse_id).\
-        with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
-        filter(or_(*file_clause))
-    existing_replicas = [(scope, name, rseid) for scope, name, rseid in file_query]
-    replicas = [replica for replica in replicas if (replica.get('scope', None), replica.get('name', None), rse_id) not in existing_replicas]
+        if "scope" in replica and "name" in replica:
+            file_clause.append(and_(models.RSEFileAssociation.scope == replica['scope'],
+                                    models.RSEFileAssociation.name == replica['name'],
+                                    models.RSEFileAssociation.rse_id == rse_id))
+    if file_clause:
+        file_query = session.query(models.RSEFileAssociation.scope,
+                                   models.RSEFileAssociation.name,
+                                   models.RSEFileAssociation.rse_id).\
+            with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
+            filter(or_(*file_clause))
+        existing_replicas = [(scope, name, rseid) for scope, name, rseid in file_query]
+        replicas = [replica for replica in replicas if (replica.get('scope', None), replica.get('name', None), rse_id) not in existing_replicas]
 
     # Exclude files that have already been added to the quarantined
     # replica table.

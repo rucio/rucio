@@ -1077,6 +1077,10 @@ def test_client_list_replicas_streaming_error(content_type, vo, did_client, repl
             abort = mock.MagicMock()
             Response = response_mock
 
+            @staticmethod
+            def stream_with_context(generator):
+                yield from generator
+
         with mock.patch('rucio.web.rest.flaskapi.v1.common.flask', new=FakeFlask()), \
                 mock.patch('rucio.web.rest.flaskapi.v1.replicas.request', new=FakeRequest()), \
                 mock.patch('rucio.web.rest.flaskapi.v1.replicas.list_replicas', side_effect=api_returns):
