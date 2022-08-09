@@ -27,6 +27,7 @@ import threading
 import traceback
 
 from email.mime.text import MIMEText
+from typing import List, Dict, Any
 
 import stomp
 
@@ -37,7 +38,7 @@ from rucio.common.config import config_get, config_get_int, config_get_bool
 from rucio.common.logging import setup_logging
 from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import MultiCounter
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import HeartbeatHandler, run_daemon
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 logging.getLogger('stomp').setLevel(logging.CRITICAL)
@@ -48,7 +49,11 @@ RECONNECT_COUNTER = MultiCounter(prom='rucio_daemons_hermes_reconnect', statsd='
 graceful_stop = threading.Event()
 
 
-def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, sleep_time=60):
+def deliver_emails(once: bool = False,
+                   send_email: bool = True,
+                   thread: int = 0,
+                   bulk: int = 1000,
+                   sleep_time: int = 60) -> None:
     '''
     Main loop to deliver emails via SMTP.
     '''
@@ -68,7 +73,11 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, sleep_time=
     )
 
 
-def run_once_emails(heartbeat_handler, send_email, thread, bulk, **_kwargs):
+def run_once_emails(heartbeat_handler: HeartbeatHandler,
+                    send_email: bool,
+                    thread: int,
+                    bulk: int,
+                    **_kwargs: Dict[str, Any]) -> None:
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     email_from = config_get('messaging-hermes', 'email_from')
@@ -111,29 +120,35 @@ def run_once_emails(heartbeat_handler, send_email, thread, bulk, **_kwargs):
     if len(messages) < bulk:
         logger(logging.INFO, "Only %d messages, which is less than the bulk %d, will sleep"
                % (len(messages), bulk))
-        must_sleep = False
-        return must_sleep
+        must_sleep = True
+
+    return must_sleep
 
 
 class HermesListener(stomp.ConnectionListener):
     '''
     Hermes Listener
     '''
-    def __init__(self, broker):
+    def __init__(self, broker: str) -> None:
         '''
         __init__
         '''
         self.__broker = broker
 
-    def on_error(self, frame):
+    def on_error(self, frame: str) -> None:
         '''
         Error handler
         '''
         logging.error('[broker] [%s]: %s', self.__broker, frame.body)
 
 
-def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=60,
-                     broker_timeout=3, broker_retry=3, sleep_time=60):
+def deliver_messages(once: bool = False,
+                     brokers_resolved: List[str] = None,
+                     thread: int = 0,
+                     bulk: int = 1000,
+                     broker_timeout: int = 3,
+                     broker_retry: int = 3,
+                     sleep_time: int = 60) -> None:
     '''
     Main loop to deliver messages to a broker.
     '''
@@ -156,7 +171,13 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
     )
 
 
-def run_once_messages(heartbeat_handler, brokers_resolved, thread, bulk, broker_timeout, broker_retry, **_kwargs):
+def run_once_messages(heartbeat_handler: HeartbeatHandler,
+                      brokers_resolved: List[str],
+                      thread: int,
+                      bulk: int,
+                      broker_timeout: int,
+                      broker_retry: int,
+                      **_kwargs: Dict[str, Any]) -> None:
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     if not brokers_resolved:
@@ -301,14 +322,16 @@ def run_once_messages(heartbeat_handler, brokers_resolved, thread, bulk, broker_
         logger(logging.INFO, 'submitted %i messages',
                len(to_delete))
 
+    must_sleep = False
     if len(messages) < bulk:
         logger(logging.INFO, "Only %d messages, which is less than the bulk %d, will sleep"
                % (len(messages), bulk))
-        must_sleep = False
-        return must_sleep
+        must_sleep = True
+
+    return must_sleep
 
 
-def stop(signum=None, frame=None):
+def stop(signum: int = None, frame: str = None) -> None:
     '''
     Graceful exit.
     '''
@@ -316,8 +339,13 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, send_email=True, threads=1, bulk=1000, broker_timeout=3,
-        broker_retry=3, sleep_time=60):
+def run(once: bool = False,
+        send_email: bool = True,
+        threads: int = 1,
+        bulk: int = 1000,
+        broker_timeout: int = 3,
+        broker_retry: int = 3,
+        sleep_time: int = 60) -> None:
     '''
     Starts up the hermes threads.
     '''
