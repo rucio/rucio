@@ -35,7 +35,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
 from sqlalchemy.sql import label
-from sqlalchemy.sql.expression import case, select, text, false, true, null, literal
+from sqlalchemy.sql.expression import case, select, text, false, true, null, literal, literal_column
 
 import rucio.core.did
 import rucio.core.lock
@@ -1231,7 +1231,7 @@ def _list_replicas_with_temp_tables(
                 case([(models.DataIdentifier.did_type.in_([DIDType.CONTAINER, DIDType.DATASET]), 1)], else_=0)
             ).label('num_collections'),
             func.sum(
-                case([(models.DataIdentifier.constituent, 1)], else_=0)
+                case([(models.DataIdentifier.constituent == true(), 1)], else_=0)
             ).label('num_constituents'),
         ).join_from(
             temp_table,
@@ -1304,7 +1304,7 @@ def _list_replicas_with_temp_tables(
                 replicas_subquery.c.name == resolved_files_temp_table.name
             )
         ).order_by(
-            func.random()
+            literal_column('dbms_random.value') if session.bind.dialect.name == 'oracle' else func.random()
         ).limit(
             # slightly overshoot to reduce the probability that python-side filtering will
             # leave us with less than nrandom replicas.
