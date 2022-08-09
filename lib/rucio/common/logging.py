@@ -22,8 +22,6 @@ import sys
 from traceback import format_tb
 from typing import TYPE_CHECKING
 
-from flask import has_request_context, request
-
 from rucio.common.config import config_get, config_get_bool
 
 if TYPE_CHECKING:
@@ -126,6 +124,10 @@ def _get_request_data(request_path: "Sequence[str]") -> "Callable[[LogDataSource
     Returns a function which, when called, will resolve the value
     in the flask request object at request_path
     """
+
+    # The import fails if imported inside a client due to rsemanager.
+    # TODO: move to top of file once we got rid of/refactored rsemanager
+    from flask import has_request_context, request
 
     def _request_data_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> "Generator[Tuple[str, Optional[Any]]]":
         value = None
