@@ -20,18 +20,15 @@
 import functools
 import json
 import logging
-import os
 import random
 import smtplib
 import socket
 import threading
-import time
 import traceback
 
 from email.mime.text import MIMEText
 
 import stomp
-from sqlalchemy.orm.exc import NoResultFound
 
 import rucio.db.sqla.util
 
@@ -49,6 +46,7 @@ RECONNECT_COUNTER = MultiCounter(prom='rucio_daemons_hermes_reconnect', statsd='
                                  documentation='Counts Hermes reconnects to different ActiveMQ brokers', labelnames=('host',))
 
 graceful_stop = threading.Event()
+
 
 def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, sleep_time=60):
     '''
@@ -69,14 +67,13 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, sleep_time=
         )
     )
 
+
 def run_once_emails(heartbeat_handler, send_email, thread, bulk, **_kwargs):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     email_from = config_get('messaging-hermes', 'email_from')
 
     logger(logging.DEBUG, 'bulk %i', bulk)
-
-    t_start = time.time()
 
     messages = retrieve_messages(bulk=bulk,
                                  thread=worker_number,
@@ -114,8 +111,9 @@ def run_once_emails(heartbeat_handler, send_email, thread, bulk, **_kwargs):
     if len(messages) < bulk:
         logger(logging.INFO, "Only %d messages, which is less than the bulk %d, will sleep"
                % (len(messages), bulk))
-        must_sleep = True
+        must_sleep = False
         return must_sleep
+
 
 class HermesListener(stomp.ConnectionListener):
     '''
@@ -156,6 +154,7 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
             broker_retry=broker_retry,
         )
     )
+
 
 def run_once_messages(heartbeat_handler, brokers_resolved, thread, bulk, broker_timeout, broker_retry, **_kwargs):
     worker_number, total_workers, logger = heartbeat_handler.live()
@@ -204,8 +203,6 @@ def run_once_messages(heartbeat_handler, brokers_resolved, thread, bulk, broker_
 
         conns.append(con)
     destination = config_get('messaging-hermes', 'destination')
-
-    t_start = time.time()
 
     logger(logging.DEBUG, 'using: %s', [conn.transport._Transport__host_and_ports[0][0] for conn in conns])
 
@@ -307,7 +304,7 @@ def run_once_messages(heartbeat_handler, brokers_resolved, thread, bulk, broker_
     if len(messages) < bulk:
         logger(logging.INFO, "Only %d messages, which is less than the bulk %d, will sleep"
                % (len(messages), bulk))
-        must_sleep = True
+        must_sleep = False
         return must_sleep
 
 
