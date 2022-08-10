@@ -25,12 +25,14 @@ from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSuppor
                                     InvalidObject, ResourceTemporaryUnavailable,
                                     RSEAttributeNotFound, RSEOperationNotSupported,
                                     InputValidationError)
-from rucio.common.utils import generate_uuid
+from rucio.common.utils import generate_uuid, GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_KEY
 from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses,
                             rse_exists, add_rse_attribute, list_rse_attributes,
                             set_rse_transfer_limits, get_rse_transfer_limits,
                             delete_rse_transfer_limits, get_rse_protocols,
                             del_rse_attribute, get_rse_attribute, get_rse, rse_is_empty,
+                            parse_checksum_support_attribute,
+                            get_rse_supported_checksums_from_attributes,
                             update_rse)
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType
@@ -215,6 +217,40 @@ class TestRSECoreApi(unittest.TestCase):
         rse_usage.used = 1
         db_session.commit()
         assert not rse_is_empty(rse_id=rse_id)
+
+
+def test_parse_checksum_support_attribute():
+    assert parse_checksum_support_attribute('') == GLOBALLY_SUPPORTED_CHECKSUMS
+    assert parse_checksum_support_attribute('none') == []
+    assert parse_checksum_support_attribute('none,md5') == []
+    assert parse_checksum_support_attribute('md5') == ['md5']
+    assert parse_checksum_support_attribute('md5,adler32') == ['md5', 'adler32']
+
+
+@pytest.mark.parametrize("caches_mock", [{
+    "caches_to_mock": ['rucio.core.rse.REGION'],
+    'expiration_time': 0
+}], indirect=True)
+def test_rse_get_supported_checksums_from_attributes(vo, caches_mock):
+    rse_name = rse_name_generator()
+    rse_id = add_rse(rse_name, vo=vo)
+
+    attrs = list_rse_attributes(rse_id)
+    assert get_rse_supported_checksums_from_attributes(attrs) == GLOBALLY_SUPPORTED_CHECKSUMS
+
+    add_rse_attribute(rse_id, CHECKSUM_KEY, 'none')
+    attrs = list_rse_attributes(rse_id)
+    assert get_rse_supported_checksums_from_attributes(attrs) == []
+
+    add_rse_attribute(rse_id, CHECKSUM_KEY, 'md5')
+    attrs = list_rse_attributes(rse_id)
+    assert get_rse_supported_checksums_from_attributes(attrs) == ['md5']
+
+    add_rse_attribute(rse_id, CHECKSUM_KEY, 'md5,adler32')
+    attrs = list_rse_attributes(rse_id)
+    assert get_rse_supported_checksums_from_attributes(attrs) == ['md5', 'adler32']
+
+    del_rse(rse_id)
 
 
 def test_create_rse_success(vo, rest_client, auth_token):

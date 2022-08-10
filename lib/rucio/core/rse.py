@@ -19,7 +19,7 @@ import logging
 import traceback
 from io import StringIO
 from re import match
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import sqlalchemy
 from dogpile.cache.api import NO_VALUE
@@ -762,15 +762,16 @@ def get_rse_attributes(rse_id, session=None):
     return result
 
 
-def get_rse_supported_checksums_from_attributes(rse_attributes):
+def get_rse_supported_checksums_from_attributes(rse_attributes: Dict[str, Any]) -> List[str]:
     """
     Parse the RSE attribute defining the checksum supported by the RSE
     :param rse_attributes: attributes retrieved using list_rse_attributes
+    :returns: A list of the names of supported checksums indicated by the specified attributes.
     """
-    return parse_checksum_support_attribute(rse_attributes.get(CHECKSUM_KEY))
+    return parse_checksum_support_attribute(rse_attributes.get(CHECKSUM_KEY, ''))
 
 
-def parse_checksum_support_attribute(checksum_attribute):
+def parse_checksum_support_attribute(checksum_attribute: str) -> List[str]:
     """
     Parse the checksum support RSE attribute.
     :param checksum_attribute: The value of the RSE attribute storing the checksum value
@@ -782,10 +783,12 @@ def parse_checksum_support_attribute(checksum_attribute):
 
     if not checksum_attribute:
         return GLOBALLY_SUPPORTED_CHECKSUMS
+
+    supported_checksum_list = [c.strip() for c in checksum_attribute.split(',') if c.strip()]
+
+    if 'none' in supported_checksum_list:
+        return []
     else:
-        supported_checksum_list = [c.strip() for c in checksum_attribute.split(',') if c.strip()]
-        if 'none' in supported_checksum_list:
-            return []
         return supported_checksum_list
 
 

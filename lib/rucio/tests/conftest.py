@@ -415,14 +415,17 @@ def caches_mock(request):
     from dogpile.cache import make_region
 
     caches_to_mock = []
+    expiration_time = 600
+
     params = __get_fixture_param(request)
     if params:
         caches_to_mock = params.get("caches_to_mock", caches_to_mock)
+        expiration_time = params.get("expiration_time", expiration_time)
 
     with ExitStack() as stack:
         mocked_caches = []
         for module in caches_to_mock:
-            region = make_region().configure('dogpile.cache.memory', expiration_time=600)
+            region = make_region().configure('dogpile.cache.memory', expiration_time=expiration_time)
             stack.enter_context(mock.patch(module, new=region))
             mocked_caches.append(region)
 
