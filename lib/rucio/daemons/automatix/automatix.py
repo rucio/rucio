@@ -22,7 +22,6 @@ from configparser import NoOptionError, NoSectionError
 from datetime import datetime
 from json import load
 from os import remove, rmdir
-import time
 from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
@@ -240,11 +239,10 @@ def run_once(heartbeat_handler: "HeartbeatHandler", inputfile: str, **_kwargs) -
         for physical_fname in physical_fnames:
             remove(physical_fname)
         rmdir(tmpdir)
-    tottime = time.time() - starttime
     logger(
         logging.INFO,
         "It took %f seconds to upload one dataset on %s",
-        (cycle_timer.elapsed,
+        cycle_timer.elapsed,
         str(rses),
     )
     return True
