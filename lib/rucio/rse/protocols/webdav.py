@@ -28,9 +28,9 @@ from rucio.common import exception
 from rucio.rse.protocols import protocol
 
 
-class TLSv1HttpAdapter(HTTPAdapter):
+class TLSHTTPAdapter(HTTPAdapter):
     '''
-    Class to force the SSL protocol to TLSv1
+    Class to force the SSL protocol to latest TLS
     '''
     def init_poolmanager(self, connections, maxsize, block=False):
         self.poolmanager = PoolManager(num_pools=connections,
@@ -190,7 +190,7 @@ class Default(protocol.RSEProtocol):
         except KeyError:
             self.timeout = 300
         self.session = requests.Session()
-        self.session.mount('https://', TLSv1HttpAdapter())
+        self.session.mount('https://', TLSHTTPAdapter())
         if self.auth_token:
             self.session.headers.update({'Authorization': 'Bearer ' + self.auth_token})
         # "ping" to see if the server is available
