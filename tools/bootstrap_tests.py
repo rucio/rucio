@@ -148,6 +148,7 @@ if __name__ == '__main__':
     if os.getenv('POLICY') == 'belleii':
         belleii_bootstrap(client)
 
-    response = create_influxdb_database()
-    if response.status_code != 201:
-        print('Failed to create rucio database in influxDB : %s' % response.text)
+    # TODO: fix this in https://github.com/rucio/rucio/issues/5696
+    # response = create_influxdb_database()
+    # if response.status_code != 201:
+    #    print('Failed to create rucio database in influxDB : %s' % response.text)
