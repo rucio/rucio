@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import io
-import itertools
 import json
 import multiprocessing
 import os
@@ -29,26 +27,14 @@ import typing
 import uuid
 from datetime import datetime
 
+from suites import run, Container, rdbms_container, services, CumulativeContextManager, service_hostnames, env_args
+
 
 def matches(small: typing.Dict, group: typing.Dict):
     for key in small.keys():
         if key not in group or small[key] != group[key]:
             return False
     return True
-
-
-def run(*args, check=True, return_stdout=False, env=None) -> typing.Union[typing.NoReturn, io.TextIOBase]:
-    kwargs = {'check': check, 'stdout': sys.stderr, 'stderr': subprocess.STDOUT}
-    if env is not None:
-        kwargs['env'] = env
-    if return_stdout:
-        kwargs['stderr'] = sys.stderr
-        kwargs['stdout'] = subprocess.PIPE
-    args = [str(a) for a in args]
-    print("** Running", " ".join(map(lambda a: repr(a) if ' ' in a else a, args)), kwargs, file=sys.stderr, flush=True)
-    proc = subprocess.run(args, **kwargs)
-    if return_stdout:
-        return proc.stdout
 
 
 def stringify_dict(inp: typing.Dict):
@@ -165,10 +151,10 @@ def run_case_logger(run_case_kwargs: typing.Dict, stdlog=sys.stderr):
 def run_case(caseenv, image, use_podman, use_namespace, use_httpd, copy_rucio_logs, logs_dir: pathlib.Path):
     if use_namespace:
         namespace = str(uuid.uuid4())
-        namespace_args = ('--namespace', namespace)
+        namespace_args = ['--namespace', namespace]
         namespace_env = {"NAMESPACE": namespace}
     else:
-        namespace_args = ()
+        namespace_args = []
         namespace_env = {}
 
     run('docker', 'image', 'ls', image)
@@ -215,19 +201,16 @@ def run_case(caseenv, image, use_podman, use_namespace, use_httpd, copy_rucio_lo
         sys.exit(1)
 
 
-def env_args(caseenv):
-    env_args = list(itertools.chain(*map(lambda x: ('--env', f'{x[0]}={x[1]}'), caseenv.items())))
-    env_args.append('--env')
-    env_args.append('GITHUB_ACTIONS')
-    return env_args
-
-
-def run_test_directly(caseenv, image, use_podman, pod, namespace_args):
-    pod_net_arg = ('--pod', pod) if use_podman else ()
+def run_test_directly(
+    caseenv: typing.Dict[str, str],
+    image: str,
+    use_podman: bool,
+    pod: str,
+    namespace_args: typing.List[str],
+):
+    pod_net_arg = ['--pod', pod] if use_podman else []
     scripts_to_run = ' && '.join(
         [
-            # before_script.sh is not included since it is written to run outside
-            # the container and does not contribute to running without httpd
             './tools/test/install_script.sh',
             './tools/test/test.sh',
         ]
@@ -260,63 +243,82 @@ def run_test_directly(caseenv, image, use_podman, pod, namespace_args):
 
 
 def run_with_httpd(
-    caseenv, image, use_podman, pod, namespace_args, namespace_env, copy_rucio_logs, logs_dir: pathlib.Path
+    caseenv,
+    image,
+    use_podman,
+    pod: str,
+    namespace_args: typing.List[str],
+    namespace_env,
+    copy_rucio_logs,
+    logs_dir: pathlib.Path,
 ) -> bool:
-    cid = ""
-    try:
-        pod_net_arg = ('--pod', pod) if use_podman else ()
-        # Running rucio container from given image
-        stdout = run(
-            'docker', *namespace_args, 'run', '--detach', *pod_net_arg, *(env_args(caseenv)), image, return_stdout=True
-        )
-        cid = stdout.decode().strip()
-        if not cid:
-            raise RuntimeError("Could not determine container id after docker run")
+    pod_net_arg = ['--pod', pod] if use_podman else []
+    # Running rucio container from given image
+    with Container(image, runtime_args=namespace_args, run_args=pod_net_arg, environment=caseenv) as rucio_container:
+        try:
+            network_arg = ('--network', 'container:' + rucio_container.cid)
+            container_run_args = pod_net_arg if use_podman else network_arg
+            additional_containers = []
 
-        network_arg = ('--network', 'container:' + cid)
-        container_run_args = ' '.join(pod_net_arg if use_podman else network_arg)
-        container_runtime_args = ' '.join(namespace_args)
+            def create_cnt(cnt_class: typing.Callable) -> Container:
+                return cnt_class(
+                    runtime_args=namespace_args,
+                    run_args=container_run_args,
+                )
 
-        # Running before_script.sh
-        run(
-            './tools/test/before_script.sh',
-            env={
-                **os.environ,
-                **caseenv,
-                **namespace_env,
-                "CONTAINER_RUNTIME_ARGS": container_runtime_args,
-                "CONTAINER_RUN_ARGS": container_run_args,
-                "CON_RUCIO": cid,
-            },
-        )
+            db_container = None
+            rdbms = caseenv.get('RDBMS', '')
+            if rdbms:
+                service_key = caseenv.get('SERVICES', 'default')
+                db_container_class = rdbms_container.get(rdbms, None)
+                if db_container_class:
+                    db_container = create_cnt(db_container_class)
+                    additional_containers.append(db_container)
+                additional_containers += list(map(create_cnt, services[service_key]))
 
-        # output registered hostnames
-        run('docker', *namespace_args, 'exec', cid, 'cat', '/etc/hosts')
+            with CumulativeContextManager(*additional_containers):
+                db_env = dict()
+                if db_container:
+                    db_env['CON_DB'] = db_container.cid
 
-        # Running install_script.sh
-        run('docker', *namespace_args, 'exec', cid, './tools/test/install_script.sh')
+                # Running before_script.sh
+                run(
+                    './tools/test/before_script.sh',
+                    env={
+                        **os.environ,
+                        **caseenv,
+                        **namespace_env,
+                        **db_env,
+                        "CONTAINER_RUNTIME_ARGS": ' '.join(namespace_args),
+                        "CON_RUCIO": rucio_container.cid,
+                    },
+                )
 
-        # Running test.sh
-        run('docker', *namespace_args, 'exec', cid, './tools/test/test.sh')
+                # register service hostnames
+                run('docker', *namespace_args, 'exec', rucio_container.cid, '/bin/sh', '-c', f'echo "127.0.0.1 {" ".join(service_hostnames)}" | tee -a /etc/hosts')
 
-        # if everything went through without an exception, mark this case as a success
-        return True
-    except subprocess.CalledProcessError as error:
-        print(
-            f"** Process '{error.cmd}' exited with code {error.returncode}",
-            {**caseenv, "IMAGE": image},
-            file=sys.stderr,
-            flush=True,
-        )
-    finally:
-        if cid:
-            run('docker', *namespace_args, 'logs', cid, check=False)
-            run('docker', *namespace_args, 'stop', cid, check=False)
+                # Running install_script.sh
+                run('docker', *namespace_args, 'exec', rucio_container.cid, './tools/test/install_script.sh')
+
+                # Running test.sh
+                run('docker', *namespace_args, 'exec', rucio_container.cid, './tools/test/test.sh')
+
+                # if everything went through without an exception, mark this case as a success
+                return True
+        except subprocess.CalledProcessError as error:
+            print(
+                f"** Process '{error.cmd}' exited with code {error.returncode}",
+                {**caseenv, "IMAGE": image},
+                file=sys.stderr,
+                flush=True,
+            )
+        finally:
+            run('docker', *namespace_args, 'logs', rucio_container.cid, check=False)
             if copy_rucio_logs:
                 try:
                     if logs_dir.exists():
                         shutil.rmtree(logs_dir)
-                    run('docker', *namespace_args, 'cp', f'{cid}:/var/log', str(logs_dir))
+                    run('docker', *namespace_args, 'cp', f'{rucio_container.cid}:/var/log', str(logs_dir))
                 except Exception:
                     print(
                         "** Error on retrieving logs for",
@@ -327,8 +329,7 @@ def run_with_httpd(
                         file=sys.stderr,
                         flush=True,
                     )
-            run('docker', *namespace_args, 'rm', '-v', cid, check=False)
-    return False
+        return False
 
 
 def main():
