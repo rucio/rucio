@@ -25,14 +25,14 @@ from hashlib import sha256
 from json import dumps
 from re import match
 from struct import unpack
-from typing import TYPE_CHECKING
 from traceback import format_exc
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import requests
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy import func, and_, or_, exists, not_, update, delete, insert, union
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, Session
 from sqlalchemy.orm.exc import FlushError, NoResultFound
 from sqlalchemy.sql import label
 from sqlalchemy.sql.expression import case, select, text, false, true, null, literal
@@ -43,6 +43,7 @@ from rucio.common import exception
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope
+from rucio.common.types.dicts import ReplicaRSEIdDict
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.constants import SuspiciousAvailability
 from rucio.core.credential import get_signed_url
@@ -58,9 +59,6 @@ from rucio.db.sqla.session import (read_session, stream_session, transactional_s
 from rucio.db.sqla.util import temp_table_mngr
 from rucio.rse import rsemanager as rsemgr
 
-if TYPE_CHECKING:
-    from typing import Any, Dict, Optional, Sequence
-    from sqlalchemy.orm import Session
 
 REGION = make_region_memcached(expiration_time=60)
 
@@ -241,7 +239,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
 
 
 @transactional_session
-def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', session=None):
+def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', session=None) -> List[str]:
     """
     Declare a list of bad replicas.
 
@@ -253,7 +251,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
     :param scheme: The scheme of the PFNs.
     :param session: The database session in use.
     """
-    unknown_replicas = []
+    unknown_replicas: List[str] = []
     replicas = []
     declared_replicas = []
     path_pfn_dict = {}
@@ -340,7 +338,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
 
 
 @transactional_session
-def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, session=None):
+def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, session=None) -> List[str]:
     """
     Declare a list of bad replicas.
 
@@ -351,7 +349,7 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, session
     :param state: BadFilesStatus.BAD
     :param session: The database session in use.
     """
-    unknown_replicas = []
+    unknown_replicas: List[str] = []
     replicas_for_update = []
     replicas_list = []
 
@@ -389,7 +387,7 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, session
 
 
 @transactional_session
-def declare_bad_file_replicas(replicas, reason, issuer, status=BadFilesStatus.BAD, session=None):
+def declare_bad_file_replicas(replicas: Union[List[str], List[ReplicaRSEIdDict]], reason: str, issuer, status=BadFilesStatus.BAD, session=None):
     """
     Declare a list of bad replicas.
 
@@ -432,7 +430,7 @@ def get_pfn_to_rse(pfns, vo='def', session=None):
 
     :returns: a tuple : scheme, {rse1 : [pfn1, pfn2, ...], rse2: [pfn3, pfn4, ...]}, {'unknown': [pfn5, pfn6, ...]}.
     """
-    unknown_replicas = {}
+    unknown_replicas: Dict[str, List[str]] = {}
     storage_elements = []
     se_condition = []
     dict_rse = {}
@@ -1396,14 +1394,14 @@ def __bulk_add_new_file_dids(files, account, dataset_meta=None, session=None):
 
 
 @transactional_session
-def __bulk_add_file_dids(files, account, dataset_meta=None, session=None):
+def __bulk_add_file_dids(files, account, dataset_meta=None, session=None) -> List[Dict[str, Any]]:
     """
     Bulk add new dids.
 
     :param dids: the list of files.
     :param account: The account owner.
     :param session: The database session in use.
-    :returns: True is successful.
+    :returns: A list of new files concatenated with previously available files.
     """
     condition = []
     for f in files:
@@ -1447,7 +1445,7 @@ def tombstone_from_delay(tombstone_delay):
 
 
 @transactional_session
-def __bulk_add_replicas(rse_id, files, account, session=None):
+def __bulk_add_replicas(rse_id, files, account, session=None) -> Tuple[int, int]:
     """
     Bulk add new dids.
 
@@ -1455,7 +1453,7 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
     :param dids: the list of files.
     :param account: The account owner.
     :param session: The database session in use.
-    :returns: True is successful.
+    :returns: A tuple of the number of new files and the sum of their sizes.
     """
     nbfiles, bytes_ = 0, 0
     # Check for the replicas already available
@@ -1506,7 +1504,7 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
 
 @transactional_session
 def add_replicas(rse_id, files, account, ignore_availability=True,
-                 dataset_meta=None, session=None):
+                 dataset_meta=None, session=None) -> List[Dict[str, Any]]:
     """
     Bulk add file replicas.
 
@@ -1516,7 +1514,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     :param ignore_availability: Ignore the RSE blocklisting.
     :param session: The database session in use.
 
-    :returns: True is successful.
+    :returns: A list of new files concatenated with the previously available files.
     """
 
     def _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan', protocol_attr=None):

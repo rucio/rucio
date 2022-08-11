@@ -15,6 +15,7 @@
 
 import uuid
 import datetime
+from typing import List, Union
 
 from rucio.api import permission
 from rucio.db.sqla.constants import BadFilesStatus
@@ -24,6 +25,7 @@ from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.common import exception
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types.dicts import ReplicaRSEDict
 from rucio.common.utils import api_update_return_dict
 from rucio.common.constants import SuspiciousAvailability
 
@@ -64,11 +66,11 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
 
 
 @transactional_session
-def declare_bad_file_replicas(replicas, reason, issuer, vo='def', session=None):
+def declare_bad_file_replicas(replicas: Union[List[str], List[ReplicaRSEDict]], reason: str, issuer, vo='def', session=None):
     """
     Declare a list of bad replicas.
 
-    :param replicas: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or "rse": <rse_name>}.
+    :param replicas: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or 'rse': <rse_name>}.
     :param reason: The reason of the loss.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
@@ -257,8 +259,6 @@ def add_replicas(rse, files, issuer, ignore_availability=False, vo='def', sessio
     :param ignore_availability: Ignore blocked RSEs.
     :param vo: The VO to act on.
     :param session: The database session in use.
-
-    :returns: True is successful, False otherwise
     """
     for v_file in files:
         v_file.update({"type": "FILE"})  # Make sure DIDs are identified as files for checking
@@ -457,7 +457,7 @@ def add_bad_pfns(pfns, issuer, state, reason=None, expires_at=None, vo='def', se
 
 
 @transactional_session
-def add_bad_dids(dids, rse, issuer, state, reason=None, expires_at=None, vo='def', session=None):
+def add_bad_dids(dids, rse, issuer, state, reason=None, expires_at=None, vo='def', session=None) -> List[str]:
     """
     Add bad replica entries for DIDs.
 
