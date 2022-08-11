@@ -45,7 +45,7 @@ class TestBinRucio:
     def conf_vo(self):
         self.vo = {}
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            if environ.get('SUITE', 'remote_dbs') != 'client':
+            if 'SUITE' not in environ or environ['SUITE'] != 'client':
                 # Server test, we can use short VO via DB for internal tests
                 from rucio.tests.common_server import get_vo
                 self.vo = {'vo': get_vo()}
@@ -353,7 +353,7 @@ class TestBinRucio:
 
         # removing replica -> file on RSE should be overwritten
         # (simulating an upload error, where a part of the file is uploaded but the replica is not registered)
-        if environ.get('SUITE', 'remote_dbs') != 'client':
+        if 'SUITE' not in environ or environ['SUITE'] != 'client':
             from rucio.db.sqla import session, models
             db_session = session.get_session()
             internal_scope = InternalScope(self.user, **self.vo)

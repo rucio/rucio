@@ -16,14 +16,7 @@ dists:
       python:
         - "3.9"
 python:
-  - id: "3.6"
-    allow:
-      suites:
-        - syntax
-        - docs
-        - client_syntax
-        - remote_dbs
-        - multi_vo
+  - "3.6"
   - id: "3.7"
     allow:
       suites:
