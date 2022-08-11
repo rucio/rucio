@@ -759,7 +759,7 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
     assert replica['state'] == ReplicaState.AVAILABLE
 
 
-@skip_rse_tests_with_accounts
+# @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_transfer_to_mas_new_replica(rse_factory, did_factory, root_account):
     """
@@ -804,7 +804,7 @@ def test_transfer_to_mas_new_replica(rse_factory, did_factory, root_account):
         assert replica_core.get_replica(rse_id=rse_id, **did)['state'] == ReplicaState.AVAILABLE
 
 
-@skip_rse_tests_with_accounts
+# @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_failed_transfer_to_mas_new_replica(rse_factory, did_factory, root_account):
     """
@@ -839,15 +839,16 @@ def test_failed_transfer_to_mas_new_replica(rse_factory, did_factory, root_accou
     # re-query request to get external_id
     request = request_core.get_request(request_id=request['id'])
     request_core.set_request_state(request_id=request['id'], state=RequestState.FAILED, external_id=request['external_id'])
-    finisher(once=True, partition_wait_time=None)
     lock_core.failed_transfer(scope=did['scope'], name=did['name'], rse_id=dst_rse_id)
-
+    replica = {'rse_id': dst_rse_id, 'scope': did['scope'], 'name': did['name'], 'state': ReplicaState.UNAVAILABLE}
+    replica_core.update_replicas_states([replica])
+    finisher(once=True, partition_wait_time=None)
     assert rule_core.get_rule(rule_id)['state'] == RuleState.STUCK
     assert lock_core.get_replica_locks_for_rule_id(rule_id=rule_id)[0]['state'] == LockState.STUCK
     assert replica_core.get_replica(rse_id=dst_rse_id, **did)['state'] == ReplicaState.UNAVAILABLE
 
 
-@skip_rse_tests_with_accounts
+# @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account):
     """
@@ -913,7 +914,7 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
     assert rule_core.get_rule(rule2_id)['state'] == RuleState.OK
 
 
-@skip_rse_tests_with_accounts
+# @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root_account):
     """
@@ -978,7 +979,7 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
     assert rule_core.get_rule(rule2_id)['state'] == RuleState.STUCK
 
 
-@skip_rse_tests_with_accounts
+# @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_transfer_failed_stagein_to_mas_existing_replica(rse_factory, did_factory, root_account):
     """
