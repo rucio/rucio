@@ -25,6 +25,7 @@ from rucio.api.replica import add_replicas, list_replicas, list_dataset_replicas
     delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas, add_bad_dids, add_bad_pfns, \
     get_suspicious_files, declare_suspicious_file_replicas, list_bad_replicas_status, get_bad_replicas_summary, \
     list_datasets_per_rse, set_tombstone, list_dataset_replicas_vp
+from rucio.api.quarantined_replica import quarantine_file_replicas
 from rucio.common.config import config_get
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, InvalidType, DataIdentifierNotFound, \
@@ -846,6 +847,73 @@ class BadReplicas(ErrorHandlingMethodView):
             return generate_http_error_flask(401, error)
         except (RSENotFound, ReplicaNotFound) as error:
             return generate_http_error_flask(404, error)
+
+
+class QuarantineReplicas(ErrorHandlingMethodView):
+
+    def post(self):
+        """
+        ---
+        summary: Quarantine replicas
+        description: Quarantine replicas.
+        tags:
+          - Replicas
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                    - replicas
+                properties:
+                  replicas:
+                    description: replicas
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - path
+                      properties:
+                            path:
+                                description: path
+                                type:   string
+                            scope:
+                                description: scope
+                                type:   string
+                            name:
+                                description: name
+                                type:   string
+                  rse:
+                    description: RSE name
+                    type: string
+                  rse_id:
+                    description: RSE id
+                    type: string
+        responses:
+          200:
+            description: OK
+          403:
+            description: Forbidden.
+          404:
+            description: Not found
+        """
+
+        parameters = json_parameters()
+        replicas = param_get(parameters, 'replicas', default=[])
+        rse = param_get(parameters, 'rse', default=None)
+        rse_id = param_get(parameters, 'rse_id', default=None)
+        vo = request.environ.get('vo')
+        issuer = request.environ.get('issuer')
+
+        if replicas:
+            try:
+                quarantine_file_replicas(replicas, issuer, rse=rse, rse_id=rse_id, vo=vo)
+            except AccessDenied as error:
+                return generate_http_error_flask(403, error)
+            except (RSENotFound, ReplicaNotFound) as error:
+                return generate_http_error_flask(404, error)
+
+        return '', 200
 
 
 class SuspiciousReplicas(ErrorHandlingMethodView):
@@ -1739,8 +1807,13 @@ def blueprint(with_doc=False):
     bp.add_url_rule('/bad/dids', view_func=bad_replicas_dids_view, methods=['post', ])
     replicas_rse_view = ReplicasRSE.as_view('replicas_rse')
     bp.add_url_rule('/rse/<rse>', view_func=replicas_rse_view, methods=['get', ])
+
     bad_replicas_view = BadReplicas.as_view('bad_replicas')
     bp.add_url_rule('/bad', view_func=bad_replicas_view, methods=['post', ])
+
+    quarantine_replicas_view = QuarantineReplicas.as_view('quarantine_replicas')
+    bp.add_url_rule('/quarantine', view_func=quarantine_replicas_view, methods=['post', ])
+
     replicas_dids_view = ReplicasDIDs.as_view('replicas_dids')
     bp.add_url_rule('/dids', view_func=replicas_dids_view, methods=['post', ])
     dataset_replicas_view = DatasetReplicas.as_view('dataset_replicas')
@@ -1766,6 +1839,7 @@ def blueprint(with_doc=False):
         bp.add_url_rule('/<path:scope_name>/datasets_vp', view_func=dataset_replicas_vp_view, methods=['get', ])
         bp.add_url_rule('/<path:scope_name>/', view_func=replicas_view, methods=['get', ])
         bp.add_url_rule('/tombstone/', view_func=set_tombstone_view, methods=['post', ])
+        bp.add_url_rule('/quarantine/', view_func=quarantine_replicas_view, methods=['post', ])
 
     bp.before_request(request_auth_env)
     bp.after_request(response_headers)
