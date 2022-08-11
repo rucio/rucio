@@ -36,10 +36,8 @@ clients_requirements_table = {
     ],
     'swift': ['python-swiftclient'],
     'argcomplete': ['argcomplete'],
-    'sftp': ['pysftp'],
-    # 'gfal2': ['gfal2-python'],
+    'sftp': ['paramiko'],
     'dumper': [
-        # 'gfal2-python',
         'python-magic',
     ],
 }
@@ -68,7 +66,6 @@ server_requirements_table = {
         'python-magic',
         'paramiko',
         'boto3',
-        'pysftp',
         'sqlalchemy',
         'alembic',
         'pymemcache',
