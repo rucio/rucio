@@ -759,7 +759,7 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
     assert replica['state'] == ReplicaState.AVAILABLE
 
 
-# @skip_rse_tests_with_accounts
+@skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_transfer_to_mas_new_replica(rse_factory, did_factory, root_account):
     """
@@ -804,7 +804,7 @@ def test_transfer_to_mas_new_replica(rse_factory, did_factory, root_account):
         assert replica_core.get_replica(rse_id=rse_id, **did)['state'] == ReplicaState.AVAILABLE
 
 
-# @skip_rse_tests_with_accounts
+@skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_failed_transfer_to_mas_new_replica(rse_factory, did_factory, root_account):
     """
@@ -848,7 +848,7 @@ def test_failed_transfer_to_mas_new_replica(rse_factory, did_factory, root_accou
     assert replica_core.get_replica(rse_id=dst_rse_id, **did)['state'] == ReplicaState.UNAVAILABLE
 
 
-# @skip_rse_tests_with_accounts
+@skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account):
     """
@@ -914,7 +914,7 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
     assert rule_core.get_rule(rule2_id)['state'] == RuleState.OK
 
 
-# @skip_rse_tests_with_accounts
+@skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root_account):
     """
@@ -979,7 +979,7 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
     assert rule_core.get_rule(rule2_id)['state'] == RuleState.STUCK
 
 
-# @skip_rse_tests_with_accounts
+@skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 def test_transfer_failed_stagein_to_mas_existing_replica(rse_factory, did_factory, root_account):
     """
