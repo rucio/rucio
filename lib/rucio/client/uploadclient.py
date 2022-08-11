@@ -376,7 +376,11 @@ class UploadClient:
                                                 'lifetime': file.get('lifetime')}])
                 logger(logging.INFO, 'Successfully created dataset %s' % dataset_did_str)
             except DataIdentifierAlreadyExists:
-                logger(logging.DEBUG, 'Dataset %s already exists' % dataset_did_str)
+                logger(logging.INFO, 'Dataset %s already exists - no rule will be created' % dataset_did_str)
+
+                if file.get('lifetime') is not None:
+                    raise InputValidationError('Dataset %s exists and lifetime %s given. Prohibited to modify parent dataset lifetime.' % (dataset_did_str,
+                                                                                                                                           file.get('lifetime')))
         else:
             logger(logging.DEBUG, 'Skipping dataset registration')
 
