@@ -80,27 +80,7 @@ def add_message(event_type, payload, session=None):
     :param payload: The message payload. Will be persisted as JSON.
     :param session: The database session to use.
     """
-    try:
-        payload = json.dumps(payload, cls=APIEncoder)
-    except TypeError as err:  # noqa: F841
-        raise InvalidObject('Invalid JSON for payload: %(err)s' % locals())
-
-    for service in config_get_list('hermes', 'services_list', raise_exception=False, default='activemq,email', session=session):
-        try:
-            HermesService(service.upper())
-        except ValueError as err:
-            raise RucioException(str(err))
-        if event_type == 'email' and service != 'email':
-            continue
-        if service == 'email' and event_type != 'email':
-            continue
-
-        if len(payload) > MAX_MESSAGE_LENGTH:
-            new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload, services=service)
-        else:
-            new_message = Message(event_type=event_type, payload=payload, services=service)
-
-        new_message.save(session=session, flush=False)
+    add_messages([{'event_type': event_type, 'payload': payload}], session=session)
 
 
 @transactional_session
