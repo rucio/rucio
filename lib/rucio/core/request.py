@@ -30,7 +30,7 @@ from rucio.common.config import config_get_bool, config_get
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
-from rucio.core.message import add_message
+from rucio.core.message import add_message, add_messages
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute, RseData
 from rucio.db.sqla import models, filter_thread_work
@@ -313,7 +313,7 @@ def queue_requests(requests, session=None, logger=logging.log):
                    'queued_at': str(datetime.datetime.utcnow())}
 
         messages.append({'event_type': transfer_status,
-                         'payload': json.dumps(payload)})
+                         'payload': payload})
 
     for requests_chunk in chunks(new_requests, 1000):
         session.bulk_insert_mappings(models.Request, requests_chunk)
@@ -321,8 +321,7 @@ def queue_requests(requests, session=None, logger=logging.log):
     for sources_chunk in chunks(sources, 1000):
         session.bulk_insert_mappings(models.Source, sources_chunk)
 
-    for messages_chunk in chunks(messages, 1000):
-        session.bulk_insert_mappings(models.Message, messages_chunk)
+    add_messages(messages, session=session)
 
     return new_requests
 
