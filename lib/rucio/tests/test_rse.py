@@ -27,7 +27,7 @@ from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSuppor
                                     InputValidationError)
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid, GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_KEY
+from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_KEY
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.rule import add_rule
