@@ -21,10 +21,52 @@ from sqlalchemy.exc import IntegrityError
 from rucio.common.constants import HermesService, MAX_MESSAGE_LENGTH
 from rucio.common.config import config_get_list
 from rucio.common.exception import InvalidObject, RucioException
-from rucio.common.utils import APIEncoder
+from rucio.common.utils import APIEncoder, chunks
 from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
+
+
+@transactional_session
+def add_messages(messages, session=None):
+    """
+    Add a list of messages to be submitted asynchronously to a message broker.
+
+    For messages with payload bigger than MAX_MESSAGE_LENGTH, payload_nolimit is used instead of payload.
+    In the case of nolimit, a placeholder string is written to the NOT NULL payload column.
+
+    :param messages: A list of dictionaries {'event_type': str, 'payload': dict}
+    :param session: The database session to use.
+    """
+    services = []
+    for service in config_get_list('hermes', 'services_list', raise_exception=False, default='activemq,email', session=session):
+        try:
+            HermesService(service.upper())
+        except ValueError as err:
+            raise RucioException(str(err))
+        services.append(service)
+
+    msgs = []
+    for message in messages:
+        event_type = message['event_type']
+        payload = message['payload']
+        for service in services:
+            msg = {'services': service, 'event_type': event_type}
+            try:
+                if event_type == 'email' and service != 'email':
+                    continue
+                if service == 'email' and event_type != 'email':
+                    continue
+                msg_payload = json.dumps(payload, cls=APIEncoder)
+                msg['payload'] = msg_payload
+                if len(msg_payload) > MAX_MESSAGE_LENGTH:
+                    msg['payload_nolimit'] = msg_payload
+                    msg['payload'] = 'nolimit'
+                msgs.append(msg)
+            except TypeError as err:  # noqa: F841
+                raise InvalidObject('Invalid JSON for payload: %(err)s' % locals())
+    for messages_chunk in chunks(msgs, 1000):
+        session.bulk_insert_mappings(Message, messages_chunk)
 
 
 @transactional_session
