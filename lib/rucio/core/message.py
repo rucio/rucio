@@ -15,6 +15,8 @@
 
 import json
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import or_, delete, update
 from sqlalchemy.exc import IntegrityError
 
@@ -26,9 +28,16 @@ from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
 
+if TYPE_CHECKING:
+    from typing import Any, Dict, List, Optional
+    from sqlalchemy.orm import Session
+
+    MessageType = Dict[str, Any]
+    MessagesListType = List[MessageType]
+
 
 @transactional_session
-def add_messages(messages, session=None):
+def add_messages(messages: "MessagesListType", session: "Optional[Session]" = None) -> None:
     """
     Add a list of messages to be submitted asynchronously to a message broker.
 
@@ -70,7 +79,7 @@ def add_messages(messages, session=None):
 
 
 @transactional_session
-def add_message(event_type, payload, session=None):
+def add_message(event_type: str, payload: dict, session: "Optional[Session]" = None) -> None:
     """
     Add a message to be submitted asynchronously to a message broker.
 
@@ -84,8 +93,13 @@ def add_message(event_type, payload, session=None):
 
 
 @transactional_session
-def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=None,
-                      lock=False, old_mode=True, session=None):
+def retrieve_messages(bulk: int = 1000,
+                      thread: "Optional[int]" = None,
+                      total_threads: "Optional[int]" = None,
+                      event_type: "Optional[str]" = None,
+                      lock: bool = False,
+                      old_mode: bool = True,
+                      session: "Optional[Session]" = None) -> "MessagesListType":
     """
     Retrieve up to $bulk messages.
 
@@ -161,7 +175,7 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
 
 
 @transactional_session
-def delete_messages(messages, session=None):
+def delete_messages(messages: "MessagesListType", session: "Optional[Session]" = None) -> None:
     """
     Delete all messages with the given IDs, and archive them to the history.
 
@@ -187,7 +201,7 @@ def delete_messages(messages, session=None):
 
 
 @transactional_session
-def truncate_messages(session=None):
+def truncate_messages(session: "Optional[Session]" = None) -> None:
     """
     Delete all stored messages. This is for internal purposes only.
 
@@ -201,7 +215,7 @@ def truncate_messages(session=None):
 
 
 @transactional_session
-def update_messages_services(messages, services, session=None):
+def update_messages_services(messages: "MessagesListType", services: str, session: "Optional[Session]" = None) -> None:
     """
     Update the services for all messages with the given IDs.
 
