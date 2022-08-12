@@ -20,6 +20,7 @@ import os
 import tempfile
 from random import choice
 from string import ascii_uppercase
+import requests
 
 import pytest
 
@@ -35,6 +36,27 @@ skip_multivo = pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] 
 skip_non_belleii = pytest.mark.skipif(not ('POLICY' in os.environ and os.environ['POLICY'] == 'belleii'),
                                       reason="specific belleii tests")
 
+def is_influxdb_available():
+    """Return True if influxdb is available, else return False."""
+    try:
+        response = requests.get('http://localhost:8086/ping')
+        if response.status_code == 204:
+            return True
+    except requests.exceptions.ConnectionError:
+        print('InfluxDB is not running at localhost:8086')
+        return False
+
+def is_elasticsearch_available():
+    """Return True if elasticsearch is available, else return False."""
+    try:
+        response = requests.get('http://localhost:9200/')
+        if response.status_code == 200:
+            return True
+    except requests.exceptions.ConnectionError:
+        print('Elasticsearch is not running at localhost:9200')
+        return False
+
+skip_missing_elasticsearch_influxdb_in_env = pytest.mark.skipif(not (is_influxdb_available() and is_elasticsearch_available()), reason='influxdb is not available')
 
 def get_long_vo():
     """ Get the VO name from the config file for testing.

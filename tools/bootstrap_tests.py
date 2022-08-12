@@ -64,6 +64,14 @@ def belleii_bootstrap(client):
             except Exception as err:
                 print(err)
 
+def is_influxdb_available():
+    try:
+        response = requests.get('http://localhost:8086/ping')
+        if response.status_code == 204:
+            return True
+    except requests.exceptions.ConnectionError:
+        print('InfluxDB is not running at localhost:8086')
+        return False
 
 def create_influxdb_database():
     response = requests.get('http://localhost:8086/api/v2/buckets?org=rucio', headers={'Authorization': 'Token mytoken'})
@@ -148,6 +156,7 @@ if __name__ == '__main__':
     if os.getenv('POLICY') == 'belleii':
         belleii_bootstrap(client)
 
-    response = create_influxdb_database()
-    if response.status_code != 201:
-        print('Failed to create rucio database in influxDB : %s' % response.text)
+    if is_influxdb_available():
+        response = create_influxdb_database()
+        if response.status_code != 201:
+            print('Failed to create rucio database in influxDB : %s' % response.text)

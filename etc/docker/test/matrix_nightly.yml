@@ -27,13 +27,18 @@ suites:
     RUN_HTTPD: false
   - id: client
     RDBMS: sqlite
-  - id: all
+  - id: remote_dbs
     RDBMS:
       - oracle
       - mysql8
       - postgres14
+    services:
+      - influxdb_elastic
+  - id: sqlite
+    RDBMS:
       - sqlite
   - id: multi_vo
     RDBMS: postgres14
+    RUCIO_HOME: /opt/rucio/etc/multi_vo/tst
 image_identifier:
   - autotest

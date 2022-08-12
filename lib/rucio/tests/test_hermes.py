@@ -28,7 +28,7 @@ import time
 from rucio.common.config import config_get
 from rucio.core.message import add_message, retrieve_messages, truncate_messages
 from rucio.daemons.hermes import hermes, hermes2
-from rucio.tests.common import rse_name_generator
+from rucio.tests.common import rse_name_generator, skip_missing_elasticsearch_influxdb_in_env
 
 
 class MyListener(object):
@@ -51,6 +51,7 @@ class MyListener(object):
         self.messages.append(loads(message))
 
 
+@skip_missing_elasticsearch_influxdb_in_env
 @pytest.mark.noparallel(reason="fails when run in parallel")
 @pytest.mark.parametrize(
     "core_config_mock",
@@ -101,6 +102,7 @@ def test_hermes(core_config_mock, caches_mock):
 
 
 @pytest.mark.noparallel(reason="fails when run in parallel")
+@skip_missing_elasticsearch_influxdb_in_env
 @pytest.mark.parametrize(
     "core_config_mock",
     [
