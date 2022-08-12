@@ -22,7 +22,7 @@ import typing
 
 import yaml
 
-mapping = {'dists': 'DIST', 'python': 'PYTHON', 'suites': 'SUITE', 'image_identifier': 'IMAGE_IDENTIFIER'}
+mapping = {'dists': 'DIST', 'python': 'PYTHON', 'suites': 'SUITE', 'image_identifier': 'IMAGE_IDENTIFIER', 'services': 'SERVICES'}
 
 
 def extract_mapped_list(inp: typing.Dict):

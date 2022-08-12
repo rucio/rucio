@@ -54,7 +54,7 @@ elif [[ "$SUITE" =~ ^client.* ]]; then
         tools/test/check_syntax.sh
     fi
 
-elif [ "$SUITE" == "all" ]; then
+elif [ "$SUITE" == "remote_dbs" ] || [ "$SUITE" == "sqlite" ]; then
     tools/run_tests_docker.sh
 
 elif [ "$SUITE" == "multi_vo" ]; then
