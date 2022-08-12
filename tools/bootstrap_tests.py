@@ -64,6 +64,7 @@ def belleii_bootstrap(client):
             except Exception as err:
                 print(err)
 
+
 def is_influxdb_available():
     try:
         response = requests.get('http://localhost:8086/ping')
@@ -72,6 +73,7 @@ def is_influxdb_available():
     except requests.exceptions.ConnectionError:
         print('InfluxDB is not running at localhost:8086')
         return False
+
 
 def create_influxdb_database():
     response = requests.get('http://localhost:8086/api/v2/buckets?org=rucio', headers={'Authorization': 'Token mytoken'})

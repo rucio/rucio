@@ -4,6 +4,9 @@ dists:
       python:
         - "3.6"
         - "3.7"
+    deny:
+      suites:
+        - sqlite
   - id: fedora32
     allow:
       python:
