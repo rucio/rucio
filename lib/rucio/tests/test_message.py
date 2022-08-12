@@ -13,9 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import random
+import string
+
 import pytest
 
-from rucio.common.exception import InvalidObject
+from rucio.db.sqla.models import Message
+from rucio.db.sqla.session import get_session
+from rucio.common.constants import MAX_MESSAGE_LENGTH
+from rucio.common.exception import InvalidObject, RucioException
 from rucio.common.utils import generate_uuid
 from rucio.core.message import add_message, add_messages, retrieve_messages, delete_messages, truncate_messages
 
@@ -90,3 +97,51 @@ def test_bulk_insert_and_pop_messages(core_config_mock, caches_mock):
     delete_messages(to_delete)
 
     assert retrieve_messages() == []
+
+
+@pytest.mark.noparallel(reason='fails when run in parallel')
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('hermes', 'services_list', 'influx,activemq,elastic,email'),
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.config.REGION',
+]}], indirect=True)
+def test_large_payload(core_config_mock, caches_mock):
+    """ MESSAGE (CORE): Test insert and retrieving of message with large payload """
+    truncate_messages()
+
+    long_payload = ''.join(random.choice(string.ascii_letters) for i in range(MAX_MESSAGE_LENGTH + 20))
+    dict_long_payload = {"mylong_message": long_payload}
+    event_type = generate_uuid()[:10]
+    add_message(event_type=event_type, payload=dict_long_payload)
+
+    session = get_session()
+    msg = session.query(Message.id,   # pylint: disable=no-member
+                        Message.created_at,
+                        Message.event_type,
+                        Message.payload,
+                        Message.payload_nolimit,
+                        Message.services)\
+        .filter_by(event_type=event_type)\
+        .first()
+    assert msg.payload == 'nolimit'
+    assert msg.payload_nolimit == json.dumps(dict_long_payload)
+    messages = retrieve_messages(40)
+    assert messages[0]['payload'] == dict_long_payload
+
+
+@pytest.mark.noparallel(reason='fails when run in parallel')
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('hermes', 'services_list', 'nonexistingservice'),
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.config.REGION',
+]}], indirect=True)
+def test_non_existing_service(core_config_mock, caches_mock):
+    """ MESSAGE (CORE): Test insert message to a non-existing service """
+    truncate_messages()
+
+    with pytest.raises(RucioException):
+        add_message(event_type='NEW_DID', payload={'name': 'name',
+                                                   'name_Y': 'scope_X',
+                                                   'type': 'file'})
