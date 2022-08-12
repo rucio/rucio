@@ -4,6 +4,9 @@ dists:
       python:
         - "3.6"
         - "3.7"
+    deny:
+      suites:
+        - sqlite
   - id: fedora32
     allow:
       python:
@@ -27,13 +30,18 @@ suites:
     RUN_HTTPD: false
   - id: client
     RDBMS: sqlite
-  - id: all
+  - id: remote_dbs
     RDBMS:
       - oracle
       - mysql8
       - postgres14
+    services:
+      - influxdb_elastic
+  - id: sqlite
+    RDBMS:
       - sqlite
   - id: multi_vo
     RDBMS: postgres14
+    RUCIO_HOME: /opt/rucio/etc/multi_vo/tst
 image_identifier:
   - autotest
