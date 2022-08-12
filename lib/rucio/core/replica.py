@@ -1334,12 +1334,20 @@ def _list_replicas_with_temp_tables(
             # continue with the normal list_replicas flow and fetch all replicas
             pass
 
-    elif len(replica_sources) == 1:
-        stmt = replica_sources[0]
+    if len(replica_sources) == 1:
+        stmt = replica_sources[0].order_by('scope', 'name')
+        replica_tuples = session.execute(stmt)
     else:
-        stmt = union(*replica_sources)
-    stmt = stmt.order_by('scope', 'name')
-    replica_tuples = session.execute(stmt)
+        if session.bind.dialect.name == 'mysql':
+            # On mysql, perform both queries independently and merge their result in python.
+            # The union query fails with "Can't reopen table"
+            replica_tuples = heapq.merge(
+                *[session.execute(stmt.order_by('scope', 'name')) for stmt in replica_sources],
+                key=lambda t: (t[0], t[1]),  # sort by scope, name
+            )
+        else:
+            stmt = union(*replica_sources).order_by('scope', 'name')
+            replica_tuples = session.execute(stmt)
 
     yield from _pick_n_random(
         nrandom,
