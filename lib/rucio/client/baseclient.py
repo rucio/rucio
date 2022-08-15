@@ -883,7 +883,6 @@ class BaseClient(object):
             except Exception:
                 raise
 
-        # if the file exists check if the stored token is valid. If not request a new one and overwrite the file. Otherwise use the one from the file
         try:
             file_d, file_n = mkstemp(dir=self.token_path)
             with fdopen(file_d, "w") as f_token:
