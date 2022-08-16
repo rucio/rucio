@@ -15,20 +15,71 @@
 
 import json
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import or_, delete, update
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.constants import HermesService, MAX_MESSAGE_LENGTH
 from rucio.common.config import config_get_list
 from rucio.common.exception import InvalidObject, RucioException
-from rucio.common.utils import APIEncoder
+from rucio.common.utils import APIEncoder, chunks
 from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
 
+if TYPE_CHECKING:
+    from typing import Any, Dict, List, Optional
+    from sqlalchemy.orm import Session
+
+    MessageType = Dict[str, Any]
+    MessagesListType = List[MessageType]
+
 
 @transactional_session
-def add_message(event_type, payload, session=None):
+def add_messages(messages: "MessagesListType", session: "Optional[Session]" = None) -> None:
+    """
+    Add a list of messages to be submitted asynchronously to a message broker.
+
+    For messages with payload bigger than MAX_MESSAGE_LENGTH, payload_nolimit is used instead of payload.
+    In the case of nolimit, a placeholder string is written to the NOT NULL payload column.
+
+    :param messages: A list of dictionaries {'event_type': str, 'payload': dict}
+    :param session: The database session to use.
+    """
+    services = []
+    for service in config_get_list('hermes', 'services_list', raise_exception=False, default='activemq,email', session=session):
+        try:
+            HermesService(service.upper())
+        except ValueError as err:
+            raise RucioException(str(err))
+        services.append(service)
+
+    msgs = []
+    for message in messages:
+        event_type = message['event_type']
+        payload = message['payload']
+        for service in services:
+            msg = {'services': service, 'event_type': event_type}
+            try:
+                if event_type == 'email' and service != 'email':
+                    continue
+                if service == 'email' and event_type != 'email':
+                    continue
+                msg_payload = json.dumps(payload, cls=APIEncoder)
+                msg['payload'] = msg_payload
+                if len(msg_payload) > MAX_MESSAGE_LENGTH:
+                    msg['payload_nolimit'] = msg_payload
+                    msg['payload'] = 'nolimit'
+                msgs.append(msg)
+            except TypeError as err:  # noqa: F841
+                raise InvalidObject('Invalid JSON for payload: %(err)s' % locals())
+    for messages_chunk in chunks(msgs, 1000):
+        session.bulk_insert_mappings(Message, messages_chunk)
+
+
+@transactional_session
+def add_message(event_type: str, payload: dict, session: "Optional[Session]" = None) -> None:
     """
     Add a message to be submitted asynchronously to a message broker.
 
@@ -38,32 +89,17 @@ def add_message(event_type, payload, session=None):
     :param payload: The message payload. Will be persisted as JSON.
     :param session: The database session to use.
     """
-    try:
-        payload = json.dumps(payload, cls=APIEncoder)
-    except TypeError as err:  # noqa: F841
-        raise InvalidObject('Invalid JSON for payload: %(err)s' % locals())
-
-    for service in config_get_list('hermes', 'services_list', raise_exception=False, default='activemq,email', session=session):
-        try:
-            HermesService(service.upper())
-        except ValueError as err:
-            raise RucioException(str(err))
-        if event_type == 'email' and service != 'email':
-            continue
-        if service == 'email' and event_type != 'email':
-            continue
-
-        if len(payload) > MAX_MESSAGE_LENGTH:
-            new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload, services=service)
-        else:
-            new_message = Message(event_type=event_type, payload=payload, services=service)
-
-        new_message.save(session=session, flush=False)
+    add_messages([{'event_type': event_type, 'payload': payload}], session=session)
 
 
 @transactional_session
-def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=None,
-                      lock=False, old_mode=True, session=None):
+def retrieve_messages(bulk: int = 1000,
+                      thread: "Optional[int]" = None,
+                      total_threads: "Optional[int]" = None,
+                      event_type: "Optional[str]" = None,
+                      lock: bool = False,
+                      old_mode: bool = True,
+                      session: "Optional[Session]" = None) -> "MessagesListType":
     """
     Retrieve up to $bulk messages.
 
@@ -139,7 +175,7 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
 
 
 @transactional_session
-def delete_messages(messages, session=None):
+def delete_messages(messages: "MessagesListType", session: "Optional[Session]" = None) -> None:
     """
     Delete all messages with the given IDs, and archive them to the history.
 
@@ -165,7 +201,7 @@ def delete_messages(messages, session=None):
 
 
 @transactional_session
-def truncate_messages(session=None):
+def truncate_messages(session: "Optional[Session]" = None) -> None:
     """
     Delete all stored messages. This is for internal purposes only.
 
@@ -179,7 +215,7 @@ def truncate_messages(session=None):
 
 
 @transactional_session
-def update_messages_services(messages, services, session=None):
+def update_messages_services(messages: "MessagesListType", services: str, session: "Optional[Session]" = None) -> None:
     """
     Update the services for all messages with the given IDs.
 
