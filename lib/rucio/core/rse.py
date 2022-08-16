@@ -39,6 +39,7 @@ from rucio.db.sqla.constants import (RSEType, ReplicaState)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 
+RSE_SETTINGS = ["continent", "city", "region_code", "country_name", "time_zone", "ISP", "ASN"]
 REGION = make_region_memcached(expiration_time=900)
 
 
@@ -154,9 +155,6 @@ class RseData:
             limits = get_rse_limits(rse_id=rse_id, session=session)
             for rse_data in rse_datas_by_id[rse_id]:
                 rse_data.limits = limits
-
-
-RSE_SETTINGS = ["continent", "city", "region_code", "country_name", "time_zone", "ISP", "ASN"]
 
 
 @transactional_session
