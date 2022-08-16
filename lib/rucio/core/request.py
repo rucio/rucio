@@ -419,7 +419,7 @@ def list_transfer_requests_and_source_replicas(
     else:
         sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')
 
-    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
+    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False, session=session)
     if rses and use_temp_tables:
         temp_table_cls = temp_table_mngr(session).create_id_table()
 

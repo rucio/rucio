@@ -3120,7 +3120,7 @@ def __resolve_bytes_length_events_did(
     if did.did_type == DIDType.DATASET and dynamic_depth == DIDType.FILE or \
             did.did_type == DIDType.CONTAINER and dynamic_depth in (DIDType.FILE, DIDType.DATASET):
 
-        use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
+        use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False, session=session)
         if use_temp_tables:
             temp_table = temp_table_mngr(session).create_scope_name_table()
             if did.did_type == DIDType.DATASET:

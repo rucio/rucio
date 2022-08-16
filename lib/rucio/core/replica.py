@@ -1051,7 +1051,7 @@ def list_replicas(
     # For historical reasons:
     # - list_replicas([some_file_did]), must return the file even if it doesn't have replicas
     # - list_replicas([some_collection_did]) must only return files with replicas
-    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
+    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False, session=session)
     if use_temp_tables:
         yield from _list_replicas_with_temp_tables(
             dids, schemes, unavailable, request_id, ignore_availability, all_states, pfns, rse_expression, client_location,
@@ -1658,7 +1658,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
     :param ignore_availability: Ignore the RSE blocklisting.
     :param session: The database session in use.
     """
-    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
+    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False, session=session)
     if use_temp_tables:
         __delete_replicas(rse_id, files, ignore_availability=ignore_availability, session=session)
     else:
