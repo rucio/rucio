@@ -2172,8 +2172,8 @@ def list_child_dids_stmt(
     )
 
     stmt = select(
-        child_datasets_cte.c.child_scope,
-        child_datasets_cte.c.child_name,
+        child_datasets_cte.c.child_scope.label('scope'),
+        child_datasets_cte.c.child_name.label('name'),
     ).distinct(
     ).where(
         child_datasets_cte.c.child_type == did_type,
