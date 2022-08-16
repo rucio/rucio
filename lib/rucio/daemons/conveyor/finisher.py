@@ -369,8 +369,8 @@ def __handle_terminated_replicas(replicas, logger=logging.log):
                         logger(logging.ERROR, "Failed to touch requests by rule(%s)", rule_id, exc_info=True)
                 else:
                     logger(logging.ERROR, "Could not finish handling replicas on %s rule %s", req_type, rule_id, exc_info=True)
-            except Exception as error:
-                logger(logging.ERROR, "Something unexpected happened when handling replicas on %s rule %s: %s", req_type, rule_id, str(error))
+            except Exception:
+                logger(logging.ERROR, "Something unexpected happened when handling replicas on %s rule %s", req_type, rule_id, exc_info=True)
 
 
 @transactional_session
