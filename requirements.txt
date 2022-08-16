@@ -7,20 +7,18 @@ jsonschema~=3.2.0                                           # For JSON schema va
 dataclasses==0.8.0; python_version == '3.6'
 
 # All dependencies needed in extras for rucio client (and server/daemons) should be defined here
-paramiko~=2.10.3                                            # ssh_extras; SSH2 protocol library (also needed in the server) Race condition before 2.10.1 (https://github.com/advisories/GHSA-f8q4-jwww-x3wv)
+paramiko~=2.11.0                                            # ssh_extras; SSH2 protocol library (also needed in the server)
 kerberos~=1.3.1                                             # kerberos_extras for client and server
 pykerberos~=1.2.1                                           # kerberos_extras for client and server
 requests-kerberos>=0.12.0                                   # kerberos_extras for client and server
 python-swiftclient~=3.13.1                                  # swift_extras
 argcomplete~=1.12.3                                         # argcomplete_extras; Bash tab completion for argparse
-pysftp>=0.2.9,<0.3                                          # sftp_extras; Used by sftp protocol
 python-magic~=0.4.25                                        # dumper_extras; File type identification using libmagic
-#gfal2-python                                               # dumper_extras and gfal2_extras ~~ BROKEN in pypi
 
 # All dependencies needed to run rucio server/daemons should be defined here
 SQLAlchemy==1.4.31                                          # DB backend
 alembic~=1.7.6                                              # Lightweight database migration tool for SQLAlchemy
-pymemcache==3.5.2                                            # A comprehensive, fast, pure-Python memcached client (Used by Dogpile)
+pymemcache==3.5.2                                           # A comprehensive, fast, pure-Python memcached client (Used by Dogpile)
 python-dateutil==2.8.2                                      # Extensions to the standard datetime module
 stomp.py==6.1.1                                             # ActiveMQ Messaging Protocol
 statsd==3.3.0                                               # Needed to log into graphite with more than 1 Hz
@@ -39,7 +37,7 @@ psycopg2-binary==2.9.3                                      # postgresql_extras
 PyMySQL==1.0.2                                              # mysql_extras
 PyYAML==5.4.1                                               # globus_extras and used for reading test configuration files
 globus-sdk==3.5.0                                           # globus_extras
-python3-saml==1.14.0                                         # saml_extras
+python3-saml==1.14.0                                        # saml_extras
 pymongo==4.0.1                                              # pymongo (metadata plugin)
 
 # All dependencies needed to develop/test rucio should be defined here
@@ -55,7 +53,6 @@ virtualenv==20.13.3                                         # Virtual Python Env
 xmltodict==0.12.0                                           # Makes working with XML feel like you are working with JSON
 pytz==2021.3                                                # World timezone definitions, modern and historical
 pydoc-markdown~=3.13.0                                      # Used for generating Markdown documentation for docusaurus
-#docspec_python==0.1.0                                      # FIX incompatibility with pydoc-markdown
 sh~=1.14.2                                                  # Convenience library for running subprocesses in Python
 apispec==5.1.1                                              # Generate OpenApi definition out of pydoc comments
 apispec-webframeworks==0.5.2                                # Integration of apispec in Flask
