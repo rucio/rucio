@@ -25,7 +25,12 @@ from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSuppor
                                     InvalidObject, ResourceTemporaryUnavailable,
                                     RSEAttributeNotFound, RSEOperationNotSupported,
                                     InputValidationError)
-from rucio.common.utils import generate_uuid, GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_KEY
+from rucio.common.schema import get_schema_value
+from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_KEY
+from rucio.core.account_limit import set_local_account_limit
+from rucio.core.did import add_did, attach_dids
+from rucio.core.rule import add_rule
 from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses,
                             rse_exists, add_rse_attribute, list_rse_attributes,
                             set_rse_transfer_limits, get_rse_transfer_limits,
@@ -34,11 +39,13 @@ from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses
                             parse_checksum_support_attribute,
                             get_rse_supported_checksums_from_attributes,
                             update_rse)
+from rucio.daemons.abacus.account import account_update
 from rucio.db.sqla import session, models
-from rucio.db.sqla.constants import RSEType
+from rucio.db.sqla.constants import RSEType, DIDType
 from rucio.rse import rsemanager as mgr
-from rucio.tests.common import rse_name_generator, hdrdict, auth, headers
+from rucio.tests.common import rse_name_generator, hdrdict, auth, headers, did_name_generator
 from rucio.tests.common_server import get_vo
+from rucio.tests.test_rule import create_files
 
 
 class TestRSECoreApi(unittest.TestCase):
@@ -457,7 +464,7 @@ class TestRSEClient(unittest.TestCase):
 
         tmp_scope = 'mock'
         nbfiles = 5
-        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1,
+        files1 = [{'scope': tmp_scope, 'name': did_name_generator('file'), 'bytes': 1,
                    'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
         replica_client = ReplicaClient()
         replica_client.add_replicas(rse=renamed_rse, files=files1)
@@ -468,7 +475,7 @@ class TestRSEClient(unittest.TestCase):
         assert dict2['availability_write'] is False
         assert dict2['availability_delete'] is False
 
-        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1,
+        files2 = [{'scope': tmp_scope, 'name': did_name_generator('file'), 'bytes': 1,
                    'adler32': '0cc737eb', 'meta': {'events': 10}} for i in range(nbfiles)]
         with pytest.raises(ResourceTemporaryUnavailable):
             replica_client.add_replicas(rse=renamed_rse, files=files2, ignore_availability=False)
@@ -1363,10 +1370,24 @@ class TestRSEClient(unittest.TestCase):
 
     def test_get_rse_usage(self):
         """ RSE (CLIENTS): Test getting the RSE usage. """
-        usages = self.client.get_rse_usage(rse='MOCK', filters={'per_account': True})
+        file_sizes = 100
+        nfiles = 3
+        jdoe_account = InternalAccount('jdoe', **self.vo)
+        rse, rse_id = self.rse_factory.make_posix_rse()
+        set_local_account_limit(account=jdoe_account, rse_id=rse_id, bytes_=10000)
+        tmp_scope = InternalScope('mock', **self.vo)
+        activity = get_schema_value('ACTIVITY')['enum'][0]
+        files = create_files(nfiles, tmp_scope, rse_id, bytes_=file_sizes)
+        dataset = did_name_generator('dataset')
+        add_did(tmp_scope, dataset, DIDType.DATASET, jdoe_account)
+        attach_dids(tmp_scope, dataset, files, jdoe_account)
+        rules = add_rule(dids=[{'scope': tmp_scope, 'name': dataset}], account=jdoe_account, copies=1, rse_expression=rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, activity=activity)
+        assert rules
+        account_update(once=True)
+        usages = self.client.get_rse_usage(rse=rse, filters={'per_account': True})
         for usage in usages:
             assert usage['account_usages']
-        usages = self.client.get_rse_usage(rse='MOCK')
+        usages = self.client.get_rse_usage(rse=rse)
         for usage in usages:
             assert 'account_usages' not in usage
 

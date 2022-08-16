@@ -13,12 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 import unittest
 
 from rucio.api.permission import has_permission
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.scope import add_scope
+from rucio.core.account import add_account_attribute, del_account_attribute
 from rucio.tests.common import scope_name_generator
 from rucio.tests.common_server import get_vo
 
@@ -53,11 +55,14 @@ class TestPermissionCoreApi(unittest.TestCase):
         assert has_permission(issuer='root', action='add_account', kwargs={'account': 'account1'}, **self.vo)
         assert not has_permission(issuer='self.usr', action='add_account', kwargs={'account': 'account1'}, **self.vo)
 
+    @pytest.mark.noparallel(reason='Add/delete account attribute of an existing account')
     def test_permission_add_scope(self):
         """ PERMISSION(CORE): Check permission to add scope """
         assert has_permission(issuer='root', action='add_scope', kwargs={'account': 'account1'}, **self.vo)
         assert not has_permission(issuer=self.usr, action='add_scope', kwargs={'account': 'root'}, **self.vo)
+        add_account_attribute(InternalAccount(self.usr, **self.vo), 'scope_admin', True)
         assert has_permission(issuer=self.usr, action='add_scope', kwargs={'account': self.usr}, **self.vo)
+        del_account_attribute(InternalAccount(self.usr, **self.vo), 'scope_admin')
 
     def test_permission_get_auth_token_user_pass(self):
         """ PERMISSION(CORE): Check permission to get_auth_token_user_pass """

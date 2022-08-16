@@ -27,6 +27,7 @@ import pytest
 from rucio.common.config import config_get, config_get_bool, get_config_dirs
 from rucio.common.utils import generate_uuid as uuid, execute
 
+
 skip_rse_tests_with_accounts = pytest.mark.skipif(not any(os.path.exists(os.path.join(d, 'rse-accounts.cfg')) for d in get_config_dirs()),
                                                   reason='fails if no rse-accounts.cfg found')
 skiplimitedsql = pytest.mark.skipif('RDBMS' in os.environ and os.environ['RDBMS'] == 'sqlite',
@@ -89,24 +90,37 @@ def scope_name_generator():
     return 'mock_' + str(uuid()).lower()[:16]
 
 
-def did_name_generator(did_type='file'):
+def did_name_generator(did_type='file', name_prefix='', name_suffix='', cnt=0, path=None):
     """ Generate random did name.
+    :param did_type: A string to create a meaningful did_name depending on the did_type (file, dataset, container)
+    :param prefix: String to prefix to the did name
+    :param suffix: String to append to the did name
+    :param cnt: A counter to include in the did_name
+    :param path: If specified, use the path to generate the did_name
 
     :returns: A random did name
     """
     if os.getenv('POLICY') == 'belleii':
-        path = '/belle'
-        path += '/cont_%s' % str(uuid())
+        if path is not None:
+            return path
+
+        container_path = os.path.join("/belle", "mock", name_prefix, 'cont_%s' % str(uuid()))
         if did_type == 'container':
-            return path
-        path += '/dataset_%s' % str(uuid())
+            return container_path
+
+        dataset_path = os.path.join(container_path, 'dataset_%s' % str(uuid()))
         if did_type == 'dataset':
-            return path
-        path += '/file_%s' % str(uuid())
-        return path
-    if did_type in ['file', 'dataset', 'container']:
-        return '%s_%s' % (did_type, str(uuid()))
-    return 'mock_' + str(uuid())
+            return dataset_path
+
+        file_path = os.path.join(dataset_path, 'file_%s' % str(uuid()))
+        return file_path
+
+    if path is not None:
+        return os.path.basename(path)
+    if name_prefix:
+        name = '%s_%s%s' % (name_prefix, cnt, name_suffix)
+        return name
+    return '%s_%s' % (did_type, str(uuid()))
 
 
 def rse_name_generator(size=10):

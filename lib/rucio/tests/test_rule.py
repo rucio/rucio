@@ -51,7 +51,7 @@ from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.db.sqla import models, session
 from rucio.db.sqla.constants import DIDType, OBSOLETE, RuleState, LockState
 from rucio.db.sqla.session import transactional_session
-from rucio.tests.common import rse_name_generator, account_name_generator
+from rucio.tests.common import rse_name_generator, account_name_generator, did_name_generator
 from rucio.tests.common_server import get_vo
 
 LOG = getLogger(__name__)
@@ -75,7 +75,7 @@ def create_files(nrfiles, scope, rse_id, bytes_=1):
     files = []
     jdoe = InternalAccount('jdoe', **vo)
     for i in range(nrfiles):
-        file = 'file_%s' % uuid()
+        file = did_name_generator('file')
         if isinstance(rse_id, list):
             for r in rse_id:
                 add_replica(rse_id=r, scope=scope, name=file, bytes_=bytes_, account=jdoe)

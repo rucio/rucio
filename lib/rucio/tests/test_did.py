@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from datetime import datetime, timedelta
+import os
 
 import pytest
 
@@ -31,7 +32,7 @@ from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touc
                             get_users_following_did, remove_did_from_followed, set_status)
 from rucio.core.replica import add_replica, get_replica
 from rucio.db.sqla.constants import DIDType
-from rucio.tests.common import rse_name_generator, scope_name_generator
+from rucio.tests.common import rse_name_generator, scope_name_generator, did_name_generator
 
 
 def skip_without_json():
@@ -53,7 +54,7 @@ class TestDIDCore:
     ], indirect=True)
     def test_delete_dids(self, mock_scope, root_account, file_config_mock):
         """ DATA IDENTIFIERS (CORE): Delete dids """
-        dsns = [{'name': 'dsn_%s' % generate_uuid(),
+        dsns = [{'name': did_name_generator('dataset'),
                  'scope': mock_scope,
                  'purge_replicas': False,
                  'did_type': DIDType.DATASET} for i in range(5)]
@@ -63,8 +64,8 @@ class TestDIDCore:
 
     def test_touch_dids_atime(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Touch dids accessed_at timestamp"""
-        tmp_dsn1 = 'dsn_%s' % generate_uuid()
-        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+        tmp_dsn1 = did_name_generator('dataset')
+        tmp_dsn2 = did_name_generator('dataset')
 
         add_did(scope=mock_scope, name=tmp_dsn1, did_type=DIDType.DATASET, account=root_account)
         add_did(scope=mock_scope, name=tmp_dsn2, did_type=DIDType.DATASET, account=root_account)
@@ -80,8 +81,8 @@ class TestDIDCore:
 
     def test_touch_dids_access_cnt(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Increase dids access_cnt"""
-        tmp_dsn1 = 'dsn_%s' % generate_uuid()
-        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+        tmp_dsn1 = did_name_generator('dataset')
+        tmp_dsn2 = did_name_generator('dataset')
 
         add_did(scope=mock_scope, name=tmp_dsn1, did_type=DIDType.DATASET, account=root_account)
         add_did(scope=mock_scope, name=tmp_dsn2, did_type=DIDType.DATASET, account=root_account)
@@ -102,8 +103,8 @@ class TestDIDCore:
     def test_update_dids(self, vo, mock_scope, root_account, rse_factory, file_config_mock):
         """ DATA IDENTIFIERS (CORE): Update file size and checksum"""
         rse, rse_id = rse_factory.make_mock_rse()
-        dsn = 'dsn_%s' % generate_uuid()
-        lfn = 'lfn.%s' % str(generate_uuid())
+        dsn = did_name_generator('dataset')
+        lfn = did_name_generator('file')
         add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account, meta='')
 
         files = [{'scope': mock_scope, 'name': lfn,
@@ -172,10 +173,10 @@ class TestDIDCore:
     def test_reattach_dids(self, vo, mock_scope, root_account, rse_factory, file_config_mock):
         """ DATA IDENTIFIERS (CORE): Repeatedly attach and detach DIDs """
         rse, rse_id = rse_factory.make_mock_rse()
-        parent_name = 'parent_%s' % generate_uuid()
+        parent_name = did_name_generator('dataset')
         add_did(scope=mock_scope, name=parent_name, did_type=DIDType.DATASET, account=root_account)
 
-        child_name = 'child_%s' % generate_uuid()
+        child_name = did_name_generator('file')
         files = [{'scope': mock_scope, 'name': child_name,
                   'bytes': 12345, 'adler32': '0cc737eb'}]
 
@@ -190,7 +191,7 @@ class TestDIDCore:
     @pytest.mark.dirty
     def test_add_did_to_followed(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Mark a did as followed """
-        dsn = 'dsn_%s' % generate_uuid()
+        dsn = did_name_generator('dataset')
 
         add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
         add_did_to_followed(scope=mock_scope, name=dsn, account=root_account)
@@ -204,7 +205,7 @@ class TestDIDCore:
     @pytest.mark.dirty
     def test_get_users_following_did(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Get the list of users following a did """
-        dsn = 'dsn_%s' % generate_uuid()
+        dsn = did_name_generator('dataset')
 
         add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
         add_did_to_followed(scope=mock_scope, name=dsn, account=root_account)
@@ -219,7 +220,7 @@ class TestDIDCore:
     @pytest.mark.dirty
     def test_remove_did_from_followed(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Mark a did as not followed """
-        dsn = 'dsn_%s' % generate_uuid()
+        dsn = did_name_generator('dataset')
 
         add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
         add_did_to_followed(scope=mock_scope, name=dsn, account=root_account)
@@ -265,8 +266,8 @@ class TestDIDApi:
     def test_list_new_dids(self, vo):
         """ DATA IDENTIFIERS (API): List new identifiers """
         tmp_scope = scope_name_generator()
-        tmp_dsn = 'dsn_%s' % generate_uuid()
-        scope.add_scope(tmp_scope, 'jdoe', 'jdoe', vo=vo)
+        tmp_dsn = did_name_generator('dataset')
+        scope.add_scope(tmp_scope, 'jdoe', 'root', vo=vo)
         for i in range(0, 5):
             did.add_did(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), did_type='DATASET', issuer='root', vo=vo)
         for i in did.list_new_dids('DATASET', vo=vo):
@@ -281,8 +282,8 @@ class TestDIDApi:
     def test_update_new_dids(self, vo):
         """ DATA IDENTIFIERS (API): List new identifiers and update the flag new """
         tmp_scope = scope_name_generator()
-        tmp_dsn = 'dsn_%s' % generate_uuid()
-        scope.add_scope(tmp_scope, 'jdoe', 'jdoe', vo=vo)
+        tmp_dsn = did_name_generator('dataset')
+        scope.add_scope(tmp_scope, 'jdoe', 'root', vo=vo)
         dids = []
         for i in range(0, 5):
             d = {'scope': tmp_scope, 'name': '%s-%i' % (tmp_dsn, i), 'did_type': DIDType.DATASET}
@@ -301,38 +302,39 @@ class TestDIDClients:
         tmp_rse, rse_id = rse_factory.make_mock_rse()
         tmp_scope = scope_name_generator()
         tmp_files = []
-        tmp_files.append('file_a_1%s' % generate_uuid())
-        tmp_files.append('file_a_2%s' % generate_uuid())
-        tmp_files.append('file_b_1%s' % generate_uuid())
+        file_prefix = did_name_generator('file')
+        tmp_files.append('%sfile_a_1%s' % (file_prefix, generate_uuid()))
+        tmp_files.append('%sfile_a_2%s' % (file_prefix, generate_uuid()))
+        tmp_files.append('%sfile_b_1%s' % (file_prefix, generate_uuid()))
 
         scope_client.add_scope('jdoe', tmp_scope)
         for tmp_file in tmp_files:
             replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1, '0cc737eb')
 
         results = []
-        for result in did_client.list_dids(tmp_scope, {'name': 'file_a_*'}, did_type='file'):
+        for result in did_client.list_dids(tmp_scope, {'name': '%sfile_a_*' % file_prefix}, did_type='file'):
             results.append(result)
         assert len(results) == 2
         results = []
-        for result in did_client.list_dids(tmp_scope, {'name': 'file_a_1*'}, did_type='file'):
+        for result in did_client.list_dids(tmp_scope, {'name': '%sfile_a_1*' % file_prefix}, did_type='file'):
             results.append(result)
         assert len(results) == 1
         results = []
-        for result in did_client.list_dids(tmp_scope, {'name': 'file_*_1*'}, did_type='file'):
+        for result in did_client.list_dids(tmp_scope, {'name': '%sfile_*_1*' % file_prefix}, did_type='file'):
             results.append(result)
         assert len(results) == 2
         results = []
-        for result in did_client.list_dids(tmp_scope, {'name': 'file*'}, did_type='file'):
+        for result in did_client.list_dids(tmp_scope, {'name': '%sfile*' % file_prefix}, did_type='file'):
             results.append(result)
         assert len(results) == 3
         results = []
 
-        filters = {'name': 'file*', 'created_after': datetime.utcnow() - timedelta(hours=1)}
+        filters = {'name': '%sfile* % file_prefix', 'created_after': datetime.utcnow() - timedelta(hours=1)}
         for result in did_client.list_dids(tmp_scope, filters):
             results.append(result)
         assert len(results) == 0
         with pytest.raises(UnsupportedOperation):
-            did_client.list_dids(tmp_scope, {'name': 'file*'}, did_type='whateverytype')
+            did_client.list_dids(tmp_scope, {'name': '%sfile*' % file_prefix}, did_type='whateverytype')
 
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined scope names')
@@ -344,16 +346,16 @@ class TestDIDClients:
         scope_client.add_scope('root', tmp_scope_1)
         scope_client.add_scope('root', tmp_scope_2)
 
-        tmp_container_1 = 'container_%s' % generate_uuid()
+        tmp_container_1 = did_name_generator('container')
         did_client.add_container(scope=tmp_scope_1, name=tmp_container_1)
 
-        tmp_container_2 = 'container_%s' % generate_uuid()
+        tmp_container_2 = did_name_generator('container')
         did_client.add_container(scope=tmp_scope_1, name=tmp_container_2)
 
-        tmp_dataset_1 = 'dataset_%s' % generate_uuid()
+        tmp_dataset_1 = did_name_generator('dataset')
         did_client.add_dataset(scope=tmp_scope_2, name=tmp_dataset_1)
 
-        tmp_dataset_2 = 'dataset_%s' % generate_uuid()
+        tmp_dataset_2 = did_name_generator('dataset')
         did_client.add_dataset(scope=tmp_scope_1, name=tmp_dataset_2)
 
         did_client.attach_dids(scope=tmp_scope_1, name=tmp_container_1, dids=[{'scope': tmp_scope_2, 'name': tmp_dataset_1}])
@@ -385,7 +387,7 @@ class TestDIDClients:
         """ DATA IDENTIFIERS (CLIENT): List did with metadata"""
         dsns = []
         tmp_scope = 'mock'
-        tmp_dsn1 = 'dsn_%s' % generate_uuid()
+        tmp_dsn1 = did_name_generator('dataset')
         dsns.append(tmp_dsn1)
 
         dataset_meta = {'project': 'data12_8TeV',
@@ -396,12 +398,12 @@ class TestDIDClients:
                         'version': 'f392_m920',
                         }
         did_client.add_dataset(scope=tmp_scope, name=tmp_dsn1, meta=dataset_meta)
-        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+        tmp_dsn2 = did_name_generator('dataset')
         dsns.append(tmp_dsn2)
         dataset_meta['run_number'] = 400001
         did_client.add_dataset(scope=tmp_scope, name=tmp_dsn2, meta=dataset_meta)
 
-        tmp_dsn3 = 'dsn_%s' % generate_uuid()
+        tmp_dsn3 = did_name_generator('dataset')
         dsns.append(tmp_dsn3)
         dataset_meta['stream_name'] = 'physics_Egamma'
         dataset_meta['datatype'] = 'NTUP_SMWZ'
@@ -436,11 +438,11 @@ class TestDIDClients:
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined scope')
     def test_add_did(self, vo, did_client, rse_factory):
-        """ DATA IDENTIFIERS (CLIENT): Add, populate, list did content and create a sample"""
+        """ DATA IDENTIFIERS (CLIENT): Add, populate, list did content"""
         tmp_scope = 'mock'
         tmp_rse, rse_id = rse_factory.make_mock_rse()
         rse2, rse2_id = rse_factory.make_mock_rse()
-        tmp_dsn = 'dsn_%s' % generate_uuid()
+        tmp_dsn = did_name_generator('dataset')
         root = InternalAccount('root', vo=vo)
 
         # PFN example: rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/xx/xx/xx/filename
@@ -456,7 +458,7 @@ class TestDIDClients:
         with pytest.raises(ScopeNotFound):
             did_client.add_dataset(scope='Nimportnawak', name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules)
 
-        files = [{'scope': InternalScope(tmp_scope, vo=vo), 'name': 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid()), 'bytes': 724963570, 'adler32': '0cc737eb'}, ]
+        files = [{'scope': InternalScope(tmp_scope, vo=vo), 'name': did_name_generator('file'), 'bytes': 724963570, 'adler32': '0cc737eb'}, ]
         with pytest.raises(DataIdentifierNotFound):
             did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files)
 
@@ -465,7 +467,7 @@ class TestDIDClients:
 
         files = []
         for i in range(5):
-            lfn = 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid())
+            lfn = did_name_generator('file')
             pfn = 'mock://localhost/tmp/rucio_rse/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             # it doesn't work with mock: TBF
             # pfn = 'srm://mock2.com:2880/pnfs/rucio/disk-only/scratchdisk/rucio_tests/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
@@ -506,7 +508,37 @@ class TestDIDClients:
 
         did_client.close(scope=tmp_scope, name=tmp_dsn)
 
-        tmp_dsn_output = 'dsn_%s' % generate_uuid()
+    @pytest.mark.dirty
+    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='REST API only works with ATLAS DID convention')
+    @pytest.mark.noparallel(reason='uses pre-defined scope')
+    def test_create_sample(self, vo, root_account, did_client, rse_factory):
+        """ DATA IDENTIFIERS (CLIENT): Create a sample"""
+        tmp_scope = 'mock'
+        tmp_rse, rse_id = rse_factory.make_mock_rse()
+        tmp_dsn = did_name_generator('dataset')
+
+        # PFN example: rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/xx/xx/xx/filename
+        dataset_meta = {'project': 'data13_hip',
+                        'run_number': 300000,
+                        'stream_name': 'physics_CosmicCalo',
+                        'prod_step': 'merge',
+                        'datatype': 'NTUP_TRIG',
+                        'version': 'f392_m927',
+                        }
+        rules = [{'copies': 1, 'rse_expression': tmp_rse, 'account': root_account.external}]
+
+        files = []
+        for i in range(5):
+            lfn = did_name_generator('file')
+            file_meta = {'guid': str(generate_uuid()), 'events': 10}
+            files.append({'scope': InternalScope(tmp_scope, vo=vo), 'name': lfn,
+                          'bytes': 724963570, 'adler32': '0cc737eb',
+                          'meta': file_meta})
+
+        did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files, rse=tmp_rse)
+        did_client.close(scope=tmp_scope, name=tmp_dsn)
+
+        tmp_dsn_output = did_name_generator('dataset')
         did_client.create_did_sample(input_scope=tmp_scope, input_name=tmp_dsn, output_scope=tmp_scope, output_name=tmp_dsn_output, nbfiles=2)
         files = [f for f in did_client.list_files(scope=tmp_scope, name=tmp_dsn_output)]
         assert len(files) == 2
@@ -525,11 +557,11 @@ class TestDIDClients:
         for i in range(nb_datasets):
             attachment = {}
             attachment['scope'] = tmp_scope
-            attachment['name'] = 'dsn.%s' % str(generate_uuid())
+            attachment['name'] = did_name_generator('dataset')
             attachment['rse'] = tmp_rse
             files = []
-            for i in range(nb_files):
-                files.append({'scope': tmp_scope, 'name': 'lfn.%s' % str(generate_uuid()),
+            for _ in range(nb_files):
+                files.append({'scope': tmp_scope, 'name': did_name_generator('file'),
                               'bytes': 724963570, 'adler32': '0cc737eb',
                               'meta': {'guid': str(generate_uuid()), 'events': 100}})
             attachment['dids'] = files
@@ -544,7 +576,7 @@ class TestDIDClients:
 
         assert [dsn] == dsns_l
 
-        cnt_name = 'cnt_%s' % generate_uuid()
+        cnt_name = did_name_generator('container')
         did_client.add_container(scope='mock', name=cnt_name)
         with pytest.raises(UnsupportedOperation):
             did_client.attach_dids_to_dids([{'scope': 'mock', 'name': cnt_name, 'rse': tmp_rse, 'dids': attachment['dids']}])
@@ -555,15 +587,15 @@ class TestDIDClients:
         """ DATA IDENTIFIERS (CLIENT): Add files to Datasets"""
         tmp_scope = 'mock'
         tmp_rse, rse_id = rse_factory.make_mock_rse()
-        dsn1 = 'dsn.%s' % str(generate_uuid())
-        dsn2 = 'dsn.%s' % str(generate_uuid())
+        dsn1 = did_name_generator('dataset')
+        dsn2 = did_name_generator('dataset')
         meta = {'transient': True}
         files1, files2, nb_files = [], [], 5
         for i in range(nb_files):
-            files1.append({'scope': tmp_scope, 'name': 'lfn.%s' % str(generate_uuid()),
+            files1.append({'scope': tmp_scope, 'name': did_name_generator('file'),
                            'bytes': 724963570, 'adler32': '0cc737eb',
                            'meta': {'guid': str(generate_uuid()), 'events': 100}})
-            files2.append({'scope': tmp_scope, 'name': 'lfn.%s' % str(generate_uuid()),
+            files2.append({'scope': tmp_scope, 'name': did_name_generator('file'),
                            'bytes': 724963570, 'adler32': '0cc737eb',
                            'meta': {'guid': str(generate_uuid()), 'events': 100}})
 
@@ -586,7 +618,7 @@ class TestDIDClients:
         for attachment in attachments:
             for i in range(nb_files):
                 attachment['dids'].append({'scope': tmp_scope,
-                                           'name': 'lfn.%s' % str(generate_uuid()),
+                                           'name': did_name_generator('file'),
                                            'bytes': 724963570,
                                            'adler32': '0cc737eb',
                                            'meta': {'guid': str(generate_uuid()),
@@ -611,7 +643,7 @@ class TestDIDClients:
     def test_add_dataset(self, did_client):
         """ DATA IDENTIFIERS (CLIENT): Add dataset """
         tmp_scope = 'mock'
-        tmp_dsn = 'dsn_%s' % generate_uuid()
+        tmp_dsn = did_name_generator('dataset')
 
         did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, meta={'project': 'data13_hip'})
 
@@ -629,7 +661,7 @@ class TestDIDClients:
         tmp_scope = 'mock'
         dsns = list()
         for i in range(500):
-            tmp_dsn = {'name': 'dsn_%s' % generate_uuid(), 'scope': tmp_scope, 'meta': {'project': 'data13_hip'}, 'account': 'root'}
+            tmp_dsn = {'name': did_name_generator('dataset'), 'scope': tmp_scope, 'meta': {'project': 'data13_hip'}, 'account': 'root'}
             dsns.append(tmp_dsn)
         did_client.add_datasets(dsns)
 
@@ -638,7 +670,7 @@ class TestDIDClients:
     def test_exists(self, did_client, replica_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): Check if data identifier exists """
         tmp_scope = 'mock'
-        tmp_file = 'file_%s' % generate_uuid()
+        tmp_file = did_name_generator('file')
         tmp_rse, rse_id = rse_factory.make_mock_rse()
 
         replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1, '0cc737eb')
@@ -658,9 +690,9 @@ class TestDIDClients:
         account = 'jdoe'
         rse, rse_id = rse_factory.make_mock_rse()
         scope = scope_name_generator()
-        file_ = ['file_%s' % generate_uuid() for i in range(10)]
-        dst = ['dst_%s' % generate_uuid() for i in range(4)]
-        cnt = ['cnt_%s' % generate_uuid() for i in range(4)]
+        file_ = [did_name_generator('file') for _ in range(10)]
+        dst = [did_name_generator('dataset') for _ in range(4)]
+        cnt = [did_name_generator('container') for _ in range(4)]
 
         scope_client.add_scope(account, scope)
 
@@ -696,9 +728,9 @@ class TestDIDClients:
         account = 'jdoe'
         rse, rse_id = rse_factory.make_mock_rse()
         scope = scope_name_generator()
-        file_ = ['file_%s' % generate_uuid() for i in range(10)]
-        dst = ['dst_%s' % generate_uuid() for i in range(5)]
-        cnt = ['cnt_%s' % generate_uuid() for i in range(2)]
+        file_ = [did_name_generator('file') for _ in range(10)]
+        dst = [did_name_generator('dataset') for _ in range(5)]
+        cnt = [did_name_generator('container') for _ in range(2)]
 
         scope_client.add_scope(account, scope)
 
@@ -754,12 +786,12 @@ class TestDIDClients:
         """ DATA IDENTIFIERS (CLIENT): Add, aggregate, and list data identifiers in a scope """
 
         # create some dummy data
-        tmp_accounts = ['jdoe' for i in range(3)]
-        tmp_scopes = [scope_name_generator() for i in range(3)]
-        tmp_rses = [rse_name_generator() for i in range(3)]
-        tmp_files = ['file_%s' % generate_uuid() for i in range(3)]
-        tmp_datasets = ['dataset_%s' % generate_uuid() for i in range(3)]
-        tmp_containers = ['container_%s' % generate_uuid() for i in range(3)]
+        tmp_accounts = ['jdoe' for _ in range(3)]
+        tmp_scopes = [scope_name_generator() for _ in range(3)]
+        tmp_rses = [rse_name_generator() for _ in range(3)]
+        tmp_files = [did_name_generator('file') for _ in range(3)]
+        tmp_datasets = [did_name_generator('dataset') for _ in range(3)]
+        tmp_containers = [did_name_generator('container') for _ in range(3)]
 
         # add dummy data to the catalogue
         for i in range(3):
@@ -808,15 +840,15 @@ class TestDIDClients:
         """ DATA IDENTIFIERS (CLIENT): add a new data identifier and try to retrieve it back"""
         rse, rse_id = rse_factory.make_mock_rse()
         scope = 'mock'
-        file = generate_uuid()
-        dsn = generate_uuid()
+        file_ = did_name_generator('file')
+        dsn = did_name_generator('dataset')
 
-        replica_client.add_replica(rse, scope, file, 1, '0cc737eb')
+        replica_client.add_replica(rse, scope, file_, 1, '0cc737eb')
 
-        did = did_client.get_did(scope, file)
+        did = did_client.get_did(scope, file_)
 
         assert did['scope'] == scope
-        assert did['name'] == file
+        assert did['name'] == file_
 
         did_client.add_dataset(scope=scope, name=dsn, lifetime=10000000)
         did2 = did_client.get_did(scope, dsn)
@@ -828,15 +860,15 @@ class TestDIDClients:
         """ DATA IDENTIFIERS (CLIENT): add a new meta data for an identifier and try to retrieve it back"""
         rse, rse_id = rse_factory.make_mock_rse()
         scope = 'mock'
-        file = generate_uuid()
+        file_ = did_name_generator('file')
         keys = ['project', 'run_number']
         values = ['data13_hip', 12345678]
 
-        replica_client.add_replica(rse, scope, file, 1, '0cc737eb')
+        replica_client.add_replica(rse, scope, file_, 1, '0cc737eb')
         for i in range(2):
-            did_client.set_metadata(scope, file, keys[i], values[i])
+            did_client.set_metadata(scope, file_, keys[i], values[i])
 
-        meta = did_client.get_metadata(scope, file)
+        meta = did_client.get_metadata(scope, file_)
 
         for i in range(2):
             assert meta[keys[i]] == values[i]
@@ -848,11 +880,11 @@ class TestDIDClients:
         rse, rse_id = rse_factory.make_mock_rse()
         scope = 'mock'
         nbfiles = 5
-        dataset1 = generate_uuid()
-        dataset2 = generate_uuid()
-        container = generate_uuid()
-        files1 = [{'scope': scope, 'name': generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb'} for i in range(nbfiles)]
-        files2 = [{'scope': scope, 'name': generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb'} for i in range(nbfiles)]
+        dataset1 = did_name_generator('dataset')
+        dataset2 = did_name_generator('dataset')
+        container = did_name_generator('container')
+        files1 = [{'scope': scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb'} for i in range(nbfiles)]
+        files2 = [{'scope': scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb'} for i in range(nbfiles)]
 
         did_client.add_dataset(scope, dataset1)
 
@@ -880,14 +912,14 @@ class TestDIDClients:
         """ DATA IDENTIFIERS (CLIENT): List files for a container"""
         rse, rse_id = rse_factory.make_mock_rse()
         scope = 'mock'
-        dataset1 = generate_uuid()
-        dataset2 = generate_uuid()
-        container = generate_uuid()
+        dataset1 = did_name_generator('dataset')
+        dataset2 = did_name_generator('dataset')
+        container = did_name_generator('container')
         files1 = []
         files2 = []
         for i in range(10):
-            files1.append({'scope': scope, 'name': generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb'})
-            files2.append({'scope': scope, 'name': generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb'})
+            files1.append({'scope': scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb'})
+            files2.append({'scope': scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb'})
 
         for i in range(10):
             replica_client.add_replica(rse, scope, files1[i]['name'], 1, '0cc737eb')
@@ -922,14 +954,14 @@ class TestDIDClients:
         """ DATA IDENTIFIERS (CLIENT): List replicas for a container"""
         rse, rse_id = rse_factory.make_mock_rse()
         scope = 'mock'
-        dsn1 = generate_uuid()
-        dsn2 = generate_uuid()
-        cnt = generate_uuid()
+        dsn1 = did_name_generator('dataset')
+        dsn2 = did_name_generator('dataset')
+        cnt = did_name_generator('container')
         files1 = []
         files2 = []
         for i in range(10):
-            files1.append({'scope': scope, 'name': generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb'})
-            files2.append({'scope': scope, 'name': generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb'})
+            files1.append({'scope': scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb'})
+            files2.append({'scope': scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb'})
 
         did_client.add_dataset(scope, dsn1)
         did_client.add_files_to_dataset(scope, dsn1, files1, rse=rse)
@@ -955,10 +987,10 @@ class TestDIDClients:
         tmp_scope = 'mock'
 
         # Add dataset
-        tmp_dataset = 'dsn_%s' % generate_uuid()
+        tmp_dataset = did_name_generator('dataset')
 
         # Add file replica
-        tmp_file = 'file_%s' % generate_uuid()
+        tmp_file = did_name_generator('file')
         replica_client.add_replica(rse=tmp_rse, scope=tmp_scope, name=tmp_file, bytes_=1, adler32='0cc737eb')
 
         # Add dataset
@@ -969,7 +1001,7 @@ class TestDIDClients:
         did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
 
         # Add a second file replica
-        tmp_file = 'file_%s' % generate_uuid()
+        tmp_file = did_name_generator('file')
         replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1, '0cc737eb')
         # Add files to dataset
         files = [{'scope': tmp_scope, 'name': tmp_file, 'bytes': 1, 'adler32': '0cc737eb'}, ]
@@ -981,7 +1013,7 @@ class TestDIDClients:
         did_client.set_status(scope=tmp_scope, name=tmp_dataset, open=False)
 
         # Add a third file replica
-        tmp_file = 'file_%s' % generate_uuid()
+        tmp_file = did_name_generator('file')
         replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1, '0cc737eb')
         # Add files to dataset
         files = [{'scope': tmp_scope, 'name': tmp_file, 'bytes': 1, 'adler32': '0cc737eb'}, ]
@@ -997,10 +1029,10 @@ class TestDIDClients:
         tmp_scope = 'mock'
 
         # Add dataset
-        tmp_dataset = 'dsn_%s' % generate_uuid()
+        tmp_dataset = did_name_generator('dataset')
 
         # Add file replica
-        tmp_file = 'file_%s' % generate_uuid()
+        tmp_file = did_name_generator('file')
         replica_client.add_replica(rse=tmp_rse, scope=tmp_scope, name=tmp_file, bytes_=1, adler32='0cc737eb')
 
         # Add dataset
@@ -1011,7 +1043,7 @@ class TestDIDClients:
         did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
 
         # Add a second file replica
-        tmp_file = 'file_%s' % generate_uuid()
+        tmp_file = did_name_generator('file')
         replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1, '0cc737eb')
         # Add files to dataset
         files = [{'scope': tmp_scope, 'name': tmp_file, 'bytes': 1, 'adler32': '0cc737eb'}, ]
@@ -1032,9 +1064,9 @@ class TestDIDClients:
         key = 'project'
         rse, _ = rse_factory.make_mock_rse()
         scope = 'mock'
-        files = ['file_%s' % generate_uuid() for _ in range(4)]
-        dst = ['dst_%s' % generate_uuid() for _ in range(4)]
-        cnt = ['cnt_%s' % generate_uuid() for _ in range(4)]
+        files = [did_name_generator('file') for _ in range(4)]
+        dst = [did_name_generator('dataset') for _ in range(4)]
+        cnt = [did_name_generator('container') for _ in range(4)]
         meta_mapping = {}
         list_dids = []
 
@@ -1068,7 +1100,7 @@ class TestDIDClients:
             assert (key, meta[key]) == met
 
         # Create new containers without metadata
-        cnt = ['cnt_%s' % generate_uuid() for _ in range(4)]
+        cnt = [did_name_generator('container') for _ in range(4)]
         for idx in range(4):
             list_dids.append({'scope': scope, 'name': cnt[idx]})
         list_meta = [_ for _ in did_client.get_metadata_bulk(list_dids)]

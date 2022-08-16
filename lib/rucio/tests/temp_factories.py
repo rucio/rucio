@@ -23,6 +23,7 @@ from string import ascii_uppercase
 
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
+from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalScope
 from rucio.common.utils import execute, generate_uuid
 from rucio.core import replica as replica_core
@@ -31,7 +32,7 @@ from rucio.core import rule as rule_core
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import transactional_session
-from rucio.tests.common import file_generator, rse_name_generator
+from rucio.tests.common import file_generator, rse_name_generator, did_name_generator
 from sqlalchemy import and_, or_
 
 
@@ -273,7 +274,7 @@ class TemporaryDidFactory:
         scope = self._sanitize_or_set_scope(scope)
         if not name_prefix:
             name_prefix = 'lfn'
-        name = '%s_%s_%s%s' % (name_prefix, self.base_uuid, len(self.created_dids), name_suffix)
+        name = did_name_generator(did_type=name_prefix, name_prefix='%s_%s' % (name_prefix, self.base_uuid), name_suffix=name_suffix, cnt=len(self.created_dids))
         did = {'scope': scope, 'name': name}
         self.created_dids.append(did)
         return did
@@ -297,7 +298,7 @@ class TemporaryDidFactory:
         if not path:
             path = file_generator(size=size)
         if not name:
-            name = os.path.basename(path)
+            name = did_name_generator('file')
         item = {
             'path': path,
             'rse': rse_name,
@@ -305,7 +306,8 @@ class TemporaryDidFactory:
             'did_name': name,
             'guid': generate_uuid(),
         }
-        self.upload_client.upload([item])
+        activity = get_schema_value('ACTIVITY')['enum'][0]
+        self.upload_client.upload([item], activity=activity)
         did = {'scope': scope, 'name': name}
         self.created_dids.append(did)
         return item if return_full_item else did
@@ -317,8 +319,9 @@ class TemporaryDidFactory:
         self.created_dids.append(did)
         items = list()
         for _ in range(0, nb_files):
+            # TODO : Call did_name_generator
             path = file_generator(size=size)
-            name = os.path.basename(path)
+            name = did_name_generator('file')
             items.append({
                          'path': path,
                          'rse': rse_name,
