@@ -2126,7 +2126,6 @@ def list_all_parent_dids(scope, name, session=None):
 def list_child_dids_stmt(
         input_dids_table: "Table",
         did_type: DIDType,
-        including_input_dids: bool = False,
 ):
     """
     Build and returns a query which recursively lists children dids of type `did_type`
@@ -2157,6 +2156,7 @@ def list_child_dids_stmt(
     ).cte(
         recursive=True,
     )
+
     # Oracle doesn't support union() in recursive CTEs, so use UNION ALL
     # and a "distinct" filter later
     child_datasets_cte = initial_set.union_all(
@@ -2178,22 +2178,6 @@ def list_child_dids_stmt(
     ).where(
         child_datasets_cte.c.child_type == did_type,
     )
-
-    if including_input_dids:
-        # Also include into the result the DIDs of the desired type present
-        # in the input list.
-        stmt = stmt.union(
-            select(
-                input_dids_table.scope,
-                input_dids_table.name,
-            ).join_from(
-                input_dids_table,
-                models.DataIdentifier,
-                and_(models.DataIdentifier.scope == input_dids_table.scope,
-                     models.DataIdentifier.name == input_dids_table.name,
-                     models.DataIdentifier.did_type == did_type),
-            )
-        )
     return stmt
 
 
@@ -2201,7 +2185,6 @@ def list_one_did_childs_stmt(
         scope: "InternalScope",
         name: str,
         did_type: DIDType,
-        including_input_dids: bool = False,
 ):
     """
     Returns the sqlalchemy query for recursively fetching the child dids of type
@@ -2250,18 +2233,6 @@ def list_one_did_childs_stmt(
     ).where(
         child_datasets_cte.c.child_type == did_type,
     )
-    if including_input_dids:
-        # Additionally, add the input did if it's of the desired type
-        stmt = stmt.union(
-            select(
-                models.DataIdentifier.scope,
-                models.DataIdentifier.name,
-            ).where(
-                models.DataIdentifier.scope == scope,
-                models.DataIdentifier.name == name,
-                models.DataIdentifier.did_type == did_type,
-            )
-        )
     return stmt
 
 
