@@ -17,7 +17,7 @@ from re import match
 from datetime import datetime, timedelta
 from configparser import NoSectionError
 
-from sqlalchemy import or_
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -48,13 +48,13 @@ def list_exceptions(exception_id, states, session=None):
     if states:
         state_clause = [models.LifetimeExceptions.state == state for state in states]
 
-    query = session.query(models.LifetimeExceptions)
+    query = select(models.LifetimeExceptions)
     if state_clause != []:
-        query = query.filter(or_(*state_clause))
+        query = query.where(or_(*state_clause))
     if exception_id:
         query = query.filter_by(id=exception_id)
 
-    for exception in query.yield_per(5):
+    for exception in session.execute(query).yield_per(5).scalars():
         yield {'id': exception.id, 'scope': exception.scope, 'name': exception.name,
                'did_type': exception.did_type, 'account': exception.account,
                'pattern': exception.pattern, 'comments': exception.comments,
@@ -215,16 +215,21 @@ def update_exception(exception_id, state, session=None):
     :param state:          The states to filter
     :param session:        The database session in use.
     """
-    query = session.query(models.LifetimeExceptions).filter_by(id=exception_id)
-    try:
-        query.first()
-    except NoResultFound:
-        raise LifetimeExceptionNotFound
-
-    if state in [LifetimeExceptionsState.APPROVED, LifetimeExceptionsState.REJECTED]:
-        query.update({'state': state, 'updated_at': datetime.utcnow()}, synchronize_session=False)
-    else:
+    ALLOWED_STATES = (LifetimeExceptionsState.APPROVED, LifetimeExceptionsState.REJECTED)
+    if state not in ALLOWED_STATES:
         raise UnsupportedOperation
+
+    query = update(
+        models.LifetimeExceptions
+    ).where(
+        models.LifetimeExceptions.id == exception_id
+    ).values(
+        state=state,
+        updated_at=datetime.utcnow()
+    )
+
+    if session.execute(query).rowcount == 0:
+        raise LifetimeExceptionNotFound
 
 
 @read_session
@@ -246,8 +251,14 @@ def define_eol(scope, name, rses, session=None):
         return None
     # Now check the lifetime policy
     try:
-        did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == scope,
-                                                          models.DataIdentifier.name == name).one()
+        query = select(
+            models.DataIdentifier
+        ).where(
+            models.DataIdentifier.scope == scope,
+            models.DataIdentifier.name == name
+        )
+
+        did = session.execute(query).scalar_one()
     except NoResultFound:
         return None
     policy_dict = rucio.common.policy.get_lifetime_policy()
