@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import os
 import shutil
 import signal
@@ -45,17 +46,25 @@ def main():
             print("No compatible container executable (podman/docker) found! Exiting..", file=sys.stderr)
             sys.exit(1)
 
-    if 'PARALLEL_AUTOTESTS' not in os.environ or (os.environ['PARALLEL_AUTOTESTS'] not in ['false', '0']):
-        print("Tests will run in parallel", file=sys.stderr)
-        os.environ['PARALLEL_AUTOTESTS'] = "1"
-
     project_dir = os.path.abspath(os.path.join(os.path.abspath(os.path.dirname(__file__)), "../.."))
     print("Detected project directory", project_dir, file=sys.stderr)
 
-    if len(sys.argv) > 1:
-        matrix_file = sys.argv[1]
-    else:
+    parser = argparse.ArgumentParser(description='Run the full autotest pipeline.')
+    parser.add_argument('test_matrix_file', metavar='test matrix file', type=str, nargs='?', default=None,
+                        help='path to the test matrix')
+    parser.add_argument('--build', dest='build', action='store_true',
+                        help='build images, instead of only downloading')
+    parser.add_argument('-f', '--filter', dest='filter_tests', type=str, action='append',
+                        help='filter tests')
+    parser.add_argument('-d', '--dist', dest='dist', type=str, help='select distribution')
+    parser.add_argument('--py', '--python', dest='python', type=str, help='select Python version')
+    parser.add_argument('-s', '--suite', dest='suite', type=str, help='select test suite')
+    parser.add_argument('--db', '--database', dest='database', type=str, help='select RDBMS')
+    args = parser.parse_args()
+    if args.test_matrix_file is None:
         matrix_file = os.path.join(project_dir, "etc/docker/test/matrix.yml")
+    else:
+        matrix_file = args.test_matrix_file
     print("Using test matrix from file", matrix_file, file=sys.stderr)
 
     # make sure the following imports work
@@ -72,11 +81,41 @@ def main():
         print("Matrix could not be determined", file=sys.stderr)
         sys.exit(1)
 
+    def argument_filter(case):
+        if args.dist:
+            if case['DIST'] != args.dist:
+                return False
+        if args.python:
+            if case['PYTHON'] != args.python:
+                return False
+        if args.suite:
+            if case['SUITE'] != args.suite:
+                return False
+        if args.database:
+            if case['RDBMS'] != args.database:
+                return False
+        return True
+
+    test_matrix = list(filter(argument_filter, test_matrix))
+
+    if len(test_matrix) == 0:
+        print("No more test cases after filtering. Exiting..", file=sys.stderr)
+        sys.exit(0)
+    if len(test_matrix) == 1 and 'PARALLEL_AUTOTESTS' not in os.environ:
+        print("One test case remaining after filtering. Switching to serial run", file=sys.stderr)
+        os.environ['PARALLEL_AUTOTESTS'] = "0"
+    elif 'PARALLEL_AUTOTESTS' not in os.environ or (os.environ['PARALLEL_AUTOTESTS'] not in ['false', '0']):
+        print("Tests will run in parallel", file=sys.stderr)
+        os.environ['PARALLEL_AUTOTESTS'] = "1"
+
     # image building
 
     from build_images import build_main
 
-    images = build_main(test_matrix, ["--download-only", os.path.join(project_dir, "etc/docker/test")])
+    build_args = [os.path.join(project_dir, "etc/docker/test")]
+    if not args.build:
+        build_args.insert(0, "--download-only")
+    images = build_main(test_matrix, build_args)
 
     if not images:
         print("Images could not be built", file=sys.stderr)
@@ -85,7 +124,7 @@ def main():
 
     from run_tests import run_tests
 
-    run_tests(test_matrix, images)
+    run_tests(test_matrix, images, args.filter_tests)
 
 
 if __name__ == "__main__":
