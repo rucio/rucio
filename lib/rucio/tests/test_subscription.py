@@ -460,6 +460,7 @@ class TestSubscriptionClient(unittest.TestCase):
 class TestDaemon():
     def test_run_transmogrifier_chained_subscription(self, rse_factory, vo, rucio_client, root_account):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with chained subscriptions """
+        activity = get_schema_value('ACTIVITY')['enum'][0]
         rse1, rse1_id = rse_factory.make_mock_rse()
         rse2, rse2_id = rse_factory.make_mock_rse()
         rse3, _ = rse_factory.make_mock_rse()
@@ -482,10 +483,10 @@ class TestDaemon():
         add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
         rule1 = {'rse_expression': rse_expression,
                  'copies': 1,
-                 'activity': 'Data Brokering'}
+                 'activity': activity}
         rule2 = {'rse_expression': '*',
                  'copies': 1,
-                 'activity': 'Data Brokering',
+                 'activity': activity,
                  'algorithm': 'associated_site',
                  'chained_idx': 1,
                  'associated_site_idx': 2}
@@ -514,6 +515,7 @@ class TestDaemon():
 
     def test_skip_subscription_bad_rse_expression(self, rse_factory, vo, rucio_client, root_account):
         """ SUBSCRIPTION (DAEMON): Check that the subscriptions with bad RSE expression are skipped"""
+        activity = get_schema_value('ACTIVITY')['enum'][0]
         _, _ = rse_factory.make_mock_rse()
         rse_expression = rse_name_generator()
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
@@ -525,7 +527,7 @@ class TestDaemon():
         add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
         rule = {'rse_expression': rse_expression,
                 'copies': 1,
-                'activity': 'Data Brokering',
+                'activity': activity,
                 'rse_expression': rse_expression}
 
         rucio_client.add_subscription(name=subscription_name,
@@ -543,6 +545,7 @@ class TestDaemon():
 
     def test_run_transmogrifier_wildcard_copies(self, rse_factory, vo, rucio_client, root_account):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with wildcard copies """
+        activity = get_schema_value('ACTIVITY')['enum'][0]
         rse_attribute = uuid()[:8]
         rses = {'no_tag': [], rse_attribute: []}
         for cnt in range(5):
@@ -564,7 +567,7 @@ class TestDaemon():
         add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
         rule = {'rse_expression': rse_expression,
                 'copies': '*',
-                'activity': 'Data Brokering',
+                'activity': activity,
                 'rse_expression': rse_expression}
 
         subid = rucio_client.add_subscription(name=subscription_name,
@@ -587,7 +590,7 @@ class TestDaemon():
         add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
         rule = {'rse_expression': rse_expression,
                 'copies': '*',
-                'activity': 'Data Brokering',
+                'activity': activity,
                 'rse_expression': rse_expression}
 
         subid = rucio_client.add_subscription(name=subscription_name,
@@ -606,6 +609,7 @@ class TestDaemon():
 
     def test_run_transmogrifier_delayed_subscription(self, rse_factory, vo, rucio_client, root_account, mock_scope):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with delayed subscription """
+        activity = get_schema_value('ACTIVITY')['enum'][0]
         nbfiles = 3
         rse1, _ = rse_factory.make_mock_rse()
         rse2, rse2_id = rse_factory.make_mock_rse()
@@ -620,7 +624,7 @@ class TestDaemon():
         attach_dids(scope=mock_scope, name=dsn, rse_id=rse2_id, dids=files, account=root_account)
         rule = {'rse_expression': rse_expression,
                 'copies': 1,
-                'activity': 'Data Brokering',
+                'activity': activity,
                 'delay_injection': 86500}
 
         subid = rucio_client.add_subscription(name=subscription_name,
