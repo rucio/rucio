@@ -16,6 +16,7 @@
 from re import match
 from datetime import datetime, timedelta
 from configparser import NoSectionError
+from typing import TYPE_CHECKING
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
@@ -33,9 +34,18 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, LifetimeExceptionsState
 from rucio.db.sqla.session import transactional_session, stream_session, read_session
 
+if TYPE_CHECKING:
+    from typing import Any, Dict, Iterator, List, Optional, Union
+    from rucio.common.types import InternalAccount, InternalScope
+    from sqlalchemy.orm import Session
+
 
 @stream_session
-def list_exceptions(exception_id, states, session=None):
+def list_exceptions(
+        exception_id: 'Optional[str]',
+        states: 'List[LifetimeExceptionsState]',
+        session: 'Optional[Session]' = None
+) -> 'Iterator[Dict[str, Any]]':
     """
     List exceptions to Lifetime Model.
 
@@ -63,7 +73,14 @@ def list_exceptions(exception_id, states, session=None):
 
 
 @transactional_session
-def add_exception(dids, account, pattern, comments, expires_at, session=None):
+def add_exception(
+        dids: 'List[Dict[str, Any]]',
+        account: 'InternalAccount',
+        pattern: 'Optional[str]',
+        comments: str,
+        expires_at: 'Optional[Union[str, datetime]]',
+        session: 'Optional[Session]' = None
+) -> 'Dict[str, Any]':
     """
     Add exceptions to Lifetime Model.
 
@@ -129,7 +146,15 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
 
 
 @transactional_session
-def __add_exception(dids, account, pattern, comments, expires_at, estimated_volume=None, session=None):
+def __add_exception(
+        dids: 'List[Dict[str, Any]]',
+        account: 'InternalAccount',
+        pattern: 'Optional[str]',
+        comments: str,
+        expires_at: 'Optional[Union[str, datetime]]',
+        estimated_volume: 'Optional[int]' = None,
+        session: 'Optional[Session]' = None
+) -> str:
     """
     Add exceptions to Lifetime Model.
 
@@ -207,7 +232,11 @@ def __add_exception(dids, account, pattern, comments, expires_at, estimated_volu
 
 
 @transactional_session
-def update_exception(exception_id, state, session=None):
+def update_exception(
+        exception_id: str,
+        state: LifetimeExceptionsState,
+        session: 'Optional[Session]' = None
+) -> None:
     """
     Update exceptions state to Lifetime Model.
 
@@ -233,7 +262,12 @@ def update_exception(exception_id, state, session=None):
 
 
 @read_session
-def define_eol(scope, name, rses, session=None):
+def define_eol(
+        scope: 'InternalScope',
+        name: str,
+        rses: 'List[Dict[str, Any]]',
+        session: 'Optional[Session]' = None
+) -> 'Optional[datetime]':
     """
     ATLAS policy for rules on SCRATCHDISK
 
