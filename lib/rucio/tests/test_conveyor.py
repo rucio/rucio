@@ -28,11 +28,13 @@ from rucio.common.exception import ReplicaNotFound, RequestNotFound
 from rucio.core import config as core_config
 from rucio.core import did as did_core
 from rucio.core import distance as distance_core
+from rucio.core import lock as lock_core
 from rucio.core import message as message_core
 from rucio.core import replica as replica_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
+from rucio.core.account_limit import set_local_account_limit
 from rucio.daemons.conveyor.finisher import finisher
 from rucio.daemons.conveyor.poller import poller
 from rucio.daemons.conveyor.preparer import preparer
@@ -42,7 +44,7 @@ from rucio.daemons.conveyor.throttler import throttler
 from rucio.daemons.conveyor.receiver import receiver, graceful_stop as receiver_graceful_stop
 from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, RSEType
+from rucio.db.sqla.constants import LockState, RequestState, RequestType, ReplicaState, RSEType, RuleState
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.tests.common import skip_rse_tests_with_accounts
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -755,6 +757,294 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
 
     replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=2 * MAX_POLL_WAIT_SECONDS, **did)
     assert replica['state'] == ReplicaState.AVAILABLE
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+def test_transfer_to_mas_new_replica(rse_factory, did_factory, root_account):
+    """
+    Test qos: transfer from disk to tape
+    Test a QoS transfer from some RSE in the world to MAS
+    Assert rse maximum_pin_lifetime is passed to transfer tool in the transfer request
+    Test rule and lock state transitions
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
+    all_rses = [src_rse_id, dst_rse_id]
+
+    maximum_pin_lifetime = 86400
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
+    rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
+
+    did = did_factory.upload_test_file(src_rse)
+
+    rule_id = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+
+    assert request['request_type'] == RequestType.TRANSFER
+
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
+
+    assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
+    assert rule_core.get_rule(rule_id)['state'] == RuleState.REPLICATING
+    for filtered_lock in [lock for lock in lock_core.get_replica_locks(scope=did['scope'], name=did['name'], restrict_rses=[dst_rse_id])]:
+        assert filtered_lock['state'] == LockState.REPLICATING
+
+    # mock a successful transfer
+    request = request_core.get_request(request_id=request['id'])
+    request_core.set_request_state(request_id=request['id'], state=RequestState.DONE, external_id=request['external_id'])
+    finisher(once=True, partition_wait_time=None)
+
+    assert rule_core.get_rule(rule_id)['state'] == RuleState.OK
+    for filtered_lock in [lock for lock in lock_core.get_replica_locks(scope=did['scope'], name=did['name'], restrict_rses=[dst_rse_id])]:
+        assert filtered_lock['state'] == LockState.OK
+    for rse_id in all_rses:
+        assert replica_core.get_replica(rse_id=rse_id, **did)['state'] == ReplicaState.AVAILABLE
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+def test_failed_transfer_to_mas_new_replica(rse_factory, did_factory, root_account):
+    """
+    Test a qos failed transfer from disk to tape
+    Assert rse maximum_pin_lifetime is passed to transfer tool in the transfer request
+    Test rule and lock state transitions
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
+
+    maximum_pin_lifetime = 86400
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
+    rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
+
+    did = did_factory.upload_test_file(src_rse)
+
+    rule_id = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+
+    assert request['request_type'] == RequestType.TRANSFER
+
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
+
+    assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
+    assert rule_core.get_rule(rule_id)['state'] == RuleState.REPLICATING
+    for filtered_lock in [lock for lock in lock_core.get_replica_locks(scope=did['scope'], name=did['name'], restrict_rses=[dst_rse_id])]:
+        assert filtered_lock['state'] == LockState.REPLICATING
+
+    # mock a failed transfer
+    # re-query request to get external_id
+    request = request_core.get_request(request_id=request['id'])
+    request_core.set_request_state(request_id=request['id'], state=RequestState.FAILED, external_id=request['external_id'])
+    lock_core.failed_transfer(scope=did['scope'], name=did['name'], rse_id=dst_rse_id)
+    replica = {'rse_id': dst_rse_id, 'scope': did['scope'], 'name': did['name'], 'state': ReplicaState.UNAVAILABLE}
+    replica_core.update_replicas_states([replica])
+    finisher(once=True, partition_wait_time=None)
+    assert rule_core.get_rule(rule_id)['state'] == RuleState.STUCK
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule_id)[0]['state'] == LockState.STUCK
+    assert replica_core.get_replica(rse_id=dst_rse_id, **did)['state'] == ReplicaState.UNAVAILABLE
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account):
+    """
+    Test qos: transfer from tape to disk
+    Assert rse maximum_pin_lifetime is passed to transfer tool in the transfer request
+    Test rule and lock state transitions
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
+    all_rses = [src_rse_id, dst_rse_id]
+
+    maximum_pin_lifetime = 86400
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
+    rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
+
+    did = did_factory.upload_test_file(rse_name=src_rse)
+
+    rule1_id = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None)[0]
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+
+    assert request['request_type'] == RequestType.TRANSFER
+
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
+
+    assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.REPLICATING
+    assert rule_core.get_rule(rule1_id)['state'] == RuleState.REPLICATING
+
+    # mock a successful transfer
+    request = request_core.get_request(request_id=request['id'])
+    request_core.set_request_state(request_id=request['id'], state=RequestState.DONE, external_id=request['external_id'])
+    finisher(once=True, partition_wait_time=None)
+
+    assert rule_core.get_rule(rule1_id)['state'] == RuleState.OK
+
+    # assert all replicas available
+    for rse_id in all_rses:
+        assert replica_core.get_replica(rse_id=rse_id, **did)['state'] == ReplicaState.AVAILABLE
+
+    # now test a second rule, different account
+    set_local_account_limit(InternalAccount('jdoe'), dst_rse_id, bytes_=-1)
+    rule2_id = rule_core.add_rule(dids=[did], account=InternalAccount('jdoe'), copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None, source_replica_expression=dst_rse)[0]
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+
+    assert request['request_type'] == RequestType.STAGEIN
+
+    stager(once=True, rses=[{'id': dst_rse_id}])
+
+    assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule2_id)[0]['state'] == LockState.REPLICATING
+    assert rule_core.get_rule(rule2_id)['state'] == RuleState.REPLICATING
+
+    # mock a successful stagein
+    request = request_core.get_request(request_id=request['id'])
+    request_core.set_request_state(request_id=request['id'], state=RequestState.DONE, external_id=request['external_id'])
+    finisher(once=True, partition_wait_time=None)
+
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.OK
+    assert rule_core.get_rule(rule1_id)['state'] == RuleState.OK
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule2_id)[0]['state'] == LockState.OK
+    assert rule_core.get_rule(rule2_id)['state'] == RuleState.OK
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root_account):
+    """
+    Test qos: transfer from tape to disk
+    Assert rse maximum_pin_lifetime is passed to transfer tool in the transfer request
+    Test rule and lock state transitions
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
+
+    maximum_pin_lifetime = 86400
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
+    rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
+
+    did = did_factory.upload_test_file(rse_name=src_rse)
+
+    rule1_id = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None)[0]
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+
+    assert request['request_type'] == RequestType.TRANSFER
+
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
+
+    assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.REPLICATING
+    assert rule_core.get_rule(rule1_id)['state'] == RuleState.REPLICATING
+
+    # mock a failed transfer
+    request = request_core.get_request(request_id=request['id'])
+    request_core.set_request_state(request_id=request['id'], state=RequestState.FAILED, external_id=request['external_id'])
+    finisher(once=True, partition_wait_time=None)
+    lock_core.failed_transfer(scope=did['scope'], name=did['name'], rse_id=dst_rse_id)
+
+    assert rule_core.get_rule(rule1_id)['state'] == RuleState.STUCK
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.STUCK
+
+    # now test a second rule, different account
+    set_local_account_limit(InternalAccount('jdoe'), dst_rse_id, bytes_=-1)
+    rule2_id = rule_core.add_rule(dids=[did], account=InternalAccount('jdoe'), copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None, source_replica_expression=dst_rse)[0]
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+
+    # since the first rule is STUCK assert a transfer not stagein
+    assert request['request_type'] == RequestType.TRANSFER
+
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
+
+    assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule2_id)[0]['state'] == LockState.REPLICATING
+    assert rule_core.get_rule(rule2_id)['state'] == RuleState.REPLICATING
+
+    # mock a failed transfer for the second rule
+    request = request_core.get_request(request_id=request['id'])
+    request_core.set_request_state(request_id=request['id'], state=RequestState.FAILED, external_id=request['external_id'])
+    finisher(once=True, partition_wait_time=None)
+    lock_core.failed_transfer(scope=did['scope'], name=did['name'], rse_id=dst_rse_id)
+
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.STUCK
+    assert rule_core.get_rule(rule1_id)['state'] == RuleState.STUCK
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule2_id)[0]['state'] == LockState.STUCK
+    assert rule_core.get_rule(rule2_id)['state'] == RuleState.STUCK
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason="runs submitter; poller and finisher")
+def test_transfer_failed_stagein_to_mas_existing_replica(rse_factory, did_factory, root_account):
+    """
+    Test qos: transfer from tape to disk
+    Assert rse maximum_pin_lifetime is passed to transfer tool in the transfer request
+    Test rule and lock state transitions
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
+    all_rses = [src_rse_id, dst_rse_id]
+
+    maximum_pin_lifetime = 86400
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
+    rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
+
+    did = did_factory.upload_test_file(rse_name=src_rse)
+
+    rule1_id = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None)[0]
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+
+    assert request['request_type'] == RequestType.TRANSFER
+
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
+
+    assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.REPLICATING
+    assert rule_core.get_rule(rule1_id)['state'] == RuleState.REPLICATING
+
+    # mock a successful transfer
+    request = request_core.get_request(request_id=request['id'])
+    request_core.set_request_state(request_id=request['id'], state=RequestState.DONE, external_id=request['external_id'])
+    finisher(once=True, partition_wait_time=None)
+
+    assert rule_core.get_rule(rule1_id)['state'] == RuleState.OK
+
+    # assert all replicas available
+    for rse_id in all_rses:
+        assert replica_core.get_replica(rse_id=rse_id, **did)['state'] == ReplicaState.AVAILABLE
+
+    # now test a second rule, different account
+    set_local_account_limit(InternalAccount('jdoe'), dst_rse_id, bytes_=-1)
+    rule2_id = rule_core.add_rule(dids=[did], account=InternalAccount('jdoe'), copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None, source_replica_expression=dst_rse)[0]
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+
+    assert request['request_type'] == RequestType.STAGEIN
+
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
+
+    assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule2_id)[0]['state'] == LockState.REPLICATING
+    assert rule_core.get_rule(rule2_id)['state'] == RuleState.REPLICATING
+
+    # mock a failed stagein
+    request = request_core.get_request(request_id=request['id'])
+    request_core.set_request_state(request_id=request['id'], state=RequestState.FAILED, external_id=request['external_id'])
+    finisher(once=True, partition_wait_time=None)
+    lock_core.failed_transfer(scope=did['scope'], name=did['name'], rse_id=dst_rse_id)
+
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.OK
+    assert rule_core.get_rule(rule1_id)['state'] == RuleState.OK
+
+    assert lock_core.get_replica_locks_for_rule_id(rule_id=rule2_id)[0]['state'] == LockState.STUCK
+    assert rule_core.get_rule(rule2_id)['state'] == RuleState.STUCK
 
 
 @skip_rse_tests_with_accounts
