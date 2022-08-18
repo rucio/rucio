@@ -23,7 +23,7 @@ import rucio.core.rule
 import rucio.core.did
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.core.lifetime_exception import define_eol
-from rucio.core.rse import get_rse_name
+from rucio.core.rse import get_rse_attribute, get_rse_name
 
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType, RuleNotification
@@ -398,7 +398,14 @@ def failed_transfer(scope, name, rse_id, error_message=None, broken_rule_id=None
     :param session:         The database session in use.
     """
 
-    locks = session.query(models.ReplicaLock).with_for_update(nowait=nowait).filter_by(scope=scope, name=name, rse_id=rse_id)
+    staging_required = get_rse_attribute(rse_id, 'staging_required', session=session)
+    if staging_required:
+        rse_name = get_rse_name(rse_id=rse_id, session=session)
+        logger(logging.DEBUG, f'Destination RSE {rse_name} is type staging_required so do not update other OK replica locks.')
+        locks = session.query(models.ReplicaLock).with_for_update(nowait=nowait).filter_by(scope=scope, name=name, rse_id=rse_id, state=LockState.REPLICATING)
+    else:
+        locks = session.query(models.ReplicaLock).with_for_update(nowait=nowait).filter_by(scope=scope, name=name, rse_id=rse_id)
+
     for lock in locks:
         if lock.state == LockState.STUCK:
             continue
