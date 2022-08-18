@@ -353,7 +353,7 @@ def successful_transfer(scope, name, rse_id, nowait, session=None, logger=loggin
             for dataset in rucio.core.did.list_child_datasets(scope=rule.scope, name=rule.name, session=session):
                 models.UpdatedCollectionReplica(scope=dataset['scope'],
                                                 name=dataset['name'],
-                                                did_type=dataset['type'],
+                                                did_type=DIDType.DATASET,
                                                 rse_id=rse_id).save(flush=False, session=session)
 
         # Update the rule state

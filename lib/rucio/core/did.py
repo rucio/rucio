@@ -2126,7 +2126,6 @@ def list_all_parent_dids(scope, name, session=None):
 def list_child_dids_stmt(
         input_dids_table: "Table",
         did_type: DIDType,
-        including_input_dids: bool = False,
 ):
     """
     Build and returns a query which recursively lists children dids of type `did_type`
@@ -2157,6 +2156,7 @@ def list_child_dids_stmt(
     ).cte(
         recursive=True,
     )
+
     # Oracle doesn't support union() in recursive CTEs, so use UNION ALL
     # and a "distinct" filter later
     child_datasets_cte = initial_set.union_all(
@@ -2172,28 +2172,12 @@ def list_child_dids_stmt(
     )
 
     stmt = select(
-        child_datasets_cte.c.child_scope,
-        child_datasets_cte.c.child_name,
+        child_datasets_cte.c.child_scope.label('scope'),
+        child_datasets_cte.c.child_name.label('name'),
     ).distinct(
     ).where(
         child_datasets_cte.c.child_type == did_type,
     )
-
-    if including_input_dids:
-        # Also include into the result the DIDs of the desired type present
-        # in the input list.
-        stmt = stmt.union(
-            select(
-                input_dids_table.scope,
-                input_dids_table.name,
-            ).join_from(
-                input_dids_table,
-                models.DataIdentifier,
-                and_(models.DataIdentifier.scope == input_dids_table.scope,
-                     models.DataIdentifier.name == input_dids_table.name,
-                     models.DataIdentifier.did_type == did_type),
-            )
-        )
     return stmt
 
 
@@ -2201,7 +2185,6 @@ def list_one_did_childs_stmt(
         scope: "InternalScope",
         name: str,
         did_type: DIDType,
-        including_input_dids: bool = False,
 ):
     """
     Returns the sqlalchemy query for recursively fetching the child dids of type
@@ -2250,18 +2233,6 @@ def list_one_did_childs_stmt(
     ).where(
         child_datasets_cte.c.child_type == did_type,
     )
-    if including_input_dids:
-        # Additionally, add the input did if it's of the desired type
-        stmt = stmt.union(
-            select(
-                models.DataIdentifier.scope,
-                models.DataIdentifier.name,
-            ).where(
-                models.DataIdentifier.scope == scope,
-                models.DataIdentifier.name == name,
-                models.DataIdentifier.did_type == did_type,
-            )
-        )
     return stmt
 
 
@@ -3115,91 +3086,50 @@ def __resolve_bytes_length_events_did(
     :param session: The database session in use.
     """
 
-    bytes_, length, events = 0, 0, 0
-
     if did.did_type == DIDType.DATASET and dynamic_depth == DIDType.FILE or \
             did.did_type == DIDType.CONTAINER and dynamic_depth in (DIDType.FILE, DIDType.DATASET):
 
-        use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
-        if use_temp_tables:
-            temp_table = temp_table_mngr(session).create_scope_name_table()
-            if did.did_type == DIDType.DATASET:
-                stmt = insert(
-                    temp_table
-                ).values(
-                    scope=did.scope,
-                    name=did.name
-                )
-            else:
-                stmt = insert(
-                    temp_table
-                ).from_select(
-                    ['scope', 'name'],
-                    list_one_did_childs_stmt(did.scope, did.name, did_type=DIDType.DATASET),
-                )
-            session.execute(stmt)
+        if did.did_type == DIDType.DATASET and dynamic_depth == DIDType.FILE:
+            stmt = select(
+                func.count(),
+                func.sum(models.DataIdentifierAssociation.bytes),
+                func.sum(models.DataIdentifierAssociation.events),
+            ).where(
+                models.DataIdentifierAssociation.scope == did.scope,
+                models.DataIdentifierAssociation.name == did.name
+            )
+        elif did.did_type == DIDType.CONTAINER and dynamic_depth == DIDType.DATASET:
+            child_did_stmt = list_one_did_childs_stmt(did.scope, did.name, did_type=DIDType.DATASET).subquery()
+            stmt = select(
+                func.sum(models.DataIdentifier.length),
+                func.sum(models.DataIdentifier.bytes),
+                func.sum(models.DataIdentifier.events),
+            ).join_from(
+                child_did_stmt,
+                models.DataIdentifier,
+                and_(models.DataIdentifier.scope == child_did_stmt.c.scope,
+                     models.DataIdentifier.name == child_did_stmt.c.name),
+            )
+        else:  # did.did_type == DIDType.CONTAINER and dynamic_depth == DIDType.FILE:
+            child_did_stmt = list_one_did_childs_stmt(did.scope, did.name, did_type=DIDType.DATASET).subquery()
+            stmt = select(
+                func.count(),
+                func.sum(models.DataIdentifierAssociation.bytes),
+                func.sum(models.DataIdentifierAssociation.events),
+            ).join_from(
+                child_did_stmt,
+                models.DataIdentifierAssociation,
+                and_(models.DataIdentifierAssociation.scope == child_did_stmt.c.scope,
+                     models.DataIdentifierAssociation.name == child_did_stmt.c.name)
+            )
 
-            if dynamic_depth == DIDType.FILE:
-                stmt = select(
-                    func.count(),
-                    func.sum(models.DataIdentifierAssociation.bytes),
-                    func.sum(models.DataIdentifierAssociation.events),
-                ).join_from(
-                    temp_table,
-                    models.DataIdentifierAssociation,
-                    and_(models.DataIdentifierAssociation.scope == temp_table.scope,
-                         models.DataIdentifierAssociation.name == temp_table.name),
-                )
-            else:
-                stmt = select(
-                    func.sum(models.DataIdentifier.length),
-                    func.sum(models.DataIdentifier.bytes),
-                    func.sum(models.DataIdentifier.events),
-                ).join_from(
-                    temp_table,
-                    models.DataIdentifier,
-                    and_(models.DataIdentifier.scope == temp_table.scope,
-                         models.DataIdentifier.name == temp_table.name),
-                )
-            try:
-                length, bytes_, events = session.execute(stmt).one()
-                length = length or 0
-                bytes_ = bytes_ or 0
-                events = events or 0
-            except NoResultFound:
-                bytes_, length, events = 0, 0, 0
-        else:
-            if did.did_type == DIDType.DATASET:
-                datasets = [{'scope': did.scope, 'name': did.name}]
-            else:
-                datasets = list_child_datasets(scope=did.scope, name=did.name, session=session)
-            for dataset in datasets:
-                if dynamic_depth == DIDType.FILE:
-                    stmt = select(
-                        func.count(),
-                        func.sum(models.DataIdentifierAssociation.bytes),
-                        func.sum(models.DataIdentifierAssociation.events),
-                    ).where(
-                        models.DataIdentifierAssociation.scope == dataset['scope'],
-                        models.DataIdentifierAssociation.name == dataset['name'],
-                    )
-                else:
-                    stmt = select(
-                        func.sum(models.DataIdentifier.length),
-                        func.sum(models.DataIdentifier.bytes),
-                        func.sum(models.DataIdentifier.events),
-                    ).where(
-                        models.DataIdentifier.scope == dataset['scope'],
-                        models.DataIdentifier.name == dataset['name'],
-                    )
-                try:
-                    tmp_length, tmp_bytes, tmp_events = session.execute(stmt).one()
-                    bytes_ += tmp_bytes or 0
-                    length += tmp_length or 0
-                    events += tmp_events or 0
-                except NoResultFound:
-                    bytes_, length, events = 0, 0, 0
-                    break
+        try:
+            length, bytes_, events = session.execute(stmt).one()
+            length = length or 0
+            bytes_ = bytes_ or 0
+            events = events or 0
+        except NoResultFound:
+            bytes_, length, events = 0, 0, 0
     elif did.did_type == DIDType.FILE:
         bytes_, length, events = did.bytes, 1, did.events
     else:
