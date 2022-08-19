@@ -725,31 +725,6 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
     return ''
 
 
-def _sort_replica_file_pfns(file):
-    """
-    Helper function to be executed after analyzing the last replica of a file (same scope:name)
-
-    """
-    if not file.get('pfns'):
-        return
-
-    # set the total order for the priority
-    # --> exploit that L(AN) comes before W(AN) before Z(IP) alphabetically
-    # and use 1-indexing to be compatible with metalink
-    tmp = sorted([(file['pfns'][p]['domain'], file['pfns'][p]['priority'], p) for p in file['pfns']])
-    for i in range(0, len(tmp)):
-        file['pfns'][tmp[i][2]]['priority'] = i + 1
-
-    # also sort the pfns inside the rse structure
-    file['rses'] = {}
-    rse_pfns = sorted((file['pfns'][pfn]['rse_id'], file['pfns'][pfn]['priority'], pfn) for pfn in file['pfns'])
-    for t_rse, t_priority, t_pfn in rse_pfns:
-        if t_rse in file['rses']:
-            file['rses'][t_rse].append(t_pfn)
-        else:
-            file['rses'][t_rse] = [t_pfn]
-
-
 def _get_list_replicas_protocols(
         rse_id: str,
         domain: str,
@@ -867,7 +842,7 @@ def _build_list_replicas_pfn(
 
 
 def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_location, domain,
-                   sign_urls, signature_lifetime, resolve_parents, filters, session):
+                   sign_urls, signature_lifetime, resolve_parents, filters, by_rse_name, session):
 
     # the `domain` variable name will be re-used throughout the function with different values
     input_domain = domain
@@ -885,6 +860,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
 
     for _, replica_group in groupby(replicas, key=lambda x: (x[0], x[1])):  # Group by scope/name
         file = {}
+        pfns = {}
         for scope, name, archive_scope, archive_name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_group:
             if isinstance(archive_scope, str):
                 archive_scope = InternalScope(archive_scope, fromExternal=False)
@@ -893,7 +869,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
             if not file:
                 file['scope'], file['name'] = scope, name
                 file['bytes'], file['md5'], file['adler32'] = bytes_, md5, adler32
-                file['pfns'], file['rses'], file['states'] = {}, defaultdict(list), {}
+                file['pfns'], file['rses'], file['states'] = {}, {}, {}
                 if resolve_parents:
                     file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
                                        for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
@@ -901,8 +877,8 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
             if not rse_id:
                 continue
 
-            file['states'][rse_id] = str(state.name if state else state)
-            file['rses'][rse_id] = []
+            rse_key = rse if by_rse_name else rse_id
+            file['states'][rse_key] = str(state.name if state else state)
 
             if not show_pfns:
                 continue
@@ -972,7 +948,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                         else:
                             client_extract = True
 
-                    file['pfns'][pfn] = {
+                    pfns[pfn] = {
                         'rse_id': rse_id,
                         'rse': rse,
                         'type': str(rse_type.name),
@@ -981,7 +957,6 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                         'priority': priority,
                         'client_extract': client_extract
                     }
-                    file['rses'][rse_id].append(pfn)
 
                 except Exception:
                     # never end up here
@@ -993,8 +968,22 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                     except KeyError:
                         file['space_token'] = None
 
+        # fill the 'pfns' and 'rses' dicts in file
+        if pfns:
+            # set the total order for the priority
+            # --> exploit that L(AN) comes before W(AN) before Z(IP) alphabetically
+            # and use 1-indexing to be compatible with metalink
+            sorted_pfns = sorted(pfns.items(), key=lambda item: (item[1]['domain'], item[1]['priority'], item[0]))
+            for i, (pfn, pfn_value) in enumerate(list(sorted_pfns), start=1):
+                pfn_value['priority'] = i
+                file['pfns'][pfn] = pfn_value
+
+            sorted_pfns = sorted(file['pfns'].items(), key=lambda item: (item[1]['rse_id'], item[1]['priority'], item[0]))
+            for pfn, pfn_value in sorted_pfns:
+                rse_key = pfn_value['rse'] if by_rse_name else pfn_value['rse_id']
+                file['rses'].setdefault(rse_key, []).append(pfn)
+
         if file:
-            _sort_replica_file_pfns(file)
             yield file
 
     for scope, name, bytes_, md5, adler32 in _list_files_wo_replicas(files_wo_replica, session):
@@ -1027,6 +1016,7 @@ def list_replicas(
         resolve_parents: bool = False,
         nrandom: "Optional[int]" = None,
         updated_after: "Optional[datetime]" = None,
+        by_rse_name: bool = False,
         session: "Optional[Session]" = None,
 ):
     """
@@ -1046,6 +1036,7 @@ def list_replicas(
     :param resolve_archives: When set to true, find archives which contain the replicas.
     :param resolve_parents: When set to true, find all parent datasets which contain the replicas.
     :param updated_after: datetime (UTC time), only return replicas updated after this time
+    :param by_rse_name: if True, rse information will be returned in dicts indexed by rse name; otherwise: in dicts indexed by rse id
     :param session: The database session in use.
     """
     # For historical reasons:
@@ -1055,12 +1046,12 @@ def list_replicas(
     if use_temp_tables:
         yield from _list_replicas_with_temp_tables(
             dids, schemes, unavailable, request_id, ignore_availability, all_states, pfns, rse_expression, client_location,
-            domain, sign_urls, signature_lifetime, resolve_archives, resolve_parents, nrandom, updated_after, session
+            domain, sign_urls, signature_lifetime, resolve_archives, resolve_parents, nrandom, updated_after, by_rse_name, session,
         )
     else:
         yield from _list_replicas_wo_temp_tables(
             dids, schemes, unavailable, request_id, ignore_availability, all_states, pfns, rse_expression, client_location,
-            domain, sign_urls, signature_lifetime, resolve_archives, resolve_parents, nrandom, updated_after, session
+            domain, sign_urls, signature_lifetime, resolve_archives, resolve_parents, nrandom, updated_after, by_rse_name, session,
         )
 
 
@@ -1081,6 +1072,7 @@ def _list_replicas_with_temp_tables(
         resolve_parents: bool = False,
         nrandom: "Optional[int]" = None,
         updated_after: "Optional[datetime]" = None,
+        by_rse_name: bool = True,
         session: "Optional[Session]" = None,
 ):
 
@@ -1356,7 +1348,7 @@ def _list_replicas_with_temp_tables(
             _pick_n_random(
                 nrandom,
                 _list_replicas(replica_tuples, pfns, schemes, [], client_location, domain,
-                               sign_urls, signature_lifetime, resolve_parents, filter_, session)
+                               sign_urls, signature_lifetime, resolve_parents, filter_, by_rse_name, session)
             )
         )
         if len(random_replicas) == nrandom:
@@ -1385,7 +1377,7 @@ def _list_replicas_with_temp_tables(
     yield from _pick_n_random(
         nrandom,
         _list_replicas(replica_tuples, pfns, schemes, [], client_location, domain,
-                       sign_urls, signature_lifetime, resolve_parents, filter_, session)
+                       sign_urls, signature_lifetime, resolve_parents, filter_, by_rse_name, session)
     )
 
 
@@ -4404,6 +4396,7 @@ def _list_replicas_wo_temp_tables(
         resolve_parents: bool = False,
         nrandom: "Optional[int]" = None,
         updated_after: "Optional[datetime]" = None,
+        by_rse_name: bool = True,
         session: "Optional[Session]" = None,
 ):
     if dids:
@@ -4436,5 +4429,5 @@ def _list_replicas_wo_temp_tables(
     yield from _pick_n_random(
         nrandom,
         _list_replicas(replica_tuples, pfns, schemes, files_wo_replica, client_location, domain,
-                       sign_urls, signature_lifetime, resolve_parents, filter_, session)
+                       sign_urls, signature_lifetime, resolve_parents, filter_, by_rse_name, session)
     )
