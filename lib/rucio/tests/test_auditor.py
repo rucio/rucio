@@ -19,7 +19,6 @@ import multiprocessing
 import os
 import sys
 import tempfile
-import unittest
 from datetime import datetime
 from datetime import timedelta
 
@@ -49,31 +48,17 @@ def test_auditor_guess_replica_info():
         assert auditor.guess_replica_info(input_) == output
 
 
-class TestBz2CompressFile(unittest.TestCase):
+def test_auditor_bz2_compress_file(file_factory):
+    test_data = 'foo'
+    source = file_factory.file_generator(use_basedir=True, data=test_data)
 
-    def setUp(self):
-        self.source = tempfile.mktemp()
-        self.destination = self.source + '.bz2'
+    destination = auditor.bz2_compress_file(source)
 
-    def tearDown(self):
-        for path in [self.source, self.destination]:
-            try:
-                os.remove(path)
-            except OSError:
-                pass
-
-    def test_auditor_bz2_compress_file(self):
-        test_data = 'foo'
-        with open(self.source, 'w') as f:
-            f.write(test_data)
-
-        destination = auditor.bz2_compress_file(self.source)
-
-        assert destination == self.destination
-        assert os.path.exists(self.destination)
-        assert not os.path.exists(self.source)
-        with bz2.BZ2File(self.destination) as f:
-            assert f.read().decode() == test_data
+    assert destination == str(source) + '.bz2'
+    assert os.path.exists(destination)
+    assert not os.path.exists(source)
+    with bz2.BZ2File(destination) as f:
+        assert f.read().decode() == test_data
 
 
 def mock_fn_wrapper(return_value):
