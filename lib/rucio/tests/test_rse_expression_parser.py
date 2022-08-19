@@ -50,6 +50,8 @@ class TestRSEExpressionParserCore(unittest.TestCase):
             self.vo = {}
             self.filter = {'filter_': {'vo': 'def'}}
 
+        self.already_existing_rses = rse.list_rses()
+
         self.rse1 = rse_name_generator()
         self.rse2 = rse_name_generator()
         self.rse3 = rse_name_generator()
@@ -117,8 +119,16 @@ class TestRSEExpressionParserCore(unittest.TestCase):
     def test_all_rse(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test reference on all RSE """
         all_rses = rse.list_rses(filters=self.filter['filter_'])
-        value = sorted(rse_expression_parser.parse_expression("*", **self.filter), key=lambda rse: rse['rse'])
-        expected = sorted(all_rses, key=lambda rse: rse['rse'])
+        rse_expression_parser.REGION.invalidate()
+        value = rse_expression_parser.parse_expression("*", **self.filter)
+        for rse_ in self.already_existing_rses:
+            if rse_ in all_rses:
+                all_rses.remove(rse_)
+            if rse_ in value:
+                value.remove(rse_)
+        value = sorted(value, key=lambda rse_: rse_['rse'])
+        expected = sorted(all_rses, key=lambda rse_: rse_['rse'])
+        assert len(value) == 5
         assert value == expected
 
     def test_tag_reference(self):
