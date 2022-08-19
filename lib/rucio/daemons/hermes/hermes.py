@@ -117,6 +117,7 @@ def run_once_emails(heartbeat_handler: HeartbeatHandler,
         delete_messages(to_delete)
         logger(logging.INFO, 'submitted %i messages', len(to_delete))
 
+    must_sleep = False
     if len(messages) < bulk:
         logger(logging.INFO, "Only %d messages, which is less than the bulk %d, will sleep"
                % (len(messages), bulk))
