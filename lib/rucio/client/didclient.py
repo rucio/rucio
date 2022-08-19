@@ -364,6 +364,24 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
+    def bulk_list_files(self, dids):
+        """
+        List data identifier file contents.
+
+        :param dids: The list of dids.
+        """
+
+        data = {'dids': dids}
+        path = '/'.join([self.DIDS_BASEURL, 'bulkfiles'])
+        url = build_url(choice(self.list_hosts), path=path)
+
+        r = self._send_request(url, type_='POST', data=dumps(data), stream=True)
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
     def get_did(self, scope, name, dynamic=False, dynamic_depth=None):
         """
         Retrieve a single data identifier.
