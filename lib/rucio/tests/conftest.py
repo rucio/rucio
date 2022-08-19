@@ -83,6 +83,13 @@ def long_vo():
 
 
 @pytest.fixture(scope='module')
+def account_client():
+    from rucio.client.accountclient import AccountClient
+
+    return AccountClient()
+
+
+@pytest.fixture(scope='module')
 def replica_client():
     from rucio.client.replicaclient import ReplicaClient
 
