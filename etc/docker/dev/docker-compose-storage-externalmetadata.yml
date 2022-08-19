@@ -15,6 +15,7 @@ services:
       - "activemq:127.0.0.1"
       - "ssh1:127.0.0.1"
       - "mongo:127.0.0.1"
+      - "postgres:127.0.0.1"
     ports:
       - "127.0.0.1:8443:443"
       - "127.0.0.1:5432:5432"
@@ -30,6 +31,7 @@ services:
       - "127.0.0.1:61613:61613"
       - "127.0.0.1:2222:22"
       - "127.0.0.1:27017:27017"
+      - "127.0.0.1:5433:5433"
     volumes:
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
@@ -136,3 +138,11 @@ services:
     network_mode: "service:rucio"
     environment:
       - discovery.type=single-node
+  postgres:
+    image: docker.io/postgres:14
+    network_mode: "service:rucio"
+    environment:
+      - POSTGRES_USER=rucio
+      - POSTGRES_DB=metadata
+      - POSTGRES_PASSWORD=secret
+    command: ["-p", "5433"]
