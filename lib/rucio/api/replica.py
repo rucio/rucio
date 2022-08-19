@@ -220,20 +220,9 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                                      client_location=client_location, domain=domain,
                                      sign_urls=sign_urls, signature_lifetime=signature_lifetime,
                                      resolve_archives=resolve_archives, resolve_parents=resolve_parents,
-                                     nrandom=nrandom, updated_after=updated_after, session=session)
+                                     nrandom=nrandom, updated_after=updated_after, by_rse_name=True, session=session)
 
     for rep in replicas:
-        # 'rses' and 'states' use rse_id as the key. This needs updating to be rse.
-        keys = ['rses', 'states']
-        for k in keys:
-            old_dict = rep.get(k, None)
-            if old_dict is not None:
-                new_dict = {}
-                for rse_id in old_dict:
-                    rse = get_rse_name(rse_id=rse_id, session=session) if rse_id is not None else None
-                    new_dict[rse] = old_dict[rse_id]
-                rep[k] = new_dict
-
         rep['scope'] = rep['scope'].external
         if 'parents' in rep:
             new_parents = []
