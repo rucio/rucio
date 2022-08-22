@@ -12,20 +12,83 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import copy
+
+from sqlalchemy import and_, delete, exists
 
 from rucio.core import config as config_db
 from rucio.core.vo import map_vo
-from rucio.db.sqla import session, models
+from rucio.db.sqla import models
+from rucio.db.sqla.session import transactional_session, get_session
 from rucio.tests.common import get_long_vo
 
 
 # Functions containing server-only includes that can't be included in client tests
+# For each table, get the foreign key constraints from all other tables towards this table.
+INBOUND_FOREIGN_KEYS = {}
+for __table in models.BASE.metadata.tables.values():
+    for __fk in __table.foreign_key_constraints:
+        INBOUND_FOREIGN_KEYS.setdefault(__fk.referred_table, set()).add(__fk)
+
+
+def _dependency_paths(stack, nb_times_in_stack, cur_table):
+    """
+    Generates lists of foreign keys: paths starting at cur_table and
+    navigating the table graph via foreign key constraints.
+
+    For example: As of time of writing, for cur_table = models.ReplicationRule.__table__,
+    it will generate
+        [DATASET_LOCKS_RULE_ID_FK]                            # rule.id <-> dataset_locks.rule_id
+        [LOCKS_RULE_ID_FK]                                    # rule.id <-> locks.rule_id
+        [RULES_CHILD_RULE_ID_FK, DATASET_LOCKS_RULE_ID_FK]    # rule.id <-> rule(alias).child_rule_id, rule(alias).id <-> dataset_locks.rule_id
+        [RULES_CHILD_RULE_ID_FK, LOCKS_RULE_ID_FK]            # rule.id <-> rule(alias).child_rule_id, rule(alias).id <-> locks.rule_id
+        [RULES_CHILD_RULE_ID_FK]                              # rule.id <-> rule(alias).child_rule_id
+    """
+    nb_times_in_stack[cur_table] = nb_times_in_stack.get(cur_table, 0) + 1
+
+    for fk in INBOUND_FOREIGN_KEYS.get(cur_table, []):
+        if nb_times_in_stack.get(fk.table, 0) > 1:
+            # Only allow a table to appear twice in the stack.
+            # This handles recursive constraints (like the one between rules and itself)
+            continue
+        stack.append(fk)
+        yield from _dependency_paths(stack, nb_times_in_stack, fk.table)
+
+    if stack:
+        yield copy.copy(stack)
+        fk = stack.pop()
+        nb_times_in_stack[fk.table] -= 1
+
+
+@transactional_session
+def cleanup_db_deps(model, select_rows_stmt, session=None):
+    """
+    Removes rows which have foreign key constraints pointing to rows
+    selected by `select_rows_stmt` in `model`. The deletion is transitive.
+    This implements a behavior similar to "ON DELETE CASCADE", but without
+    removing the initial rows from `model`, only their dependencies.
+    """
+
+    for fk_path in _dependency_paths(stack=[], nb_times_in_stack={}, cur_table=model.__table__):
+        filter_stmt = select_rows_stmt
+        for fk in fk_path:
+            filter_stmt = filter_stmt.where(and_(e.parent == e.column for e in fk.elements))
+
+        stmt = delete(
+            fk_path[-1].table
+        ).where(
+            exists(filter_stmt)
+        ).execution_options(
+            synchronize_session=False
+        )
+
+        session.execute(stmt)
 
 
 def reset_config_table():
     """ Clear the config table and install any default entires needed for the tests.
     """
-    db_session = session.get_session()
+    db_session = get_session()
     db_session.query(models.Config).delete()
     db_session.commit()
     config_db.set("vo-map", "testvo1", "tst")
