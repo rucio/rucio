@@ -12,11 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import os
 import shutil
 import tempfile
-from itertools import chain
 from pathlib import Path
 from random import choice
 from string import ascii_uppercase
@@ -26,14 +24,14 @@ from rucio.client.uploadclient import UploadClient
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalScope
 from rucio.common.utils import execute, generate_uuid
-from rucio.core import replica as replica_core
 from rucio.core import rse as rse_core
-from rucio.core import rule as rule_core
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.util import temp_table_mngr
 from rucio.tests.common import file_generator, rse_name_generator, did_name_generator
-from sqlalchemy import and_, or_
+from rucio.tests.common_server import cleanup_db_deps
+from sqlalchemy import select, delete, exists
 
 
 class TemporaryRSEFactory:
@@ -44,7 +42,7 @@ class TemporaryRSEFactory:
     def __init__(self, vo, **kwargs):
         self.vo = vo
 
-        self.created_rses = []
+        self.created_rses = set()
 
     def __enter__(self):
         return self
@@ -55,67 +53,21 @@ class TemporaryRSEFactory:
     def cleanup(self):
         if not self.created_rses:
             return
-        rules_to_remove = self.__get_rules_to_remove()
-        self.__cleanup_transfers()
-        self.__cleanup_locks_and_rules(rules_to_remove)
-        self.__cleanup_replicas()
-        self.__cleanup_rse_attributes()
+
+        self._cleanup_db_deps()
 
     @transactional_session
-    def __get_rules_to_remove(self, session=None):
-        # Retrieve the list of rules to be cleaned up
-        rules_from_requests = session.query(models.ReplicationRule.id). \
-            join(models.Request, models.ReplicationRule.id == models.Request.rule_id). \
-            filter(or_(models.Request.dest_rse_id.in_(self.created_rses),
-                       models.Request.source_rse_id.in_(self.created_rses)))
-        rules_from_locks = session.query(models.ReplicationRule.id). \
-            join(models.ReplicaLock, models.ReplicationRule.id == models.ReplicaLock.rule_id). \
-            filter(models.ReplicaLock.rse_id.in_(self.created_rses))
-        return list(rules_from_requests.union(rules_from_locks).distinct())
+    def _cleanup_db_deps(self, session=None):
+        tt_mngr = temp_table_mngr(session)
+        rses_temp_table = tt_mngr.create_id_table()
+        session.bulk_insert_mappings(rses_temp_table, [{'id': rse_id} for rse_id in self.created_rses])
+        cleanup_db_deps(
+            model=models.RSE,
+            select_rows_stmt=select([1]).where(models.RSE.id == rses_temp_table.id),
+            session=session,
+        )
 
-    @transactional_session
-    def __cleanup_transfers(self, session=None):
-        # Cleanup Transfers
-        session.query(models.Source).filter(or_(models.Source.dest_rse_id.in_(self.created_rses),
-                                                models.Source.rse_id.in_(self.created_rses))).delete(synchronize_session=False)
-        requests = list(chain.from_iterable(
-            session.query(models.Request.id).filter(or_(models.Request.dest_rse_id.in_(self.created_rses),
-                                                        models.Request.source_rse_id.in_(self.created_rses))).distinct()
-        ))
-        session.query(models.TransferHop).filter(or_(models.TransferHop.request_id.in_(requests),
-                                                     models.TransferHop.initial_request_id.in_(requests))
-                                                 ).delete(synchronize_session=False)
-        session.query(models.Request).filter(or_(models.Request.dest_rse_id.in_(self.created_rses),
-                                                 models.Request.source_rse_id.in_(self.created_rses))).delete(synchronize_session=False)
-
-    @transactional_session
-    def __cleanup_locks_and_rules(self, rules_to_remove, session=None):
-        for rule_id, in rules_to_remove:
-            rule_core.delete_rule(rule_id, session=session, ignore_rule_lock=True)
-
-    @transactional_session
-    def __cleanup_replicas(self, session=None):
-        # Cleanup Replicas and Parent Datasets
-        query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id). \
-            filter(models.RSEFileAssociation.rse_id.in_(self.created_rses))
-        dids_by_rse = {}
-        for scope, name, rse_id in query:
-            dids_by_rse.setdefault(rse_id, []).append({'scope': scope, 'name': name})
-        for rse_id, dids in dids_by_rse.items():
-            replica_core.delete_replicas(rse_id=rse_id, files=dids, session=session)
-        # Cleanup BadReplicas
-        session.query(models.BadReplicas).filter(models.BadReplicas.rse_id.in_(self.created_rses)).delete(synchronize_session=False)
-
-    @transactional_session
-    def __cleanup_rse_attributes(self, session=None):
-        for model in (models.RSEAttrAssociation, models.RSEProtocols, models.UpdatedRSECounter,
-                      models.RSEUsage, models.RSELimit, models.RSETransferLimit, models.RSEQoSAssociation):
-            session.query(model).filter(model.rse_id.in_(self.created_rses)).delete(synchronize_session=False)
-
-        session.query(models.Distance).filter(or_(models.Distance.src_rse_id.in_(self.created_rses),
-                                                  models.Distance.dest_rse_id.in_(self.created_rses))).delete(synchronize_session=False)
-
-    def __cleanup_rses(self):
+    def _cleanup_rses(self):
         for rse_id in self.created_rses:
             # Only archive RSE instead of deleting. Account handling code doesn't expect RSEs to ever be deleted.
             # So running test in parallel results in some tests failing on foreign key errors.
@@ -151,7 +103,7 @@ class TemporaryRSEFactory:
             }
             protocol_parameters.update(parameters or {})
             rse_core.add_protocol(rse_id=rse_id, parameter=protocol_parameters)
-        self.created_rses.append(rse_id)
+        self.created_rses.add(rse_id)
         return rse_name, rse_id
 
     def make_rse(self, scheme=None, protocol_impl=None, **kwargs):
@@ -188,7 +140,7 @@ class TemporaryDidFactory:
         self._client = None
         self._upload_client = None
 
-        self.created_dids = []
+        self.created_dids = set()
 
     def __enter__(self):
         return self
@@ -208,60 +160,36 @@ class TemporaryDidFactory:
             self._upload_client = UploadClient(self.client)
         return self._upload_client
 
-    def cleanup(self):
+    @transactional_session
+    def cleanup(self, session=None):
         if not self.created_dids:
             return
-        self.__cleanup_transfers()
-        self.__cleanup_locks_and_rules()
-        self.__cleanup_replicas()
 
-    @transactional_session
-    def __cleanup_transfers(self, session=None):
-        # Cleanup Transfers
-        session.query(models.Source).filter(or_(and_(models.Source.scope == did['scope'],
-                                                     models.Source.name == did['name'])
-                                                for did in self.created_dids)).delete(synchronize_session=False)
-        requests = list(chain.from_iterable(
-            session.query(models.Request.id).filter(or_(and_(models.Request.scope == did['scope'],
-                                                             models.Request.name == did['name'])
-                                                        for did in self.created_dids)).distinct()
-        ))
-        session.query(models.TransferHop).filter(or_(models.TransferHop.request_id.in_(requests),
-                                                     models.TransferHop.initial_request_id.in_(requests))
-                                                 ).delete(synchronize_session=False)
-        session.query(models.Request).filter(or_(and_(models.Request.scope == did['scope'],
-                                                      models.Request.name == did['name'])
-                                                 for did in self.created_dids)).delete(synchronize_session=False)
+        tt_mngr = temp_table_mngr(session)
+        scope_name_temp_table = tt_mngr.create_scope_name_table()
+        session.bulk_insert_mappings(scope_name_temp_table, [{'scope': s, 'name': n} for s, n in self.created_dids])
+        select_dids_stmt = select([1]).where(models.DataIdentifier.scope == scope_name_temp_table.scope,
+                                             models.DataIdentifier.name == scope_name_temp_table.name)
+        cleanup_db_deps(
+            model=models.DataIdentifier,
+            select_rows_stmt=select_dids_stmt,
+            session=session,
+        )
 
-    @transactional_session
-    def __cleanup_locks_and_rules(self, session=None):
-        query = session.query(models.ReplicationRule.id).filter(or_(and_(models.ReplicationRule.scope == did['scope'],
-                                                                         models.ReplicationRule.name == did['name'])
-                                                                    for did in self.created_dids))
-        for rule_id, in query:
-            rule_core.delete_rule(rule_id, session=session, ignore_rule_lock=True)
-
-    @transactional_session
-    def __cleanup_replicas(self, session=None):
-        query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id). \
-            filter(or_(and_(models.RSEFileAssociation.scope == did['scope'],
-                            models.RSEFileAssociation.name == did['name'])
-                       for did in self.created_dids))
-        dids_by_rse = {}
-        for scope, name, rse_id in query:
-            dids_by_rse.setdefault(rse_id, []).append({'scope': scope, 'name': name})
-        for rse_id, dids in dids_by_rse.items():
-            replica_core.delete_replicas(rse_id=rse_id, files=dids, session=session)
-        # Cleanup BadReplicas
-        session.query(models.BadReplicas).filter(or_(and_(models.BadReplicas.scope == did['scope'],
-                                                          models.BadReplicas.name == did['name'])
-                                                     for did in self.created_dids)).delete(synchronize_session=False)
+        stmt = delete(
+            models.DataIdentifier
+        ).where(
+            exists(select_dids_stmt)
+        ).execution_options(
+            synchronize_session=False
+        )
+        session.execute(stmt)
 
     def register_dids(self, dids):
         """
         Register the provided dids to be cleaned up on teardown
         """
-        self.created_dids.extend(dids)
+        self.created_dids.update((did['scope'], did['name']) for did in dids)
 
     def _sanitize_or_set_scope(self, scope):
         if not scope:
@@ -276,7 +204,7 @@ class TemporaryDidFactory:
             name_prefix = 'lfn'
         name = did_name_generator(did_type=name_prefix, name_prefix='%s_%s' % (name_prefix, self.base_uuid), name_suffix=name_suffix, cnt=len(self.created_dids))
         did = {'scope': scope, 'name': name}
-        self.created_dids.append(did)
+        self.created_dids.add((scope, name))
         return did
 
     def random_did(self, scope=None, name_prefix=None, name_suffix=''):
@@ -309,14 +237,13 @@ class TemporaryDidFactory:
         activity = get_schema_value('ACTIVITY')['enum'][0]
         self.upload_client.upload([item], activity=activity)
         did = {'scope': scope, 'name': name}
-        self.created_dids.append(did)
+        self.created_dids.add((scope, name))
         return item if return_full_item else did
 
     def upload_test_dataset(self, rse_name, scope=None, size=2, nb_files=2):
         scope = self._sanitize_or_set_scope(scope)
         dataset = self.make_dataset(scope=scope)
-        did = {'scope': scope, 'name': dataset['name']}
-        self.created_dids.append(did)
+        self.created_dids.add((scope, dataset['name']))
         items = list()
         for _ in range(0, nb_files):
             # TODO : Call did_name_generator
@@ -331,8 +258,7 @@ class TemporaryDidFactory:
                          'did_name': name,
                          'guid': generate_uuid(),
                          })
-            did = {'scope': scope, 'name': name}
-            self.created_dids.append(did)
+            self.created_dids.add((scope, name))
         self.upload_client.upload(items)
         return items
 
