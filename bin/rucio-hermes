@@ -29,7 +29,7 @@ def get_parser():
     Returns the argparse parser.
     """
     parser = argparse.ArgumentParser(description="The Hermes daemon is responsible for delivering messages via STOMP to a messagebroker and via SMTP as email.", formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''
-Create a message::
+Create a test message::
 
   $ python
   from rucio.core.message import add_message
@@ -42,7 +42,6 @@ Run the daemon::
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
     parser.add_argument("--bulk", action="store", default=1000, type=int, help='Bulk control: number of requests per cycle')
-    parser.add_argument("--delay", action="store", default=60, type=int, help='OBSOLETE, PLEASE USE --sleep-time INSTEAD. Delay control: second control per cycle')
     parser.add_argument("--broker-timeout", action="store", default=3, type=int, help='Broker control: timeout second per cycle')
     parser.add_argument("--broker-retry", action="store", default=3, type=int, help='Broker control: number of retries per cycle')
     parser.add_argument("--sleep-time", action="store", default=60, type=int, help='Delay control: second control per cycle')
@@ -59,7 +58,6 @@ if __name__ == "__main__":
         run(once=args.run_once,
             threads=args.threads,
             bulk=args.bulk,
-            delay=args.delay,
             broker_timeout=args.broker_timeout,
             broker_retry=args.broker_retry,
             sleep_time=args.sleep_time)

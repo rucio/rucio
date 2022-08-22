@@ -17,145 +17,169 @@
    Hermes is a daemon to deliver messages: to a messagebroker via STOMP, or emails via SMTP.
 '''
 
+import functools
 import json
 import logging
-import os
 import random
 import smtplib
 import socket
 import threading
-import time
 import traceback
+
 from email.mime.text import MIMEText
+from typing import List, Dict, Any
 
 import stomp
-from sqlalchemy.orm.exc import NoResultFound
 
 import rucio.db.sqla.util
+
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_int, config_get_bool
-from rucio.common.logging import setup_logging, formatted_logger
-from rucio.common.utils import daemon_sleep
-from rucio.core.heartbeat import live, die, sanity_check
+from rucio.common.logging import setup_logging
 from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import MultiCounter
+from rucio.daemons.common import HeartbeatHandler, run_daemon
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 logging.getLogger('stomp').setLevel(logging.CRITICAL)
 
-GRACEFUL_STOP = threading.Event()
-
 RECONNECT_COUNTER = MultiCounter(prom='rucio_daemons_hermes_reconnect', statsd='daemons.hermes.reconnect.{host}',
                                  documentation='Counts Hermes reconnects to different ActiveMQ brokers', labelnames=('host',))
 
+graceful_stop = threading.Event()
 
-def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=60, sleep_time=60):
+
+def deliver_emails(once: bool = False,
+                   send_email: bool = True,
+                   thread: int = 0,
+                   bulk: int = 1000,
+                   sleep_time: int = 60) -> None:
     '''
     Main loop to deliver emails via SMTP.
     '''
-    logging.info('[email] starting - threads (%i) bulk (%i)', thread, bulk)
+    run_daemon(
+        once=once,
+        graceful_stop=graceful_stop,
+        executable='hermes [email]',
+        logger_prefix='hermes_email',
+        partition_wait_time=1,
+        sleep_time=sleep_time,
+        run_once_fnc=functools.partial(
+            run_once_emails,
+            send_email=send_email,
+            thread=thread,
+            bulk=bulk,
+        )
+    )
 
-    if sleep_time == deliver_emails.__defaults__[5] and delay != deliver_emails.__defaults__[4]:
-        sleep_time = delay
 
-    executable = 'hermes [email]'
-    hostname = socket.getfqdn()
-    pid = os.getpid()
-    heartbeat_thread = threading.current_thread()
-
-    sanity_check(executable=executable, hostname=hostname)
-
-    # Make an initial heartbeat so that all daemons have the correct worker number on the next try
-    heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=heartbeat_thread)
-    prepend_str = 'hermes-email [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-    logger = formatted_logger(logging.log, prepend_str + '%s')
-
-    GRACEFUL_STOP.wait(1)
+def run_once_emails(heartbeat_handler: HeartbeatHandler,
+                    send_email: bool,
+                    thread: int,
+                    bulk: int,
+                    **_kwargs: Dict[str, Any]) -> None:
+    worker_number, total_workers, logger = heartbeat_handler.live()
 
     email_from = config_get('messaging-hermes', 'email_from')
 
-    while not GRACEFUL_STOP.is_set():
-        heartbeat = live(executable, hostname, pid, heartbeat_thread)
-        prepend_str = 'hermes-email [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-        logger = formatted_logger(logging.log, prepend_str + '%s')
-        logger(logging.DEBUG, 'bulk %i', bulk)
+    logger(logging.DEBUG, 'bulk %i', bulk)
 
-        t_start = time.time()
+    messages = retrieve_messages(bulk=bulk,
+                                 thread=worker_number,
+                                 total_threads=total_workers,
+                                 event_type='email')
 
-        messages = retrieve_messages(bulk=bulk,
-                                     thread=heartbeat['assign_thread'],
-                                     total_threads=heartbeat['nr_threads'],
-                                     event_type='email')
+    if messages != []:
+        to_delete = []
+        for message in messages:
+            logger(logging.DEBUG, 'submitting: %s', str(message))
 
-        if messages != []:
-            to_delete = []
-            for message in messages:
-                logger(logging.DEBUG, 'submitting: %s', str(message))
+            msg = MIMEText(message['payload']['body'])
+            msg['From'] = email_from
+            msg['To'] = ', '.join(message['payload']['to'])
+            msg['Subject'] = message['payload']['subject']
 
-                msg = MIMEText(message['payload']['body'])
-                msg['From'] = email_from
-                msg['To'] = ', '.join(message['payload']['to'])
-                msg['Subject'] = message['payload']['subject']
+            if send_email:
+                smtp = smtplib.SMTP()
+                smtp.connect()
+                smtp.sendmail(msg['From'], message['payload']['to'], msg.as_string())
+                smtp.quit()
 
-                if send_email:
-                    smtp = smtplib.SMTP()
-                    smtp.connect()
-                    smtp.sendmail(msg['From'], message['payload']['to'], msg.as_string())
-                    smtp.quit()
+            to_delete.append({'id': message['id'],
+                              'created_at': message['created_at'],
+                              'updated_at': message['created_at'],
+                              'payload': str(message['payload']),
+                              'event_type': 'email'})
 
-                to_delete.append({'id': message['id'],
-                                  'created_at': message['created_at'],
-                                  'updated_at': message['created_at'],
-                                  'payload': str(message['payload']),
-                                  'event_type': 'email'})
+            logger(logging.DEBUG, 'submitting done: %s',
+                   str(message['id']))
 
-                logger(logging.DEBUG, 'submitting done: %s',
-                       str(message['id']))
+        delete_messages(to_delete)
+        logger(logging.INFO, 'submitted %i messages', len(to_delete))
 
-            delete_messages(to_delete)
-            logger(logging.INFO, 'submitted %i messages', len(to_delete))
+    must_sleep = False
+    if len(messages) < bulk:
+        logger(logging.INFO, "Only %d messages, which is less than the bulk %d, will sleep"
+               % (len(messages), bulk))
+        must_sleep = True
 
-        if once:
-            break
-
-        if len(messages) < bulk:
-            logger(logging.INFO, "Only %d messages, which is less than the bulk %d, will sleep"
-                   % (len(messages), bulk))
-            daemon_sleep(start_time=t_start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
-
-    logger(logging.DEBUG, 'graceful stop requested')
-
-    die(executable, hostname, pid, heartbeat_thread)
-
-    logger(logging.DEBUG, 'graceful stop done')
+    return must_sleep
 
 
 class HermesListener(stomp.ConnectionListener):
     '''
     Hermes Listener
     '''
-    def __init__(self, broker):
+    def __init__(self, broker: str) -> None:
         '''
         __init__
         '''
         self.__broker = broker
 
-    def on_error(self, frame):
+    def on_error(self, frame: str) -> None:
         '''
         Error handler
         '''
         logging.error('[broker] [%s]: %s', self.__broker, frame.body)
 
 
-def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, delay=60,
-                     broker_timeout=3, broker_retry=3, sleep_time=60):
+def deliver_messages(once: bool = False,
+                     brokers_resolved: List[str] = None,
+                     thread: int = 0,
+                     bulk: int = 1000,
+                     broker_timeout: int = 3,
+                     broker_retry: int = 3,
+                     sleep_time: int = 60) -> None:
     '''
     Main loop to deliver messages to a broker.
     '''
-    logging.info('[broker] starting - threads (%i) bulk (%i)', thread, bulk)
+    run_daemon(
+        once=once,
+        graceful_stop=graceful_stop,
+        executable='hermes [broker]',
+        logger_prefix='hermes_broker',
+        partition_wait_time=1,
+        sleep_time=sleep_time,
+        run_once_fnc=functools.partial(
+            run_once_messages,
+            brokers_resolved=brokers_resolved,
+            thread=thread,
+            bulk=bulk,
+            sleep_time=sleep_time,
+            broker_timeout=broker_timeout,
+            broker_retry=broker_retry,
+        )
+    )
 
-    if sleep_time == deliver_messages.__defaults__[7] and delay != deliver_messages.__defaults__[4]:
-        sleep_time = delay
+
+def run_once_messages(heartbeat_handler: HeartbeatHandler,
+                      brokers_resolved: List[str],
+                      thread: int,
+                      bulk: int,
+                      broker_timeout: int,
+                      broker_retry: int,
+                      **_kwargs: Dict[str, Any]) -> None:
+    worker_number, total_workers, logger = heartbeat_handler.live()
 
     if not brokers_resolved:
         logging.fatal('No brokers resolved.')
@@ -202,160 +226,127 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
         conns.append(con)
     destination = config_get('messaging-hermes', 'destination')
 
-    executable = 'hermes [broker]'
-    hostname = socket.getfqdn()
-    pid = os.getpid()
-    heartbeat_thread = threading.current_thread()
+    logger(logging.DEBUG, 'using: %s', [conn.transport._Transport__host_and_ports[0][0] for conn in conns])
 
-    # Make an initial heartbeat so that all daemons have the correct worker number on the next try
-    sanity_check(executable=executable, hostname=hostname, pid=pid, thread=heartbeat_thread)
-    GRACEFUL_STOP.wait(1)
+    messages = retrieve_messages(bulk=bulk,
+                                 thread=worker_number,
+                                 total_threads=total_workers,
+                                 old_mode=True)
 
-    while not GRACEFUL_STOP.is_set():
-        try:
-            t_start = time.time()
-
-            heartbeat = live(executable=executable, hostname=hostname, pid=pid,
-                             thread=heartbeat_thread)
-            prepend_str = 'broker [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
-            logger = formatted_logger(logging.log, prepend_str + '%s')
-
-            logger(logging.DEBUG, 'using: %s', [conn.transport._Transport__host_and_ports[0][0] for conn in conns])
-
-            messages = retrieve_messages(bulk=bulk,
-                                         thread=heartbeat['assign_thread'],
-                                         total_threads=heartbeat['nr_threads'],
-                                         old_mode=True)
-
-            if messages:
-                logger(logging.DEBUG, 'retrieved %i messages',
-                       len(messages))
-                to_delete = []
-                for message in messages:
-                    try:
-                        conn = random.sample(conns, 1)[0]
-                        if not conn.is_connected():
-                            host_and_ports = conn.transport._Transport__host_and_ports[0][0]
-                            RECONNECT_COUNTER.labels(host=host_and_ports.split('.')[0]).inc()
-                            if not use_ssl:
-                                logger(logging.INFO, 'connecting with USERPASS to %s',
-                                       host_and_ports)
-                                conn.connect(username, password, wait=True)
-                            else:
-                                logger(logging.INFO, 'connecting with SSL to %s',
-                                       host_and_ports)
-                                conn.connect(wait=True)
-
-                        conn.send(body=json.dumps({'event_type': str(message['event_type']).lower(),
-                                                   'payload': message['payload'],
-                                                   'created_at': str(message['created_at'])}),
-                                  destination=destination,
-                                  headers={'persistent': 'true',
-                                           'event_type': str(message['event_type']).lower()})
-
-                        to_delete.append({'id': message['id'],
-                                          'created_at': message['created_at'],
-                                          'updated_at': message['created_at'],
-                                          'payload': json.dumps(message['payload']),
-                                          'event_type': message['event_type']})
-                    except ValueError:
-                        logger(logging.WARNING, 'Cannot serialize payload to JSON: %s',
-                               str(message['payload']))
-                        to_delete.append({'id': message['id'],
-                                          'created_at': message['created_at'],
-                                          'updated_at': message['created_at'],
-                                          'payload': str(message['payload']),
-                                          'event_type': message['event_type']})
-                        continue
-                    except stomp.exception.NotConnectedException as error:
-                        logger(logging.WARNING, 'Could not deliver message due to NotConnectedException: %s',
-                               str(error))
-                        continue
-                    except stomp.exception.ConnectFailedException as error:
-                        logger(logging.WARNING, 'Could not deliver message due to ConnectFailedException: %s',
-                               str(error))
-                        continue
-                    except Exception as error:
-                        logger(logging.WARNING, 'Could not deliver message: %s', str(error))
-                        logger(logging.CRITICAL, traceback.format_exc())
-                        continue
-
-                    if str(message['event_type']).lower().startswith('transfer') or str(message['event_type']).lower().startswith('stagein'):
-                        logger(logging.DEBUG, 'event_type: %s, scope: %s, name: %s, rse: %s, request-id: %s, transfer-id: %s, created_at: %s',
-                               str(message['event_type']).lower(),
-                               message['payload'].get('scope', None),
-                               message['payload'].get('name', None),
-                               message['payload'].get('dst-rse', None),
-                               message['payload'].get('request-id', None),
-                               message['payload'].get('transfer-id', None),
-                               str(message['created_at']))
-
-                    elif str(message['event_type']).lower().startswith('dataset'):
-                        logger(logging.DEBUG, 'event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)',
-                               str(message['event_type']).lower(),
-                               message['payload']['scope'],
-                               message['payload']['name'],
-                               message['payload']['rse'],
-                               message['payload']['rule_id'],
-                               str(message['created_at']))
-
-                    elif str(message['event_type']).lower().startswith('deletion'):
-                        if 'url' not in message['payload']:
-                            message['payload']['url'] = 'unknown'
-                        logger(logging.DEBUG, 'event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)',
-                               str(message['event_type']).lower(),
-                               message['payload']['scope'],
-                               message['payload']['name'],
-                               message['payload']['rse'],
-                               message['payload']['url'],
-                               str(message['created_at']))
+    if messages:
+        logger(logging.DEBUG, 'retrieved %i messages',
+               len(messages))
+        to_delete = []
+        for message in messages:
+            try:
+                conn = random.sample(conns, 1)[0]
+                if not conn.is_connected():
+                    host_and_ports = conn.transport._Transport__host_and_ports[0][0]
+                    RECONNECT_COUNTER.labels(host=host_and_ports.split('.')[0]).inc()
+                    if not use_ssl:
+                        logger(logging.INFO, 'connecting with USERPASS to %s',
+                               host_and_ports)
+                        conn.connect(username, password, wait=True)
                     else:
-                        logger(logging.DEBUG, 'other message: %s',
-                               message)
+                        logger(logging.INFO, 'connecting with SSL to %s',
+                               host_and_ports)
+                        conn.connect(wait=True)
 
-                delete_messages(to_delete)
-                logger(logging.INFO, 'submitted %i messages',
-                       len(to_delete))
+                conn.send(body=json.dumps({'event_type': str(message['event_type']).lower(),
+                                           'payload': message['payload'],
+                                           'created_at': str(message['created_at'])}),
+                          destination=destination,
+                          headers={'persistent': 'true',
+                                   'event_type': str(message['event_type']).lower()})
 
-                if once:
-                    break
+                to_delete.append({'id': message['id'],
+                                  'created_at': message['created_at'],
+                                  'updated_at': message['created_at'],
+                                  'payload': json.dumps(message['payload']),
+                                  'event_type': message['event_type']})
+            except ValueError:
+                logger(logging.WARNING, 'Cannot serialize payload to JSON: %s',
+                       str(message['payload']))
+                to_delete.append({'id': message['id'],
+                                  'created_at': message['created_at'],
+                                  'updated_at': message['created_at'],
+                                  'payload': str(message['payload']),
+                                  'event_type': message['event_type']})
+                continue
+            except stomp.exception.NotConnectedException as error:
+                logger(logging.WARNING, 'Could not deliver message due to NotConnectedException: %s',
+                       str(error))
+                continue
+            except stomp.exception.ConnectFailedException as error:
+                logger(logging.WARNING, 'Could not deliver message due to ConnectFailedException: %s',
+                       str(error))
+                continue
+            except Exception as error:
+                logger(logging.WARNING, 'Could not deliver message: %s', str(error))
+                logger(logging.CRITICAL, traceback.format_exc())
+                continue
 
-            if len(messages) < bulk:
-                logger(logging.INFO, "Only %d messages, which is less than the bulk %d, will sleep"
-                       % (len(messages), bulk))
-                daemon_sleep(start_time=t_start, sleep_time=sleep_time, graceful_stop=GRACEFUL_STOP)
+            if str(message['event_type']).lower().startswith('transfer') or str(message['event_type']).lower().startswith('stagein'):
+                logger(logging.DEBUG, 'event_type: %s, scope: %s, name: %s, rse: %s, request-id: %s, transfer-id: %s, created_at: %s',
+                       str(message['event_type']).lower(),
+                       message['payload'].get('scope', None),
+                       message['payload'].get('name', None),
+                       message['payload'].get('dst-rse', None),
+                       message['payload'].get('request-id', None),
+                       message['payload'].get('transfer-id', None),
+                       str(message['created_at']))
 
-        except NoResultFound:
-            # silence this error: https://its.cern.ch/jira/browse/RUCIO-1699
-            pass
-        except:
-            logging.critical(traceback.format_exc())
+            elif str(message['event_type']).lower().startswith('dataset'):
+                logger(logging.DEBUG, 'event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)',
+                       str(message['event_type']).lower(),
+                       message['payload']['scope'],
+                       message['payload']['name'],
+                       message['payload']['rse'],
+                       message['payload']['rule_id'],
+                       str(message['created_at']))
 
-    for conn in conns:
-        try:
-            conn.disconnect()
-        except Exception:
-            pass
+            elif str(message['event_type']).lower().startswith('deletion'):
+                if 'url' not in message['payload']:
+                    message['payload']['url'] = 'unknown'
+                logger(logging.DEBUG, 'event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)',
+                       str(message['event_type']).lower(),
+                       message['payload']['scope'],
+                       message['payload']['name'],
+                       message['payload']['rse'],
+                       message['payload']['url'],
+                       str(message['created_at']))
+            else:
+                logger(logging.DEBUG, 'other message: %s',
+                       message)
 
-    logging.debug('[broker] %i:%i - graceful stop requested',
-                  heartbeat['assign_thread'], heartbeat['nr_threads'])
+        delete_messages(to_delete)
+        logger(logging.INFO, 'submitted %i messages',
+               len(to_delete))
 
-    die(executable, hostname, pid, heartbeat_thread)
+    must_sleep = False
+    if len(messages) < bulk:
+        logger(logging.INFO, "Only %d messages, which is less than the bulk %d, will sleep"
+               % (len(messages), bulk))
+        must_sleep = True
 
-    logging.debug('[broker] %i:%i - graceful stop done', heartbeat['assign_thread'],
-                  heartbeat['nr_threads'])
+    return must_sleep
 
 
-def stop(signum=None, frame=None):
+def stop(signum: int = None, frame: str = None) -> None:
     '''
     Graceful exit.
     '''
     logging.info('Caught CTRL-C - waiting for cycle to end before shutting down')
-    GRACEFUL_STOP.set()
+    graceful_stop.set()
 
 
-def run(once=False, send_email=True, threads=1, bulk=1000, delay=60, broker_timeout=3,
-        broker_retry=3, sleep_time=60):
+def run(once: bool = False,
+        send_email: bool = True,
+        threads: int = 1,
+        bulk: int = 1000,
+        broker_timeout: int = 3,
+        broker_retry: int = 3,
+        sleep_time: int = 60) -> None:
     '''
     Starts up the hermes threads.
     '''
@@ -389,17 +380,16 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=60, broker_time
         logging.info('executing one hermes iteration only')
         deliver_messages(once=once,
                          brokers_resolved=brokers_resolved,
-                         bulk=bulk, delay=delay,
+                         bulk=bulk,
                          broker_timeout=broker_timeout, broker_retry=broker_retry, sleep_time=sleep_time)
         deliver_emails(once=once,
-                       send_email=send_email, bulk=bulk, delay=delay, sleep_time=sleep_time)
+                       send_email=send_email, bulk=bulk, sleep_time=sleep_time)
 
     else:
         logging.info('starting hermes threads')
         thread_list = [threading.Thread(target=deliver_messages, kwargs={'brokers_resolved': brokers_resolved,
                                                                          'thread': i,
                                                                          'bulk': bulk,
-                                                                         'delay': delay,
                                                                          'broker_timeout': broker_timeout,
                                                                          'broker_retry': broker_retry,
                                                                          'sleep_time': sleep_time}) for i in range(0, threads)]
@@ -407,7 +397,6 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=60, broker_time
         for thrd in range(0, 1):
             thread_list.append(threading.Thread(target=deliver_emails, kwargs={'thread': thrd,
                                                                                'bulk': bulk,
-                                                                               'delay': delay,
                                                                                'sleep_time': sleep_time}))
 
         for thrd in thread_list:
