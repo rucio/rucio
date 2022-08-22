@@ -101,6 +101,11 @@ spec = APISpec(
             "name": "Apache 2.0",
             "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
         },
+        "x-logo": {
+            "url": "http://rucio.cern.ch/documentation/img/rucio_horizontaled_black_cropped.svg",
+            "backgroundColor": "#FFFFFF",
+            "altText": "Rucio logo"
+        },
     },
 )
 
