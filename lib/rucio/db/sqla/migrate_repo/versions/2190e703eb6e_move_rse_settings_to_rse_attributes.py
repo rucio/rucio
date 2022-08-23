@@ -26,48 +26,51 @@ from rucio.db.sqla.types import GUID, BooleanString
 revision = "2190e703eb6e"
 down_revision = "f41ffe206f37"
 
-CHANGED_RSE_SETTINGS = [
-    ("city", sa.String(255)),
-    ("region_code", sa.String(2)),
-    ("country_name", sa.String(255)),
-    ("continent", sa.String(2)),
-    ("time_zone", sa.String(255)),
-    ("ISP", sa.String(255)),
-    ("ASN", sa.String(255)),
-]
 
-SCHEMA = (
-    context.get_context().version_table_schema
-    if context.get_context().version_table_schema
-    else ""
-)
+def get_changed_rse_settings():
+    return [
+        ("city", sa.String(255)),
+        ("region_code", sa.String(2)),
+        ("country_name", sa.String(255)),
+        ("continent", sa.String(2)),
+        ("time_zone", sa.String(255)),
+        ("ISP", sa.String(255)),
+        ("ASN", sa.String(255)),
+    ]
 
-RSEAttrAssociation = sa.sql.table(
-    "rse_attr_map",
-    sa.Column("rse_id", GUID()),
-    sa.Column("key", sa.String(255)),
-    sa.Column("value", BooleanString(255)),
-    sa.Column("created_at", sa.DateTime),
-    sa.Column("updated_at", sa.DateTime),
-    schema=SCHEMA,
-)
+
+def get_schema():
+    return context.get_context().version_table_schema \
+        if context.get_context().version_table_schema \
+        else ""
+
+
+def get_rse_attr_association():
+    return sa.sql.table(
+        "rse_attr_map",
+        sa.Column("rse_id", GUID()),
+        sa.Column("key", sa.String(255)),
+        sa.Column("value", BooleanString(255)),
+        sa.Column("created_at", sa.DateTime),
+        sa.Column("updated_at", sa.DateTime),
+        schema=get_schema(),
+    )
 
 
 def upgrade():
     """
     Upgrade the database to this revision
     """
-
     if context.get_context().dialect.name in ["oracle", "mysql", "postgresql"]:
         conn = get_bind()
-        for setting, setting_datatype in CHANGED_RSE_SETTINGS:
+        for setting, setting_datatype in get_changed_rse_settings():
             rse_table = sa.sql.table(
                 "rses",
                 sa.Column("id", GUID()),
                 sa.Column(setting, setting_datatype),
                 sa.Column("created_at", sa.DateTime),
                 sa.Column("updated_at", sa.DateTime),
-                schema=SCHEMA,
+                schema=get_schema(),
             )
 
             select_stmt = (
@@ -83,7 +86,7 @@ def upgrade():
             )
 
             conn.execute(
-                sa.insert(RSEAttrAssociation).from_select(
+                sa.insert((get_rse_attr_association())).from_select(
                     ["rse_id", "key", "value", "created_at", "updated_at"], select_stmt
                 )
             )
@@ -93,15 +96,14 @@ def downgrade():
     """
     Downgrade the database to the previous revision
     """
-
     if context.get_context().dialect.name in ["oracle", "mysql", "postgresql"]:
         conn = get_bind()
-        for setting, setting_datatype in CHANGED_RSE_SETTINGS:
+        for setting, setting_datatype in get_changed_rse_settings():
             rse_table = sa.sql.table(
                 "rses",
                 sa.Column("id", GUID()),
                 sa.Column(setting, setting_datatype),
-                schema=SCHEMA,
+                schema=get_schema(),
             )
 
             rse_attr_association = sa.sql.table(
@@ -109,7 +111,7 @@ def downgrade():
                 sa.Column("rse_id", GUID()),
                 sa.Column("key", sa.String(255)),
                 sa.Column("value", BooleanString(255)),
-                schema=SCHEMA,
+                schema=get_schema(),
             )
 
             # Oracle needs the sub-query, since multi-table updates are not supported.
@@ -130,5 +132,5 @@ def downgrade():
             )
 
             conn.execute(
-                RSEAttrAssociation.delete().where(RSEAttrAssociation.c.key == setting)
+                rse_attr_association.delete().where(rse_attr_association.c.key == setting)
             )
