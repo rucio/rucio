@@ -21,7 +21,7 @@ from werkzeug.datastructures import Headers
 from rucio.api.credential import get_signed_url
 from rucio.common.exception import CannotAuthenticate
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, extract_vo, \
-    generate_http_error_flask, ErrorHandlingMethodView
+    generate_http_error_flask, ErrorHandlingMethodView, request_auth_env, response_headers
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -173,6 +173,9 @@ def blueprint(with_doc=False):
     if not with_doc:
         # yes, /signur ~= '/signurl?$'
         bp.add_url_rule('/signur', view_func=signurl_view, methods=['get', 'options'])
+
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
 
     return bp
 
