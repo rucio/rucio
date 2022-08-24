@@ -86,6 +86,7 @@ if ENABLE_METRICS:
 COUNTERS = {}
 GAUGES = {}
 TIMINGS = {}
+METRICS_LOCK = Lock()
 
 
 _HISTOGRAM_DEFAULT_BUCKETS = Histogram.DEFAULT_BUCKETS
@@ -221,7 +222,9 @@ def record_counter(name, delta=1, labels=None):
 
     counter = COUNTERS.get(name)
     if not counter:
-        COUNTERS[name] = counter = MultiCounter(statsd=name, labelnames=labels.keys() if labels else ())
+        with METRICS_LOCK:
+            if not COUNTERS.get(name):
+                COUNTERS[name] = counter = MultiCounter(statsd=name, labelnames=labels.keys() if labels else ())
 
     delta = abs(delta)
 
@@ -241,7 +244,9 @@ def record_gauge(name, value, labels=None):
     """
     gauge = GAUGES.get(name)
     if not gauge:
-        GAUGES[name] = gauge = MultiGauge(statsd=name, labelnames=labels.keys() if labels else ())
+        with METRICS_LOCK:
+            if not GAUGES.get(name):
+                GAUGES[name] = gauge = MultiGauge(statsd=name, labelnames=labels.keys() if labels else ())
 
     if labels:
         gauge.labels(**labels).set(value)
@@ -263,10 +268,11 @@ def record_timer(name: str,
     :param labels: labels used to parametrize the metric
     :param buckets: Optional iterable of histogram bucket separators.
     """
-    if name not in TIMINGS:
-        TIMINGS[name] = MultiTiming(statsd=name, labelnames=labels.keys() if labels else (), buckets=buckets)
-
-    histogram = TIMINGS[name]
+    histogram = TIMINGS.get(name)
+    if not histogram:
+        with METRICS_LOCK:
+            if not TIMINGS.get(name):
+                TIMINGS[name] = histogram = MultiTiming(statsd=name, labelnames=labels.keys() if labels else (), buckets=buckets)
 
     if labels:
         histogram.labels(**labels).observe(time)
