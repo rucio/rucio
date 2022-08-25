@@ -204,17 +204,25 @@ class TemporaryDidFactory:
         self.created_dids.add((scope, name))
         return did
 
-    def random_did(self, scope=None, name_suffix=''):
+    def random_file_did(self, scope=None, name_suffix=''):
         did = self._random_did(did_type='file', scope=scope, name_suffix=name_suffix)
         return did
 
-    def make_dataset(self, scope=None):
+    def random_dataset_did(self, scope=None):
         did = self._random_did(did_type='dataset', scope=scope)
+        return did
+
+    def random_container_did(self, scope=None):
+        did = self._random_did(did_type='container', scope=scope)
+        return did
+
+    def make_dataset(self, scope=None):
+        did = self.random_dataset_did(scope=scope)
         self.client.add_dataset(scope=did['scope'].external, name=did['name'])
         return did
 
     def make_container(self, scope=None):
-        did = self._random_did(did_type='container', scope=scope)
+        did = self.random_container_did(scope=scope)
         self.client.add_container(scope=did['scope'].external, name=did['name'])
         return did
 

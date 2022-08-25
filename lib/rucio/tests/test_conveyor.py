@@ -265,7 +265,7 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
     all_rses = [src_rse_id, jump_rse_id, dst_rse_id]
 
     # Register a did which doesn't exist. It will trigger an non-recoverable error during the FTS transfer.
-    did = did_factory.random_did()
+    did = did_factory.random_file_did()
     replica_client.add_replicas(rse=src_rse, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
 
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -320,7 +320,7 @@ def test_fts_recoverable_failures_handled_on_multihop(vo, did_factory, root_acco
     # Create and upload a real file, but register it with wrong checksum. This will trigger
     # a FTS "Recoverable" failure on checksum validation
     local_file = file_factory.file_generator()
-    did = did_factory.random_did()
+    did = did_factory.random_file_did()
     did_factory.upload_client.upload(
         [
             {
@@ -519,7 +519,7 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         all_rses = [src_rse_id, jump_rse_id, dst_rse_id]
 
         # Register a did which doesn't exist. It will trigger a failure error during the FTS transfer.
-        did = did_factory.random_did()
+        did = did_factory.random_file_did()
         replica_client.add_replicas(rse=src_rse, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
 
         rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -893,7 +893,7 @@ def overwrite_on_tape_topology(rse_factory, did_factory, root_account, vo, file_
         If simulate_dst_corrupted is True, will upload a different file to destination, to simulate that it is corrupted
         """
         local_file = file_factory.file_generator()
-        did = did_factory.random_did()
+        did = did_factory.random_file_did()
         did_factory.upload_test_file(src_rse, path=local_file, **did)
         did_factory.upload_client.upload(
             [
@@ -1148,7 +1148,7 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
             rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
         distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
         account = InternalAccount('root', vo=vo)
-        did = did_factory.random_did(scope=scope)
+        did = did_factory.random_file_did(scope=scope)
         replica_core.add_replica(rse_id=src_rse_id, scope=scope, name=did['name'], bytes_=1, account=account, adler32=None, md5=None)
         rule_core.add_rule(dids=[did], account=account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None,
                            lifetime=None, locked=False, subscription_id=None, ignore_account_limit=True)
