@@ -33,14 +33,6 @@ MAX_POLL_WAIT_SECONDS = 60
 
 
 @pytest.fixture
-def did_factory(vo, test_scope):
-    from rucio.tests.temp_factories import TemporaryDidFactory
-
-    with TemporaryDidFactory(vo=vo, default_scope=test_scope) as factory:
-        yield factory
-
-
-@pytest.fixture
 def rse_client():
     return RSEClient()
 
@@ -72,19 +64,15 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
     rse2_name, rse2_id = containerized_rses[1]
 
     base_file_name = generate_uuid()
-    test_file = did_factory.upload_test_file(rse1_name, name=base_file_name + '.000', return_full_item=True)
-    test_file_did_str = '%s:%s' % (test_file['did_scope'], test_file['did_name'])
-    test_file_did = {
-        'scope': test_scope,
-        'name': test_file['did_name']
-    }
+    test_file = did_factory.upload_test_file(rse1_name, scope=test_scope, name=base_file_name + '.000')
+    test_file_did_str = '%s:%s' % (test_file['scope'], test_file['name'])
     test_file_name_hash = hashlib.md5(test_file_did_str.encode('utf-8')).hexdigest()
-    test_file_expected_pfn = '%s/%s/%s/%s' % (test_file_did['scope'], test_file_name_hash[0:2], test_file_name_hash[2:4], test_file_did['name'])
+    test_file_expected_pfn = '%s/%s/%s/%s' % (test_file['scope'], test_file_name_hash[0:2], test_file_name_hash[2:4], test_file['name'])
 
     rse1_hostname = rse_client.get_protocols(rse1_name)[0]['hostname']
     rse2_hostname = rse_client.get_protocols(rse2_name)[0]['hostname']
 
-    rule_id = add_rule(dids=[test_file_did], account=root_account, copies=1, rse_expression=rse2_name,
+    rule_id = add_rule(dids=[test_file], account=root_account, copies=1, rse_expression=rse2_name,
                        grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
     rule = rule_client.get_replication_rule(rule_id[0])
 
@@ -104,7 +92,7 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
     submitter.submitter(once=True)
 
     # Get FTS transfer job id
-    request = get_request_by_did(rse_id=rse2_id, **test_file_did)
+    request = get_request_by_did(rse_id=rse2_id, **test_file)
     fts_transfer_id = request['external_id']
 
     # Check FTS transfer job

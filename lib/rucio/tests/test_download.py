@@ -157,7 +157,7 @@ def test_overlapping_containers_and_wildcards(rse_factory, did_factory, download
 
     with TemporaryDirectory() as tmp_dir:
         # Verify that wildcard resolution works correctly
-        result = download_client.download_dids([{'did': '%s:dataset_%s*' % (did_factory.default_scope, did_factory.base_uuid), 'base_dir': tmp_dir},
+        result = download_client.download_dids([{'did': '%s:%sdataset_*' % (did_factory.default_scope, did_factory.name_prefix), 'base_dir': tmp_dir},
                                                 {'did': container_str, 'base_dir': tmp_dir}])
         assert len(result) == len(dids)
 
@@ -553,7 +553,7 @@ def test_nrandom_respected(rse_factory, did_factory, download_client, root_accou
     with TemporaryDirectory() as tmp_dir:
         # If a single item is provided, but it resolves to two datasets, only a single file will be downloaded
         nrandom = 1
-        result = download_client.download_dids([{'did': '%s:dataset_%s*' % (did_factory.default_scope, did_factory.base_uuid), 'nrandom': nrandom, 'base_dir': tmp_dir}])
+        result = download_client.download_dids([{'did': '%s:%sdataset_*' % (did_factory.default_scope, did_factory.name_prefix), 'nrandom': nrandom, 'base_dir': tmp_dir}])
         assert len(result) == nrandom
 
     with TemporaryDirectory() as tmp_dir:

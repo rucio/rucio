@@ -26,10 +26,9 @@ from rucio.common.types import InternalScope
 from rucio.common.utils import execute, generate_uuid
 from rucio.core import rse as rse_core
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import transactional_session
 from rucio.db.sqla.util import temp_table_mngr
-from rucio.tests.common import file_generator, rse_name_generator, did_name_generator
+from rucio.tests.common import file_generator, did_name_generator
 from rucio.tests.common_server import cleanup_db_deps
 from sqlalchemy import select, delete, exists
 
@@ -39,9 +38,9 @@ class TemporaryRSEFactory:
     Factory which keeps track of created RSEs and cleans up everything related to these RSEs at the end
     """
 
-    def __init__(self, vo, **kwargs):
+    def __init__(self, vo, name_prefix, **kwargs):
         self.vo = vo
-
+        self.name_prefix = name_prefix.upper().replace('_', '-')
         self.created_rses = set()
 
     def __enter__(self):
@@ -74,7 +73,7 @@ class TemporaryRSEFactory:
             rse_core.del_rse(rse_id)
 
     def _make_rse(self, scheme, protocol_impl, parameters=None, add_rse_kwargs=None):
-        rse_name = rse_name_generator()
+        rse_name = self.name_prefix + ''.join(choice(ascii_uppercase) for _ in range(6))
         if add_rse_kwargs and 'vo' in add_rse_kwargs:
             rse_id = rse_core.add_rse(rse_name, **add_rse_kwargs)
         else:
@@ -131,11 +130,10 @@ class TemporaryDidFactory:
     All files related to the same test will have the same uuid in the name for easier debugging.
     """
 
-    def __init__(self, default_scope, vo):
+    def __init__(self, default_scope, vo, name_prefix):
         self.default_scope = default_scope
         self.vo = vo
-
-        self.base_uuid = generate_uuid()
+        self.name_prefix = name_prefix
 
         self._client = None
         self._upload_client = None
@@ -198,26 +196,24 @@ class TemporaryDidFactory:
             scope = InternalScope(scope, vo=self.vo)
         return scope
 
-    def _random_did(self, scope, name_prefix, name_suffix=''):
+    def _random_did(self, did_type, scope, name_suffix=''):
         scope = self._sanitize_or_set_scope(scope)
-        if not name_prefix:
-            name_prefix = 'lfn'
-        name = did_name_generator(did_type=name_prefix, name_prefix='%s_%s' % (name_prefix, self.base_uuid), name_suffix=name_suffix, cnt=len(self.created_dids))
+        name = did_name_generator(did_type=did_type, name_prefix=self.name_prefix, name_suffix=name_suffix)
         did = {'scope': scope, 'name': name}
         self.created_dids.add((scope, name))
         return did
 
-    def random_did(self, scope=None, name_prefix=None, name_suffix=''):
-        did = self._random_did(scope=scope, name_prefix=name_prefix, name_suffix=name_suffix)
+    def random_did(self, scope=None, name_suffix=''):
+        did = self._random_did(did_type='file', scope=scope, name_suffix=name_suffix)
         return did
 
     def make_dataset(self, scope=None):
-        did = self._random_did(scope=scope, name_prefix='dataset')
-        self.client.add_did(scope=did['scope'].external, name=did['name'], did_type=DIDType.DATASET)
+        did = self._random_did(did_type='dataset', scope=scope)
+        self.client.add_dataset(scope=did['scope'].external, name=did['name'])
         return did
 
     def make_container(self, scope=None):
-        did = self._random_did(scope=scope, name_prefix='container')
+        did = self._random_did(did_type='container', scope=scope)
         self.client.add_container(scope=did['scope'].external, name=did['name'])
         return did
 
