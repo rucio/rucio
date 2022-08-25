@@ -92,8 +92,11 @@ class UserPass(ErrorHandlingMethodView):
         :resheader Access-Control-Allow-Credentials:
         :resheader Access-Control-Expose-Headers:
         :resheader X-Rucio-Auth-Token: The authentication token
+        :resheader X-Rucio-Auth-Account: The rucio account used for authentication
+        :resheader X-Rucio-Auth-Accounts: The rucio accounts corresponding to the provided identity as a csv string
         :status 200: Successfully authenticated
-        :status 404: Invalid credentials
+        :status 206: Partial content containing X-Rucio-Auth-Accounts header
+        :status 401: Invalid credentials
         """
         headers = self.get_headers()
 
@@ -113,8 +116,7 @@ class UserPass(ErrorHandlingMethodView):
             return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot authenticate without passing all required arguments', headers=headers)
 
         if not account:
-            accounts = list_accounts_for_identity(identity=username, type_='USERPASS')
-            accounts = [x.external for x in accounts if x.vo == vo]
+            accounts = list_accounts_for_identity(identity_key=username, id_type='USERPASS')
             if len(accounts) == 0 or accounts is None:
                 return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot authenticate with provided username or password. Identity is not mapped to any accounts.', headers=headers)
             if len(accounts) > 1:
