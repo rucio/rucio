@@ -22,7 +22,6 @@ from typing import TYPE_CHECKING
 
 from flask import Flask, Blueprint, request, Response, redirect, render_template
 from urllib.parse import urlparse
-from lib.rucio.api.identity import get_default_account
 from werkzeug.datastructures import Headers
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, \
@@ -32,7 +31,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, CannotAuthenticate, CannotAuthorize
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
-from rucio.core.identity import list_accounts_for_identity
+from rucio.api.identity import list_accounts_for_identity, get_default_account
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, error_headers, \
     extract_vo, generate_http_error_flask, ErrorHandlingMethodView
 
