@@ -16,11 +16,13 @@
 import base64
 import logging
 import time
+import json
 from re import search
 from typing import TYPE_CHECKING
 
 from flask import Flask, Blueprint, request, Response, redirect, render_template
 from urllib.parse import urlparse
+from lib.rucio.api.identity import get_default_account
 from werkzeug.datastructures import Headers
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, \
@@ -30,6 +32,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, CannotAuthenticate, CannotAuthorize
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
+from rucio.core.identity import list_accounts_for_identity
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, error_headers, \
     extract_vo, generate_http_error_flask, ErrorHandlingMethodView
 
@@ -55,7 +58,7 @@ class UserPass(ErrorHandlingMethodView):
         headers['Access-Control-Allow-Headers'] = request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')
         headers['Access-Control-Allow-Methods'] = '*'
         headers['Access-Control-Allow-Credentials'] = 'true'
-        headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
+        headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token, X-Rucio-Auth-Account, X-Rucio-Auth-Accounts'
         return headers
 
     def options(self):
@@ -107,17 +110,31 @@ class UserPass(ErrorHandlingMethodView):
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
-        if not account or not username or not password:
+        if not username or not password:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot authenticate without passing all required arguments', headers=headers)
 
+        if not account:
+            accounts = list_accounts_for_identity(identity=username, type_='USERPASS')
+            accounts = [x.external for x in accounts if x.vo == vo]
+            if len(accounts) == 0 or accounts is None:
+                return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot authenticate with provided username or password. Identity is not mapped to any accounts.', headers=headers)
+            if len(accounts) > 1:
+                try:
+                    account = get_default_account(identity_key=username, id_type='USERPASS')
+                except IdentityError:
+                    headers['X-Rucio-Auth-Accounts'] = ','.join(accounts)
+                    return json.dumps(accounts), 206, headers
+            else:
+                account = accounts[0]
+        account_name = account.external if type(account) is not str else account
         try:
-            result = get_auth_token_user_pass(account, username, password, appid, ip, vo=vo)
+            result = get_auth_token_user_pass(account_name, username, password, appid, ip, vo=vo)
         except AccessDenied:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot authenticate to account {account} with given credentials', headers=headers)
 
         if not result:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot authenticate to account {account} with given credentials', headers=headers)
-
+        headers['X-Rucio-Auth-Account'] = account_name
         headers['X-Rucio-Auth-Token'] = result['token']
         headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result['expires_at'])
         return '', 200, headers
