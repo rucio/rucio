@@ -90,12 +90,11 @@ def scope_name_generator():
     return 'mock_' + str(uuid()).lower()[:16]
 
 
-def did_name_generator(did_type='file', name_prefix='', name_suffix='', cnt=0, path=None):
+def did_name_generator(did_type='file', name_prefix='', name_suffix='', path=None):
     """ Generate random did name.
     :param did_type: A string to create a meaningful did_name depending on the did_type (file, dataset, container)
-    :param prefix: String to prefix to the did name
-    :param suffix: String to append to the did name
-    :param cnt: A counter to include in the did_name
+    :param name_prefix: String to prefix to the did name
+    :param name_suffix: String to append to the did name
     :param path: If specified, use the path to generate the did_name
 
     :returns: A random did name
@@ -112,15 +111,13 @@ def did_name_generator(did_type='file', name_prefix='', name_suffix='', cnt=0, p
         if did_type == 'dataset':
             return dataset_path
 
-        file_path = os.path.join(dataset_path, 'file_%s' % str(uuid()))
+        file_path = os.path.join(dataset_path, 'file_%s%s' % (str(uuid()), name_suffix))
         return file_path
 
     if path is not None:
         return os.path.basename(path)
-    if name_prefix:
-        name = '%s_%s%s' % (name_prefix, cnt, name_suffix)
-        return name
-    return '%s_%s' % (did_type, str(uuid()))
+
+    return '%s%s_%s%s' % (name_prefix, did_type, str(uuid()), name_suffix)
 
 
 def rse_name_generator(size=10):

@@ -153,7 +153,7 @@ def test_archive_on_dataset_level(rse_factory, did_factory, root_account):
     assert not metadata['is_archive']
 
     # Create an archive and its constituents, attach the archive to datasets
-    archive = did_factory.random_did(name_prefix='archive', name_suffix='.zip')
+    archive = did_factory.random_did(name_suffix='.zip')
     add_replicas(rse_id=rse_id, files=[{**archive, 'bytes': 500, 'type': 'FILE', 'adler32': 'beefbeef'}], account=root_account)
     constituents = [did_factory.random_did() for _ in range(2)]
     # Add archive to one dataset _before_ attaching files to the archive (before is_archive is set on the archive did)
