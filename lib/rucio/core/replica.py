@@ -2715,7 +2715,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
         )
 
         for scope, name, path, bytes_, tombstone, state, datatype in session.execute(stmt):
-            if len(rows) >= limit or (needed_space is not None and total_bytes > needed_space):
+            if len(rows) >= limit or (not only_delete_obsolete and needed_space is not None and total_bytes > needed_space):
                 break
             if state != ReplicaState.UNAVAILABLE:
                 total_bytes += bytes_
@@ -2723,7 +2723,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             rows.append({'scope': scope, 'name': name, 'path': path,
                          'bytes': bytes_, 'tombstone': tombstone,
                          'state': state, 'datatype': datatype})
-        if len(rows) >= limit or (needed_space is not None and total_bytes > needed_space):
+        if len(rows) >= limit or (not only_delete_obsolete and needed_space is not None and total_bytes > needed_space):
             break
 
     if rows:
@@ -2800,7 +2800,7 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
             if tombstone != OBSOLETE and only_delete_obsolete:
                 break
 
-            if needed_space is not None and total_bytes > needed_space:
+            if not only_delete_obsolete and needed_space is not None and total_bytes > needed_space:
                 break
 
             if state != ReplicaState.UNAVAILABLE:
@@ -2827,7 +2827,7 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
                 if tombstone != OBSOLETE and only_delete_obsolete:
                     break
 
-                if needed_space is not None and total_bytes > needed_space:
+                if not only_delete_obsolete and needed_space is not None and total_bytes > needed_space:
                     break
 
                 if state != ReplicaState.UNAVAILABLE:
