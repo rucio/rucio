@@ -226,7 +226,7 @@ def test_source_avoid_deletion(caches_mock, core_config_mock, rse_factory, did_f
     distance_core.add_distance(src_rse2_id, dst_rse_id, ranking=10)
 
     # Upload a test file to both rses without registering
-    did = did_factory.random_did()
+    did = did_factory.random_file_did()
 
     # Register replica on one source RSE
     replica_core.add_replica(rse_id=src_rse1_id, account=root_account, bytes_=1, tombstone=datetime(year=1970, month=1, day=1), **did)
@@ -421,7 +421,7 @@ def test_hop_penalty(rse_factory, did_factory, root_account, file_config_mock, c
     rse_core.add_rse_attribute(rse5_id, 'available_for_multihop', True)
     rse_core.add_rse_attribute(rse5_id, 'hop_penalty', 20)
 
-    did = did_factory.random_did()
+    did = did_factory.random_file_did()
     replica_core.add_replica(rse_id=rse1_id, account=root_account, bytes_=1, **did)
     replica_core.add_replica(rse_id=rse4_id, account=root_account, bytes_=1, **did)
 

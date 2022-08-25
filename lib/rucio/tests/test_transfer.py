@@ -354,7 +354,7 @@ def test_fk_error_on_source_creation(rse_factory, did_factory, root_account):
     dst_rse, dst_rse_id = rse_factory.make_mock_rse()
     add_distance(src_rse_id, dst_rse_id, ranking=10)
 
-    did = did_factory.random_did()
+    did = did_factory.random_file_did()
     file = {'scope': did['scope'], 'name': did['name'], 'type': 'FILE', 'bytes': 1, 'adler32': 'beefdead'}
     add_replicas(rse_id=src_rse_id, files=[file], account=root_account)
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)

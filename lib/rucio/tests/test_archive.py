@@ -144,7 +144,7 @@ def test_archive_on_dataset_level(rse_factory, did_factory, root_account):
     attach_dids(dids=[dataset1, dataset2], account=root_account, **container)
 
     # Add a random file to the datasets to avoid dataset deletion when the archive is deleted
-    a_file = did_factory.random_did()
+    a_file = did_factory.random_file_did()
     add_replicas(rse_id=rse_id, files=[{**a_file, 'bytes': 500, 'type': 'FILE', 'adler32': 'beefbeef'}], account=root_account)
     attach_dids(dids=[a_file], account=root_account, **dataset1)
     attach_dids(dids=[a_file], account=root_account, **dataset2)
@@ -153,9 +153,9 @@ def test_archive_on_dataset_level(rse_factory, did_factory, root_account):
     assert not metadata['is_archive']
 
     # Create an archive and its constituents, attach the archive to datasets
-    archive = did_factory.random_did(name_suffix='.zip')
+    archive = did_factory.random_file_did(name_suffix='.zip')
     add_replicas(rse_id=rse_id, files=[{**archive, 'bytes': 500, 'type': 'FILE', 'adler32': 'beefbeef'}], account=root_account)
-    constituents = [did_factory.random_did() for _ in range(2)]
+    constituents = [did_factory.random_file_did() for _ in range(2)]
     # Add archive to one dataset _before_ attaching files to the archive (before is_archive is set on the archive did)
     attach_dids(dids=[archive], account=root_account, **dataset1)
     attach_dids(dids=[{**c, 'bytes': 200, 'adler32': 'ababbaba'} for c in constituents], account=root_account, **archive)
