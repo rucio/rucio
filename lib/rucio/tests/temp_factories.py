@@ -28,7 +28,7 @@ from rucio.core import rse as rse_core
 from rucio.db.sqla import models
 from rucio.db.sqla.session import transactional_session
 from rucio.db.sqla.util import temp_table_mngr
-from rucio.tests.common import file_generator, did_name_generator
+from rucio.tests.common import did_name_generator
 from rucio.tests.common_server import cleanup_db_deps
 from sqlalchemy import select, delete, exists
 
@@ -130,10 +130,11 @@ class TemporaryDidFactory:
     All files related to the same test will have the same uuid in the name for easier debugging.
     """
 
-    def __init__(self, default_scope, vo, name_prefix):
+    def __init__(self, default_scope, vo, name_prefix, file_factory):
         self.default_scope = default_scope
         self.vo = vo
         self.name_prefix = name_prefix
+        self.file_factory = file_factory
 
         self._client = None
         self._upload_client = None
@@ -220,7 +221,7 @@ class TemporaryDidFactory:
     def upload_test_file(self, rse_name, scope=None, name=None, path=None, size=2, return_full_item=False):
         scope = self._sanitize_or_set_scope(scope)
         if not path:
-            path = file_generator(size=size)
+            path = self.file_factory.file_generator(size=size)
         if not name:
             name = did_name_generator('file')
         item = {
@@ -243,7 +244,7 @@ class TemporaryDidFactory:
         items = list()
         for _ in range(0, nb_files):
             # TODO : Call did_name_generator
-            path = file_generator(size=size)
+            path = self.file_factory.file_generator(size=size)
             name = did_name_generator('file')
             items.append({
                          'path': path,

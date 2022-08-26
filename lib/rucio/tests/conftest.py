@@ -239,10 +239,10 @@ def rse_factory_unittest(request, vo, class_scope_prefix):
 
 
 @pytest.fixture
-def did_factory(vo, mock_scope, function_scope_prefix):
+def did_factory(vo, mock_scope, function_scope_prefix, file_factory):
     from rucio.tests.temp_factories import TemporaryDidFactory
 
-    with TemporaryDidFactory(vo=vo, default_scope=mock_scope, name_prefix=function_scope_prefix) as factory:
+    with TemporaryDidFactory(vo=vo, default_scope=mock_scope, name_prefix=function_scope_prefix, file_factory=file_factory) as factory:
         yield factory
 
 
