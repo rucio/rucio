@@ -530,7 +530,7 @@ class TestReplicationRuleCore:
         assert(account_counter_before['bytes'] - 3 * 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] - 3 == account_counter_after['files'])
 
-    def test_account_counter_rule_update(self, mock_scope, did_factory, jdoe_account):
+    def test_account_counter_rule_update(self, vo, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when a rule is updated"""
 
         files = create_files(3, mock_scope, self.rse1_id, bytes_=100)
@@ -544,7 +544,7 @@ class TestReplicationRuleCore:
         account_counter_before_1 = get_usage(self.rse1_id, jdoe_account)
         account_counter_before_2 = get_usage(self.rse1_id, self.root)
 
-        rucio.api.rule.update_replication_rule(rule_id, {'account': 'root'}, issuer='root', **self.vo)
+        rucio.api.rule.update_replication_rule(rule_id, {'account': 'root'}, issuer='root', vo=vo)
         account_update(once=True)
 
         # Check if the counter has been updated correctly
@@ -770,10 +770,10 @@ class TestReplicationRuleCore:
             replica = get_replica(rse_id=self.rse4_id, scope=file['scope'], name=file['name'])
             assert(replica['tombstone'] == OBSOLETE)
 
-    def test_add_rule_with_ignore_availability(self, mock_scope, did_factory, jdoe_account):
+    def test_add_rule_with_ignore_availability(self, vo, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Add a replication rule with ignore_availability setting"""
         rse = rse_name_generator()
-        rse_id = add_rse(rse, **self.vo)
+        rse_id = add_rse(rse, vo=vo)
         update_rse(rse_id, {'availability_write': False})
         set_local_account_limit(jdoe_account, rse_id, -1)
 
@@ -790,14 +790,14 @@ class TestReplicationRuleCore:
             for filtered_lock in [lock for lock in get_replica_locks(scope=file['scope'], name=file['name'])]:
                 assert(filtered_lock['state'] == LockState.STUCK)
 
-    def test_delete_rule_country_admin(self, mock_scope, did_factory, jdoe_account):
+    def test_delete_rule_country_admin(self, vo, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Delete a rule with a country admin account"""
         if get_policy() != 'atlas':
             LOG.info("Skipping atlas-specific test")
             return
 
         rse = rse_name_generator()
-        rse_id = add_rse(rse, **self.vo)
+        rse_id = add_rse(rse, vo=vo)
         add_rse_attribute(rse_id, 'country', 'test')
         set_local_account_limit(jdoe_account, rse_id, -1)
 
@@ -809,13 +809,13 @@ class TestReplicationRuleCore:
         rule_id = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         usr = account_name_generator()
-        add_account(usr, 'USER', 'rucio@email.com', 'root', **self.vo)
+        add_account(usr, 'USER', 'rucio@email.com', 'root', vo=vo)
 
         with pytest.raises(AccessDenied):
-            rucio.api.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, **self.vo)
+            rucio.api.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, vo=vo)
 
-        add_account_attribute(InternalAccount(usr, **self.vo), 'country-test', 'admin')
-        rucio.api.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, **self.vo)
+        add_account_attribute(InternalAccount(usr, vo=vo), 'country-test', 'admin')
+        rucio.api.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, vo=vo)
 
     def test_reduce_rule(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Reduce a rule"""
@@ -885,14 +885,14 @@ class TestReplicationRuleCore:
 
         pytest.raises(RuleReplaceFailed, move_rule, rule_id, self.rse4)
 
-    def test_add_rule_with_scratchdisk(self, mock_scope, did_factory, jdoe_account):
+    def test_add_rule_with_scratchdisk(self, vo, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Add a replication rule for scratchdisk"""
         if get_policy() != 'atlas':
             LOG.info("Skipping atlas-specific test")
             return
 
         rse = rse_name_generator()
-        rse_id = add_rse(rse, **self.vo)
+        rse_id = add_rse(rse, vo=vo)
         add_rse_attribute(rse_id, 'type', 'SCRATCHDISK')
         set_local_account_limit(jdoe_account, rse_id, -1)
 
@@ -907,10 +907,10 @@ class TestReplicationRuleCore:
         rule_id = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression='%s' % self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
         assert(get_rule(rule_id)['expires_at'] is None)
 
-    def test_add_rule_with_auto_approval(self, mock_scope, did_factory, jdoe_account):
+    def test_add_rule_with_auto_approval(self, vo, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Add a replication rule with auto approval"""
         rse = rse_name_generator()
-        rse_id = add_rse(rse, **self.vo)
+        rse_id = add_rse(rse, vo=vo)
 
         files = create_files(3, mock_scope, self.rse1_id, bytes_=200)
         dataset = did_factory.random_dataset_did()
@@ -935,10 +935,10 @@ class TestReplicationRuleCore:
         rule_id = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression='%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
         assert(get_rule(rule_id)['state'] == RuleState.INJECT)
 
-    def test_add_rule_with_manual_approval_block(self, mock_scope, did_factory, jdoe_account):
+    def test_add_rule_with_manual_approval_block(self, vo, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Add a replication rule for a RSE with manual approval block"""
         rse = rse_name_generator()
-        rse_id = add_rse(rse, **self.vo)
+        rse_id = add_rse(rse, vo=vo)
         add_rse_attribute(rse_id, 'block_manual_approval', '1')
         set_local_account_limit(jdoe_account, rse_id, -1)
 
@@ -1048,7 +1048,7 @@ class TestReplicationRuleCore:
         assert(len(list(list_rules(filters={'scope': mock_scope, 'name': archive['name']}))) == 0)
         assert(len(list(list_rules(filters={'scope': mock_scope, 'name': files_in_archive[1]['name']}))) == 1)
 
-    def test_add_rule_overlapping_dids(self, mock_scope, jdoe_account):
+    def test_add_rule_overlapping_dids(self, vo, mock_scope, jdoe_account):
         """ REPLICATION RULE (CORE): Test various overlap cases"""
 
         def mktree(scope, account):
@@ -1063,17 +1063,17 @@ class TestReplicationRuleCore:
             #  6 replicas @ MOCK4 -> file11 .. file16
             #  5 replicas @ MOCK5 -> file17 .. file20, file25
             for i in range(1, 8):
-                add_replica(rse_id=get_rse_id('MOCK', **self.vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK', vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(8, 11):
-                add_replica(rse_id=get_rse_id('MOCK3', **self.vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK3', vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(11, 17):
-                add_replica(rse_id=get_rse_id('MOCK4', **self.vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK4', vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(17, 21):
-                add_replica(rse_id=get_rse_id('MOCK5', **self.vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK5', vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(21, 25):
-                add_replica(rse_id=get_rse_id('MOCK', **self.vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK', vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(25, 26):
-                add_replica(rse_id=get_rse_id('MOCK5', **self.vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK5', vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
 
             add_did(scope=scope, name='ds1', did_type='DATASET', account=account)
             attach_dids(scope=scope, name='ds1', dids=[{'scope': scope, 'name': 'file_%06d.data' % i} for i in range(1, 10 + 1)], account=account)
@@ -1091,7 +1091,7 @@ class TestReplicationRuleCore:
         account = jdoe_account
 
         # test1 : ALL grouping -> select MOCK for all 3 datasets
-        scope = InternalScope(('scope1_' + str(uuid()))[:21], **self.vo)  # scope field has max 25 chars including VO
+        scope = InternalScope(('scope1_' + str(uuid()))[:21], vo=vo)  # scope field has max 25 chars including VO
         add_scope(scope, account)
         mktree(scope, account)
         rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression='MOCK|MOCK3|MOCK4|MOCK5', grouping='ALL',
@@ -1111,7 +1111,7 @@ class TestReplicationRuleCore:
         assert(len(dsl3) == 1 and dsl3[0]['rse'] == 'MOCK')
 
         # test2 : DATASET grouping -> select MOCK for ds1, MOCK4 for ds2 and MOCK for ds3
-        scope = InternalScope(('scope2_' + str(uuid()))[:21], **self.vo)  # scope field has max 25 chars
+        scope = InternalScope(('scope2_' + str(uuid()))[:21], vo=vo)  # scope field has max 25 chars
         add_scope(scope, account)
         mktree(scope, account)
         rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression='MOCK|MOCK3|MOCK4|MOCK5', grouping='DATASET',
@@ -1131,7 +1131,7 @@ class TestReplicationRuleCore:
         assert(len(dsl3) == 1 and dsl3[0]['rse'] == 'MOCK')
 
         # test3 : NONE grouping
-        scope = InternalScope(('scope3_' + str(uuid()))[:21], **self.vo)  # scope field has max 25 chars
+        scope = InternalScope(('scope3_' + str(uuid()))[:21], vo=vo)  # scope field has max 25 chars
         add_scope(scope, account)
         mktree(scope, account)
         rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression='MOCK|MOCK3|MOCK4|MOCK5', grouping='NONE',
