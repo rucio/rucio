@@ -219,7 +219,7 @@ class TestReplicationRuleCore:
         # Add a second rule and check if the right locks are created
         pytest.raises(DuplicateRule, add_rule, dids=[dataset], account=jdoe_account, copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-    def test_add_rules_datasets_none(self, mock_scope, did_factory, jdoe_account):
+    def test_add_rules_datasets_none(self, mock_scope, did_factory, jdoe_account, root_account):
         """ REPLICATION RULE (CORE): Add replication rules to multiple datasets, NONE Grouping"""
         files1 = create_files(3, mock_scope, self.rse4_id)
         dataset1 = did_factory.random_dataset_did()
@@ -241,7 +241,7 @@ class TestReplicationRuleCore:
                           'lifetime': None,
                           'locked': False,
                           'subscription_id': None},
-                         {'account': self.root,
+                         {'account': root_account,
                           'copies': 1,
                           'rse_expression': self.T1,
                           'grouping': 'NONE',
@@ -530,7 +530,7 @@ class TestReplicationRuleCore:
         assert(account_counter_before['bytes'] - 3 * 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] - 3 == account_counter_after['files'])
 
-    def test_account_counter_rule_update(self, vo, mock_scope, did_factory, jdoe_account):
+    def test_account_counter_rule_update(self, vo, mock_scope, did_factory, jdoe_account, root_account):
         """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when a rule is updated"""
 
         files = create_files(3, mock_scope, self.rse1_id, bytes_=100)
@@ -542,14 +542,14 @@ class TestReplicationRuleCore:
 
         account_update(once=True)
         account_counter_before_1 = get_usage(self.rse1_id, jdoe_account)
-        account_counter_before_2 = get_usage(self.rse1_id, self.root)
+        account_counter_before_2 = get_usage(self.rse1_id, root_account)
 
         rucio.api.rule.update_replication_rule(rule_id, {'account': 'root'}, issuer='root', vo=vo)
         account_update(once=True)
 
         # Check if the counter has been updated correctly
         account_counter_after_1 = get_usage(self.rse1_id, jdoe_account)
-        account_counter_after_2 = get_usage(self.rse1_id, self.root)
+        account_counter_after_2 = get_usage(self.rse1_id, root_account)
         assert(account_counter_before_1['bytes'] - 3 * 100 == account_counter_after_1['bytes'])
         assert(account_counter_before_2['bytes'] + 3 * 100 == account_counter_after_2['bytes'])
 
