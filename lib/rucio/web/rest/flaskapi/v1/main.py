@@ -17,7 +17,7 @@
 import importlib
 
 from flask import Flask
-
+from rucio.web.rest.flaskapi.v1.common import CORSMiddleware
 from rucio.common.config import config_get
 from rucio.common.exception import ConfigurationError
 from rucio.common.logging import setup_logging
@@ -72,6 +72,7 @@ if not endpoints:
     endpoints = DEFAULT_ENDPOINTS
 
 application = Flask(__name__)
+application.wsgi_app = CORSMiddleware(application.wsgi_app)
 apply_endpoints(application, endpoints)
 setup_logging(application)
 
