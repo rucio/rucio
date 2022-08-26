@@ -15,10 +15,7 @@
 
 import glob
 import os
-import shutil
 import sys
-import tempfile
-import unittest
 from datetime import datetime
 
 import pytest
@@ -44,7 +41,7 @@ def mocked_requests_head(*args, **kwargs):
     return response
 
 
-class TestDataModel(unittest.TestCase):
+class TestDataModel:
     VALID_DUMP = '''\
 CERN-PROD_DATADISK	data12_8TeV	AOD.04972924._000218.pool.root.1	1045a406	127508132	2015-03-10 14:00:24	data12_8TeV/5b/ea/AOD.04972924._000218.pool.root.1	2015-03-15 08:33:09
 CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690922	2015-03-10 14:00:24	 data12_8TeV/7a/a6/ESD.04972924._000218.pool.root.1	2015-03-10 14:00:35
@@ -69,22 +66,17 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
             ('h', dumper.to_datetime),
         )
 
-    def setUp(self):
-        self.data_list = [
-            'aa',
-            'bb',
-            'cc',
-            'dd',
-            '42',
-            self.DATE_SECONDS,
-            'ee',
-            self.DATE_TENTHS,
-        ]
-        self.data_concrete = self._DataConcrete(*self.data_list)
-        self.tmp_dir = tempfile.mkdtemp()
-
-    def tearDown(self):
-        shutil.rmtree(self.tmp_dir)
+    data_list = [
+        'aa',
+        'bb',
+        'cc',
+        'dd',
+        '42',
+        DATE_SECONDS,
+        'ee',
+        DATE_TENTHS,
+    ]
+    data_concrete = _DataConcrete(*data_list)
 
     def test_field_names(self):
         """ test field names """
@@ -161,7 +153,7 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
 
     @mock.patch('requests.Session.get')
     @mock.patch('requests.Session.head')
-    def test_download_with_fixed_date(self, mock_request_head, mock_request_get):
+    def test_download_with_fixed_date(self, mock_request_head, mock_request_get, tmp_path):
         """ test download with fixed date"""
         response = requests.Response()
         response.status_code = 200
@@ -173,11 +165,11 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
         self._DataConcrete.download(
             'SOMEENDPOINT',
             date=datetime.strptime('01-01-2015', '%d-%m-%Y'),
-            cache_dir=self.tmp_dir,
+            cache_dir=tmp_path,
         )
         downloaded = glob.glob(
             os.path.join(
-                self.tmp_dir,
+                tmp_path,
                 '_dataconcrete_SOMEENDPOINT_01-01-2015_*',
             )
         )
@@ -187,7 +179,7 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
 
     @mock.patch('requests.Session.get')
     @mock.patch('requests.Session.head', side_effect=mocked_requests_head)
-    def test_download_empty_date(self, mock_request_head, mock_request_get):
+    def test_download_empty_date(self, mock_request_head, mock_request_get, tmp_path):
         """ test_download_with_date_latest_should_make_a_head_query_with_empty_date_and_name_the_output_file_according_to_the_content_disposition_header """
         response = requests.Response()
         response.status_code = 200
@@ -200,11 +192,11 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
         self._DataConcrete.download(
             'SOMEENDPOINT',
             date='latest',
-            cache_dir=self.tmp_dir,
+            cache_dir=tmp_path,
         )
         downloaded = glob.glob(
             os.path.join(
-                self.tmp_dir,
+                tmp_path,
                 '_dataconcrete_SOMEENDPOINT_01-01-2015_*',
             )
         )
@@ -214,7 +206,7 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
 
     @mock.patch('requests.Session.get')
     @mock.patch('requests.Session.head')
-    def test_raises_exception(self, mock_session_head, mock_session_get):
+    def test_raises_exception(self, mock_session_head, mock_session_get, tmp_path):
         """ test raise exception """
         response = requests.Response()
         response.status_code = 500
@@ -225,7 +217,7 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
             self._DataConcrete.download(
                 'SOMEENDPOINT',
                 date=datetime.strptime('01-01-2015', '%d-%m-%Y'),
-                cache_dir=self.tmp_dir,
+                cache_dir=tmp_path,
             )
 
 
@@ -310,31 +302,30 @@ class TestReplica(object):
         assert replica.state == 'A'  # pylint: disable=no-member
 
 
-class TestFilter(unittest.TestCase):
+class TestFilter:
 
-    def setUp(self):
-        self.replica_1 = data_models.Replica(
-            'RSE',
-            'scope',
-            'name',
-            'checksum',
-            '42',
-            '2015-01-01 23:00:00',
-            'path',
-            '2015-01-01 23:00:00',
-            'A',
-        )
-        self.replica_2 = data_models.Replica(
-            'RSE',
-            'scope',
-            'name',
-            'checksum',
-            '42',
-            '2015-01-01 23:00:00',
-            'path',
-            '2015-01-01 23:00:00',
-            'U',
-        )
+    replica_1 = data_models.Replica(
+        'RSE',
+        'scope',
+        'name',
+        'checksum',
+        '42',
+        '2015-01-01 23:00:00',
+        'path',
+        '2015-01-01 23:00:00',
+        'A',
+    )
+    replica_2 = data_models.Replica(
+        'RSE',
+        'scope',
+        'name',
+        'checksum',
+        '42',
+        '2015-01-01 23:00:00',
+        'path',
+        '2015-01-01 23:00:00',
+        'U',
+    )
 
     def test_simple_condition(self):
         """ test simple condition """
