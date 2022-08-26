@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 from datetime import datetime
 from json import loads
 from json.decoder import JSONDecodeError
@@ -23,9 +22,6 @@ import pytest
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, \
     list_subscription_rule_states, get_subscription_by_id
 from rucio.db.sqla.constants import RuleState
-from rucio.client.didclient import DIDClient
-from rucio.client.subscriptionclient import SubscriptionClient
-from rucio.common.config import config_get_bool
 from rucio.common.exception import InvalidObject, SubscriptionNotFound, SubscriptionDuplicate
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
@@ -39,28 +35,18 @@ from rucio.core import subscription as subscription_core
 from rucio.daemons.transmogrifier.transmogrifier import run, get_subscriptions
 from rucio.db.sqla.constants import AccountType, DIDType
 from rucio.tests.common import headers, auth, did_name_generator, rse_name_generator
-from rucio.tests.common_server import get_vo
 
 
-@pytest.mark.usefixtures("rse_factory_unittest")
-class TestSubscriptionCoreApi(unittest.TestCase):
+class TestSubscriptionCoreApi:
+    projects = ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV']
+    pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
+                \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
+    activity = get_schema_value('ACTIVITY')['enum'][0]
 
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        cls.projects = ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV']
-        cls.pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
-                        \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
-        cls.activity = get_schema_value('ACTIVITY')['enum'][0]
-
-    def test_create_update_list_delete_subscription(self):
-        """ SUBSCRIPTION (API): Test the creation of a new subscription, update it, list and delete it """
-        rse1, _ = self.rse_factory.make_mock_rse()
-        rse2, _ = self.rse_factory.make_mock_rse()
+    def test_create_and_update_and_list_subscription(self, vo, rse_factory):
+        """ SUBSCRIPTION (API): Test the creation of a new subscription, update it, list it """
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
         subscription_name = uuid()
         with pytest.raises(InvalidObject):
@@ -73,7 +59,7 @@ class TestSubscriptionCoreApi(unittest.TestCase):
                              dry_run=False,
                              comments='This is a comment',
                              issuer='root',
-                             **self.vo)
+                             vo=vo)
 
         sub_id = add_subscription(name=subscription_name,
                                   account='root',
@@ -84,15 +70,15 @@ class TestSubscriptionCoreApi(unittest.TestCase):
                                   dry_run=False,
                                   comments='This is a comment',
                                   issuer='root',
-                                  **self.vo)
+                                  vo=vo)
 
         with pytest.raises(TypeError):
-            result = update_subscription(name=subscription_name, account='root', metadata={'filter': 'toto'}, issuer='root', **self.vo)
+            result = update_subscription(name=subscription_name, account='root', metadata={'filter': 'toto'}, issuer='root', vo=vo)
         with pytest.raises(InvalidObject):
-            result = update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': 'toto'}}, issuer='root', **self.vo)
-        result = update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': ['toto', ]}}, issuer='root', **self.vo)
+            result = update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': 'toto'}}, issuer='root', vo=vo)
+        result = update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': ['toto', ]}}, issuer='root', vo=vo)
         assert result is None
-        result = list_subscriptions(name=subscription_name, account='root', **self.vo)
+        result = list_subscriptions(name=subscription_name, account='root', vo=vo)
         sub = []
         for res in result:
             sub.append(res)
@@ -100,13 +86,13 @@ class TestSubscriptionCoreApi(unittest.TestCase):
         assert loads(sub[0]['filter'])['project'][0] == 'toto'
         subscription_core.delete_subscription(sub_id)
         with pytest.raises(SubscriptionNotFound):
-            get_subscription_by_id(sub_id, **self.vo)
+            get_subscription_by_id(sub_id, vo=vo)
 
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_create_list_subscription_by_id(self):
+    def test_create_list_subscription_by_id(self, vo, rse_factory):
         """ SUBSCRIPTION (API): Test the creation of a new subscription and list it by id """
-        rse1, _ = self.rse_factory.make_mock_rse()
-        rse2, _ = self.rse_factory.make_mock_rse()
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
         subscription_name = uuid()
         subscription_id = add_subscription(name=subscription_name,
@@ -118,16 +104,16 @@ class TestSubscriptionCoreApi(unittest.TestCase):
                                            dry_run=False,
                                            comments='This is a comment',
                                            issuer='root',
-                                           **self.vo)
+                                           vo=vo)
 
-        subscription_info = get_subscription_by_id(subscription_id, **self.vo)
+        subscription_info = get_subscription_by_id(subscription_id, vo=vo)
         assert loads(subscription_info['filter'])['project'] == self.projects
 
-    def test_create_existing_subscription(self):
+    def test_create_existing_subscription(self, vo, rse_factory):
         """ SUBSCRIPTION (API): Test the creation of a existing subscription """
         subscription_name = uuid()
-        rse1, _ = self.rse_factory.make_mock_rse()
-        rse2, _ = self.rse_factory.make_mock_rse()
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
 
         def genkwargs(rse_expression):
@@ -142,7 +128,7 @@ class TestSubscriptionCoreApi(unittest.TestCase):
                 'comments': 'This is a comment',
                 'issuer': 'root'
             }
-            kwargs.update(self.vo)
+            kwargs.update({'vo': vo})
             return kwargs
 
         add_subscription(**genkwargs(rse_expression))
@@ -150,23 +136,23 @@ class TestSubscriptionCoreApi(unittest.TestCase):
         with pytest.raises(SubscriptionDuplicate):
             add_subscription(**genkwargs(rse_expression))
 
-    def test_update_nonexisting_subscription(self):
+    def test_update_nonexisting_subscription(self, vo):
         """ SUBSCRIPTION (API): Test the update of a non-existing subscription """
         subscription_name = uuid()
         with pytest.raises(SubscriptionNotFound):
-            update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': ['toto', ]}}, issuer='root', **self.vo)
+            update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': ['toto', ]}}, issuer='root', vo=vo)
 
-    def test_list_rules_states(self):
+    def test_list_rules_states(self, vo, rse_factory):
         """ SUBSCRIPTION (API): Test listing of rule states for subscription """
-        tmp_scope = InternalScope('mock_' + uuid()[:8], **self.vo)
-        root = InternalAccount('root', **self.vo)
+        tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
+        root = InternalAccount('root', vo=vo)
         add_scope(tmp_scope, root)
-        rse1, _ = self.rse_factory.make_mock_rse()
-        rse2, _ = self.rse_factory.make_mock_rse()
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
 
-        rse3, _ = self.rse_factory.make_mock_rse()
-        rse4, _ = self.rse_factory.make_mock_rse()
+        rse3, _ = rse_factory.make_mock_rse()
+        rse4, _ = rse_factory.make_mock_rse()
 
         # add a new dataset
         dsn = did_name_generator('dataset')
@@ -183,13 +169,13 @@ class TestSubscriptionCoreApi(unittest.TestCase):
                                  dry_run=False,
                                  comments='This is a comment',
                                  issuer='root',
-                                 **self.vo)
+                                 vo=vo)
 
         # Add two rules
         add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=rse3, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
         add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=rse4, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
 
-        for rule in list_subscription_rule_states(account='root', name=subscription_name, **self.vo):
+        for rule in list_subscription_rule_states(account='root', name=subscription_name, vo=vo):
             assert rule[3] == 2
 
 
@@ -318,151 +304,141 @@ def test_list_rules_states(vo, rse_factory, rest_client, auth_token):
     assert rulestates[3] == 2
 
 
-@pytest.mark.usefixtures("rse_factory_unittest")
-class TestSubscriptionClient(unittest.TestCase):
+class TestSubscriptionClient:
 
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        cls.sub_client = SubscriptionClient()
-        cls.did_client = DIDClient()
-        cls.projects = ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV']
-        cls.pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
-                         \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
-        cls.activity = get_schema_value('ACTIVITY')['enum'][0]
+    projects = ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV']
+    pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
+                 \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
+    activity = get_schema_value('ACTIVITY')['enum'][0]
 
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_create_and_update_and_list_subscription(self):
+    def test_create_and_update_and_list_subscription(self, vo, rse_factory, rucio_client):
         """ SUBSCRIPTION (CLIENT): Test the creation of a new subscription, update it, list it """
         subscription_name = uuid()
-        rse1, _ = self.rse_factory.make_mock_rse()
-        rse2, _ = self.rse_factory.make_mock_rse()
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
         with pytest.raises(InvalidObject):
-            subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                                     replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': 'noactivity'}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
-        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
-        result = [sub['id'] for sub in list_subscriptions(name=subscription_name, account='root', **self.vo)]
+            subid = rucio_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': 'noactivity'}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
+        subid = rucio_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                                              replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
+        result = [sub['id'] for sub in list_subscriptions(name=subscription_name, account='root', vo=vo)]
         assert subid == result[0]
         with pytest.raises(TypeError):
-            result = self.sub_client.update_subscription(name=subscription_name, account='root', filter_='toto')
-        result = self.sub_client.update_subscription(name=subscription_name, account='root', filter_={'project': ['toto', ]})
+            result = rucio_client.update_subscription(name=subscription_name, account='root', filter_='toto')
+        result = rucio_client.update_subscription(name=subscription_name, account='root', filter_={'project': ['toto', ]})
         assert result
-        result = list_subscriptions(name=subscription_name, account='root', **self.vo)
+        result = list_subscriptions(name=subscription_name, account='root', vo=vo)
         sub = []
         for res in result:
             sub.append(res)
         assert len(sub) == 1
         assert loads(sub[0]['filter'])['project'][0] == 'toto'
 
-    def test_create_existing_subscription(self):
+    def test_create_existing_subscription(self, rse_factory, rucio_client):
         """ SUBSCRIPTION (CLIENT): Test the creation of a existing subscription """
         subscription_name = uuid()
-        rse1, _ = self.rse_factory.make_mock_rse()
-        rse2, _ = self.rse_factory.make_mock_rse()
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
-        result = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
+        result = rucio_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                                               replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
         assert result
         with pytest.raises(SubscriptionDuplicate):
-            self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                             replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
+            rucio_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                                          replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
 
-    def test_update_nonexisting_subscription(self):
+    def test_update_nonexisting_subscription(self, rucio_client):
         """ SUBSCRIPTION (CLIENT): Test the update of a non-existing subscription """
         subscription_name = uuid()
         with pytest.raises(SubscriptionNotFound):
-            self.sub_client.update_subscription(name=subscription_name, filter_={'project': ['toto', ]})
+            rucio_client.update_subscription(name=subscription_name, filter_={'project': ['toto', ]})
 
-    def test_create_and_list_subscription_by_account(self):
+    def test_create_and_list_subscription_by_account(self, vo, rse_factory, rucio_client):
         """ SUBSCRIPTION (CLIENT): Test retrieval of subscriptions for an account """
         subscription_name = uuid()
-        rse1, _ = self.rse_factory.make_mock_rse()
-        rse2, _ = self.rse_factory.make_mock_rse()
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
         account_name = uuid()[:10]
-        add_account(InternalAccount(account_name, **self.vo), AccountType.USER, 'rucio@email.com')
-        subid = self.sub_client.add_subscription(name=subscription_name, account=account_name, filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
-        result = [sub['id'] for sub in self.sub_client.list_subscriptions(account=account_name)]
+        add_account(InternalAccount(account_name, vo=vo), AccountType.USER, 'rucio@email.com')
+        subid = rucio_client.add_subscription(name=subscription_name, account=account_name, filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                                              replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
+        result = [sub['id'] for sub in rucio_client.list_subscriptions(account=account_name)]
         assert subid == result[0]
 
-    def test_create_and_list_subscription_by_name(self):
+    def test_create_and_list_subscription_by_name(self, rse_factory, rucio_client):
         """ SUBSCRIPTION (CLIENT): Test retrieval of subscriptions for an account """
         subscription_name = uuid()
-        rse1, _ = self.rse_factory.make_mock_rse()
-        rse2, _ = self.rse_factory.make_mock_rse()
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
-        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
-        result = [sub['id'] for sub in self.sub_client.list_subscriptions(name=subscription_name)]
+        subid = rucio_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                                              replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
+        result = [sub['id'] for sub in rucio_client.list_subscriptions(name=subscription_name)]
         assert subid == result[0]
 
     @pytest.mark.noparallel(reason='runs transmogrifier. Cannot be run at the same time with other tests running it')
-    def test_run_transmogrifier(self):
+    def test_run_transmogrifier(self, vo, rse_factory, rucio_client):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier and the split_rule mode """
         new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
         set_new_dids(new_dids, None)
 
-        rse1, _ = self.rse_factory.make_mock_rse()
-        rse2, _ = self.rse_factory.make_mock_rse()
-        rse3, _ = self.rse_factory.make_mock_rse()
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
+        rse3, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s|%s' % (rse1, rse2, rse3)
-        tmp_scope = InternalScope('mock_' + uuid()[:8], **self.vo)
-        root = InternalAccount('root', **self.vo)
+        tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
+        root = InternalAccount('root', vo=vo)
         add_scope(tmp_scope, root)
         subscription_name = uuid()
         dsn_prefix = did_name_generator('dataset')
         dsn = '%sdataset-%s' % (dsn_prefix, uuid())
         add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root)
 
-        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True},
-                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
-                                                 lifetime=None, retroactive=False, dry_run=False, comments='Ni ! Ni!', priority=1)
+        subid = rucio_client.add_subscription(name=subscription_name, account='root', filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True},
+                                              replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
+                                              lifetime=None, retroactive=False, dry_run=False, comments='Ni ! Ni!', priority=1)
         run(threads=1, bulk=1000000, once=True)
-        rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
+        rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
         set_new_dids([{'scope': tmp_scope, 'name': dsn}, ], 1)
         run(threads=1, bulk=1000000, once=True)
-        rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
+        rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
 
     @pytest.mark.noparallel(reason='runs transmogrifier. Cannot be run at the same time with other tests running it')
-    def test_run_transmogrifier_did_type(self):
+    def test_run_transmogrifier_did_type(self, vo, rse_factory, rucio_client):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with did_type subscriptions """
         new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
         set_new_dids(new_dids, None)
-        rse1, _ = self.rse_factory.make_mock_rse()
-        rse2, _ = self.rse_factory.make_mock_rse()
-        rse3, _ = self.rse_factory.make_mock_rse()
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
+        rse3, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s|%s' % (rse1, rse2, rse3)
-        tmp_scope = InternalScope('mock_' + uuid()[:8], **self.vo)
-        root = InternalAccount('root', **self.vo)
+        tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
+        root = InternalAccount('root', vo=vo)
         add_scope(tmp_scope, root)
         subscription_name = uuid()
         dsn_prefix = did_name_generator('dataset')
         dsn = '%sdataset-%s' % (dsn_prefix, uuid())
         add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root)
 
-        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
-                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
-                                                 lifetime=None, retroactive=False, dry_run=False, comments='Ni ! Ni!', priority=1)
+        subid = rucio_client.add_subscription(name=subscription_name, account='root', filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
+                                              replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
+                                              lifetime=None, retroactive=False, dry_run=False, comments='Ni ! Ni!', priority=1)
         run(threads=1, bulk=1000000, once=True)
-        rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
+        rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
         set_new_dids([{'scope': tmp_scope, 'name': dsn}, ], 1)
         run(threads=1, bulk=1000000, once=True)
-        rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
+        rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
 
 
 @pytest.mark.noparallel(reason='uses daemon')
-class TestDaemon():
+class TestDaemon:
     def test_run_transmogrifier_chained_subscription(self, rse_factory, vo, rucio_client, root_account):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with chained subscriptions """
         activity = get_schema_value('ACTIVITY')['enum'][0]
@@ -532,8 +508,7 @@ class TestDaemon():
         add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
         rule = {'rse_expression': rse_expression,
                 'copies': 1,
-                'activity': activity,
-                'rse_expression': rse_expression}
+                'activity': activity}
 
         rucio_client.add_subscription(name=subscription_name,
                                       account=root_account.external,
@@ -572,8 +547,7 @@ class TestDaemon():
         add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
         rule = {'rse_expression': rse_expression,
                 'copies': '*',
-                'activity': activity,
-                'rse_expression': rse_expression}
+                'activity': activity}
 
         subid = rucio_client.add_subscription(name=subscription_name,
                                               account=root_account.external,
@@ -595,8 +569,7 @@ class TestDaemon():
         add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
         rule = {'rse_expression': rse_expression,
                 'copies': '*',
-                'activity': activity,
-                'rse_expression': rse_expression}
+                'activity': activity}
 
         subid = rucio_client.add_subscription(name=subscription_name,
                                               account=root_account.external,
