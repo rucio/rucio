@@ -16,18 +16,13 @@
 import json
 import random
 import string
-import unittest
 from logging import getLogger
 
 import pytest
 
 import rucio.api.rule
 from rucio.api.account import add_account
-from rucio.client.accountclient import AccountClient
-from rucio.client.didclient import DIDClient
-from rucio.client.lockclient import LockClient
 from rucio.client.ruleclient import RuleClient
-from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.config import config_get_bool
 from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEWriteBlocked,
                                     RSEOverQuota, RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError,
@@ -120,59 +115,50 @@ def check_rule_progress_callback(scope, name, progress, rule_id, session=None):
     return False
 
 
+@pytest.fixture(scope="class")
+def setup_class(request, vo, root_account, jdoe_account):
+    cls = request.cls
+    db_session = session.get_session()
+
+    # Add test RSE
+    cls.rse1 = 'MOCK'
+    cls.rse3 = 'MOCK3'
+    cls.rse4 = 'MOCK4'
+    cls.rse5 = 'MOCK5'
+
+    cls.rse1_id = get_rse_id(rse=cls.rse1, vo=vo)
+    cls.rse3_id = get_rse_id(rse=cls.rse3, vo=vo)
+    cls.rse4_id = get_rse_id(rse=cls.rse4, vo=vo)
+    cls.rse5_id = get_rse_id(rse=cls.rse5, vo=vo)
+
+    # Add Tags
+    cls.T1 = tag_generator()
+    cls.T2 = tag_generator()
+    add_rse_attribute(cls.rse1_id, cls.T1, True)
+    add_rse_attribute(cls.rse3_id, cls.T1, True)
+    add_rse_attribute(cls.rse4_id, cls.T2, True)
+    add_rse_attribute(cls.rse5_id, cls.T1, True)
+
+    # Add fake weights
+    add_rse_attribute(cls.rse1_id, "fakeweight", 10)
+    add_rse_attribute(cls.rse3_id, "fakeweight", 0)
+    add_rse_attribute(cls.rse4_id, "fakeweight", 0)
+    add_rse_attribute(cls.rse5_id, "fakeweight", 0)
+
+    # Add quota
+    db_session.query(models.AccountGlobalLimit).delete()
+    db_session.query(models.AccountLimit).delete()
+    db_session.commit()
+
+    set_local_account_limit(jdoe_account, cls.rse1_id, -1)
+    set_local_account_limit(jdoe_account, cls.rse3_id, -1)
+    set_local_account_limit(jdoe_account, cls.rse4_id, -1)
+    set_local_account_limit(jdoe_account, cls.rse5_id, -1)
+
+
 @pytest.mark.noparallel(reason='empties database tables, sets account limits, adds global rse attributes')
+@pytest.mark.usefixtures('setup_class')
 class TestReplicationRuleCore:
-
-    @classmethod
-    def setUpClass(cls):
-        cls.db_session = session.get_session()
-
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        # Add test RSE
-        cls.rse1 = 'MOCK'
-        cls.rse3 = 'MOCK3'
-        cls.rse4 = 'MOCK4'
-        cls.rse5 = 'MOCK5'
-
-        cls.rse1_id = get_rse_id(rse=cls.rse1, **cls.vo)
-        cls.rse3_id = get_rse_id(rse=cls.rse3, **cls.vo)
-        cls.rse4_id = get_rse_id(rse=cls.rse4, **cls.vo)
-        cls.rse5_id = get_rse_id(rse=cls.rse5, **cls.vo)
-
-        # Add Tags
-        cls.T1 = tag_generator()
-        cls.T2 = tag_generator()
-        add_rse_attribute(cls.rse1_id, cls.T1, True)
-        add_rse_attribute(cls.rse3_id, cls.T1, True)
-        add_rse_attribute(cls.rse4_id, cls.T2, True)
-        add_rse_attribute(cls.rse5_id, cls.T1, True)
-
-        # Add fake weights
-        add_rse_attribute(cls.rse1_id, "fakeweight", 10)
-        add_rse_attribute(cls.rse3_id, "fakeweight", 0)
-        add_rse_attribute(cls.rse4_id, "fakeweight", 0)
-        add_rse_attribute(cls.rse5_id, "fakeweight", 0)
-
-        # Add quota
-        cls.jdoe = InternalAccount('jdoe', **cls.vo)
-        cls.root = InternalAccount('root', **cls.vo)
-        cls.db_session.query(models.AccountGlobalLimit).delete()
-        cls.db_session.query(models.AccountLimit).delete()
-        cls.db_session.commit()
-
-        set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
-
-        set_local_account_limit(cls.root, cls.rse1_id, -1)
-        set_local_account_limit(cls.root, cls.rse3_id, -1)
-        set_local_account_limit(cls.root, cls.rse4_id, -1)
-        set_local_account_limit(cls.root, cls.rse5_id, -1)
 
     def test_add_rule_file_none(self, mock_scope, jdoe_account):
         """ REPLICATION RULE (CORE): Add a replication rule on a group of files, NONE Grouping"""
@@ -1180,52 +1166,10 @@ def test_rule_boost(vo, mock_scope, rse_factory, file_factory):
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE')
-class TestReplicationRuleClient(unittest.TestCase):
+@pytest.mark.usefixtures('setup_class')
+class TestReplicationRuleClient:
 
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        # Add test RSE
-        cls.rse1 = 'MOCK'
-        cls.rse3 = 'MOCK3'
-        cls.rse4 = 'MOCK4'
-        cls.rse5 = 'MOCK5'
-
-        cls.rse1_id = get_rse_id(cls.rse1, **cls.vo)
-        cls.rse3_id = get_rse_id(cls.rse3, **cls.vo)
-        cls.rse4_id = get_rse_id(cls.rse4, **cls.vo)
-        cls.rse5_id = get_rse_id(cls.rse5, **cls.vo)
-
-        # Add Tags
-        cls.T1 = tag_generator()
-        cls.T2 = tag_generator()
-        add_rse_attribute(cls.rse1_id, cls.T1, True)
-        add_rse_attribute(cls.rse3_id, cls.T1, True)
-        add_rse_attribute(cls.rse4_id, cls.T2, True)
-        add_rse_attribute(cls.rse5_id, cls.T1, True)
-
-        # Add fake weights
-        add_rse_attribute(cls.rse1_id, "fakeweight", 10)
-        add_rse_attribute(cls.rse3_id, "fakeweight", 0)
-        add_rse_attribute(cls.rse4_id, "fakeweight", 0)
-        add_rse_attribute(cls.rse5_id, "fakeweight", 0)
-
-        cls.jdoe = InternalAccount('jdoe', **cls.vo)
-        set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
-
-    def setUp(self):
-        self.rule_client = RuleClient()
-        self.did_client = DIDClient()
-        self.subscription_client = SubscriptionClient()
-        self.account_client = AccountClient()
-        self.lock_client = LockClient()
+    rule_client = RuleClient()
 
     def test_add_rule(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CLIENT): Add a replication rule and list full history """
@@ -1255,7 +1199,7 @@ class TestReplicationRuleClient(unittest.TestCase):
         get = self.rule_client.get_replication_rule(rule_id)
         assert(get['expires_at'] is not None)
 
-    def test_list_rules_by_did(self, mock_scope, did_factory, jdoe_account):
+    def test_list_rules_by_did(self, mock_scope, did_factory, jdoe_account, rucio_client):
         """ DID (CLIENT): List Replication Rules per DID """
         files = create_files(3, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
@@ -1266,7 +1210,7 @@ class TestReplicationRuleClient(unittest.TestCase):
 
         rule_id_2 = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse3, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
-        ret = self.did_client.list_did_rules(scope=mock_scope.external, name=dataset['name'])
+        ret = rucio_client.list_did_rules(scope=mock_scope.external, name=dataset['name'])
         ids = [rule['id'] for rule in ret]
 
         assert rule_id_1 in ids
@@ -1283,7 +1227,7 @@ class TestReplicationRuleClient(unittest.TestCase):
         get = self.rule_client.get_replication_rule(ret[0])
         assert(ret[0] == get['id'])
 
-    def test_get_rule_by_account(self, mock_scope, did_factory, jdoe_account):
+    def test_get_rule_by_account(self, mock_scope, did_factory, jdoe_account, rucio_client):
         """ ACCOUNT (CLIENT): Get Replication Rule by account """
         files = create_files(3, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
@@ -1291,7 +1235,7 @@ class TestReplicationRuleClient(unittest.TestCase):
         attach_dids(dids=files, account=jdoe_account, **dataset)
 
         ret = self.rule_client.add_replication_rule(dids=[{'scope': mock_scope.external, 'name': dataset['name']}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE')
-        get = self.account_client.list_account_rules('jdoe')
+        get = rucio_client.list_account_rules('jdoe')
         rules = [rule['id'] for rule in get]
 
         assert ret[0] in rules
@@ -1309,7 +1253,7 @@ class TestReplicationRuleClient(unittest.TestCase):
         self.rule_client.update_replication_rule(rule_id=rule_id_1, options={'locked': False})
         delete_rule(rule_id=rule_id_1)
 
-    def test_dataset_lock(self, mock_scope, did_factory, jdoe_account):
+    def test_dataset_lock(self, mock_scope, did_factory, jdoe_account, rucio_client):
         """ DATASETLOCK (CLIENT): Get a datasetlock for a specific dataset"""
         files = create_files(3, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
@@ -1318,7 +1262,7 @@ class TestReplicationRuleClient(unittest.TestCase):
 
         rule_id_1 = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse1, grouping='DATASET', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
 
-        rule_ids = [lock['rule_id'] for lock in self.lock_client.get_dataset_locks(scope=mock_scope.external, name=dataset['name'])]
+        rule_ids = [lock['rule_id'] for lock in rucio_client.get_dataset_locks(scope=mock_scope.external, name=dataset['name'])]
         assert rule_id_1 in rule_ids
 
     def test_change_rule_lifetime(self, mock_scope, did_factory, jdoe_account):
