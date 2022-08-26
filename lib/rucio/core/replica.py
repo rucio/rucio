@@ -4265,10 +4265,10 @@ def _list_replicas_for_datasets_wo_temp_tables(dataset_clause, state_clause, rse
     if not ignore_availability:
         replica_query = replica_query.filter(models.RSE.availability.in_((4, 5, 6, 7)))
 
-    if state_clause is not None:
+    if state_clause:
         replica_query = replica_query.filter(and_(state_clause))
 
-    if rse_clause is not None:
+    if rse_clause:
         replica_query = replica_query.filter(or_(*rse_clause))
 
     if updated_after:
