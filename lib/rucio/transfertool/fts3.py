@@ -19,7 +19,7 @@ import functools
 import logging
 import traceback
 import uuid
-from typing import Any, Callable, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Dict, Tuple, TYPE_CHECKING
 from urllib.parse import urlparse
 
 import requests
@@ -66,7 +66,6 @@ BULK_QUERY_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_bulk_query', sta
                                   documentation='Number of bulk queries', labelnames=('state', 'host'))
 QUERY_DETAILS_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query_details', statsd='transfertool.fts3.{host}.query_details.{state}',
                                      documentation='Number of detailed status queries', labelnames=('state', 'host'))
-
 
 ALLOW_USER_OIDC_TOKENS = config_get_bool('conveyor', 'allow_user_oidc_tokens', False, False)
 REQUEST_OIDC_SCOPE = config_get('conveyor', 'request_oidc_scope', False, 'fts:submit-transfer')
@@ -446,7 +445,8 @@ class Fts3TransferStatusReport(TransferStatusReport):
         return False
 
     @classmethod
-    def _is_recoverable_fts_overwrite_error(cls, request, reason, file_metadata):
+    def _is_recoverable_fts_overwrite_error(cls, request: Dict[str, Any], reason: str,
+                                            file_metadata: Dict[str, Any]) -> bool:
         """
         Verify the special case when FTS cannot copy a file because destination exists and overwrite is disabled,
         but the destination file is actually correct.
@@ -460,12 +460,18 @@ class Fts3TransferStatusReport(TransferStatusReport):
             return False
         dst_file = file_metadata.get('dst_file', {})
         dst_type = file_metadata.get('dst_type', None)
+        record_counter('transfertool.fts3.overwrite.check.{rsetype}.{rse}',
+                       labels={'rse': file_metadata["dst_rse"], 'rsetype': dst_type})
+
         if 'Destination file exists and overwrite is not enabled' in (reason or ''):
             if cls._dst_file_set_and_file_correct(request, dst_file):
-                if dst_file.get('file_on_tape'):
+                if dst_type == 'DISK' or dst_file.get('file_on_tape'):
+                    record_counter('transfertool.fts3.overwrite.ok.{rsetype}.{rse}',
+                                   labels={'rse': file_metadata["dst_rse"], 'rsetype': dst_type})
                     return True
-                elif dst_type == 'DISK':
-                    return True
+
+        record_counter('transfertool.fts3.overwrite.fail.{rsetype}.{rse}',
+                       labels={'rse': file_metadata["dst_rse"], 'rsetype': dst_type})
         return False
 
 
@@ -555,9 +561,11 @@ class FTS3ApiTransferStatusReport(Fts3TransferStatusReport):
         self._multi_sources = str(job_response['job_metadata'].get('multi_sources', '')).lower() == str('true')
         self._src_url = file_response.get('source_surl', None)
         self._dst_url = file_response.get('dest_surl', None)
+        self.logger = logging.log
 
     def initialize(self, session, logger=logging.log):
 
+        self.logger = logger
         job_response = self.job_response
         file_response = self.file_response
         request_id = self.request_id

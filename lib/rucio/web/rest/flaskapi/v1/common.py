@@ -22,20 +22,57 @@ from time import time
 from typing import TYPE_CHECKING
 
 import flask
+import typing
 from flask.views import MethodView
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException
+from werkzeug.wrappers import Request, Response
 
 from rucio.api.authentication import validate_auth_token
 from rucio.common.exception import RucioException, CannotAuthenticate, UnsupportedRequestedContentType
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, render_json
 from rucio.core.vo import map_vo
+from rucio.common import config
+from configparser import NoOptionError, NoSectionError
+
 
 if TYPE_CHECKING:
     from typing import Optional, Union, Dict, Sequence, Tuple, Callable, Any, List
 
     HeadersType = Union[Headers, Dict[str, str], Sequence[Tuple[str, str]]]
+
+
+class CORSMiddleware(object):
+    """
+    WebUI 2.0 makes preflight requests to the API, which are not handled by the API.
+    This middleware intercepts the preflight OPTIONS requests and returns a 200 OK response.
+    """
+
+    def __init__(self, app: flask.Flask) -> typing.NoReturn:
+        self.app = app
+
+    def __call__(self, environ: typing.Dict, start_response: typing.Callable) -> typing.Union[Response, typing.Iterable[bytes]]:
+        request: Request = Request(environ)
+
+        if request.environ.get('REQUEST_METHOD') == 'OPTIONS':
+            try:
+                webui_urls = config.config_get_list('webui', 'urls')
+            except (NoOptionError, NoSectionError, RuntimeError) as error:
+                logging.exception('Could not get webui urls from config file')
+                return str(error), 500
+            if request.origin in webui_urls:
+                response: Response = Response(status=200)
+                response.headers['Access-Control-Allow-Origin'] = request.origin
+                response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+                response.headers['Access-Control-Allow-Headers'] = '*'
+                response.headers['Access-Control-Allow-Credentials'] = 'true'
+                return response(environ, start_response)
+            response: Response = Response(status=403)
+            return response(environ, start_response)
+
+        # bypass this middleware for non-OPTIONS requests
+        return self.app(environ, start_response)
 
 
 class ErrorHandlingMethodView(MethodView):
