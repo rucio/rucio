@@ -13,27 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import random
-import string
-
 import pytest
-from sqlalchemy import select
-
-from rucio.common.types import InternalAccount
 from rucio.core import account_limit
-from rucio.core.account import add_account, del_account
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import AccountType
-from rucio.tests.common_server import cleanup_db_deps
 
 
 @pytest.fixture
-def account(vo):
-    account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for _ in range(10)), vo=vo)
-    add_account(account=account, type_=AccountType.USER, email='rucio@email.com')
-    yield account
-    cleanup_db_deps(model=models.Account, select_rows_stmt=select([1]).where(models.Account.account == account))
-    del_account(account)
+def account(random_account):
+    yield random_account
 
 
 class TestCoreAccountLimits:

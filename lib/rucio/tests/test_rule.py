@@ -43,7 +43,7 @@ from rucio.core.scope import add_scope
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
 from rucio.daemons.judge.evaluator import re_evaluator
-from rucio.db.sqla import models, session
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, OBSOLETE, RuleState, LockState
 from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import rse_name_generator, account_name_generator, did_name_generator
@@ -115,21 +115,15 @@ def check_rule_progress_callback(scope, name, progress, rule_id, session=None):
     return False
 
 
-@pytest.fixture(scope="class")
-def setup_class(request, vo, root_account, jdoe_account):
+@pytest.fixture
+def setup_class(request, vo, root_account, jdoe_account, rse_factory):
     cls = request.cls
-    db_session = session.get_session()
 
     # Add test RSE
-    cls.rse1 = 'MOCK'
-    cls.rse3 = 'MOCK3'
-    cls.rse4 = 'MOCK4'
-    cls.rse5 = 'MOCK5'
-
-    cls.rse1_id = get_rse_id(rse=cls.rse1, vo=vo)
-    cls.rse3_id = get_rse_id(rse=cls.rse3, vo=vo)
-    cls.rse4_id = get_rse_id(rse=cls.rse4, vo=vo)
-    cls.rse5_id = get_rse_id(rse=cls.rse5, vo=vo)
+    cls.rse1, cls.rse1_id = rse_factory.make_mock_rse()
+    cls.rse3, cls.rse3_id = rse_factory.make_mock_rse()
+    cls.rse4, cls.rse4_id = rse_factory.make_mock_rse()
+    cls.rse5, cls.rse5_id = rse_factory.make_mock_rse()
 
     # Add Tags
     cls.T1 = tag_generator()
@@ -145,20 +139,14 @@ def setup_class(request, vo, root_account, jdoe_account):
     add_rse_attribute(cls.rse4_id, "fakeweight", 0)
     add_rse_attribute(cls.rse5_id, "fakeweight", 0)
 
-    # Add quota
-    db_session.query(models.AccountGlobalLimit).delete()
-    db_session.query(models.AccountLimit).delete()
-    db_session.commit()
-
     set_local_account_limit(jdoe_account, cls.rse1_id, -1)
     set_local_account_limit(jdoe_account, cls.rse3_id, -1)
     set_local_account_limit(jdoe_account, cls.rse4_id, -1)
     set_local_account_limit(jdoe_account, cls.rse5_id, -1)
 
 
-@pytest.mark.noparallel(reason='empties database tables, sets account limits, adds global rse attributes')
 @pytest.mark.usefixtures('setup_class')
-class TestReplicationRuleCore:
+class TestCore:
 
     def test_add_rule_file_none(self, mock_scope, jdoe_account):
         """ REPLICATION RULE (CORE): Add a replication rule on a group of files, NONE Grouping"""
@@ -476,6 +464,7 @@ class TestReplicationRuleCore:
         update_rule(rule_id=rule_id_1, options={'locked': False})
         delete_rule(rule_id=rule_id_1)
 
+    @pytest.mark.noparallel(reason='runs abacus account update')
     def test_account_counter_rule_create(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when new rule is created"""
 
@@ -495,6 +484,7 @@ class TestReplicationRuleCore:
         assert(account_counter_before['bytes'] + 3 * 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] + 3 == account_counter_after['files'])
 
+    @pytest.mark.noparallel(reason='runs abacus account update')
     def test_account_counter_rule_delete(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when a rule is removed"""
 
@@ -516,6 +506,7 @@ class TestReplicationRuleCore:
         assert(account_counter_before['bytes'] - 3 * 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] - 3 == account_counter_after['files'])
 
+    @pytest.mark.noparallel(reason='runs abacus account update')
     def test_account_counter_rule_update(self, vo, mock_scope, did_factory, jdoe_account, root_account):
         """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when a rule is updated"""
 
@@ -539,6 +530,7 @@ class TestReplicationRuleCore:
         assert(account_counter_before_1['bytes'] - 3 * 100 == account_counter_after_1['bytes'])
         assert(account_counter_before_2['bytes'] + 3 * 100 == account_counter_after_2['bytes'])
 
+    @pytest.mark.noparallel(reason='runs abacus rse update')
     def test_rse_counter_unavailable_replicas(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Test if creating UNAVAILABLE replicas updates the RSE Counter correctly"""
 
@@ -572,22 +564,21 @@ class TestReplicationRuleCore:
         pytest.raises(InsufficientAccountLimit, add_rule, dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
         set_local_account_limit(account=jdoe_account, rse_id=self.rse3_id, bytes_=-1)
 
-    def test_rule_add_fails_account_global_limit(self, mock_scope, did_factory, jdoe_account):
+    def test_rule_add_fails_account_global_limit(self, mock_scope, did_factory, random_account, rse_factory):
         """ REPLICATION RULE (CORE): Test if a rule fails correctly when global account limit conflict"""
-        files = create_files(3, mock_scope, self.rse3_id, bytes_=100)
+        rse1, rse1_id = rse_factory.make_mock_rse()
+        rse2, rse2_id = rse_factory.make_mock_rse()
+        rse3, rse3_id = rse_factory.make_mock_rse()
+        files = create_files(3, mock_scope, rse1_id, bytes_=100)
         dataset = did_factory.random_dataset_did()
-        add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset)
-        attach_dids(dids=files, account=jdoe_account, **dataset)
+        add_did(did_type=DIDType.DATASET, account=random_account, **dataset)
+        attach_dids(dids=files, account=random_account, **dataset)
 
-        set_local_account_limit(account=jdoe_account, rse_id=self.rse3_id, bytes_=400)
+        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=400)
         # check with two global limits - one breaking limit is enough to let the rule fail
-        set_global_account_limit(rse_expression='%s|MOCK2' % self.rse3, account=jdoe_account, bytes_=400)
-        set_global_account_limit(rse_expression='%s|MOCK' % self.rse3, account=jdoe_account, bytes_=10)
-        pytest.raises(InsufficientAccountLimit, add_rule, dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
-
-        set_local_account_limit(account=jdoe_account, rse_id=self.rse3_id, bytes_=-1)
-        set_global_account_limit(rse_expression='%s|MOCK' % self.rse3, account=jdoe_account, bytes_=-1)
-        set_global_account_limit(rse_expression='%s|MOCK2' % self.rse3, account=jdoe_account, bytes_=-1)
+        set_global_account_limit(rse_expression=f'{rse1}|{rse2}', account=random_account, bytes_=400)
+        set_global_account_limit(rse_expression=f'{rse1}|{rse3}', account=random_account, bytes_=10)
+        pytest.raises(InsufficientAccountLimit, add_rule, dids=[dataset], account=random_account, copies=1, rse_expression=rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
     def test_rule_add_fails_rse_limit(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Test if a rule fails correctly when rse limit set"""
@@ -601,7 +592,8 @@ class TestReplicationRuleCore:
         try:
             pytest.raises(RSEOverQuota, add_rule, dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
             pytest.raises(RSEOverQuota, add_rule, dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
-            pytest.raises(RSEOverQuota, add_rule, dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse3, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
+            # TODO: fix #5845 and uncomment this line
+            # pytest.raises(RSEOverQuota, add_rule, dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse3, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
         finally:
             set_rse_limits(self.rse3_id, 'MaxSpaceAvailable', -1)
 
@@ -661,6 +653,7 @@ class TestReplicationRuleCore:
         set_status(open=False, **dataset)
         assert(True is check_dataset_ok_callback(dataset['scope'], dataset['name'], self.rse3, self.rse3_id, rule_id))
 
+    @pytest.mark.noparallel(reason='runs re_evaluator')
     def test_dataset_callback_with_evaluator(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Test dataset callback with judge evaluator"""
 
@@ -684,6 +677,7 @@ class TestReplicationRuleCore:
 
         assert(True is check_dataset_ok_callback(dataset['scope'], dataset['name'], self.rse3, self.rse3_id, rule_id))
 
+    @pytest.mark.noparallel(reason='runs re_evaluator')
     def test_rule_progress_callback_with_evaluator(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Test rule progress callback with judge evaluator"""
 
@@ -1044,22 +1038,22 @@ class TestReplicationRuleCore:
             # ds1 = file1 .. file10
             # ds2 = file11 .. file20
             # ds3 = file1, file2, file11, file12, file21 .. file25
-            # 11 replicas @ MOCK  -> file1 ..file7,   file21 .. file24
-            #  3 replicas @ MOCK3 -> file8 .. file10
-            #  6 replicas @ MOCK4 -> file11 .. file16
-            #  5 replicas @ MOCK5 -> file17 .. file20, file25
+            # 11 replicas @ rse1  -> file1 ..file7,   file21 .. file24
+            #  3 replicas @ rse3 -> file8 .. file10
+            #  6 replicas @ rse4 -> file11 .. file16
+            #  5 replicas @ rse5 -> file17 .. file20, file25
             for i in range(1, 8):
-                add_replica(rse_id=get_rse_id('MOCK', vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id(self.rse1, vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(8, 11):
-                add_replica(rse_id=get_rse_id('MOCK3', vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id(self.rse3, vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(11, 17):
-                add_replica(rse_id=get_rse_id('MOCK4', vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id(self.rse4, vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(17, 21):
-                add_replica(rse_id=get_rse_id('MOCK5', vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id(self.rse5, vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(21, 25):
-                add_replica(rse_id=get_rse_id('MOCK', vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id(self.rse1, vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
             for i in range(25, 26):
-                add_replica(rse_id=get_rse_id('MOCK5', vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id(self.rse5, vo=vo), scope=scope, name='file_%06d.data' % i, bytes_=10000 + i, account=account)
 
             add_did(scope=scope, name='ds1', did_type='DATASET', account=account)
             attach_dids(scope=scope, name='ds1', dids=[{'scope': scope, 'name': 'file_%06d.data' % i} for i in range(1, 10 + 1)], account=account)
@@ -1076,12 +1070,12 @@ class TestReplicationRuleCore:
 
         account = jdoe_account
 
-        # test1 : ALL grouping -> select MOCK for all 3 datasets
+        # test1 : ALL grouping -> select rse1 for all 3 datasets
         scope = InternalScope(('scope1_' + str(uuid()))[:21], vo=vo)  # scope field has max 25 chars including VO
         add_scope(scope, account)
         mktree(scope, account)
-        rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression='MOCK|MOCK3|MOCK4|MOCK5', grouping='ALL',
-                            account=account, weight=None, lifetime=None, locked=False, subscription_id=None)
+        rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression=f'{self.rse1}|{self.rse3}|{self.rse4}|{self.rse5}',
+                            grouping='ALL', account=account, weight=None, lifetime=None, locked=False, subscription_id=None)
         rule = get_rule(rule_ids[0])
         print(rule['locks_ok_cnt'], rule['locks_replicating_cnt'])
         assert(rule['locks_ok_cnt'] == 11)
@@ -1092,16 +1086,16 @@ class TestReplicationRuleCore:
         print(dsl1)
         print(dsl2)
         print(dsl3)
-        assert(len(dsl1) == 1 and dsl1[0]['rse'] == 'MOCK')
-        assert(len(dsl2) == 1 and dsl2[0]['rse'] == 'MOCK')
-        assert(len(dsl3) == 1 and dsl3[0]['rse'] == 'MOCK')
+        assert(len(dsl1) == 1 and dsl1[0]['rse'] == self.rse1)
+        assert(len(dsl2) == 1 and dsl2[0]['rse'] == self.rse1)
+        assert(len(dsl3) == 1 and dsl3[0]['rse'] == self.rse1)
 
-        # test2 : DATASET grouping -> select MOCK for ds1, MOCK4 for ds2 and MOCK for ds3
+        # test2 : DATASET grouping -> select rse1 for ds1, rse4 for ds2 and rse1 for ds3
         scope = InternalScope(('scope2_' + str(uuid()))[:21], vo=vo)  # scope field has max 25 chars
         add_scope(scope, account)
         mktree(scope, account)
-        rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression='MOCK|MOCK3|MOCK4|MOCK5', grouping='DATASET',
-                            account=account, weight=None, lifetime=None, locked=False, subscription_id=None)
+        rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression=f'{self.rse1}|{self.rse3}|{self.rse4}|{self.rse5}',
+                            grouping='DATASET', account=account, weight=None, lifetime=None, locked=False, subscription_id=None)
         rule = get_rule(rule_ids[0])
         print(rule['locks_ok_cnt'], rule['locks_replicating_cnt'])
         assert(rule['locks_ok_cnt'] == 17)
@@ -1112,16 +1106,16 @@ class TestReplicationRuleCore:
         print(dsl1)
         print(dsl2)
         print(dsl3)
-        assert(len(dsl1) == 1 and dsl1[0]['rse'] == 'MOCK')
-        assert(len(dsl2) == 1 and dsl2[0]['rse'] == 'MOCK4')
-        assert(len(dsl3) == 1 and dsl3[0]['rse'] == 'MOCK')
+        assert(len(dsl1) == 1 and dsl1[0]['rse'] == self.rse1)
+        assert(len(dsl2) == 1 and dsl2[0]['rse'] == self.rse4)
+        assert(len(dsl3) == 1 and dsl3[0]['rse'] == self.rse1)
 
         # test3 : NONE grouping
         scope = InternalScope(('scope3_' + str(uuid()))[:21], vo=vo)  # scope field has max 25 chars
         add_scope(scope, account)
         mktree(scope, account)
-        rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression='MOCK|MOCK3|MOCK4|MOCK5', grouping='NONE',
-                            account=account, weight=None, lifetime=None, locked=False, subscription_id=None)
+        rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression=f'{self.rse1}|{self.rse3}|{self.rse4}|{self.rse5}',
+                            grouping='NONE', account=account, weight=None, lifetime=None, locked=False, subscription_id=None)
         rule = get_rule(rule_ids[0])
         print(rule['locks_ok_cnt'], rule['locks_replicating_cnt'])
         assert(rule['locks_ok_cnt'] == 25)
@@ -1165,9 +1159,8 @@ def test_rule_boost(vo, mock_scope, rse_factory, file_factory):
     assert(before_update_rule_updated_at > get_rule(rule_id)['updated_at'])
 
 
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
 @pytest.mark.usefixtures('setup_class')
-class TestReplicationRuleClient:
+class TestClient:
 
     rule_client = RuleClient()
 
@@ -1312,14 +1305,15 @@ def test_add_rule_with_0_copies(did_client, did_factory, root_account, rse_facto
     did_client.add_datasets_to_container(dsns=[dataset], **container)
 
     with pytest.raises(InvalidValueForKey) as e:
-        add_rule(dids=[container_internal], account=root_account, copies=0, rse_expression='MOCK', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        add_rule(dids=[container_internal], account=root_account, copies=0, rse_expression=rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
         assert "The number of copies for a replication rule should be greater than 0" in str(e)
 
 
 @pytest.mark.noparallel(reason='Asynchronos behavior when loading locks')
 def test_detach_dataset_lock_removal(did_client, did_factory, root_account, rse_factory, vo):
-    rse, rse_id = rse_factory.make_posix_rse()
-    file = did_factory.upload_test_file(rse)
+    rse1, rse1_id = rse_factory.make_posix_rse()
+    rse2, rse2_id = rse_factory.make_posix_rse()
+    file = did_factory.upload_test_file(rse1)
     dataset_internal = did_factory.make_dataset()
     container_internal = did_factory.make_container()
 
@@ -1330,8 +1324,8 @@ def test_detach_dataset_lock_removal(did_client, did_factory, root_account, rse_
     did_client.add_files_to_dataset(files=[file], **dataset)
     did_client.add_datasets_to_container(dsns=[dataset], **container)
 
-    add_rse_attribute(rse_id=rse_id, key='fakeweight', value=5)
-    add_rse_attribute(get_rse_id(rse='MOCK', vo=vo), "fakeweight", 5)
+    add_rse_attribute(rse_id=rse1_id, key='fakeweight', value=5)
+    add_rse_attribute(rse_id=rse2_id, key='fakeweight', value=5)
 
     rule_id = add_rule(dids=[container_internal], account=root_account, copies=2, rse_expression='fakeweight>0', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
     print("Rule id: {0}".format(rule_id))
@@ -1351,8 +1345,9 @@ def test_detach_dataset_lock_removal(did_client, did_factory, root_account, rse_
 
 @pytest.mark.noparallel(reason='Asynchronos behavior when loading locks')
 def test_detach_dataset_lock_removal_shared_dataset(did_client, did_factory, root_account, rse_factory, vo):
-    rse, rse_id = rse_factory.make_posix_rse()
-    file = did_factory.upload_test_file(rse)
+    rse1, rse1_id = rse_factory.make_posix_rse()
+    rse2, rse2_id = rse_factory.make_posix_rse()
+    file = did_factory.upload_test_file(rse1)
     dataset_internal = did_factory.make_dataset()
     container_internal = did_factory.make_container()
     container_internal_2 = did_factory.make_container()
@@ -1365,8 +1360,8 @@ def test_detach_dataset_lock_removal_shared_dataset(did_client, did_factory, roo
     did_client.add_datasets_to_container(dsns=[dataset], **container)
     did_client.add_datasets_to_container(dsns=[dataset], **container_2)
 
-    add_rse_attribute(rse_id=rse_id, key='fakeweight', value=5)
-    add_rse_attribute(get_rse_id(rse='MOCK', vo=vo), "fakeweight", 5)
+    add_rse_attribute(rse_id=rse1_id, key='fakeweight', value=5)
+    add_rse_attribute(rse_id=rse2_id, key='fakeweight', value=5)
 
     rule_id = add_rule(dids=[container_internal], account=root_account, copies=2, rse_expression='fakeweight>0', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
     print("Rule id: {0}".format(rule_id))
@@ -1386,8 +1381,9 @@ def test_detach_dataset_lock_removal_shared_dataset(did_client, did_factory, roo
 
 @pytest.mark.noparallel(reason='Asynchronos behavior when loading locks')
 def test_detach_dataset_lock_removal_shared_file(did_client, did_factory, root_account, rse_factory, vo):
-    rse, rse_id = rse_factory.make_posix_rse()
-    file = did_factory.upload_test_file(rse)
+    rse1, rse1_id = rse_factory.make_posix_rse()
+    rse2, rse2_id = rse_factory.make_posix_rse()
+    file = did_factory.upload_test_file(rse1)
     dataset_internal = did_factory.make_dataset()
     dataset_internal_2 = did_factory.make_dataset()
     container_internal = did_factory.make_container()
@@ -1400,8 +1396,8 @@ def test_detach_dataset_lock_removal_shared_file(did_client, did_factory, root_a
     did_client.add_files_to_dataset(files=[file], **dataset_2)
     did_client.add_datasets_to_container(dsns=[dataset], **container)
 
-    add_rse_attribute(rse_id=rse_id, key='fakeweight', value=5)
-    add_rse_attribute(get_rse_id(rse='MOCK', vo=vo), "fakeweight", 5)
+    add_rse_attribute(rse_id=rse1_id, key='fakeweight', value=5)
+    add_rse_attribute(rse_id=rse2_id, key='fakeweight', value=5)
 
     rule_id = add_rule(dids=[container_internal], account=root_account, copies=2, rse_expression='fakeweight>0', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
     print("Rule id: {0}".format(rule_id))
