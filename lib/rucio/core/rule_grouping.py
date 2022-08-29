@@ -910,7 +910,21 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                 locks_to_create[rse_id] = []
             locks_to_create[rse_id].append(new_lock)
             locks[(file['scope'], file['name'])].append(new_lock)
-            if not staging_area and available_source_replica and availability_write:
+            if not staging_area and not staging_required and available_source_replica and availability_write:
+                transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
+                                                                request_type=RequestType.TRANSFER,
+                                                                scope=file['scope'],
+                                                                name=file['name'],
+                                                                rule=rule,
+                                                                lock=new_lock,
+                                                                bytes_=file['bytes'],
+                                                                md5=file['md5'],
+                                                                adler32=file['adler32'],
+                                                                ds_scope=dataset['scope'],
+                                                                ds_name=dataset['name'],
+                                                                session=session))
+                return True
+            elif staging_required:
                 transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
                                                                 request_type=RequestType.TRANSFER,
                                                                 scope=file['scope'],
@@ -971,7 +985,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
         locks_to_create[rse_id].append(new_lock)
         locks[(file['scope'], file['name'])].append(new_lock)
 
-        if not staging_area and available_source_replica and availability_write:
+        if not staging_area and not staging_required and available_source_replica and availability_write:
             transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
                                                             request_type=RequestType.TRANSFER,
                                                             scope=file['scope'],
@@ -983,6 +997,21 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                             adler32=file['adler32'],
                                                             ds_scope=dataset['scope'],
                                                             ds_name=dataset['name'],
+                                                            session=session))
+            return True
+        elif staging_required: # include the lifetime in dictionary
+            transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
+                                                            request_type=RequestType.TRANSFER,
+                                                            scope=file['scope'],
+                                                            name=file['name'],
+                                                            rule=rule,
+                                                            lock=new_lock,
+                                                            bytes_=file['bytes'],
+                                                            md5=file['md5'],
+                                                            adler32=file['adler32'],
+                                                            ds_scope=dataset['scope'],
+                                                            ds_name=dataset['name'],
+                                                            lifetime=lifetime,
                                                             session=session))
             return True
         return False
