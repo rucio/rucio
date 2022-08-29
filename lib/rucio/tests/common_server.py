@@ -14,7 +14,8 @@
 # limitations under the License.
 import copy
 
-from sqlalchemy import and_, delete, exists
+from sqlalchemy import and_, delete, exists, select
+from sqlalchemy.orm import aliased
 
 from rucio.core import config as config_db
 from rucio.core.vo import map_vo
@@ -70,15 +71,44 @@ def cleanup_db_deps(model, select_rows_stmt, session=None):
     """
 
     for fk_path in _dependency_paths(stack=[], nb_times_in_stack={}, cur_table=model.__table__):
-        filter_stmt = select_rows_stmt
-        for fk in fk_path:
-            filter_stmt = filter_stmt.where(and_(e.parent == e.column for e in fk.elements))
+        seen_tables = set()
+        referred_table = model.__table__
+        current_table = fk_path[-1].table
+        filters = []
+        for i, fk in enumerate(fk_path):
+            current_table = fk.table
+            if current_table in seen_tables:
+                current_table = aliased(current_table)
+            else:
+                seen_tables.add(current_table)
 
-        stmt = delete(
-            fk_path[-1].table
-        ).where(
-            exists(filter_stmt)
-        ).execution_options(
+            filters.append(and_(current_table.columns.get(e.parent.name) == referred_table.columns.get(e.column.name) for e in fk.elements))
+            referred_table = current_table
+
+        if session.bind.dialect.name == 'mysql':
+            stmt = delete(
+                current_table
+            ).where(
+                and_(*filters)
+            ).where(
+                select_rows_stmt
+            )
+        else:
+            stmt = delete(
+                current_table,
+            ).where(
+                exists(
+                    select(
+                        [1]
+                    ).where(
+                        and_(*filters)
+                    ).where(
+                        select_rows_stmt
+                    )
+                )
+            )
+
+        stmt = stmt.execution_options(
             synchronize_session=False
         )
 

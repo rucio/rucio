@@ -203,8 +203,6 @@ def random_account(vo):
     import random
     import string
 
-    from sqlalchemy import select
-
     from rucio.common.types import InternalAccount
     from rucio.core.account import add_account, del_account
     from rucio.db.sqla import models
@@ -214,7 +212,7 @@ def random_account(vo):
     account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for _ in range(10)), vo=vo)
     add_account(account=account, type_=AccountType.USER, email=f'{account.external}@email.com')
     yield account
-    cleanup_db_deps(model=models.Account, select_rows_stmt=select([1]).where(models.Account.account == account))
+    cleanup_db_deps(model=models.Account, select_rows_stmt=models.Account.account == account)
     del_account(account)
 
 

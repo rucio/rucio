@@ -30,7 +30,7 @@ from rucio.db.sqla.session import transactional_session
 from rucio.db.sqla.util import temp_table_mngr
 from rucio.tests.common import did_name_generator
 from rucio.tests.common_server import cleanup_db_deps
-from sqlalchemy import select, delete, exists
+from sqlalchemy import and_, select, delete, exists
 
 
 class TemporaryRSEFactory:
@@ -62,7 +62,7 @@ class TemporaryRSEFactory:
         session.bulk_insert_mappings(rses_temp_table, [{'id': rse_id} for rse_id in self.created_rses])
         cleanup_db_deps(
             model=models.RSE,
-            select_rows_stmt=select([1]).where(models.RSE.id == rses_temp_table.id),
+            select_rows_stmt=models.RSE.id == rses_temp_table.id,
             session=session,
         )
 
@@ -167,8 +167,8 @@ class TemporaryDidFactory:
         tt_mngr = temp_table_mngr(session)
         scope_name_temp_table = tt_mngr.create_scope_name_table()
         session.bulk_insert_mappings(scope_name_temp_table, [{'scope': s, 'name': n} for s, n in self.created_dids])
-        select_dids_stmt = select([1]).where(models.DataIdentifier.scope == scope_name_temp_table.scope,
-                                             models.DataIdentifier.name == scope_name_temp_table.name)
+        select_dids_stmt = and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
+                                models.DataIdentifier.name == scope_name_temp_table.name)
         cleanup_db_deps(
             model=models.DataIdentifier,
             select_rows_stmt=select_dids_stmt,
@@ -178,7 +178,7 @@ class TemporaryDidFactory:
         stmt = delete(
             models.DataIdentifier
         ).where(
-            exists(select_dids_stmt)
+            exists(select([1]).where(select_dids_stmt))
         ).execution_options(
             synchronize_session=False
         )
