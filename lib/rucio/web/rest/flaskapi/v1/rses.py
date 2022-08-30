@@ -761,7 +761,7 @@ class LFNS2PFNS(ErrorHandlingMethodView):
     """ Translate one-or-more LFNs to corresponding PFNs. """
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, rse, scheme=None):
+    def get(self, rse):
         """
         ---
         summary: Translate LFNs to PFNs
@@ -775,13 +775,6 @@ class LFNS2PFNS(ErrorHandlingMethodView):
           schema:
             type: string
           style: simple
-        - name: schema
-          in: path
-          description: The protocol identifier.
-          schema:
-            type: string
-          style: simple
-          required: False
         - name: lfn
           in: query
           description: The lfns of the request.
