@@ -10,3 +10,5 @@ styleguide:
       severity: off
     no-path-trailing-slash:
       severity: off
+    no-identical-paths:
+      severity: off
