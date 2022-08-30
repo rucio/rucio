@@ -8,3 +8,5 @@ styleguide:
       severity: off
     no-ambiguous-paths:
       severity: off
+    no-path-trailing-slash:
+      severity: off
