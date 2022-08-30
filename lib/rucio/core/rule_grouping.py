@@ -924,7 +924,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                                 ds_name=dataset['name'],
                                                                 session=session))
                 return True
-            elif staging_required: # include the lifetime in dictionary
+            elif staging_required:  # include the lifetime in dictionary
                 transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
                                                                 request_type=RequestType.TRANSFER,
                                                                 scope=file['scope'],
@@ -1000,7 +1000,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                             ds_name=dataset['name'],
                                                             session=session))
             return True
-        elif staging_required: # include the lifetime in dictionary
+        elif staging_required:  # include the lifetime in dictionary
             transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
                                                             request_type=RequestType.TRANSFER,
                                                             scope=file['scope'],
