@@ -333,9 +333,9 @@ class SubscriptionName(ErrorHandlingMethodView):
         tags:
           - Replicas
         parameters:
-        - name: account
+        - name: name
           in: path
-          description: The account name.
+          description: The subscription name.
           schema:
             type: string
           style: simple
