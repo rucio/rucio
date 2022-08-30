@@ -58,7 +58,7 @@ class Archive(ErrorHandlingMethodView):
                         type: string
                       bytes:
                         description: The number of bytes.
-                        type: int
+                        type: integer
                       adler32:
                         description: The adler32 checksum.
                         type: string
