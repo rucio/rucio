@@ -1113,7 +1113,7 @@ def _list_replicas_with_temp_tables(
                 stmt = stmt.where(models.RSE.id.in_([rse['id'] for rse in rses]))
             else:
                 rses_temp_table = temp_table_mngr(session).create_id_table()
-                session.bulk_insert_mappings(rses_temp_table, [{'id': rse['id'] for rse in rses}])
+                session.bulk_insert_mappings(rses_temp_table, [{'id': rse['id']} for rse in rses])
                 stmt = stmt.join(rses_temp_table, models.RSE.id == rses_temp_table.id)
 
         if not all_states:
