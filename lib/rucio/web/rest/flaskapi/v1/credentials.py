@@ -44,14 +44,40 @@ class SignURL(ErrorHandlingMethodView):
 
     def options(self):
         """
-        Allow cross-site scripting. Explicit for Authentication.
-
-        :resheader Access-Control-Allow-Origin:
-        :resheader Access-Control-Allow-Headers:
-        :resheader Access-Control-Allow-Methods:
-        :resheader Access-Control-Allow-Credentials:
-        :resheader Access-Control-Expose-Headers:
-        :status 200: OK
+        ---
+        summary: Cross-Site Scripting
+        description: Allow cross-site scripting. Explicit for Authentication.
+        tags:
+          - Credentials
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+                description: The http origin.
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+                description: The http access controll request headers.
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+                  enum: ['*']
+                description: The allowed methods.
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+                  enum: ['true']
+                description: If credentials are allowed.
+              Access-Control-Expose-Headers:
+                schema:
+                  type: string
+                  enum: ['X-Rucio-Auth-Token']
+                description: The exposed access controll header.
+          404:
+            description: Not found
         """
         return '', 200, self.get_headers()
 
