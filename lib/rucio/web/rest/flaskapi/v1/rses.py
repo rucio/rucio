@@ -198,10 +198,10 @@ class RSE(ErrorHandlingMethodView):
                     enum: ["DISK", "TAPE"]
                   latitute:
                     description: The latitute of the RSE.
-                    type: float
+                    type: number
                   longitude:
                     description: The longitude of the RSE.
-                    type: float
+                    type: number
                   ASN:
                     description: The access service network of the RSE.
                     type: string
@@ -316,10 +316,10 @@ class RSE(ErrorHandlingMethodView):
                     enum: ["DISK", "TAPE"]
                   latitute:
                     description: The latitute of the RSE.
-                    type: float
+                    type: number
                   longitude:
                     description: The longitude of the RSE.
-                    type: float
+                    type: number
         responses:
           201:
             description: OK
@@ -410,10 +410,10 @@ class RSE(ErrorHandlingMethodView):
                       enum: ["DISK", "TAPE"]
                     latitute:
                       description: The latitute of the RSE.
-                      type: float
+                      type: number
                     longitude:
                       description: The longitude of the RSE.
-                      type: float
+                      type: number
                     ASN:
                       description: The access service network of the RSE.
                       type: string
