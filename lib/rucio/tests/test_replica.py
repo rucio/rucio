@@ -610,6 +610,64 @@ class TestReplicaCore:
         assert cov[rse2_id] == 300
         assert cov[rse3_id] == 500
 
+    @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+        'rucio.core.rse_expression_parser.REGION',
+    ]}], indirect=True)
+    @pytest.mark.parametrize("file_config_mock", [
+        # Run test twice: with, and without, temp tables
+        {"overrides": [('core', 'use_temp_tables', 'True')]},
+        {"overrides": [('core', 'use_temp_tables', 'False')]},
+    ], indirect=True)
+    def test_list_replicas_rse_filter(self, rse_factory, mock_scope, root_account, file_config_mock, caches_mock):
+        """ REPLICA (CORE): test rse filter for list replicas """
+        nbrses = 10
+        nbfiles = 2
+        rses = [rse_factory.make_mock_rse() for _ in range(nbrses)]
+        rses_group1 = set()
+        rses_group2 = set()
+        for i, (_, rse_id) in enumerate(rses):
+            # Create two overlapping groups of rses: first 75% and last 75%
+            if i < nbrses * 3 // 4:
+                rses_group1.add(rse_id)
+                add_rse_attribute(rse_id, 'group1', 'true')
+            if i > nbrses * 1 // 4:
+                rses_group2.add(rse_id)
+                add_rse_attribute(rse_id, 'group2', 'true')
+
+        files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+
+        # Add one file on all rses
+        file1 = files[0]
+        did1 = {'scope': file1['scope'], 'name': file1['name']}
+        for _, rse_id in rses:
+            add_replicas(rse_id=rse_id, files=[file1], account=root_account, ignore_availability=True)
+        [replica] = list(list_replicas([did1]))
+        assert len(replica['pfns']) == nbrses
+        [replica] = list(list_replicas([did1], rse_expression='group1=true|group2=true'))
+        assert len(replica['pfns']) == nbrses
+        [replica] = list(list_replicas([did1], rse_expression='group1=true&group2=true'))
+        assert len(replica['pfns']) == len(rses_group1.intersection(rses_group2))
+        [replica] = list(list_replicas([did1], rse_expression='group1=true'))
+        assert len(replica['pfns']) == len(rses_group1)
+        [replica] = list(list_replicas([did1], rse_expression='group2=true'))
+        assert len(replica['pfns']) == len(rses_group2)
+
+        # Add another file to one rse in group1 and one rse in group2
+        file2 = files[1]
+        did2 = {'scope': file2['scope'], 'name': file2['name']}
+        for _, rse_id in (rses[0], rses[-1]):
+            add_replicas(rse_id=rse_id, files=[file2], account=root_account, ignore_availability=True)
+        [replica] = list(list_replicas([did2]))
+        assert len(replica['pfns']) == 2
+        [replica] = list(list_replicas([did2], rse_expression='group1=true|group2=true'))
+        assert len(replica['pfns']) == 2
+        [replica] = list(list_replicas([did2], rse_expression='group1=true&group2=true'))
+        assert len(replica['pfns']) == 0
+        [replica] = list(list_replicas([did2], rse_expression='group1=true'))
+        assert len(replica['pfns']) == 1
+        [replica] = list(list_replicas([did2], rse_expression='group2=true'))
+        assert len(replica['pfns']) == 1
+
 
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
     ('reaper', 'remove_open_did', True)
