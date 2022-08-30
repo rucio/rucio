@@ -770,10 +770,10 @@ class ReplicasDIDs(ErrorHandlingMethodView):
                       properties:
                         scope:
                           description: The scope of the DID.
-                          type: str
+                          type: string
                         name:
                           description: The name of the DID.
-                          type: str
+                          type: string
           400:
             description: Cannot decode json parameter list.
           401:

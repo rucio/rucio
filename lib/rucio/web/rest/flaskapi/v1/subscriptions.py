@@ -517,7 +517,7 @@ class States(ErrorHandlingMethodView):
                       state:
                         description: The state of the rules.
                         type: string
-                        enums: ["R", "O", "S", "U", "W", "I"]
+                        enum: ["R", "O", "S", "U", "W", "I"]
                       count:
                         description: The number of rules with that state.
                         type: integer

@@ -52,19 +52,19 @@ class Archive(ErrorHandlingMethodView):
                     properties:
                       scope:
                         description: The scope of the did.
-                        type: str
+                        type: string
                       name:
                         description: The name of the did.
-                        type: str
+                        type: string
                       bytes:
                         description: The number of bytes.
                         type: int
                       adler32:
                         description: The adler32 checksum.
-                        type: str
+                        type: string
                       md5:
                         description: The md5 checksum.
-                        type: str
+                        type: string
           400:
             description: Invalid value
           406:

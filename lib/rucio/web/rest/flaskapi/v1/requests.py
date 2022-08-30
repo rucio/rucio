@@ -62,7 +62,7 @@ class RequestGet(ErrorHandlingMethodView):
                   properties:
                     id:
                       description: The id of the request.
-                      type: strig
+                      type: string
                     request_type:
                       description: The request type.
                       type: string
@@ -227,7 +227,7 @@ class RequestHistoryGet(ErrorHandlingMethodView):
                   properties:
                     id:
                       description: The id of the request.
-                      type: strig
+                      type: string
                     request_type:
                       description: The request type.
                       type: string
@@ -424,7 +424,7 @@ class RequestList(ErrorHandlingMethodView):
                     properties:
                       id:
                         description: The id of the request.
-                        type: strig
+                        type: string
                       request_type:
                         description: The request type.
                         type: string
@@ -660,7 +660,7 @@ class RequestHistoryList(ErrorHandlingMethodView):
                     properties:
                       id:
                         description: The id of the request.
-                        type: strig
+                        type: string
                       request_type:
                         description: The request type.
                         type: string
