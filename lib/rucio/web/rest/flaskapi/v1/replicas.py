@@ -1096,7 +1096,7 @@ class BadReplicasStates(ErrorHandlingMethodView):
                   description: A list of all result replicas.
                   type: array
                   items:
-                    oneof:
+                    oneOf:
                       - type: object
                         properties:
                           scope:

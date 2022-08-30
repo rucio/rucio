@@ -721,6 +721,9 @@ class ProtocolList(ErrorHandlingMethodView):
                                     description: The delete value of the lan protocol.
                                     type: integer
                               wan:
+                                description: The wan domain
+                                type: object
+                                properties:
                                   read:
                                     description: The read value of the wan protocol.
                                     type: integer
@@ -1054,6 +1057,9 @@ class Protocol(ErrorHandlingMethodView):
                                     description: The delete value of the lan protocol.
                                     type: integer
                               wan:
+                                description: The wan domain
+                                type: object
+                                properties:
                                   read:
                                     description: The read value of the wan protocol.
                                     type: integer
@@ -1215,6 +1221,9 @@ class Protocol(ErrorHandlingMethodView):
                                     description: The delete value of the lan protocol.
                                     type: integer
                               wan:
+                                description: The wan domain
+                                type: object
+                                properties:
                                   read:
                                     description: The read value of the wan protocol.
                                     type: integer

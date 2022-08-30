@@ -61,7 +61,7 @@ class Heartbeat(ErrorHandlingMethodView):
         requestBody:
           content:
             'application/json':
-              shema:
+              schema:
                 type: object
                 required:
                 - bytes

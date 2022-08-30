@@ -639,13 +639,13 @@ class RequestHistoryList(ErrorHandlingMethodView):
           description: The offset of the list.
           schema:
             type: integer
-          default: 0
+            default: 0
         - name: limit
           in: query
           description: The maximum number of items to return.
           schema:
             type: integer
-          default: 100
+            default: 100
         responses:
           200:
             description: OK
