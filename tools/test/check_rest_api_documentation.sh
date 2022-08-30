@@ -16,6 +16,8 @@
 
 set -eo pipefail
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
 
 command_exists() {
     # check if command exists and fail otherwise
@@ -34,4 +36,4 @@ fi
 command_exists "node"
 command_exists "npx"
 
-npx @redocly/openapi-cli lint $1
+npx @redocly/cli lint --config "$SCRIPT_DIR/redocly.yaml" $1

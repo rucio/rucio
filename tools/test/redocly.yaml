@@ -1,0 +1,8 @@
+styleguide:
+  extends:
+    - recommended
+  rules:
+    operation-operationId:
+      severity: off
+    no-empty-servers:
+      severity: off
