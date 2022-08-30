@@ -20,17 +20,19 @@ import shutil
 import signal
 import sys
 
-stop = False
+# make sure the following imports work
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+import build_images
+from matrix_parser import parse_matrix
+from run_tests import run_tests
 
 
 def shutdown(signum, frame):
-    global stop
-    stop = True
     print("Caught", signal.Signals(signum).name + ". Stopping..", file=sys.stderr)
     sys.exit(1)
 
 
-def main():
+def check_container_runtime():
     if 'USE_PODMAN' not in os.environ or os.environ['USE_PODMAN'] == "":
         docker_executable = shutil.which("docker")
         podman_executable = shutil.which("podman")
@@ -46,12 +48,11 @@ def main():
             print("No compatible container executable (podman/docker) found! Exiting..", file=sys.stderr)
             sys.exit(1)
 
-    project_dir = os.path.abspath(os.path.join(os.path.abspath(os.path.dirname(__file__)), "../.."))
-    print("Detected project directory", project_dir, file=sys.stderr)
 
+def parse_arguments(default_matrix_file):
     parser = argparse.ArgumentParser(description='Run the full autotest pipeline.')
-    parser.add_argument('test_matrix_file', metavar='test matrix file', type=str, nargs='?', default=None,
-                        help='path to the test matrix')
+    parser.add_argument('test_matrix_file', metavar='test matrix file', type=str, nargs='?',
+                        default=default_matrix_file, help='path to the test matrix')
     parser.add_argument('--build', dest='build', action='store_true',
                         help='build images, instead of only downloading')
     parser.add_argument('-f', '--filter', dest='filter_tests', type=str, action='append',
@@ -60,21 +61,11 @@ def main():
     parser.add_argument('--py', '--python', dest='python', type=str, help='select Python version')
     parser.add_argument('-s', '--suite', dest='suite', type=str, help='select test suite')
     parser.add_argument('--db', '--database', dest='database', type=str, help='select RDBMS')
-    args = parser.parse_args()
-    if args.test_matrix_file is None:
-        matrix_file = os.path.join(project_dir, "etc/docker/test/matrix.yml")
-    else:
-        matrix_file = args.test_matrix_file
-    print("Using test matrix from file", matrix_file, file=sys.stderr)
+    return parser.parse_args()
 
-    # make sure the following imports work
-    sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-    # matrix parsing
-
-    from matrix_parser import parse_matrix
-
-    with open(matrix_file, 'r') as fhandle:
+def parse_and_filter_matrix(args):
+    with open(args.test_matrix_file, 'r') as fhandle:
         test_matrix = parse_matrix(fhandle)
 
     if not test_matrix:
@@ -101,6 +92,22 @@ def main():
     if len(test_matrix) == 0:
         print("No more test cases after filtering. Exiting..", file=sys.stderr)
         sys.exit(0)
+
+    return test_matrix
+
+
+def main():
+    check_container_runtime()
+
+    project_dir = os.path.abspath(os.path.join(os.path.abspath(os.path.dirname(__file__)), "../.."))
+    print("Detected project directory", project_dir, file=sys.stderr)
+
+    default_matrix_file = os.path.join(project_dir, "etc/docker/test/matrix.yml")
+    args = parse_arguments(default_matrix_file)
+    print("Using test matrix from file", args.test_matrix_file, file=sys.stderr)
+
+    test_matrix = parse_and_filter_matrix(args)
+
     if len(test_matrix) == 1 and 'PARALLEL_AUTOTESTS' not in os.environ:
         print("One test case remaining after filtering. Switching to serial run", file=sys.stderr)
         os.environ['PARALLEL_AUTOTESTS'] = "0"
@@ -108,21 +115,13 @@ def main():
         print("Tests will run in parallel", file=sys.stderr)
         os.environ['PARALLEL_AUTOTESTS'] = "1"
 
-    # image building
-
-    from build_images import build_main
-
     build_args = [os.path.join(project_dir, "etc/docker/test")]
     if not args.build:
         build_args.insert(0, "--download-only")
-    images = build_main(test_matrix, build_args)
+    images = build_images.build_main(test_matrix, build_args)
 
     if not images:
         print("Images could not be built", file=sys.stderr)
-
-    # test running
-
-    from run_tests import run_tests
 
     run_tests(test_matrix, images, args.filter_tests)
 
