@@ -34,6 +34,4 @@ fi
 command_exists "node"
 command_exists "npx"
 
-npx @redocly/openapi-cli lint $1 || true
-echo "We are ignoring the result of the OpenApi lint for now, since not every file is migrated."
-echo "TODO: Fix all linter erros and delete the default true configuration"
+npx @redocly/openapi-cli lint $1
