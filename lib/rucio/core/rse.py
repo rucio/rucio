@@ -19,7 +19,7 @@ import logging
 import traceback
 from io import StringIO
 from re import match
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Iterable, Union
 
 import sqlalchemy
 from dogpile.cache.api import NO_VALUE
@@ -94,10 +94,11 @@ class RseData:
             self.usage = get_rse_usage(rse_id=self.id, session=session)
         if self.limits is None and load_limits:
             self.limits = get_rse_limits(rse_id=self.id, session=session)
+        return self
 
     @staticmethod
     @read_session
-    def bulk_load(rse_datas: "Sequence[RseData]", load_name=False, load_columns=False, load_attributes=False,
+    def bulk_load(rse_datas: "Iterable[RseData]", load_name=False, load_columns=False, load_attributes=False,
                   load_info=False, load_usage=False, load_limits=False, session=None):
         """
         Given a sequence of RseData objects, ensure that the desired fields are initialised
@@ -155,6 +156,50 @@ class RseData:
             limits = get_rse_limits(rse_id=rse_id, session=session)
             for rse_data in rse_datas_by_id[rse_id]:
                 rse_data.limits = limits
+
+
+class RseCollection:
+    """
+    Container which stores
+    """
+
+    def __init__(self):
+        self.rse_id_to_data_map = {}
+
+    def __getitem__(self, item):
+        return self.get(item)
+
+    def get(self, rse_id: str):
+        rse_data = self.rse_id_to_data_map.get(rse_id)
+        if rse_data is None:
+            self.rse_id_to_data_map[rse_id] = rse_data = RseData(rse_id)
+        return rse_data
+
+    def setdefault(self, rse_id: str, rse_data: RseData):
+        return self.rse_id_to_data_map.setdefault(rse_id, rse_data)
+
+    @transactional_session
+    def ensure_loaded(
+            self,
+            rse_ids: "Iterable[str]",
+            load_name: bool = False,
+            load_columns: bool = False,
+            load_attributes: bool = False,
+            load_info: bool = False,
+            load_usage: bool = False,
+            load_limits: bool = False,
+            session: "Optional[Session]" = None,
+    ):
+        RseData.bulk_load(
+            rse_datas=(self.rse_id_to_data_map.setdefault(rse_id, RseData(rse_id)) for rse_id in rse_ids),
+            load_name=load_name,
+            load_columns=load_columns,
+            load_attributes=load_attributes,
+            load_info=load_info,
+            load_usage=load_usage,
+            load_limits=load_limits,
+            session=session,
+        )
 
 
 @transactional_session

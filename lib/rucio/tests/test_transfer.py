@@ -19,7 +19,8 @@ from concurrent.futures import ThreadPoolExecutor
 from rucio.common.exception import NoDistance
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replicas
-from rucio.core.transfer import get_hops, get_transfer_paths
+from rucio.core.transfer import get_transfer_paths
+from rucio.core.topology import get_hops
 from rucio.core import rule as rule_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
