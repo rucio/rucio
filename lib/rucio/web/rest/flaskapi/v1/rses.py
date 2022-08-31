@@ -198,10 +198,10 @@ class RSE(ErrorHandlingMethodView):
                     enum: ["DISK", "TAPE"]
                   latitute:
                     description: The latitute of the RSE.
-                    type: float
+                    type: number
                   longitude:
                     description: The longitude of the RSE.
-                    type: float
+                    type: number
                   ASN:
                     description: The access service network of the RSE.
                     type: string
@@ -316,10 +316,10 @@ class RSE(ErrorHandlingMethodView):
                     enum: ["DISK", "TAPE"]
                   latitute:
                     description: The latitute of the RSE.
-                    type: float
+                    type: number
                   longitude:
                     description: The longitude of the RSE.
-                    type: float
+                    type: number
         responses:
           201:
             description: OK
@@ -410,10 +410,10 @@ class RSE(ErrorHandlingMethodView):
                       enum: ["DISK", "TAPE"]
                     latitute:
                       description: The latitute of the RSE.
-                      type: float
+                      type: number
                     longitude:
                       description: The longitude of the RSE.
-                      type: float
+                      type: number
                     ASN:
                       description: The access service network of the RSE.
                       type: string
@@ -721,6 +721,9 @@ class ProtocolList(ErrorHandlingMethodView):
                                     description: The delete value of the lan protocol.
                                     type: integer
                               wan:
+                                description: The wan domain
+                                type: object
+                                properties:
                                   read:
                                     description: The read value of the wan protocol.
                                     type: integer
@@ -761,7 +764,7 @@ class LFNS2PFNS(ErrorHandlingMethodView):
     """ Translate one-or-more LFNs to corresponding PFNs. """
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, rse, scheme=None):
+    def get(self, rse):
         """
         ---
         summary: Translate LFNs to PFNs
@@ -775,13 +778,6 @@ class LFNS2PFNS(ErrorHandlingMethodView):
           schema:
             type: string
           style: simple
-        - name: schema
-          in: path
-          description: The protocol identifier.
-          schema:
-            type: string
-          style: simple
-          required: False
         - name: lfn
           in: query
           description: The lfns of the request.
@@ -1061,6 +1057,9 @@ class Protocol(ErrorHandlingMethodView):
                                     description: The delete value of the lan protocol.
                                     type: integer
                               wan:
+                                description: The wan domain
+                                type: object
+                                properties:
                                   read:
                                     description: The read value of the wan protocol.
                                     type: integer
@@ -1222,6 +1221,9 @@ class Protocol(ErrorHandlingMethodView):
                                     description: The delete value of the lan protocol.
                                     type: integer
                               wan:
+                                description: The wan domain
+                                type: object
+                                properties:
                                   read:
                                     description: The read value of the wan protocol.
                                     type: integer

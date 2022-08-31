@@ -513,6 +513,8 @@ class Account(ErrorHandlingMethodView):
                       email:
                         description: The email.
                         type: string
+          401:
+            description: Invalid Auth Token
         """
 
         def generate(_filter, vo):

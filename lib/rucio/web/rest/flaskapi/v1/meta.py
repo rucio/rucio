@@ -166,7 +166,7 @@ class Values(ErrorHandlingMethodView):
           content:
             application/json:
               schema:
-                type:
+                type: object
                 required:
                 - value
                 properties:

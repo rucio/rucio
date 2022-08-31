@@ -89,7 +89,7 @@ class LockByRSE(ErrorHandlingMethodView):
                         type: integer
                       bytes:
                         description: The bytes limit for the lock.
-                        type: integere
+                        type: integer
                       accessed_at:
                         description: The last time is was accessed.
                         type: string
@@ -186,7 +186,7 @@ class LocksByScopeName(ErrorHandlingMethodView):
                         type: integer
                       bytes:
                         description: The bytes limit for the lock.
-                        type: integere
+                        type: integer
                       accessed_at:
                         description: The last time is was accessed.
                         type: string
@@ -299,7 +299,7 @@ class DatasetLocksForDids(ErrorHandlingMethodView):
                         type: integer
                       bytes:
                         description: The bytes limit for the lock.
-                        type: integere
+                        type: integer
                       accessed_at:
                         description: The last time is was accessed.
                         type: string

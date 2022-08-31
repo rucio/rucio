@@ -1,0 +1,14 @@
+styleguide:
+  extends:
+    - recommended
+  rules:
+    operation-operationId:
+      severity: off
+    no-empty-servers:
+      severity: off
+    no-ambiguous-paths:
+      severity: off
+    no-path-trailing-slash:
+      severity: off
+    no-identical-paths:
+      severity: off

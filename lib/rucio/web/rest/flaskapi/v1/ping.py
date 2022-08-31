@@ -58,7 +58,7 @@ class Ping(ErrorHandlingMethodView):
                   type: object
                   properties:
                     version:
-                      descripption: The server version.
+                      description: The server version.
                       type: string
           406:
             description: Not acceptable

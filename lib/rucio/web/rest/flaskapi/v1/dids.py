@@ -1309,7 +1309,7 @@ class Meta(ErrorHandlingMethodView):
           description: The plugin to use.
           schema:
             type: string
-          default: DID_COLUMN
+            default: DID_COLUMN
         responses:
           200:
             description: OK
@@ -1355,7 +1355,7 @@ class Meta(ErrorHandlingMethodView):
           content:
             'application/json':
               schema:
-                type:
+                type: object
                 required:
                 - meta
                 properties:
@@ -1485,13 +1485,13 @@ class SingleMeta(ErrorHandlingMethodView):
           content:
             'application/json':
               schema:
-                type:
+                type: object
                 required:
                 - value
                 properties:
                   value:
                     description: The value to set.
-                    type: AnyValue
+                    type: object
         responses:
           201:
             description: Created
@@ -1667,7 +1667,7 @@ class BulkMeta(ErrorHandlingMethodView):
           content:
             'application/x-json-stream':
               schema:
-                type:
+                type: object
                 required:
                 - dids
                 properties:
@@ -2155,7 +2155,7 @@ class Follow(ErrorHandlingMethodView):
           content:
             'application/json':
               schema:
-                type:
+                type: object
                 required:
                 - account
                 properties:

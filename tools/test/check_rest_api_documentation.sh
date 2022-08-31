@@ -16,6 +16,8 @@
 
 set -eo pipefail
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
 
 command_exists() {
     # check if command exists and fail otherwise
@@ -34,6 +36,4 @@ fi
 command_exists "node"
 command_exists "npx"
 
-npx @redocly/openapi-cli lint $1 || true
-echo "We are ignoring the result of the OpenApi lint for now, since not every file is migrated."
-echo "TODO: Fix all linter erros and delete the default true configuration"
+npx @redocly/cli lint --config "$SCRIPT_DIR/redocly.yaml" $1
