@@ -18,7 +18,6 @@ import json
 import logging
 import traceback
 from collections import namedtuple
-from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, or_, func, update, select, delete
@@ -26,13 +25,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import asc, true, false, null
 
-from rucio.common.config import config_get_bool, config_get
+from rucio.common.config import config_get_bool
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
+from rucio.common.utils import generate_uuid, chunks
 from rucio.core.message import add_message, add_messages
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute, RseData
+from rucio.core.rse import get_rse_name, get_rse_vo, RseData
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -41,13 +40,11 @@ from rucio.db.sqla.util import temp_table_mngr
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Iterator, List, Optional, Callable, Set, Union, Sequence
-    from sqlalchemy.orm import Session
+    from typing import Any, Dict, Iterator, List, Union
 
     RequestResult = Dict[str, Any]
     RequestResultOrState = Union[RequestResult, RequestAndState]
     RowIterator = Iterator[RequestResult]
-    LoggerFunction = Callable[..., Any]
 
 """
 The core request.py is specifically for handling requests.
@@ -1901,119 +1898,3 @@ def list_requests_history(src_rse_ids, dst_rse_ids, states=None, offset=None, li
         stmt = stmt.limit(limit)
     for request in session.execute(stmt).yield_per(500).scalars():
         yield request
-
-
-@transactional_session
-def prepare_requests(
-        requests_with_sources: "Sequence[RequestWithSources]",
-        logger: "LoggerFunction" = logging.log,
-        session: "Optional[Session]" = None,
-) -> int:
-    """
-    Update transfer requests according to preparer settings.
-    """
-    count = 0
-    reqs_no_source = set()
-    for rws in requests_with_sources:
-        # Assume request doesn't have any sources. Will be removed later if sources are found.
-        reqs_no_source.add(rws.request_id)
-
-        if not rws.sources:
-            logger(logging.INFO, '%s: has no sources. Skipping.', rws)
-            continue
-
-        sources = sorted(rws.sources, key=lambda s: s.distance_ranking)
-
-        selected_source = None
-        transfertool = None
-        dest_rse_transfertools = get_supported_transfertools(rws.dest_rse.id, session=session)
-        for source in sources:
-            src_rse_transfertools = get_supported_transfertools(source.rse.id, session=session)
-            common_transfertools = dest_rse_transfertools.intersection(src_rse_transfertools)
-            if not common_transfertools:
-                continue
-            transfertool = 'fts3' if 'fts3' in common_transfertools else common_transfertools.pop()
-            selected_source = source
-
-        if not selected_source:
-            logger(logging.WARNING, '%s: all available sources were filtered', rws)
-            continue
-
-        reqs_no_source.remove(rws.request_id)
-
-        update_dict = {
-            models.Request.state: __throttler_request_state(
-                activity=rws.activity,
-                source_rse_id=selected_source.rse.id,
-                dest_rse_id=rws.dest_rse.id,
-                session=session,
-            ),
-            models.Request.source_rse_id: selected_source.rse.id,
-        }
-        if transfertool:
-            update_dict[models.Request.transfertool] = transfertool
-
-        stmt = update(
-            models.Request
-        ).where(
-            models.Request.id == rws.request_id
-        ).execution_options(
-            synchronize_session=False
-        ).values(
-            update_dict
-        )
-        session.execute(stmt)
-        count += 1
-
-    if reqs_no_source:
-        logger(logging.INFO, "Marking requests as no-sources: %s", reqs_no_source)
-        set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger, session=session)
-    return count
-
-
-def __throttler_request_state(activity, source_rse_id, dest_rse_id, session: "Optional[Session]" = None) -> RequestState:
-    """
-    Takes request attributes to return a new state for the request
-    based on throttler settings. Always returns QUEUED,
-    if the throttler mode is not set.
-    """
-    try:
-        throttler_mode = config_get('throttler', 'mode', default=None, use_cache=False, session=session)
-    except (NoOptionError, NoSectionError, RuntimeError):
-        throttler_mode = None
-
-    limit_found = False
-    if throttler_mode:
-        transfer_limits = get_rse_transfer_limits(session=session)
-        activity_limit = transfer_limits.get(activity, {})
-        all_activities_limit = transfer_limits.get('all_activities', {})
-        direction, all_activities = get_parsed_throttler_mode(throttler_mode)
-        if direction == 'source':
-            if all_activities:
-                if all_activities_limit.get(source_rse_id):
-                    limit_found = True
-            else:
-                if activity_limit.get(source_rse_id):
-                    limit_found = True
-        elif direction == 'destination':
-            if all_activities:
-                if all_activities_limit.get(dest_rse_id):
-                    limit_found = True
-            else:
-                if activity_limit.get(dest_rse_id):
-                    limit_found = True
-
-    return RequestState.WAITING if limit_found else RequestState.QUEUED
-
-
-def get_supported_transfertools(rse_id: str, session=None) -> "Set[str]":
-    transfertool_attr = get_rse_attribute(rse_id, 'transfertool', session=session)
-
-    if not transfertool_attr:
-        return {'fts3', 'globus'}
-
-    result = set()
-    for transfertool in transfertool_attr.split(sep=','):
-        if transfertool.strip():
-            result.add(transfertool)
-    return result

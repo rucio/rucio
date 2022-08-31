@@ -20,6 +20,7 @@ from sqlalchemy import delete
 
 from rucio.common.utils import generate_uuid
 from rucio.core.did import attach_dids, add_did
+from rucio.core.distance import add_distance
 from rucio.core.replica import add_replica
 from rucio.core.request import queue_requests, get_request_by_did, release_waiting_requests_per_deadline, release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo, release_waiting_requests_per_free_volume
 from rucio.core.rse import set_rse_transfer_limits
@@ -33,6 +34,7 @@ from rucio.tests.common import skiplimitedsql
 def setup_class(request, vo, rse_factory, db_session):
     source_rse, source_rse_id = rse_factory.make_mock_rse()
     dest_rse, dest_rse_id = rse_factory.make_mock_rse()
+    add_distance(source_rse_id, dest_rse_id, ranking=10)
 
     request.cls.source_rse = source_rse
     request.cls.source_rse_id = source_rse_id
@@ -372,6 +374,8 @@ class TestThrottlerFIFOSRCACT:
         _, dest_rse_id = rse_factory.make_mock_rse()
         _, dest_rse_id2 = rse_factory.make_mock_rse()
         _, dest_rse_id3 = rse_factory.make_mock_rse()
+        for rse_id in (dest_rse_id, dest_rse_id2, dest_rse_id3):
+            add_distance(source_rse_id, rse_id, ranking=10)
         # two waiting requests and no active requests but threshold is 1 for one activity
         # one waiting request and no active requests but threshold is 0 for other activity -> release only 1 request for one activity
         set_rse_transfer_limits(source_rse_id, activity=self.user_activity, max_transfers=1, strategy='fifo')
@@ -469,6 +473,9 @@ class TestThrottlerFIFODESTALLACT:
             return True
         _, source_rse_id2 = rse_factory.make_mock_rse()
         _, dest_rse_id2 = rse_factory.make_mock_rse()
+        add_distance(self.source_rse_id, dest_rse_id2, ranking=10)
+        add_distance(source_rse_id2, self.dest_rse_id, ranking=10)
+        add_distance(source_rse_id2, dest_rse_id2, ranking=10)
 
         # two waiting requests and no active requests but threshold 1 for one dest RSE
         # one waiting request and no active requests but threshold 0 for another dest RSE -> release only 1 request on one dest RSE
@@ -530,6 +537,7 @@ class TestThrottlerGroupedFIFOSRCALLACT:
             return True
 
         _, dest_rse_id2 = rse_factory.make_mock_rse()
+        add_distance(self.source_rse_id, dest_rse_id2, ranking=10)
 
         set_rse_transfer_limits(self.source_rse_id, self.all_activities, volume=10, max_transfers=1, deadline=0, strategy='grouped_fifo', session=db_session)
         name1, name2, name3, name4 = _add_test_replicas_and_request(

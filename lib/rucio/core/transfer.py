@@ -32,13 +32,13 @@ from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (InvalidRSEExpression,
                                     RequestNotFound, RSEProtocolNotSupported,
                                     RucioException, UnsupportedOperation)
-from rucio.common.utils import construct_surl
+from rucio.common.utils import construct_surl, get_parsed_throttler_mode
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.account import list_accounts
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter
 from rucio.core.request import set_request_state, RequestWithSources, RequestSource
-from rucio.core.rse import list_rses, RseCollection
+from rucio.core.rse import get_rse_transfer_limits, list_rses, RseCollection
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.topology import Topology
 from rucio.db.sqla import models
@@ -48,9 +48,12 @@ from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
 
 if TYPE_CHECKING:
-    from typing import Callable, Dict, Generator, Iterable, List, Optional, Set
+    from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Set, Tuple
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
+    from rucio.core.rse import RseData
+
+    LoggerFunction = Callable[..., Any]
 
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
@@ -779,7 +782,7 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
 @transactional_session
 def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
                        failover_schemes=None, active_transfertools=None, filter_transfertool=None, request_type=RequestType.TRANSFER,
-                       ignore_availability=False, logger=logging.log, session=None):
+                       request_state=RequestState.QUEUED, ignore_availability=False, logger=logging.log, session=None):
     """
     Get next transfers to be submitted; grouped by transfertool which can submit them
     :param total_workers:         Number of total workers.
@@ -842,7 +845,7 @@ def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None
         rses=rses,
         multihop_rses=multihop_rses,
         request_type=request_type,
-        request_state=RequestState.QUEUED,
+        request_state=request_state,
         ignore_availability=ignore_availability,
         transfertool=filter_transfertool,
         session=session,
@@ -1192,3 +1195,107 @@ def cancel_transfer(transfertool_obj, transfer_id):
         transfertool_obj.cancel(transfer_ids=[transfer_id])
     except Exception:
         raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, traceback.format_exc()))
+
+
+@transactional_session
+def prepare_transfers(
+        candidate_paths_by_request_id: "Dict[str: List[DirectTransferDefinition]]",
+        logger: "LoggerFunction" = logging.log,
+        session: "Optional[Session]" = None,
+) -> "Tuple[List[str], List[str]]":
+    """
+    Update transfer requests according to preparer settings.
+    """
+
+    reqs_no_transfertool = []
+    updated_reqs = []
+    for request_id, candidate_paths in candidate_paths_by_request_id.items():
+        selected_source = None
+        transfertool = None
+        rws = candidate_paths[0][-1].rws
+
+        dest_rse_transfertools = get_supported_transfertools(rws.dest_rse, session=session)
+        for candidate_path in candidate_paths:
+            source = candidate_path[0].src
+            src_rse_transfertools = get_supported_transfertools(source.rse, session=session)
+            common_transfertools = dest_rse_transfertools.intersection(src_rse_transfertools)
+            if common_transfertools:
+                transfertool = 'fts3' if 'fts3' in common_transfertools else common_transfertools.pop()
+                selected_source = source
+                break
+
+        if not selected_source:
+            reqs_no_transfertool.append(request_id)
+            logger(logging.WARNING, '%s: all available sources were filtered', rws)
+            continue
+
+        update_dict = {
+            models.Request.state: _throttler_request_state(
+                activity=rws.activity,
+                source_rse_id=selected_source.rse.id,
+                dest_rse_id=rws.dest_rse.id,
+                session=session,
+            ),
+            models.Request.source_rse_id: selected_source.rse.id,
+        }
+        if transfertool:
+            update_dict[models.Request.transfertool] = transfertool
+
+        stmt = update(
+            models.Request
+        ).where(
+            models.Request.id == rws.request_id
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            update_dict
+        )
+        session.execute(stmt)
+        updated_reqs.append(request_id)
+
+    return updated_reqs, reqs_no_transfertool
+
+
+def _throttler_request_state(activity, source_rse_id, dest_rse_id, session: "Optional[Session]" = None) -> RequestState:
+    """
+    Takes request attributes to return a new state for the request
+    based on throttler settings. Always returns QUEUED,
+    if the throttler mode is not set.
+    """
+    throttler_mode = config_get('throttler', 'mode', default=None, use_cache=False, raise_exception=False, session=session)
+
+    limit_found = False
+    if throttler_mode:
+        transfer_limits = get_rse_transfer_limits(session=session)
+        activity_limit = transfer_limits.get(activity, {})
+        all_activities_limit = transfer_limits.get('all_activities', {})
+        direction, all_activities = get_parsed_throttler_mode(throttler_mode)
+        if direction == 'source':
+            if all_activities:
+                if all_activities_limit.get(source_rse_id):
+                    limit_found = True
+            else:
+                if activity_limit.get(source_rse_id):
+                    limit_found = True
+        elif direction == 'destination':
+            if all_activities:
+                if all_activities_limit.get(dest_rse_id):
+                    limit_found = True
+            else:
+                if activity_limit.get(dest_rse_id):
+                    limit_found = True
+
+    return RequestState.WAITING if limit_found else RequestState.QUEUED
+
+
+def get_supported_transfertools(rse_data: "RseData", session=None) -> "Set[str]":
+    transfertool_attr = rse_data.ensure_loaded(load_attributes=True, session=session).attributes.get('transfertool')
+
+    if not transfertool_attr:
+        return {'fts3', 'globus'}
+
+    result = set()
+    for transfertool in transfertool_attr.split(sep=','):
+        if transfertool.strip():
+            result.add(transfertool)
+    return result
