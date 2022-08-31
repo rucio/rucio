@@ -103,7 +103,7 @@ def did_name_generator(did_type='file', name_prefix='', name_suffix='', path=Non
         if path is not None:
             return path
 
-        container_path = os.path.join("/belle", "mock", name_prefix, 'cont_%s' % str(uuid()))
+        container_path = os.path.join("/belle", name_prefix if name_prefix else "mock", 'cont_%s' % str(uuid()))
         if did_type == 'container':
             return container_path
 
