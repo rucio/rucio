@@ -13,23 +13,59 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 from datetime import datetime, timedelta
 
 import pytest
+from sqlalchemy import delete
 
-from rucio.common.config import config_get_bool, config_set, config_remove_option
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import attach_dids, add_did
 from rucio.core.replica import add_replica
 from rucio.core.request import queue_requests, get_request_by_did, release_waiting_requests_per_deadline, release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo, release_waiting_requests_per_free_volume
-from rucio.core.rse import get_rse_id, set_rse_transfer_limits
+from rucio.core.rse import set_rse_transfer_limits
 from rucio.daemons.conveyor import throttler, preparer
-from rucio.db.sqla import session, models
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestType, RequestState
 from rucio.tests.common import skiplimitedsql
 from rucio.tests.common_server import get_vo
+
+
+@pytest.fixture()
+def setup_class(request, vo, rse_factory, mock_scope, root_account, db_session):
+    source_rse, source_rse_id = rse_factory.make_mock_rse()
+    dest_rse, dest_rse_id = rse_factory.make_mock_rse()
+
+    request.cls.vo = {'vo': vo}
+    request.cls.source_rse = source_rse
+    request.cls.source_rse_id = source_rse_id
+    request.cls.dest_rse = dest_rse
+    request.cls.dest_rse_id = dest_rse_id
+    request.cls.scope = mock_scope
+    request.cls.account = root_account
+    request.cls.db_session = db_session
+    request.cls.dialect = db_session.bind.dialect.name
+
+
+def _delete_requests(scope, names, ids=None, session=None):
+    session.execute(
+        delete(
+            models.Request
+        ).where(
+            models.Request.scope == scope,
+            models.Request.name.in_(names)
+        )
+    )
+    if ids:
+        session.execute(
+            delete(
+                models.Request
+            ).where(
+                models.Request.id.in_(ids)
+            )
+        )
+    session.commit()
 
 
 def _add_test_replicas_and_request(request_configs, vo=None, scope=None, account=None, session=None):
@@ -82,49 +118,20 @@ def _add_test_replicas_and_request(request_configs, vo=None, scope=None, account
     return names
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
-@pytest.mark.usefixtures("core_config_mock")
-@pytest.mark.parametrize("core_config_mock", [{
-    "table_content": [('throttler', 'mode', 'DEST_PER_ALL_ACT')]
-}], indirect=True)
-class TestThrottlerGroupedFIFO(unittest.TestCase):
+@pytest.mark.noparallel(reason='uses preparer and throttler')
+@pytest.mark.usefixtures("core_config_mock", "file_config_mock", "setup_class")
+@pytest.mark.parametrize("file_config_mock", [{"overrides": [
+    ('conveyor', 'use_preparer', 'true')
+]}], indirect=True)
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('throttler', 'mode', 'DEST_PER_ALL_ACT'),
+]}], indirect=True)
+class TestThrottlerGroupedFIFO:
     """Throttler per destination RSE and on all activites per grouped FIFO
     """
 
-    db_session = None
-
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        cls.dest_rse = 'MOCK'
-        cls.source_rse = 'MOCK4'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
-        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
-        cls.scope = InternalScope('mock', **cls.vo)
-        cls.account = InternalAccount('root', **cls.vo)
-        cls.user_activity = 'User Subscription'
-        cls.all_activities = 'all_activities'
-        config_set('conveyor', 'use_preparer', 'true')
-
-    def setUp(self):
-        self.db_session = session.get_session()
-        self.dialect = self.db_session.bind.dialect.name
-        self.db_session.query(models.Request).delete()
-        self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.commit()
-
-    def tearDown(self):
-        self.db_session.commit()
-        self.db_session.close()
-
-    @classmethod
-    def tearDownClass(cls):
-        config_remove_option('conveyor', 'use_preparer')
+    user_activity = 'User Subscription'
+    all_activities = 'all_activities'
 
     def _add_replicas_and_request(self):
         return _add_test_replicas_and_request(
@@ -175,7 +182,13 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
         request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id)
         assert request_4['state'] == RequestState.WAITING
 
-        self.db_session.query(models.RSETransferLimit).delete()
+        self.db_session.execute(
+            delete(
+                models.RSETransferLimit
+            ).where(
+                models.RSETransferLimit.rse_id.in_([self.source_rse_id, self.dest_rse_id])
+            )
+        )
         self.db_session.commit()
 
         throttler.run_once(logger=print, session=self.db_session)
@@ -246,48 +259,19 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
         # deadline check should not work for destination RSEs - only for reading
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
-@pytest.mark.usefixtures("core_config_mock")
-@pytest.mark.parametrize("core_config_mock", [{
-    "table_content": [('throttler', 'mode', 'DEST_PER_ACT')]
-}], indirect=True)
-class TestThrottlerFIFO(unittest.TestCase):
+@pytest.mark.noparallel(reason='uses preparer and throttler')
+@pytest.mark.usefixtures("core_config_mock", "file_config_mock", "setup_class")
+@pytest.mark.parametrize("file_config_mock", [{"overrides": [
+    ('conveyor', 'use_preparer', 'true')
+]}], indirect=True)
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('throttler', 'mode', 'DEST_PER_ACT'),
+]}], indirect=True)
+class TestThrottlerFIFO:
     """Throttler per destination RSE and on each activites per FIFO
     """
-    db_session = None
-
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        cls.dest_rse = 'MOCK'
-        cls.source_rse = 'MOCK4'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
-        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
-        cls.scope = InternalScope('mock', **cls.vo)
-        cls.account = InternalAccount('root', **cls.vo)
-        cls.user_activity = 'User Subscription'
-        cls.all_activities = 'all_activities'
-        config_set('conveyor', 'use_preparer', 'true')
-
-    def setUp(self):
-        self.db_session = session.get_session()
-        self.dialect = self.db_session.bind.dialect.name
-        self.db_session.query(models.Request).delete()
-        self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.commit()
-
-    def tearDown(self):
-        self.db_session.commit()
-        self.db_session.close()
-
-    @classmethod
-    def tearDownClass(cls):
-        config_remove_option('conveyor', 'use_preparer')
+    user_activity = 'User Subscription'
+    all_activities = 'all_activities'
 
     def test_throttler_fifo_release_all(self):
         """ THROTTLER (CLIENTS): throttler release all waiting requests (DEST - ACT - FIFO). """
@@ -302,8 +286,6 @@ class TestThrottlerFIFO(unittest.TestCase):
                 {'source_rse_id': self.source_rse_id, 'dest_rse_id': self.dest_rse_id, 'requested_at': datetime.now().replace(year=2020)},
             ]
         )
-        self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.commit()
         preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         throttler.run_once(logger=print, session=self.db_session)
@@ -314,8 +296,7 @@ class TestThrottlerFIFO(unittest.TestCase):
         assert request2['state'] == RequestState.QUEUED
 
         # active transfers + waiting requests are less than the threshold -> release all waiting requests
-        self.db_session.query(models.Request).delete()
-        self.db_session.commit()
+        _delete_requests(self.scope, [name1, name2], session=self.db_session)
         set_rse_transfer_limits(self.dest_rse_id, activity=self.user_activity, max_transfers=3, strategy='fifo', session=self.db_session)
         request = models.Request(dest_rse_id=self.dest_rse_id, activity=self.user_activity, state=RequestState.SUBMITTED)
         request.save(session=self.db_session)
@@ -383,15 +364,14 @@ class TestThrottlerFIFO(unittest.TestCase):
         assert request2['state'] == RequestState.WAITING
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='deletes database content on setUp')
+@pytest.mark.noparallel(reason='uses preparer and throttler')
 @pytest.mark.usefixtures("core_config_mock", 'file_config_mock')
-@pytest.mark.parametrize("core_config_mock", [{
-    "table_content": [('throttler', 'mode', 'SRC_PER_ACT')]
-}], indirect=True)
-@pytest.mark.parametrize("file_config_mock", [{
-    "overrides": [('conveyor', 'use_preparer', 'true')]
-}], indirect=True)
+@pytest.mark.parametrize("file_config_mock", [{"overrides": [
+    ('conveyor', 'use_preparer', 'true')
+]}], indirect=True)
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('throttler', 'mode', 'SRC_PER_ACT')
+]}], indirect=True)
 class TestThrottlerFIFOSRCACT:
     """Throttler per source RSE and on each activites per FIFO."""
 
@@ -404,9 +384,6 @@ class TestThrottlerFIFOSRCACT:
 
         if db_session.bind.dialect.name == 'mysql':
             return True
-
-        db_session.query(models.Request).delete()
-        db_session.commit()
 
         _, source_rse_id = rse_factory.make_mock_rse()
         _, dest_rse_id = rse_factory.make_mock_rse()
@@ -450,48 +427,19 @@ class TestThrottlerFIFOSRCACT:
         assert request3['state'] == RequestState.WAITING
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
-@pytest.mark.usefixtures("core_config_mock")
-@pytest.mark.parametrize("core_config_mock", [{
-    "table_content": [('throttler', 'mode', 'SRC_PER_ALL_ACT')]
-}], indirect=True)
-class TestThrottlerFIFOSRCALLACT(unittest.TestCase):
+@pytest.mark.noparallel(reason='uses preparer and throttler')
+@pytest.mark.usefixtures("core_config_mock", "file_config_mock", "setup_class")
+@pytest.mark.parametrize("file_config_mock", [{"overrides": [
+    ('conveyor', 'use_preparer', 'true')
+]}], indirect=True)
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('throttler', 'mode', 'SRC_PER_ALL_ACT'),
+]}], indirect=True)
+class TestThrottlerFIFOSRCALLACT:
     """Throttler per source RSE and on all activites per FIFO."""
 
-    db_session = None
-
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        cls.dest_rse = 'MOCK'
-        cls.source_rse = 'MOCK4'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
-        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
-        cls.scope = InternalScope('mock', **cls.vo)
-        cls.account = InternalAccount('root', **cls.vo)
-        cls.user_activity = 'User Subscription'
-        cls.all_activities = 'all_activities'
-        config_set('conveyor', 'use_preparer', 'true')
-
-    def setUp(self):
-        self.db_session = session.get_session()
-        self.dialect = self.db_session.bind.dialect.name
-        self.db_session.query(models.Request).delete()
-        self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.commit()
-
-    def tearDown(self):
-        self.db_session.commit()
-        self.db_session.close()
-
-    @classmethod
-    def tearDownClass(cls):
-        config_remove_option('conveyor', 'use_preparer')
+    user_activity = 'User Subscription'
+    all_activities = 'all_activities'
 
     def test_throttler_fifo_release_subset(self):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (SRC - ALL ACT - FIFO). """
@@ -517,63 +465,32 @@ class TestThrottlerFIFOSRCALLACT(unittest.TestCase):
         assert request2['state'] == RequestState.WAITING
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
-@pytest.mark.usefixtures("core_config_mock")
-@pytest.mark.parametrize("core_config_mock", [{
-    "table_content": [('throttler', 'mode', 'DEST_PER_ALL_ACT')]
-}], indirect=True)
-class TestThrottlerFIFODESTALLACT(unittest.TestCase):
+@pytest.mark.noparallel(reason='uses preparer and throttler')
+@pytest.mark.usefixtures("core_config_mock", "file_config_mock", "setup_class")
+@pytest.mark.parametrize("file_config_mock", [{"overrides": [
+    ('conveyor', 'use_preparer', 'true')
+]}], indirect=True)
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('throttler', 'mode', 'DEST_PER_ALL_ACT'),
+]}], indirect=True)
+class TestThrottlerFIFODESTALLACT:
     """Throttler per destination RSE and on all activites per FIFO."""
 
-    db_session = None
+    user_activity = 'User Subscription'
+    user_activity2 = 'User Subscription2'
+    all_activities = 'all_activities'
 
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        cls.dest_rse = 'MOCK'
-        cls.dest_rse2 = 'MOCK5'
-        cls.source_rse = 'MOCK4'
-        cls.source_rse2 = 'MOCK3'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
-        cls.dest_rse_id2 = get_rse_id(cls.dest_rse2, **cls.vo)
-        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
-        cls.source_rse_id2 = get_rse_id(cls.source_rse2, **cls.vo)
-        cls.scope = InternalScope('mock', **cls.vo)
-        cls.account = InternalScope('root', **cls.vo)
-        cls.user_activity = 'User Subscription'
-        cls.user_activity2 = 'User Subscription2'
-        cls.all_activities = 'all_activities'
-        config_set('conveyor', 'use_preparer', 'true')
-
-    def setUp(self):
-        self.db_session = session.get_session()
-        self.dialect = self.db_session.bind.dialect.name
-        self.db_session.query(models.Request).delete()
-        self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.commit()
-
-    def tearDown(self):
-        self.db_session.commit()
-        self.db_session.close()
-
-    @classmethod
-    def tearDownClass(cls):
-        config_remove_option('conveyor', 'use_preparer')
-
-    def test_throttler_fifo_release_subset(self):
+    def test_throttler_fifo_release_subset(self, rse_factory):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (DEST - ALL ACT - FIFO). """
         if self.dialect == 'mysql':
             return True
+        _, source_rse_id2 = rse_factory.make_mock_rse()
+        _, dest_rse_id2 = rse_factory.make_mock_rse()
 
         # two waiting requests and no active requests but threshold 1 for one dest RSE
         # one waiting request and no active requests but threshold 0 for another dest RSE -> release only 1 request on one dest RSE
         set_rse_transfer_limits(self.dest_rse_id, activity=self.all_activities, max_transfers=1, strategy='fifo', session=self.db_session)
-        set_rse_transfer_limits(self.dest_rse_id2, activity=self.all_activities, max_transfers=0, strategy='fifo', session=self.db_session)
+        set_rse_transfer_limits(dest_rse_id2, activity=self.all_activities, max_transfers=0, strategy='fifo', session=self.db_session)
         name1, name2, name3 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
@@ -583,13 +500,13 @@ class TestThrottlerFIFODESTALLACT(unittest.TestCase):
                     'requested_at': datetime.now().replace(year=2018),
                     'attributes': {'activity': self.user_activity},
                 }, {
-                    'source_rse_id': self.source_rse_id2,
+                    'source_rse_id': source_rse_id2,
                     'dest_rse_id': self.dest_rse_id,
                     'requested_at': datetime.now().replace(year=2020),
                     'attributes': {'activity': self.user_activity2},
                 }, {
                     'source_rse_id': self.source_rse_id,
-                    'dest_rse_id': self.dest_rse_id2,
+                    'dest_rse_id': dest_rse_id2,
                     'requested_at': datetime.now().replace(year=2020),
                     'attributes': {'activity': self.user_activity2},
                 },
@@ -605,60 +522,31 @@ class TestThrottlerFIFODESTALLACT(unittest.TestCase):
         # waiting because limit already exceeded
         request2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
         assert request2['state'] == RequestState.WAITING
-        request3 = get_request_by_did(self.scope, name3, self.dest_rse_id2)
+        request3 = get_request_by_did(self.scope, name3, dest_rse_id2)
         assert request3['state'] == RequestState.WAITING
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
-@pytest.mark.usefixtures("core_config_mock")
-@pytest.mark.parametrize("core_config_mock", [{
-    "table_content": [('throttler', 'mode', 'SRC_PER_ALL_ACT')]
-}], indirect=True)
-class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
+@pytest.mark.noparallel(reason='uses preparer and throttler')
+@pytest.mark.usefixtures("core_config_mock", "file_config_mock", "setup_class")
+@pytest.mark.parametrize("file_config_mock", [{"overrides": [
+    ('conveyor', 'use_preparer', 'true')
+]}], indirect=True)
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('throttler', 'mode', 'SRC_PER_ALL_ACT'),
+]}], indirect=True)
+class TestThrottlerGroupedFIFOSRCALLACT:
     """Throttler per source RSE and on all activites per grouped FIFO."""
 
-    db_session = None
-
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        cls.dest_rse = 'MOCK'
-        cls.source_rse = 'MOCK4'
-        cls.dest_rse_2 = 'MOCK3'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
-        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
-        cls.dest_rse_id_2 = get_rse_id(cls.dest_rse_2, **cls.vo)
-        cls.scope = InternalScope('mock', **cls.vo)
-        cls.account = InternalAccount('root', **cls.vo)
-        cls.user_activity = 'User Subscription'
-        cls.all_activities = 'all_activities'
-        config_set('conveyor', 'use_preparer', 'true')
-
-    def setUp(self):
-        self.db_session = session.get_session()
-        self.dialect = self.db_session.bind.dialect.name
-        self.db_session.query(models.Request).delete()
-        self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.commit()
-
-    def tearDown(self):
-        self.db_session.commit()
-        self.db_session.close()
-
-    @classmethod
-    def tearDownClass(cls):
-        config_remove_option('conveyor', 'use_preparer')
+    user_activity = 'User Subscription'
+    all_activities = 'all_activities'
 
     @skiplimitedsql
-    def test_preparer_throttler_grouped_fifo_subset(self):
+    def test_preparer_throttler_grouped_fifo_subset(self, rse_factory):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (SRC - ALL ACT - GFIFO). """
         if self.dialect == 'mysql':
             return True
+
+        _, dest_rse_id2 = rse_factory.make_mock_rse()
 
         set_rse_transfer_limits(self.source_rse_id, self.all_activities, volume=10, max_transfers=1, deadline=0, strategy='grouped_fifo', session=self.db_session)
         name1, name2, name3, name4 = _add_test_replicas_and_request(
@@ -671,7 +559,7 @@ class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
                     'attributes': {'activity': self.user_activity},
                 }, {
                     'source_rse_id': self.source_rse_id,
-                    'dest_rse_id': self.dest_rse_id_2,
+                    'dest_rse_id': dest_rse_id2,
                     'requested_at': datetime.now().replace(year=2020),
                     'attributes': {'activity': self.all_activities},
                 }, {
@@ -681,7 +569,7 @@ class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
                     'attributes': {'activity': self.all_activities},
                 }, {
                     'source_rse_id': self.source_rse_id,
-                    'dest_rse_id': self.dest_rse_id_2,
+                    'dest_rse_id': dest_rse_id2,
                     'requested_at': datetime.now().replace(year=2020),
                     'attributes': {'activity': self.all_activities},
                 },
@@ -696,11 +584,11 @@ class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
         self.db_session.commit()
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
         assert request_1['state'] == RequestState.WAITING
-        request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id_2, session=self.db_session)
+        request_2 = get_request_by_did(self.scope, name2, dest_rse_id2, session=self.db_session)
         assert request_2['state'] == RequestState.WAITING
         request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id, session=self.db_session)
         assert request_3['state'] == RequestState.WAITING
-        request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id_2, session=self.db_session)
+        request_4 = get_request_by_did(self.scope, name4, dest_rse_id2, session=self.db_session)
         assert request_4['state'] == RequestState.WAITING
 
         throttler.run_once(logger=print, session=self.db_session)
@@ -709,71 +597,37 @@ class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert request_1['state'] == RequestState.QUEUED
         # released because the DID is attached to the same dataset
-        request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id_2)
+        request_2 = get_request_by_did(self.scope, name2, dest_rse_id2)
         assert request_2['state'] == RequestState.QUEUED
         # still waiting, volume check is only working for destination RSEs (writing)
         request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id)
         assert request_3['state'] == RequestState.WAITING
-        request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id_2)
+        request_4 = get_request_by_did(self.scope, name4, dest_rse_id2)
         assert request_4['state'] == RequestState.WAITING
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='deletes database content on setUp, uses pre-defined rses, changes global configuration value')
-@pytest.mark.usefixtures("core_config_mock")
-@pytest.mark.parametrize("core_config_mock", [{
-    "table_content": [('throttler', 'mode', 'DEST_PER_ACT')]
-}], indirect=True)
-class TestRequestCoreRelease(unittest.TestCase):
+@pytest.mark.noparallel(reason='uses preparer and throttler')
+@pytest.mark.usefixtures("core_config_mock", "file_config_mock", "setup_class")
+@pytest.mark.parametrize("file_config_mock", [{"overrides": [
+    ('conveyor', 'use_preparer', 'true')
+]}], indirect=True)
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('throttler', 'mode', 'DEST_PER_ACT'),
+]}], indirect=True)
+class TestRequestCoreRelease:
     """Test release methods used in throttler."""
-
-    db_session = None
-
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        cls.dest_rse = 'MOCK'
-        cls.source_rse = 'MOCK4'
-        cls.source_rse2 = 'MOCK5'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
-        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
-        cls.source_rse_id2 = get_rse_id(cls.source_rse2, **cls.vo)
-        cls.scope = InternalScope('mock', **cls.vo)
-        cls.account = InternalAccount('root', **cls.vo)
-        cls.user_activity = 'User Subscription'
-        cls.all_activities = 'all_activities'
-        config_set('conveyor', 'use_preparer', 'true')
-
-    def setUp(self):
-        self.db_session = session.get_session()
-        self.dialect = self.db_session.bind.dialect.name
-        self.db_session.query(models.Request).delete()
-        self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.query(models.Distance).delete()
-        # set transfer limits to put requests in waiting state
-        set_rse_transfer_limits(self.dest_rse_id, self.user_activity, max_transfers=1, session=self.db_session)
-        set_rse_transfer_limits(self.dest_rse_id, self.all_activities, max_transfers=1, session=self.db_session)
-        set_rse_transfer_limits(self.dest_rse_id, 'ignore', max_transfers=1, session=self.db_session)
-        self.db_session.commit()
-
-    def tearDown(self):
-        self.db_session.commit()
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        config_remove_option('conveyor', 'use_preparer')
+    user_activity = 'User Subscription'
+    user_activity2 = 'User Subscription2'
+    all_activities = 'all_activities'
 
     @skiplimitedsql
     def test_release_waiting_requests_per_free_volume(self):
         """ REQUEST (CORE): release waiting requests that fit grouped in available volume."""
         # release unattached requests that fit in available volume with respect to already submitted transfers
-        request = models.Request(dest_rse_id=self.dest_rse_id, bytes=2, activity=self.all_activities, state=RequestState.SUBMITTED)
-        request.save(session=self.db_session)
+        dummy_request = models.Request(dest_rse_id=self.dest_rse_id, bytes=2, activity=self.all_activities, state=RequestState.SUBMITTED)
+        dummy_request.save(session=self.db_session)
         volume = 10
+        set_rse_transfer_limits(self.dest_rse_id, self.user_activity, max_transfers=1, session=self.db_session)
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=volume, max_transfers=1, session=self.db_session)
         name1, name2, name3 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
@@ -810,10 +664,9 @@ class TestRequestCoreRelease(unittest.TestCase):
         assert request['state'] == RequestState.WAITING
 
         # release attached requests that fit together with the dataset in available volume with respect to already submitted transfers
-        self.db_session.query(models.Request).delete()
-        self.db_session.commit()
-        request = models.Request(dest_rse_id=self.dest_rse_id, bytes=2, activity=self.all_activities, state=RequestState.SUBMITTED)
-        request.save(session=self.db_session)
+        _delete_requests(self.scope, [name1, name2, name3], ids=[dummy_request['id']], session=self.db_session)
+        dummy_request = models.Request(dest_rse_id=self.dest_rse_id, bytes=2, activity=self.all_activities, state=RequestState.SUBMITTED)
+        dummy_request.save(session=self.db_session)
         volume = 10
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=volume, max_transfers=1, session=self.db_session)
         name1, name2, name3, name4 = _add_test_replicas_and_request(
@@ -863,8 +716,7 @@ class TestRequestCoreRelease(unittest.TestCase):
         assert request['state'] == RequestState.WAITING
 
         # release requests with no available volume -> release nothing
-        self.db_session.query(models.Request).delete()
-        self.db_session.commit()
+        _delete_requests(self.scope, [name1, name2, name3, name4], ids=[dummy_request['id']], session=self.db_session)
         volume = 0
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=volume, max_transfers=1, session=self.db_session)
         name1, = _add_test_replicas_and_request(
@@ -884,11 +736,10 @@ class TestRequestCoreRelease(unittest.TestCase):
     def test_release_waiting_requests_grouped_fifo(self):
         """ REQUEST (CORE): release waiting requests based on grouped FIFO. """
         # set volume and deadline to 0 to check first without releasing extra requests
+        set_rse_transfer_limits(self.dest_rse_id, self.user_activity, max_transfers=1, session=self.db_session)
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=0, max_transfers=1, session=self.db_session)
 
         # one request with an unattached DID -> one request should be released
-        self.db_session.query(models.Request).delete()
-        self.db_session.commit()
         name, = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
@@ -903,8 +754,7 @@ class TestRequestCoreRelease(unittest.TestCase):
         assert request['state'] == RequestState.QUEUED
 
         # one request with an attached DID -> one request should be released
-        self.db_session.query(models.Request).delete()
-        self.db_session.commit()
+        _delete_requests(self.scope, [name], session=self.db_session)
         name, = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
@@ -921,8 +771,7 @@ class TestRequestCoreRelease(unittest.TestCase):
         assert request['state'] == RequestState.QUEUED
 
         # five requests with different requested_at and multiple attachments per collection -> release only one request -> two requests of one collection should be released
-        self.db_session.query(models.Request).delete()
-        self.db_session.commit()
+        _delete_requests(self.scope, [name], session=self.db_session)
         name1, name2, name3, name4, name5 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
@@ -955,8 +804,7 @@ class TestRequestCoreRelease(unittest.TestCase):
         assert request_5['state'] == RequestState.WAITING
 
         # with maximal volume check -> release one request -> three requests should be released because of attachments and free volume space
-        self.db_session.query(models.Request).delete()
-        self.db_session.commit()
+        _delete_requests(self.scope, [name1, name2, name3, name4, name5], session=self.db_session)
         name1, name2, name3, name4 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
@@ -991,8 +839,7 @@ class TestRequestCoreRelease(unittest.TestCase):
         assert request_4['state'] == RequestState.WAITING
 
         # with maximal volume check -> release one request -> two requests should be released because of attachments
-        self.db_session.query(models.Request).delete()
-        self.db_session.commit()
+        _delete_requests(self.scope, [name1, name2, name3, name4], session=self.db_session)
         request = models.Request(dest_rse_id=self.dest_rse_id, bytes=2, activity=self.all_activities, state=RequestState.SUBMITTED)
         request.save(session=self.db_session)
         name1, name2, name3, name4 = _add_test_replicas_and_request(
@@ -1025,8 +872,7 @@ class TestRequestCoreRelease(unittest.TestCase):
         assert request_4['state'] == RequestState.WAITING
 
         # with deadline check -> release 0 requests -> 1 request should be released nonetheless
-        self.db_session.query(models.Request).delete()
-        self.db_session.commit()
+        _delete_requests(self.scope, [name1, name2, name3, name4], session=self.db_session)
         name1, name2 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
@@ -1049,6 +895,9 @@ class TestRequestCoreRelease(unittest.TestCase):
         """ REQUEST (CORE): release waiting requests based on FIFO. """
         # without account and activity check
         # two requests -> release one request -> request with oldest requested_at date should be released
+        set_rse_transfer_limits(self.dest_rse_id, self.user_activity, max_transfers=1, session=self.db_session)
+        set_rse_transfer_limits(self.dest_rse_id, self.all_activities, max_transfers=1, session=self.db_session)
+        set_rse_transfer_limits(self.dest_rse_id, 'ignore', max_transfers=1, session=self.db_session)
         name1, name2 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
@@ -1066,8 +915,7 @@ class TestRequestCoreRelease(unittest.TestCase):
 
         # with activity and account check
         # two requests -> release two request -> requests with correct account and activity should be released
-        self.db_session.query(models.Request).delete()
-        self.db_session.commit()
+        _delete_requests(self.scope, [name1, name2], session=self.db_session)
         name1, name2, name3, name4 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
@@ -1106,6 +954,8 @@ class TestRequestCoreRelease(unittest.TestCase):
 
     def test_release_waiting_requests_all(self):
         """ REQUEST (CORE): release all waiting requests. """
+        set_rse_transfer_limits(self.dest_rse_id, self.user_activity, max_transfers=1, session=self.db_session)
+        set_rse_transfer_limits(self.dest_rse_id, self.all_activities, max_transfers=1, session=self.db_session)
         name1, name2 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
             request_configs=[
@@ -1125,7 +975,8 @@ class TestRequestCoreRelease(unittest.TestCase):
     def test_release_waiting_requests_per_deadline(self):
         """ REQUEST (CORE): release grouped waiting requests that exceeded waiting time."""
         # a request that exceeded the maximal waiting time to be released (1 hour) -> release one request -> only the exceeded request should be released
-        set_rse_transfer_limits(self.source_rse_id, activity=self.all_activities, strategy='grouped_fifo', session=self.db_session)
+        set_rse_transfer_limits(self.dest_rse_id, self.user_activity, max_transfers=1, session=self.db_session)
+        set_rse_transfer_limits(self.dest_rse_id, self.all_activities, max_transfers=1, session=self.db_session)
         two_hours = timedelta(hours=2)
         name1, name2 = _add_test_replicas_and_request(
             vo=self.vo, scope=self.scope, account=self.account, session=self.db_session,
