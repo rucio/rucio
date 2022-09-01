@@ -26,7 +26,6 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common import constants
-from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (InvalidRSEExpression,
@@ -35,12 +34,10 @@ from rucio.common.exception import (InvalidRSEExpression,
 from rucio.common.utils import construct_surl, get_parsed_throttler_mode
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.account import list_accounts
-from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter
 from rucio.core.request import set_request_state, RequestWithSources, RequestSource
-from rucio.core.rse import get_rse_transfer_limits, list_rses, RseCollection
+from rucio.core.rse import get_rse_transfer_limits
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.topology import Topology
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, RequestType
 from rucio.db.sqla.session import read_session, transactional_session
@@ -52,6 +49,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
     from rucio.core.rse import RseData
+    from rucio.core.topology import Topology
 
     LoggerFunction = Callable[..., Any]
 
@@ -61,7 +59,6 @@ where the external_id is already known.
 Requests accessed by request_id  are covered in the core request.py
 """
 
-REGION_SHORT = make_region_memcached(expiration_time=600)
 REGION_ACCOUNTS = make_region().configure('dogpile.cache.memory', expiration_time=600)
 
 WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
@@ -553,11 +550,10 @@ def touch_transfer(external_host, transfer_id, session=None):
 
 @read_session
 def __create_transfer_definitions(
-        topology: Topology,
+        topology: "Topology",
         protocol_factory: ProtocolFactory,
         rws: RequestWithSources,
         sources: "List[RequestSource]",
-        multihop_rses: "List[str]",
         limit_dest_schemes: "List[str]",
         operation_src: str,
         operation_dest: str,
@@ -571,7 +567,7 @@ def __create_transfer_definitions(
     inbound_links_by_node = {}
     shortest_paths = topology.search_shortest_paths(source_rse_ids=[s.rse.id for s in sources], dest_rse_id=rws.dest_rse.id,
                                                     operation_src=operation_src, operation_dest=operation_dest, domain=domain,
-                                                    multihop_rses=multihop_rses, limit_dest_schemes=limit_dest_schemes,
+                                                    limit_dest_schemes=limit_dest_schemes,
                                                     inbound_links_by_node=inbound_links_by_node, session=session)
 
     transfers_by_source = {}
@@ -779,94 +775,6 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
     yield from sorted(candidate_paths, key=__transfer_order_key)
 
 
-@transactional_session
-def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                       failover_schemes=None, active_transfertools=None, filter_transfertool=None, request_type=RequestType.TRANSFER,
-                       request_state=RequestState.QUEUED, ignore_availability=False, logger=logging.log, session=None):
-    """
-    Get next transfers to be submitted; grouped by transfertool which can submit them
-    :param total_workers:         Number of total workers.
-    :param worker_number:         Id of the executing worker.
-    :param partition_hash_var     The hash variable used for partitioning thread work
-    :param limit:                 Maximum number of requests to retrieve from database.
-    :param activity:              Activity.
-    :param older_than:            Get transfers older than.
-    :param rses:                  Include RSES.
-    :param schemes:               Include schemes.
-    :param failover_schemes:      Failover schemes.
-    :param filter_transfertool:   The transfer tool to filter requests on.
-    :param active_transfertools:  The transfer tool names which are supported by the calling context.
-    :param request_type           The type of requests to retrieve (Transfer/Stagein)
-    :param ignore_availability:   Ignore blocklisted RSEs
-    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
-    :param session:               The database session in use.
-    :returns:                     Dict: {TransferToolBuilder: <list of transfer paths (possibly multihop) to be submitted>}
-
-    Workflow:
-    """
-
-    include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
-
-    multihop_rses = []
-    if include_multihop:
-        try:
-            multihop_rses = [rse['id'] for rse in parse_expression('available_for_multihop=true')]
-        except InvalidRSEExpression:
-            pass
-
-    restricted_read_rses = []
-    try:
-        restricted_read_rses = {rse['id'] for rse in parse_expression('restricted_read=true')}
-    except InvalidRSEExpression:
-        pass
-
-    restricted_write_rses = []
-    try:
-        restricted_write_rses = {rse['id'] for rse in parse_expression('restricted_write=true')}
-    except InvalidRSEExpression:
-        pass
-
-    admin_accounts = __list_admin_accounts(session=session)
-
-    if schemes is None:
-        schemes = []
-
-    if failover_schemes is None:
-        failover_schemes = []
-
-    # retrieve (from the database) the transfer requests with their possible source replicas
-    request_with_sources = request_core.list_transfer_requests_and_source_replicas(
-        total_workers=total_workers,
-        worker_number=worker_number,
-        partition_hash_var=partition_hash_var,
-        limit=limit,
-        activity=activity,
-        older_than=older_than,
-        rses=rses,
-        multihop_rses=multihop_rses,
-        request_type=request_type,
-        request_state=request_state,
-        ignore_availability=ignore_availability,
-        transfertool=filter_transfertool,
-        session=session,
-    )
-
-    # for each source, compute the (possibly multihop) path between it and the transfer destination
-    return __build_transfer_paths(
-        request_with_sources,
-        multihop_rses=multihop_rses,
-        restricted_read_rses=restricted_read_rses,
-        restricted_write_rses=restricted_write_rses,
-        schemes=schemes,
-        failover_schemes=failover_schemes,
-        admin_accounts=admin_accounts,
-        ignore_availability=ignore_availability,
-        active_transfertools=active_transfertools,
-        logger=logger,
-        session=session,
-    )
-
-
 def __parse_request_transfertools(
         rws: "RequestWithSources",
         logger: "Callable" = logging.log,
@@ -884,16 +792,14 @@ def __parse_request_transfertools(
     return request_transfertools
 
 
-def __build_transfer_paths(
+def build_transfer_paths(
+        topology: "Topology",
         requests_with_sources: "Iterable[RequestWithSources]",
-        multihop_rses: "List[str]",
-        restricted_read_rses: "Set[str]",
-        restricted_write_rses: "Set[str]",
-        schemes: "List[str]",
-        failover_schemes: "List[str]",
-        admin_accounts: "Set[InternalAccount]",
+        admin_accounts: "Optional[Set[InternalAccount]]" = None,
+        schemes: "Optional[List[str]]" = None,
+        failover_schemes: "Optional[List[str]]" = None,
         active_transfertools: "Set[str]" = None,
-        ignore_availability: bool = False,
+        requested_source_only: bool = False,
         logger: "Callable" = logging.log,
         session: "Optional[Session]" = None,
 ):
@@ -907,29 +813,32 @@ def __build_transfer_paths(
 
     Each path is a list of hops. Each hop is a transfer definition.
     """
-    rse_collection = RseCollection()
-    topology = Topology(rse_collection=rse_collection)
+    if schemes is None:
+        schemes = []
+
+    if failover_schemes is None:
+        failover_schemes = []
+
+    if admin_accounts is None:
+        admin_accounts = set()
+
     protocol_factory = ProtocolFactory()
-    unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
-    unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
     # Do not print full source RSE list for DIDs which have many sources. Otherwise we fill the monitoring
     # storage with data which has little to no benefit. This log message is unlikely to help debugging
     # transfers issues when there are many sources, but can be very useful for small number of sources.
     num_sources_in_logs = 4
 
-    # Disallow multihop via blocklisted RSEs
-    if not ignore_availability:
-        multihop_rses = list(set(multihop_rses).difference(unavailable_write_rse_ids).difference(unavailable_read_rse_ids))
-
     candidate_paths_by_request_id, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, set(), set(), set()
     reqs_unsupported_transfertool = set()
     for rws in requests_with_sources:
 
-        rws.dest_rse = rse_collection.setdefault(rws.dest_rse.id, rws.dest_rse)
+        rws.dest_rse = topology.rse_collection.setdefault(rws.dest_rse.id, rws.dest_rse)
         rws.dest_rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
-        for source in rws.sources:
-            source.rse = rse_collection.setdefault(source.rse.id, source.rse)
+
+        sources = [rws.requested_source] if requested_source_only else rws.sources
+        for source in sources:
+            source.rse = topology.rse_collection.setdefault(source.rse.id, source.rse)
             source.rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
 
         transfer_schemes = schemes
@@ -938,21 +847,22 @@ def __build_transfer_paths(
 
         # Assume request doesn't have any sources. Will be removed later if sources are found.
         reqs_no_source.add(rws.request_id)
-        if not rws.sources:
+        if not sources:
             logger(logging.INFO, '%s: has no sources. Skipping.', rws)
             continue
 
-        logger(logging.DEBUG, '%s: Found %d sources: %s%s',
+        logger(logging.DEBUG, '%s: Working on %d sources%s: %s%s',
                rws,
-               len(rws.sources),
-               ','.join('{}:{}:{}'.format(src.rse, src.source_ranking, src.distance_ranking) for src in rws.sources[:num_sources_in_logs]),
-               '... and %d others' % (len(rws.sources) - num_sources_in_logs) if len(rws.sources) > num_sources_in_logs else '')
+               len(sources),
+               f'out of {len(rws.sources)}' if len(rws.sources) != len(sources) else '',
+               ','.join('{}:{}:{}'.format(src.rse, src.source_ranking, src.distance_ranking) for src in sources[:num_sources_in_logs]),
+               '... and %d others' % (len(sources) - num_sources_in_logs) if len(sources) > num_sources_in_logs else '')
 
         # Check if destination is blocked
-        if not ignore_availability and rws.dest_rse.id in unavailable_write_rse_ids:
+        if rws.dest_rse.id in topology.unavailable_write_rses:
             logger(logging.WARNING, '%s: dst RSE is blocked for write. Will skip the submission of new jobs', rws.request_id)
             continue
-        if rws.account not in admin_accounts and rws.dest_rse.id in restricted_write_rses:
+        if rws.account not in admin_accounts and rws.dest_rse.id in topology.restricted_write_rses:
             logger(logging.WARNING, '%s: dst RSE is restricted for write. Will skip the submission', rws.request_id)
             continue
 
@@ -979,16 +889,15 @@ def __build_transfer_paths(
             else:
                 allowed_source_rses = [x['id'] for x in parsed_rses]
 
-        filtered_sources = rws.sources
+        filtered_sources = sources
         # Only keep allowed sources
         if allowed_source_rses is not None:
             filtered_sources = filter(lambda s: s.rse.id in allowed_source_rses, filtered_sources)
         filtered_sources = filter(lambda s: s.rse.name is not None, filtered_sources)
         if rws.account not in admin_accounts:
-            filtered_sources = filter(lambda s: s.rse.id not in restricted_read_rses, filtered_sources)
+            filtered_sources = filter(lambda s: s.rse.id not in topology.restricted_read_rses, filtered_sources)
         # Ignore blocklisted RSEs
-        if not ignore_availability:
-            filtered_sources = filter(lambda s: s.rse.id not in unavailable_read_rse_ids, filtered_sources)
+        filtered_sources = filter(lambda s: s.rse.id not in topology.unavailable_read_rses, filtered_sources)
         # For staging requests, the staging_buffer attribute must be correctly set
         if rws.request_type == RequestType.STAGEIN:
             filtered_sources = filter(lambda s: s.rse.attributes.get('staging_buffer') == rws.dest_rse.name, filtered_sources)
@@ -1019,7 +928,6 @@ def __build_transfer_paths(
             paths = __create_transfer_definitions(topology=topology,
                                                   rws=rws,
                                                   sources=filtered_sources,
-                                                  multihop_rses=multihop_rses,
                                                   limit_dest_schemes=[],
                                                   operation_src='third_party_copy_read',
                                                   operation_dest='third_party_copy_write',
@@ -1090,32 +998,6 @@ def __build_transfer_paths(
     return candidate_paths_by_request_id, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source, reqs_unsupported_transfertool
 
 
-@read_session
-def __get_unavailable_rse_ids(operation, session=None, logger=logging.log):
-    """
-    :param logger:   Optional decorated logger that can be passed from the calling daemons or servers.
-    Get unavailable rse ids for a given operation : read, write, delete
-    """
-
-    if operation not in ['read', 'write', 'delete']:
-        logger(logging.ERROR, "Wrong operation specified : %s" % operation)
-        return []
-    key = 'unavailable_%s_rse_ids' % operation
-    result = REGION_SHORT.get(key)
-    if isinstance(result, NoValue):
-        try:
-            logger(logging.DEBUG, "Refresh unavailable %s rses" % operation)
-            availability_key = 'availability_%s' % operation
-            unavailable_rses = list_rses(filters={availability_key: False}, session=session)
-            unavailable_rse_ids = [rse['id'] for rse in unavailable_rses]
-            REGION_SHORT.set(key, unavailable_rse_ids)
-            return unavailable_rse_ids
-        except Exception:
-            logger(logging.ERROR, "Failed to refresh unavailable %s rses, error" % operation, exc_info=True)
-            return []
-    return result
-
-
 def __add_compatible_schemes(schemes, allowed_schemes):
     """
     Add the compatible schemes to a list of schemes
@@ -1137,7 +1019,7 @@ def __add_compatible_schemes(schemes, allowed_schemes):
 
 
 @read_session
-def __list_admin_accounts(session=None):
+def list_transfer_admin_accounts(session=None):
     """
     List admin accounts and cache the result in memory
     """

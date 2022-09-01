@@ -15,6 +15,7 @@
 
 import copy
 import itertools
+import logging
 from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NoValue
@@ -23,15 +24,19 @@ from sqlalchemy import select, false
 from rucio.common.utils import PriorityQueue
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get_int
-from rucio.common.exception import NoDistance, RSEProtocolNotSupported
-from rucio.core.rse import RseCollection
+from rucio.common.exception import NoDistance, RSEProtocolNotSupported, InvalidRSEExpression
+from rucio.core.rse import RseCollection, list_rses
+from rucio.core.config import get as core_config_get
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
-from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List, Optional, Union
+    from typing import Any, Callable, Dict, List, Optional, Set, Union
     from sqlalchemy.orm import Session
+
+    LoggerFunction = Callable[..., Any]
 
 REGION = make_region_memcached(expiration_time=600)
 
@@ -40,8 +45,64 @@ class Topology:
     """
     Helper private class used to dynamically load and cache the rse information
     """
-    def __init__(self, rse_collection: "RseCollection"):
+    def __init__(
+            self,
+            rse_collection: "RseCollection",
+            multihop_rses: "Set[str]",
+            restricted_read_rses: "Optional[Set[str]]" = None,
+            restricted_write_rses: "Optional[Set[str]]" = None,
+            unavailable_read_rses: "Optional[Set[str]]" = None,
+            unavailable_write_rses: "Optional[Set[str]]" = None,
+    ):
         self.rse_collection = rse_collection
+        self.multihop_rses = multihop_rses
+        self.restricted_read_rses = restricted_read_rses or set()
+        self.restricted_write_rses = restricted_write_rses or set()
+        self.unavailable_read_rses = unavailable_read_rses or set()
+        self.unavailable_write_rses = unavailable_write_rses or set()
+
+    @classmethod
+    @read_session
+    def create_from_config(cls, ignore_availability: bool = False, session: "Optional[Session]" = None, logger: "LoggerFunction" = logging.log):
+
+        include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
+
+        multihop_rses = set()
+        if include_multihop:
+            try:
+                multihop_rses = {rse['id'] for rse in parse_expression('available_for_multihop=true', session=session)}
+            except InvalidRSEExpression:
+                pass
+
+        restricted_read_rses = set()
+        try:
+            restricted_read_rses = {rse['id'] for rse in parse_expression('restricted_read=true', session=session)}
+        except InvalidRSEExpression:
+            pass
+
+        restricted_write_rses = set()
+        try:
+            restricted_write_rses = {rse['id'] for rse in parse_expression('restricted_write=true', session=session)}
+        except InvalidRSEExpression:
+            pass
+
+        unavailable_read_rses = set()
+        unavailable_write_rses = set()
+        if not ignore_availability:
+            unavailable_read_rses = _get_unavailable_rse_ids(operation='read', session=session, logger=logger)
+            unavailable_write_rses = _get_unavailable_rse_ids(operation='write', session=session, logger=logger)
+            # Disallow multihop via blocklisted RSEs
+            multihop_rses = multihop_rses.difference(unavailable_write_rses).difference(unavailable_read_rses)
+
+        topology = cls(
+            rse_collection=RseCollection(),
+            multihop_rses=multihop_rses,
+            restricted_read_rses=restricted_read_rses,
+            restricted_write_rses=restricted_write_rses,
+            unavailable_read_rses=unavailable_read_rses,
+            unavailable_write_rses=unavailable_write_rses,
+        )
+        return topology
 
     @transactional_session
     def search_shortest_paths(
@@ -51,7 +112,6 @@ class Topology:
             operation_src: str,
             operation_dest: str,
             domain: str,
-            multihop_rses: "List[str]",
             limit_dest_schemes: "Union[str, List[str]]",
             inbound_links_by_node: "Optional[Dict[str, Dict[str, str]]]" = None,
             session: "Optional[Session]" = None
@@ -67,9 +127,9 @@ class Topology:
         """
         HOP_PENALTY = config_get_int('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
 
-        self.rse_collection.ensure_loaded(itertools.chain(source_rse_ids, [dest_rse_id], multihop_rses),
+        self.rse_collection.ensure_loaded(itertools.chain(source_rse_ids, [dest_rse_id], self.multihop_rses),
                                           load_attributes=True, load_info=True, session=session)
-        if multihop_rses:
+        if self.multihop_rses:
             # Filter out island source RSEs
             sources_to_find = {rse_id for rse_id in source_rse_ids if _load_outgoing_distances_node(rse_id=rse_id, session=session)}
         else:
@@ -98,7 +158,7 @@ class Topology:
                 if link_distance is None:
                     continue
 
-                if adjacent_node not in remaining_sources and adjacent_node not in multihop_rses:
+                if adjacent_node not in remaining_sources and adjacent_node not in self.multihop_rses:
                     continue
 
                 try:
@@ -133,7 +193,7 @@ class Topology:
                     if next_hop.get(adjacent_node) is None:
                         next_hop[adjacent_node] = {}
 
-            if not multihop_rses:
+            if not self.multihop_rses:
                 # Stop after the first iteration, which finds direct connections to destination
                 break
 
@@ -169,11 +229,10 @@ def get_hops(source_rse_id, dest_rse_id, multihop_rses=None, limit_dest_schemes=
     if not multihop_rses:
         multihop_rses = []
 
-    topology = Topology(RseCollection())
+    topology = Topology(rse_collection=RseCollection(), multihop_rses=multihop_rses)
     shortest_paths = topology.search_shortest_paths(source_rse_ids=[source_rse_id], dest_rse_id=dest_rse_id,
                                                     operation_src='third_party_copy_read', operation_dest='third_party_copy_write',
-                                                    domain='wan', multihop_rses=multihop_rses,
-                                                    limit_dest_schemes=limit_dest_schemes, session=session)
+                                                    domain='wan', limit_dest_schemes=limit_dest_schemes, session=session)
 
     result = REGION.get('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))))
     if not isinstance(result, NoValue):
@@ -250,3 +309,29 @@ def _load_inbound_distances_node(rse_id, session=None):
         REGION.set('inbound_edges_%s' % str(rse_id), inbound_edges)
         result = inbound_edges
     return result
+
+
+@read_session
+def _get_unavailable_rse_ids(operation: str, session: "Optional[Session]" = None, logger: "LoggerFunction" = logging.log):
+    """
+    :param logger:   Optional decorated logger that can be passed from the calling daemons or servers.
+    Get unavailable rse ids for a given operation : read, write, delete
+    """
+
+    if operation not in ['read', 'write', 'delete']:
+        logger(logging.ERROR, "Wrong operation specified : %s" % operation)
+        return set()
+    key = 'unavailable_%s_rse_ids' % operation
+    result = REGION.get(key)
+    if isinstance(result, NoValue):
+        try:
+            logger(logging.DEBUG, "Refresh unavailable %s rses" % operation)
+            availability_key = 'availability_%s' % operation
+            unavailable_rses = list_rses(filters={availability_key: False}, session=session)
+            unavailable_rse_ids = [rse['id'] for rse in unavailable_rses]
+            REGION.set(key, unavailable_rse_ids)
+            return set(unavailable_rse_ids)
+        except Exception:
+            logger(logging.ERROR, "Failed to refresh unavailable %s rses, error" % operation, exc_info=True)
+            return set()
+    return set(result)

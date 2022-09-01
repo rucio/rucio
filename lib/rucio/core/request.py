@@ -40,7 +40,7 @@ from rucio.db.sqla.util import temp_table_mngr
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Iterator, List, Union
+    from typing import Any, Dict, Iterator, Union
 
     RequestResult = Dict[str, Any]
     RequestResultOrState = Union[RequestResult, RequestAndState]
@@ -89,6 +89,7 @@ class RequestWithSources:
         self.requested_at = requested_at if requested_at else datetime.datetime.utcnow()
 
         self.sources = []
+        self.requested_source = None
 
     def __str__(self):
         return "{}({}:{})".format(self.request_id, self.scope, self.name)
@@ -332,13 +333,13 @@ def list_transfer_requests_and_source_replicas(
         activity=None,
         older_than=None,
         rses=None,
-        multihop_rses=None,
+        use_multihop=False,
         request_type=RequestType.TRANSFER,
         request_state=None,
         ignore_availability=False,
         transfertool=None,
         session=None,
-) -> "List[RequestWithSources]":
+) -> "Dict[str, RequestWithSources]":
     """
     List requests with source replicas
     :param total_workers:      Number of total workers.
@@ -348,7 +349,7 @@ def list_transfer_requests_and_source_replicas(
     :param activity:           Activity to be selected.
     :param older_than:         Only select requests older than this DateTime.
     :param rses:               List of rse_id to select requests.
-    :param multihop_rses:               List of rse_id allowed to be used for multihop
+    :param use_multihop:       If multi-hop is enabled or not
     :param request_type:       Filter on the given request type.
     :param request_state:      Filter on the given request state
     :param transfertool:       The transfer tool as specified in rucio.cfg.
@@ -374,6 +375,7 @@ def list_transfer_requests_and_source_replicas(
         models.Request.activity,
         models.Request.attributes,
         models.Request.previous_attempt_id,
+        models.Request.source_rse_id,
         models.Request.dest_rse_id,
         models.Request.retry_count,
         models.Request.account,
@@ -442,14 +444,15 @@ def list_transfer_requests_and_source_replicas(
         sub_requests.c.activity,
         sub_requests.c.attributes,
         sub_requests.c.previous_attempt_id,
+        sub_requests.c.source_rse_id,
         sub_requests.c.dest_rse_id,
         sub_requests.c.account,
         sub_requests.c.retry_count,
         sub_requests.c.priority,
         sub_requests.c.transfertool,
         sub_requests.c.requested_at,
-        models.RSE.id.label("source_rse_id"),
-        models.RSE.rse,
+        models.RSE.id.label("replica_rse_id"),
+        models.RSE.rse.label("replica_rse_name"),
         models.RSEFileAssociation.path,
         models.Source.ranking.label("source_ranking"),
         models.Source.url.label("source_url"),
@@ -483,7 +486,7 @@ def list_transfer_requests_and_source_replicas(
     )
 
     # if transfertool specified, select only the requests where the source rses are set up for the transfer tool
-    if transfertool and not multihop_rses:
+    if transfertool and not use_multihop:
         stmt = stmt.join(
             models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == models.RSE.id,  # source_rse_id
         ).where(
@@ -492,8 +495,8 @@ def list_transfer_requests_and_source_replicas(
         )
 
     requests_by_id = {}
-    for (request_id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, dest_rse_id, account, retry_count,
-         priority, transfertool, requested_at, source_rse_id, source_rse_name, file_path, source_ranking, source_url, distance_ranking) in session.execute(stmt):
+    for (request_id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, source_rse_id, dest_rse_id, account, retry_count,
+         priority, transfertool, requested_at, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance_ranking) in session.execute(stmt):
 
         # If we didn't pre-filter using temporary tables on database side, perform the filtering here
         if not use_temp_tables and rses and dest_rse_id not in rses:
@@ -508,10 +511,13 @@ def list_transfer_requests_and_source_replicas(
                                          requested_at=requested_at)
             requests_by_id[request_id] = request
 
-        if source_rse_id is not None:
-            request.sources.append(RequestSource(rse_data=RseData(id_=source_rse_id, name=source_rse_name), file_path=file_path,
-                                                 source_ranking=source_ranking, distance_ranking=distance_ranking, url=source_url))
-    return list(requests_by_id.values())
+        if replica_rse_id is not None:
+            source = RequestSource(rse_data=RseData(id_=replica_rse_id, name=replica_rse_name), file_path=file_path,
+                                   source_ranking=source_ranking, distance_ranking=distance_ranking, url=source_url)
+            request.sources.append(source)
+            if source_rse_id == replica_rse_id:
+                request.requested_source = source
+    return requests_by_id
 
 
 @read_session
