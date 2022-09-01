@@ -16,6 +16,7 @@
 import datetime
 import logging
 import re
+from typing import TYPE_CHECKING
 from configparser import NoOptionError, NoSectionError
 
 from json import dumps
@@ -31,9 +32,25 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import SubscriptionState
 from rucio.db.sqla.session import transactional_session, stream_session, read_session
 
+if TYPE_CHECKING:
+    from typing import Any, Dict, Iterator, Optional, Callable
+    from sqlalchemy.orm import Session
+    from rucio.common.types import InternalAccount
+    LoggerFunction = Callable[..., Any]
+    SubscriptionType = Dict
+
 
 @transactional_session
-def add_subscription(name, account, filter_, replication_rules, comments, lifetime, retroactive, dry_run, priority=3, session=None):
+def add_subscription(name: str,
+                     account: "InternalAccount",
+                     filter_: dict,
+                     replication_rules: dict,
+                     comments: str,
+                     lifetime: "Optional[int]" = None,
+                     retroactive: "Optional[bool]" = False,
+                     dry_run: "Optional[bool]" = False,
+                     priority: "Optional[int]" = 3,
+                     session: "Optional[Session]" = None) -> str:
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
@@ -110,7 +127,10 @@ def add_subscription(name, account, filter_, replication_rules, comments, lifeti
 
 
 @transactional_session
-def update_subscription(name, account, metadata=None, session=None):
+def update_subscription(name: str,
+                        account: "InternalAccount",
+                        metadata: "Optional[dict]" = None,
+                        session: "Optional[Session]" = None) -> None:
     """
     Updates a subscription
 
@@ -174,7 +194,11 @@ def update_subscription(name, account, metadata=None, session=None):
 
 
 @stream_session
-def list_subscriptions(name=None, account=None, state=None, session=None, logger=logging.log):
+def list_subscriptions(name: "Optional[str]" = None,
+                       account: "Optional[InternalAccount]" = None,
+                       state: "Optional[SubscriptionState]" = None,
+                       session: "Optional[Session]" = None,
+                       logger: "LoggerFunction" = logging.log) -> "Iterator[SubscriptionType]":
     """
     Returns a dictionary with the subscription information :
     Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
@@ -216,7 +240,7 @@ def list_subscriptions(name=None, account=None, state=None, session=None, logger
 
 
 @transactional_session
-def delete_subscription(subscription_id, session=None):
+def delete_subscription(subscription_id: str, session: "Optional[Session]" = None) -> None:
     """
     Deletes a subscription
 
