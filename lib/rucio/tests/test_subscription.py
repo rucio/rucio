@@ -16,6 +16,7 @@
 import unittest
 from datetime import datetime
 from json import loads
+from json.decoder import JSONDecodeError
 
 import pytest
 
@@ -34,6 +35,7 @@ from rucio.core.did import add_did, set_new_dids, list_new_dids, attach_dids
 from rucio.core.rule import add_rule
 from rucio.core.rse import add_rse_attribute
 from rucio.core.scope import add_scope
+from rucio.core import subscription as subscription_core
 from rucio.daemons.transmogrifier.transmogrifier import run, get_subscriptions
 from rucio.db.sqla.constants import AccountType, DIDType
 from rucio.tests.common import headers, auth, did_name_generator, rse_name_generator
@@ -642,3 +644,47 @@ class TestDaemon():
         assert rules[0]['rse_expression'] == rse_expression
         assert rules[0]['state'] == RuleState.INJECT.name
         assert (rules[0]['created_at'] - datetime.now()).days == 1
+
+    def test_run_transmogrifier_invalid_subscription(self, rse_factory, vo, rucio_client, root_account, mock_scope):
+        """ SUBSCRIPTION (DAEMON): Test the transmogrifier with invalid subscription """
+        activity = get_schema_value('ACTIVITY')['enum'][0]
+        nbfiles = 3
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, rse2_id = rse_factory.make_mock_rse()
+        rse3, _ = rse_factory.make_mock_rse()
+        rse_expression = rse1
+        subscription_name = uuid()
+        dsn_prefix = did_name_generator('dataset')
+        dsn = '%sdataset-%s' % (dsn_prefix, uuid())
+
+        new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
+        set_new_dids(new_dids, None)
+
+        files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+        attach_dids(scope=mock_scope, name=dsn, rse_id=rse2_id, dids=files, account=root_account)
+        rule = {'rse_expression': rse_expression,
+                'copies': 1,
+                'activity': activity,
+                'delay_injection': 86500}
+
+        subscription_core.add_subscription(name=subscription_name,
+                                           account=root_account,
+                                           filter_='{[',
+                                           replication_rules='{]',
+                                           lifetime=None,
+                                           retroactive=0,
+                                           dry_run=0,
+                                           comments='Ni ! Ni!',
+                                           priority=1)
+        # Since the subscription is wrongly defined, the new dids should not be processed
+        with pytest.raises(JSONDecodeError):
+            run(threads=1, bulk=1000000, once=True)
+        new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
+        assert {'scope': mock_scope, 'name': dsn, 'did_type': DIDType.DATASET} in new_dids
+        for file_ in files:
+            assert {'scope': file_['scope'], 'name': file_['name'], 'did_type': DIDType.FILE} in new_dids
+        subscription_core.update_subscription(name=subscription_name, account=root_account, metadata={'filter_': {'scope': [mock_scope, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]}, 'replication_rules': [rule]})
+        run(threads=1, bulk=1000000, once=True)
+        new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
+        assert new_dids == []
