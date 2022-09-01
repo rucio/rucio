@@ -18,6 +18,8 @@ Methods common to different conveyor submitter daemons.
 """
 
 import datetime
+import functools
+import itertools
 import logging
 import re
 from typing import TYPE_CHECKING
@@ -31,6 +33,8 @@ from rucio.core.replica import add_replicas, tombstone_from_delay, update_replic
 from rucio.core.request import set_request_state, queue_requests
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
+from rucio.core.topology import Topology
+from rucio.core.transfer import list_transfer_admin_accounts, build_transfer_paths
 from rucio.core.vo import list_vos
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState
@@ -63,10 +67,16 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
     :param request_type           The type of requests to retrieve (Transfer/Stagein)
     :param ignore_availability:   Ignore blocklisted RSEs
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
-    :param session:               The database session in use.
     :returns:                     Dict: {TransferToolBuilder: <list of transfer paths (possibly multihop) to be submitted>}
     """
-    candidate_paths, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source, reqs_unsupported_transfertool = transfer_core.get_transfer_paths(
+
+    admin_accounts = list_transfer_admin_accounts()
+
+    topology = Topology.create_from_config(ignore_availability=ignore_availability)
+    active_transfertools = {t.external_name for t in transfertool_classes} if transfertool_classes is not None else None
+
+    # retrieve (from the database) the transfer requests with their possible source replicas
+    requests_with_sources = request_core.list_transfer_requests_and_source_replicas(
         total_workers=total_workers,
         worker_number=worker_number,
         partition_hash_var=partition_hash_var,
@@ -74,22 +84,66 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
         activity=activity,
         older_than=older_than,
         rses=rses,
+        use_multihop=len(topology.multihop_rses) > 0,
+        request_type=request_type,
+        request_state=RequestState.QUEUED,
+        ignore_availability=ignore_availability,
+        transfertool=filter_transfertool,
+    )
+
+    # for each source, compute the (possibly multihop) path between it and the transfer destination
+    _build_paths_fnc = functools.partial(
+        build_transfer_paths,
+        topology=topology,
         schemes=schemes,
         failover_schemes=failover_schemes,
-        filter_transfertool=filter_transfertool,
-        active_transfertools={t.external_name for t in transfertool_classes} if transfertool_classes is not None else None,
-        ignore_availability=ignore_availability,
-        request_type=request_type,
+        admin_accounts=admin_accounts,
+        active_transfertools=active_transfertools,
         logger=logger,
     )
 
     # Assign paths to be executed by transfertools
     # if the chosen best path is a multihop, create intermediate replicas and the intermediate transfer requests
-    paths_by_transfertool_builder, reqs_no_host = assign_paths_to_transfertool_and_create_hops(
-        candidate_paths,
+    _assign_path_fnc = functools.partial(
+        assign_paths_to_transfertool_and_create_hops,
         transfertool_classes=transfertool_classes,
         logger=logger,
     )
+
+    # For requests which had source_rse_id set in the database, start by verifying that it's possible to
+    # use this source to submit it. If it's possible, use it, otherwise, fallback to searching all
+    # possible sources for the request
+    requests_to_load_partially = {}
+    requests_to_load_fully = {}
+    for request_id, rws in requests_with_sources.items():
+        if rws.requested_source and datetime.datetime.utcnow() - datetime.timedelta(hours=6) < rws.requested_at:
+            requests_to_load_partially[request_id] = rws
+        else:
+            requests_to_load_fully[request_id] = rws
+
+    paths_by_transfertool_builder_partial = {}
+    if requests_to_load_partially:
+        candidate_paths, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source, reqs_unsupported_transfertool = _build_paths_fnc(
+            requests_with_sources=list(requests_to_load_partially.values()),
+            requested_source_only=True,
+        )
+        paths_by_transfertool_builder_partial, reqs_no_host = _assign_path_fnc(
+            candidate_paths_by_request_id=candidate_paths,
+        )
+        for request_id in itertools.chain(reqs_no_host, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source, reqs_unsupported_transfertool):
+            rws = requests_to_load_partially[request_id]
+            logger(logging.INFO, "%s: source_rse_id was set to %s, but cannot be used. Fall-back to full source scan.", request_id, str(rws.requested_source))
+            requests_to_load_fully[request_id] = rws
+
+    candidate_paths, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source, reqs_unsupported_transfertool = _build_paths_fnc(
+        requests_with_sources=list(requests_to_load_fully.values())
+    )
+    paths_by_transfertool_builder, reqs_no_host = _assign_path_fnc(
+        candidate_paths_by_request_id=candidate_paths
+    )
+    # Merge the two dicts with submission work into one
+    for tt_builder, paths in paths_by_transfertool_builder_partial.items():
+        paths_by_transfertool_builder.setdefault(tt_builder, []).extend(paths)
 
     if reqs_unsupported_transfertool:
         logger(logging.INFO, "Ignoring request because of unsupported transfertool: %s", reqs_unsupported_transfertool)

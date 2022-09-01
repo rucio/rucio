@@ -88,7 +88,7 @@ def test_listing_preparing_transfers(mock_request):
     req_sources = list_transfer_requests_and_source_replicas(request_state=RequestState.PREPARING)
 
     assert len(req_sources) != 0
-    found_requests = list(filter(lambda rws: rws.request_id == mock_request['id'], req_sources))
+    found_requests = list(filter(lambda rws: rws.request_id == mock_request['id'], req_sources.values()))
     assert len(found_requests) == 1
 
 

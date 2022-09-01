@@ -23,8 +23,9 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import RucioException
 from rucio.common.logging import setup_logging
-from rucio.core.request import set_requests_state_if_possible
-from rucio.core.transfer import get_transfer_paths, prepare_transfers
+from rucio.core.request import set_requests_state_if_possible, list_transfer_requests_and_source_replicas
+from rucio.core.transfer import prepare_transfers, list_transfer_admin_accounts, build_transfer_paths
+from rucio.core.topology import Topology
 from rucio.db.sqla.constants import RequestState
 from rucio.daemons.common import run_daemon
 
@@ -110,12 +111,21 @@ def run_once(bulk: int = 100, heartbeat_handler: "Optional[HeartbeatHandler]" = 
     start_time = time()
     requests_handled = 0
     try:
-        ret = get_transfer_paths(
+        admin_accounts = list_transfer_admin_accounts()
+        topology = Topology.create_from_config(logger=logger)
+        requests_with_sources = list_transfer_requests_and_source_replicas(
             total_workers=total_workers,
             worker_number=worker_number,
             limit=bulk,
             request_state=RequestState.PREPARING,
             session=session
+        )
+        ret = build_transfer_paths(
+            topology=topology,
+            requests_with_sources=list(requests_with_sources.values()),
+            admin_accounts=admin_accounts,
+            logger=logger,
+            session=session,
         )
         requests_handled = sum(len(i) for i in ret)
         if not requests_handled:

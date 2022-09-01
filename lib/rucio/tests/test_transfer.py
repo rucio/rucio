@@ -19,8 +19,9 @@ from concurrent.futures import ThreadPoolExecutor
 from rucio.common.exception import NoDistance
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replicas
-from rucio.core.transfer import get_transfer_paths
-from rucio.core.topology import get_hops
+from rucio.core.request import list_transfer_requests_and_source_replicas
+from rucio.core.transfer import build_transfer_paths
+from rucio.core.topology import get_hops, Topology
 from rucio.core import rule as rule_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
@@ -360,7 +361,8 @@ def test_fk_error_on_source_creation(rse_factory, did_factory, root_account):
     add_replicas(rse_id=src_rse_id, files=[file], account=root_account)
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-    requests, *_ = get_transfer_paths(rses=[src_rse_id, dst_rse_id])
+    requests_by_id = list_transfer_requests_and_source_replicas(rses=[src_rse_id, dst_rse_id])
+    requests, *_ = build_transfer_paths(topology=Topology.create_from_config(), requests_with_sources=requests_by_id.values())
     request_id, [transfer_path] = next(iter(requests.items()))
 
     transfer_path[0].rws.request_id = generate_uuid()
