@@ -57,25 +57,25 @@ class TestSubscriptionCoreApi(unittest.TestCase):
                         \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
         cls.activity = get_schema_value('ACTIVITY')['enum'][0]
 
-    def test_create_and_update_and_list_subscription(self):
-        """ SUBSCRIPTION (API): Test the creation of a new subscription, update it, list it """
+    def test_create_update_list_delete_subscription(self):
+        """ SUBSCRIPTION (API): Test the creation of a new subscription, update it, list and delete it """
         rse1, _ = self.rse_factory.make_mock_rse()
         rse2, _ = self.rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
         subscription_name = uuid()
         with pytest.raises(InvalidObject):
-            result = add_subscription(name=subscription_name,
-                                      account='root',
-                                      filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                      replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': 'noactivity'}],
-                                      lifetime=100000,
-                                      retroactive=0,
-                                      dry_run=0,
-                                      comments='This is a comment',
-                                      issuer='root',
-                                      **self.vo)
+            add_subscription(name=subscription_name,
+                             account='root',
+                             filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                             replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': 'noactivity'}],
+                             lifetime=100000,
+                             retroactive=0,
+                             dry_run=0,
+                             comments='This is a comment',
+                             issuer='root',
+                             **self.vo)
 
-        result = add_subscription(name=subscription_name,
+        sub_id = add_subscription(name=subscription_name,
                                   account='root',
                                   filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                   replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
@@ -98,6 +98,9 @@ class TestSubscriptionCoreApi(unittest.TestCase):
             sub.append(res)
         assert len(sub) == 1
         assert loads(sub[0]['filter'])['project'][0] == 'toto'
+        subscription_core.delete_subscription(sub_id)
+        with pytest.raises(SubscriptionNotFound):
+            get_subscription_by_id(sub_id, **self.vo)
 
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_create_list_subscription_by_id(self):
@@ -668,15 +671,15 @@ class TestDaemon():
                 'activity': activity,
                 'delay_injection': 86500}
 
-        subscription_core.add_subscription(name=subscription_name,
-                                           account=root_account,
-                                           filter_='{[',
-                                           replication_rules='{]',
-                                           lifetime=None,
-                                           retroactive=0,
-                                           dry_run=0,
-                                           comments='Ni ! Ni!',
-                                           priority=1)
+        sub_id = subscription_core.add_subscription(name=subscription_name,
+                                                    account=root_account,
+                                                    filter_='{[',
+                                                    replication_rules='{]',
+                                                    lifetime=None,
+                                                    retroactive=0,
+                                                    dry_run=0,
+                                                    comments='Ni ! Ni!',
+                                                    priority=1)
         # Since the subscription is wrongly defined, the new dids should not be processed
         with pytest.raises(JSONDecodeError):
             run(threads=1, bulk=1000000, once=True)
@@ -688,3 +691,4 @@ class TestDaemon():
         run(threads=1, bulk=1000000, once=True)
         new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
         assert new_dids == []
+        subscription_core.delete_subscription(sub_id)

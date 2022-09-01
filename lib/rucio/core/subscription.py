@@ -215,15 +215,15 @@ def list_subscriptions(name=None, account=None, state=None, session=None, logger
         raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
 
 
-def delete_subscription(subscription_id):
+@transactional_session
+def delete_subscription(subscription_id, session=None):
     """
     Deletes a subscription
 
     :param subscription_id: Subscription identifier
     :type subscription_id:  String
     """
-
-    raise NotImplementedError
+    session.query(models.Subscription).filter_by(id=subscription_id).delete()
 
 
 @stream_session
