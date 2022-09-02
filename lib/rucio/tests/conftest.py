@@ -317,7 +317,7 @@ def tag_factory(function_scope_prefix):
 
 
 @pytest.fixture
-def db_session():
+def db_session(did_factory, rse_factory):
     from rucio.db.sqla import session
 
     db_session = session.get_session()
