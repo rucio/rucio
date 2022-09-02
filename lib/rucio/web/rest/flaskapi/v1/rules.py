@@ -252,7 +252,7 @@ class AllRule(ErrorHandlingMethodView):
                     items:
                       type: string
                   account:
-                    descipriton: The account of the issuer.
+                    description: The account of the issuer.
                     type: string
                   copies:
                     description: The number of replicas.
@@ -622,7 +622,7 @@ class RuleHistory(ErrorHandlingMethodView):
                         description: The date of the update.
                       state:
                         type: string
-                        descipriton: The state of the update.
+                        description: The state of the update.
                       locks_ok_cnt:
                         type: integer
                         description: The number of locks which are ok.
@@ -688,10 +688,10 @@ class RuleHistoryFull(ErrorHandlingMethodView):
                         description: The rse expression.
                       state:
                         type: string
-                        descipriton: The state of the update.
+                        description: The state of the update.
                       account:
                         type: string
-                        descipriton: The account who initiated the change.
+                        description: The account who initiated the change.
                       locks_ok_cnt:
                         type: integer
                         description: The number of locks which are ok.

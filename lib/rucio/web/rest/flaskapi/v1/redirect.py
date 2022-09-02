@@ -251,6 +251,8 @@ class HeaderRedirector(ErrorHandlingMethodView):
           style: simple
           required: false
         responses:
+          200:
+            description: OK
           303:
             description: OK
             content:

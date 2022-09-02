@@ -333,9 +333,9 @@ class SubscriptionName(ErrorHandlingMethodView):
         tags:
           - Replicas
         parameters:
-        - name: account
+        - name: name
           in: path
-          description: The account name.
+          description: The subscription name.
           schema:
             type: string
           style: simple
@@ -517,7 +517,7 @@ class States(ErrorHandlingMethodView):
                       state:
                         description: The state of the rules.
                         type: string
-                        enums: ["R", "O", "S", "U", "W", "I"]
+                        enum: ["R", "O", "S", "U", "W", "I"]
                       count:
                         description: The number of rules with that state.
                         type: integer
