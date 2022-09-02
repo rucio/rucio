@@ -299,6 +299,24 @@ def scope_factory():
 
 
 @pytest.fixture
+def tag_factory(function_scope_prefix):
+
+    import string
+    import random
+
+    class _Factory:
+        def __init__(self):
+            self.prefix = f'{function_scope_prefix}-{"".join(random.choice(string.ascii_uppercase) for _ in range(6))}'
+            self.index = 0
+
+        def new_tag(self):
+            self.index += 1
+            return f'{self.prefix}-{self.index}'
+
+    return _Factory()
+
+
+@pytest.fixture
 def db_session():
     from rucio.db.sqla import session
 
