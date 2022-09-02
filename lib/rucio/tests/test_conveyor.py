@@ -160,7 +160,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
     did = did_factory.upload_test_file(src_rse1_name)
 
     # Copy replica to a second source. To avoid the special case of having a unique last replica, which could be handled in a special (more careful) way
-    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=src_rse2_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=src_rse2_name, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None)
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertype='single', filter_transfertool=None)
     replica = __wait_for_replica_transfer(dst_rse_id=src_rse2_id, **did)
     assert replica['state'] == ReplicaState.AVAILABLE
@@ -168,7 +168,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
     rse_core.set_rse_limits(rse_id=jump_rse_id, name='MinFreeSpace', value=1)
     rse_core.set_rse_usage(rse_id=jump_rse_id, source='storage', used=1, free=0)
     try:
-        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None)
 
         # Submit transfers to FTS
         # Ensure a replica was created on the intermediary host with epoch tombstone
@@ -371,7 +371,12 @@ def test_multisource(vo, did_factory, root_account, replica_client, core_config_
     # Add non-existing replica which will fail during multisource transfers on the RSE with lower cost (will be the preferred source)
     replica_client.add_replicas(rse=src_rse2, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
 
-    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    # Submit indirectly, via a container, to test this case
+    dataset = did_factory.make_dataset()
+    did_core.attach_dids(dids=[did], account=root_account, **dataset)
+    container = did_factory.make_container()
+    did_core.attach_dids(dids=[dataset], account=root_account, **container)
+    rule_core.add_rule(dids=[container], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
     @read_session
@@ -573,7 +578,7 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config
 
         did = did_factory.upload_test_file(src_rse)
         rule_priority = 5
-        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, priority=rule_priority)
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None, priority=rule_priority)
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=None, transfertype='single', filter_transfertool=None)
 
         request = __wait_for_request_state(dst_rse_id=jump_rse_id, state=RequestState.DONE, run_poller=False, **did)
@@ -618,8 +623,8 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
 
     did1 = did_factory.upload_test_file(src_rse)
     did2 = did_factory.upload_test_file(src_rse)
-    rule_core.add_rule(dids=[did1], account=root_account, copies=1, rse_expression=dst_rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
-    rule_core.add_rule(dids=[did2], account=root_account, copies=1, rse_expression=dst_rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    rule_core.add_rule(dids=[did1], account=root_account, copies=1, rse_expression=dst_rse1, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None)
+    rule_core.add_rule(dids=[did2], account=root_account, copies=1, rse_expression=dst_rse1, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None)
     rule_core.add_rule(dids=[did1], account=root_account, copies=1, rse_expression=dst_rse2, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
     request = request_core.get_request_by_did(rse_id=dst_rse_id1, **did1)
