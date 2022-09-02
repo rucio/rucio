@@ -1218,7 +1218,7 @@ def update_rule(rule_id, options, session=None):
                     request_core.queue_requests(requests=[create_transfer_dict(dest_rse_id=lock.rse_id,
                                                                                request_type=RequestType.TRANSFER,
                                                                                scope=lock.scope, name=lock.name, rule=rule, lock=lock, bytes_=bytes_, md5=md5, adler32=adler32,
-                                                                               ds_scope=rule.scope, ds_name=rule.name, lifetime=None, activity=rule.activity, session=session)], session=session)
+                                                                               ds_scope=rule.scope, ds_name=rule.name, copy_pin_lifetime=None, activity=rule.activity, session=session)], session=session)
 
             elif key == 'account':
                 # Check if the account exists
@@ -1831,7 +1831,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
             request_core.queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
                                                                        request_type=RequestType.TRANSFER,
                                                                        scope=scope, name=name, rule=rule, lock=lock, bytes_=bytes_, md5=md5, adler32=adler32,
-                                                                       ds_scope=ds_scope, ds_name=ds_name, lifetime=None, activity='Recovery', session=session)], session=session)
+                                                                       ds_scope=ds_scope, ds_name=ds_name, copy_pin_lifetime=None, activity='Recovery', session=session)], session=session)
         lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
             pass
