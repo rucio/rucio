@@ -85,17 +85,18 @@ def add_subscription(name: str,
     SubscriptionHistory = models.SubscriptionHistory
     retroactive = bool(retroactive)  # Force boolean type, necessary for strict SQL
     state = SubscriptionState.ACTIVE
-    lifetime = None
     if retroactive:
         state = SubscriptionState.NEW
     if lifetime:
-        lifetime = datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)
+        date_lifetime = datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)
+    else:
+        date_lifetime = None
     new_subscription = models.Subscription(name=name,
                                            filter=filter_,
                                            account=account,
                                            replication_rules=replication_rules,
                                            state=state,
-                                           lifetime=lifetime,
+                                           lifetime=date_lifetime,
                                            retroactive=retroactive,
                                            policyid=priority, comments=comments)
     if keep_history:
@@ -123,7 +124,7 @@ def add_subscription(name: str,
            or re.match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]):
             raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
         raise RucioException(error.args)
-    return new_subscription.id
+    return str(new_subscription.id)
 
 
 @transactional_session
