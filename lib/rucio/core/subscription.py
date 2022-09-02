@@ -43,8 +43,8 @@ if TYPE_CHECKING:
 @transactional_session
 def add_subscription(name: str,
                      account: "InternalAccount",
-                     filter_: dict,
-                     replication_rules: dict,
+                     filter_: str,
+                     replication_rules: str,
                      comments: str,
                      lifetime: "Optional[int]" = None,
                      retroactive: "Optional[bool]" = False,
@@ -129,7 +129,7 @@ def add_subscription(name: str,
 @transactional_session
 def update_subscription(name: str,
                         account: "InternalAccount",
-                        metadata: "Optional[dict]" = None,
+                        metadata: dict,
                         session: "Optional[Session]" = None) -> None:
     """
     Updates a subscription
