@@ -74,7 +74,7 @@ def test_get_hops(rse_factory):
     _, rse4_id = rse_factory.make_mock_rse()
     _, rse5_id = rse_factory.make_mock_rse()
     _, rse6_id = rse_factory.make_mock_rse()
-    all_rses = [rse0_id, rse1_id, rse2_id, rse3_id, rse4_id, rse5_id, rse6_id]
+    all_rses = {rse0_id, rse1_id, rse2_id, rse3_id, rse4_id, rse5_id, rse6_id}
 
     add_distance(rse1_id, rse3_id, ranking=40)
     add_distance(rse1_id, rse2_id, ranking=10)
@@ -114,7 +114,7 @@ def test_get_hops(rse_factory):
 
     # No multihop rses given, multihop disabled
     with pytest.raises(NoDistance):
-        get_hops(source_rse_id=rse3_id, dest_rse_id=rse2_id, multihop_rses=[])
+        get_hops(source_rse_id=rse3_id, dest_rse_id=rse2_id, multihop_rses=set())
 
     # The shortest multihop path will be computed
     [hop1, hop2] = get_hops(source_rse_id=rse3_id, dest_rse_id=rse2_id, multihop_rses=all_rses)
@@ -124,7 +124,7 @@ def test_get_hops(rse_factory):
     assert hop2['dest_rse_id'] == rse2_id
 
     # multihop_rses doesn't contain the RSE needed for the shortest path. Return a longer path
-    [hop1, hop2] = get_hops(source_rse_id=rse1_id, dest_rse_id=rse4_id, multihop_rses=[rse3_id])
+    [hop1, hop2] = get_hops(source_rse_id=rse1_id, dest_rse_id=rse4_id, multihop_rses={rse3_id})
     assert hop1['source_rse_id'] == rse1_id
     assert hop1['dest_rse_id'] == rse3_id
     assert hop2['source_rse_id'] == rse3_id

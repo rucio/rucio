@@ -33,7 +33,7 @@ from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Dict, List, Optional, Set, Union
+    from typing import Any, Callable, Dict, List, Optional, Set
     from sqlalchemy.orm import Session
 
     LoggerFunction = Callable[..., Any]
@@ -108,11 +108,11 @@ class Topology:
     def search_shortest_paths(
             self,
             source_rse_ids: "List[str]",
-            dest_rse_id: "List[str]",
+            dest_rse_id: "str",
             operation_src: str,
             operation_dest: str,
             domain: str,
-            limit_dest_schemes: "Union[str, List[str]]",
+            limit_dest_schemes: "List[str]",
             inbound_links_by_node: "Optional[Dict[str, Dict[str, str]]]" = None,
             session: "Optional[Session]" = None
     ) -> "Dict[str, List[Dict[str, Any]]]":
@@ -206,13 +206,19 @@ class Topology:
             path = []
             while hop.get('dest_rse_id'):
                 path.append(hop)
-                hop = next_hop.get(hop['dest_rse_id'])
+                hop = next_hop[hop['dest_rse_id']]
             paths[rse_id] = path
         return paths
 
 
 @transactional_session
-def get_hops(source_rse_id, dest_rse_id, multihop_rses=None, limit_dest_schemes=None, session=None):
+def get_hops(
+        source_rse_id: str,
+        dest_rse_id: str,
+        multihop_rses: "Optional[Set[str]]" = None,
+        limit_dest_schemes: "Optional[List[str]]" = None,
+        session: "Optional[Session]" = None,
+):
     """
     Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
     Ideally, the list will only include one item (dest_rse_id) since no hops are needed.
@@ -227,7 +233,7 @@ def get_hops(source_rse_id, dest_rse_id, multihop_rses=None, limit_dest_schemes=
         limit_dest_schemes = []
 
     if not multihop_rses:
-        multihop_rses = []
+        multihop_rses = set()
 
     topology = Topology(rse_collection=RseCollection(), multihop_rses=multihop_rses)
     shortest_paths = topology.search_shortest_paths(source_rse_ids=[source_rse_id], dest_rse_id=dest_rse_id,
@@ -250,7 +256,7 @@ def get_hops(source_rse_id, dest_rse_id, multihop_rses=None, limit_dest_schemes=
 
 
 @transactional_session
-def _load_outgoing_distances_node(rse_id, session=None):
+def _load_outgoing_distances_node(rse_id: str, session: "Optional[Session]" = None):
     """
     Loads the outgoing edges of the distance graph for one node.
     :param rse_id:    RSE id to load the edges for.
@@ -281,7 +287,7 @@ def _load_outgoing_distances_node(rse_id, session=None):
 
 
 @transactional_session
-def _load_inbound_distances_node(rse_id, session=None):
+def _load_inbound_distances_node(rse_id: str, session: "Optional[Session]" = None):
     """
     Loads the inbound edges of the distance graph for one node.
     :param rse_id:    RSE id to load the edges for.

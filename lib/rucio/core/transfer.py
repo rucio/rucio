@@ -798,7 +798,7 @@ def build_transfer_paths(
         admin_accounts: "Optional[Set[InternalAccount]]" = None,
         schemes: "Optional[List[str]]" = None,
         failover_schemes: "Optional[List[str]]" = None,
-        active_transfertools: "Set[str]" = None,
+        active_transfertools: "Optional[Set[str]]" = None,
         requested_source_only: bool = False,
         logger: "Callable" = logging.log,
         session: "Optional[Session]" = None,
@@ -836,7 +836,9 @@ def build_transfer_paths(
         rws.dest_rse = topology.rse_collection.setdefault(rws.dest_rse.id, rws.dest_rse)
         rws.dest_rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
 
-        sources = [rws.requested_source] if requested_source_only else rws.sources
+        sources = rws.sources
+        if requested_source_only:
+            sources = [rws.requested_source] if rws.requested_source else []
         for source in sources:
             source.rse = topology.rse_collection.setdefault(source.rse.id, source.rse)
             source.rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
@@ -1019,7 +1021,7 @@ def __add_compatible_schemes(schemes, allowed_schemes):
 
 
 @read_session
-def list_transfer_admin_accounts(session=None):
+def list_transfer_admin_accounts(session=None) -> "Set[InternalAccount]":
     """
     List admin accounts and cache the result in memory
     """
@@ -1028,7 +1030,7 @@ def list_transfer_admin_accounts(session=None):
     if isinstance(result, NoValue):
         result = [acc['account'] for acc in list_accounts(filter_={'admin': True}, session=session)]
         REGION_ACCOUNTS.set('transfer_admin_accounts', result)
-    return result
+    return set(result)
 
 
 def update_transfer_priority(transfers_to_update, logger=logging.log):
@@ -1081,7 +1083,7 @@ def cancel_transfer(transfertool_obj, transfer_id):
 
 @transactional_session
 def prepare_transfers(
-        candidate_paths_by_request_id: "Dict[str: List[DirectTransferDefinition]]",
+        candidate_paths_by_request_id: "Dict[str, List[List[DirectTransferDefinition]]]",
         logger: "LoggerFunction" = logging.log,
         session: "Optional[Session]" = None,
 ) -> "Tuple[List[str], List[str]]":

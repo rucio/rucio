@@ -48,7 +48,7 @@ class HeartbeatHandler:
         self.hb_thread = threading.current_thread()
         self.logger_id = hashlib.sha1(f'{self.hostname}:{self.pid}:{self.hb_thread}'.encode('utf-8')).hexdigest()[:7]
 
-        self.logger = None
+        self.logger = logging.log
         self.last_heart_beat = None
         self.last_time = None
         self.last_payload = None
@@ -70,6 +70,7 @@ class HeartbeatHandler:
         """
         if force_renew \
                 or not self.last_time \
+                or not self.last_heart_beat \
                 or self.last_time < datetime.datetime.now() - datetime.timedelta(seconds=self.renewal_interval) \
                 or self.last_payload != payload:
             if self.older_than:
