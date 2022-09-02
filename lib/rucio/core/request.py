@@ -40,11 +40,7 @@ from rucio.db.sqla.util import temp_table_mngr
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Iterator, Union
-
-    RequestResult = Dict[str, Any]
-    RequestResultOrState = Union[RequestResult, RequestAndState]
-    RowIterator = Iterator[RequestResult]
+    from typing import Any, Dict, List, Optional, Union
 
 """
 The core request.py is specifically for handling requests.
@@ -66,8 +62,26 @@ class RequestSource:
 
 
 class RequestWithSources:
-    def __init__(self, id_, request_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes,
-                 previous_attempt_id, dest_rse_data, account, retry_count, priority, transfertool, requested_at=None):
+    def __init__(
+            self,
+            id_: "Optional[str]",
+            request_type: RequestType,
+            rule_id: "Optional[str]",
+            scope: InternalScope,
+            name: str,
+            md5: str,
+            adler32: str,
+            byte_count: int,
+            activity: str,
+            attributes: "Union[str, None, Dict[str, Any]]",
+            previous_attempt_id: "Optional[str]",
+            dest_rse_data: RseData,
+            account: InternalAccount,
+            retry_count: int,
+            priority: int,
+            transfertool: str,
+            requested_at: "Optional[datetime.datetime]" = None,
+    ):
 
         self.request_id = id_
         self.request_type = request_type
@@ -88,8 +102,8 @@ class RequestWithSources:
         self.transfertool = transfertool
         self.requested_at = requested_at if requested_at else datetime.datetime.utcnow()
 
-        self.sources = []
-        self.requested_source = None
+        self.sources: "List[RequestSource]" = []
+        self.requested_source: "Optional[RequestSource]" = None
 
     def __str__(self):
         return "{}({}:{})".format(self.request_id, self.scope, self.name)
