@@ -39,6 +39,19 @@ def add_identity(identity_key, id_type, email, password=None, session=None):
     return identity.add_identity(identity_key, IdentityType[id_type.upper()], email, password=password, session=session)
 
 
+@read_session
+def verify_identity(identity_key, id_type, password=None, session=None):
+    """
+    Verifies a user identity.
+
+    :param identity_key: The identity key name. For example x509 DN, or a username.
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml)
+    :param password: If type==userpass, verifies the identity_key, .
+    :param session: The database session in use.
+    """
+    return identity.verify_identity(identity_key, IdentityType[id_type.upper()], password=password, session=session)
+
+
 @transactional_session
 def del_identity(identity_key, id_type, issuer, vo='def', session=None):
     """
