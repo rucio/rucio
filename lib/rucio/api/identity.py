@@ -17,6 +17,7 @@
 Interface for identity abstraction layer
 """
 
+import typing
 from rucio.api import permission
 from rucio.common import exception
 from rucio.common.types import InternalAccount
@@ -40,7 +41,7 @@ def add_identity(identity_key, id_type, email, password=None, session=None):
 
 
 @read_session
-def verify_identity(identity_key, id_type, password=None, session=None):
+def verify_identity(identity_key: str, id_type: str, password: typing.Union[str, None] = None, session=None) -> bool:
     """
     Verifies a user identity.
 

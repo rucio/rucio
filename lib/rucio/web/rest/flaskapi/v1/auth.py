@@ -28,10 +28,10 @@ from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gs
     get_auth_token_ssh, get_ssh_challenge_token, validate_auth_token, get_auth_oidc, redirect_auth_oidc, \
     get_token_oidc, refresh_cli_auth_token, get_auth_token_saml
 from rucio.common.config import config_get
-from rucio.common.exception import AccessDenied, IdentityError, CannotAuthenticate, CannotAuthorize
+from rucio.common.exception import AccessDenied, IdentityError, IdentityNotFound, CannotAuthenticate, CannotAuthorize
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
-from rucio.api.identity import list_accounts_for_identity, get_default_account
+from rucio.api.identity import list_accounts_for_identity, get_default_account, verify_identity
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, error_headers, \
     extract_vo, generate_http_error_flask, ErrorHandlingMethodView
 
@@ -114,6 +114,13 @@ class UserPass(ErrorHandlingMethodView):
 
         if not username or not password:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot authenticate without passing all required arguments', headers=headers)
+
+        try:
+            verify_identity(identity_key=username, id_type='USERPASS', password=password)
+        except IdentityNotFound:
+            return generate_http_error_flask(401, IdentityNotFound.__name__, 'Cannot authenticate. Username/Password pair does not exist.', headers=headers)
+        except IdentityError:
+            return generate_http_error_flask(401, IdentityError.__name__, 'Cannot authenticate. The identity does not exist.', headers=headers)
 
         if not account:
             accounts = list_accounts_for_identity(identity_key=username, id_type='USERPASS')

@@ -19,16 +19,18 @@ from re import match
 
 from sqlalchemy import asc
 from sqlalchemy.exc import IntegrityError
+from lib.rucio.common.types import InternalAccount
 
 from rucio.common import exception
 from rucio.core.account import account_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
+from typing import Union
 
 
 @transactional_session
-def add_identity(identity, type_, email, password=None, session=None):
+def add_identity(identity: str, type_: IdentityType, email: str, password: Union[str, None] = None, session=None):
     """
     Creates a user identity.
 
@@ -59,7 +61,7 @@ def add_identity(identity, type_, email, password=None, session=None):
 
 
 @read_session
-def verify_identity(identity, type_, password=None, session=None):
+def verify_identity(identity: str, type_: IdentityType, password: Union[str, None] = None, session=None) -> bool:
     """
     Verifies a user identity.
 
@@ -90,7 +92,7 @@ def verify_identity(identity, type_, password=None, session=None):
 
 
 @transactional_session
-def del_identity(identity, type_, session=None):
+def del_identity(identity: str, type_: IdentityType, session=None):
     """
     Deletes a user identity.
 
@@ -106,7 +108,7 @@ def del_identity(identity, type_, session=None):
 
 
 @transactional_session
-def add_account_identity(identity, type_, account, email, default=False, password=None, session=None):
+def add_account_identity(identity: str, type_: IdentityType, account: InternalAccount, email: str, default: bool = False, password: str = None, session=None):
     """
     Adds a membership association between identity and account.
 
@@ -142,7 +144,7 @@ def add_account_identity(identity, type_, account, email, default=False, passwor
 
 
 @read_session
-def exist_identity_account(identity, type_, account, session=None):
+def exist_identity_account(identity: str, type_: IdentityType, account: InternalAccount, session=None):
     """
     Check if an identity is mapped to an account.
 
@@ -159,7 +161,7 @@ def exist_identity_account(identity, type_, account, session=None):
 
 
 @read_session
-def get_default_account(identity, type_, oldest_if_none=False, session=None):
+def get_default_account(identity: str, type_: IdentityType, oldest_if_none: bool = False, session=None):
     """
     Retrieves the default account mapped to an identity.
 
@@ -189,7 +191,7 @@ def get_default_account(identity, type_, oldest_if_none=False, session=None):
 
 
 @transactional_session
-def del_account_identity(identity, type_, account, session=None):
+def del_account_identity(identity: str, type_: IdentityType, account: InternalAccount, session=None):
     """
     Removes a membership association between identity and account.
 
@@ -223,7 +225,7 @@ def list_identities(session=None, **kwargs):
 
 
 @read_session
-def list_accounts_for_identity(identity, type_, session=None):
+def list_accounts_for_identity(identity: str, type_: IdentityType, session=None):
     """
     Returns a list of all accounts for an identity.
 
