@@ -302,59 +302,30 @@ def test_rest_bad_replica_methods_for_ui(rest_client, auth_token):
 
 def __test_rest_bad_replica_methods_for_ui(rest_client, auth_token, list_pfns):
     """ REPLICA (REST): Test the listing of bad and suspicious replicas """
+
+    def _fetch_bad_replicas(query_data):
+        response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=query_data)
+        assert response.status_code == 200
+        _files = []
+        for _line in response.get_data(as_text=True).split('\n'):
+            if _line != '':
+                _files.append(dumps(_line))
+        return _files
+
     if list_pfns:
         common_data = {'list_pfns': 'True'}
     else:
         common_data = {}
 
-    data = {**common_data}
-    response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
-    assert response.status_code == 200
-    tot_files = []
-    for line in response.get_data(as_text=True).split('\n'):
-        if line != '':
-            tot_files.append(dumps(line))
-    nb_tot_files = len(tot_files)
-
-    data = {'state': 'B', **common_data}
-    response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
-    assert response.status_code == 200
-    tot_bad_files = []
-    for line in response.get_data(as_text=True).split('\n'):
-        if line != '':
-            tot_bad_files.append(dumps(line))
-    nb_tot_bad_files1 = len(tot_bad_files)
-
-    data = {'state': 'S', **common_data}
-    response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
-    assert response.status_code == 200
-    tot_suspicious_files = []
-    for line in response.get_data(as_text=True).split('\n'):
-        if line != '':
-            tot_suspicious_files.append(dumps(line))
-    nb_tot_suspicious_files = len(tot_suspicious_files)
-
-    data = {'state': 'T', **common_data}
-    response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
-    assert response.status_code == 200
-    tot_temporary_unavailable_files = []
-    for line in response.get_data(as_text=True).split('\n'):
-        if line != '':
-            tot_temporary_unavailable_files.append(dumps(line))
-    nb_tot_temporary_unavailable_files = len(tot_temporary_unavailable_files)
-
-    assert nb_tot_files == nb_tot_bad_files1 + nb_tot_suspicious_files + nb_tot_temporary_unavailable_files
+    total = _fetch_bad_replicas(query_data={**common_data})
+    bad = _fetch_bad_replicas(query_data={'state': 'B', **common_data})
+    suspicious = _fetch_bad_replicas(query_data={'state': 'S', **common_data})
+    temporary_unavailable = _fetch_bad_replicas(query_data={'state': 'T', **common_data})
+    lost = _fetch_bad_replicas(query_data={'state': 'L', **common_data})
+    assert len(total) == len(bad) + len(suspicious) + len(temporary_unavailable) + len(lost)
 
     tomorrow = datetime.utcnow() + timedelta(days=1)
-    data = {'state': 'B', 'younger_than': tomorrow.isoformat(), **common_data}
-    response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)), query_string=data)
-    assert response.status_code == 200
-    tot_bad_files = []
-    for line in response.get_data(as_text=True).split('\n'):
-        if line != '':
-            tot_bad_files.append(dumps(line))
-    nb_tot_bad_files = len(tot_bad_files)
-    assert nb_tot_bad_files == 0
+    assert len(_fetch_bad_replicas(query_data={'state': 'B', 'younger_than': tomorrow.isoformat(), **common_data})) == 0
 
     if not list_pfns:
         response = rest_client.get('/replicas/bad/summary', headers=headers(auth(auth_token)))
@@ -364,7 +335,7 @@ def __test_rest_bad_replica_methods_for_ui(rest_client, auth_token, list_pfns):
             if line != '':
                 line = loads(line)
                 nb_tot_bad_files2 += int(line.get('BAD', 0))
-        assert nb_tot_bad_files1 == nb_tot_bad_files2
+        assert len(bad) == nb_tot_bad_files2
 
 
 @pytest.mark.dirty

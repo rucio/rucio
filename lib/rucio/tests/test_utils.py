@@ -15,8 +15,6 @@
 
 import datetime
 import logging
-import tempfile
-import unittest
 from re import match
 
 import pytest
@@ -26,22 +24,13 @@ from rucio.common.utils import md5, adler32, parse_did_filter_from_string, Avail
 from rucio.common.logging import formatted_logger
 
 
-class TestUtils(unittest.TestCase):
+class TestUtils:
     """UTILS (COMMON): test utilisty functions"""
 
-    def setUp(self):
-        """set up test fixtures"""
-        self.temp_file_1 = tempfile.NamedTemporaryFile()
-        self.temp_file_1.write('hello test\n'.encode())
-        self.temp_file_1.seek(0)
-
-    def tearDown(self):
-        """tear down test fixtures"""
-        self.temp_file_1.close()
-
-    def test_utils_md5(self):
+    def test_utils_md5(self, file_factory):
         """(COMMON/UTILS): test calculating MD5 of a file"""
-        ret = md5(self.temp_file_1.name)
+        temp_file_1 = file_factory.file_generator(data='hello test\n')
+        ret = md5(temp_file_1)
         assert isinstance(ret, str), "Object returned by utils.md5 is not a string"
         assert match('[a-fA-F0-9]{32}', ret) is not None, "String returned by utils.md5 is not a md5 hex digest"
         assert ret == '31d50dd6285b9ff9f8611d0762265d04', "Hex digest returned by utils.md5 is the MD5 checksum"
@@ -49,9 +38,10 @@ class TestUtils(unittest.TestCase):
         with pytest.raises(Exception, match='FATAL - could not get MD5 checksum of file no_file - \\[Errno 2\\] No such file or directory: \'no_file\''):
             md5('no_file')
 
-    def test_utils_adler32(self):
+    def test_utils_adler32(self, file_factory):
         """(COMMON/UTILS): test calculating Adler32 of a file"""
-        ret = adler32(self.temp_file_1.name)
+        temp_file_1 = file_factory.file_generator(data='hello test\n')
+        ret = adler32(temp_file_1)
         assert isinstance(ret, str)
         assert match('[a-fA-F0-9]', ret) is not None
         assert ret == '198d03ff'
@@ -85,8 +75,6 @@ class TestUtils(unittest.TestCase):
             parse_did_filter_from_string(input_)
 
     def test_availability_data_class(self):
-        Availability
-
         availability = Availability()
 
         assert availability.read is None

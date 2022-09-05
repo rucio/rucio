@@ -13,237 +13,168 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import random
-import string
-import unittest
-
 import pytest
-
-from rucio.client.accountclient import AccountClient
-from rucio.client.accountlimitclient import AccountLimitClient
-from rucio.common.config import config_get_bool
-from rucio.common.types import InternalAccount
 from rucio.core import account_limit
-from rucio.core.account import add_account
-from rucio.core.rse import get_rse_id
-from rucio.db.sqla import session, models
-from rucio.db.sqla.constants import AccountType
-from rucio.tests.common_server import get_vo
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='deletes database content on setUp and tearDownClass')
-class TestCoreAccountLimits(unittest.TestCase):
+@pytest.fixture
+def account(random_account):
+    yield random_account
 
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-            cls.multi_vo = True
-        else:
-            cls.vo = {}
-            cls.multi_vo = False
 
-        # Add test account
-        cls.account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for x in range(10)), **cls.vo)
-        add_account(account=cls.account, type_=AccountType.USER, email='rucio@email.com')
+class TestCoreAccountLimits:
 
-        # Add test RSE
-        cls.rse1 = 'MOCK'
-        cls.rse2 = 'MOCK2'
-
-        cls.rse1_id = get_rse_id(rse=cls.rse1, **cls.vo)
-        cls.rse2_id = get_rse_id(rse=cls.rse2, **cls.vo)
-
-        cls.db_session = session.get_session()
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.db_session.query(models.AccountLimit).delete()
-        cls.db_session.query(models.AccountGlobalLimit).delete()
-        cls.db_session.commit()
-        cls.db_session.close()
-
-    def setUp(self):
-        self.db_session.query(models.AccountLimit).delete()
-        self.db_session.query(models.AccountGlobalLimit).delete()
-        self.db_session.commit()
-
-    def test_local_account_limit(self):
+    def test_local_account_limit(self, account, rse_factory, db_session):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete local account limit """
-        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes_=100000, session=self.db_session)
-        assert account_limit.get_local_account_limit(account=self.account, rse_id=self.rse1_id, session=self.db_session) == 100000
-        assert account_limit.get_local_account_limit(account=self.account, rse_id=self.rse2_id, session=self.db_session) is None
-        account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id, session=self.db_session)
-        assert account_limit.get_local_account_limit(account=self.account, rse_id=self.rse1_id, session=self.db_session) is None
+        _, rse1_id = rse_factory.make_mock_rse()
+        _, rse2_id = rse_factory.make_mock_rse()
+        account_limit.set_local_account_limit(account=account, rse_id=rse1_id, bytes_=100000, session=db_session)
+        assert account_limit.get_local_account_limit(account=account, rse_id=rse1_id, session=db_session) == 100000
+        assert account_limit.get_local_account_limit(account=account, rse_id=rse2_id, session=db_session) is None
+        account_limit.delete_local_account_limit(account=account, rse_id=rse1_id, session=db_session)
+        assert account_limit.get_local_account_limit(account=account, rse_id=rse1_id, session=db_session) is None
 
-    def test_global_account_limit(self):
+    def test_global_account_limit(self, account, rse_factory, db_session):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete global account limit """
-        account_limit.set_global_account_limit(self.account, 'MOCK', 200000, session=self.db_session)
-        assert account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK', session=self.db_session) == 200000
-        assert account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK2', session=self.db_session) is None
-        account_limit.delete_global_account_limit(self.account, 'MOCK', session=self.db_session)
-        assert account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK', session=self.db_session) is None
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
+        account_limit.set_global_account_limit(account, rse1, 200000, session=db_session)
+        assert account_limit.get_global_account_limit(account=account, rse_expression=rse1, session=db_session) == 200000
+        assert account_limit.get_global_account_limit(account=account, rse_expression=rse2, session=db_session) is None
+        account_limit.delete_global_account_limit(account, rse1, session=db_session)
+        assert account_limit.get_global_account_limit(account=account, rse_expression=rse1, session=db_session) is None
 
-    def test_global_account_limits(self):
+    def test_global_account_limits(self, account, rse_factory, db_session):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete global account limits """
-        resolved_rse_ids = [get_rse_id('MOCK', **self.vo)]
-        resolved_rses = ['MOCK']
+        rse1, rse1_id = rse_factory.make_mock_rse()
         limit = 10
-        account_limit.set_global_account_limit(self.account, 'MOCK', limit, session=self.db_session)
-        results = account_limit.get_global_account_limits(account=self.account, session=self.db_session)
+        account_limit.set_global_account_limit(account, rse1, limit, session=db_session)
+        results = account_limit.get_global_account_limits(account=account, session=db_session)
         assert len(results) == 1
-        assert 'MOCK' in results
-        assert results['MOCK']['resolved_rses'] == resolved_rses
-        assert results['MOCK']['resolved_rse_ids'] == resolved_rse_ids
-        assert results['MOCK']['limit'] == limit
-        account_limit.delete_global_account_limit(self.account, 'MOCK', session=self.db_session)
-        results = account_limit.get_global_account_limits(account=self.account, session=self.db_session)
+        assert rse1 in results
+        assert results[rse1]['resolved_rses'] == [rse1]
+        assert results[rse1]['resolved_rse_ids'] == [rse1_id]
+        assert results[rse1]['limit'] == limit
+        account_limit.delete_global_account_limit(account, rse1, session=db_session)
+        results = account_limit.get_global_account_limits(account=account, session=db_session)
         assert len(results) == 0
 
-    def test_get_global_account_usage(self):
+    def test_get_global_account_usage(self, account, rse_factory, db_session):
         """ ACCOUNT_LIMIT (CORE): Get global account usage. """
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
+        rse3, _ = rse_factory.make_mock_rse()
+        rse4, _ = rse_factory.make_mock_rse()
         limit1 = 10
         limit2 = 20
-        account_limit.set_global_account_limit(self.account, 'MOCK|MOCK2', limit1)
-        account_limit.set_global_account_limit(self.account, 'MOCK4|MOCK3', limit2)
-        results = account_limit.get_global_account_usage(account=self.account)
+        account_limit.set_global_account_limit(account, f'{rse1}|{rse2}', limit1)
+        account_limit.set_global_account_limit(account, f'{rse3}|{rse4}', limit2)
+        results = account_limit.get_global_account_usage(account=account, session=db_session)
         assert len(results) == 2
 
-        results = account_limit.get_global_account_usage(account=self.account, rse_expression='MOCK|MOCK2')
+        results = account_limit.get_global_account_usage(account=account, rse_expression=f'{rse1}|{rse2}', session=db_session)
         assert len(results) == 1
 
-    def test_local_account_limits(self):
+    def test_local_account_limits(self, account, rse_factory, db_session):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete local account limits """
+        _, rse1_id = rse_factory.make_mock_rse()
+        _, rse2_id = rse_factory.make_mock_rse()
         limit1 = 100
         limit2 = 200
-        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes_=limit1, session=self.db_session)
-        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse2_id, bytes_=limit2, session=self.db_session)
-        results = account_limit.get_local_account_limits(account=self.account, session=self.db_session)
+        account_limit.set_local_account_limit(account=account, rse_id=rse1_id, bytes_=limit1, session=db_session)
+        account_limit.set_local_account_limit(account=account, rse_id=rse2_id, bytes_=limit2, session=db_session)
+        results = account_limit.get_local_account_limits(account=account, session=db_session)
         assert len(results) == 2
-        assert results[self.rse1_id] == limit1
-        assert results[self.rse2_id] == limit2
-        account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id, session=self.db_session)
-        account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse2_id, session=self.db_session)
-        results = account_limit.get_local_account_limits(account=self.account, session=self.db_session)
+        assert results[rse1_id] == limit1
+        assert results[rse2_id] == limit2
+        account_limit.delete_local_account_limit(account=account, rse_id=rse1_id, session=db_session)
+        account_limit.delete_local_account_limit(account=account, rse_id=rse2_id, session=db_session)
+        results = account_limit.get_local_account_limits(account=account, session=db_session)
         assert len(results) == 0
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='deletes database content on setUp and tearDownClass')
-class TestAccountClient(unittest.TestCase):
+class TestAccountClient:
 
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-            cls.multi_vo = True
-        else:
-            cls.vo = {}
-            cls.multi_vo = False
-
-        # Add test account
-        cls.account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for x in range(10)), **cls.vo)
-        add_account(account=cls.account, type_=AccountType.USER, email='rucio@email.com')
-
-        # Add test RSE
-        cls.rse1 = 'MOCK'
-        cls.rse2 = 'MOCK2'
-
-        cls.rse1_id = get_rse_id(rse=cls.rse1, **cls.vo)
-        cls.rse2_id = get_rse_id(rse=cls.rse2, **cls.vo)
-
-        cls.db_session = session.get_session()
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.db_session.query(models.AccountLimit).delete()
-        cls.db_session.query(models.AccountGlobalLimit).delete()
-        cls.db_session.commit()
-        cls.db_session.close()
-
-    def setUp(self):
-        self.client = AccountClient()
-        self.alclient = AccountLimitClient()
-        self.db_session.query(models.AccountLimit).delete()
-        self.db_session.query(models.AccountGlobalLimit).delete()
-        self.db_session.commit()
-
-    def test_set_global_account_limit(self):
+    def test_set_global_account_limit(self, account, rucio_client, rse_factory):
         """ ACCOUNT_LIMIT (CLIENTS): Set global account limit """
-        self.alclient.set_global_account_limit(self.account.external, 'MOCK', 200000)
-        assert account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK') == 200000
-        assert account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK2') is None
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
+        rucio_client.set_global_account_limit(account.external, rse1, 200000)
+        assert account_limit.get_global_account_limit(account=account, rse_expression=rse1) == 200000
+        assert account_limit.get_global_account_limit(account=account, rse_expression=rse2) is None
 
-    def test_get_global_account_limits(self):
+    def test_get_global_account_limits(self, account, rucio_client, rse_factory):
         """ ACCOUNT_LIMIT (CLIENTS): Get global account limits """
-        expression = 'MOCK'
-        resolved_rses = ['MOCK']
-        resolved_rse_ids = [get_rse_id('MOCK', **self.vo)]
+        rse1, rse1_id = rse_factory.make_mock_rse()
         limit = 10
-        account_limit.set_global_account_limit(self.account, expression, limit)
-        results = self.client.get_global_account_limits(account=self.account.external)
+        account_limit.set_global_account_limit(account, rse1, limit)
+        results = rucio_client.get_global_account_limits(account=account.external)
         assert len(results) == 1
-        assert results[expression]['resolved_rses'] == resolved_rses
-        assert results[expression]['resolved_rse_ids'] == resolved_rse_ids
-        assert results[expression]['limit'] == limit
+        assert results[rse1]['resolved_rses'] == [rse1]
+        assert results[rse1]['resolved_rse_ids'] == [rse1_id]
+        assert results[rse1]['limit'] == limit
 
-    def test_get_global_account_limit(self):
+    def test_get_global_account_limit(self, account, rucio_client, rse_factory):
         """ ACCOUNT_LIMIT (CLIENTS): Get global account limit. """
-        expression = 'MOCK'
+        rse1, _ = rse_factory.make_mock_rse()
         limit = 10
-        account_limit.set_global_account_limit(self.account, expression, limit)
-        result = self.client.get_global_account_limit(account=self.account.external, rse_expression=expression)
-        assert result[expression] == limit
+        account_limit.set_global_account_limit(account, rse1, limit)
+        result = rucio_client.get_global_account_limit(account=account.external, rse_expression=rse1)
+        assert result[rse1] == limit
 
-    def test_get_local_account_limits(self):
+    def test_get_local_account_limits(self, account, rucio_client, rse_factory):
         """ ACCOUNT_LIMIT (CLIENTS): Get local account limits """
-        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes_=12345)
-        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse2_id, bytes_=12345)
+        rse1, rse1_id = rse_factory.make_mock_rse()
+        rse2, rse2_id = rse_factory.make_mock_rse()
+        account_limit.set_local_account_limit(account=account, rse_id=rse1_id, bytes_=12345)
+        account_limit.set_local_account_limit(account=account, rse_id=rse2_id, bytes_=12345)
 
-        limits = self.client.get_local_account_limits(account=self.account.external)
+        limits = rucio_client.get_local_account_limits(account=account.external)
 
-        assert (self.rse1, 12345) in limits.items()
-        assert (self.rse2, 12345) in limits.items()
+        assert (rse1, 12345) in limits.items()
+        assert (rse2, 12345) in limits.items()
 
-        account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id)
-        account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse2_id)
+        account_limit.delete_local_account_limit(account=account, rse_id=rse1_id)
+        account_limit.delete_local_account_limit(account=account, rse_id=rse2_id)
 
-    def test_get_local_account_limit(self):
+    def test_get_local_account_limit(self, account, rucio_client, rse_factory):
         """ ACCOUNT_LIMIT (CLIENTS): Get local account limit """
-        account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id)
-        account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes_=333)
+        rse1, rse1_id = rse_factory.make_mock_rse()
+        account_limit.delete_local_account_limit(account=account, rse_id=rse1_id)
+        account_limit.set_local_account_limit(account=account, rse_id=rse1_id, bytes_=333)
 
-        limit = self.client.get_local_account_limit(account=self.account.external, rse=self.rse1)
+        limit = rucio_client.get_local_account_limit(account=account.external, rse=rse1)
 
-        assert limit == {self.rse1: 333}
-        account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id)
+        assert limit == {rse1: 333}
+        account_limit.delete_local_account_limit(account=account, rse_id=rse1_id)
 
-    def test_set_local_account_limit(self):
+    def test_set_local_account_limit(self, account, rucio_client, rse_factory):
         """ ACCOUNTLIMIT (CLIENTS): Set local account limit """
-        self.alclient.set_local_account_limit(account=self.account.external, rse=self.rse1, bytes_=987)
+        rse1, rse1_id = rse_factory.make_mock_rse()
+        rucio_client.set_local_account_limit(account=account.external, rse=rse1, bytes_=987)
 
-        limit = self.client.get_local_account_limit(account=self.account.external, rse=self.rse1)
+        limit = rucio_client.get_local_account_limit(account=account.external, rse=rse1)
 
-        assert limit[self.rse1] == 987
-        account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id)
+        assert limit[rse1] == 987
+        account_limit.delete_local_account_limit(account=account, rse_id=rse1_id)
 
-    def test_delete_local_account_limit(self):
+    def test_delete_local_account_limit(self, account, rucio_client, rse_factory):
         """ ACCOUNTLIMIT (CLIENTS): Delete local account limit """
-        self.alclient.set_local_account_limit(account=self.account.external, rse=self.rse1, bytes_=786)
+        rse1, rse1_id = rse_factory.make_mock_rse()
+        rucio_client.set_local_account_limit(account=account.external, rse=rse1, bytes_=786)
 
-        limit = self.client.get_local_account_limit(account=self.account.external, rse=self.rse1)
-        assert limit == {self.rse1: 786}
+        limit = rucio_client.get_local_account_limit(account=account.external, rse=rse1)
+        assert limit == {rse1: 786}
 
-        self.alclient.delete_local_account_limit(account=self.account.external, rse=self.rse1)
-        limit = self.client.get_local_account_limit(account=self.account.external, rse=self.rse1)
-        assert limit[self.rse1] is None
-        account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id)
+        rucio_client.delete_local_account_limit(account=account.external, rse=rse1)
+        limit = rucio_client.get_local_account_limit(account=account.external, rse=rse1)
+        assert limit[rse1] is None
+        account_limit.delete_local_account_limit(account=account, rse_id=rse1_id)
 
-    def test_delete_global_account_limit(self):
+    def test_delete_global_account_limit(self, account, rucio_client, rse_factory, db_session):
         """ ACCOUNTLIMIT (CLIENTS): Delete global account limit """
-        rse_exp = 'MOCK'
-        account_limit.set_global_account_limit(account=self.account, rse_expression=rse_exp, bytes_=10, session=self.db_session)
-        self.alclient.delete_global_account_limit(account=self.account.external, rse_expression=rse_exp)
-        result = account_limit.get_global_account_limit(account=self.account, rse_expression=rse_exp)
+        rse1, rse1_id = rse_factory.make_mock_rse()
+        account_limit.set_global_account_limit(account=account, rse_expression=rse1, bytes_=10, session=db_session)
+        rucio_client.delete_global_account_limit(account=account.external, rse_expression=rse1)
+        result = account_limit.get_global_account_limit(account=account, rse_expression=rse1)
         assert result is None

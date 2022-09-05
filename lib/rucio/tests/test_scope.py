@@ -13,46 +13,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 from json import loads
 
 import pytest
 
-from rucio.client.accountclient import AccountClient
-from rucio.client.scopeclient import ScopeClient
-from rucio.common.config import config_get_bool
 from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound, InvalidObject
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.scope import get_scopes, add_scope, is_scope_owner
 from rucio.tests.common import account_name_generator, scope_name_generator, headers, auth, hdrdict
-from rucio.tests.common_server import get_vo
 
 
-class TestScopeCoreApi(unittest.TestCase):
+class TestScopeCoreApi:
 
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
-
-        self.scopes = [InternalScope(scope_name_generator(), **self.vo) for _ in range(5)]
-        self.jdoe = InternalAccount('jdoe', **self.vo)
-
-    def test_list_scopes(self):
+    def test_list_scopes(self, vo, jdoe_account):
+        scopes = [InternalScope(scope_name_generator(), vo=vo) for _ in range(5)]
         """ SCOPE (CORE): List scopes """
-        for scope in self.scopes:
-            add_scope(scope=scope, account=self.jdoe)
-        scopes = get_scopes(account=self.jdoe)
+        for scope in scopes:
+            add_scope(scope=scope, account=jdoe_account)
+        scopes = get_scopes(account=jdoe_account)
         for scope in scopes:
             assert scope in scopes
 
-    def test_is_scope_owner(self):
+    def test_is_scope_owner(self, vo, jdoe_account):
         """ SCOPE (CORE): Is scope owner """
-        scope = InternalScope(scope_name_generator(), **self.vo)
-        add_scope(scope=scope, account=self.jdoe)
-        anwser = is_scope_owner(scope=scope, account=self.jdoe)
+        scope = InternalScope(scope_name_generator(), vo=vo)
+        add_scope(scope=scope, account=jdoe_account)
+        anwser = is_scope_owner(scope=scope, account=jdoe_account)
         assert anwser is True
 
 
@@ -131,60 +118,56 @@ def test_list_scope_no_scopes(rest_client, auth_token):
     assert response.headers.get('ExceptionClass') == 'ScopeNotFound'
 
 
-class TestScopeClient(unittest.TestCase):
+class TestScopeClient:
 
-    def setUp(self):
-        self.account_client = AccountClient()
-        self.scope_client = ScopeClient()
-
-    def test_create_scope(self):
+    def test_create_scope(self, rucio_client):
         """ SCOPE (CLIENTS): create a new scope."""
         account = 'jdoe'
         scope = scope_name_generator()
-        ret = self.scope_client.add_scope(account, scope)
+        ret = rucio_client.add_scope(account, scope)
         assert ret
         with pytest.raises(InvalidObject):
-            self.scope_client.add_scope(account, 'tooooolooooongscooooooooooooope')
+            rucio_client.add_scope(account, 'tooooolooooongscooooooooooooope')
         with pytest.raises(InvalidObject):
-            self.scope_client.add_scope(account, '$?!')
+            rucio_client.add_scope(account, '$?!')
 
-    def test_create_scope_no_account(self):
+    def test_create_scope_no_account(self, rucio_client):
         """ SCOPE (CLIENTS): try to create scope for not existing account."""
         account = str(uuid()).lower()[:30]
         scope = scope_name_generator()
         with pytest.raises(AccountNotFound):
-            self.scope_client.add_scope(account, scope)
+            rucio_client.add_scope(account, scope)
 
-    def test_create_scope_duplicate(self):
+    def test_create_scope_duplicate(self, rucio_client):
         """ SCOPE (CLIENTS): try to create a duplicate scope."""
         account = 'jdoe'
         scope = scope_name_generator()
-        self.scope_client.add_scope(account, scope)
+        rucio_client.add_scope(account, scope)
         with pytest.raises(Duplicate):
-            self.scope_client.add_scope(account, scope)
+            rucio_client.add_scope(account, scope)
 
-    def test_list_scopes(self):
+    def test_list_scopes(self, rucio_client):
         """ SCOPE (CLIENTS): try to list scopes for an account."""
         account = 'jdoe'
         scope_list = [scope_name_generator() for _ in range(5)]
         for scope in scope_list:
-            self.scope_client.add_scope(account, scope)
+            rucio_client.add_scope(account, scope)
 
-        svr_list = self.scope_client.list_scopes_for_account(account)
+        svr_list = rucio_client.list_scopes_for_account(account)
 
         for scope in scope_list:
             if scope not in svr_list:
                 assert False
 
-    def test_list_scopes_account_not_found(self):
+    def test_list_scopes_account_not_found(self, rucio_client):
         """ SCOPE (CLIENTS): try to list scopes for a non existing account."""
         account = account_name_generator()
         with pytest.raises(AccountNotFound):
-            self.scope_client.list_scopes_for_account(account)
+            rucio_client.list_scopes_for_account(account)
 
-    def test_list_scopes_no_scopes(self):
+    def test_list_scopes_no_scopes(self, rucio_client):
         """ SCOPE (CLIENTS): try to list scopes for an account without scopes."""
         account = account_name_generator()
-        self.account_client.add_account(account, 'USER', 'rucio@email.com')
+        rucio_client.add_account(account, 'USER', 'rucio@email.com')
         with pytest.raises(ScopeNotFound):
-            self.scope_client.list_scopes_for_account(account)
+            rucio_client.list_scopes_for_account(account)

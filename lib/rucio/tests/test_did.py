@@ -133,8 +133,8 @@ class TestDIDCore:
 
         # make a dataset with 2 files in it and verify get_did(dynamic) on dataset
         dataset1 = did_factory.make_dataset()
-        file1 = did_factory.random_did()
-        file2 = did_factory.random_did()
+        file1 = did_factory.random_file_did()
+        file2 = did_factory.random_file_did()
         add_replica(rse_id=rse_id, bytes_=10, account=root_account, **file1)
         add_replica(rse_id=rse_id, bytes_=10, account=root_account, **file2)
         attach_dids(dids=[file1, file2], account=root_account, **dataset1)
@@ -151,7 +151,7 @@ class TestDIDCore:
 
         # make another dataset with one file in it and attach to previously created container
         dataset2 = did_factory.make_dataset()
-        file3 = did_factory.random_did()
+        file3 = did_factory.random_file_did()
         add_replica(rse_id=rse_id, bytes_=10, account=root_account, **file3)
         attach_dids(dids=[dataset2], account=root_account, **container)
         attach_dids(dids=[file3], account=root_account, **dataset2)

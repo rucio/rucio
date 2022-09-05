@@ -513,12 +513,12 @@ class TestReplicaCore:
         add_rse_attribute(rse_id=rse2_id, key='tombstone_delay', value=tombstone_delay)
 
         # Will use the default tombstone delay
-        did1 = did_factory.random_did()
+        did1 = did_factory.random_file_did()
         add_replica(rse1_id, bytes_=4, account=root_account, **did1)
         assert get_replica(rse1_id, **did1)['tombstone'] is None
 
         # Will use the configured value on the RSE
-        did2 = did_factory.random_did()
+        did2 = did_factory.random_file_did()
         add_replica(rse2_id, bytes_=4, account=root_account, **did2)
         tombstone = get_replica(rse2_id, **did2)['tombstone']
         expected_tombstone = datetime.utcnow() + timedelta(seconds=tombstone_delay)
@@ -792,7 +792,7 @@ def test_client_access_denied_on_delete_replicas(rse_factory, mock_scope, replic
 def test_client_list_replicas_on_did_without_replicas(rse_factory, did_factory, replica_client, did_client, root_account):
     """ REPLICA (CLIENT): dids of type FILE, but without replicas, must be listed with empty pfns and rses"""
     rse, _ = rse_factory.make_posix_rse()
-    file = did_factory.random_did()
+    file = did_factory.random_file_did()
     dataset = did_factory.make_dataset()
     container = did_factory.make_container()
 

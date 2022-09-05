@@ -14,11 +14,46 @@
 # limitations under the License.
 
 import traceback
+import re
+import functools
+from random import choice
+from string import ascii_uppercase
 
 import pytest
 
 
+_del_test_prefix = functools.partial(re.compile(r'^[Tt][Ee][Ss][Tt]_?').sub, '')
 # local imports in the fixtures to make this file loadable in e.g. client tests
+
+
+@pytest.fixture(scope='session')
+def session_scope_prefix():
+    """
+    Generate a name prefix to be shared by objects created during this pytest session
+    """
+    return ''.join(choice(ascii_uppercase) for _ in range(6)) + '-'
+
+
+@pytest.fixture(scope='module')
+def module_scope_prefix(request, session_scope_prefix):
+    """
+    Generate a name prefix to be shared by objects created during this pytest module
+    Relies on pytest's builtin fixture "request"
+    https://docs.pytest.org/en/6.2.x/reference.html#std-fixture-request
+    """
+    return session_scope_prefix + _del_test_prefix(request.module.__name__.split('.')[-1]) + '-'
+
+
+@pytest.fixture(scope='class')
+def class_scope_prefix(request, module_scope_prefix):
+    if not request.cls:
+        return module_scope_prefix
+    return module_scope_prefix + _del_test_prefix(request.cls.__name__) + '-'
+
+
+@pytest.fixture(scope='function')
+def function_scope_prefix(request, class_scope_prefix):
+    return class_scope_prefix + _del_test_prefix(request.node.originalname) + '-'
 
 
 @pytest.fixture(scope='session')
@@ -45,6 +80,13 @@ def second_vo():
 def long_vo():
     from rucio.tests.common import get_long_vo
     return get_long_vo()
+
+
+@pytest.fixture(scope='module')
+def account_client():
+    from rucio.client.accountclient import AccountClient
+
+    return AccountClient()
 
 
 @pytest.fixture(scope='module')
@@ -156,6 +198,24 @@ def jdoe_account(vo):
     return InternalAccount('jdoe', vo=vo)
 
 
+@pytest.fixture
+def random_account(vo):
+    import random
+    import string
+
+    from rucio.common.types import InternalAccount
+    from rucio.core.account import add_account, del_account
+    from rucio.db.sqla import models
+    from rucio.db.sqla.constants import AccountType
+    from rucio.tests.common_server import cleanup_db_deps
+
+    account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for _ in range(10)), vo=vo)
+    add_account(account=account, type_=AccountType.USER, email=f'{account.external}@email.com')
+    yield account
+    cleanup_db_deps(model=models.Account, select_rows_stmt=models.Account.account == account)
+    del_account(account)
+
+
 @pytest.fixture(scope="module")
 def containerized_rses(rucio_client):
     """
@@ -184,30 +244,30 @@ def containerized_rses(rucio_client):
 
 
 @pytest.fixture
-def rse_factory(vo):
+def rse_factory(vo, function_scope_prefix):
     from rucio.tests.temp_factories import TemporaryRSEFactory
 
-    with TemporaryRSEFactory(vo=vo) as factory:
+    with TemporaryRSEFactory(vo=vo, name_prefix=function_scope_prefix) as factory:
         yield factory
 
 
 @pytest.fixture(scope="class")
-def rse_factory_unittest(request, vo):
+def rse_factory_unittest(request, vo, class_scope_prefix):
     """
     unittest classes can get access to rse_factory fixture via this fixture
     """
     from rucio.tests.temp_factories import TemporaryRSEFactory
-    with TemporaryRSEFactory(vo=vo) as factory:
+
+    with TemporaryRSEFactory(vo=vo, name_prefix=class_scope_prefix) as factory:
         request.cls.rse_factory = factory
         yield factory
-        factory.cleanup()
 
 
 @pytest.fixture
-def did_factory(vo, mock_scope):
+def did_factory(vo, mock_scope, function_scope_prefix, file_factory):
     from rucio.tests.temp_factories import TemporaryDidFactory
 
-    with TemporaryDidFactory(vo=vo, default_scope=mock_scope) as factory:
+    with TemporaryDidFactory(vo=vo, default_scope=mock_scope, name_prefix=function_scope_prefix, file_factory=file_factory) as factory:
         yield factory
 
 

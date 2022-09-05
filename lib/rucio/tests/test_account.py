@@ -13,14 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 from json import loads
 
 import pytest
 
 from rucio.api.account import add_account, account_exists, del_account, update_account, get_account_info
-from rucio.client.accountclient import AccountClient
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
@@ -28,52 +26,46 @@ from rucio.core.account import list_identities, add_account_attribute, list_acco
 from rucio.core.identity import add_account_identity, add_identity
 from rucio.db.sqla.constants import AccountStatus, IdentityType
 from rucio.tests.common import account_name_generator, headers, auth, vohdr, loginhdr
-from rucio.tests.common_server import get_vo
 
 
-class TestAccountCoreApi(unittest.TestCase):
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
+class TestAccountCoreApi:
 
-    def test_create_and_check_for_user(self):
+    def test_create_and_check_for_user(self, vo):
         """ ACCOUNT (CORE): Test the creation, query, and deletion of an account """
         usr = account_name_generator()
         invalid_usr = account_name_generator()
-        add_account(usr, 'USER', 'rucio@email.com', 'root', **self.vo)
-        assert account_exists(usr, **self.vo)
-        assert not account_exists(invalid_usr, **self.vo)
-        del_account(usr, 'root', **self.vo)
+        add_account(usr, 'USER', 'rucio@email.com', 'root', vo=vo)
+        assert account_exists(usr, vo=vo)
+        assert not account_exists(invalid_usr, vo=vo)
+        del_account(usr, 'root', vo=vo)
 
-    def test_update_account(self):
+    def test_update_account(self, vo):
         """ ACCOUNT (CORE): Test changing and quering account parameters """
         usr = account_name_generator()
-        add_account(usr, 'USER', 'rucio@email.com', 'root', **self.vo)
-        assert get_account_info(usr, **self.vo)['status'] == AccountStatus.ACTIVE  # Should be active by default
-        update_account(account=usr, key='status', value=AccountStatus.SUSPENDED, **self.vo)
-        assert get_account_info(usr, **self.vo)['status'] == AccountStatus.SUSPENDED
-        update_account(account=usr, key='status', value=AccountStatus.ACTIVE, **self.vo)
-        assert get_account_info(usr, **self.vo)['status'] == AccountStatus.ACTIVE
-        update_account(account=usr, key='email', value='test', **self.vo)
-        email = get_account_info(account=usr, **self.vo)['email']
+        add_account(usr, 'USER', 'rucio@email.com', 'root', vo=vo)
+        assert get_account_info(usr, vo=vo)['status'] == AccountStatus.ACTIVE  # Should be active by default
+        update_account(account=usr, key='status', value=AccountStatus.SUSPENDED, vo=vo)
+        assert get_account_info(usr, vo=vo)['status'] == AccountStatus.SUSPENDED
+        update_account(account=usr, key='status', value=AccountStatus.ACTIVE, vo=vo)
+        assert get_account_info(usr, vo=vo)['status'] == AccountStatus.ACTIVE
+        update_account(account=usr, key='email', value='test', vo=vo)
+        email = get_account_info(account=usr, vo=vo)['email']
         assert email == 'test'
-        del_account(usr, 'root', **self.vo)
+        del_account(usr, 'root', vo=vo)
 
-    def test_list_account_identities(self):
+    def test_list_account_identities(self, vo):
         """ ACCOUNT (CORE): Test listing of account identities """
         email = 'email'
         identity = uuid()
         identity_type = IdentityType.USERPASS
-        account = InternalAccount('root', **self.vo)
+        account = InternalAccount('root', vo=vo)
         add_account_identity(identity, identity_type, account, email, password='secret')
         identities = list_identities(account)
         assert {'type': identity_type, 'identity': identity, 'email': email} in identities
 
-    def test_add_account_attribute(self):
+    def test_add_account_attribute(self, vo):
         """ ACCOUNT (CORE): Test adding attribute to account """
-        account = InternalAccount('root', **self.vo)
+        account = InternalAccount('root', vo=vo)
         key = account_name_generator()
         value = True
         add_account_attribute(account, key, value)
@@ -258,62 +250,59 @@ def test_add_identity_to_account(rest_client, auth_token):
     assert response.status_code == 400
 
 
-class TestAccountClient(unittest.TestCase):
+class TestAccountClient:
 
-    def setUp(self):
-        self.client = AccountClient()
-
-    def test_add_account_success(self):
+    def test_add_account_success(self, account_client):
         """ ACCOUNT (CLIENTS): create a new account and get information about account."""
         account = account_name_generator()
         type_, email = 'USER', 'rucio@email.com'
-        ret = self.client.add_account(account, type_, email)
+        ret = account_client.add_account(account, type_, email)
         assert ret
 
         with pytest.raises(Duplicate):
-            self.client.add_account(account, type_, email)
+            account_client.add_account(account, type_, email)
 
         with pytest.raises(InvalidObject):
-            self.client.add_account('BAD_ACCOUNT_NAME', type_, email)
+            account_client.add_account('BAD_ACCOUNT_NAME', type_, email)
 
         with pytest.raises(InvalidObject):
-            self.client.add_account('toooooooloooooonaccounnnnnnnntnammmmme', type_, email)
+            account_client.add_account('toooooooloooooonaccounnnnnnnntnammmmme', type_, email)
 
-        acc_info = self.client.get_account(account)
+        acc_info = account_client.get_account(account)
         assert acc_info['account'] == account
 
-    def test_get_account_notfound(self):
+    def test_get_account_notfound(self, account_client):
         """ ACCOUNT (CLIENTS): try to get information about not existing account."""
         account = str(uuid())
         with pytest.raises(AccountNotFound):
-            self.client.get_account(account)
+            account_client.get_account(account)
 
-    def test_list_accounts(self):
+    def test_list_accounts(self, account_client):
         """ ACCOUNT (CLIENTS): get list of all accounts."""
         dn = config_get('bootstrap', 'x509_identity')
         acc_list = [account_name_generator() for _ in range(5)]
         for account in acc_list:
-            self.client.add_account(account, 'USER', 'rucio@email.com')
+            account_client.add_account(account, 'USER', 'rucio@email.com')
 
-        svr_list = [a['account'] for a in self.client.list_accounts(account_type='SERVICE', identity=dn)]
+        svr_list = [a['account'] for a in account_client.list_accounts(account_type='SERVICE', identity=dn)]
         assert 'root' in svr_list
 
-        svr_list = [a['account'] for a in self.client.list_accounts(account_type='USER')]
+        svr_list = [a['account'] for a in account_client.list_accounts(account_type='USER')]
         for account in acc_list:
             assert account in svr_list
 
-    def test_update_account(self):
+    def test_update_account(self, account_client):
         """ ACCOUNT (CLIENTS): create a new account and update it."""
         account = account_name_generator()
         type_, email = 'USER', 'rucio@email.com'
-        ret = self.client.add_account(account, type_, email)
+        ret = account_client.add_account(account, type_, email)
         assert ret
-        self.client.update_account(account=account, key='status', value='SUSPENDED')
-        status = self.client.get_account(account=account)['status']
+        account_client.update_account(account=account, key='status', value='SUSPENDED')
+        status = account_client.get_account(account=account)['status']
         assert status == 'SUSPENDED'
-        self.client.update_account(account=account, key='status', value='ACTIVE')
-        status = self.client.get_account(account=account)['status']
+        account_client.update_account(account=account, key='status', value='ACTIVE')
+        status = account_client.get_account(account=account)['status']
         assert status == 'ACTIVE'
-        self.client.update_account(account=account, key='email', value='test')
-        email = self.client.get_account(account=account)['email']
+        account_client.update_account(account=account, key='email', value='test')
+        email = account_client.get_account(account=account)['email']
         assert email == 'test'
