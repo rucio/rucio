@@ -428,7 +428,6 @@ def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=50 * file_size)
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
 
-    # Check first if the reaper does not delete anything if no space is needed
     reaper_cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, greedy=True)
