@@ -16,7 +16,6 @@
 import os
 import random
 import re
-import unittest
 from datetime import datetime, timedelta
 from os import remove, unlink, listdir, rmdir, stat, path, environ
 
@@ -34,7 +33,14 @@ from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator, get_long_vo
 
 
-class TestBinRucio(unittest.TestCase):
+@pytest.fixture
+def setup_test(request, rse_factory):
+    request.instance.rse_factory = rse_factory
+    request.instance.setUp()
+
+
+@pytest.mark.usefixtures("setup_test")
+class TestBinRucio:
 
     def conf_vo(self):
         self.vo = {}
@@ -63,13 +69,16 @@ class TestBinRucio(unittest.TestCase):
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')
         self.user = 'data13_hip'
-        self.def_rse = 'MOCK4'
         self.rse_client = RSEClient()
-        self.def_rse_id = self.rse_client.get_rse(rse=self.def_rse)['id']
         self.did_client = DIDClient()
         self.replica_client = ReplicaClient()
         self.rule_client = RuleClient()
         self.account_client = AccountLimitClient()
+        if environ.get('SUITE', 'remote_dbs') != 'client':
+            self.def_rse, self.def_rse_id = self.rse_factory.make_posix_rse()
+        else:
+            self.def_rse = 'MOCK4'
+            self.def_rse_id = self.rse_client.get_rse(rse=self.def_rse)['id']
         self.account_client.set_local_account_limit('root', self.def_rse, -1)
 
         self.rse_client.add_rse_attribute(self.def_rse, 'istape', 'False')
@@ -1765,7 +1774,7 @@ class TestBinRucio(unittest.TestCase):
     def test_set_tombstone(self):
         """ CLIENT(ADMIN): set a tombstone on a replica. """
         # Set tombstone on one replica
-        rse = 'MOCK4'
+        rse = self.def_rse
         scope = 'mock'
         name = generate_uuid()
         self.replica_client.add_replica(rse, scope, name, 4, 'aaaaaaaa')
@@ -1790,8 +1799,8 @@ class TestBinRucio(unittest.TestCase):
     @pytest.mark.noparallel(reason='modifies account limit on pre-defined RSE')
     def test_list_account_limits(self):
         """ CLIENT (USER): list account limits. """
-        rse = 'MOCK4'
-        rse_exp = 'MOCK3|MOCK4'
+        rse = self.def_rse
+        rse_exp = f'MOCK3|{rse}'
         account = 'root'
         local_limit = 10
         global_limit = 20
@@ -1822,9 +1831,9 @@ class TestBinRucio(unittest.TestCase):
         db_session.query(models.AccountGlobalLimit).delete()
         db_session.query(models.UpdatedAccountCounter).delete()
         db_session.commit()
-        rse = 'MOCK4'
-        rse_id = self.rse_client.get_rse(rse)['id']
-        rse_exp = 'MOCK|MOCK4'
+        rse = self.def_rse
+        rse_id = self.def_rse_id
+        rse_exp = f'MOCK|{rse}'
         account = 'root'
         usage = 4
         local_limit = 10
@@ -1838,13 +1847,13 @@ class TestBinRucio(unittest.TestCase):
         cmd = 'rucio list-account-usage {0}'.format(account)
         exitcode, out, err = execute(cmd)
         assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
-        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(r'MOCK\|MOCK4', usage, global_limit, global_left), out) is not None
+        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(f'MOCK|{rse}', usage, global_limit, global_left), out) is not None
 
         cmd = 'rucio list-account-usage --rse {0} {1}'.format(rse, account)
         exitcode, out, err = execute(cmd)
         assert exitcode == 0
         assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
-        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(r'MOCK\|MOCK4', usage, global_limit, global_left), out) is not None
+        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(f'MOCK|{rse}', usage, global_limit, global_left), out) is not None
         self.account_client.set_local_account_limit(account, rse, -1)
         self.account_client.set_global_account_limit(account, rse_exp, -1)
 
