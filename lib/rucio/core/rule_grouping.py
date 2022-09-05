@@ -26,7 +26,7 @@ from rucio.core import account_counter, rse_counter, request as request_core
 import rucio.core.did
 import rucio.core.lock
 import rucio.core.replica
-from rucio.core.rse import get_rse
+from rucio.core.rse import get_rse, get_rse_attribute, get_rse_name
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE
 from rucio.db.sqla.session import transactional_session
@@ -149,29 +149,29 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, so
 
 
 @transactional_session
-def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None, bytes_=None, md5=None, adler32=None, ds_scope=None, ds_name=None, lifetime=None, activity=None, retry_count=None, session=None):
+def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None, bytes_=None, md5=None, adler32=None, ds_scope=None, ds_name=None, copy_pin_lifetime=None, activity=None, retry_count=None, session=None):
     """
     This method creates a transfer dictionary and returns it
 
-    :param dest_rse_id:   The destination RSE id.
-    :param request_Type:  The request type.
-    :param scope:         The scope of the file.
-    :param name:          The name of the file.
-    :param rule:          The rule responsible for the transfer.
-    :param lock:          The lock responsible for the transfer.
-    :param bytes_:         The filesize of the file in bytes.
-    :param md5:           The md5 checksum of the file.
-    :param adler32:       The adler32 checksum of the file.
-    :param ds_scope:      Dataset the file belongs to.
-    :param ds_name:       Dataset the file belongs to.
-    :param lifetime:      Lifetime in the case of STAGIN requests.
-    :param activity:      Activity to be used.
-    :param session:       Session of the db.
-    :returns:             Request dictionary.
+    :param dest_rse_id:         The destination RSE id.
+    :param request_Type:        The request type.
+    :param scope:               The scope of the file.
+    :param name:                The name of the file.
+    :param rule:                The rule responsible for the transfer.
+    :param lock:                The lock responsible for the transfer.
+    :param bytes_:              The filesize of the file in bytes.
+    :param md5:                 The md5 checksum of the file.
+    :param adler32:             The adler32 checksum of the file.
+    :param ds_scope:            Dataset the file belongs to.
+    :param ds_name:             Dataset the file belongs to.
+    :param copy_pin_lifetime:   Lifetime in the case of STAGIN requests.
+    :param activity:            Activity to be used.
+    :param session:             Session of the db.
+    :returns:                   Request dictionary.
     """
     attributes = {'activity': activity or rule.activity or 'default',
                   'source_replica_expression': rule.source_replica_expression,
-                  'lifetime': lifetime,
+                  'lifetime': copy_pin_lifetime,
                   'ds_scope': ds_scope,
                   'ds_name': ds_name,
                   'bytes': bytes_,
@@ -825,10 +825,14 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
     :attention:                  This method modifies the contents of the locks, locks_to_create, replicas_to_create and replicas input parameters.
     """
 
+    if rule.expires_at:
+        copy_pin_lifetime = rule.expires_at - datetime.utcnow()
+        copy_pin_lifetime = copy_pin_lifetime.seconds + copy_pin_lifetime.days * 24 * 3600
+    else:
+        copy_pin_lifetime = None
+
     # If it is a Staging Area, the pin has to be extended
     if staging_area:
-        lifetime = rule.expires_at - datetime.utcnow()
-        lifetime = lifetime.seconds + lifetime.days * 24 * 3600
         transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
                                                         request_type=RequestType.STAGEIN,
                                                         scope=file['scope'],
@@ -839,8 +843,18 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                         adler32=file['adler32'],
                                                         ds_scope=dataset['scope'],
                                                         ds_name=dataset['name'],
-                                                        lifetime=lifetime,
+                                                        copy_pin_lifetime=copy_pin_lifetime,
                                                         session=session))
+
+    # If staging_required type RSE then set pin to RSE attribute maximum_pin_lifetime
+    staging_required = get_rse_attribute(rse_id, 'staging_required', session=session)
+    maximum_pin_lifetime = get_rse_attribute(rse_id, 'maximum_pin_lifetime', session=session)
+
+    if staging_required:
+        if (not copy_pin_lifetime and maximum_pin_lifetime) or (copy_pin_lifetime and maximum_pin_lifetime and copy_pin_lifetime < int(maximum_pin_lifetime)):
+            copy_pin_lifetime = maximum_pin_lifetime
+        rse_name = get_rse_name(rse_id=rse_id, session=session)
+        logger(logging.DEBUG, f'Destination RSE {rse_name} is type staging_required with pin value: {copy_pin_lifetime}')
 
     existing_replicas = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == rse_id]
 
@@ -855,12 +869,27 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                      name=file['name'],
                                      bytes_=file['bytes'],
                                      existing_replica=existing_replica,
-                                     state=LockState.OK)
+                                     state=LockState.OK if not staging_required else LockState.REPLICATING)
             if rse_id not in locks_to_create:
                 locks_to_create[rse_id] = []
             locks_to_create[rse_id].append(new_lock)
             locks[(file['scope'], file['name'])].append(new_lock)
-            return False
+            if not staging_required:
+                return False
+
+            transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
+                                                            request_type=RequestType.STAGEIN,
+                                                            scope=file['scope'],
+                                                            name=file['name'],
+                                                            rule=rule,
+                                                            lock=new_lock,
+                                                            bytes_=file['bytes'],
+                                                            md5=file['md5'],
+                                                            adler32=file['adler32'],
+                                                            ds_scope=dataset['scope'],
+                                                            ds_name=dataset['name'],
+                                                            copy_pin_lifetime=copy_pin_lifetime,
+                                                            session=session))
 
         # Replica is not available -- UNAVAILABLE
         elif existing_replica.state == ReplicaState.UNAVAILABLE:
@@ -881,7 +910,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                 locks_to_create[rse_id] = []
             locks_to_create[rse_id].append(new_lock)
             locks[(file['scope'], file['name'])].append(new_lock)
-            if not staging_area and available_source_replica and availability_write:
+            if not staging_area and not staging_required and available_source_replica and availability_write:
                 transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
                                                                 request_type=RequestType.TRANSFER,
                                                                 scope=file['scope'],
@@ -893,6 +922,21 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                                 adler32=file['adler32'],
                                                                 ds_scope=dataset['scope'],
                                                                 ds_name=dataset['name'],
+                                                                session=session))
+                return True
+            elif staging_required:  # include the copy_pin_lifetime in dictionary
+                transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
+                                                                request_type=RequestType.TRANSFER,
+                                                                scope=file['scope'],
+                                                                name=file['name'],
+                                                                rule=rule,
+                                                                lock=new_lock,
+                                                                bytes_=file['bytes'],
+                                                                md5=file['md5'],
+                                                                adler32=file['adler32'],
+                                                                ds_scope=dataset['scope'],
+                                                                ds_name=dataset['name'],
+                                                                copy_pin_lifetime=copy_pin_lifetime,
                                                                 session=session))
                 return True
             return False
@@ -942,7 +986,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
         locks_to_create[rse_id].append(new_lock)
         locks[(file['scope'], file['name'])].append(new_lock)
 
-        if not staging_area and available_source_replica and availability_write:
+        if not staging_area and not staging_required and available_source_replica and availability_write:
             transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
                                                             request_type=RequestType.TRANSFER,
                                                             scope=file['scope'],
@@ -954,6 +998,21 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                             adler32=file['adler32'],
                                                             ds_scope=dataset['scope'],
                                                             ds_name=dataset['name'],
+                                                            session=session))
+            return True
+        elif staging_required:  # include the copy_pin_lifetime in dictionary
+            transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
+                                                            request_type=RequestType.TRANSFER,
+                                                            scope=file['scope'],
+                                                            name=file['name'],
+                                                            rule=rule,
+                                                            lock=new_lock,
+                                                            bytes_=file['bytes'],
+                                                            md5=file['md5'],
+                                                            adler32=file['adler32'],
+                                                            ds_scope=dataset['scope'],
+                                                            ds_name=dataset['name'],
+                                                            copy_pin_lifetime=copy_pin_lifetime,
                                                             session=session))
             return True
         return False
@@ -1053,8 +1112,8 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
         lock.repair_cnt += 1
 
     if get_rse(rse_id=lock.rse_id, session=session).staging_area:
-        lifetime = rule.expires_at - datetime.utcnow()
-        lifetime = lifetime.seconds + lifetime.days * 24 * 3600
+        copy_pin_lifetime = rule.expires_at - datetime.utcnow()
+        copy_pin_lifetime = copy_pin_lifetime.seconds + copy_pin_lifetime.days * 24 * 3600
         transfers_to_create.append(create_transfer_dict(dest_rse_id=lock.rse_id,
                                                         scope=lock.scope,
                                                         name=lock.name,
@@ -1065,7 +1124,7 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
                                                         adler32=replica.adler32,
                                                         ds_scope=dataset['scope'],
                                                         ds_name=dataset['name'],
-                                                        lifetime=lifetime,
+                                                        copy_pin_lifetime=copy_pin_lifetime,
                                                         request_type=RequestType.STAGEIN,
                                                         session=session))
     else:
