@@ -255,12 +255,18 @@ def get_subscriptions(logger: "Callable" = logging.log) -> List[Dict]:
     except SubscriptionNotFound as error:
         logger(logging.WARNING, "No subscriptions defined: %s" % (str(error)))
         return []
+    except TypeError as error:
+        logger(
+            logging.ERROR,
+            "Failed to parse subscription: %s" % (str(error)),
+        )
+        raise error
     except Exception as error:
         logger(
             logging.ERROR,
             "Failed to get list of new DIDs or subscriptions: %s" % (str(error)),
         )
-        return []
+        raise error
     return subscriptions
 
 

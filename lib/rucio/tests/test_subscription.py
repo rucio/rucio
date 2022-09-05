@@ -16,6 +16,7 @@
 import unittest
 from datetime import datetime
 from json import loads
+from json.decoder import JSONDecodeError
 
 import pytest
 
@@ -34,6 +35,7 @@ from rucio.core.did import add_did, set_new_dids, list_new_dids, attach_dids
 from rucio.core.rule import add_rule
 from rucio.core.rse import add_rse_attribute
 from rucio.core.scope import add_scope
+from rucio.core import subscription as subscription_core
 from rucio.daemons.transmogrifier.transmogrifier import run, get_subscriptions
 from rucio.db.sqla.constants import AccountType, DIDType
 from rucio.tests.common import headers, auth, did_name_generator, rse_name_generator
@@ -55,31 +57,31 @@ class TestSubscriptionCoreApi(unittest.TestCase):
                         \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
         cls.activity = get_schema_value('ACTIVITY')['enum'][0]
 
-    def test_create_and_update_and_list_subscription(self):
-        """ SUBSCRIPTION (API): Test the creation of a new subscription, update it, list it """
+    def test_create_update_list_delete_subscription(self):
+        """ SUBSCRIPTION (API): Test the creation of a new subscription, update it, list and delete it """
         rse1, _ = self.rse_factory.make_mock_rse()
         rse2, _ = self.rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
         subscription_name = uuid()
         with pytest.raises(InvalidObject):
-            result = add_subscription(name=subscription_name,
-                                      account='root',
-                                      filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                      replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': 'noactivity'}],
-                                      lifetime=100000,
-                                      retroactive=0,
-                                      dry_run=0,
-                                      comments='This is a comment',
-                                      issuer='root',
-                                      **self.vo)
+            add_subscription(name=subscription_name,
+                             account='root',
+                             filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                             replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': 'noactivity'}],
+                             lifetime=100000,
+                             retroactive=False,
+                             dry_run=False,
+                             comments='This is a comment',
+                             issuer='root',
+                             **self.vo)
 
-        result = add_subscription(name=subscription_name,
+        sub_id = add_subscription(name=subscription_name,
                                   account='root',
                                   filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                   replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
                                   lifetime=100000,
-                                  retroactive=0,
-                                  dry_run=0,
+                                  retroactive=False,
+                                  dry_run=False,
                                   comments='This is a comment',
                                   issuer='root',
                                   **self.vo)
@@ -96,6 +98,9 @@ class TestSubscriptionCoreApi(unittest.TestCase):
             sub.append(res)
         assert len(sub) == 1
         assert loads(sub[0]['filter'])['project'][0] == 'toto'
+        subscription_core.delete_subscription(sub_id)
+        with pytest.raises(SubscriptionNotFound):
+            get_subscription_by_id(sub_id, **self.vo)
 
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_create_list_subscription_by_id(self):
@@ -109,8 +114,8 @@ class TestSubscriptionCoreApi(unittest.TestCase):
                                            filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                            replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
                                            lifetime=100000,
-                                           retroactive=0,
-                                           dry_run=0,
+                                           retroactive=False,
+                                           dry_run=False,
                                            comments='This is a comment',
                                            issuer='root',
                                            **self.vo)
@@ -174,8 +179,8 @@ class TestSubscriptionCoreApi(unittest.TestCase):
                                  filter_={'account': ['root', ], 'scope': [tmp_scope.external, ]},
                                  replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
                                  lifetime=100000,
-                                 retroactive=0,
-                                 dry_run=0,
+                                 retroactive=False,
+                                 dry_run=False,
                                  comments='This is a comment',
                                  issuer='root',
                                  **self.vo)
@@ -290,8 +295,8 @@ def test_list_rules_states(vo, rse_factory, rest_client, auth_token):
                              filter_={'account': ['root', ], 'scope': [tmp_scope.external, ]},
                              replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': activity}],
                              lifetime=100000,
-                             retroactive=0,
-                             dry_run=0,
+                             retroactive=False,
+                             dry_run=False,
                              comments='We want a shrubbery',
                              issuer='root',
                              vo=vo)
@@ -339,9 +344,9 @@ class TestSubscriptionClient(unittest.TestCase):
         rse_expression = '%s|%s' % (rse1, rse2)
         with pytest.raises(InvalidObject):
             subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                                     replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': 'noactivity'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+                                                     replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': 'noactivity'}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
         subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
         result = [sub['id'] for sub in list_subscriptions(name=subscription_name, account='root', **self.vo)]
         assert subid == result[0]
         with pytest.raises(TypeError):
@@ -362,11 +367,11 @@ class TestSubscriptionClient(unittest.TestCase):
         rse2, _ = self.rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
         result = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
         assert result
         with pytest.raises(SubscriptionDuplicate):
             self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                             replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+                                             replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
 
     def test_update_nonexisting_subscription(self):
         """ SUBSCRIPTION (CLIENT): Test the update of a non-existing subscription """
@@ -383,7 +388,7 @@ class TestSubscriptionClient(unittest.TestCase):
         account_name = uuid()[:10]
         add_account(InternalAccount(account_name, **self.vo), AccountType.USER, 'rucio@email.com')
         subid = self.sub_client.add_subscription(name=subscription_name, account=account_name, filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
         result = [sub['id'] for sub in self.sub_client.list_subscriptions(account=account_name)]
         assert subid == result[0]
 
@@ -394,7 +399,7 @@ class TestSubscriptionClient(unittest.TestCase):
         rse2, _ = self.rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
         subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
         result = [sub['id'] for sub in self.sub_client.list_subscriptions(name=subscription_name)]
         assert subid == result[0]
 
@@ -418,7 +423,7 @@ class TestSubscriptionClient(unittest.TestCase):
 
         subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True},
                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
-                                                 lifetime=None, retroactive=0, dry_run=0, comments='Ni ! Ni!', priority=1)
+                                                 lifetime=None, retroactive=False, dry_run=False, comments='Ni ! Ni!', priority=1)
         run(threads=1, bulk=1000000, once=True)
         rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
@@ -446,7 +451,7 @@ class TestSubscriptionClient(unittest.TestCase):
 
         subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
-                                                 lifetime=None, retroactive=0, dry_run=0, comments='Ni ! Ni!', priority=1)
+                                                 lifetime=None, retroactive=False, dry_run=False, comments='Ni ! Ni!', priority=1)
         run(threads=1, bulk=1000000, once=True)
         rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
@@ -496,8 +501,8 @@ class TestDaemon():
                                               filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
                                               replication_rules=[rule1, rule2],
                                               lifetime=None,
-                                              retroactive=0,
-                                              dry_run=0,
+                                              retroactive=False,
+                                              dry_run=False,
                                               comments='Ni ! Ni!',
                                               priority=1)
         run(threads=1, bulk=1000000, once=True)
@@ -535,8 +540,8 @@ class TestDaemon():
                                       filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
                                       replication_rules=[rule],
                                       lifetime=None,
-                                      retroactive=0,
-                                      dry_run=0,
+                                      retroactive=False,
+                                      dry_run=False,
                                       comments='Ni ! Ni!',
                                       priority=1)
         for sub in get_subscriptions():
@@ -575,8 +580,8 @@ class TestDaemon():
                                               filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
                                               replication_rules=[rule],
                                               lifetime=None,
-                                              retroactive=0,
-                                              dry_run=0,
+                                              retroactive=False,
+                                              dry_run=False,
                                               comments='Ni ! Ni!',
                                               priority=1)
         run(threads=1, bulk=1000000, once=True)
@@ -598,8 +603,8 @@ class TestDaemon():
                                               filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': False, 'did_type': ['DATASET', ]},
                                               replication_rules=[rule],
                                               lifetime=None,
-                                              retroactive=0,
-                                              dry_run=0,
+                                              retroactive=False,
+                                              dry_run=False,
                                               comments='Ni ! Ni!',
                                               priority=1)
         run(threads=1, bulk=1000000, once=True)
@@ -632,8 +637,8 @@ class TestDaemon():
                                               filter_={'scope': [mock_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
                                               replication_rules=[rule],
                                               lifetime=None,
-                                              retroactive=0,
-                                              dry_run=0,
+                                              retroactive=False,
+                                              dry_run=False,
                                               comments='Ni ! Ni!',
                                               priority=1)
         run(threads=1, bulk=1000000, once=True)
@@ -642,3 +647,48 @@ class TestDaemon():
         assert rules[0]['rse_expression'] == rse_expression
         assert rules[0]['state'] == RuleState.INJECT.name
         assert (rules[0]['created_at'] - datetime.now()).days == 1
+
+    def test_run_transmogrifier_invalid_subscription(self, rse_factory, vo, rucio_client, root_account, mock_scope):
+        """ SUBSCRIPTION (DAEMON): Test the transmogrifier with invalid subscription """
+        activity = get_schema_value('ACTIVITY')['enum'][0]
+        nbfiles = 3
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, rse2_id = rse_factory.make_mock_rse()
+        rse3, _ = rse_factory.make_mock_rse()
+        rse_expression = rse1
+        subscription_name = uuid()
+        dsn_prefix = did_name_generator('dataset')
+        dsn = '%sdataset-%s' % (dsn_prefix, uuid())
+
+        new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
+        set_new_dids(new_dids, None)
+
+        files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+        attach_dids(scope=mock_scope, name=dsn, rse_id=rse2_id, dids=files, account=root_account)
+        rule = {'rse_expression': rse_expression,
+                'copies': 1,
+                'activity': activity,
+                'delay_injection': 86500}
+
+        sub_id = subscription_core.add_subscription(name=subscription_name,
+                                                    account=root_account,
+                                                    filter_='{[',
+                                                    replication_rules='{]',
+                                                    lifetime=None,
+                                                    retroactive=False,
+                                                    dry_run=False,
+                                                    comments='Ni ! Ni!',
+                                                    priority=1)
+        # Since the subscription is wrongly defined, the new dids should not be processed
+        with pytest.raises(JSONDecodeError):
+            run(threads=1, bulk=1000000, once=True)
+        new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
+        assert {'scope': mock_scope, 'name': dsn, 'did_type': DIDType.DATASET} in new_dids
+        for file_ in files:
+            assert {'scope': file_['scope'], 'name': file_['name'], 'did_type': DIDType.FILE} in new_dids
+        subscription_core.update_subscription(name=subscription_name, account=root_account, metadata={'filter_': {'scope': [mock_scope, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]}, 'replication_rules': [rule]})
+        run(threads=1, bulk=1000000, once=True)
+        new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
+        assert new_dids == []
+        subscription_core.delete_subscription(sub_id)
