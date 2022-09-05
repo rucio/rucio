@@ -14,6 +14,8 @@
 # limitations under the License.
 
 import unittest
+import random
+import string
 
 import pytest
 
@@ -21,10 +23,11 @@ from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account, del_account
-from rucio.core.identity import add_identity, del_identity, add_account_identity, del_account_identity, list_identities
+from rucio.core.identity import add_identity, del_identity, add_account_identity, del_account_identity, list_identities, verify_identity
 from rucio.db.sqla.constants import AccountType, IdentityType
 from rucio.tests.common import account_name_generator, headers, hdrdict, auth
 from rucio.tests.common_server import get_vo
+from rucio.common.exception import IdentityNotFound, IdentityError
 
 
 @pytest.mark.noparallel(reason='adds/removes entities with non-unique names')
@@ -87,3 +90,33 @@ def test_userpass(rest_client, auth_token):
     headers_dict = {'X-Rucio-Username': username, 'X-Rucio-Password': 'secret', 'X-Rucio-Email': 'email'}
     response = rest_client.put('/identities/root/userpass', headers=headers(auth(auth_token), hdrdict(headers_dict)))
     assert response.status_code == 201
+
+
+def test_verify_identity():
+    """ Test if an idenity exists in the db, mapping to at least one account. """
+    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        vo = {'vo': get_vo()}
+    else:
+        vo = {}
+    account_name = account_name_generator()
+    account = InternalAccount(account_name, **vo)
+    username = ''.join(random.choice(string.ascii_letters) for i in range(10))
+    email = username + '@email.com'
+
+    add_account(account, AccountType.USER, email)
+
+    password = ''.join(random.choice(string.ascii_letters) for i in range(10))
+    add_identity(username, IdentityType.USERPASS, email=email, password=password)
+    add_account_identity(username, IdentityType.USERPASS, account, email=username + '@email.com', password=password)
+
+    with pytest.raises(IdentityError):
+        verify_identity(username, IdentityType.X509, password=password)
+
+    assert verify_identity(username, IdentityType.USERPASS, password=password) is True
+
+    with pytest.raises(IdentityNotFound):
+        verify_identity(username, IdentityType.USERPASS, password=password + 'wrong')
+
+    del_account_identity(username, IdentityType.USERPASS, account)
+    del_identity(username, IdentityType.USERPASS)
+    del_account(account)
