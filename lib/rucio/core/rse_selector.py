@@ -48,7 +48,7 @@ class RSESelector():
         if weight is not None:
             for rse in rses:
                 attributes = list_rse_attributes(rse_id=rse['id'], session=session)
-                availability_write = True if rse.get('availability', 7) & 2 else False
+                availability_write = True if rse.get('availability_write', True) else False
                 if weight not in attributes:
                     continue  # The RSE does not have the required weight set, therefore it is ignored
                 try:
@@ -62,7 +62,7 @@ class RSESelector():
         else:
             for rse in rses:
                 mock_rse = has_rse_attribute(rse['id'], 'mock', session=session)
-                availability_write = True if rse.get('availability', 7) & 2 else False
+                availability_write = True if rse.get('availability_write', True) else False
                 self.rses.append({'rse_id': rse['id'],
                                   'weight': 1,
                                   'mock_rse': mock_rse,

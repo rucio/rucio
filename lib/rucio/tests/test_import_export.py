@@ -53,7 +53,9 @@ def check_rse(rse_name, test_data, vo='def'):
     assert rse['staging_area'] == test_data[rse_name]['staging_area']
     assert rse['longitude'] == test_data[rse_name]['longitude']
     assert rse['latitude'] == test_data[rse_name]['latitude']
-    assert rse['availability'] == test_data[rse_name]['availability']
+    assert rse['availability_read'] == test_data[rse_name]['availability_read']
+    assert rse['availability_write'] == test_data[rse_name]['availability_write']
+    assert rse['availability_delete'] == test_data[rse_name]['availability_delete']
 
 
 def check_protocols(rse, test_data, vo='def'):
@@ -152,7 +154,8 @@ def importer_example_data(vo):
 
     # RSE 1 that already exists
     example_data.old_rse_1 = rse_name_generator()
-    example_data.old_rse_id_1 = add_rse(example_data.old_rse_1, availability=1, region_code='DE', country_name='DE', deterministic=True, volatile=True, staging_area=True, time_zone='Europe', latitude='1', longitude='2', vo=vo)
+    example_data.old_rse_id_1 = add_rse(example_data.old_rse_1, availability_read=False, availability_write=False, region_code='DE', country_name='DE',
+                                        deterministic=True, volatile=True, staging_area=True, time_zone='Europe', latitude='1', longitude='2', vo=vo)
     add_protocol(example_data.old_rse_id_1, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
     add_protocol(example_data.old_rse_id_1, {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'})
 
@@ -198,7 +201,9 @@ def importer_example_data(vo):
         'rses': {
             example_data.new_rse: {
                 'rse_type': RSEType.TAPE,
-                'availability': 3,
+                'availability_read': False,
+                'availability_write': True,
+                'availability_delete': True,
                 'city': 'NewCity',
                 'region_code': 'CH',
                 'country_name': 'switzerland',
@@ -234,7 +239,9 @@ def importer_example_data(vo):
                 'time_zone': 'Asia',
                 'longitude': 5,
                 'city': 'City',
-                'availability': 2,
+                'availability_read': False,
+                'availability_write': True,
+                'availability_delete': False,
                 'latitude': 10,
                 'protocols': [{
                     'scheme': 'scheme1',
@@ -865,7 +872,9 @@ class TestImporterSyncModes(unittest.TestCase):
             'rses': {
                 less_prot_rse: {
                     'rse_type': RSEType.TAPE,
-                    'availability': 3,
+                    'availability_read': False,
+                    'availability_write': True,
+                    'availability_delete': True,
                     'city': 'NewCity',
                     'region_code': 'CH',
                     'country_name': 'switzerland',
@@ -892,7 +901,9 @@ class TestImporterSyncModes(unittest.TestCase):
                 },
                 diff_prot_rse: {
                     'rse_type': RSEType.DISK,
-                    'availability': 3,
+                    'availability_read': False,
+                    'availability_write': True,
+                    'availability_delete': True,
                     'city': 'NewCity',
                     'region_code': 'CH',
                     'country_name': 'switzerland',
@@ -911,7 +922,9 @@ class TestImporterSyncModes(unittest.TestCase):
                 },
                 more_prot_rse: {
                     'rse_type': RSEType.DISK,
-                    'availability': 2,
+                    'availability_read': False,
+                    'availability_write': True,
+                    'availability_delete': False,
                     'city': 'NewCity',
                     'region_code': 'CH',
                     'country_name': 'switzerland',
@@ -982,7 +995,9 @@ class TestImporterSyncModes(unittest.TestCase):
             'rses': {
                 less_prot_rse: {
                     'rse_type': RSEType.TAPE,
-                    'availability': 3,
+                    'availability_read': False,
+                    'availability_write': True,
+                    'availability_delete': True,
                     'city': 'NewCity',
                     'region_code': 'CH',
                     'country_name': 'switzerland',
@@ -1009,7 +1024,9 @@ class TestImporterSyncModes(unittest.TestCase):
                 },
                 diff_prot_rse: {
                     'rse_type': RSEType.DISK,
-                    'availability': 3,
+                    'availability_read': False,
+                    'availability_write': True,
+                    'availability_delete': True,
                     'city': 'NewCity',
                     'region_code': 'CH',
                     'country_name': 'switzerland',
@@ -1028,7 +1045,9 @@ class TestImporterSyncModes(unittest.TestCase):
                 },
                 more_prot_rse: {
                     'rse_type': RSEType.DISK,
-                    'availability': 2,
+                    'availability_read': False,
+                    'availability_write': True,
+                    'availability_delete': False,
                     'city': 'NewCity',
                     'region_code': 'CH',
                     'country_name': 'switzerland',
@@ -1099,7 +1118,9 @@ class TestImporterSyncModes(unittest.TestCase):
             'rses': {
                 less_prot_rse: {
                     'rse_type': RSEType.TAPE,
-                    'availability': 3,
+                    'availability_read': False,
+                    'availability_write': True,
+                    'availability_delete': True,
                     'city': 'NewCity',
                     'region_code': 'CH',
                     'country_name': 'switzerland',
@@ -1126,7 +1147,9 @@ class TestImporterSyncModes(unittest.TestCase):
                 },
                 diff_prot_rse: {
                     'rse_type': RSEType.DISK,
-                    'availability': 3,
+                    'availability_read': False,
+                    'availability_write': True,
+                    'availability_delete': True,
                     'city': 'NewCity',
                     'region_code': 'CH',
                     'country_name': 'switzerland',
@@ -1145,7 +1168,9 @@ class TestImporterSyncModes(unittest.TestCase):
                 },
                 more_prot_rse: {
                     'rse_type': RSEType.DISK,
-                    'availability': 2,
+                    'availability_read': False,
+                    'availability_write': True,
+                    'availability_delete': False,
                     'city': 'NewCity',
                     'region_code': 'CH',
                     'country_name': 'switzerland',

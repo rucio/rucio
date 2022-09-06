@@ -25,7 +25,7 @@ from rucio.api.rse import add_rse, update_rse, list_rses, del_rse, add_rse_attri
 from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RSEOperationNotSupported, \
     RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, \
     InvalidRSEExpression, RSEAttributeNotFound, CounterNotFound, InvalidPath, ReplicaNotFound, InputValidationError
-from rucio.common.utils import render_json, APIEncoder
+from rucio.common.utils import Availability, render_json, APIEncoder
 from rucio.rse import rsemanager
 from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
     try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
@@ -110,6 +110,16 @@ class RSEs(ErrorHandlingMethodView):
                       availability:
                         description: The availability of the rse.
                         type: integer
+                        deprecated: true
+                      availability_read:
+                        description: If the RSE is readable.
+                        type: integer
+                      availability_write:
+                        description: If the RSE is writable.
+                        type: integer
+                      availability_delete:
+                        description: If the RSE is deletable.
+                        type: integer
                       usage:
                         description: The usage of the rse.
                         type: integer
@@ -137,6 +147,7 @@ class RSEs(ErrorHandlingMethodView):
         else:
             def generate(vo):
                 for rse in list_rses(vo=vo):
+                    rse['availability'] = Availability(rse['availability_read'], rse['availability_write'], rse['availability_delete']).integer
                     yield render_json(**rse) + '\n'
 
             return try_stream(generate(vo=request.environ.get('vo')))
@@ -208,6 +219,16 @@ class RSE(ErrorHandlingMethodView):
                   availability:
                     description: The availability of the RSE.
                     type: integer
+                    deprecated: true
+                  availability_read:
+                    description: If the RSE is readable.
+                    type: boolean
+                  availability_write:
+                    description: If the RSE is writable.
+                    type: boolean
+                  availability_delete:
+                    description: If the RSE is deletable.
+                    type: boolean
         responses:
           201:
             description: OK
@@ -239,12 +260,25 @@ class RSE(ErrorHandlingMethodView):
             'latitude': None,
             'longitude': None,
             'ASN': None,
-            'availability': None,
+            'availability_read': None,
+            'availability_write': None,
+            'availability_delete': None,
         }
         if request.get_data(as_text=True):
             parameters = json_parameters()
+
+            if "availability" in parameters and ("availability_read" in parameters or "availability_write" in parameters or "availability_delete" in parameters):
+                return generate_http_error_flask(422, InputValidationError("'availability' can not be specified with 'availability_read', 'availability_write' or 'availability_delete'"))  # noqa: E501
+
+            if "availability" in parameters:
+                availability = Availability.from_integer(parameters["availability"])
+                kwargs["availability_read"] = availability.read
+                kwargs["availability_write"] = availability.write
+                kwargs["availability_delete"] = availability.delete
+
             for keyword in kwargs.keys():
                 kwargs[keyword] = param_get(parameters, keyword, default=kwargs[keyword])
+
         kwargs['issuer'] = request.environ.get('issuer')
         kwargs['vo'] = request.environ.get('vo')
         try:
@@ -280,7 +314,7 @@ class RSE(ErrorHandlingMethodView):
               schema:
                 type: object
                 properties:
-                  availability_raed:
+                  availability_read:
                     description: The vailability of the RSE.
                     type: boolean
                   availability_write:
@@ -420,6 +454,15 @@ class RSE(ErrorHandlingMethodView):
                     availability:
                       description: The availability of the RSE.
                       type: integer
+                      deprecated: true
+                    availability_read:
+                      description: If the RSE is readable.
+                      type: integer
+                    availability_write:
+                      description: If the RSE is writable.
+                      type: integer
+                    availability_delete:
+                      description: If the RSE is deletable.
           401:
             description: Invalid Auth Token
           404:
@@ -428,8 +471,9 @@ class RSE(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            rse_prop = get_rse(rse=rse, vo=request.environ.get('vo'))
-            return Response(render_json(**rse_prop), content_type="application/json")
+            rse = get_rse(rse=rse, vo=request.environ.get('vo'))
+            rse['availability'] = Availability(rse['availability_read'], rse['availability_write'], rse['availability_delete']).integer
+            return Response(render_json(**rse), content_type="application/json")
         except RSENotFound as error:
             return generate_http_error_flask(404, error)
 
