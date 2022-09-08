@@ -1098,13 +1098,21 @@ def prepare_transfers(
         transfertool = None
         rws = candidate_paths[0][-1].rws
 
-        dest_rse_transfertools = get_supported_transfertools(rws.dest_rse, session=session)
         for candidate_path in candidate_paths:
             source = candidate_path[0].src
-            src_rse_transfertools = get_supported_transfertools(source.rse, session=session)
-            common_transfertools = dest_rse_transfertools.intersection(src_rse_transfertools)
-            if common_transfertools:
+            all_hops_ok = True
+            transfertool = None
+            for hop in candidate_path:
+                src_rse_transfertools = get_supported_transfertools(hop.src.rse, session=session)
+                dst_rse_transfertools = get_supported_transfertools(hop.dst.rse, session=session)
+                common_transfertools = dst_rse_transfertools.intersection(src_rse_transfertools)
+                if not common_transfertools:
+                    all_hops_ok = False
+                    break
+                # We need the last hop transfertool
                 transfertool = 'fts3' if 'fts3' in common_transfertools else common_transfertools.pop()
+
+            if all_hops_ok and transfertool:
                 selected_source = source
                 break
 
