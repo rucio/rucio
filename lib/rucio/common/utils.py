@@ -90,6 +90,17 @@ codes = {
 DATE_FORMAT = '%a, %d %b %Y %H:%M:%S UTC'
 
 
+def invert_dict(d):
+    """
+    Invert the dictionary.
+    CAUTION: this function is not deterministic unless the input dictionary is one-to-one mapping.
+
+    :param d: source dictionary
+    :returns: dictionary {value: key for key, value in d.items()}
+    """
+    return {value: key for key, value in d.items()}
+
+
 def dids_as_dicts(did_list):
     """
     Converts list of DIDs to list of dictionaries
