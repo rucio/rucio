@@ -24,7 +24,7 @@ from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.common import exception
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import api_update_return_dict
+from rucio.common.utils import api_update_return_dict, invert_dict
 from rucio.common.constants import SuspiciousAvailability
 
 
@@ -64,14 +64,16 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
 
 
 @transactional_session
-def declare_bad_file_replicas(replicas, reason, issuer, vo='def', session=None):
+def declare_bad_file_replicas(replicas, reason, issuer, vo='def', force=False, session=None):
     """
     Declare a list of bad replicas.
 
     :param replicas: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or "rse": <rse_name>}.
+            If both rse_id and rse are present, rse will be ignored.
     :param reason: The reason of the loss.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
+    :param force: boolean, ignore existing replica status in the bad_replicas table. Default: False
     :param session: The database session in use.
     :returns: Dictionary {rse_name -> [list of replicas failed to declare]}
     """
@@ -80,7 +82,7 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', session=None):
         return {}
 
     kwargs = {}
-    rse_map = {}
+    rse_map = {}                # RSE name -> RSE id
     if not permission.has_permission(issuer=issuer, vo=vo, action='declare_bad_file_replicas', kwargs=kwargs, session=session):
         raise exception.AccessDenied('Account %s can not declare bad replicas' % (issuer))
 
@@ -107,20 +109,24 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', session=None):
                 "rse_id": rse_id,
                 "name": r["name"]
             })
-    undeclared = replica.declare_bad_file_replicas(replicas_lst, reason=reason, issuer=issuer, status=BadFilesStatus.BAD, session=session)
+
+    rse_id_to_name = invert_dict(rse_map)   # RSE id -> RSE name
+
+    undeclared = replica.declare_bad_file_replicas(replicas_lst, reason=reason, issuer=issuer, status=BadFilesStatus.BAD,
+                                                   force=force, session=session)
     out = {}
     for rse_id, ulist in undeclared.items():
         if ulist:
             rse_name = None
             if rse_id == 'unknown':
                 rse_name = 'unknown'
+            elif rse_id in rse_id_to_name:
+                rse_name = rse_id_to_name[rse_id]
             else:
                 try:
                     uuid.UUID(rse_id)
                     rse_name = get_rse_name(rse_id=rse_id, session=session)
-                except exception.RSENotFound:
-                    rse_name = str(rse_id)
-                except ValueError:
+                except (ValueError, exception.RSENotFound):
                     rse_name = str(rse_id)
             if rse_name:
                 out[rse_name] = out.get(rse_name, []) + ulist
