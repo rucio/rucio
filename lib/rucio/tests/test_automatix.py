@@ -15,12 +15,13 @@
 
 import json
 import os
+from random import choice
+from string import ascii_uppercase
 import tempfile
 
 import pytest
 
 from rucio.common.config import config_add_section, config_has_section, config_set, config_remove_option
-from rucio.common.utils import generate_uuid
 from rucio.common.types import InternalScope
 from rucio.core.did import list_dids, list_files
 from rucio.core.scope import add_scope
@@ -49,8 +50,7 @@ def test_automatix(vo, root_account, rse_factory):
         config_set("automatix", "did_prefix", "/belle/ddm/tests")
         config_set("automatix", "separator", "/")
 
-    project = generate_uuid()
-    project = project[:8]
+    project = ''.join(choice(ascii_uppercase) for _ in range(8))
     test_dict = {
         "type1": {
             "probability": 100,
