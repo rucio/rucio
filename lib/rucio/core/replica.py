@@ -242,7 +242,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
 
 
 @transactional_session
-def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', session=None):
+def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', force=False, session=None):
     """
     Declare a list of bad replicas.
 
@@ -252,6 +252,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
     :param issuer: The issuer account.
     :param status: Either BAD or SUSPICIOUS.
     :param scheme: The scheme of the PFNs.
+    :param force: boolean, if declaring BAD replica, ignore existing replica status in the bad_replicas table. Default: False
     :param session: The database session in use.
     """
     unknown_replicas = []
@@ -303,10 +304,15 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
         replicas_list.append((scope, name, path))
 
     for scope, name, path, __exists, already_declared, size in __exist_replicas(rse_id=rse_id, replicas=replicas_list, session=session):
-        if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
+        if __exists and \
+                (
+                    status == BadFilesStatus.BAD and (force or not already_declared)
+                    or status == BadFilesStatus.SUSPICIOUS
+                ):
             declared_replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
-            new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
-            new_bad_replica.save(session=session, flush=False)
+            if not already_declared:
+                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
+                new_bad_replica.save(session=session, flush=False)
         else:
             if already_declared:
                 unknown_replicas.append('%s %s' % (path_pfn_dict.get(path, '%s:%s' % (scope, name)), 'Already declared'))
@@ -390,7 +396,7 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, session
 
 
 @transactional_session
-def declare_bad_file_replicas(replicas, reason, issuer, status=BadFilesStatus.BAD, session=None):
+def declare_bad_file_replicas(replicas, reason, issuer, status=BadFilesStatus.BAD, force=False, session=None):
     """
     Declare a list of bad replicas.
 
@@ -398,8 +404,9 @@ def declare_bad_file_replicas(replicas, reason, issuer, status=BadFilesStatus.BA
     :param reason: The reason of the loss.
     :param issuer: The issuer account.
     :param status: The status of the file (SUSPICIOUS or BAD).
+    :param force: boolean, if declaring BAD replica, ignore existing replica status in the bad_replicas table. Default: False
     :param session: The database session in use.
-    :returns: Dictionary {rse_id -> [reploicas failed to declare]}
+    :returns: Dictionary {rse_id -> [replicas failed to declare with errors]}
     """
     unknown_replicas = {}
     if replicas:
@@ -416,7 +423,9 @@ def declare_bad_file_replicas(replicas, reason, issuer, status=BadFilesStatus.BA
                 rse_id = replica['rse_id']
                 files_to_declare.setdefault(rse_id, []).append(replica)
         for rse_id in files_to_declare:
-            notdeclared = __declare_bad_file_replicas(files_to_declare[rse_id], rse_id, reason, issuer, status=status, scheme=scheme, session=session)
+            notdeclared = __declare_bad_file_replicas(files_to_declare[rse_id], rse_id, reason, issuer,
+                                                      status=status, scheme=scheme,
+                                                      force=force, session=session)
             if notdeclared:
                 unknown_replicas[rse_id] = notdeclared
     return unknown_replicas

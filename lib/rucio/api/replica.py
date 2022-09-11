@@ -64,7 +64,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
 
 
 @transactional_session
-def declare_bad_file_replicas(replicas, reason, issuer, vo='def', session=None):
+def declare_bad_file_replicas(replicas, reason, issuer, vo='def', force=False, session=None):
     """
     Declare a list of bad replicas.
 
@@ -72,6 +72,7 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', session=None):
     :param reason: The reason of the loss.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
+    :param force: boolean, ignore existing replica status in the bad_replicas table. Default: False
     :param session: The database session in use.
     :returns: Dictionary {rse_name -> [list of replicas failed to declare]}
     """
@@ -80,7 +81,8 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', session=None):
         return {}
 
     kwargs = {}
-    rse_map = {}
+    rse_map = {}                # RSE name -> RSE id
+    rse_id_to_name = {}         # RSE id -> RSE name
     if not permission.has_permission(issuer=issuer, vo=vo, action='declare_bad_file_replicas', kwargs=kwargs, session=session):
         raise exception.AccessDenied('Account %s can not declare bad replicas' % (issuer))
 
@@ -102,18 +104,22 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', session=None):
             if rse_id is None:
                 rse = r["rse"]
                 rse_map[rse] = rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+                rse_id_to_name[rse_id] = rse
             replicas_lst.append({
                 "scope": scope,
                 "rse_id": rse_id,
                 "name": r["name"]
             })
-    undeclared = replica.declare_bad_file_replicas(replicas_lst, reason=reason, issuer=issuer, status=BadFilesStatus.BAD, session=session)
+    undeclared = replica.declare_bad_file_replicas(replicas_lst, reason=reason, issuer=issuer, status=BadFilesStatus.BAD,
+                                                   force=force, session=session)
     out = {}
     for rse_id, ulist in undeclared.items():
         if ulist:
             rse_name = None
             if rse_id == 'unknown':
                 rse_name = 'unknown'
+            elif rse_id in rse_id_to_name:
+                rse_name = rse_id_to_name[rse_id]
             else:
                 try:
                     uuid.UUID(rse_id)
@@ -122,6 +128,7 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', session=None):
                     rse_name = str(rse_id)
                 except ValueError:
                     rse_name = str(rse_id)
+                rse_id_to_name[rse_id] = rse_name
             if rse_name:
                 out[rse_name] = out.get(rse_name, []) + ulist
     return out
