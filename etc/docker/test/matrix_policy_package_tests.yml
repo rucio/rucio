@@ -11,7 +11,6 @@ atlas:
     deny:
       - rucio_tests/test_bad_replica.py
       - rucio_tests/test_rule.py
-      - rucio_tests/test_replica.py
       - rucio_tests/test_account.py
       - rucio_tests/test_rse_selector.py
       - rucio_tests/test_s3.py
