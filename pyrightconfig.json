@@ -2,6 +2,10 @@
     "include": [
         "lib"
     ],
+    "exclude": [
+        "lib/rucio/db",
+        "lib/rucio/tests",
+    ],
     "pythonVersion": "3.6",
     "typeCheckingMode": "basic",
     "useLibraryCodeForTypes": true
