@@ -818,6 +818,12 @@ class BadReplicas(ErrorHandlingMethodView):
                     type: array
                     items:
                       type: string
+                  pfns:
+                    deprecated: true
+                    description: The list of pfns, for backward compatibility with older versions of the ReplicaClient
+                    type: array
+                    items:
+                      type: string
                   reason:
                     description: The reason for the declaration.
                     type: string
@@ -837,7 +843,7 @@ class BadReplicas(ErrorHandlingMethodView):
             description: Not acceptable
         """
         parameters = json_parameters()
-        replicas = param_get(parameters, 'replicas', default=[])
+        replicas = param_get(parameters, 'replicas', default=[]) or param_get(parameters, 'pfns', default=[])
         reason = param_get(parameters, 'reason', default=None)
 
         try:
