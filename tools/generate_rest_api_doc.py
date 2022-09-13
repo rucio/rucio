@@ -24,6 +24,34 @@ spec = APISpec(
     version=VERSION_INFO['version'],
     openapi_version="3.0.2",
     plugins=[FlaskPlugin()],
+    info={
+        "description": description_text,
+        "license": {
+            "name": "Apache 2.0",
+            "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
+        },
+        "x-logo": {
+            "url": "http://rucio.cern.ch/documentation/img/rucio_horizontaled_black_cropped.svg",
+            "backgroundColor": "#FFFFFF",
+            "altText": "Rucio logo"
+        },
+    },
+    # See: https://swagger.io/docs/specification/authentication/api-keys/
+    components={
+        "securitySchemes": {
+            "AuthToken": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "X-Rucio-Auth-Token",
+                "description": "The Rucio Token obtained by one of the /auth endpoints."
+            },
+        },
+    },
+    security=[
+        {
+            "AuthToken": []
+        }
+    ]
 )
 
 with application.test_request_context():
