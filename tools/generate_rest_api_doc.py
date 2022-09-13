@@ -107,6 +107,22 @@ spec = APISpec(
             "altText": "Rucio logo"
         },
     },
+    # See: https://swagger.io/docs/specification/authentication/api-keys/
+    components={
+        "securitySchemes": {
+            "AuthToken": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "X-Rucio-Auth-Token",
+                "description": "The Rucio Token obtained by one of the /auth endpoints."
+            },
+        },
+    },
+    security=[
+        {
+            "AuthToken": []
+        }
+    ]
 )
 
 with application.test_request_context():
