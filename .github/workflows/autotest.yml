@@ -21,6 +21,7 @@ jobs:
         run: |
           python3 tools/add_header --dry-run --disable-progress-bar
   python_annotations:
+    if: ${{ !startsWith(github.base_ref, 'release') && github.event_name != 'schedule' }}
     name: Check Python Type Annotations
     runs-on: ubuntu-latest
     env:
@@ -72,6 +73,7 @@ jobs:
             exit 1
           fi
   python_pyright:
+    if: ${{ !startsWith(github.base_ref, 'release') && github.event_name != 'schedule' }}
     name: Python type check (Pyright)
     runs-on: ubuntu-latest
     env:
