@@ -40,13 +40,12 @@ from rucio.db.sqla.constants import LifetimeExceptionsState
 GRACEFUL_STOP = threading.Event()
 
 
-def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
+def atropos(thread, date_check, dry_run=True, grace_period=86400,
             once=True, unlock=False, spread_period=0, purge_replicas=False, sleep_time=60):
     """
     Creates an Atropos Worker that gets a list of rules which have an eol_at expired and delete them.
 
     :param thread: Thread number at startup.
-    :param bulk: The number of requests to process.
     :param grace_period: The grace_period for the rules.
     :param once: Run only once.
     :param sleep_time: Thread sleep time after each chunk of work.
@@ -180,7 +179,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
         logger(logging.INFO, 'Graceful stop done')
 
 
-def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
+def run(threads=1, date_check=None, dry_run=True, grace_period=86400,
         once=True, unlock=False, spread_period=0, purge_replicas=False, sleep_time=60):
     """
     Starts up the atropos threads.
@@ -202,7 +201,6 @@ def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
                                                             'date_check': date_check,
                                                             'dry_run': dry_run,
                                                             'grace_period': grace_period,
-                                                            'bulk': bulk,
                                                             'unlock': unlock,
                                                             'spread_period': spread_period,
                                                             'purge_replicas': purge_replicas,
