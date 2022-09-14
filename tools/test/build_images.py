@@ -74,7 +74,6 @@ def build_images(matrix, script_args):
                 args = ('docker', 'pull', imagetag)
                 print("Running", " ".join(args), file=sys.stderr, flush=True)
                 subprocess.run(args, stdout=sys.stderr, check=False)
-                cache_args = ('--cache-from', imagetag)
 
             # add image to output
             images[imagetag] = {DIST_KEY: dist, **buildargs._asdict()}
