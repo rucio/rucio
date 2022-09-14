@@ -258,7 +258,7 @@ def test_atropos(root_account, rse_factory, mock_scope, did_factory, rucio_clien
     # Run atropos in dry-run mode to set eol_at on the dataset
     # Dataset 0 should get eol_at
     # Dataset 1 should not get eol_at
-    atropos(thread=1, bulk=100, date_check=datetime.strptime(check_date, '%Y-%m-%d'), dry_run=True, grace_period=86400,
+    atropos(thread=1, date_check=datetime.strptime(check_date, '%Y-%m-%d'), dry_run=True, grace_period=86400,
             once=True, unlock=False, spread_period=0, purge_replicas=False, sleep_time=60)
 
     for cnt, dataset in enumerate(datasets):
