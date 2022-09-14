@@ -17,25 +17,24 @@ import itertools
 import json
 import logging
 import re
+import typing
+from configparser import NoOptionError, NoSectionError
 from functools import wraps
 from time import time
 from typing import TYPE_CHECKING
 
 import flask
-import typing
 from flask.views import MethodView
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException
 from werkzeug.wrappers import Request, Response
 
 from rucio.api.authentication import validate_auth_token
+from rucio.common import config
 from rucio.common.exception import DatabaseException, RucioException, CannotAuthenticate, UnsupportedRequestedContentType
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, render_json
 from rucio.core.vo import map_vo
-from rucio.common import config
-from configparser import NoOptionError, NoSectionError
-
 
 if TYPE_CHECKING:
     from typing import Optional, Union, Dict, Sequence, Tuple, Callable, Any, List
@@ -214,7 +213,43 @@ def parse_scope_name(scope_name, vo):
     return scope_name.group(1, 2)
 
 
-def try_stream(generator, content_type=None) -> "flask.Response":
+def _cut_json_stream(generator: typing.Iterator[typing.AnyStr]) -> typing.Iterator[typing.AnyStr]:
+    """
+    Generator for cutting off JSON document endings until
+    the next element from the generator arrived.
+    """
+    last_document_end = None
+    for part in generator:
+        is_json_doc = False
+        document_end_index = -1
+        if isinstance(part, bytes):
+            json_document_end_bytes = b'}'
+            is_json_doc = part.rstrip().endswith(json_document_end_bytes)
+            if is_json_doc:
+                document_end_index = part.rfind(json_document_end_bytes)
+        elif isinstance(part, str):
+            json_document_end_str = '}'
+            is_json_doc = part.rstrip().endswith(json_document_end_str)
+            if is_json_doc:
+                document_end_index = part.rfind(json_document_end_str)
+
+        if is_json_doc:
+            if last_document_end:
+                yield last_document_end + part[:document_end_index]
+            else:
+                yield part[:document_end_index]
+            last_document_end = part[document_end_index:]
+        else:
+            if last_document_end:
+                yield last_document_end + part
+            else:
+                yield part
+
+    if last_document_end:
+        yield last_document_end
+
+
+def try_stream(generator: typing.Iterator[typing.AnyStr], content_type=None) -> "flask.Response":
     """
     Peeks at the first element of the passed generator and raises
     an error, if yielding raises. Otherwise returns
@@ -231,7 +266,8 @@ def try_stream(generator, content_type=None) -> "flask.Response":
     it = iter(generator)
     try:
         peek = next(it)
-        return flask.Response(flask.stream_with_context(itertools.chain((peek,), it)), content_type=content_type)
+        generator = _cut_json_stream(itertools.chain((peek,), it))
+        return flask.Response(flask.stream_with_context(generator), content_type=content_type)
     except StopIteration:
         return flask.Response('', content_type=content_type)
 

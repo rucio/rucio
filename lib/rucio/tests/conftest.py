@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import traceback
-import re
 import functools
+import re
+import traceback
 from os import environ
 from random import choice
 from string import ascii_uppercase
@@ -164,6 +164,18 @@ def rest_client():
         yield client
     application.test_client_class = None
     application.testing = _testing
+
+
+@pytest.fixture
+def flask_application():
+    # runs code on import
+    from rucio.web.rest.flaskapi.v1.main import application
+
+    application.config.update({
+        'TESTING': True,
+    })
+
+    yield application
 
 
 @pytest.fixture

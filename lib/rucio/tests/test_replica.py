@@ -14,16 +14,15 @@
 # limitations under the License.
 
 import hashlib
+import json
 import os
 import time
 from datetime import datetime, timedelta
-from json import dumps
 from unittest import mock
 from xml.etree import ElementTree
 
 import pytest
 import xmltodict
-from werkzeug.datastructures import MultiDict
 
 from rucio.client.ruleclient import RuleClient
 from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, RSEProtocolPriorityError, RucioException,
@@ -1105,7 +1104,7 @@ class TestReplicaMetalink:
 
 
 @pytest.mark.parametrize("content_type", [Mime.METALINK, Mime.JSON_STREAM])
-def test_client_list_replicas_streaming_error(content_type, vo, did_client, replica_client):
+def test_client_list_replicas_streaming_error(content_type, vo, did_client, replica_client, flask_application):
     """
     REPLICA (CLIENT): List replicas and test for behavior when an error occurs while streaming.
     Complicated test ahead! Mocking the wsgi frameworks, because the
@@ -1138,77 +1137,46 @@ def test_client_list_replicas_streaming_error(content_type, vo, did_client, repl
         # raise after yielding an element
         raise DatabaseException('Database error for testing')
 
-    json_data = dumps({'dids': [{'scope': 'mock', 'name': generate_uuid()}]})
+    request_body = json.dumps({'dids': [{'scope': 'mock', 'name': generate_uuid()}]})
+    request_headers = {"Accept": content_type}
 
     def list_replicas_on_api():
-        from werkzeug.datastructures import Headers
+        with flask_application.app_context():
+            with flask_application.test_request_context('/replicas/list', data=request_body, headers=request_headers):
+                with mock.patch('rucio.web.rest.flaskapi.v1.replicas.list_replicas', side_effect=api_returns):
+                    from rucio.web.rest.flaskapi.v1.replicas import ListReplicas
+                    list_replicas_restapi = ListReplicas()
+                    response = list_replicas_restapi.post()
+                    response = flask_application.process_response(response)
+                    assert response.content_type == content_type
+                    assert response.is_streamed
+                    response_iter = response.iter_encoded()
 
-        class FakeRequest:
-            class FakeAcceptMimetypes:
-                provided = False
-                best_match = mock.MagicMock(return_value=content_type)
-
-            environ = {
-                'issuer': 'root',
-                'vo': vo,
-                'request_id': generate_uuid(),
-            }
-            query_string = None
-            args = MultiDict()
-            data = json_data
-            get_data = mock.MagicMock(return_value=json_data)
-            headers = Headers()
-            accept_mimetypes = FakeAcceptMimetypes()
-            remote_addr = '127.0.0.1'
-
-        response_mock = mock.Mock(return_value=None)
-
-        class FakeFlask:
-            request = FakeRequest()
-            abort = mock.MagicMock()
-            Response = response_mock
-
-            @staticmethod
-            def stream_with_context(generator):
-                yield from generator
-
-        with mock.patch('rucio.web.rest.flaskapi.v1.common.flask', new=FakeFlask()), \
-                mock.patch('rucio.web.rest.flaskapi.v1.replicas.request', new=FakeRequest()), \
-                mock.patch('rucio.web.rest.flaskapi.v1.replicas.list_replicas', side_effect=api_returns):
-            from rucio.web.rest.flaskapi.v1.replicas import ListReplicas
-            list_replicas_restapi = ListReplicas()
-            list_replicas_restapi.post()
-            # for debugging when this test fails
-            print(f'Response({response_mock.call_args})')
-            print(f'  args = {response_mock.call_args[0]}')
-            print(f'kwargs = {response_mock.call_args[1]}')
-            assert response_mock.call_args[1]['content_type'] == content_type
-            response_iter = response_mock.call_args[0][0]
-            assert response_iter != '', 'unexpected empty response'
-            # since we're directly accessing the generator for Flask, there is no error handling
-            with pytest.raises(DatabaseException, match='Database error for testing'):
-                for element in response_iter:
-                    yield element
+                    # since we're directly accessing the generator for Flask, there is no error handling
+                    with pytest.raises(DatabaseException, match='Database error for testing'):
+                        for element in response_iter:
+                            yield element
 
     if content_type == Mime.METALINK:
         # for metalink, this builds the incomplete XML that should be returned by the API on error
-        metalink = ''
+        metalink = b''
         for line in list_replicas_on_api():
             metalink += line
+        print(repr(metalink))
         assert metalink
-        print(metalink)
         with pytest.raises(ElementTree.ParseError):
             ElementTree.fromstring(metalink)
 
     elif content_type == Mime.JSON_STREAM:
-        # for the json stream mimetype the API method just returns all mocked replicas on error
-        replicas = []
-        for json_doc in list_replicas_on_api():
-            if json_doc:
-                replicas.append(parse_response(json_doc))
-        assert replicas
+        # for the json stream mimetype the API method returns an incomplete JSON document as the last element
+        # in this test: expect exactly one incomplete document (see test_flaskapi_common.py for more tests)
+        replicas = list(list_replicas_on_api())
         print(replicas)
-        assert replicas == [mock_api_response]
+        assert len(replicas) == 1
+        json_doc = replicas[0]
+        assert json_doc
+        with pytest.raises(json.JSONDecodeError):
+            parse_response(json_doc)
 
     else:
         pytest.fail('unknown content_type parameter on test: ' + content_type)
