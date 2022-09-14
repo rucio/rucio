@@ -124,6 +124,7 @@ def run_once(bulk: int = 100, heartbeat_handler: "Optional[HeartbeatHandler]" = 
             topology=topology,
             requests_with_sources=list(requests_with_sources.values()),
             admin_accounts=admin_accounts,
+            preparer_mode=True,
             logger=logger,
             session=session,
         )

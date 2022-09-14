@@ -554,6 +554,7 @@ def __create_transfer_definitions(
         protocol_factory: ProtocolFactory,
         rws: RequestWithSources,
         sources: "List[RequestSource]",
+        multi_source_sources: "List[RequestSource]",
         limit_dest_schemes: "List[str]",
         operation_src: str,
         operation_dest: str,
@@ -639,7 +640,7 @@ def __create_transfer_definitions(
             inbound_links = inbound_links_by_node[transfer_path[0].dst.rse.id]
             main_source_schemes = __add_compatible_schemes(schemes=[transfer_path[0].dst.scheme], allowed_schemes=SUPPORTED_PROTOCOLS)
             added_sources = 0
-            for source in sorted(sources, key=lambda s: (-s.source_ranking, s.distance_ranking)):
+            for source in sorted(multi_source_sources, key=lambda s: (-s.source_ranking, s.distance_ranking)):
                 if added_sources >= 5:
                     break
 
@@ -800,6 +801,7 @@ def build_transfer_paths(
         failover_schemes: "Optional[List[str]]" = None,
         active_transfertools: "Optional[Set[str]]" = None,
         requested_source_only: bool = False,
+        preparer_mode: bool = False,
         logger: "Callable" = logging.log,
         session: "Optional[Session]" = None,
 ):
@@ -836,10 +838,8 @@ def build_transfer_paths(
         rws.dest_rse = topology.rse_collection.setdefault(rws.dest_rse.id, rws.dest_rse)
         rws.dest_rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
 
-        sources = rws.sources
-        if requested_source_only:
-            sources = [rws.requested_source] if rws.requested_source else []
-        for source in sources:
+        all_sources = rws.sources
+        for source in all_sources:
             source.rse = topology.rse_collection.setdefault(source.rse.id, source.rse)
             source.rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
 
@@ -849,16 +849,16 @@ def build_transfer_paths(
 
         # Assume request doesn't have any sources. Will be removed later if sources are found.
         reqs_no_source.add(rws.request_id)
-        if not sources:
+        if not all_sources:
             logger(logging.INFO, '%s: has no sources. Skipping.', rws)
             continue
 
         logger(logging.DEBUG, '%s: Working on %d sources%s: %s%s',
                rws,
-               len(sources),
-               f'out of {len(rws.sources)}' if len(rws.sources) != len(sources) else '',
-               ','.join('{}:{}:{}'.format(src.rse, src.source_ranking, src.distance_ranking) for src in sources[:num_sources_in_logs]),
-               '... and %d others' % (len(sources) - num_sources_in_logs) if len(sources) > num_sources_in_logs else '')
+               len(all_sources),
+               f' (priority {rws.requested_source.rse})' if requested_source_only and rws.requested_source else '',
+               ','.join('{}:{}:{}'.format(src.rse, src.source_ranking, src.distance_ranking) for src in all_sources[:num_sources_in_logs]),
+               '... and %d others' % (len(all_sources) - num_sources_in_logs) if len(all_sources) > num_sources_in_logs else '')
 
         # Check if destination is blocked
         if rws.dest_rse.id in topology.unavailable_write_rses:
@@ -891,7 +891,7 @@ def build_transfer_paths(
             else:
                 allowed_source_rses = [x['id'] for x in parsed_rses]
 
-        filtered_sources = sources
+        filtered_sources = all_sources
         # Only keep allowed sources
         if allowed_source_rses is not None:
             filtered_sources = filter(lambda s: s.rse.id in allowed_source_rses, filtered_sources)
@@ -911,17 +911,21 @@ def build_transfer_paths(
 
         filtered_sources = list(filtered_sources)
         filtered_rses_log = ''
-        if len(rws.sources) != len(filtered_sources):
-            filtered_rses = list(set(s.rse.name for s in rws.sources).difference(s.rse.name for s in filtered_sources))
-            filtered_rses_log = '; %d dropped by filter: ' % (len(rws.sources) - len(filtered_sources))
+        if len(all_sources) != len(filtered_sources):
+            filtered_rses = list(set(s.rse.name for s in all_sources).difference(s.rse.name for s in filtered_sources))
+            filtered_rses_log = '; %d dropped by filter: ' % (len(all_sources) - len(filtered_sources))
             filtered_rses_log += ','.join(filtered_rses[:num_sources_in_logs])
             if len(filtered_rses) > num_sources_in_logs:
                 filtered_rses_log += '... and %d others' % (len(filtered_rses) - num_sources_in_logs)
         candidate_paths = []
 
+        candidate_sources = filtered_sources
+        if requested_source_only and rws.requested_source:
+            candidate_sources = [rws.requested_source] if rws.requested_source in filtered_sources else []
+
         if rws.request_type == RequestType.STAGEIN:
             paths = __create_stagein_definitions(rws=rws,
-                                                 sources=filtered_sources,
+                                                 sources=candidate_sources,
                                                  limit_dest_schemes=transfer_schemes,
                                                  operation_src='read',
                                                  operation_dest='write',
@@ -929,7 +933,8 @@ def build_transfer_paths(
         else:
             paths = __create_transfer_definitions(topology=topology,
                                                   rws=rws,
-                                                  sources=filtered_sources,
+                                                  sources=candidate_sources,
+                                                  multi_source_sources=[] if preparer_mode else filtered_sources,
                                                   limit_dest_schemes=[],
                                                   operation_src='third_party_copy_read',
                                                   operation_dest='third_party_copy_write',
@@ -939,7 +944,7 @@ def build_transfer_paths(
 
         sources_without_path = []
         any_source_had_scheme_mismatch = False
-        for source in filtered_sources:
+        for source in candidate_sources:
             transfer_path = paths.get(source.rse.id)
             if transfer_path is None:
                 logger(logging.WARNING, "%s: no path from %s to %s", rws.request_id, source.rse, rws.dest_rse)
@@ -956,7 +961,7 @@ def build_transfer_paths(
 
             candidate_paths.append(transfer_path)
 
-        if len(filtered_sources) != len(candidate_paths):
+        if len(candidate_sources) != len(candidate_paths):
             logger(logging.DEBUG, '%s: Sources after path computation: %s', rws.request_id, [str(path[0].src.rse) for path in candidate_paths])
 
         sources_without_path_log = ''
@@ -967,7 +972,8 @@ def build_transfer_paths(
                 sources_without_path_log += '... and %d others' % (len(sources_without_path) - num_sources_in_logs)
 
         candidate_paths = __filter_multihops_with_intermediate_tape(candidate_paths)
-        candidate_paths = __compress_multihops(candidate_paths, rws.sources)
+        if not preparer_mode:
+            candidate_paths = __compress_multihops(candidate_paths, all_sources)
         candidate_paths = list(__sort_paths(candidate_paths))
 
         ordered_sources_log = ','.join(('multihop: ' if len(path) > 1 else '') + '{}:{}:{}'.format(path[0].src.rse, path[0].src.source_ranking, path[0].src.distance_ranking)
