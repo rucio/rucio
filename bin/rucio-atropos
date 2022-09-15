@@ -19,6 +19,7 @@ Atropos Daemon : End the life of the rules according to the Lifetime Model
 '''
 
 import argparse
+import datetime
 import signal
 
 from rucio.daemons.atropos.atropos import run, stop
@@ -33,7 +34,8 @@ def get_parser():
     parser.add_argument("--dry-run", action="store_true", default=False, help='Dry run mode')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
     parser.add_argument("--grace-period", action="store", default=86400, type=int, help='Grace period for the rules. In seconds !!!')
-    parser.add_argument("--date-check", action="store", help='Date when the lifetime model will be applied. Cannot be used for a date in the future if dry-run is not enabled')
+    parser.add_argument("--date-check", action="store", help='Date when the lifetime model will be applied. Cannot be used for a date in the future if dry-run is not enabled',
+                        default=datetime.datetime.now(), type=lambda d: datetime.datetime.strptime(d, '%Y-%m-%d'))
     parser.add_argument("--unlock-rules", action="store_true", default=False, help='Automatically unlock affected rules')
     parser.add_argument("--spread-period", action="store", default=0, type=int, help='Set the rules to randomly expire over a period (in seconds). Uses a uniform distribution')
     parser.add_argument("--purge-replicas", action="store_true", default=False, help='Set the replicas to be deleted instead of secondarised')
