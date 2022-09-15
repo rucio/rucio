@@ -20,6 +20,7 @@ import random
 import threading
 from sys import exc_info
 from traceback import format_exception
+from typing import TYPE_CHECKING
 
 import rucio.core.lifetime_exception
 import rucio.db.sqla.util
@@ -34,11 +35,22 @@ from rucio.core.rule import get_rules_beyond_eol, update_rule
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import LifetimeExceptionsState
 
+if TYPE_CHECKING:
+    from rucio.daemons.common import HeartbeatHandler
+
 GRACEFUL_STOP = threading.Event()
 
 
-def atropos(date_check, dry_run=True, grace_period=86400,
-            once=True, unlock=False, spread_period=0, purge_replicas=False, sleep_time=60):
+def atropos(
+        date_check: datetime.datetime,
+        dry_run: bool,
+        grace_period: int,
+        purge_replicas: bool,
+        spread_period: bool,
+        unlock: bool,
+        once: bool,
+        sleep_time: int
+) -> None:
     """
     Creates an Atropos Worker that gets a list of rules which have an eol_at expired and delete them.
 
@@ -58,15 +70,23 @@ def atropos(date_check, dry_run=True, grace_period=86400,
             date_check=date_check,
             dry_run=dry_run,
             grace_period=grace_period,
-            unlock=unlock,
+            purge_replicas=purge_replicas,
             spread_period=spread_period,
-            purge_replicas=purge_replicas
+            unlock=unlock
         )
     )
 
 
-def run_once(heartbeat_handler, activity, date_check, dry_run, grace_period,
-             unlock, spread_period, purge_replicas):
+def run_once(
+        heartbeat_handler: 'HeartbeatHandler',
+        activity: None,    # NOQA, pylint: disable=W0613
+        date_check: datetime.datetime,
+        dry_run: bool,
+        grace_period: int,
+        purge_replicas: bool,
+        spread_period: int,
+        unlock: bool,
+) -> None:
     """An iteration of an Atropos worker."""
     worker_number, total_workers, logger = heartbeat_handler.live()
     logger(logging.DEBUG, 'Starting worker')
@@ -177,8 +197,17 @@ def run_once(heartbeat_handler, activity, date_check, dry_run, grace_period,
                                                                                                                tot_size))
 
 
-def run(threads=1, date_check=None, dry_run=True, grace_period=86400,
-        once=True, unlock=False, spread_period=0, purge_replicas=False, sleep_time=60):
+def run(
+        date_check: datetime.datetime = datetime.datetime.now(),
+        dry_run: bool = True,
+        grace_period: int = 86400,
+        purge_replicas: bool = False,
+        spread_period: int = 0,
+        unlock: bool = False,
+        once: bool = True,
+        sleep_time: int = 60,
+        threads: int = 1,
+) -> None:
     """
     Starts up the atropos threads.
     """
@@ -190,13 +219,13 @@ def run(threads=1, date_check=None, dry_run=True, grace_period=86400,
     if once:
         logging.info('Will run only one iteration')
     logging.info('starting atropos threads')
-    thread_list = [threading.Thread(target=atropos, kwargs={'once': once,
-                                                            'date_check': date_check,
+    thread_list = [threading.Thread(target=atropos, kwargs={'date_check': date_check,
                                                             'dry_run': dry_run,
                                                             'grace_period': grace_period,
-                                                            'unlock': unlock,
-                                                            'spread_period': spread_period,
                                                             'purge_replicas': purge_replicas,
+                                                            'spread_period': spread_period,
+                                                            'unlock': unlock,
+                                                            'once': once,
                                                             'sleep_time': sleep_time}) for i in range(0, threads)]
     [t.start() for t in thread_list]
 
