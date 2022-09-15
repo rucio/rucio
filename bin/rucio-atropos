@@ -25,7 +25,7 @@ import signal
 from rucio.daemons.atropos.atropos import run, stop
 
 
-def get_parser():
+def get_parser() -> argparse.ArgumentParser:
     """
     Returns the argparse parser.
     """
