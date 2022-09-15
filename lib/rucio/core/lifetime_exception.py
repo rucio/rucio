@@ -16,8 +16,9 @@
 from re import match
 from datetime import datetime, timedelta
 from configparser import NoSectionError
+from typing import TYPE_CHECKING
 
-from sqlalchemy import or_
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -33,9 +34,18 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, LifetimeExceptionsState
 from rucio.db.sqla.session import transactional_session, stream_session, read_session
 
+if TYPE_CHECKING:
+    from typing import Any, Dict, Iterator, List, Optional, Union
+    from rucio.common.types import InternalAccount, InternalScope
+    from sqlalchemy.orm import Session
+
 
 @stream_session
-def list_exceptions(exception_id, states, session=None):
+def list_exceptions(
+        exception_id: 'Optional[str]',
+        states: 'List[LifetimeExceptionsState]',
+        session: 'Optional[Session]' = None
+) -> 'Iterator[Dict[str, Any]]':
     """
     List exceptions to Lifetime Model.
 
@@ -48,13 +58,13 @@ def list_exceptions(exception_id, states, session=None):
     if states:
         state_clause = [models.LifetimeExceptions.state == state for state in states]
 
-    query = session.query(models.LifetimeExceptions)
+    query = select(models.LifetimeExceptions)
     if state_clause != []:
-        query = query.filter(or_(*state_clause))
+        query = query.where(or_(*state_clause))
     if exception_id:
         query = query.filter_by(id=exception_id)
 
-    for exception in query.yield_per(5):
+    for exception in session.execute(query).yield_per(5).scalars():
         yield {'id': exception.id, 'scope': exception.scope, 'name': exception.name,
                'did_type': exception.did_type, 'account': exception.account,
                'pattern': exception.pattern, 'comments': exception.comments,
@@ -63,7 +73,14 @@ def list_exceptions(exception_id, states, session=None):
 
 
 @transactional_session
-def add_exception(dids, account, pattern, comments, expires_at, session=None):
+def add_exception(
+        dids: 'List[Dict[str, Any]]',
+        account: 'InternalAccount',
+        pattern: 'Optional[str]',
+        comments: str,
+        expires_at: 'Optional[Union[str, datetime]]',
+        session: 'Optional[Session]' = None
+) -> 'Dict[str, Any]':
     """
     Add exceptions to Lifetime Model.
 
@@ -129,7 +146,15 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
 
 
 @transactional_session
-def __add_exception(dids, account, pattern, comments, expires_at, estimated_volume=None, session=None):
+def __add_exception(
+        dids: 'List[Dict[str, Any]]',
+        account: 'InternalAccount',
+        pattern: 'Optional[str]',
+        comments: str,
+        expires_at: 'Optional[Union[str, datetime]]',
+        estimated_volume: 'Optional[int]' = None,
+        session: 'Optional[Session]' = None
+) -> str:
     """
     Add exceptions to Lifetime Model.
 
@@ -207,7 +232,11 @@ def __add_exception(dids, account, pattern, comments, expires_at, estimated_volu
 
 
 @transactional_session
-def update_exception(exception_id, state, session=None):
+def update_exception(
+        exception_id: str,
+        state: LifetimeExceptionsState,
+        session: 'Optional[Session]' = None
+) -> None:
     """
     Update exceptions state to Lifetime Model.
 
@@ -215,20 +244,30 @@ def update_exception(exception_id, state, session=None):
     :param state:          The states to filter
     :param session:        The database session in use.
     """
-    query = session.query(models.LifetimeExceptions).filter_by(id=exception_id)
-    try:
-        query.first()
-    except NoResultFound:
-        raise LifetimeExceptionNotFound
-
-    if state in [LifetimeExceptionsState.APPROVED, LifetimeExceptionsState.REJECTED]:
-        query.update({'state': state, 'updated_at': datetime.utcnow()}, synchronize_session=False)
-    else:
+    ALLOWED_STATES = (LifetimeExceptionsState.APPROVED, LifetimeExceptionsState.REJECTED)
+    if state not in ALLOWED_STATES:
         raise UnsupportedOperation
+
+    query = update(
+        models.LifetimeExceptions
+    ).where(
+        models.LifetimeExceptions.id == exception_id
+    ).values(
+        state=state,
+        updated_at=datetime.utcnow()
+    )
+
+    if session.execute(query).rowcount == 0:
+        raise LifetimeExceptionNotFound
 
 
 @read_session
-def define_eol(scope, name, rses, session=None):
+def define_eol(
+        scope: 'InternalScope',
+        name: str,
+        rses: 'List[Dict[str, Any]]',
+        session: 'Optional[Session]' = None
+) -> 'Optional[datetime]':
     """
     ATLAS policy for rules on SCRATCHDISK
 
@@ -246,8 +285,14 @@ def define_eol(scope, name, rses, session=None):
         return None
     # Now check the lifetime policy
     try:
-        did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == scope,
-                                                          models.DataIdentifier.name == name).one()
+        query = select(
+            models.DataIdentifier
+        ).where(
+            models.DataIdentifier.scope == scope,
+            models.DataIdentifier.name == name
+        )
+
+        did = session.execute(query).scalar_one()
     except NoResultFound:
         return None
     policy_dict = rucio.common.policy.get_lifetime_policy()
