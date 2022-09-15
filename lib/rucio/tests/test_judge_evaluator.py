@@ -138,7 +138,7 @@ class TestJudgeEvaluator(unittest.TestCase):
         dataset_locks = [lock for lock in get_dataset_locks(scope=scope, name=dataset)]
         assert(len(dataset_locks) == 2)
 
-    @pytest.mark.xfail(reason="This is a test for a known bug. See issue 5251")
+    # @pytest.mark.xfail(reason="This is a test for a known bug. See issue 5251")
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_judge_dataset_grouping_all(self):
         """ JUDGE EVALUATOR: Test the judge when adding dataset to existing container with ALL grouping"""

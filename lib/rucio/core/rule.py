@@ -2497,6 +2497,30 @@ def __evaluate_did_detach(eval_did, session=None, logger=logging.log):
 
 
 @transactional_session
+def __oldest_file_under(scope, name, session=None):
+    """
+    Finds oldest file in oldest container/dataset in the container or the dataset, recursively.
+    Oldest means attached to its parent first.
+
+    :param scope: dataset or container scope
+    :param name: dataset or container name
+    :returns: tuple (scope, name) or None
+    """
+    children = session.query(models.DataIdentifierAssociation) \
+        .filter(models.DataIdentifierAssociation.scope == scope,
+                models.DataIdentifierAssociation.name == name) \
+        .order_by(models.DataIdentifierAssociation.created_at)
+    for child in children:
+        if child.child_type == DIDType.FILE:
+            return child.child_scope, child.child_name
+        elif child.child_type in (DIDType.DATASET, DIDType.CONTAINER):
+            out = __oldest_file_under(child.child_scope, child.child_name, session=session)
+            if out:
+                return out
+    return None
+
+
+@transactional_session
 def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
     """
     Evaluate a parent did which has new childs
@@ -2626,6 +2650,19 @@ def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
                                                                                   nowait=True,
                                                                                   session=session)
                                 preferred_rse_ids = [lock['rse_id'] for lock in brother_locks if lock['rse_id'] in [rse['id'] for rse in rses] and lock['rule_id'] == rule.id]
+
+                        # 3.2 dataset or a container is added to a container with a rule with grouping=ALL:
+                        elif new_child_dids[0].child_type == DIDType.DATASET and rule.grouping == RuleGrouping.ALL:
+                            tup = __oldest_file_under(eval_did.scope, eval_did.name, session=session)
+                            if tup:
+                                scope, name = tup
+                                file_locks = rucio.core.lock.get_replica_locks(scope=scope, name=name, nowait=True, session=session)
+                                preferred_rse_ids = [
+                                    lock['rse_id']
+                                    for lock in file_locks
+                                    if lock['rse_id'] in [rse['id'] for rse in rses] and lock['rule_id'] == rule.id
+                                ]
+
                         locks_stuck_before = rule.locks_stuck_cnt
                         try:
                             __create_locks_replicas_transfers(datasetfiles=datasetfiles,
@@ -2883,9 +2920,9 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
                                                                                                                  source_rses=source_rses,
                                                                                                                  session=session)
             datasetfiles.extend(tmp_datasetfiles)
-            locks = dict(list(locks.items()) + list(tmp_locks.items()))
-            replicas = dict(list(replicas.items()) + list(tmp_replicas.items()))
-            source_replicas = dict(list(source_replicas.items()) + list(tmp_source_replicas.items()))
+            locks.update(tmp_locks)
+            replicas.update(tmp_replicas)
+            source_replicas.update(tmp_source_replicas)
     return datasetfiles, locks, replicas, source_replicas
 
 
