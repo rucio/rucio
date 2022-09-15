@@ -105,51 +105,51 @@ def run_once(
             lifetime_exceptions[key] = excep['expires_at']
         elif lifetime_exceptions[key] < excep['expires_at']:
             lifetime_exceptions[key] = excep['expires_at']
-    logger(logging.DEBUG, '%s active exceptions' % len(lifetime_exceptions))
+    logger(logging.DEBUG, '%d active exceptions', len(lifetime_exceptions))
 
     rand = random.Random(worker_number)
 
     try:
         rules = get_rules_beyond_eol(date_check, worker_number, total_workers, session=None)
-        logger(logging.INFO, '%s rules to process' % (len(rules)))
+        logger(logging.INFO, '%d rules to process', len(rules))
         for rule_idx, rule in enumerate(rules, start=1):
             did = '%s:%s' % (rule.scope, rule.name)
             did_key = '{}:{}'.format(rule.scope.internal, rule.name)
-            logger(logging.DEBUG, 'Working on rule %s on DID %s on %s' % (rule.id, did, rule.rse_expression))
+            logger(logging.DEBUG, 'Working on rule %s on DID %s on %s', rule.id, did, rule.rse_expression)
 
             if (rule_idx % 1000) == 0:
-                logger(logging.INFO, '%s/%s rules processed' % (rule_idx, len(rules)))
+                logger(logging.INFO, '%s/%s rules processed', rule_idx, len(rules))
 
             # We compute the expected eol_at
             try:
                 rses = parse_expression(rule.rse_expression, filter_={'vo': rule.account.vo})
             except InvalidRSEExpression:
-                logger(logging.WARNING, 'Rule %s has an RSE expression that results in an empty set: %s' % (rule.id, rule.rse_expression))
+                logger(logging.WARNING, 'Rule %s has an RSE expression that results in an empty set: %s', rule.id, rule.rse_expression)
                 continue
             eol_at = rucio.core.lifetime_exception.define_eol(rule.scope, rule.name, rses)
             if eol_at != rule.eol_at:
-                logger(logging.WARNING, 'The computed eol %s differs from the one recorded %s for rule %s on %s at %s' % (eol_at, rule.eol_at, rule.id,
-                                                                                                                          did, rule.rse_expression))
+                logger(logging.WARNING, 'The computed eol %s differs from the one recorded %s for rule %s on %s at %s',
+                       eol_at, rule.eol_at, rule.id, did, rule.rse_expression)
                 try:
                     update_rule(rule.id, options={'eol_at': eol_at})
                 except RuleNotFound:
-                    logger(logging.WARNING, 'Cannot find rule %s on DID %s' % (rule.id, did))
+                    logger(logging.WARNING, 'Cannot find rule %s on DID %s', rule.id, did)
                     continue
 
             # Check the exceptions
             if did_key in lifetime_exceptions:
                 if eol_at > lifetime_exceptions[did_key]:
-                    logger(logging.INFO, 'Rule %s on DID %s on %s has longer expiration date than the one requested : %s' % (rule.id, did, rule.rse_expression,
-                                                                                                                             lifetime_exceptions[did_key]))
+                    logger(logging.INFO, 'Rule %s on DID %s on %s has longer expiration date than the one requested : %s',
+                           rule.id, did, rule.rse_expression, lifetime_exceptions[did_key])
                 else:
                     # If eol_at < requested extension, update eol_at
-                    logger(logging.INFO, 'Updating rule %s on DID %s on %s according to the exception till %s' % (rule.id, did, rule.rse_expression,
-                                                                                                                  lifetime_exceptions[did_key]))
+                    logger(logging.INFO, 'Updating rule %s on DID %s on %s according to the exception till %s',
+                           rule.id, did, rule.rse_expression, lifetime_exceptions[did_key])
                     eol_at = lifetime_exceptions[did_key]
                     try:
                         update_rule(rule.id, options={'eol_at': lifetime_exceptions[did_key]})
                     except RuleNotFound:
-                        logger(logging.WARNING, 'Cannot find rule %s on DID %s' % (rule.id, did))
+                        logger(logging.WARNING, 'Cannot find rule %s on DID %s', rule.id, did)
                         continue
 
             # Now check that the new eol_at is expired
@@ -164,10 +164,10 @@ def run_once(
                         if did_key not in summary[lock['rse_id']]:
                             summary[lock['rse_id']][did_key] = {'length': lock['length'] or 0, 'bytes': lock['bytes'] or 0}
                 if no_locks:
-                    logger(logging.WARNING, 'Cannot find a lock for rule %s on DID %s' % (rule.id, did))
+                    logger(logging.WARNING, 'Cannot find a lock for rule %s on DID %s', rule.id, did)
                 if not dry_run:
                     lifetime = grace_period + rand.randrange(spread_period + 1)
-                    logger(logging.INFO, 'Setting %s seconds lifetime for rule %s' % (lifetime, rule.id))
+                    logger(logging.INFO, 'Setting %s seconds lifetime for rule %s', lifetime, rule.id)
                     options = {'lifetime': lifetime}
                     if purge_replicas:
                         options['purge_replicas'] = True
@@ -177,7 +177,7 @@ def run_once(
                     try:
                         update_rule(rule.id, options=options)
                     except RuleNotFound:
-                        logger(logging.WARNING, 'Cannot find rule %s on DID %s' % (rule.id, did))
+                        logger(logging.WARNING, 'Cannot find rule %s on DID %s', rule.id, did)
                         continue
     except Exception:
         exc_type, exc_value, exc_traceback = exc_info()
@@ -190,11 +190,8 @@ def run_once(
             tot_files += summary[rse_id][did].get('length', 0)
             tot_size += summary[rse_id][did].get('bytes', 0)
         vo = get_rse_vo(rse_id=rse_id)
-        logger(logging.INFO, 'For RSE %s %s %s datasets will be deleted representing %s files and %s bytes' % (get_rse_name(rse_id=rse_id),
-                                                                                                               '' if vo == 'def' else 'on VO ' + vo,
-                                                                                                               tot_datasets,
-                                                                                                               tot_files,
-                                                                                                               tot_size))
+        logger(logging.INFO, 'For RSE %s%s %d datasets will be deleted representing %d files and %d bytes',
+               get_rse_name(rse_id=rse_id), '' if vo == 'def' else ' on VO ' + vo, tot_datasets, tot_files, tot_size)
 
 
 def run(
