@@ -90,7 +90,7 @@ def run_once(
     """An iteration of an Atropos worker."""
     worker_number, total_workers, logger = heartbeat_handler.live()
     logger(logging.DEBUG, 'Starting worker')
-    if not dry_run and date_check > datetime.datetime.now():
+    if not dry_run and date_check > datetime.datetime.utcnow():
         logger(logging.ERROR, 'Atropos cannot run in non-dry-run mode for date in the future')
         return
 
@@ -195,7 +195,7 @@ def run_once(
 
 
 def run(
-        date_check: datetime.datetime = datetime.datetime.now(),
+        date_check: datetime.datetime = datetime.datetime.utcnow(),
         dry_run: bool = True,
         grace_period: int = 86400,
         purge_replicas: bool = False,
