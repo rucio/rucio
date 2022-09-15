@@ -187,10 +187,6 @@ def run(threads=1, date_check=None, dry_run=True, grace_period=86400,
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
-    if not date_check:
-        date_check = datetime.datetime.now()
-    else:
-        date_check = datetime.datetime.strptime(date_check, '%Y-%m-%d')
     if once:
         logging.info('Will run only one iteration')
     logging.info('starting atropos threads')
