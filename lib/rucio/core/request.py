@@ -18,7 +18,6 @@ import json
 import logging
 import traceback
 from collections import namedtuple
-from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, or_, func, update, select, delete
@@ -26,13 +25,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import asc, true, false, null
 
-from rucio.common.config import config_get_bool, config_get
+from rucio.common.config import config_get_bool
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
+from rucio.common.utils import generate_uuid, chunks
 from rucio.core.message import add_message, add_messages
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute, RseData
+from rucio.core.rse import get_rse_name, get_rse_vo, RseData
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -41,13 +40,7 @@ from rucio.db.sqla.util import temp_table_mngr
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Iterator, List, Optional, Callable, Set, Union, Sequence
-    from sqlalchemy.orm import Session
-
-    RequestResult = Dict[str, Any]
-    RequestResultOrState = Union[RequestResult, RequestAndState]
-    RowIterator = Iterator[RequestResult]
-    LoggerFunction = Callable[..., Any]
+    from typing import Any, Dict, List, Optional, Union
 
 """
 The core request.py is specifically for handling requests.
@@ -69,8 +62,26 @@ class RequestSource:
 
 
 class RequestWithSources:
-    def __init__(self, id_, request_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes,
-                 previous_attempt_id, dest_rse_data, account, retry_count, priority, transfertool, requested_at=None):
+    def __init__(
+            self,
+            id_: "Optional[str]",
+            request_type: RequestType,
+            rule_id: "Optional[str]",
+            scope: InternalScope,
+            name: str,
+            md5: str,
+            adler32: str,
+            byte_count: int,
+            activity: str,
+            attributes: "Union[str, None, Dict[str, Any]]",
+            previous_attempt_id: "Optional[str]",
+            dest_rse_data: RseData,
+            account: InternalAccount,
+            retry_count: int,
+            priority: int,
+            transfertool: str,
+            requested_at: "Optional[datetime.datetime]" = None,
+    ):
 
         self.request_id = id_
         self.request_type = request_type
@@ -91,7 +102,8 @@ class RequestWithSources:
         self.transfertool = transfertool
         self.requested_at = requested_at if requested_at else datetime.datetime.utcnow()
 
-        self.sources = []
+        self.sources: "List[RequestSource]" = []
+        self.requested_source: "Optional[RequestSource]" = None
 
     def __str__(self):
         return "{}({}:{})".format(self.request_id, self.scope, self.name)
@@ -335,13 +347,13 @@ def list_transfer_requests_and_source_replicas(
         activity=None,
         older_than=None,
         rses=None,
-        multihop_rses=None,
+        use_multihop=False,
         request_type=RequestType.TRANSFER,
         request_state=None,
         ignore_availability=False,
         transfertool=None,
         session=None,
-) -> "List[RequestWithSources]":
+) -> "Dict[str, RequestWithSources]":
     """
     List requests with source replicas
     :param total_workers:      Number of total workers.
@@ -351,7 +363,7 @@ def list_transfer_requests_and_source_replicas(
     :param activity:           Activity to be selected.
     :param older_than:         Only select requests older than this DateTime.
     :param rses:               List of rse_id to select requests.
-    :param multihop_rses:               List of rse_id allowed to be used for multihop
+    :param use_multihop:       If multi-hop is enabled or not
     :param request_type:       Filter on the given request type.
     :param request_state:      Filter on the given request state
     :param transfertool:       The transfer tool as specified in rucio.cfg.
@@ -377,6 +389,7 @@ def list_transfer_requests_and_source_replicas(
         models.Request.activity,
         models.Request.attributes,
         models.Request.previous_attempt_id,
+        models.Request.source_rse_id,
         models.Request.dest_rse_id,
         models.Request.retry_count,
         models.Request.account,
@@ -445,14 +458,15 @@ def list_transfer_requests_and_source_replicas(
         sub_requests.c.activity,
         sub_requests.c.attributes,
         sub_requests.c.previous_attempt_id,
+        sub_requests.c.source_rse_id,
         sub_requests.c.dest_rse_id,
         sub_requests.c.account,
         sub_requests.c.retry_count,
         sub_requests.c.priority,
         sub_requests.c.transfertool,
         sub_requests.c.requested_at,
-        models.RSE.id.label("source_rse_id"),
-        models.RSE.rse,
+        models.RSE.id.label("replica_rse_id"),
+        models.RSE.rse.label("replica_rse_name"),
         models.RSEFileAssociation.path,
         models.Source.ranking.label("source_ranking"),
         models.Source.url.label("source_url"),
@@ -486,7 +500,7 @@ def list_transfer_requests_and_source_replicas(
     )
 
     # if transfertool specified, select only the requests where the source rses are set up for the transfer tool
-    if transfertool and not multihop_rses:
+    if transfertool and not use_multihop:
         stmt = stmt.join(
             models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == models.RSE.id,  # source_rse_id
         ).where(
@@ -495,8 +509,8 @@ def list_transfer_requests_and_source_replicas(
         )
 
     requests_by_id = {}
-    for (request_id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, dest_rse_id, account, retry_count,
-         priority, transfertool, requested_at, source_rse_id, source_rse_name, file_path, source_ranking, source_url, distance_ranking) in session.execute(stmt):
+    for (request_id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, source_rse_id, dest_rse_id, account, retry_count,
+         priority, transfertool, requested_at, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance_ranking) in session.execute(stmt):
 
         # If we didn't pre-filter using temporary tables on database side, perform the filtering here
         if not use_temp_tables and rses and dest_rse_id not in rses:
@@ -511,10 +525,13 @@ def list_transfer_requests_and_source_replicas(
                                          requested_at=requested_at)
             requests_by_id[request_id] = request
 
-        if source_rse_id is not None:
-            request.sources.append(RequestSource(rse_data=RseData(id_=source_rse_id, name=source_rse_name), file_path=file_path,
-                                                 source_ranking=source_ranking, distance_ranking=distance_ranking, url=source_url))
-    return list(requests_by_id.values())
+        if replica_rse_id is not None:
+            source = RequestSource(rse_data=RseData(id_=replica_rse_id, name=replica_rse_name), file_path=file_path,
+                                   source_ranking=source_ranking, distance_ranking=distance_ranking, url=source_url)
+            request.sources.append(source)
+            if source_rse_id == replica_rse_id:
+                request.requested_source = source
+    return requests_by_id
 
 
 @read_session
@@ -1901,119 +1918,3 @@ def list_requests_history(src_rse_ids, dst_rse_ids, states=None, offset=None, li
         stmt = stmt.limit(limit)
     for request in session.execute(stmt).yield_per(500).scalars():
         yield request
-
-
-@transactional_session
-def prepare_requests(
-        requests_with_sources: "Sequence[RequestWithSources]",
-        logger: "LoggerFunction" = logging.log,
-        session: "Optional[Session]" = None,
-) -> int:
-    """
-    Update transfer requests according to preparer settings.
-    """
-    count = 0
-    reqs_no_source = set()
-    for rws in requests_with_sources:
-        # Assume request doesn't have any sources. Will be removed later if sources are found.
-        reqs_no_source.add(rws.request_id)
-
-        if not rws.sources:
-            logger(logging.INFO, '%s: has no sources. Skipping.', rws)
-            continue
-
-        sources = sorted(rws.sources, key=lambda s: s.distance_ranking)
-
-        selected_source = None
-        transfertool = None
-        dest_rse_transfertools = get_supported_transfertools(rws.dest_rse.id, session=session)
-        for source in sources:
-            src_rse_transfertools = get_supported_transfertools(source.rse.id, session=session)
-            common_transfertools = dest_rse_transfertools.intersection(src_rse_transfertools)
-            if not common_transfertools:
-                continue
-            transfertool = 'fts3' if 'fts3' in common_transfertools else common_transfertools.pop()
-            selected_source = source
-
-        if not selected_source:
-            logger(logging.WARNING, '%s: all available sources were filtered', rws)
-            continue
-
-        reqs_no_source.remove(rws.request_id)
-
-        update_dict = {
-            models.Request.state: __throttler_request_state(
-                activity=rws.activity,
-                source_rse_id=selected_source.rse.id,
-                dest_rse_id=rws.dest_rse.id,
-                session=session,
-            ),
-            models.Request.source_rse_id: selected_source.rse.id,
-        }
-        if transfertool:
-            update_dict[models.Request.transfertool] = transfertool
-
-        stmt = update(
-            models.Request
-        ).where(
-            models.Request.id == rws.request_id
-        ).execution_options(
-            synchronize_session=False
-        ).values(
-            update_dict
-        )
-        session.execute(stmt)
-        count += 1
-
-    if reqs_no_source:
-        logger(logging.INFO, "Marking requests as no-sources: %s", reqs_no_source)
-        set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger, session=session)
-    return count
-
-
-def __throttler_request_state(activity, source_rse_id, dest_rse_id, session: "Optional[Session]" = None) -> RequestState:
-    """
-    Takes request attributes to return a new state for the request
-    based on throttler settings. Always returns QUEUED,
-    if the throttler mode is not set.
-    """
-    try:
-        throttler_mode = config_get('throttler', 'mode', default=None, use_cache=False, session=session)
-    except (NoOptionError, NoSectionError, RuntimeError):
-        throttler_mode = None
-
-    limit_found = False
-    if throttler_mode:
-        transfer_limits = get_rse_transfer_limits(session=session)
-        activity_limit = transfer_limits.get(activity, {})
-        all_activities_limit = transfer_limits.get('all_activities', {})
-        direction, all_activities = get_parsed_throttler_mode(throttler_mode)
-        if direction == 'source':
-            if all_activities:
-                if all_activities_limit.get(source_rse_id):
-                    limit_found = True
-            else:
-                if activity_limit.get(source_rse_id):
-                    limit_found = True
-        elif direction == 'destination':
-            if all_activities:
-                if all_activities_limit.get(dest_rse_id):
-                    limit_found = True
-            else:
-                if activity_limit.get(dest_rse_id):
-                    limit_found = True
-
-    return RequestState.WAITING if limit_found else RequestState.QUEUED
-
-
-def get_supported_transfertools(rse_id: str, session=None) -> "Set[str]":
-    transfertool_attr = get_rse_attribute(rse_id, 'transfertool', session=session)
-
-    if not transfertool_attr:
-        return {'fts3', 'globus'}
-
-    result = set()
-    for transfertool in transfertool_attr.split(sep=','):
-        if transfertool.strip():
-            result.add(transfertool)
-    return result

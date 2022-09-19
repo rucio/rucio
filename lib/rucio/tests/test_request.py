@@ -13,57 +13,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 from datetime import datetime
 
 import pytest
 
-from rucio.common.config import config_get_bool, config_set, config_remove_option
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.config import config_get_bool
 from rucio.common.utils import generate_uuid, parse_response
 from rucio.core.replica import add_replica
 from rucio.core.request import queue_requests, get_request_by_did, list_requests, list_requests_history
-from rucio.core.rse import get_rse_id, set_rse_transfer_limits, add_rse_attribute
-from rucio.db.sqla import session, models, constants
+from rucio.core.rse import set_rse_transfer_limits, add_rse_attribute
+from rucio.db.sqla import models, constants
 from rucio.db.sqla.constants import RequestType, RequestState
 from rucio.tests.common import vohdr, hdrdict, headers, auth
-from rucio.tests.common_server import get_vo, reset_config_table
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE, changes global configuration value')
-@pytest.mark.parametrize('use_preparer', ['preparer enabled', 'preparer disabled'])
-def test_queue_requests_state(vo, use_preparer):
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, preparer enabled
+    {
+        "overrides": [
+            ('conveyor', 'use_preparer', 'true')
+        ]
+    },
+    {
+        "overrides": [
+            ('conveyor', 'use_preparer', 'false')
+        ]
+    }
+], indirect=True)
+def test_queue_requests_state(vo, file_config_mock, rse_factory, mock_scope, root_account, db_session):
     """ REQUEST (CORE): test queuing requests """
 
-    if use_preparer == 'preparer enabled':
-        use_preparer = True
-    elif use_preparer == 'preparer disabled':
-        use_preparer = False
-    else:
-        return pytest.xfail(reason=f'unknown test parameter use_preparer={use_preparer}')
+    source_rse, source_rse_id = rse_factory.make_mock_rse()
+    source_rse2, source_rse_id2 = rse_factory.make_mock_rse()
+    dest_rse, dest_rse_id = rse_factory.make_mock_rse()
+    dest_rse2, dest_rse_id2 = rse_factory.make_mock_rse()
 
-    db_session = session.get_session()
-    dest_rse = 'MOCK'
-    dest_rse2 = 'MOCK2'
-    source_rse = 'MOCK4'
-    source_rse2 = 'MOCK5'
-    dest_rse_id = get_rse_id(dest_rse, vo=vo)
-    dest_rse_id2 = get_rse_id(dest_rse2, vo=vo)
-    source_rse_id = get_rse_id(source_rse, vo=vo)
-    source_rse_id2 = get_rse_id(source_rse2, vo=vo)
-    scope = InternalScope('mock', vo=vo)
-    account = InternalAccount('root', vo=vo)
     user_activity = 'User Subscription'
-    config_set('conveyor', 'use_preparer', str(use_preparer))
+    use_preparer = config_get_bool('conveyor', 'use_preparer')
     target_state = RequestState.PREPARING if use_preparer else RequestState.QUEUED
 
     name = generate_uuid()
     name2 = generate_uuid()
     name3 = generate_uuid()
-    add_replica(source_rse_id, scope, name, 1, account, session=db_session)
-    add_replica(source_rse_id2, scope, name2, 1, account, session=db_session)
-    add_replica(source_rse_id, scope, name3, 1, account, session=db_session)
+    add_replica(source_rse_id, mock_scope, name, 1, root_account, session=db_session)
+    add_replica(source_rse_id2, mock_scope, name2, 1, root_account, session=db_session)
+    add_replica(source_rse_id, mock_scope, name3, 1, root_account, session=db_session)
 
     set_rse_transfer_limits(dest_rse_id, user_activity, max_transfers=1, session=db_session)
     set_rse_transfer_limits(dest_rse_id2, user_activity, max_transfers=1, session=db_session)
@@ -76,7 +70,7 @@ def test_queue_requests_state(vo, use_preparer):
         'request_type': RequestType.TRANSFER,
         'request_id': generate_uuid(),
         'name': name,
-        'scope': scope,
+        'scope': mock_scope,
         'rule_id': generate_uuid(),
         'retry_count': 1,
         'requested_at': datetime.now().replace(year=2015),
@@ -92,7 +86,7 @@ def test_queue_requests_state(vo, use_preparer):
         'request_type': RequestType.TRANSFER,
         'request_id': generate_uuid(),
         'name': name2,
-        'scope': scope,
+        'scope': mock_scope,
         'rule_id': generate_uuid(),
         'retry_count': 1,
         'requested_at': datetime.now().replace(year=2015),
@@ -108,7 +102,7 @@ def test_queue_requests_state(vo, use_preparer):
         'request_type': RequestType.TRANSFER,
         'request_id': generate_uuid(),
         'name': name3,
-        'scope': scope,
+        'scope': mock_scope,
         'rule_id': generate_uuid(),
         'retry_count': 1,
         'requested_at': datetime.now().replace(year=2015),
@@ -119,153 +113,79 @@ def test_queue_requests_state(vo, use_preparer):
             'adler32': ''
         }
     }]
-    try:
-        queue_requests(requests, session=db_session)
-        request = get_request_by_did(scope, name, dest_rse_id, session=db_session)
-        assert request['state'] == target_state
-        request = get_request_by_did(scope, name2, dest_rse_id, session=db_session)
-        assert request['state'] == target_state
-        request = get_request_by_did(scope, name3, dest_rse_id2, session=db_session)
-        assert request['state'] == target_state
-
-    finally:
-        config_remove_option('conveyor', 'use_preparer')
-        db_session.query(models.Source).delete()
-        db_session.query(models.Request).delete()
-        db_session.query(models.RSETransferLimit).delete()
-        db_session.query(models.Distance).delete()
-        db_session.commit()
-        reset_config_table()
+    queue_requests(requests, session=db_session)
+    request = get_request_by_did(mock_scope, name, dest_rse_id, session=db_session)
+    assert request['state'] == target_state
+    request = get_request_by_did(mock_scope, name2, dest_rse_id, session=db_session)
+    assert request['state'] == target_state
+    request = get_request_by_did(mock_scope, name3, dest_rse_id2, session=db_session)
+    assert request['state'] == target_state
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-class TestRequestCoreList(unittest.TestCase):
+class TestRequestCoreList:
 
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        cls.db_session = session.get_session()
-        cls.dest_rse = 'MOCK'
-        cls.dest_rse2 = 'MOCK2'
-        cls.source_rse = 'MOCK4'
-        cls.source_rse2 = 'MOCK5'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
-        cls.dest_rse_id2 = get_rse_id(cls.dest_rse2, **cls.vo)
-        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
-        cls.source_rse_id2 = get_rse_id(cls.source_rse2, **cls.vo)
-
-    def setUp(self):
-        self.db_session.query(models.Source).delete()
-        self.db_session.query(models.Request).delete()
-        self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.query(models.Distance).delete()
-        self.db_session.commit()
-        reset_config_table()
-
-    def tearDown(self):
-        self.db_session.commit()
-
-    def test_list_requests(self):
+    def test_list_requests(self, rse_factory, db_session):
         """ REQUEST (CORE): list requests """
-        models.Request(state=constants.RequestState.WAITING, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
-        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id2, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
-        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id2).save(session=self.db_session)
-        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
-        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
+        _, source_rse_id = rse_factory.make_mock_rse()
+        _, source_rse_id2 = rse_factory.make_mock_rse()
+        _, dest_rse_id = rse_factory.make_mock_rse()
+        _, dest_rse_id2 = rse_factory.make_mock_rse()
+        models.Request(state=constants.RequestState.WAITING, source_rse_id=source_rse_id, dest_rse_id=dest_rse_id).save(session=db_session)
+        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=source_rse_id2, dest_rse_id=dest_rse_id).save(session=db_session)
+        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=source_rse_id, dest_rse_id=dest_rse_id2).save(session=db_session)
+        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=source_rse_id, dest_rse_id=dest_rse_id).save(session=db_session)
+        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=source_rse_id, dest_rse_id=dest_rse_id).save(session=db_session)
 
-        requests = [request for request in list_requests([self.source_rse_id], [self.dest_rse_id], [constants.RequestState.SUBMITTED], session=self.db_session)]
+        requests = [request for request in list_requests([source_rse_id], [dest_rse_id], [constants.RequestState.SUBMITTED], session=db_session)]
         assert len(requests) == 2
 
-        requests = [request for request in list_requests([self.source_rse_id, self.source_rse_id2], [self.dest_rse_id], [constants.RequestState.SUBMITTED], session=self.db_session)]
+        requests = [request for request in list_requests([source_rse_id, source_rse_id2], [dest_rse_id], [constants.RequestState.SUBMITTED], session=db_session)]
         assert len(requests) == 3
 
-        requests = [request for request in list_requests([self.source_rse_id], [self.dest_rse_id], [constants.RequestState.QUEUED], session=self.db_session)]
+        requests = [request for request in list_requests([source_rse_id], [dest_rse_id], [constants.RequestState.QUEUED], session=db_session)]
         assert len(requests) == 0
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-class TestRequestHistoryCoreList(unittest.TestCase):
+class TestRequestHistoryCoreList:
 
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        cls.db_session = session.get_session()
-        cls.dest_rse = 'MOCK'
-        cls.dest_rse2 = 'MOCK2'
-        cls.source_rse = 'MOCK4'
-        cls.source_rse2 = 'MOCK5'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
-        cls.dest_rse_id2 = get_rse_id(cls.dest_rse2, **cls.vo)
-        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
-        cls.source_rse_id2 = get_rse_id(cls.source_rse2, **cls.vo)
-
-    def setUp(self):
-        self.db_session.query(models.Source).delete()
-        self.db_session.query(models.RequestHistory).delete()
-        self.db_session.query(models.RSETransferLimit).delete()
-        self.db_session.query(models.Distance).delete()
-        self.db_session.commit()
-        reset_config_table()
-
-    def tearDown(self):
-        self.db_session.commit()
-
-    def test_list_requests_history(self):
+    def test_list_requests_history(self, rse_factory, db_session):
+        _, source_rse_id = rse_factory.make_mock_rse()
+        _, source_rse_id2 = rse_factory.make_mock_rse()
+        _, dest_rse_id = rse_factory.make_mock_rse()
+        _, dest_rse_id2 = rse_factory.make_mock_rse()
         """ REQUEST (CORE): list requests history"""
-        models.RequestHistory(state=constants.RequestState.WAITING, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
-        models.RequestHistory(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id2, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
-        models.RequestHistory(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id2).save(session=self.db_session)
-        models.RequestHistory(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
-        models.RequestHistory(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
+        models.RequestHistory(state=constants.RequestState.WAITING, source_rse_id=source_rse_id, dest_rse_id=dest_rse_id).save(session=db_session)
+        models.RequestHistory(state=constants.RequestState.SUBMITTED, source_rse_id=source_rse_id2, dest_rse_id=dest_rse_id).save(session=db_session)
+        models.RequestHistory(state=constants.RequestState.SUBMITTED, source_rse_id=source_rse_id, dest_rse_id=dest_rse_id2).save(session=db_session)
+        models.RequestHistory(state=constants.RequestState.SUBMITTED, source_rse_id=source_rse_id, dest_rse_id=dest_rse_id).save(session=db_session)
+        models.RequestHistory(state=constants.RequestState.SUBMITTED, source_rse_id=source_rse_id, dest_rse_id=dest_rse_id).save(session=db_session)
 
-        requests = [request for request in list_requests_history([self.source_rse_id], [self.dest_rse_id], [constants.RequestState.SUBMITTED], session=self.db_session)]
+        requests = [request for request in list_requests_history([source_rse_id], [dest_rse_id], [constants.RequestState.SUBMITTED], session=db_session)]
         assert len(requests) == 2
 
-        requests = [request for request in list_requests_history([self.source_rse_id, self.source_rse_id2], [self.dest_rse_id], [constants.RequestState.SUBMITTED], session=self.db_session)]
+        requests = [request for request in list_requests_history([source_rse_id, source_rse_id2], [dest_rse_id], [constants.RequestState.SUBMITTED], session=db_session)]
         assert len(requests) == 3
 
-        requests = [request for request in list_requests_history([self.source_rse_id], [self.dest_rse_id], [constants.RequestState.QUEUED], session=self.db_session)]
+        requests = [request for request in list_requests_history([source_rse_id], [dest_rse_id], [constants.RequestState.QUEUED], session=db_session)]
         assert len(requests) == 0
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-def test_list_requests(vo, rest_client, auth_token):
+def test_list_requests(vo, rest_client, auth_token, rse_factory, tag_factory, db_session):
     """ REQUEST (REST): list requests """
-    source_rse = 'MOCK'
-    source_rse_id = get_rse_id(source_rse, vo=vo)
-    source_rse2 = 'MOCK2'
-    source_rse_id2 = get_rse_id(source_rse2, vo=vo)
-    source_rse3 = 'MOCK5'
-    source_rse_id3 = get_rse_id(source_rse3, vo=vo)
-    dest_rse = 'MOCK3'
-    dest_rse_id = get_rse_id(dest_rse, vo=vo)
-    dest_rse2 = 'MOCK4'
-    dest_rse_id2 = get_rse_id(dest_rse2, vo=vo)
-    db_session = session.get_session()
-    source_site = 'SITE1'
-    source_site2 = 'SITE2'
-    dst_site = 'SITE3'
-    dst_site2 = 'SITE4'
+    source_rse, source_rse_id = rse_factory.make_mock_rse()
+    source_rse2, source_rse_id2 = rse_factory.make_mock_rse()
+    source_rse3, source_rse_id3 = rse_factory.make_mock_rse()
+    dest_rse, dest_rse_id = rse_factory.make_mock_rse()
+    dest_rse2, dest_rse_id2 = rse_factory.make_mock_rse()
+    source_site = tag_factory.new_tag()
+    source_site2 = tag_factory.new_tag()
+    dst_site = tag_factory.new_tag()
+    dst_site2 = tag_factory.new_tag()
     add_rse_attribute(source_rse_id, 'site', source_site)
     add_rse_attribute(source_rse_id2, 'site', source_site2)
     add_rse_attribute(source_rse_id3, 'site', source_site)
     add_rse_attribute(dest_rse_id, 'site', dst_site)
     add_rse_attribute(dest_rse_id2, 'site', dst_site2)
-
-    db_session.query(models.Source).delete()
-    db_session.query(models.Request).delete()
-    db_session.commit()
 
     name1 = generate_uuid()
     name2 = generate_uuid()
@@ -359,7 +279,7 @@ def test_list_requests(vo, rest_client, auth_token):
     params = {'request_states': 'S', 'dst_rse': source_rse}
     check_error_api(params, 'MissingParameter', 'Source RSE is missing', 400)
 
-    params = {'request_states': 'S', 'src_rse': source_rse, 'dst_site': 'SITE'}
+    params = {'request_states': 'S', 'src_rse': source_rse, 'dst_site': dst_site}
     check_error_api(params, 'MissingParameter', 'Destination RSE is missing', 400)
 
     params = {'request_states': 'S', 'src_site': source_site}
@@ -372,34 +292,22 @@ def test_list_requests(vo, rest_client, auth_token):
     check_error_api(params, 'NotFound', 'Could not resolve site name unknown to RSE', 404)
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-def test_list_requests_history(vo, rest_client, auth_token):
+def test_list_requests_history(vo, rest_client, auth_token, rse_factory, tag_factory, db_session):
     """ REQUEST (REST): list requests history """
-    source_rse = 'MOCK'
-    source_rse_id = get_rse_id(source_rse, vo=vo)
-    source_rse2 = 'MOCK2'
-    source_rse_id2 = get_rse_id(source_rse2, vo=vo)
-    source_rse3 = 'MOCK5'
-    source_rse_id3 = get_rse_id(source_rse3, vo=vo)
-    dest_rse = 'MOCK3'
-    dest_rse_id = get_rse_id(dest_rse, vo=vo)
-    dest_rse2 = 'MOCK4'
-    dest_rse_id2 = get_rse_id(dest_rse2, vo=vo)
-    db_session = session.get_session()
-    source_site = 'SITE1'
-    source_site2 = 'SITE2'
-    dst_site = 'SITE3'
-    dst_site2 = 'SITE4'
+    source_rse, source_rse_id = rse_factory.make_mock_rse()
+    source_rse2, source_rse_id2 = rse_factory.make_mock_rse()
+    source_rse3, source_rse_id3 = rse_factory.make_mock_rse()
+    dest_rse, dest_rse_id = rse_factory.make_mock_rse()
+    dest_rse2, dest_rse_id2 = rse_factory.make_mock_rse()
+    source_site = tag_factory.new_tag()
+    source_site2 = tag_factory.new_tag()
+    dst_site = tag_factory.new_tag()
+    dst_site2 = tag_factory.new_tag()
     add_rse_attribute(source_rse_id, 'site', source_site)
     add_rse_attribute(source_rse_id2, 'site', source_site2)
     add_rse_attribute(source_rse_id3, 'site', source_site)
     add_rse_attribute(dest_rse_id, 'site', dst_site)
     add_rse_attribute(dest_rse_id2, 'site', dst_site2)
-
-    db_session.query(models.Source).delete()
-    db_session.query(models.RequestHistory).delete()
-    db_session.commit()
 
     name1 = generate_uuid()
     name2 = generate_uuid()
@@ -493,7 +401,7 @@ def test_list_requests_history(vo, rest_client, auth_token):
     params = {'request_states': 'S', 'dst_rse': source_rse}
     check_error_api(params, 'MissingParameter', 'Source RSE is missing', 400)
 
-    params = {'request_states': 'S', 'src_rse': source_rse, 'dst_site': 'SITE'}
+    params = {'request_states': 'S', 'src_rse': source_rse, 'dst_site': dst_site}
     check_error_api(params, 'MissingParameter', 'Destination RSE is missing', 400)
 
     params = {'request_states': 'S', 'src_site': source_site}

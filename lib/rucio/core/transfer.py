@@ -13,35 +13,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 import datetime
 import logging
 import re
 import time
 import traceback
-from rucio.common.utils import PriorityQueue
 from typing import TYPE_CHECKING
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql.expression import false
 
 from rucio.common import constants
-from rucio.common.cache import make_region_memcached
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get
 from rucio.common.constants import SUPPORTED_PROTOCOLS
-from rucio.common.exception import (InvalidRSEExpression, NoDistance,
+from rucio.common.exception import (InvalidRSEExpression,
                                     RequestNotFound, RSEProtocolNotSupported,
                                     RucioException, UnsupportedOperation)
-from rucio.common.utils import construct_surl
+from rucio.common.utils import construct_surl, get_parsed_throttler_mode
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.account import list_accounts
-from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter
 from rucio.core.request import set_request_state, RequestWithSources, RequestSource
-from rucio.core.rse import list_rses, RseData
+from rucio.core.rse import get_rse_transfer_limits
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, RequestType
@@ -50,9 +45,13 @@ from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Set, Union
+    from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Set, Tuple
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
+    from rucio.core.rse import RseData
+    from rucio.core.topology import Topology
+
+    LoggerFunction = Callable[..., Any]
 
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
@@ -60,7 +59,6 @@ where the external_id is already known.
 Requests accessed by request_id  are covered in the core request.py
 """
 
-REGION_SHORT = make_region_memcached(expiration_time=600)
 REGION_ACCOUNTS = make_region().configure('dogpile.cache.memory', expiration_time=600)
 
 WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
@@ -75,33 +73,6 @@ class TransferDestination:
 
     def __str__(self):
         return "dst_rse={}".format(self.rse)
-
-
-class _RseLoaderContext:
-    """
-    Helper private class used to dynamically load and cache the rse information
-    """
-    def __init__(self, session):
-        self.session = session
-        self.rse_id_to_data_map = {}
-
-    def rse_data(self, rse_id):
-        rse_data = self.rse_id_to_data_map.get(rse_id)
-        if rse_data is None:
-            rse_data = RseData(rse_id)
-            rse_data.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=self.session)
-            self.rse_id_to_data_map[rse_id] = rse_data
-        return rse_data
-
-    def ensure_fully_loaded(self, rse_data):
-        if rse_data.name is None or rse_data.info is None or rse_data.attributes is None:
-            cached_rse_data = self.rse_data(rse_data.id)
-            if rse_data.name is None:
-                rse_data.name = cached_rse_data.name
-            if rse_data.info is None:
-                rse_data.info = cached_rse_data.info
-            if rse_data.attributes is None:
-                rse_data.attributes = cached_rse_data.attributes
 
 
 class ProtocolFactory:
@@ -577,157 +548,13 @@ def touch_transfer(external_host, transfer_id, session=None):
         raise RucioException(error.args)
 
 
-@transactional_session
-def get_hops(source_rse_id, dest_rse_id, multihop_rses=None, limit_dest_schemes=None, session=None):
-    """
-    Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
-    Ideally, the list will only include one item (dest_rse_id) since no hops are needed.
-    :param source_rse_id:       Source RSE id of the transfer.
-    :param dest_rse_id:         Dest RSE id of the transfer.
-    :param multihop_rses:       List of RSE ids that can be used for multihop. If empty, multihop is disabled.
-    :param limit_dest_schemes:  List of destination schemes the matching scheme algorithm should be limited to for a single hop.
-    :returns:                   List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}]
-    :raises:                    NoDistance
-    """
-    if not limit_dest_schemes:
-        limit_dest_schemes = []
-
-    if not multihop_rses:
-        multihop_rses = []
-
-    ctx = _RseLoaderContext(session)
-    shortest_paths = __search_shortest_paths(ctx=ctx, source_rse_ids=[source_rse_id], dest_rse_id=dest_rse_id,
-                                             operation_src='third_party_copy_read', operation_dest='third_party_copy_write',
-                                             domain='wan', multihop_rses=multihop_rses,
-                                             limit_dest_schemes=limit_dest_schemes, session=session)
-
-    result = REGION_SHORT.get('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))))
-    if not isinstance(result, NoValue):
-        return result
-
-    path = shortest_paths.get(source_rse_id)
-    if path is None:
-        raise NoDistance()
-
-    if not path:
-        raise RSEProtocolNotSupported()
-
-    REGION_SHORT.set('get_hops_dist_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), path)
-    return path
-
-
-def __search_shortest_paths(
-        ctx: _RseLoaderContext,
-        source_rse_ids: "List[str]",
-        dest_rse_id: "List[str]",
-        operation_src: str,
-        operation_dest: str,
-        domain: str,
-        multihop_rses: "List[str]",
-        limit_dest_schemes: "Union[str, List[str]]",
-        inbound_links_by_node: "Optional[Dict[str, Dict[str, str]]]" = None,
-        session: "Optional[Session]" = None,
-) -> "Dict[str, List[Dict[str, Any]]]":
-    """
-    Find the shortest paths from multiple sources towards dest_rse_id.
-    Does a Backwards Dijkstra's algorithm: start from destination and follow inbound links towards the sources.
-    If multihop is disabled, stop after analysing direct connections to dest_rse. Otherwise, stops when all
-    sources where found or the graph was traversed in integrality.
-
-    The inbound links retrieved from the database can be accumulated into the inbound_links_by_node, passed
-    from the calling context. To be able to reuse them.
-    """
-    HOP_PENALTY = config_get_int('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
-
-    if multihop_rses:
-        # Filter out island source RSEs
-        sources_to_find = {rse_id for rse_id in source_rse_ids if __load_outgoing_distances_node(rse_id=rse_id, session=session)}
-    else:
-        sources_to_find = set(source_rse_ids)
-
-    next_hop = {dest_rse_id: {'cumulated_distance': 0}}
-    priority_q = PriorityQueue()
-
-    remaining_sources = copy.copy(sources_to_find)
-    priority_q[dest_rse_id] = 0
-    while priority_q:
-        current_node = priority_q.pop()
-
-        if current_node in remaining_sources:
-            remaining_sources.remove(current_node)
-        if not remaining_sources:
-            # We found the shortest paths to all desired sources
-            break
-
-        current_distance = next_hop[current_node]['cumulated_distance']
-        inbound_links = __load_inbound_distances_node(rse_id=current_node, session=session)
-        if inbound_links_by_node is not None:
-            inbound_links_by_node[current_node] = inbound_links
-        for adjacent_node, link_distance in sorted(inbound_links.items(),
-                                                   key=lambda item: 0 if item[0] in sources_to_find else 1):
-            if link_distance is None:
-                continue
-
-            if adjacent_node not in remaining_sources and adjacent_node not in multihop_rses:
-                continue
-
-            try:
-                hop_penalty = int(ctx.rse_data(adjacent_node).attributes.get('hop_penalty', HOP_PENALTY))
-            except ValueError:
-                hop_penalty = HOP_PENALTY
-            new_adjacent_distance = current_distance + link_distance + hop_penalty
-            if next_hop.get(adjacent_node, {}).get('cumulated_distance', 9999) <= new_adjacent_distance:
-                continue
-
-            try:
-                matching_scheme = rsemgr.find_matching_scheme(
-                    rse_settings_src=ctx.rse_data(adjacent_node).info,
-                    rse_settings_dest=ctx.rse_data(current_node).info,
-                    operation_src=operation_src,
-                    operation_dest=operation_dest,
-                    domain=domain,
-                    scheme=limit_dest_schemes if adjacent_node == dest_rse_id and limit_dest_schemes else None
-                )
-                next_hop[adjacent_node] = {
-                    'source_rse_id': adjacent_node,
-                    'dest_rse_id': current_node,
-                    'source_scheme': matching_scheme[1],
-                    'dest_scheme': matching_scheme[0],
-                    'source_scheme_priority': matching_scheme[3],
-                    'dest_scheme_priority': matching_scheme[2],
-                    'hop_distance': link_distance,
-                    'cumulated_distance': new_adjacent_distance,
-                }
-                priority_q[adjacent_node] = new_adjacent_distance
-            except RSEProtocolNotSupported:
-                if next_hop.get(adjacent_node) is None:
-                    next_hop[adjacent_node] = {}
-
-        if not multihop_rses:
-            # Stop after the first iteration, which finds direct connections to destination
-            break
-
-    paths = {}
-    for rse_id in source_rse_ids:
-        hop = next_hop.get(rse_id)
-        if hop is None:
-            continue
-
-        path = []
-        while hop.get('dest_rse_id'):
-            path.append(hop)
-            hop = next_hop.get(hop['dest_rse_id'])
-        paths[rse_id] = path
-    return paths
-
-
 @read_session
 def __create_transfer_definitions(
-        ctx: _RseLoaderContext,
+        topology: "Topology",
         protocol_factory: ProtocolFactory,
         rws: RequestWithSources,
         sources: "List[RequestSource]",
-        multihop_rses: "List[str]",
+        multi_source_sources: "List[RequestSource]",
         limit_dest_schemes: "List[str]",
         operation_src: str,
         operation_dest: str,
@@ -739,10 +566,10 @@ def __create_transfer_definitions(
     Create the transfer definitions for each point-to-point transfer (multi-source, when possible)
     """
     inbound_links_by_node = {}
-    shortest_paths = __search_shortest_paths(ctx=ctx, source_rse_ids=[s.rse.id for s in sources], dest_rse_id=rws.dest_rse.id,
-                                             operation_src=operation_src, operation_dest=operation_dest, domain=domain,
-                                             multihop_rses=multihop_rses, limit_dest_schemes=limit_dest_schemes,
-                                             inbound_links_by_node=inbound_links_by_node, session=session)
+    shortest_paths = topology.search_shortest_paths(source_rse_ids=[s.rse.id for s in sources], dest_rse_id=rws.dest_rse.id,
+                                                    operation_src=operation_src, operation_dest=operation_dest, domain=domain,
+                                                    limit_dest_schemes=limit_dest_schemes,
+                                                    inbound_links_by_node=inbound_links_by_node, session=session)
 
     transfers_by_source = {}
     sources_by_rse_id = {s.rse.id: s for s in sources}
@@ -750,8 +577,8 @@ def __create_transfer_definitions(
     for source, list_hops in paths_by_source.items():
         transfer_path = []
         for hop in list_hops:
-            hop_src_rse = ctx.rse_data(hop['source_rse_id'])
-            hop_dst_rse = ctx.rse_data(hop['dest_rse_id'])
+            hop_src_rse = topology.rse_collection[hop['source_rse_id']]
+            hop_dst_rse = topology.rse_collection[hop['dest_rse_id']]
             src = RequestSource(
                 rse_data=hop_src_rse,
                 file_path=source.file_path if hop_src_rse == source.rse else None,
@@ -813,7 +640,7 @@ def __create_transfer_definitions(
             inbound_links = inbound_links_by_node[transfer_path[0].dst.rse.id]
             main_source_schemes = __add_compatible_schemes(schemes=[transfer_path[0].dst.scheme], allowed_schemes=SUPPORTED_PROTOCOLS)
             added_sources = 0
-            for source in sorted(sources, key=lambda s: (-s.source_ranking, s.distance_ranking)):
+            for source in sorted(multi_source_sources, key=lambda s: (-s.source_ranking, s.distance_ranking)):
                 if added_sources >= 5:
                     break
 
@@ -949,94 +776,6 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
     yield from sorted(candidate_paths, key=__transfer_order_key)
 
 
-@transactional_session
-def get_transfer_paths(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                       failover_schemes=None, active_transfertools=None, filter_transfertool=None, request_type=RequestType.TRANSFER,
-                       ignore_availability=False, logger=logging.log, session=None):
-    """
-    Get next transfers to be submitted; grouped by transfertool which can submit them
-    :param total_workers:         Number of total workers.
-    :param worker_number:         Id of the executing worker.
-    :param partition_hash_var     The hash variable used for partitioning thread work
-    :param limit:                 Maximum number of requests to retrieve from database.
-    :param activity:              Activity.
-    :param older_than:            Get transfers older than.
-    :param rses:                  Include RSES.
-    :param schemes:               Include schemes.
-    :param failover_schemes:      Failover schemes.
-    :param filter_transfertool:   The transfer tool to filter requests on.
-    :param active_transfertools:  The transfer tool names which are supported by the calling context.
-    :param request_type           The type of requests to retrieve (Transfer/Stagein)
-    :param ignore_availability:   Ignore blocklisted RSEs
-    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
-    :param session:               The database session in use.
-    :returns:                     Dict: {TransferToolBuilder: <list of transfer paths (possibly multihop) to be submitted>}
-
-    Workflow:
-    """
-
-    include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
-
-    multihop_rses = []
-    if include_multihop:
-        try:
-            multihop_rses = [rse['id'] for rse in parse_expression('available_for_multihop=true')]
-        except InvalidRSEExpression:
-            pass
-
-    restricted_read_rses = []
-    try:
-        restricted_read_rses = {rse['id'] for rse in parse_expression('restricted_read=true')}
-    except InvalidRSEExpression:
-        pass
-
-    restricted_write_rses = []
-    try:
-        restricted_write_rses = {rse['id'] for rse in parse_expression('restricted_write=true')}
-    except InvalidRSEExpression:
-        pass
-
-    admin_accounts = __list_admin_accounts(session=session)
-
-    if schemes is None:
-        schemes = []
-
-    if failover_schemes is None:
-        failover_schemes = []
-
-    # retrieve (from the database) the transfer requests with their possible source replicas
-    request_with_sources = request_core.list_transfer_requests_and_source_replicas(
-        total_workers=total_workers,
-        worker_number=worker_number,
-        partition_hash_var=partition_hash_var,
-        limit=limit,
-        activity=activity,
-        older_than=older_than,
-        rses=rses,
-        multihop_rses=multihop_rses,
-        request_type=request_type,
-        request_state=RequestState.QUEUED,
-        ignore_availability=ignore_availability,
-        transfertool=filter_transfertool,
-        session=session,
-    )
-
-    # for each source, compute the (possibly multihop) path between it and the transfer destination
-    return __build_transfer_paths(
-        request_with_sources,
-        multihop_rses=multihop_rses,
-        restricted_read_rses=restricted_read_rses,
-        restricted_write_rses=restricted_write_rses,
-        schemes=schemes,
-        failover_schemes=failover_schemes,
-        admin_accounts=admin_accounts,
-        ignore_availability=ignore_availability,
-        active_transfertools=active_transfertools,
-        logger=logger,
-        session=session,
-    )
-
-
 def __parse_request_transfertools(
         rws: "RequestWithSources",
         logger: "Callable" = logging.log,
@@ -1054,16 +793,15 @@ def __parse_request_transfertools(
     return request_transfertools
 
 
-def __build_transfer_paths(
+def build_transfer_paths(
+        topology: "Topology",
         requests_with_sources: "Iterable[RequestWithSources]",
-        multihop_rses: "List[str]",
-        restricted_read_rses: "Set[str]",
-        restricted_write_rses: "Set[str]",
-        schemes: "List[str]",
-        failover_schemes: "List[str]",
-        admin_accounts: "Set[InternalAccount]",
-        active_transfertools: "Set[str]" = None,
-        ignore_availability: bool = False,
+        admin_accounts: "Optional[Set[InternalAccount]]" = None,
+        schemes: "Optional[List[str]]" = None,
+        failover_schemes: "Optional[List[str]]" = None,
+        active_transfertools: "Optional[Set[str]]" = None,
+        requested_source_only: bool = False,
+        preparer_mode: bool = False,
         logger: "Callable" = logging.log,
         session: "Optional[Session]" = None,
 ):
@@ -1077,27 +815,33 @@ def __build_transfer_paths(
 
     Each path is a list of hops. Each hop is a transfer definition.
     """
-    ctx = _RseLoaderContext(session)
+    if schemes is None:
+        schemes = []
+
+    if failover_schemes is None:
+        failover_schemes = []
+
+    if admin_accounts is None:
+        admin_accounts = set()
+
     protocol_factory = ProtocolFactory()
-    unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
-    unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
     # Do not print full source RSE list for DIDs which have many sources. Otherwise we fill the monitoring
     # storage with data which has little to no benefit. This log message is unlikely to help debugging
     # transfers issues when there are many sources, but can be very useful for small number of sources.
     num_sources_in_logs = 4
 
-    # Disallow multihop via blocklisted RSEs
-    if not ignore_availability:
-        multihop_rses = list(set(multihop_rses).difference(unavailable_write_rse_ids).difference(unavailable_read_rse_ids))
-
     candidate_paths_by_request_id, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, set(), set(), set()
     reqs_unsupported_transfertool = set()
     for rws in requests_with_sources:
 
-        ctx.ensure_fully_loaded(rws.dest_rse)
-        for source in rws.sources:
-            ctx.ensure_fully_loaded(source.rse)
+        rws.dest_rse = topology.rse_collection.setdefault(rws.dest_rse.id, rws.dest_rse)
+        rws.dest_rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
+
+        all_sources = rws.sources
+        for source in all_sources:
+            source.rse = topology.rse_collection.setdefault(source.rse.id, source.rse)
+            source.rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
 
         transfer_schemes = schemes
         if rws.previous_attempt_id and failover_schemes:
@@ -1105,21 +849,22 @@ def __build_transfer_paths(
 
         # Assume request doesn't have any sources. Will be removed later if sources are found.
         reqs_no_source.add(rws.request_id)
-        if not rws.sources:
+        if not all_sources:
             logger(logging.INFO, '%s: has no sources. Skipping.', rws)
             continue
 
-        logger(logging.DEBUG, '%s: Found %d sources: %s%s',
+        logger(logging.DEBUG, '%s: Working on %d sources%s: %s%s',
                rws,
-               len(rws.sources),
-               ','.join('{}:{}:{}'.format(src.rse, src.source_ranking, src.distance_ranking) for src in rws.sources[:num_sources_in_logs]),
-               '... and %d others' % (len(rws.sources) - num_sources_in_logs) if len(rws.sources) > num_sources_in_logs else '')
+               len(all_sources),
+               f' (priority {rws.requested_source.rse})' if requested_source_only and rws.requested_source else '',
+               ','.join('{}:{}:{}'.format(src.rse, src.source_ranking, src.distance_ranking) for src in all_sources[:num_sources_in_logs]),
+               '... and %d others' % (len(all_sources) - num_sources_in_logs) if len(all_sources) > num_sources_in_logs else '')
 
         # Check if destination is blocked
-        if not ignore_availability and rws.dest_rse.id in unavailable_write_rse_ids:
+        if rws.dest_rse.id in topology.unavailable_write_rses:
             logger(logging.WARNING, '%s: dst RSE is blocked for write. Will skip the submission of new jobs', rws.request_id)
             continue
-        if rws.account not in admin_accounts and rws.dest_rse.id in restricted_write_rses:
+        if rws.account not in admin_accounts and rws.dest_rse.id in topology.restricted_write_rses:
             logger(logging.WARNING, '%s: dst RSE is restricted for write. Will skip the submission', rws.request_id)
             continue
 
@@ -1146,16 +891,15 @@ def __build_transfer_paths(
             else:
                 allowed_source_rses = [x['id'] for x in parsed_rses]
 
-        filtered_sources = rws.sources
+        filtered_sources = all_sources
         # Only keep allowed sources
         if allowed_source_rses is not None:
             filtered_sources = filter(lambda s: s.rse.id in allowed_source_rses, filtered_sources)
         filtered_sources = filter(lambda s: s.rse.name is not None, filtered_sources)
         if rws.account not in admin_accounts:
-            filtered_sources = filter(lambda s: s.rse.id not in restricted_read_rses, filtered_sources)
+            filtered_sources = filter(lambda s: s.rse.id not in topology.restricted_read_rses, filtered_sources)
         # Ignore blocklisted RSEs
-        if not ignore_availability:
-            filtered_sources = filter(lambda s: s.rse.id not in unavailable_read_rse_ids, filtered_sources)
+        filtered_sources = filter(lambda s: s.rse.id not in topology.unavailable_read_rses, filtered_sources)
         # For staging requests, the staging_buffer attribute must be correctly set
         if rws.request_type == RequestType.STAGEIN:
             filtered_sources = filter(lambda s: s.rse.attributes.get('staging_buffer') == rws.dest_rse.name, filtered_sources)
@@ -1167,27 +911,30 @@ def __build_transfer_paths(
 
         filtered_sources = list(filtered_sources)
         filtered_rses_log = ''
-        if len(rws.sources) != len(filtered_sources):
-            filtered_rses = list(set(s.rse.name for s in rws.sources).difference(s.rse.name for s in filtered_sources))
-            filtered_rses_log = '; %d dropped by filter: ' % (len(rws.sources) - len(filtered_sources))
+        if len(all_sources) != len(filtered_sources):
+            filtered_rses = list(set(s.rse.name for s in all_sources).difference(s.rse.name for s in filtered_sources))
+            filtered_rses_log = '; %d dropped by filter: ' % (len(all_sources) - len(filtered_sources))
             filtered_rses_log += ','.join(filtered_rses[:num_sources_in_logs])
             if len(filtered_rses) > num_sources_in_logs:
                 filtered_rses_log += '... and %d others' % (len(filtered_rses) - num_sources_in_logs)
-        any_source_had_scheme_mismatch = False
         candidate_paths = []
+
+        candidate_sources = filtered_sources
+        if requested_source_only and rws.requested_source:
+            candidate_sources = [rws.requested_source] if rws.requested_source in filtered_sources else []
 
         if rws.request_type == RequestType.STAGEIN:
             paths = __create_stagein_definitions(rws=rws,
-                                                 sources=filtered_sources,
+                                                 sources=candidate_sources,
                                                  limit_dest_schemes=transfer_schemes,
                                                  operation_src='read',
                                                  operation_dest='write',
                                                  protocol_factory=protocol_factory)
         else:
-            paths = __create_transfer_definitions(ctx,
+            paths = __create_transfer_definitions(topology=topology,
                                                   rws=rws,
-                                                  sources=filtered_sources,
-                                                  multihop_rses=multihop_rses,
+                                                  sources=candidate_sources,
+                                                  multi_source_sources=[] if preparer_mode else filtered_sources,
                                                   limit_dest_schemes=[],
                                                   operation_src='third_party_copy_read',
                                                   operation_dest='third_party_copy_write',
@@ -1196,7 +943,8 @@ def __build_transfer_paths(
                                                   session=session)
 
         sources_without_path = []
-        for source in filtered_sources:
+        any_source_had_scheme_mismatch = False
+        for source in candidate_sources:
             transfer_path = paths.get(source.rse.id)
             if transfer_path is None:
                 logger(logging.WARNING, "%s: no path from %s to %s", rws.request_id, source.rse, rws.dest_rse)
@@ -1213,7 +961,7 @@ def __build_transfer_paths(
 
             candidate_paths.append(transfer_path)
 
-        if len(filtered_sources) != len(candidate_paths):
+        if len(candidate_sources) != len(candidate_paths):
             logger(logging.DEBUG, '%s: Sources after path computation: %s', rws.request_id, [str(path[0].src.rse) for path in candidate_paths])
 
         sources_without_path_log = ''
@@ -1224,7 +972,8 @@ def __build_transfer_paths(
                 sources_without_path_log += '... and %d others' % (len(sources_without_path) - num_sources_in_logs)
 
         candidate_paths = __filter_multihops_with_intermediate_tape(candidate_paths)
-        candidate_paths = __compress_multihops(candidate_paths, rws.sources)
+        if not preparer_mode:
+            candidate_paths = __compress_multihops(candidate_paths, all_sources)
         candidate_paths = list(__sort_paths(candidate_paths))
 
         ordered_sources_log = ','.join(('multihop: ' if len(path) > 1 else '') + '{}:{}:{}'.format(path[0].src.rse, path[0].src.source_ranking, path[0].src.distance_ranking)
@@ -1257,32 +1006,6 @@ def __build_transfer_paths(
     return candidate_paths_by_request_id, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source, reqs_unsupported_transfertool
 
 
-@read_session
-def __get_unavailable_rse_ids(operation, session=None, logger=logging.log):
-    """
-    :param logger:   Optional decorated logger that can be passed from the calling daemons or servers.
-    Get unavailable rse ids for a given operation : read, write, delete
-    """
-
-    if operation not in ['read', 'write', 'delete']:
-        logger(logging.ERROR, "Wrong operation specified : %s" % operation)
-        return []
-    key = 'unavailable_%s_rse_ids' % operation
-    result = REGION_SHORT.get(key)
-    if isinstance(result, NoValue):
-        try:
-            logger(logging.DEBUG, "Refresh unavailable %s rses" % operation)
-            availability_key = 'availability_%s' % operation
-            unavailable_rses = list_rses(filters={availability_key: False}, session=session)
-            unavailable_rse_ids = [rse['id'] for rse in unavailable_rses]
-            REGION_SHORT.set(key, unavailable_rse_ids)
-            return unavailable_rse_ids
-        except Exception:
-            logger(logging.ERROR, "Failed to refresh unavailable %s rses, error" % operation, exc_info=True)
-            return []
-    return result
-
-
 def __add_compatible_schemes(schemes, allowed_schemes):
     """
     Add the compatible schemes to a list of schemes
@@ -1303,70 +1026,8 @@ def __add_compatible_schemes(schemes, allowed_schemes):
     return list(set(return_schemes))
 
 
-@transactional_session
-def __load_inbound_distances_node(rse_id, session=None):
-    """
-    Loads the inbound edges of the distance graph for one node.
-    :param rse_id:    RSE id to load the edges for.
-    :param session:   The DB Session to use.
-    :returns:         Dictionary based graph object.
-    """
-
-    result = REGION_SHORT.get('inbound_edges_%s' % str(rse_id))
-    if isinstance(result, NoValue):
-        inbound_edges = {}
-        stmt = select(
-            models.Distance
-        ).join(
-            models.RSE,
-            models.RSE.id == models.Distance.src_rse_id
-        ).where(
-            models.Distance.dest_rse_id == rse_id,
-            models.RSE.deleted == false()
-        )
-        for distance in session.execute(stmt).scalars():
-            if distance.ranking is None:
-                continue
-            ranking = distance.ranking if distance.ranking >= 0 else 0
-            inbound_edges[distance.src_rse_id] = ranking
-        REGION_SHORT.set('inbound_edges_%s' % str(rse_id), inbound_edges)
-        result = inbound_edges
-    return result
-
-
-@transactional_session
-def __load_outgoing_distances_node(rse_id, session=None):
-    """
-    Loads the outgoing edges of the distance graph for one node.
-    :param rse_id:    RSE id to load the edges for.
-    :param session:   The DB Session to use.
-    :returns:         Dictionary based graph object.
-    """
-
-    result = REGION_SHORT.get('outgoing_edges_%s' % str(rse_id))
-    if isinstance(result, NoValue):
-        outgoing_edges = {}
-        stmt = select(
-            models.Distance
-        ).join(
-            models.RSE,
-            models.RSE.id == models.Distance.dest_rse_id
-        ).where(
-            models.Distance.src_rse_id == rse_id,
-            models.RSE.deleted == false()
-        )
-        for distance in session.execute(stmt).scalars():
-            if distance.ranking is None:
-                continue
-            ranking = distance.ranking if distance.ranking >= 0 else 0
-            outgoing_edges[distance.dest_rse_id] = ranking
-        REGION_SHORT.set('outgoing_edges_%s' % str(rse_id), outgoing_edges)
-        result = outgoing_edges
-    return result
-
-
 @read_session
-def __list_admin_accounts(session=None):
+def list_transfer_admin_accounts(session=None) -> "Set[InternalAccount]":
     """
     List admin accounts and cache the result in memory
     """
@@ -1375,7 +1036,7 @@ def __list_admin_accounts(session=None):
     if isinstance(result, NoValue):
         result = [acc['account'] for acc in list_accounts(filter_={'admin': True}, session=session)]
         REGION_ACCOUNTS.set('transfer_admin_accounts', result)
-    return result
+    return set(result)
 
 
 def update_transfer_priority(transfers_to_update, logger=logging.log):
@@ -1424,3 +1085,115 @@ def cancel_transfer(transfertool_obj, transfer_id):
         transfertool_obj.cancel(transfer_ids=[transfer_id])
     except Exception:
         raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, traceback.format_exc()))
+
+
+@transactional_session
+def prepare_transfers(
+        candidate_paths_by_request_id: "Dict[str, List[List[DirectTransferDefinition]]]",
+        logger: "LoggerFunction" = logging.log,
+        session: "Optional[Session]" = None,
+) -> "Tuple[List[str], List[str]]":
+    """
+    Update transfer requests according to preparer settings.
+    """
+
+    reqs_no_transfertool = []
+    updated_reqs = []
+    for request_id, candidate_paths in candidate_paths_by_request_id.items():
+        selected_source = None
+        transfertool = None
+        rws = candidate_paths[0][-1].rws
+
+        for candidate_path in candidate_paths:
+            source = candidate_path[0].src
+            all_hops_ok = True
+            transfertool = None
+            for hop in candidate_path:
+                src_rse_transfertools = get_supported_transfertools(hop.src.rse, session=session)
+                dst_rse_transfertools = get_supported_transfertools(hop.dst.rse, session=session)
+                common_transfertools = dst_rse_transfertools.intersection(src_rse_transfertools)
+                if not common_transfertools:
+                    all_hops_ok = False
+                    break
+                # We need the last hop transfertool
+                transfertool = 'fts3' if 'fts3' in common_transfertools else common_transfertools.pop()
+
+            if all_hops_ok and transfertool:
+                selected_source = source
+                break
+
+        if not selected_source:
+            reqs_no_transfertool.append(request_id)
+            logger(logging.WARNING, '%s: all available sources were filtered', rws)
+            continue
+
+        update_dict = {
+            models.Request.state: _throttler_request_state(
+                activity=rws.activity,
+                source_rse_id=selected_source.rse.id,
+                dest_rse_id=rws.dest_rse.id,
+                session=session,
+            ),
+            models.Request.source_rse_id: selected_source.rse.id,
+        }
+        if transfertool:
+            update_dict[models.Request.transfertool] = transfertool
+
+        stmt = update(
+            models.Request
+        ).where(
+            models.Request.id == rws.request_id
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            update_dict
+        )
+        session.execute(stmt)
+        updated_reqs.append(request_id)
+
+    return updated_reqs, reqs_no_transfertool
+
+
+def _throttler_request_state(activity, source_rse_id, dest_rse_id, session: "Optional[Session]" = None) -> RequestState:
+    """
+    Takes request attributes to return a new state for the request
+    based on throttler settings. Always returns QUEUED,
+    if the throttler mode is not set.
+    """
+    throttler_mode = config_get('throttler', 'mode', default=None, use_cache=False, raise_exception=False, session=session)
+
+    limit_found = False
+    if throttler_mode:
+        transfer_limits = get_rse_transfer_limits(session=session)
+        activity_limit = transfer_limits.get(activity, {})
+        all_activities_limit = transfer_limits.get('all_activities', {})
+        direction, all_activities = get_parsed_throttler_mode(throttler_mode)
+        if direction == 'source':
+            if all_activities:
+                if all_activities_limit.get(source_rse_id):
+                    limit_found = True
+            else:
+                if activity_limit.get(source_rse_id):
+                    limit_found = True
+        elif direction == 'destination':
+            if all_activities:
+                if all_activities_limit.get(dest_rse_id):
+                    limit_found = True
+            else:
+                if activity_limit.get(dest_rse_id):
+                    limit_found = True
+
+    return RequestState.WAITING if limit_found else RequestState.QUEUED
+
+
+def get_supported_transfertools(rse_data: "RseData", session=None) -> "Set[str]":
+    transfertool_attr = rse_data.ensure_loaded(load_attributes=True, session=session).attributes.get('transfertool')
+
+    if not transfertool_attr:
+        return {'fts3', 'globus'}
+
+    result = set()
+    for transfertool in transfertool_attr.split(sep=','):
+        if transfertool.strip():
+            result.add(transfertool)
+    return result

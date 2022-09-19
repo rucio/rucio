@@ -120,7 +120,7 @@ class TestVOCoreAPI(unittest.TestCase):
         rse_id = add_rse(rse_name, 'root', **self.vo)
 
         add_replica(rse_id=rse_id, scope=scope, name=dataset, bytes_=10, account=account)
-        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=account, copies=1, rse_expression='MOCK', grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=account, copies=1, rse_expression='MOCK', grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         with pytest.raises(AccessDenied):
             delete_replication_rule(rule_id=rule_id, purge_replicas=False, issuer='root', **self.new_vo)

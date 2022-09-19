@@ -23,7 +23,9 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import RucioException
 from rucio.common.logging import setup_logging
-from rucio.core.request import prepare_requests, list_transfer_requests_and_source_replicas
+from rucio.core.request import set_requests_state_if_possible, list_transfer_requests_and_source_replicas
+from rucio.core.transfer import prepare_transfers, list_transfer_admin_accounts, build_transfer_paths
+from rucio.core.topology import Topology
 from rucio.db.sqla.constants import RequestState
 from rucio.daemons.common import run_daemon
 
@@ -107,8 +109,10 @@ def run_once(bulk: int = 100, heartbeat_handler: "Optional[HeartbeatHandler]" = 
         worker_number, total_workers, logger = 0, 0, logging.log
 
     start_time = time()
-    requests_with_sources = []
+    requests_handled = 0
     try:
+        admin_accounts = list_transfer_admin_accounts()
+        topology = Topology.create_from_config(logger=logger)
         requests_with_sources = list_transfer_requests_and_source_replicas(
             total_workers=total_workers,
             worker_number=worker_number,
@@ -116,18 +120,41 @@ def run_once(bulk: int = 100, heartbeat_handler: "Optional[HeartbeatHandler]" = 
             request_state=RequestState.PREPARING,
             session=session
         )
-        if not requests_with_sources:
+        ret = build_transfer_paths(
+            topology=topology,
+            requests_with_sources=list(requests_with_sources.values()),
+            admin_accounts=admin_accounts,
+            preparer_mode=True,
+            logger=logger,
+            session=session,
+        )
+        requests_handled = sum(len(i) for i in ret)
+        if not requests_handled:
             updated_msg = 'had nothing to do'
         else:
-            count = prepare_requests(requests_with_sources=requests_with_sources, logger=logger, session=session)
-            updated_msg = f'updated {count}/{bulk} requests'
+            candidate_paths, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source, _ = ret
+            updated_reqs, reqs_no_transfertool = prepare_transfers(candidate_paths, logger=logger, session=session)
+            updated_msg = f'updated {len(updated_reqs)}/{bulk} requests'
+
+            if reqs_no_transfertool:
+                logger(logging.INFO, "Ignoring request because of unsupported transfertool: %s", reqs_no_transfertool)
+            reqs_no_source.update(reqs_no_transfertool)
+            if reqs_no_source:
+                logger(logging.INFO, "Marking requests as no-sources: %s", reqs_no_source)
+                set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
+            if reqs_only_tape_source:
+                logger(logging.INFO, "Marking requests as only-tape-sources: %s", reqs_only_tape_source)
+                set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
+            if reqs_scheme_mismatch:
+                logger(logging.INFO, "Marking requests as scheme-mismatch: %s", reqs_scheme_mismatch)
+                set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
     except RucioException:
         logger(logging.ERROR, 'errored with a RucioException, retrying later', exc_info=True)
         updated_msg = 'errored'
     logger(logging.INFO, '%s, taking %.3f seconds' % (updated_msg, time() - start_time))
 
     must_sleep = False
-    if len(requests_with_sources) < bulk / 2:
-        logger(logging.INFO, "Only %s transfers, which is less than half of the bulk %s", len(requests_with_sources), bulk)
+    if requests_handled < bulk / 2:
+        logger(logging.INFO, "Only %s transfers, which is less than half of the bulk %s", requests_handled, bulk)
         must_sleep = True
     return must_sleep

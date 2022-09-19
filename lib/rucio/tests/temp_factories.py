@@ -75,11 +75,14 @@ class TemporaryRSEFactory:
         else:
             rse_id = rse_core.add_rse(rse_name, vo=self.vo, **(add_rse_kwargs or {}))
         if scheme and protocol_impl:
+            prefix = '/test_%s/' % rse_id
+            if protocol_impl == 'rucio.rse.protocols.posix.Default':
+                prefix = '/tmp/rucio_rse/test_%s/' % rse_id
             protocol_parameters = {
                 'scheme': scheme,
                 'hostname': '%s.cern.ch' % rse_id,
                 'port': 0,
-                'prefix': '/test_%s/' % rse_id,
+                'prefix': prefix,
                 'impl': protocol_impl,
                 'domains': {
                     'wan': {

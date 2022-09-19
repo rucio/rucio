@@ -19,7 +19,9 @@ from concurrent.futures import ThreadPoolExecutor
 from rucio.common.exception import NoDistance
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replicas
-from rucio.core.transfer import get_hops, get_transfer_paths
+from rucio.core.request import list_transfer_requests_and_source_replicas
+from rucio.core.transfer import build_transfer_paths
+from rucio.core.topology import get_hops, Topology
 from rucio.core import rule as rule_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
@@ -72,7 +74,7 @@ def test_get_hops(rse_factory):
     _, rse4_id = rse_factory.make_mock_rse()
     _, rse5_id = rse_factory.make_mock_rse()
     _, rse6_id = rse_factory.make_mock_rse()
-    all_rses = [rse0_id, rse1_id, rse2_id, rse3_id, rse4_id, rse5_id, rse6_id]
+    all_rses = {rse0_id, rse1_id, rse2_id, rse3_id, rse4_id, rse5_id, rse6_id}
 
     add_distance(rse1_id, rse3_id, ranking=40)
     add_distance(rse1_id, rse2_id, ranking=10)
@@ -112,7 +114,7 @@ def test_get_hops(rse_factory):
 
     # No multihop rses given, multihop disabled
     with pytest.raises(NoDistance):
-        get_hops(source_rse_id=rse3_id, dest_rse_id=rse2_id, multihop_rses=[])
+        get_hops(source_rse_id=rse3_id, dest_rse_id=rse2_id, multihop_rses=set())
 
     # The shortest multihop path will be computed
     [hop1, hop2] = get_hops(source_rse_id=rse3_id, dest_rse_id=rse2_id, multihop_rses=all_rses)
@@ -122,7 +124,7 @@ def test_get_hops(rse_factory):
     assert hop2['dest_rse_id'] == rse2_id
 
     # multihop_rses doesn't contain the RSE needed for the shortest path. Return a longer path
-    [hop1, hop2] = get_hops(source_rse_id=rse1_id, dest_rse_id=rse4_id, multihop_rses=[rse3_id])
+    [hop1, hop2] = get_hops(source_rse_id=rse1_id, dest_rse_id=rse4_id, multihop_rses={rse3_id})
     assert hop1['source_rse_id'] == rse1_id
     assert hop1['dest_rse_id'] == rse3_id
     assert hop2['source_rse_id'] == rse3_id
@@ -359,7 +361,8 @@ def test_fk_error_on_source_creation(rse_factory, did_factory, root_account):
     add_replicas(rse_id=src_rse_id, files=[file], account=root_account)
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-    requests, *_ = get_transfer_paths(rses=[src_rse_id, dst_rse_id])
+    requests_by_id = list_transfer_requests_and_source_replicas(rses=[src_rse_id, dst_rse_id])
+    requests, *_ = build_transfer_paths(topology=Topology.create_from_config(), requests_with_sources=requests_by_id.values())
     request_id, [transfer_path] = next(iter(requests.items()))
 
     transfer_path[0].rws.request_id = generate_uuid()

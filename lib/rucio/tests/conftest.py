@@ -16,6 +16,7 @@
 import traceback
 import re
 import functools
+from os import environ
 from random import choice
 from string import ascii_uppercase
 
@@ -58,8 +59,14 @@ def function_scope_prefix(request, class_scope_prefix):
 
 @pytest.fixture(scope='session')
 def vo():
-    from rucio.tests.common_server import get_vo
-    return get_vo()
+    if environ.get('SUITE', 'remote_dbs') != 'client':
+        # Server test, we can use short VO via DB for internal tests
+        from rucio.tests.common_server import get_vo
+        return get_vo()
+    else:
+        # Client-only test, only use config with no DB config
+        from rucio.tests.common import get_long_vo
+        return get_long_vo()
 
 
 @pytest.fixture(scope='session')
@@ -299,7 +306,25 @@ def scope_factory():
 
 
 @pytest.fixture
-def db_session():
+def tag_factory(function_scope_prefix):
+
+    import string
+    import random
+
+    class _Factory:
+        def __init__(self):
+            self.prefix = f'{function_scope_prefix}-{"".join(random.choice(string.ascii_uppercase) for _ in range(6))}'
+            self.index = 0
+
+        def new_tag(self):
+            self.index += 1
+            return f'{self.prefix}-{self.index}'
+
+    return _Factory()
+
+
+@pytest.fixture
+def db_session(did_factory, rse_factory):
     from rucio.db.sqla import session
 
     db_session = session.get_session()

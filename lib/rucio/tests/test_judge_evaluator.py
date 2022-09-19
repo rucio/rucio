@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-
 import pytest
 
 from rucio.common.config import config_get_bool
@@ -24,7 +22,7 @@ from rucio.core.account import get_usage
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids, detach_dids
 from rucio.core.lock import get_replica_locks, get_dataset_locks
-from rucio.core.rse import add_rse_attribute, get_rse_id
+from rucio.core.rse import add_rse_attribute
 from rucio.core.rule import add_rule, get_rule
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.judge.evaluator import re_evaluator
@@ -35,8 +33,14 @@ from rucio.tests.common_server import get_vo
 from rucio.tests.test_rule import create_files, tag_generator
 
 
+@pytest.fixture(scope="class")
+def setup_class(request, rse_factory_unittest):
+    request.cls.setUpClass()
+
+
 @pytest.mark.noparallel(reason='sets account limits, adds global rse attributes')
-class TestJudgeEvaluator(unittest.TestCase):
+@pytest.mark.usefixtures("setup_class")
+class TestJudgeEvaluator:
 
     @classmethod
     def setUpClass(cls):
@@ -52,15 +56,10 @@ class TestJudgeEvaluator(unittest.TestCase):
         __cleanup_updated_dids()
 
         # Add test RSE
-        cls.rse1 = 'MOCK'
-        cls.rse3 = 'MOCK3'
-        cls.rse4 = 'MOCK4'
-        cls.rse5 = 'MOCK5'
-
-        cls.rse1_id = get_rse_id(rse=cls.rse1, **cls.vo)
-        cls.rse3_id = get_rse_id(rse=cls.rse3, **cls.vo)
-        cls.rse4_id = get_rse_id(rse=cls.rse4, **cls.vo)
-        cls.rse5_id = get_rse_id(rse=cls.rse5, **cls.vo)
+        cls.rse1, cls.rse1_id = cls.rse_factory.make_mock_rse()
+        cls.rse3, cls.rse3_id = cls.rse_factory.make_mock_rse()
+        cls.rse4, cls.rse4_id = cls.rse_factory.make_mock_rse()
+        cls.rse5, cls.rse5_id = cls.rse_factory.make_mock_rse()
 
         # Add Tags
         cls.T1 = tag_generator()

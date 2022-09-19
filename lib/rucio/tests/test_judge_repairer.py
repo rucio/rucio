@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import itertools
-import unittest
 from hashlib import sha256
 
 import pytest
@@ -30,7 +29,7 @@ from rucio.core.lock import successful_transfer, failed_transfer, get_replica_lo
 from rucio.core.replica import get_replica
 from rucio.core.request import cancel_request_did
 from rucio.core.transfer import cancel_transfers
-from rucio.core.rse import add_rse_attribute, add_rse, update_rse, get_rse_id
+from rucio.core.rse import add_rse_attribute, add_rse, update_rse
 from rucio.core.rule import get_rule, add_rule
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.judge.repairer import rule_repairer
@@ -42,9 +41,15 @@ from rucio.tests.common_server import get_vo
 from rucio.tests.test_rule import create_files, tag_generator
 
 
+@pytest.fixture(scope="class")
+def setup_class(request, rse_factory_unittest):
+    request.cls.setUpClass()
+
+
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='uses pre-defined rses, sets rse attributes, sets account limits')
-class TestJudgeRepairer(unittest.TestCase):
+@pytest.mark.usefixtures("setup_class")
+class TestJudgeRepairer:
 
     @classmethod
     def setUpClass(cls):
@@ -54,15 +59,10 @@ class TestJudgeRepairer(unittest.TestCase):
             cls.vo = {}
 
         # Add test RSE
-        cls.rse1 = 'MOCK'
-        cls.rse3 = 'MOCK3'
-        cls.rse4 = 'MOCK4'
-        cls.rse5 = 'MOCK5'
-
-        cls.rse1_id = get_rse_id(rse=cls.rse1, **cls.vo)
-        cls.rse3_id = get_rse_id(rse=cls.rse3, **cls.vo)
-        cls.rse4_id = get_rse_id(rse=cls.rse4, **cls.vo)
-        cls.rse5_id = get_rse_id(rse=cls.rse5, **cls.vo)
+        cls.rse1, cls.rse1_id = cls.rse_factory.make_mock_rse()
+        cls.rse3, cls.rse3_id = cls.rse_factory.make_mock_rse()
+        cls.rse4, cls.rse4_id = cls.rse_factory.make_mock_rse()
+        cls.rse5, cls.rse5_id = cls.rse_factory.make_mock_rse()
 
         # Add Tags
         cls.T1 = tag_generator()
