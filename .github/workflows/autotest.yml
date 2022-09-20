@@ -25,6 +25,7 @@ jobs:
       !startsWith(github.ref_name, 'release')
       && !startsWith(github.base_ref, 'release')
       && github.event_name != 'schedule'
+      && github.ref_type != 'tag'
     name: Check Python Type Annotations
     runs-on: ubuntu-latest
     env:
@@ -80,6 +81,7 @@ jobs:
       !startsWith(github.ref_name, 'release')
       && !startsWith(github.base_ref, 'release')
       && github.event_name != 'schedule'
+      && github.ref_type != 'tag'
     name: Python type check (Pyright)
     runs-on: ubuntu-latest
     env:
