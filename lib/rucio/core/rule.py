@@ -2497,6 +2497,30 @@ def __evaluate_did_detach(eval_did, session=None, logger=logging.log):
 
 
 @transactional_session
+def __oldest_file_under(scope, name, session=None):
+    """
+    Finds oldest file in oldest container/dataset in the container or the dataset, recursively.
+    Oldest means attached to its parent first.
+
+    :param scope: dataset or container scope
+    :param name: dataset or container name
+    :returns: tuple (scope, name) or None
+    """
+    children = session.query(models.DataIdentifierAssociation) \
+        .filter(models.DataIdentifierAssociation.scope == scope,
+                models.DataIdentifierAssociation.name == name) \
+        .order_by(models.DataIdentifierAssociation.created_at)
+    for child in children:
+        if child.child_type == DIDType.FILE:
+            return child.child_scope, child.child_name
+        elif child.child_type in (DIDType.DATASET, DIDType.CONTAINER):
+            out = __oldest_file_under(child.child_scope, child.child_name, session=session)
+            if out:
+                return out
+    return None
+
+
+@transactional_session
 def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
     """
     Evaluate a parent did which has new childs
@@ -2613,19 +2637,25 @@ def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
 
                         # 3. Apply the Replication rule to the Files
                         preferred_rse_ids = []
-                        # 3.1 Check if the dids in question are files added to a dataset with DATASET/ALL grouping
-                        if new_child_dids[0].child_type == DIDType.FILE and rule.grouping != RuleGrouping.NONE:
-                            # Are there any existing did's in this dataset
-                            brother_did = session.query(models.DataIdentifierAssociation).filter(
-                                models.DataIdentifierAssociation.scope == eval_did.scope,
-                                models.DataIdentifierAssociation.name == eval_did.name).order_by(models.DataIdentifierAssociation.created_at).first()
-                            if brother_did is not None:
-                                # There are other files in the dataset
-                                brother_locks = rucio.core.lock.get_replica_locks(scope=brother_did.child_scope,
-                                                                                  name=brother_did.child_name,
-                                                                                  nowait=True,
-                                                                                  session=session)
-                                preferred_rse_ids = [lock['rse_id'] for lock in brother_locks if lock['rse_id'] in [rse['id'] for rse in rses] and lock['rule_id'] == rule.id]
+                        brother_scope_name = None
+
+                        if rule.grouping == RuleGrouping.ALL:
+                            # get oldest file, recursively, in the rule owner
+                            brother_scope_name = __oldest_file_under(rule["scope"], rule["name"], session=session)
+
+                        elif rule.grouping == RuleGrouping.DATASET and new_child_dids[0].child_type == DIDType.FILE:
+                            # get oldest file in the dataset being evaluated
+                            brother_scope_name = __oldest_file_under(eval_did.scope, eval_did.name, session=session)
+
+                        if brother_scope_name:
+                            scope, name = brother_scope_name
+                            file_locks = rucio.core.lock.get_replica_locks(scope=scope, name=name, nowait=True, session=session)
+                            preferred_rse_ids = [
+                                lock['rse_id']
+                                for lock in file_locks
+                                if lock['rse_id'] in [rse['id'] for rse in rses] and lock['rule_id'] == rule.id
+                            ]
+
                         locks_stuck_before = rule.locks_stuck_cnt
                         try:
                             __create_locks_replicas_transfers(datasetfiles=datasetfiles,
@@ -2768,7 +2798,7 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
         # order datasetfiles for deterministic result
         try:
             datasetfiles = sorted(datasetfiles, key=lambda x: "%s%s" % (x['scope'], x['name']))
-        except:
+        except Exception:
             pass
 
     else:
@@ -2883,9 +2913,9 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
                                                                                                                  source_rses=source_rses,
                                                                                                                  session=session)
             datasetfiles.extend(tmp_datasetfiles)
-            locks = dict(list(locks.items()) + list(tmp_locks.items()))
-            replicas = dict(list(replicas.items()) + list(tmp_replicas.items()))
-            source_replicas = dict(list(source_replicas.items()) + list(tmp_source_replicas.items()))
+            locks.update(tmp_locks)
+            replicas.update(tmp_replicas)
+            source_replicas.update(tmp_source_replicas)
     return datasetfiles, locks, replicas, source_replicas
 
 

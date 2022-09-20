@@ -110,7 +110,7 @@ class TestJudgeEvaluator:
 
         # Check if the Locks are created properly
         for file in files:
-            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
+            assert len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2
 
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_judge_add_dataset_to_container(self):
@@ -131,13 +131,13 @@ class TestJudgeEvaluator:
 
         # Check if the Locks are created properly
         for file in files:
-            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
+            assert len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2
 
         # Check if the DatasetLocks are created properly
         dataset_locks = [lock for lock in get_dataset_locks(scope=scope, name=dataset)]
-        assert(len(dataset_locks) == 2)
+        assert len(dataset_locks) == 2
 
-    @pytest.mark.xfail(reason="This is a test for a known bug. See issue 5251")
+    # @pytest.mark.xfail(reason="This is a test for a known bug. See issue 5251")
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_judge_dataset_grouping_all(self):
         """ JUDGE EVALUATOR: Test the judge when adding dataset to existing container with ALL grouping"""
@@ -206,8 +206,8 @@ class TestJudgeEvaluator:
         account_update(once=True)
 
         account_counter_after = get_usage(self.rse1_id, self.jdoe)
-        assert(account_counter_before['bytes'] + 3 * 100 == account_counter_after['bytes'])
-        assert(account_counter_before['files'] + 3 == account_counter_after['files'])
+        assert account_counter_before['bytes'] + 3 * 100 == account_counter_after['bytes']
+        assert account_counter_before['files'] + 3 == account_counter_after['files']
 
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_account_counter_judge_evaluate_detach(self):
@@ -235,8 +235,8 @@ class TestJudgeEvaluator:
         account_update(once=True)
 
         account_counter_after = get_usage(self.rse1_id, self.jdoe)
-        assert(account_counter_before['bytes'] - 100 == account_counter_after['bytes'])
-        assert(account_counter_before['files'] - 1 == account_counter_after['files'])
+        assert account_counter_before['bytes'] - 100 == account_counter_after['bytes']
+        assert account_counter_before['files'] - 1 == account_counter_after['files']
 
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_judge_evaluate_detach_datasetlock(self):
@@ -258,7 +258,7 @@ class TestJudgeEvaluator:
 
         # Check if the datasetlock is there
         locks = [ds_lock for ds_lock in get_dataset_locks(scope=scope, name=dataset)]
-        assert(len(locks) > 0)
+        assert len(locks) > 0
 
         detach_dids(scope, container, [{'scope': scope, 'name': dataset}])
 
@@ -266,7 +266,7 @@ class TestJudgeEvaluator:
         re_evaluator(once=True, did_limit=1000)
 
         locks = [ds_lock for ds_lock in get_dataset_locks(scope=scope, name=dataset)]
-        assert(len(locks) == 0)
+        assert len(locks) == 0
 
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_judge_evaluate_detach(self):
@@ -304,14 +304,14 @@ class TestJudgeEvaluator:
         # Fake judge
         re_evaluator(once=True, did_limit=1000)
 
-        assert(9 == get_rule(rule_id)['locks_ok_cnt'])
+        assert get_rule(rule_id)['locks_ok_cnt'] == 9
 
         detach_dids(scope, dataset, [files[0]])
 
         # Fake judge
         re_evaluator(once=True, did_limit=1000)
 
-        assert(8 == get_rule(rule_id)['locks_ok_cnt'])
+        assert get_rule(rule_id)['locks_ok_cnt'] == 8
 
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_judge_add_files_to_dataset_with_2_rules(self):
@@ -336,7 +336,7 @@ class TestJudgeEvaluator:
 
         # Check if the Locks are created properly
         for file in files:
-            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
+            assert len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2
 
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_judge_add_files_to_dataset_rule_on_container(self):
@@ -363,7 +363,7 @@ class TestJudgeEvaluator:
 
         # Check if the Locks are created properly
         for file in files:
-            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
+            assert len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2
 
         # create more files and attach them
         more_files = create_files(3, scope, self.rse1_id)
@@ -371,4 +371,4 @@ class TestJudgeEvaluator:
         re_evaluator(once=True, did_limit=1000)
         # Check if the Locks are created properly
         for file in more_files:
-            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
+            assert len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2
