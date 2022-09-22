@@ -60,14 +60,35 @@ class UserPass(ErrorHandlingMethodView):
 
     def options(self):
         """
-        Allow cross-site scripting. Explicit for Authentication.
-
-        :resheader Access-Control-Allow-Origin:
-        :resheader Access-Control-Allow-Headers:
-        :resheader Access-Control-Allow-Methods:
-        :resheader Access-Control-Allow-Credentials:
-        :resheader Access-Control-Expose-Headers:
-        :status 200: OK
+        ---
+        summary: UserPass Allow cross-site scripting
+        description: UserPass Allow cross-site scripting. Explicit for Authentication.
+        tags:
+          - Auth
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+                  enum: ['*']
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+                  enum: ['true']
+              Access-Control-Expose-Headers:
+                schema:
+                  type: string
+                  enum: ['X-Rucio-Auth-Token']
+          404:
+            description: Not found
         """
 
         return '', 200, self.get_headers()
@@ -75,23 +96,67 @@ class UserPass(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
-        Authenticate a Rucio account temporarily via username and password.
-
-        .. :quickref: UserPass; Authenticate with username/password
-
-        :reqheader X-Rucio-VO: VO name as a string (Multi-VO Only)
-        :reqheader X-Rucio-Account: Account identifier as a string.
-        :reqheader X-Rucio-Username: Username as a string.
-        :reqheader X-Rucio-Password: password as a text-plain string.
-        :reqheader X-Rucio-AppID: Application identifier as a string.
-        :resheader Access-Control-Allow-Origin:
-        :resheader Access-Control-Allow-Headers:
-        :resheader Access-Control-Allow-Methods:
-        :resheader Access-Control-Allow-Credentials:
-        :resheader Access-Control-Expose-Headers:
-        :resheader X-Rucio-Auth-Token: The authentication token
-        :status 200: Successfully authenticated
-        :status 404: Invalid credentials
+        ---
+        summary: UserPass
+        description: Authenticate a Rucio account temporarily via username and password.
+        tags:
+          - Auth
+        parameters:
+        - name: X-Rucio-Account
+          in: header
+          description: Account identifier as a string.
+          schema:
+            type: string
+          required: true
+        - name: X-Rucio-Username
+          in: header
+          description: Username as a string.
+          schema:
+            type: string
+          required: true
+        - name: X-Rucio-Password
+          in: header
+          description: password as a text-plain string.
+          schema:
+            type: string
+          required: true
+        - name: X-Rucio-AppID
+          in: header
+          description: Application identifier as a string.
+          schema:
+            type: string
+        - name: X-Forwarded-For
+          in: header
+          description: The forward ip address.
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+              Access-Control-Expose-Headers:
+                schema:
+                  type: string
+              X-Rucio-Auth-Token:
+                schema:
+                  type: string
+              X-Rucio-Auth-Token-Expires:
+                schema:
+                  type: string
+          401:
+            description: Cannot authenticate
         """
         headers = self.get_headers()
 
@@ -139,9 +204,31 @@ class OIDC(ErrorHandlingMethodView):
 
     def options(self):
         """
-        Allow cross-site scripting. Explicit for Authentication.
-
-        :status 200: OK
+        ---
+        summary: OIDC Allow cross-site scripting
+        description: OIDC Allow cross-site scripting. Explicit for Authentication.
+        tags:
+          - Auth
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+                  enum: ['*']
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+                  enum: ['true']
+          404:
+            description: Not found
         """
 
         return '', 200, self.get_headers()
@@ -149,12 +236,55 @@ class OIDC(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
-
-        .. :quickref: OIDC; Authenticate with OIDC
-
-        :status 200: OK
-        :status 401: Unauthorized
-        :resheader X-Rucio-OIDC-Auth-URL: User & Rucio OIDC Client specific Authorization URL
+        ---
+        summary: OIDC
+        description: Authenticate a Rucio account via OIDC.
+        tags:
+          - Auth
+        parameters:
+        - name: HTTP_X_RUCIO_ACCOUNT
+          in: header
+          description: Account identifier as a string.
+          schema:
+            type: string
+        - name: HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE
+          in: header
+          schema:
+            type: string
+        - name: HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUDIENCE
+          in: header
+          schema:
+            type: string
+        - name: HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUTO
+          in: header
+          schema:
+            type: string
+        - name: HTTP_X_RUCIO_CLIENT_AUTHORIZE_ISSUER
+          in: header
+          schema:
+            type: string
+        - name: HTTP_X_RUCIO_CLIENT_AUTHORIZE_POLLING
+          in: header
+          schema:
+            type: string
+        - name: HTTP_X_RUCIO_CLIENT_AUTHORIZE_REFRESH_LIFETIME
+          in: header
+          schema:
+            type: string
+        - name: X-Forwarded-For
+          in: header
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            headers:
+              X-Rucio-OIDC-Auth-URL:
+                description: User & Rucio OIDC Client specific Authorization URL
+                schema:
+                  type: string
+          401:
+            description: Cannot authenticate
         """
         headers = self.get_headers()
 
@@ -221,21 +351,63 @@ class RedirectOIDC(ErrorHandlingMethodView):
 
     def options(self):
         """
-        Allow cross-site scripting. Explicit for Authentication.
-
-        :status 200: OK
+        ---
+        summary: RedirectOIDC Allow cross-site scripting
+        description: RedirectOIDC Allow cross-site scripting. Explicit for Authentication.
+        tags:
+          - Auth
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+                  enum: ['*']
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+                  enum: ['true']
+          404:
+            description: Not found
         """
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream', 'text/html'])
     def get(self):
         """
-        .. :quickref: OIDC;
-
-        :status 200: OK
-        :status 303: Redirect
-        :status 401: Unauthorized
-        :resheader X-Rucio-Auth-Token: The authentication token
+        ---
+        summary: RedirectOIDC
+        description: Authenticate a Rucio account via RedirectOIDC.
+        tags:
+          - Auth
+        parameters:
+        - name: X-Rucio-Client-Fetch-Token
+          in: header
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            headers:
+              X-Rucio-Auth-Token:
+                description: The authentication token
+                schema:
+                  type: string
+              Content-Type:
+                schema:
+                  type: string
+                  enum: ['application/octet-stream']
+          303:
+            description: Redirect
+          401:
+            description: Cannot authenticate
         """
         headers = self.get_headers()
 
@@ -294,20 +466,52 @@ class CodeOIDC(ErrorHandlingMethodView):
 
     def options(self):
         """
-        HTTP Success:
-            200 OK
-
-        Allow cross-site scripting. Explicit for Authentication.
+        ---
+        summary: CodeOIDC Allow cross-site scripting
+        description: CodeOIDC Allow cross-site scripting. Explicit for Authentication.
+        tags:
+          - Auth
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+                  enum: ['*']
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+                  enum: ['true']
+          404:
+            description: Not found
         """
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream', 'text/html'])
     def get(self):
         """
-        .. :quickref: OIDC;
-
-        :status 200: OK
-        :status 401: Unauthorized
+        ---
+        summary: CodeOIDC
+        description: Authenticate a Rucio account via CodeOIDC.
+        tags:
+          - Auth
+        parameters:
+        - name: X-Forwarded-For
+          in: header
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+          400:
+            description: Invalid request
         """
         headers = self.get_headers()
 
@@ -359,21 +563,61 @@ class TokenOIDC(ErrorHandlingMethodView):
 
     def options(self):
         """
-        Allow cross-site scripting. Explicit for Authentication.
-
-        :status 200: OK
+        ---
+        summary: TokenOIDC Allow cross-site scripting
+        description: TokenOIDC Allow cross-site scripting. Explicit for Authentication.
+        tags:
+          - Auth
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+                  enum: ['*']
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+                  enum: ['true']
+          404:
+            description: Not found
         """
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
-        .. :quickref: OIDC;
-
-        :status 200: OK
-        :status 401: Unauthorized
-        :resheader X-Rucio-Auth-Token: The authentication token
-        :resheader X-Rucio-Auth-Token-Expires: The time when the token expires
+        ---
+        summary: TokenOIDC
+        description: Authenticate a Rucio account via TokenOIDC.
+        tags:
+          - Auth
+        parameters:
+        - name: X-Forwarded-For
+          in: header
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            headers:
+              X-Rucio-Auth-Token:
+                description: The authentication token
+                schema:
+                  type: string
+              X-Rucio-Auth-Token-Expires:
+                description: The time when the token expires
+                schema:
+                  type: string
+          401:
+            description: Cannot authenticate
         """
         headers = self.get_headers()
 
@@ -434,20 +678,71 @@ class RefreshOIDC(ErrorHandlingMethodView):
 
     def options(self):
         """
-        Allow cross-site scripting. Explicit for Authentication.
-
-        :status 200: OK
+        ---
+        summary: RefreshOIDC Allow cross-site scripting
+        description: RefreshOIDC Allow cross-site scripting. Explicit for Authentication.
+        tags:
+          - Auth
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+                  enum: ['*']
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+                  enum: ['true']
+              Access-Control-Expose-Headers:
+                schema:
+                  type: string
+                  enum: ['X-Rucio-Auth-Token']
+          404:
+            description: Not found
         """
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
-        .. :quickref: OIDC;
-
-        :status 200: OK
-        :status 401: Unauthorized
-        :resheader X-Rucio-Auth-Token: The authentication token
+        ---
+        summary: RefreshOIDC
+        description: Authenticate a Rucio account via RefreshOIDC.
+        tags:
+          - Auth
+        parameters:
+        - name: X-Rucio-Account
+          in: header
+          schema:
+            type: string
+          required: true
+        - name: X-Rucio-Auth-Token
+          in: header
+          schema:
+            type: string
+          required: true
+        responses:
+          200:
+            description: OK
+            headers:
+              X-Rucio-Auth-Token:
+                description: The authentication token
+                schema:
+                  type: string
+              X-Rucio-Auth-Token-Expires:
+                description: The time when the token expires
+                schema:
+                  type: string
+          401:
+            description: Cannot authenticate
         """
         headers = self.get_headers()
 
@@ -492,32 +787,79 @@ class GSS(ErrorHandlingMethodView):
 
     def options(self):
         """
-        HTTP Success:
-            200 OK
-
-        Allow cross-site scripting. Explicit for Authentication.
+        ---
+        summary: GSS Allow cross-site scripting
+        description: GSS Allow cross-site scripting. Explicit for Authentication.
+        tags:
+          - Auth
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+                  enum: ['*']
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+                  enum: ['true']
+              Access-Control-Expose-Headers:
+                schema:
+                  type: string
+                  enum: ['X-Rucio-Auth-Token']
+          404:
+            description: Not found
         """
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
-        Authenticate a Rucio account temporarily via a GSS token.
-
-        .. :quickref: GSS; Authenticate with GSS token
-
-        :reqheader Rucio-VO: VO name as a string (Multi-VO only).
-        :reqheader Rucio-Account: Account identifier as a string.
-        :reqheader Rucio-AppID: Application identifier as a string.
-        :reqheader SavedCredentials: Apache mod_auth_kerb SavedCredentials.
-        :resheader Access-Control-Allow-Origin:
-        :resheader Access-Control-Allow-Headers:
-        :resheader Access-Control-Allow-Methods:
-        :resheader Access-Control-Allow-Credentials:
-        :resheader Access-Control-Expose-Headers:
-        :resheader X-Rucio-Auth-Token: The authentication token
-        :status 200: Successfully authenticated
-        :status 404: Invalid credentials
+        ---
+        summary: GSS
+        description: Authenticate a Rucio account via GSS.
+        tags:
+          - Auth
+        parameters:
+        - name: X-Rucio-Account
+          in: header
+          schema:
+            type: string
+          required: true
+        - name: REMOTE_USER
+          in: header
+          schema:
+            type: string
+          required: true
+        - name: X-Rucio-AppID
+          in: header
+          schema:
+            type: string
+        - name: X-Forwarded-For
+          in: header
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            headers:
+              X-Rucio-Auth-Token:
+                description: The authentication token
+                schema:
+                  type: string
+              X-Rucio-Auth-Token-Expires:
+                description: The time when the token expires
+                schema:
+                  type: string
+          401:
+            description: Cannot authenticate
         """
 
         headers = self.get_headers()
@@ -572,32 +914,74 @@ class x509(ErrorHandlingMethodView):
 
     def options(self):
         """
-        HTTP Success:
-            200 OK
-
-        Allow cross-site scripting. Explicit for Authentication.
+        ---
+        summary: x509 Allow cross-site scripting
+        description: x509 Allow cross-site scripting. Explicit for Authentication.
+        tags:
+          - Auth
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+                  enum: ['*']
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+                  enum: ['true']
+              Access-Control-Expose-Headers:
+                schema:
+                  type: string
+                  enum: ['X-Rucio-Auth-Token']
+          404:
+            description: Not found
         """
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
-        Authenticate a Rucio account temporarily via an x509 certificate.
-
-        .. :quickref: x509; Authenticate with x509 certificate.
-
-        :reqheader Rucio-VO: VO name as a string (Multi-VO only).
-        :reqheader Rucio-Account: Account identifier as a string.
-        :reqheader Rucio-AppID: Application identifier as a string.
-        :reqheader SSLStdEnv: Apache mod_ssl SSL Standard Env Variables.
-        :resheader Access-Control-Allow-Origin:
-        :resheader Access-Control-Allow-Headers:
-        :resheader Access-Control-Allow-Methods:
-        :resheader Access-Control-Allow-Credentials:
-        :resheader Access-Control-Expose-Headers:
-        :resheader X-Rucio-Auth-Token: The authentication token
-        :status 200: Successfully authenticated
-        :status 404: Invalid credentials
+        ---
+        summary: x509
+        description: Authenticate a Rucio account via x509.
+        tags:
+          - Auth
+        parameters:
+        - name: X-Rucio-Account
+          in: header
+          schema:
+            type: string
+          required: true
+        - name: X-Rucio-AppID
+          in: header
+          schema:
+            type: string
+        - name: X-Forwarded-For
+          in: header
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            headers:
+              X-Rucio-Auth-Token:
+                description: The authentication token
+                schema:
+                  type: string
+              X-Rucio-Auth-Token-Expires:
+                description: The time when the token expires
+                schema:
+                  type: string
+          401:
+            description: Cannot authenticate
         """
         headers = self.get_headers()
 
@@ -678,32 +1062,79 @@ class SSH(ErrorHandlingMethodView):
 
     def options(self):
         """
-        HTTP Success:
-            200 OK
-
-        Allow cross-site scripting. Explicit for Authentication.
+        ---
+        summary: SSH Allow cross-site scripting
+        description: SSH Allow cross-site scripting. Explicit for Authentication.
+        tags:
+          - Auth
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+                  enum: ['*']
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+                  enum: ['true']
+              Access-Control-Expose-Headers:
+                schema:
+                  type: string
+                  enum: ['X-Rucio-Auth-Token']
+          404:
+            description: Not found
         """
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
-        Authenticate a Rucio account temporarily via SSH key exchange.
-
-        .. :quickref: SSH; Authenticate with SSH key exchange.
-
-        :reqheader Rucio-VO: VO name as a string (Multi-VO only).
-        :reqheader Rucio-Account: Account identifier as a string.
-        :reqheader Rucio-SSH-Signature: Response to server challenge signed with SSH private key as a base64 encoded string.
-        :reqheader Rucio-AppID: Application identifier as a string.
-        :resheader Access-Control-Allow-Origin:
-        :resheader Access-Control-Allow-Headers:
-        :resheader Access-Control-Allow-Methods:
-        :resheader Access-Control-Allow-Credentials:
-        :resheader Access-Control-Expose-Headers:
-        :resheader X-Rucio-Auth-Token: The authentication token
-        :status 200: Successfully authenticated
-        :status 404: Invalid credentials
+        ---
+        summary: SSH
+        description: Authenticate a Rucio account via SSH.
+        tags:
+          - Auth
+        parameters:
+        - name: X-Rucio-Account
+          in: header
+          schema:
+            type: string
+          required: true
+        - name: X-Rucio-SSH-Signature
+          in: header
+          schema:
+            type: string
+          required: true
+        - name: X-Rucio-AppID
+          in: header
+          schema:
+            type: string
+        - name: X-Forwarded-For
+          in: header
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            headers:
+              X-Rucio-Auth-Token:
+                description: The authentication token
+                schema:
+                  type: string
+              X-Rucio-Auth-Token-Expires:
+                description: The time when the token expires
+                schema:
+                  type: string
+          401:
+            description: Cannot authenticate
         """
         headers = self.get_headers()
 
@@ -769,32 +1200,74 @@ class SSHChallengeToken(ErrorHandlingMethodView):
 
     def options(self):
         """
-        HTTP Success:
-            200 OK
-
-        Allow cross-site scripting. Explicit for Authentication.
+        ---
+        summary: SSHChallengeToken Allow cross-site scripting
+        description: SSHChallengeToken Allow cross-site scripting. Explicit for Authentication.
+        tags:
+          - Auth
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+                  enum: ['*']
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+                  enum: ['true']
+              Access-Control-Expose-Headers:
+                schema:
+                  type: string
+                  enum: ['X-Rucio-Auth-Token']
+          404:
+            description: Not found
         """
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
-        Request a challenge token for SSH authentication
-
-        .. :quickref: SSH; Request SSH Challenge Token
-
-        :reqheader Rucio-VO: VO name as a string (Multi-VO only).
-        :reqheader Rucio-Account: Account identifier as a string.
-        :reqheader Rucio-AppID: Application identifier as a string.
-        :resheader Access-Control-Allow-Origin:
-        :resheader Access-Control-Allow-Headers:
-        :resheader Access-Control-Allow-Methods:
-        :resheader Access-Control-Allow-Credentials:
-        :resheader Access-Control-Expose-Headers:
-        :resheader X-Rucio-SSH-Challenge-Token: The SSH challenge token
-        :resheader X-Rucio-SSH-Challenge-Token-Expires: The expiry time of the token
-        :status 200: Successfully authenticated
-        :status 404: Invalid credentials
+        ---
+        summary: SSHChallengeToken
+        description: Authenticate a Rucio account via SSHChallengeToken.
+        tags:
+          - Auth
+        parameters:
+        - name: X-Rucio-Account
+          in: header
+          schema:
+            type: string
+          required: true
+        - name: X-Rucio-AppID
+          in: header
+          schema:
+            type: string
+        - name: X-Forwarded-For
+          in: header
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            headers:
+              X-Rucio-SSH-Challenge-Token:
+                description: The authentication token
+                schema:
+                  type: string
+              X-Rucio-SSH-Challenge-Token-Expires:
+                description: The time when the token expires
+                schema:
+                  type: string
+          401:
+            description: Cannot authenticate
         """
         headers = self.get_headers()
 
@@ -839,25 +1312,78 @@ class SAML(ErrorHandlingMethodView):
 
     def options(self):
         """
-        Allow cross-site scripting. Explicit for Authentication.
-
-        :status 200: OK
+        ---
+        summary: SAML Allow cross-site scripting
+        description: SAML Allow cross-site scripting. Explicit for Authentication.
+        tags:
+          - Auth
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+                  enum: ['*']
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+                  enum: ['true']
+              Access-Control-Expose-Headers:
+                schema:
+                  type: string
+                  enum: ['X-Rucio-Auth-Token']
+          404:
+            description: Not found
         """
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
-        .. :quickref: SAML;
-
-        :status 200: OK
-        :status 401: Unauthorized
-        :reqheader Rucio-VO: VO name as a string (Multi-VO only)
-        :reqheader Rucio-Account: Account identifier as a string.
-        :reqheader Rucio-Username: Username as a string.
-        :reqheader Rucio-Password: Password as a string.
-        :reqheader Rucio-AppID: Application identifier as a string.
-        :resheader X-Rucio-SAML-Auth-URL: as a variable-length string header.
+        ---
+        summary: SAML
+        description: Authenticate a Rucio account via SAML.
+        tags:
+          - Auth
+        parameters:
+        - name: X-Rucio-Account
+          in: header
+          schema:
+            type: string
+          required: true
+        - name: X-Rucio-AppID
+          in: header
+          schema:
+            type: string
+        - name: X-Forwarded-For
+          in: header
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            headers:
+              X-Rucio-Auth-Token:
+                description: The authentication token
+                schema:
+                  type: string
+              X-Rucio-Auth-Token-Expires:
+                description: The time when the token expires
+                schema:
+                  type: string
+              X-Rucio-SAML-Auth-URL:
+                description: The time when the token expires
+                schema:
+                  type: string
+          401:
+            description: Cannot authenticate
         """
         headers = self.get_headers()
 
@@ -909,9 +1435,16 @@ class SAML(ErrorHandlingMethodView):
 
     def post(self):
         """
-        .. :quickref: SAML;
-
-        :status 200: OK
+        ---
+        summary: Post a SAML request
+        description: Post a SAML request
+        tags:
+          - Auth
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
         """
         if not EXTRA_MODULES['onelogin']:
             return "SAML not configured on the server side.", 200, [('X-Rucio-Auth-Token', '')]
@@ -946,23 +1479,57 @@ class Validate(ErrorHandlingMethodView):
 
     def options(self):
         """
-        HTTP Success:
-            200 OK
-
-        Allow cross-site scripting. Explicit for Authentication.
+        ---
+        summary: Validate Allow cross-site scripting
+        description: Validate Allow cross-site scripting. Explicit for Authentication.
+        tags:
+          - Auth
+        responses:
+          200:
+            description: OK
+            headers:
+              Access-Control-Allow-Origin:
+                schema:
+                  type: string
+              Access-Control-Allow-Headers:
+                schema:
+                  type: string
+              Access-Control-Allow-Methods:
+                schema:
+                  type: string
+                  enum: ['*']
+              Access-Control-Allow-Credentials:
+                schema:
+                  type: string
+                  enum: ['true']
+              Access-Control-Expose-Headers:
+                schema:
+                  type: string
+                  enum: ['X-Rucio-Auth-Token']
+          404:
+            description: Not found
         """
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
     def get(self):
         """
-        Validate a Rucio Auth Token.
-
-        .. :quickref: Validate; Validate a Rucio Auth Token.
-
-        :reqheader Rucio-Auth-Token: as a variable-length string.
-        :status 406: Not Acceptable.
-        :returns: Tuple(account name, token lifetime).
+        ---
+        summary: Validate
+        description: Validate a Rucio auth token.
+        tags:
+          - Auth
+        parameters:
+        - name: X-Rucio-Account
+          in: header
+          schema:
+            type: string
+          required: true
+        responses:
+          200:
+            description: OK
+          401:
+            description: Cannot authenticate
         """
 
         headers = self.get_headers()
