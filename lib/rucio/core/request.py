@@ -1206,7 +1206,7 @@ def get_stats_by_activity_direction_state(state, all_activities=False, direction
                 models.Request.activity
             ]
 
-        subquery = select(
+        stmt = select(
             models.Request.account,
             models.Request.state,
             func.count(1).label('counter'),
@@ -1215,30 +1215,14 @@ def get_stats_by_activity_direction_state(state, all_activities=False, direction
         ).with_hint(
             models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle'
         ).where(
-            models.Request.state.in_(state)
+            models.Request.state.in_(state),
+            rse_id_column != null(),
         ).group_by(
             models.Request.account,
             models.Request.state,
             rse_id_column,
             *additional_columns,
-        ).subquery()
-
-        stmt = select(
-            subquery.c.account,
-            subquery.c.state,
-            models.RSE.rse,
-            subquery.c.counter,
-            subquery.c.rse_id
-        ).with_hint(
-            models.RSE, "INDEX(RSES RSES_PK)", 'oracle'
-        ).join(
-            models.RSE,
-            models.RSE.id == subquery.c.rse_id,
         )
-        if not all_activities:
-            stmt = stmt.add_columns(
-                subquery.c.activity
-            )
 
         return session.execute(stmt).all()
 
