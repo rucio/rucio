@@ -44,6 +44,7 @@ DEFAULT_ENDPOINTS = [
     'rules',
     'scopes',
     'subscriptions',
+    'traces',
 ]
 
 
