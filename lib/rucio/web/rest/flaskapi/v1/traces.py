@@ -43,13 +43,27 @@ class Trace(ErrorHandlingMethodView):
 
     def post(self):
         """
-        Trace endpoint used by the pilot and CLI clients to post data access information.
-
-        .. :quickref: Trace; Send trace.
-
-        :<json dict payload: Dictionary contain the trace information.
-        :status 201: Created.
-        :status 400: Cannot decode json data.
+        ---
+        summary: Trace
+        description: Trace endpoint used by the pilot and CLI clients to post data access information.
+        tags:
+          - Trace
+        parameters:
+        - name: X-Forwarded-For
+          in: header
+          schema:
+            type: string
+        requestBody:
+          content:
+            application/json:
+              schema:
+                description: The trace information.
+                type: object
+        responses:
+          201:
+            description: OK
+          400:
+            description: Cannot decode json data.
         """
         headers = self.get_headers()
         payload = json_parameters()
