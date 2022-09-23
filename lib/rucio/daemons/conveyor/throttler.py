@@ -125,7 +125,7 @@ def __get_request_stats(rse_collection: RseCollection, all_activities=False, dir
             limit = rse.transfer_limits.get(activity, {})
             threshold = limit.get('max_transfers')
             if threshold or (counter and (state == RequestState.WAITING)):
-                stat = result_dict.setdefault(rse, {}).setdefault('activities', {}).setdefault(activity, {})
+                stat = result_dict.setdefault(rse, {}).setdefault(activity, {})
 
                 if not stat:
                     stat.update({
@@ -164,55 +164,16 @@ def run_once(worker_number=0, logger=logging.log, session=None, **kwargs):
         throttler_mode = config_core.get('throttler', 'mode', default='DEST_PER_ACT', use_cache=False)
         direction, all_activities = get_parsed_throttler_mode(throttler_mode)
         result_dict = __get_request_stats(rse_collection, all_activities, direction)
-        if direction == 'destination' or direction == 'source':
-            for rse, stats in result_dict.items():
-                # dest_rse is not blocklisted for write or src_rse is not blocklisted for read
-                if (direction == 'destination' and rse.columns.availability & 2) or (direction == 'source' and rse.columns.availability & 4):
-                    if all_activities:
-                        __release_all_activities(stats, direction, rse, logger=logger, session=session)
-                    else:
-                        __release_per_activity(stats, direction, rse, logger=logger, session=session)
+        for rse, stats in result_dict.items():
+            # dest_rse is not blocklisted for write or src_rse is not blocklisted for read
+            if (direction == 'destination' and rse.columns.availability & 2) or (direction == 'source' and rse.columns.availability & 4):
+                _release_requests(stats, direction, rse, all_activities=all_activities, logger=logger, session=session)
     except Exception:
         logger(logging.CRITICAL, "Failed to schedule requests, error: %s" % (traceback.format_exc()))
     return True
 
 
-def __release_all_activities(stats, direction, rse, logger, session):
-    """
-    Release requests if activities should be ignored.
-
-    :param stats:          Request statistics
-    :param direction:      String whether request statistics are based on source or destination RSEs.
-    :param rse_name:       RSE name.
-    :param rse_id:         RSE id.
-    """
-    stats = stats['activities']['all_activities']
-    threshold = stats['threshold']
-    transfer = stats['transfer']
-    waiting = stats['waiting']
-    strategy = stats['strategy']
-    if threshold is not None and transfer + waiting > threshold:
-        record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.{activity}.{rse}.{limit_attr}', threshold, labels={'activity': 'all_activities', 'rse': rse.name, 'limit_attr': 'max_transfers'})
-        record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.{activity}.{rse}.{limit_attr}', transfer, labels={'activity': 'all_activities', 'rse': rse.name, 'limit_attr': 'transfers'})
-        record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.{activity}.{rse}.{limit_attr}', waiting, labels={'activity': 'all_activities', 'rse': rse.name, 'limit_attr': 'waiting'})
-        if transfer < 0.8 * threshold:
-            to_be_released = threshold - transfer
-            if strategy == 'grouped_fifo':
-                deadline = stats.get('deadline')
-                volume = stats.get('volume')
-                release_waiting_requests_grouped_fifo(rse.id, count=to_be_released, direction=direction, volume=volume, deadline=deadline, session=session)
-            elif strategy == 'fifo':
-                release_waiting_requests_fifo(rse.id, count=to_be_released, direction=direction, session=session)
-        else:
-            logger(logging.DEBUG, "Throttler has done nothing on rse %s (transfer > 0.8 * threshold)" % rse.name)
-    elif waiting > 0 or not threshold:
-        logger(logging.DEBUG, "Throttler remove limits(threshold: %s) and release all waiting requests, rse %s" % (threshold, rse.name))
-        delete_rse_transfer_limits(rse.id, activity='all_activities', session=session)
-        release_all_waiting_requests(rse.id, direction=direction, session=session)
-        record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.{activity}.{rse}', labels={'activity': 'all_activities', 'rse': rse.name})
-
-
-def __release_per_activity(stats, direction, rse, logger, session):
+def _release_requests(stats, direction, rse, all_activities, logger, session):
     """
     Release requests per activity.
 
@@ -221,17 +182,24 @@ def __release_per_activity(stats, direction, rse, logger, session):
     :param rse.name:       RSE name.
     :param rse.id:         RSE id.
     """
-    for activity in stats['activities']:
-        threshold = stats['activities'][activity]['threshold']
-        transfer = stats['activities'][activity]['transfer']
-        waiting = stats['activities'][activity]['waiting']
+    if all_activities:
+        stats = (('all_activities', stats['all_activities']),)
+    else:
+        stats = ((activity, stat) for activity, stat in stats.items() if activity != 'all_activities')
+
+    for activity, stat in stats:
+        threshold = stat['threshold']
+        transfer = stat['transfer']
+        waiting = stat['waiting']
+        strategy = stat['strategy']
+        deadline = stat.get('deadline')
+        volume = stat.get('volume')
         if waiting:
-            logger(logging.DEBUG, "Request status for %s at %s: %s" % (activity, rse.name,
-                                                                       stats['activities'][activity]))
+            logger(logging.DEBUG, "Request status for %s at %s: %s" % (activity, rse.name, stat))
             if threshold is None:
                 logger(logging.DEBUG, "Throttler remove limits(threshold: %s) and release all waiting requests for activity %s, rse.id %s" % (threshold, activity, rse.id))
                 delete_rse_transfer_limits(rse.id, activity=activity, session=session)
-                release_all_waiting_requests(rse.id, activity=activity, direction=direction, session=session)
+                release_all_waiting_requests(rse.id, activity=None if all_activities else activity, direction=direction, session=session)
                 record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.{activity}.{rse}', labels={'activity': activity, 'rse': rse.name})
             elif transfer + waiting > threshold:
                 logger(logging.DEBUG, "Throttler set limits for activity %s, rse %s" % (activity, rse.name))
@@ -241,17 +209,24 @@ def __release_per_activity(stats, direction, rse, logger, session):
                 record_gauge('daemons.conveyor.throttler.set_rse_transfer_limits.{activity}.{rse}.{limit_attr}', waiting, labels={'activity': activity, 'rse': rse.name, 'limit_attr': 'waiting'})
                 if transfer < 0.8 * threshold:
                     # release requests on account
-                    nr_accounts = len(stats['activities'][activity]['accounts'])
+                    to_release = threshold - transfer
+                    if all_activities:
+                        if strategy == 'grouped_fifo':
+                            release_waiting_requests_grouped_fifo(rse.id, count=to_release, direction=direction, volume=volume, deadline=deadline, session=session)
+                        elif strategy == 'fifo':
+                            release_waiting_requests_fifo(rse.id, count=to_release, direction=direction, session=session)
+                        continue
+
+                    nr_accounts = len(stat['accounts'])
                     if nr_accounts < 1:
                         nr_accounts = 1
-                    to_release = threshold - transfer
                     threshold_per_account = math.ceil(threshold / nr_accounts)
                     to_release_per_account = math.ceil(to_release / nr_accounts)
-                    accounts = stats['activities'][activity]['accounts']
+                    accounts = stat['accounts']
                     for account in accounts:
                         if nr_accounts == 1:
                             logger(logging.DEBUG, "Throttler release %s waiting requests for activity %s, rse %s, account %s " % (to_release, activity, rse.name, account))
-                            release_waiting_requests_fifo(rse.id, activity=activity, account=account, count=to_release, direction=direction, session=session)
+                            release_waiting_requests_fifo(rse.id, activity=None if all_activities else activity, account=account, count=to_release, direction=direction, session=session)
                             record_gauge('daemons.conveyor.throttler.release_waiting_requests.{activity}.{rse}.{account}', to_release, labels={'activity': activity, 'rse': rse.name, 'account': account})
                         elif accounts[account]['transfer'] > threshold_per_account:
                             logger(logging.DEBUG, "Throttler will not release  %s waiting requests for activity %s, rse %s, account %s: It queued more transfers than its share " %
@@ -260,14 +235,14 @@ def __release_per_activity(stats, direction, rse, logger, session):
                             to_release_per_account = math.ceil(to_release / nr_accounts)
                         elif accounts[account]['waiting'] < to_release_per_account:
                             logger(logging.DEBUG, "Throttler release %s waiting requests for activity %s, rse %s, account %s " % (accounts[account]['waiting'], activity, rse.name, account))
-                            release_waiting_requests_fifo(rse.id, activity=activity, account=account, count=accounts[account]['waiting'], direction=direction, session=session)
+                            release_waiting_requests_fifo(rse.id, activity=None if all_activities else activity, account=account, count=accounts[account]['waiting'], direction=direction, session=session)
                             record_gauge('daemons.conveyor.throttler.release_waiting_requests.{activity}.{rse}.{account}', accounts[account]['waiting'], labels={'activity': activity, 'rse': rse.name, 'account': account})
                             to_release = to_release - accounts[account]['waiting']
                             nr_accounts -= 1
                             to_release_per_account = math.ceil(to_release / nr_accounts)
                         else:
                             logger(logging.DEBUG, "Throttler release %s waiting requests for activity %s, rse %s, account %s " % (to_release_per_account, activity, rse.name, account))
-                            release_waiting_requests_fifo(rse.id, activity=activity, account=account, count=to_release_per_account, direction=direction, session=session)
+                            release_waiting_requests_fifo(rse.id, activity=None if all_activities else activity, account=account, count=to_release_per_account, direction=direction, session=session)
                             record_gauge('daemons.conveyor.throttler.release_waiting_requests.{activity}.{rse}.{account}', to_release_per_account, labels={'activity': activity, 'rse': rse.name, 'account': account})
                             to_release = to_release - to_release_per_account
                             nr_accounts -= 1
@@ -276,5 +251,5 @@ def __release_per_activity(stats, direction, rse, logger, session):
             elif waiting > 0:
                 logger(logging.DEBUG, "Throttler remove limits(threshold: %s) and release all waiting requests for activity %s, rse %s" % (threshold, activity, rse.name))
                 delete_rse_transfer_limits(rse.id, activity=activity, session=session)
-                release_all_waiting_requests(rse.id, activity=activity, direction=direction, session=session)
+                release_all_waiting_requests(rse.id, activity=None if all_activities else activity, direction=direction, session=session)
                 record_counter('daemons.conveyor.throttler.delete_rse_transfer_limits.{activity}.{rse}', labels={'activity': activity, 'rse': rse.name})
