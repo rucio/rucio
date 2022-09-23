@@ -26,7 +26,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common import constants
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (InvalidRSEExpression,
                                     RequestNotFound, RSEProtocolNotSupported,
@@ -1153,28 +1153,50 @@ def prepare_transfers(
     return updated_reqs, reqs_no_transfertool
 
 
+def applicable_rse_transfer_limits(
+        source_rse: "Optional[RseData]" = None,
+        dest_rse: "Optional[RseData]" = None,
+        activity: "Optional[str]" = None,
+        session: "Optional[Session]" = None,
+):
+    """
+    Find all RseTransferLimits which must be enforced for transfers between source and destination RSEs for the given activity.
+    """
+    source_limits = {}
+    if source_rse:
+        source_limits = source_rse.ensure_loaded(load_transfer_limits=True, session=session).transfer_limits.get('source', {})
+    dest_limits = {}
+    if dest_rse:
+        dest_limits = dest_rse.ensure_loaded(load_transfer_limits=True, session=session).transfer_limits.get('destination', {})
+
+    if activity is not None:
+        limit = source_limits.get(activity)
+        if limit:
+            yield limit
+
+        limit = dest_limits.get(activity)
+        if limit:
+            yield limit
+
+    # get "all_activities" limits
+    limit = source_limits.get(None)
+    if limit:
+        yield limit
+
+    limit = dest_limits.get(None)
+    if limit:
+        yield limit
+
+
 def _throttler_request_state(activity, source_rse, dest_rse, session: "Optional[Session]" = None) -> RequestState:
     """
     Takes request attributes to return a new state for the request
     based on throttler settings. Always returns QUEUED,
     if the throttler mode is not set.
     """
-    throttler_mode = config_get('throttler', 'mode', default=None, use_cache=False, raise_exception=False, session=session)
-    use_throttler = config_get_bool('conveyor', 'use_throttler', default=True if throttler_mode is not None else False, session=session)
-
     limit_found = False
-    if use_throttler:
-        source_rse.ensure_loaded(load_transfer_limits=True)
-        dest_rse.ensure_loaded(load_transfer_limits=True)
-        all_activities = 'all_activities'
-        if source_rse.transfer_limits.get(all_activities, {}).get('direction') == 'source':
-            limit_found = True
-        elif source_rse.transfer_limits.get(activity, {}).get('direction') == 'source':
-            limit_found = True
-        elif dest_rse.transfer_limits.get(all_activities, {}).get('direction') != 'source':
-            limit_found = True
-        elif dest_rse.transfer_limits.get(activity, {}).get('direction') != 'source':
-            limit_found = True
+    if any(applicable_rse_transfer_limits(activity=activity, source_rse=source_rse, dest_rse=dest_rse, session=session)):
+        limit_found = True
 
     return RequestState.WAITING if limit_found else RequestState.QUEUED
 

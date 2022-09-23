@@ -127,6 +127,7 @@ class TestRSECoreApi:
 
         set_rse_transfer_limits(rse_id=rse_id, activity=activity, max_transfers=max_transfers, transfers=transfers, waitings=waitings)
         limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)
+        limits = limits['destination']
         assert activity in list(limits.keys())
         assert max_transfers == limits[activity]['max_transfers']
         assert transfers == limits[activity]['transfers']
@@ -134,6 +135,7 @@ class TestRSECoreApi:
 
         set_rse_transfer_limits(rse_id=rse_id, activity=activity, max_transfers=max_transfers + 1, transfers=transfers + 1, waitings=waitings + 1)
         limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)
+        limits = limits['destination']
         assert activity in list(limits.keys())
         assert max_transfers + 1 == limits[activity]['max_transfers']
         assert transfers + 1 == limits[activity]['transfers']
