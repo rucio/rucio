@@ -108,9 +108,6 @@ def _add_test_replicas_and_request(request_configs, scope, account, session):
 @pytest.mark.parametrize("file_config_mock", [{"overrides": [
     ('conveyor', 'use_preparer', 'true')
 ]}], indirect=True)
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('throttler', 'mode', 'DEST_PER_ALL_ACT'),
-]}], indirect=True)
 class TestThrottlerGroupedFIFO:
     """Throttler per destination RSE and on all activites per grouped FIFO
     """
@@ -249,9 +246,6 @@ class TestThrottlerGroupedFIFO:
 @pytest.mark.parametrize("file_config_mock", [{"overrides": [
     ('conveyor', 'use_preparer', 'true')
 ]}], indirect=True)
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('throttler', 'mode', 'DEST_PER_ACT'),
-]}], indirect=True)
 class TestThrottlerFIFO:
     """Throttler per destination RSE and on each activites per FIFO
     """
@@ -262,7 +256,7 @@ class TestThrottlerFIFO:
         """ THROTTLER (CLIENTS): throttler release all waiting requests (DEST - ACT - FIFO). """
         if db_session.bind.dialect.name == 'mysql':
             return True
-        # no threshold -> release all waiting requests
+        # all activities limit applies to each activity -> release only one transfer
         set_rse_transfer_limits(self.dest_rse_id, max_transfers=1, activity=self.all_activities, strategy='fifo', session=db_session)
         name1, name2 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
@@ -278,11 +272,12 @@ class TestThrottlerFIFO:
         request = get_request_by_did(mock_scope, name1, self.dest_rse_id)
         assert request['state'] == RequestState.QUEUED
         request2 = get_request_by_did(mock_scope, name2, self.dest_rse_id)
-        assert request2['state'] == RequestState.QUEUED
+        assert request2['state'] == RequestState.WAITING
 
         # active transfers + waiting requests are less than the threshold -> release all waiting requests
         _delete_requests(mock_scope, [name1, name2], session=db_session)
         set_rse_transfer_limits(self.dest_rse_id, activity=self.user_activity, max_transfers=3, strategy='fifo', session=db_session)
+        set_rse_transfer_limits(self.dest_rse_id, max_transfers=3, activity=self.all_activities, strategy='fifo', session=db_session)
         request = models.Request(dest_rse_id=self.dest_rse_id, activity=self.user_activity, state=RequestState.SUBMITTED)
         request.save(session=db_session)
         name1, = _add_test_replicas_and_request(
@@ -354,9 +349,6 @@ class TestThrottlerFIFO:
 @pytest.mark.parametrize("file_config_mock", [{"overrides": [
     ('conveyor', 'use_preparer', 'true')
 ]}], indirect=True)
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('throttler', 'mode', 'SRC_PER_ACT')
-]}], indirect=True)
 class TestThrottlerFIFOSRCACT:
     """Throttler per source RSE and on each activites per FIFO."""
 
@@ -378,8 +370,8 @@ class TestThrottlerFIFOSRCACT:
             add_distance(source_rse_id, rse_id, ranking=10)
         # two waiting requests and no active requests but threshold is 1 for one activity
         # one waiting request and no active requests but threshold is 0 for other activity -> release only 1 request for one activity
-        set_rse_transfer_limits(source_rse_id, activity=self.user_activity, max_transfers=1, strategy='fifo')
-        set_rse_transfer_limits(source_rse_id, activity=self.user_activity2, max_transfers=0, strategy='fifo')
+        set_rse_transfer_limits(source_rse_id, activity=self.user_activity, max_transfers=1, strategy='fifo', direction='source')
+        set_rse_transfer_limits(source_rse_id, activity=self.user_activity2, max_transfers=0, strategy='fifo', direction='source')
         name1, name2, name3 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -419,9 +411,6 @@ class TestThrottlerFIFOSRCACT:
 @pytest.mark.parametrize("file_config_mock", [{"overrides": [
     ('conveyor', 'use_preparer', 'true')
 ]}], indirect=True)
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('throttler', 'mode', 'SRC_PER_ALL_ACT'),
-]}], indirect=True)
 class TestThrottlerFIFOSRCALLACT:
     """Throttler per source RSE and on all activites per FIFO."""
 
@@ -434,7 +423,7 @@ class TestThrottlerFIFOSRCALLACT:
             return True
 
         # two waiting requests and no active requests but threshold is 1 -> release only 1 request
-        set_rse_transfer_limits(self.source_rse_id, activity=self.all_activities, max_transfers=1, strategy='fifo', session=db_session)
+        set_rse_transfer_limits(self.source_rse_id, activity=self.all_activities, max_transfers=1, strategy='fifo', direction='source', session=db_session)
         name1, name2 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -456,9 +445,6 @@ class TestThrottlerFIFOSRCALLACT:
 @pytest.mark.usefixtures("core_config_mock", "file_config_mock", "setup_class")
 @pytest.mark.parametrize("file_config_mock", [{"overrides": [
     ('conveyor', 'use_preparer', 'true')
-]}], indirect=True)
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('throttler', 'mode', 'DEST_PER_ALL_ACT'),
 ]}], indirect=True)
 class TestThrottlerFIFODESTALLACT:
     """Throttler per destination RSE and on all activites per FIFO."""
@@ -521,9 +507,6 @@ class TestThrottlerFIFODESTALLACT:
 @pytest.mark.parametrize("file_config_mock", [{"overrides": [
     ('conveyor', 'use_preparer', 'true')
 ]}], indirect=True)
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('throttler', 'mode', 'SRC_PER_ALL_ACT'),
-]}], indirect=True)
 class TestThrottlerGroupedFIFOSRCALLACT:
     """Throttler per source RSE and on all activites per grouped FIFO."""
 
@@ -539,7 +522,7 @@ class TestThrottlerGroupedFIFOSRCALLACT:
         _, dest_rse_id2 = rse_factory.make_mock_rse()
         add_distance(self.source_rse_id, dest_rse_id2, ranking=10)
 
-        set_rse_transfer_limits(self.source_rse_id, self.all_activities, volume=10, max_transfers=1, deadline=0, strategy='grouped_fifo', session=db_session)
+        set_rse_transfer_limits(self.source_rse_id, self.all_activities, volume=10, max_transfers=1, deadline=0, direction='source', strategy='grouped_fifo', session=db_session)
         name1, name2, name3, name4 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -601,9 +584,6 @@ class TestThrottlerGroupedFIFOSRCALLACT:
 @pytest.mark.usefixtures("core_config_mock", "file_config_mock", "setup_class")
 @pytest.mark.parametrize("file_config_mock", [{"overrides": [
     ('conveyor', 'use_preparer', 'true')
-]}], indirect=True)
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('throttler', 'mode', 'DEST_PER_ACT'),
 ]}], indirect=True)
 class TestRequestCoreRelease:
     """Test release methods used in throttler."""
@@ -874,7 +854,7 @@ class TestRequestCoreRelease:
 
         preparer.run_once(session=db_session, logger=print)
         db_session.commit()
-        release_waiting_requests_grouped_fifo(self.source_rse_id, count=0, deadline=1, volume=0, session=db_session)
+        release_waiting_requests_grouped_fifo(source_rse_id=self.source_rse_id, count=0, deadline=1, volume=0, session=db_session)
         # queued because of deadline
         request = get_request_by_did(mock_scope, name1, self.dest_rse_id, session=db_session)
         assert request['state'] == RequestState.QUEUED
@@ -978,7 +958,7 @@ class TestRequestCoreRelease:
         )
         preparer.run_once(session=db_session, logger=print)
         db_session.commit()
-        release_waiting_requests_per_deadline(self.source_rse_id, deadline=1, session=db_session)
+        release_waiting_requests_per_deadline(source_rse_id=self.source_rse_id, deadline=1, session=db_session)
         request = get_request_by_did(mock_scope, name1, self.dest_rse_id, session=db_session)
         assert request['state'] == RequestState.QUEUED
         request = get_request_by_did(mock_scope, name2, self.dest_rse_id, session=db_session)
@@ -998,7 +978,7 @@ class TestRequestCoreRelease:
         attach_dids(mock_scope, dataset_name, [{'name': name1, 'scope': mock_scope}, {'name': name2, 'scope': mock_scope}], root_account, session=db_session)
         preparer.run_once(session=db_session, logger=print)
         db_session.commit()
-        release_waiting_requests_per_deadline(self.source_rse_id, deadline=1, session=db_session)
+        release_waiting_requests_per_deadline(source_rse_id=self.source_rse_id, deadline=1, session=db_session)
         request = get_request_by_did(mock_scope, name1, self.dest_rse_id, session=db_session)
         assert request['state'] == RequestState.QUEUED
         request = get_request_by_did(mock_scope, name2, self.dest_rse_id, session=db_session)
