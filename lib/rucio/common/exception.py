@@ -1059,3 +1059,13 @@ class MetadataSchemaMismatchError(RucioException):
         super(MetadataSchemaMismatchError, self).__init__(*args, **kwargs)
         self._message = 'The external table does not match the expected table schema.'
         self.error_code = 102
+
+
+class PolicyPackageVersionError(RucioException):
+    """
+    Policy package is not compatible with this version of Rucio.
+    """
+    def __init__(self, package, *args, **kwargs):
+        super(PolicyPackageVersionError, self).__init__(*args, **kwargs)
+        self._message = 'Policy package %s is not compatible with this Rucio version' % package
+        self.error_code = 103

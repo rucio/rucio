@@ -18,6 +18,7 @@ from os import environ
 from configparser import NoOptionError, NoSectionError
 
 from rucio.common import config, exception
+from rucio.common.utils import check_policy_package_version
 
 import importlib
 
@@ -41,9 +42,11 @@ if not multivo:
     if config.config_has_section('policy'):
         try:
             if 'RUCIO_POLICY_PACKAGE' in environ:
-                POLICY = environ['RUCIO_POLICY_PACKAGE'] + ".schema"
+                POLICY = environ['RUCIO_POLICY_PACKAGE']
             else:
-                POLICY = config.config_get('policy', 'package', check_config_table=False) + ".schema"
+                POLICY = config.config_get('policy', 'package', check_config_table=False)
+            check_policy_package_version(POLICY)
+            POLICY = POLICY + ".schema"
         except (NoOptionError, NoSectionError):
             # fall back to old system for now
             try:
@@ -69,9 +72,11 @@ def load_schema_for_vo(vo):
         try:
             env_name = 'RUCIO_POLICY_PACKAGE_' + vo.upper()
             if env_name in environ:
-                POLICY = environ[env_name] + ".schema"
+                POLICY = environ[env_name]
             else:
-                POLICY = config.config_get('policy', 'package-' + vo, check_config_table=False) + ".schema"
+                POLICY = config.config_get('policy', 'package-' + vo, check_config_table=False)
+            check_policy_package_version(POLICY)
+            POLICY = POLICY + ".schema"
         except (NoOptionError, NoSectionError):
             # fall back to old system for now
             try:
