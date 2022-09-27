@@ -2888,7 +2888,8 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
         ], additional_filters=[
             (models.DataIdentifier.scope, operator.eq, scope),
             (models.DataIdentifier.suppressed, operator.ne, true()),
-        ]
+        ],
+        session=session
     )
     query.with_hint(models.DataIdentifier, 'NO_EXPAND', 'oracle')
 
