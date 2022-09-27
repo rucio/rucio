@@ -153,7 +153,8 @@ class JSONDidMeta(DidMetaPlugin):
             ], additional_filters=[
                 (models.DidMeta.scope, operator.eq, scope)
             ],
-            json_column=models.DidMeta.meta
+            json_column=models.DidMeta.meta,
+            session=session
         )
 
         if limit:
