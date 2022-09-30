@@ -1039,6 +1039,9 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
+
+        os.remove(tmp_file1)
+
         # download dataset
         cmd = 'rucio -v download --dir /tmp {0}'.format(tmp_dataset)  # triming '/tmp/' from filename
         print(self.marker + cmd)
