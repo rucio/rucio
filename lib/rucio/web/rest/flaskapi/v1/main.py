@@ -25,6 +25,7 @@ from rucio.common.logging import setup_logging
 DEFAULT_ENDPOINTS = [
     'accountlimits',
     'accounts',
+    'auth',
     'config',
     'credentials',
     'dids',
