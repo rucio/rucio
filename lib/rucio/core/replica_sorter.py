@@ -54,7 +54,29 @@ def extract_file_from_tar_gz(archive_file_obj, file_name, destination):
     with TemporaryDirectory(prefix=file_name) as tmp_dir:
         tmp_dir = Path(tmp_dir)
         with tarfile.open(fileobj=archive_file_obj, mode='r:gz') as tfile:
-            tfile.extractall(path=tmp_dir)
+            
+            import os
+            
+            def is_within_directory(directory, target):
+                
+                abs_directory = os.path.abspath(directory)
+                abs_target = os.path.abspath(target)
+            
+                prefix = os.path.commonprefix([abs_directory, abs_target])
+                
+                return prefix == abs_directory
+            
+            def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+            
+                for member in tar.getmembers():
+                    member_path = os.path.join(path, member.name)
+                    if not is_within_directory(path, member_path):
+                        raise Exception("Attempted Path Traversal in Tar File")
+            
+                tar.extractall(path, members, numeric_owner) 
+                
+            
+            safe_extract(tfile, path=tmp_dir)
             for entry in tfile:
                 if entry.name.find(file_name) > -1:
                     print('Will move %s to %s' % (tmp_dir / entry.name, destination))
