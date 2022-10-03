@@ -17,6 +17,7 @@
 Interface for identity abstraction layer
 """
 
+import typing
 from rucio.api import permission
 from rucio.common import exception
 from rucio.common.types import InternalAccount
@@ -80,6 +81,18 @@ def add_account_identity(identity_key, id_type, account, email, issuer, default=
 
     return identity.add_account_identity(identity=identity_key, type_=IdentityType[id_type.upper()], default=default,
                                          email=email, account=account, password=password, session=session)
+
+
+@read_session
+def verify_identity(identity_key: str, id_type: str, password: typing.Union[str, None] = None, session=None) -> bool:
+    """
+    Verifies a user identity.
+    :param identity_key: The identity key name. For example x509 DN, or a username.
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml)
+    :param password: If type==userpass, verifies the identity_key, .
+    :param session: The database session in use.
+    """
+    return identity.verify_identity(identity_key, IdentityType[id_type.upper()], password=password, session=session)
 
 
 @transactional_session

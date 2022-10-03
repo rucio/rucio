@@ -25,10 +25,12 @@ from rucio.core.account import account_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.common.types import InternalAccount
+from typing import Union
 
 
 @transactional_session
-def add_identity(identity, type_, email, password=None, session=None):
+def add_identity(identity: str, type_: IdentityType, email: str, password: Union[str, None] = None, session=None):
     """
     Creates a user identity.
 
@@ -58,8 +60,38 @@ def add_identity(identity, type_, email, password=None, session=None):
         raise exception.DatabaseException(str(e))
 
 
+@read_session
+def verify_identity(identity: str, type_: IdentityType, password: Union[str, None] = None, session=None) -> bool:
+    """
+    Verifies a user identity.
+    :param identity: The identity key name. For example x509 DN, or a username.
+    :param type_: The type of the authentication (x509, gss, userpass, ssh, saml, oidc)
+    :param password: If type==userpass, verifies the identity_key, .
+    :param session: The database session in use.
+    :returns: True if the identity is valid, raises IdentityNotFound otherwise.
+    :raises IdentityNotFound: If the identity is not valid.
+    :raises IdentityError: If the identity is not valid.
+    :raises NotImplementedError: If the identity type is not implemented. i.e. x509, gss, ssh, saml, oidc
+    """
+
+    if type_ == IdentityType.USERPASS and password is None:
+        raise exception.IdentityError('You must provide a password!')
+
+    id_ = session.query(models.Identity).filter_by(identity=identity, identity_type=type_).first()
+    if id_ is None:
+        raise exception.IdentityError('Identity pair \'%s\',\'%s\' does not exist!' % (identity, type_))
+    if type_ == IdentityType.USERPASS:
+        salted_password = id_.salt + password.encode()
+        password = hashlib.sha256(salted_password).hexdigest()
+        if password != id_.password:
+            raise exception.IdentityNotFound('Password does not match for userpass identity \'%s\'!' % identity)
+        return True
+    else:
+        raise NotImplementedError('Identity type \'%s\' is not implemented!' % type_)
+
+
 @transactional_session
-def del_identity(identity, type_, session=None):
+def del_identity(identity: str, type_: IdentityType, session=None):
     """
     Deletes a user identity.
 
@@ -75,7 +107,7 @@ def del_identity(identity, type_, session=None):
 
 
 @transactional_session
-def add_account_identity(identity, type_, account, email, default=False, password=None, session=None):
+def add_account_identity(identity: str, type_: IdentityType, account: InternalAccount, email: str, default: bool = False, password: str = None, session=None):
     """
     Adds a membership association between identity and account.
 
@@ -111,7 +143,7 @@ def add_account_identity(identity, type_, account, email, default=False, passwor
 
 
 @read_session
-def exist_identity_account(identity, type_, account, session=None):
+def exist_identity_account(identity: str, type_: IdentityType, account: InternalAccount, session=None):
     """
     Check if an identity is mapped to an account.
 
@@ -128,7 +160,7 @@ def exist_identity_account(identity, type_, account, session=None):
 
 
 @read_session
-def get_default_account(identity, type_, oldest_if_none=False, session=None):
+def get_default_account(identity: str, type_: IdentityType, oldest_if_none: bool = False, session=None):
     """
     Retrieves the default account mapped to an identity.
 
@@ -158,7 +190,7 @@ def get_default_account(identity, type_, oldest_if_none=False, session=None):
 
 
 @transactional_session
-def del_account_identity(identity, type_, account, session=None):
+def del_account_identity(identity: str, type_: IdentityType, account: InternalAccount, session=None):
     """
     Removes a membership association between identity and account.
 
@@ -192,7 +224,7 @@ def list_identities(session=None, **kwargs):
 
 
 @read_session
-def list_accounts_for_identity(identity, type_, session=None):
+def list_accounts_for_identity(identity: str, type_: IdentityType, session=None):
     """
     Returns a list of all accounts for an identity.
 
