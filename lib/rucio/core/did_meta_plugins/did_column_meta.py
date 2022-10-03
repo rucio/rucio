@@ -218,7 +218,8 @@ class DidColumnMeta(DidMetaPlugin):
             ], additional_filters=[
                 (models.DataIdentifier.scope, operator.eq, scope),
                 (models.DataIdentifier.suppressed, operator.ne, true())
-            ]
+            ],
+            session=session
         )
         query.with_hint(models.DataIdentifier, 'NO_EXPAND', 'oracle')
 
