@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import io
-import itertools
 import json
 import multiprocessing
 import os
@@ -25,44 +23,32 @@ import subprocess
 import sys
 import time
 import traceback
-import typing
 import uuid
 from datetime import datetime
+from typing import List, Dict, Optional, Callable
+
+from suites import run, Container, rdbms_container, services, CumulativeContextManager, service_hostnames, env_args
 
 
-def matches(small: typing.Dict, group: typing.Dict):
+def matches(small: Dict, group: Dict):
     for key in small.keys():
         if key not in group or small[key] != group[key]:
             return False
     return True
 
 
-def run(*args, check=True, return_stdout=False, env=None) -> typing.Union[typing.NoReturn, io.TextIOBase]:
-    kwargs = {'check': check, 'stdout': sys.stderr, 'stderr': subprocess.STDOUT}
-    if env is not None:
-        kwargs['env'] = env
-    if return_stdout:
-        kwargs['stderr'] = sys.stderr
-        kwargs['stdout'] = subprocess.PIPE
-    args = [str(a) for a in args]
-    print("** Running", " ".join(map(lambda a: repr(a) if ' ' in a else a, args)), kwargs, file=sys.stderr, flush=True)
-    proc = subprocess.run(args, **kwargs)
-    if return_stdout:
-        return proc.stdout
-
-
-def stringify_dict(inp: typing.Dict):
+def stringify_dict(inp: Dict):
     return {str(k): str(v) for k, v in inp.items()}
 
 
-def find_image(images: typing.Dict, case: typing.Dict):
+def find_image(images: Dict, case: Dict):
     for image, idgroup in images.items():
         if matches(idgroup, case):
             return image
     raise RuntimeError("Could not find image for case " + str(case))
 
 
-def case_id(case: typing.Dict) -> str:
+def case_id(case: Dict) -> str:
     parts = [case["DIST"], 'py' + case["PYTHON"], case["SUITE"], case.get("RDBMS", "")]
     return '-'.join(filter(bool, parts))
 
@@ -71,9 +57,7 @@ def case_log(caseid, msg, file=sys.stderr):
     print(caseid, msg, file=file, flush=True)
 
 
-def main():
-    obj = json.load(sys.stdin)
-    cases = (obj["matrix"],) if isinstance(obj["matrix"], dict) else obj["matrix"]
+def run_tests(cases: List, images: Dict, tests: Optional[List[str]] = None):
     use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
     parallel = 'PARALLEL_AUTOTESTS' in os.environ and os.environ['PARALLEL_AUTOTESTS'] == '1'
     failfast = 'PARALLEL_AUTOTESTS_FAILFAST' in os.environ and os.environ['PARALLEL_AUTOTESTS_FAILFAST'] == '1'
@@ -82,22 +66,22 @@ def main():
     if parallel or copy_rucio_logs:
         logs_dir.mkdir(exist_ok=True)
 
-    def gen_case_kwargs(case: typing.Dict):
+    def gen_case_kwargs(case: Dict):
         use_httpd = case.get('RUN_HTTPD', True)
         return {
             'caseenv': stringify_dict(case),
-            'image': find_image(images=obj["images"], case=case),
+            'image': find_image(images=images, case=case),
             'use_podman': use_podman,
             'use_namespace': use_podman and parallel,
             'use_httpd': use_httpd,
             'copy_rucio_logs': copy_rucio_logs and use_httpd,
             'logs_dir': logs_dir / f'log-{case_id(case)}',
+            'tests': tests or [],
         }
 
     if parallel:
-        with multiprocessing.Pool(
-            processes=min(int(os.environ.get('PARALLEL_AUTOTESTS_PROCNUM', 3)), len(cases)), maxtasksperchild=1
-        ) as prpool:
+        parallel_num = min(int(os.environ.get('PARALLEL_AUTOTESTS_PROCNUM', 3)), len(cases))
+        with multiprocessing.Pool(processes=parallel_num, maxtasksperchild=1) as prpool:
             tasks = [
                 (
                     _case,
@@ -132,9 +116,9 @@ def main():
             run_case(**gen_case_kwargs(_case))
 
 
-def run_case_logger(run_case_kwargs: typing.Dict, stdlog=sys.stderr):
+def run_case_logger(run_case_kwargs: Dict, stdlog=sys.stderr):
     caseid = case_id(run_case_kwargs['caseenv'])
-    case_log(caseid, 'started task.')
+    case_log(caseid, 'started task. Logging to ' + repr(stdlog))
     defaultstderr = sys.stderr
     startmsg = f'{("=" * 80)}\nStarting test case {caseid}\n  at {datetime.now().isoformat()}\n{"=" * 80}\n'
     if isinstance(stdlog, pathlib.PurePath):
@@ -165,13 +149,13 @@ def run_case_logger(run_case_kwargs: typing.Dict, stdlog=sys.stderr):
     return True
 
 
-def run_case(caseenv, image, use_podman, use_namespace, use_httpd, copy_rucio_logs, logs_dir: pathlib.Path):
+def run_case(caseenv, image, use_podman, use_namespace, use_httpd, copy_rucio_logs, logs_dir: pathlib.Path, tests: List[str]):
     if use_namespace:
         namespace = str(uuid.uuid4())
-        namespace_args = ('--namespace', namespace)
+        namespace_args = ['--namespace', namespace]
         namespace_env = {"NAMESPACE": namespace}
     else:
-        namespace_args = ()
+        namespace_args = []
         namespace_env = {}
 
     run('docker', 'image', 'ls', image)
@@ -198,6 +182,7 @@ def run_case(caseenv, image, use_podman, use_namespace, use_httpd, copy_rucio_lo
                 namespace_env=namespace_env,
                 copy_rucio_logs=copy_rucio_logs,
                 logs_dir=logs_dir,
+                tests=tests,
             )
         else:
             print("* Running test directly without httpd", file=sys.stderr, flush=True)
@@ -207,6 +192,7 @@ def run_case(caseenv, image, use_podman, use_namespace, use_httpd, copy_rucio_lo
                 use_podman=use_podman,
                 pod=pod,
                 namespace_args=namespace_args,
+                tests=tests,
             )
     finally:
         print("*** Finalizing", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
@@ -218,25 +204,27 @@ def run_case(caseenv, image, use_podman, use_namespace, use_httpd, copy_rucio_lo
         sys.exit(1)
 
 
-def env_args(caseenv):
-    env_args = list(itertools.chain(*map(lambda x: ('--env', f'{x[0]}={x[1]}'), caseenv.items())))
-    env_args.append('--env')
-    env_args.append('GITHUB_ACTIONS')
-    return env_args
-
-
-def run_test_directly(caseenv, image, use_podman, pod, namespace_args):
-    pod_net_arg = ('--pod', pod) if use_podman else ()
+def run_test_directly(
+    caseenv: Dict[str, str],
+    image: str,
+    use_podman: bool,
+    pod: str,
+    namespace_args: List[str],
+    tests: List[str],
+):
+    pod_net_arg = ['--pod', pod] if use_podman else []
     scripts_to_run = ' && '.join(
         [
-            # before_script.sh is not included since it is written to run outside
-            # the container and does not contribute to running without httpd
             './tools/test/install_script.sh',
-            './tools/test/test.sh',
+            './tools/test/test.sh' + (' -p' if tests else ''),
         ]
     )
 
     try:
+        if tests:
+            caseenv = dict(caseenv)
+            caseenv['TESTS'] = ' '.join(tests)
+
         # Running rucio container from given image with special entrypoint
         run(
             'docker',
@@ -263,63 +251,90 @@ def run_test_directly(caseenv, image, use_podman, pod, namespace_args):
 
 
 def run_with_httpd(
-    caseenv, image, use_podman, pod, namespace_args, namespace_env, copy_rucio_logs, logs_dir: pathlib.Path
+    caseenv: Dict[str, str],
+    image: str,
+    use_podman: bool,
+    pod: str,
+    namespace_args: List[str],
+    namespace_env: Dict[str, str],
+    copy_rucio_logs: bool,
+    logs_dir: pathlib.Path,
+    tests: List[str],
 ) -> bool:
-    cid = ""
-    try:
-        pod_net_arg = ('--pod', pod) if use_podman else ()
-        # Running rucio container from given image
-        stdout = run(
-            'docker', *namespace_args, 'run', '--detach', *pod_net_arg, *(env_args(caseenv)), image, return_stdout=True
-        )
-        cid = stdout.decode().strip()
-        if not cid:
-            raise RuntimeError("Could not determine container id after docker run")
+    pod_net_arg = ['--pod', pod] if use_podman else []
+    # Running rucio container from given image
+    with Container(image, runtime_args=namespace_args, run_args=pod_net_arg, environment=caseenv) as rucio_container:
+        try:
+            network_arg = ('--network', 'container:' + rucio_container.cid)
+            container_run_args = pod_net_arg if use_podman else network_arg
+            additional_containers = []
 
-        network_arg = ('--network', 'container:' + cid)
-        container_run_args = ' '.join(pod_net_arg if use_podman else network_arg)
-        container_runtime_args = ' '.join(namespace_args)
+            def create_cnt(cnt_class: Callable) -> Container:
+                return cnt_class(
+                    runtime_args=namespace_args,
+                    run_args=container_run_args,
+                )
 
-        # Running before_script.sh
-        run(
-            './tools/test/before_script.sh',
-            env={
-                **os.environ,
-                **caseenv,
-                **namespace_env,
-                "CONTAINER_RUNTIME_ARGS": container_runtime_args,
-                "CONTAINER_RUN_ARGS": container_run_args,
-                "CON_RUCIO": cid,
-            },
-        )
+            db_container = None
+            rdbms = caseenv.get('RDBMS', '')
+            if rdbms:
+                service_key = caseenv.get('SERVICES', 'default')
+                db_container_class = rdbms_container.get(rdbms, None)
+                if db_container_class:
+                    db_container = create_cnt(db_container_class)
+                    additional_containers.append(db_container)
+                additional_containers += list(map(create_cnt, services[service_key]))
 
-        # output registered hostnames
-        run('docker', *namespace_args, 'exec', cid, 'cat', '/etc/hosts')
+            with CumulativeContextManager(*additional_containers):
+                db_env = dict()
+                if db_container:
+                    db_env['CON_DB'] = db_container.cid
 
-        # Running install_script.sh
-        run('docker', *namespace_args, 'exec', cid, './tools/test/install_script.sh')
+                # Running before_script.sh
+                run(
+                    './tools/test/before_script.sh',
+                    env={
+                        **os.environ,
+                        **caseenv,
+                        **namespace_env,
+                        **db_env,
+                        "CONTAINER_RUNTIME_ARGS": ' '.join(namespace_args),
+                        "CON_RUCIO": rucio_container.cid,
+                    },
+                )
 
-        # Running test.sh
-        run('docker', *namespace_args, 'exec', cid, './tools/test/test.sh')
+                # register service hostnames
+                run('docker', *namespace_args, 'exec', rucio_container.cid, '/bin/sh', '-c', f'echo "127.0.0.1 {" ".join(service_hostnames)}" | tee -a /etc/hosts')
 
-        # if everything went through without an exception, mark this case as a success
-        return True
-    except subprocess.CalledProcessError as error:
-        print(
-            f"** Process '{error.cmd}' exited with code {error.returncode}",
-            {**caseenv, "IMAGE": image},
-            file=sys.stderr,
-            flush=True,
-        )
-    finally:
-        if cid:
-            run('docker', *namespace_args, 'logs', cid, check=False)
-            run('docker', *namespace_args, 'stop', cid, check=False)
+                # Running install_script.sh
+                run('docker', *namespace_args, 'exec', rucio_container.cid, './tools/test/install_script.sh')
+
+                # Running test.sh
+                if tests:
+                    tests_env = ('--env', 'TESTS=' + ' '.join(tests))
+                    tests_arg = ('-p', )
+                else:
+                    tests_env = ()
+                    tests_arg = ()
+
+                run('docker', *namespace_args, 'exec', *tests_env, rucio_container.cid, './tools/test/test.sh', *tests_arg)
+
+                # if everything went through without an exception, mark this case as a success
+                return True
+        except subprocess.CalledProcessError as error:
+            print(
+                f"** Process '{error.cmd}' exited with code {error.returncode}",
+                {**caseenv, "IMAGE": image},
+                file=sys.stderr,
+                flush=True,
+            )
+        finally:
+            run('docker', *namespace_args, 'logs', rucio_container.cid, check=False)
             if copy_rucio_logs:
                 try:
                     if logs_dir.exists():
                         shutil.rmtree(logs_dir)
-                    run('docker', *namespace_args, 'cp', f'{cid}:/var/log', str(logs_dir))
+                    run('docker', *namespace_args, 'cp', f'{rucio_container.cid}:/var/log', str(logs_dir))
                 except Exception:
                     print(
                         "** Error on retrieving logs for",
@@ -330,8 +345,13 @@ def run_with_httpd(
                         file=sys.stderr,
                         flush=True,
                     )
-            run('docker', *namespace_args, 'rm', '-v', cid, check=False)
-    return False
+        return False
+
+
+def main():
+    obj = json.load(sys.stdin)
+    cases = (obj["matrix"],) if isinstance(obj["matrix"], dict) else obj["matrix"]
+    run_tests(cases, obj["images"])
 
 
 if __name__ == "__main__":

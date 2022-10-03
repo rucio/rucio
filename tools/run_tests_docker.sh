@@ -27,7 +27,7 @@ function usage {
   echo '  -t    Verbose output from pytest'
   echo '  -a    Skip alembic downgrade/upgrade test'
   echo '  -x    exit instantly on first error or failed test'
-  echo '  -p    Indicate policy package tests'
+  echo '  -p    Indicate test selection by TESTS environment variable'
   exit
 }
 
@@ -37,11 +37,11 @@ do
     h) usage;;
     i) init_only="true";;
     r) activate_rse="true";;
-    s) special="true";;
+    s) special="true";selection="true";TESTS="test_dirac.py";;
     t) trace="true";;
     a) noalembic="true";;
     x) exitfirst="-x";;
-    p) votest="true";;
+    p) selection="true";;
   esac
 done
 export RUCIO_HOME=/opt/etc/test
@@ -138,31 +138,22 @@ if test ${init_only}; then
     exit
 fi
 
-if test ${special}; then
-    echo 'Using the special config and only running test_dirac'
-    tools/pytest.sh -v --tb=short ${exitfirst:-} test_dirac.py
+PYTEST_SH_ARGS="${exitfirst:-}"
+
+if test ${trace}; then
+    echo 'Running tests in verbose mode'
+    PYTEST_SH_ARGS="-vvv $PYTEST_SH_ARGS"
 else
-    if test ${trace}; then
-        echo 'Running tests in verbose mode'
-        if test ${votest}; then
-            echo "Running the following votests for ${POLICY}"
-            TESTS=$(echo "${@:2}")
-            echo $TESTS | tr " " "\n"
-            tools/pytest.sh -vvv ${exitfirst:-} $TESTS
-        else
-            tools/pytest.sh -vvv ${exitfirst:-}
-        fi
-    else
-        echo 'Running tests'
-        if test ${votest}; then
-            echo "Running the following votests for ${POLICY}"
-            TESTS=$(echo "${@:2}")
-            echo $TESTS | tr " " "\n"
-            tools/pytest.sh -v --tb=short ${exitfirst:-} $TESTS
-        else
-            tools/pytest.sh -v --tb=short ${exitfirst:-}
-        fi
-    fi
+    echo 'Running tests'
+    PYTEST_SH_ARGS="-v --tb=short $PYTEST_SH_ARGS"
+fi
+
+if test ${selection}; then
+    echo "Running the following tests:"
+    echo $TESTS | tr " " "\n"
+    tools/pytest.sh $PYTEST_SH_ARGS $TESTS
+else
+    tools/pytest.sh $PYTEST_SH_ARGS
 fi
 
 exit $?

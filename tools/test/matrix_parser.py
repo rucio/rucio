@@ -49,7 +49,7 @@ def readobj(key: str, val: typing.Dict, denylist: typing.List, allowlist: typing
         del val["deny"]
     if "allow" in val:
         allowlist.append({"key": mapping.get(key, key), "value": itemid,
-                        "allowed": extract_mapped_list(val["allow"])})
+                          "allowed": extract_mapped_list(val["allow"])})
         del val["allow"]
 
     if len(val.keys()) == 0:
@@ -58,8 +58,8 @@ def readobj(key: str, val: typing.Dict, denylist: typing.List, allowlist: typing
         return itemid, val
 
 
-def main():
-    input_conf = dict(yaml.safe_load(sys.stdin))
+def parse_matrix(fhandle) -> "typing.List":
+    input_conf = dict(yaml.safe_load(fhandle))
     denylist = []
     allowlist = []
     mappedkeyvalues = {mapping.get(key, key): [readobj(key, val, denylist, allowlist) for val in input_conf[key]]
@@ -94,7 +94,13 @@ def main():
                                                   denylist)),
                            product_dicts)
 
-    print(json.dumps(list(product_dicts)), file=sys.stdout)
+    return list(product_dicts)
+
+
+def main():
+    """Use stdin and stdout by default"""
+    product_dicts = parse_matrix(sys.stdin)
+    print(json.dumps(product_dicts), file=sys.stdout)
 
 
 if __name__ == "__main__":
