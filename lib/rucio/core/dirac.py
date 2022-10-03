@@ -71,7 +71,7 @@ def add_files(lfns, account, ignore_availability, vo='def', session=None):
     scopes = [scope.external for scope in scopes]
     exist_lfn = []
     try:
-        lifetime_dict = config_get(section='dirac', option='lifetime', session=session)
+        lifetime_dict: str = config_get(section='dirac', option='lifetime', default='{}', session=session)
         lifetime_dict = loads(lifetime_dict)
     except ConfigNotFound:
         lifetime_dict = {}
@@ -104,10 +104,10 @@ def add_files(lfns, account, ignore_availability, vo='def', session=None):
         # Compute lifetime
         lifetime = None
         if dsn_scope in lifetime_dict:
-            lifetime = lifetime_dict[dsn_scope]
+            lifetime = lifetime_dict[dsn_scope.external]
         else:
             for pattern in lifetime_dict:
-                if re.match(pattern, dsn_scope):
+                if dsn_scope.external and re.match(pattern, str(dsn_scope.external)):
                     lifetime = lifetime_dict[pattern]
                     break
 

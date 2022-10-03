@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytest
 
 from rucio.common.exception import InvalidObject
 from rucio.common.schema.belleii import validate_schema
 from rucio.common.utils import generate_uuid, extract_scope
+from rucio.core.config import set as config_set
 from rucio.tests.common import did_name_generator, skip_non_belleii
 
 
@@ -29,8 +30,9 @@ def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac
     nbfiles = 5
     rse1, rse1_id = rse_factory.make_srm_rse(deterministic=True)
     rse_client.add_rse_attribute(rse=rse1, key='ANY', value='True')
+    config_set('dirac', 'lifetime', '{"user.*": 2592400}')
 
-    # Create replicas on rse1 using addfile
+    # Create replicas on rse1 using addfile in mock scope (not lifetime)
     lfns = [{'lfn': did_name_generator('file'), 'rse': rse1, 'bytes': 1, 'adler32': '0cc737eb', 'guid': generate_uuid()} for _ in range(nbfiles)]
     files = [{'scope': extract_scope(lfn['lfn'], [])[0], 'name': lfn['lfn']} for lfn in lfns]
     reps = [{'scope': extract_scope(lfn['lfn'], [])[0], 'name': lfn['lfn'], 'rse': rse1} for lfn in lfns]
@@ -65,7 +67,23 @@ def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac
         rules = [rule for rule in did_client.list_did_rules(scope, name)]
         assert len(rules) == 1
         assert rules[0]['rse_expression'] == rse1
-        assert datetime.now() - rules[0]['expires_at'] < timedelta(hours=24)
+        assert (rules[0]['expires_at'] - datetime.utcnow()).seconds < 86400
+
+    # Create replicas on rse1 using addfile in user scope (30 days lifetime)
+    lfns = [{'lfn': did_name_generator('file', name_prefix='user'), 'rse': rse1, 'bytes': 1, 'adler32': '0cc737eb', 'guid': generate_uuid()} for _ in range(nbfiles)]
+    files = [{'scope': extract_scope(lfn['lfn'], [])[0], 'name': lfn['lfn']} for lfn in lfns]
+    reps = [{'scope': extract_scope(lfn['lfn'], [])[0], 'name': lfn['lfn'], 'rse': rse1} for lfn in lfns]
+    dirac_client.add_files(lfns=lfns, ignore_availability=False)
+
+    # Check that the default rules are created
+    for lfn in lfns:
+        # Check dataset rule
+        directory = "/".join(lfn['lfn'].split('/')[:-1])
+        scope, name = extract_scope(directory, [])
+        rules = [rule for rule in did_client.list_did_rules(scope, name)]
+        assert len(rules) == 1
+        assert rules[0]['rse_expression'] == 'ANY=true'
+        assert (rules[0]['expires_at'] - datetime.utcnow()).days == 30
 
 
 @skip_non_belleii

@@ -38,7 +38,7 @@ from rucio.tests.common_server import reset_config_table  # noqa: E402
 
 
 def belleii_bootstrap(client):
-    scopes = ['raw', 'hraw', 'other', 'mc_tmp', 'mc', 'test', 'user', 'data', 'data_tmp', 'group']
+    scopes = ['raw', 'hraw', 'other', 'mc_tmp', 'mc', 'test', 'user', 'data', 'data_tmp', 'group', 'mock']
     for scope in scopes:
         try:
             client.add_scope(scope=scope, account='root')
@@ -47,7 +47,7 @@ def belleii_bootstrap(client):
         except Exception as err:
             print(err)
 
-    lpns = ['/belle', '/belle/mc', '/belle/Data', '/belle/user', '/belle/raw']
+    lpns = ['/belle', '/belle/mc', '/belle/Data', '/belle/user', '/belle/raw', '/belle/mock']
     for lpn in lpns:
         scope, name = extract_scope(lpn)
         try:
