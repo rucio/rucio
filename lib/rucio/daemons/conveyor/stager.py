@@ -48,7 +48,7 @@ def run_once(bulk, group_bulk, rse_ids, scheme, failover_scheme, transfertool_kw
         activity=activity,
         rses=rse_ids,
         schemes=scheme,
-        transfertool_classes=[FTS3Transfertool],
+        transfertools=[FTS3Transfertool.external_name],
         older_than=None,
         request_type=RequestType.STAGEIN,
         logger=logger,
