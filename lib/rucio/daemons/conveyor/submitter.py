@@ -25,7 +25,7 @@ from configparser import NoOptionError
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
 from rucio.core.monitor import MultiCounter, record_timer, Timer
@@ -35,22 +35,15 @@ from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
-from rucio.transfertool.mock import MockTransfertool
 
 graceful_stop = threading.Event()
 
-TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)  # NOTE: This should eventually be completely removed, as it can be fetched from the request
+TRANSFER_TOOLS = config_get_list('conveyor', 'transfertool', False, None)  # NOTE: This should eventually be completely removed, as it can be fetched from the request
 FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)  # NOTE: TRANSFERTOOL to filter requests on
 TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
 
 GET_TRANSFERS_COUNTER = MultiCounter(prom='rucio_daemons_conveyor_submitter_get_transfers', statsd='daemons.conveyor.transfer_submitter.get_transfers',
                                      documentation='Number of transfers retrieved')
-
-TRANSFERTOOL_CLASSES_BY_NAME = {
-    FTS3Transfertool.external_name: FTS3Transfertool,
-    GlobusTransferTool.external_name: GlobusTransferTool,
-    MockTransfertool.external_name: MockTransfertool,
-}
 
 
 def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availability, rse_ids,
@@ -69,7 +62,7 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
         rses=rse_ids,
         schemes=scheme,
         filter_transfertool=filter_transfertool,
-        transfertool_classes=[TRANSFERTOOL_CLASSES_BY_NAME[transfertool] for transfertool in transfertools],
+        transfertools=transfertools,
         older_than=None,
         request_type=RequestType.TRANSFER,
         ignore_availability=ignore_availability,
@@ -119,7 +112,7 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
 def submitter(once=False, rses=None, partition_wait_time=10,
               bulk=100, group_bulk=1, group_policy='rule', source_strategy=None,
               activities=None, sleep_time=600, max_sources=4, archive_timeout_override=None,
-              filter_transfertool=FILTER_TRANSFERTOOL, transfertool=TRANSFER_TOOL,
+              filter_transfertool=FILTER_TRANSFERTOOL, transfertools=TRANSFER_TOOLS,
               transfertype=TRANSFER_TYPE, ignore_availability=False):
     """
     Main loop to submit a new transfer primitive to a transfertool.
@@ -173,7 +166,6 @@ def submitter(once=False, rses=None, partition_wait_time=10,
     else:
         rse_ids = None
 
-    transfertools = transfertool.split(',')
     transfertool_kwargs = {
         FTS3Transfertool: {
             'group_policy': group_policy,

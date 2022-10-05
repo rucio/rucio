@@ -790,7 +790,7 @@ def test_transfer_to_mas_new_replica(rse_factory, did_factory, root_account):
 
     assert request['request_type'] == RequestType.TRANSFER
 
-    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertool='mock', transfertype='single', filter_transfertool=None)
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertools=['mock'], transfertype='single', filter_transfertool=None)
 
     assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
     assert rule_core.get_rule(rule_id)['state'] == RuleState.REPLICATING
@@ -833,7 +833,7 @@ def test_failed_transfer_to_mas_new_replica(rse_factory, did_factory, root_accou
 
     assert request['request_type'] == RequestType.TRANSFER
 
-    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertool='mock', transfertype='single', filter_transfertool=None)
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertools=['mock'], transfertype='single', filter_transfertool=None)
 
     assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
     assert rule_core.get_rule(rule_id)['state'] == RuleState.REPLICATING
@@ -878,7 +878,7 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
 
     assert request['request_type'] == RequestType.TRANSFER
 
-    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertool='mock', transfertype='single', filter_transfertool=None)
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertools=['mock'], transfertype='single', filter_transfertool=None)
 
     assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
     assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.REPLICATING
@@ -943,7 +943,7 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
 
     assert request['request_type'] == RequestType.TRANSFER
 
-    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertool='mock', transfertype='single', filter_transfertool=None)
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertools=['mock'], transfertype='single', filter_transfertool=None)
 
     assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
     assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.REPLICATING
@@ -966,7 +966,7 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
     # since the first rule is STUCK assert a transfer not stagein
     assert request['request_type'] == RequestType.TRANSFER
 
-    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertool='mock', transfertype='single', filter_transfertool=None)
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertools=['mock'], transfertype='single', filter_transfertool=None)
 
     assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
     assert lock_core.get_replica_locks_for_rule_id(rule_id=rule2_id)[0]['state'] == LockState.REPLICATING
@@ -1009,7 +1009,7 @@ def test_transfer_failed_stagein_to_mas_existing_replica(rse_factory, did_factor
 
     assert request['request_type'] == RequestType.TRANSFER
 
-    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertool='mock', transfertype='single', filter_transfertool=None)
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertools=['mock'], transfertype='single', filter_transfertool=None)
 
     assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
     assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.REPLICATING
@@ -1033,7 +1033,7 @@ def test_transfer_failed_stagein_to_mas_existing_replica(rse_factory, did_factor
 
     assert request['request_type'] == RequestType.STAGEIN
 
-    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertool='mock', transfertype='single', filter_transfertool=None)
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertools=['mock'], transfertype='single', filter_transfertool=None)
 
     assert request['attributes']['lifetime'] == str(maximum_pin_lifetime)
     assert lock_core.get_replica_locks_for_rule_id(rule_id=rule2_id)[0]['state'] == LockState.REPLICATING
@@ -1119,8 +1119,7 @@ def test_cancel_rule(rse_factory, did_factory, root_account):
             # Simulate using the mock gfal plugin that it takes a long time to copy the file
             file['sources'] = [set_query_parameters(s_url, {'time': 30}) for s_url in file['sources']]
 
-    with patch('rucio.daemons.conveyor.submitter.TRANSFERTOOL_CLASSES_BY_NAME') as tt_mock:
-        tt_mock.__getitem__.return_value = _FTSWrapper
+    with patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': _FTSWrapper}):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
@@ -1463,8 +1462,7 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
             certs_used_by_poller.append(self.cert[0])
             return {}
 
-    with patch('rucio.daemons.conveyor.submitter.TRANSFERTOOL_CLASSES_BY_NAME') as tt_mock:
-        tt_mock.__getitem__.return_value = _FTSWrapper
+    with patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': _FTSWrapper}):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
         assert sorted(certs_used_by_submitter) == ['DEFAULT_DUMMY_CERT', 'NEW_VO_DUMMY_CERT']
 
@@ -1532,8 +1530,7 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
             file['sources'] = [set_query_parameters(s_url, {'errno': 2}) for s_url in file['sources']]
 
     # Submit the first time, but force a failure to verify that retries are correctly handled
-    with patch('rucio.daemons.conveyor.submitter.TRANSFERTOOL_CLASSES_BY_NAME') as tt_mock:
-        tt_mock.__getitem__.return_value = _FTSWrapper
+    with patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': _FTSWrapper}):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
     request = __wait_for_request_state(dst_rse_id=rse2_id, state=RequestState.FAILED, **did)
@@ -1624,8 +1621,7 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
             file['sources'] = [set_query_parameters(s_url, {'checksum': replica['adler32']}) for s_url in file['sources']]
             file['destinations'] = [set_query_parameters(d_url, {'checksum': 'randomString2'}) for d_url in file['destinations']]
 
-    with patch('rucio.daemons.conveyor.submitter.TRANSFERTOOL_CLASSES_BY_NAME') as tt_mock:
-        tt_mock.__getitem__.return_value = _FTSWrapper
+    with patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': _FTSWrapper}):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
     # Checksum verification disabled on this rse, so the transfer must use source validation and succeed

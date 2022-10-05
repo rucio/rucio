@@ -82,6 +82,7 @@ class GlobusTransferTool(Transfertool):
     """
 
     external_name = 'globus'
+    required_rse_attrs = ('globus_endpoint_id', )
 
     def __init__(self, external_host, logger=logging.log, group_bulk=200, group_policy='single'):
         """
@@ -99,9 +100,7 @@ class GlobusTransferTool(Transfertool):
     @classmethod
     def submission_builder_for_path(cls, transfer_path, logger=logging.log):
         hop = transfer_path[0]
-        source_globus_endpoint_id = hop.src.rse.attributes.get('globus_endpoint_id', None)
-        dest_globus_endpoint_id = hop.dst.rse.attributes.get('globus_endpoint_id', None)
-        if not source_globus_endpoint_id or not dest_globus_endpoint_id:
+        if not cls.can_perform_transfer(hop.src.rse, hop.dst.rse):
             logger(logging.WARNING, "Source or destination globus_endpoint_id not set. Skipping {}".format(hop))
             return [], None
 

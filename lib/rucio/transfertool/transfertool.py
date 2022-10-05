@@ -14,10 +14,14 @@
 # limitations under the License.
 
 import logging
+from typing import TYPE_CHECKING
 
 from abc import ABCMeta, abstractmethod
 
 from rucio.core.request import get_request
+
+if TYPE_CHECKING:
+    from rucio.core.rse import RseData
 
 
 class TransferToolBuilder(object):
@@ -112,6 +116,9 @@ class Transfertool(object, metaclass=ABCMeta):
     Interface definition of the Rucio transfertool
     """
 
+    external_name = ''
+    required_rse_attrs = ('globus_endpoint_id', )
+
     def __init__(self, external_host, logger=logging.log):
         """
         Initializes the transfertool
@@ -125,7 +132,18 @@ class Transfertool(object, metaclass=ABCMeta):
     def __str__(self):
         return self.external_host
 
-    @staticmethod
+    @classmethod
+    def can_perform_transfer(cls, source_rse: "RseData", dest_rse: "RseData"):
+        """
+        Return True if this transfertool is able to perform a transfer between the given source and destination rses
+        """
+        if (
+                all(source_rse.attributes.get(attribute) is not None for attribute in cls.required_rse_attrs)
+                and all(dest_rse.attributes.get(attribute) is not None for attribute in cls.required_rse_attrs)
+        ):
+            return True
+        return False
+
     @classmethod
     def submission_builder_for_path(cls, transfer_path, logger=logging.log):
         """

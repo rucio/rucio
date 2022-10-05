@@ -21,8 +21,10 @@ from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.common import exception
+from rucio.common.config import config_get_list
 from rucio.common.exception import RucioException
 from rucio.common.logging import setup_logging
+from rucio.core import transfer as transfer_core
 from rucio.core.request import set_requests_state_if_possible, list_transfer_requests_and_source_replicas
 from rucio.core.transfer import prepare_transfers, list_transfer_admin_accounts, build_transfer_paths
 from rucio.core.topology import Topology
@@ -30,7 +32,7 @@ from rucio.db.sqla.constants import RequestState
 from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from typing import Optional, List
     from sqlalchemy.orm import Session
     from rucio.daemons.common import HeartbeatHandler
 
@@ -85,6 +87,7 @@ def run(once=False, threads=1, sleep_time=10, bulk=100):
 def preparer(once, sleep_time, bulk, partition_wait_time=10):
     # Make an initial heartbeat so that all instanced daemons have the correct worker number on the next try
     logger_prefix = executable = 'conveyor-preparer'
+    transfertools = config_get_list('conveyor', 'transfertool', False, None)
 
     run_daemon(
         once=once,
@@ -95,18 +98,27 @@ def preparer(once, sleep_time, bulk, partition_wait_time=10):
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
             run_once,
-            bulk=bulk
+            transfertools=transfertools,
+            bulk=bulk,
         ),
         activities=None,
     )
 
 
-def run_once(bulk: int = 100, heartbeat_handler: "Optional[HeartbeatHandler]" = None, session: "Optional[Session]" = None, **kwargs) -> bool:
+def run_once(
+        transfertools: "Optional[List[str]]" = None,
+        bulk: int = 100,
+        heartbeat_handler: "Optional[HeartbeatHandler]" = None,
+        session: "Optional[Session]" = None,
+        **kwargs
+) -> bool:
     if heartbeat_handler:
         worker_number, total_workers, logger = heartbeat_handler.live()
     else:
         # This is used in tests
         worker_number, total_workers, logger = 0, 0, logging.log
+    if not transfertools:
+        transfertools = list(transfer_core.TRANSFERTOOL_CLASSES_BY_NAME)
 
     start_time = time()
     requests_handled = 0
@@ -133,7 +145,7 @@ def run_once(bulk: int = 100, heartbeat_handler: "Optional[HeartbeatHandler]" = 
             updated_msg = 'had nothing to do'
         else:
             candidate_paths, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source, _ = ret
-            updated_reqs, reqs_no_transfertool = prepare_transfers(candidate_paths, logger=logger, session=session)
+            updated_reqs, reqs_no_transfertool = prepare_transfers(candidate_paths, transfertools=transfertools, logger=logger, session=session)
             updated_msg = f'updated {len(updated_reqs)}/{bulk} requests'
 
             if reqs_no_transfertool:

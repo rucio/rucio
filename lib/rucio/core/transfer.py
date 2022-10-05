@@ -43,6 +43,8 @@ from rucio.db.sqla.constants import DIDType, RequestState, RequestType
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
+from rucio.transfertool.globus import GlobusTransferTool
+from rucio.transfertool.mock import MockTransfertool
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Set, Tuple
@@ -64,6 +66,12 @@ REGION_ACCOUNTS = make_region().configure('dogpile.cache.memory', expiration_tim
 WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
 
 DEFAULT_MULTIHOP_TOMBSTONE_DELAY = int(datetime.timedelta(hours=2).total_seconds())
+
+TRANSFERTOOL_CLASSES_BY_NAME = {
+    FTS3Transfertool.external_name: FTS3Transfertool,
+    GlobusTransferTool.external_name: GlobusTransferTool,
+    MockTransfertool.external_name: MockTransfertool,
+}
 
 
 class TransferDestination:
@@ -776,30 +784,13 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
     yield from sorted(candidate_paths, key=__transfer_order_key)
 
 
-def __parse_request_transfertools(
-        rws: "RequestWithSources",
-        logger: "Callable" = logging.log,
-):
-    """
-    Parse a set of desired transfertool names from the database field request.transfertool
-    """
-    request_transfertools = set()
-    try:
-        if rws.transfertool:
-            request_transfertools = {tt.strip() for tt in rws.transfertool.split(',')}
-    except Exception:
-        logger(logging.WARN, "Unable to parse requested transfertools: {}".format(request_transfertools))
-        request_transfertools = None
-    return request_transfertools
-
-
 def build_transfer_paths(
         topology: "Topology",
         requests_with_sources: "Iterable[RequestWithSources]",
         admin_accounts: "Optional[Set[InternalAccount]]" = None,
         schemes: "Optional[List[str]]" = None,
         failover_schemes: "Optional[List[str]]" = None,
-        active_transfertools: "Optional[Set[str]]" = None,
+        transfertools: "Optional[List[str]]" = None,
         requested_source_only: bool = False,
         preparer_mode: bool = False,
         logger: "Callable" = logging.log,
@@ -868,11 +859,7 @@ def build_transfer_paths(
             logger(logging.WARNING, '%s: dst RSE is restricted for write. Will skip the submission', rws.request_id)
             continue
 
-        request_transfertool = __parse_request_transfertools(rws, logger)
-        if request_transfertool is None:
-            logger(logging.WARNING, '%s: failed to parse transfertool from request', rws.request_id)
-            continue
-        if request_transfertool and active_transfertools and not request_transfertool.intersection(active_transfertools):
+        if rws.transfertool and transfertools and rws.transfertool not in transfertools:
             # The request explicitly asks for a transfertool which this submitter doesn't support
             logger(logging.INFO, '%s: unsupported transfertool. Skipping.', rws.request_id)
             reqs_unsupported_transfertool.add(rws.request_id)
@@ -1091,6 +1078,7 @@ def cancel_transfer(transfertool_obj, transfer_id):
 def prepare_transfers(
         candidate_paths_by_request_id: "Dict[str, List[List[DirectTransferDefinition]]]",
         logger: "LoggerFunction" = logging.log,
+        transfertools: "Optional[List[str]]" = None,
         session: "Optional[Session]" = None,
 ) -> "Tuple[List[str], List[str]]":
     """
@@ -1109,13 +1097,11 @@ def prepare_transfers(
             all_hops_ok = True
             transfertool = None
             for hop in candidate_path:
-                src_rse_transfertools = get_supported_transfertools(hop.src.rse, session=session)
-                dst_rse_transfertools = get_supported_transfertools(hop.dst.rse, session=session)
-                common_transfertools = dst_rse_transfertools.intersection(src_rse_transfertools)
+                common_transfertools = get_supported_transfertools(hop.src.rse, hop.dst.rse, transfertools=transfertools, session=session)
                 if not common_transfertools:
                     all_hops_ok = False
                     break
-                # We need the last hop transfertool
+                # We need the last hop transfertool. Always prioritize fts3 if it exists.
                 transfertool = 'fts3' if 'fts3' in common_transfertools else common_transfertools.pop()
 
             if all_hops_ok and transfertool:
@@ -1186,14 +1172,22 @@ def _throttler_request_state(activity, source_rse_id, dest_rse_id, session: "Opt
     return RequestState.WAITING if limit_found else RequestState.QUEUED
 
 
-def get_supported_transfertools(rse_data: "RseData", session=None) -> "Set[str]":
-    transfertool_attr = rse_data.ensure_loaded(load_attributes=True, session=session).attributes.get('transfertool')
+def get_supported_transfertools(
+        source_rse: "RseData",
+        dest_rse: "RseData",
+        transfertools: "Optional[List[str]]" = None,
+        session: "Optional[Session]" = None,
+) -> "Set[str]":
 
-    if not transfertool_attr:
-        return {'fts3', 'globus'}
+    if not transfertools:
+        transfertools = list(TRANSFERTOOL_CLASSES_BY_NAME)
+
+    source_rse.ensure_loaded(load_attributes=True, session=session)
+    dest_rse.ensure_loaded(load_attributes=True, session=session)
 
     result = set()
-    for transfertool in transfertool_attr.split(sep=','):
-        if transfertool.strip():
-            result.add(transfertool)
+    for tt_name in transfertools:
+        tt_class = TRANSFERTOOL_CLASSES_BY_NAME.get(tt_name)
+        if tt_class and tt_class.can_perform_transfer(source_rse, dest_rse):
+            result.add(tt_name)
     return result
