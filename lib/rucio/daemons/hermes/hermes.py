@@ -113,9 +113,9 @@ def run_once_emails(heartbeat_handler: HeartbeatHandler,
 
             logger(logging.DEBUG, 'submitting done: %s',
                    str(message['id']))
-
-        delete_messages(to_delete)
-        logger(logging.INFO, 'submitted %i messages', len(to_delete))
+        # YG not delete when debugging with Hermes
+        # delete_messages(to_delete)
+        # logger(logging.INFO, 'submitted %i messages', len(to_delete))
 
     must_sleep = False
     if len(messages) < bulk:
@@ -240,6 +240,7 @@ def run_once_messages(heartbeat_handler: HeartbeatHandler,
         for message in messages:
             try:
                 conn = random.sample(conns, 1)[0]
+                # YG always false 
                 if not conn.is_connected():
                     host_and_ports = conn.transport._Transport__host_and_ports[0][0]
                     RECONNECT_COUNTER.labels(host=host_and_ports.split('.')[0]).inc()
@@ -369,6 +370,7 @@ def run(once: bool = False,
     brokers_resolved = []
     for broker in brokers_alias:
         try:
+            # YG load blance 
             addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
             brokers_resolved.extend(ai[4][0] for ai in addrinfos)
         except socket.gaierror as ex:
