@@ -20,7 +20,8 @@ from configparser import NoOptionError
 
 from copy import deepcopy
 from datetime import datetime, timedelta
-from re import match
+from multiprocessing.sharedctypes import Value
+from re import match, fullmatch
 from string import Template
 from typing import Dict, Any, Optional
 
@@ -1399,6 +1400,9 @@ def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, An
     :raises:                           RuleNotFound, RuleReplaceFailed, InvalidRSEExpression
     """
     override = override or {}
+
+    if not bool(fullmatch(r'([a-f]|\d)+', rule_id)): # or whichever regex matches the required format
+        raise RuleReplaceFailed('The rule-id is not of the required format.')
 
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
