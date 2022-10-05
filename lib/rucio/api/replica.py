@@ -75,14 +75,37 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', session=None):
     :param session: The database session in use.
     :returns: Dictionary {rse_name -> [list of replicas failed to declare]}
     """
+    return _declare_bad_or_suspicious_file_replicas(replicas, reason, issuer, vo, BadFilesStatus.BAD, session)
 
+
+@transactional_session
+def declare_suspicious_file_replicas(replicas, reason, issuer, vo='def', session=None):
+    """
+    Declare a list of bad replicas.
+
+    :param replicas: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or "rse": <rse_name>}.
+    :param reason: The reason of the loss.
+    :param issuer: The issuer account.
+    :param vo: The VO to act on.
+    :param session: The database session in use.
+    """
+    return _declare_bad_or_suspicious_file_replicas(replicas, reason, issuer, vo, BadFilesStatus.SUSPICIOUS, session)
+
+
+def _declare_bad_or_suspicious_file_replicas(replicas, reason, issuer, vo, status, session=None):
     if not replicas:
         return {}
 
     kwargs = {}
     rse_map = {}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='declare_bad_file_replicas', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not declare bad replicas' % (issuer))
+    if status == BadFilesStatus.BAD:
+        if not permission.has_permission(issuer=issuer, vo=vo, action='declare_bad_file_replicas', kwargs=kwargs, session=session):
+            raise exception.AccessDenied('Account %s can not declare bad replicas' % (issuer))
+    elif status == BadFilesStatus.SUSPICIOUS:
+        if not permission.has_permission(issuer=issuer, vo=vo, action='declare_suspicious_file_replicas', kwargs=kwargs, session=session):
+            raise exception.AccessDenied('Account %s can not declare suspicious replicas' % (issuer))
+    else:
+        raise ValueError('Can only declare BAD or SUSPICIOUS replicas')
 
     issuer = InternalAccount(issuer, vo=vo)
 
@@ -107,7 +130,7 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', session=None):
                 "rse_id": rse_id,
                 "name": r["name"]
             })
-    undeclared = replica.declare_bad_file_replicas(replicas_lst, reason=reason, issuer=issuer, status=BadFilesStatus.BAD, session=session)
+    undeclared = replica.declare_bad_file_replicas(replicas_lst, reason=reason, issuer=issuer, status=status, session=session)
     out = {}
     for rse_id, ulist in undeclared.items():
         if ulist:
@@ -125,35 +148,6 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', session=None):
             if rse_name:
                 out[rse_name] = out.get(rse_name, []) + ulist
     return out
-
-
-@transactional_session
-def declare_suspicious_file_replicas(pfns, reason, issuer, vo='def', session=None):
-    """
-    Declare a list of bad replicas.
-
-    :param pfns: The list of PFNs.
-    :param reason: The reason of the loss.
-    :param issuer: The issuer account.
-    :param vo: The VO to act on.
-    :param session: The database session in use.
-    """
-    kwargs = {}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='declare_suspicious_file_replicas', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not declare suspicious replicas' % (issuer))
-
-    issuer = InternalAccount(issuer, vo=vo)
-
-    replicas = replica.declare_bad_file_replicas(pfns, reason=reason, issuer=issuer, status=BadFilesStatus.SUSPICIOUS, session=session)
-
-    for k in list(replicas):
-        try:
-            rse = get_rse_name(rse_id=k, session=session)
-            replicas[rse] = replicas.pop(k)
-        except exception.RSENotFound:
-            pass
-
-    return replicas
 
 
 @stream_session
