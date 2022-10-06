@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, Blueprint, request
+from flask import Flask, request
 
 from rucio.api.importer import import_data
 from rucio.common.utils import parse_response
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, ErrorHandlingMethodView, json_parameters
+from rucio.web.rest.flaskapi.v1.common import response_headers, ErrorHandlingMethodView, json_parameters
+from rucio.web.ui.flask.bp import AuthorisedBlueprint
 
 
 class Import(ErrorHandlingMethodView):
@@ -130,7 +131,7 @@ class Import(ErrorHandlingMethodView):
 
 
 def blueprint(with_doc=False):
-    bp = Blueprint('import', __name__, url_prefix='/import')
+    bp = AuthorisedBlueprint(True, 'import', __name__, url_prefix='/import')
 
     import_view = Import.as_view('scope')
     if not with_doc:
@@ -138,7 +139,6 @@ def blueprint(with_doc=False):
         bp.add_url_rule('', view_func=import_view, methods=['post', ])
     bp.add_url_rule('/', view_func=import_view, methods=['post', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

@@ -15,14 +15,15 @@
 
 from typing import TYPE_CHECKING
 
-from flask import Flask, Blueprint, request
+from flask import Flask, request
 from werkzeug.datastructures import Headers
 
 from rucio.api.credential import get_signed_url
 from rucio.common.exception import CannotAuthenticate
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, extract_vo, \
-    generate_http_error_flask, ErrorHandlingMethodView, request_auth_env, response_headers
+    generate_http_error_flask, ErrorHandlingMethodView, response_headers
 
+from rucio.web.ui.flask.bp import AuthorisedBlueprint
 if TYPE_CHECKING:
     from typing import Optional
     from rucio.web.rest.flaskapi.v1.common import HeadersType
@@ -192,7 +193,7 @@ class SignURL(ErrorHandlingMethodView):
 
 
 def blueprint(with_doc=False):
-    bp = Blueprint('credentials', __name__, url_prefix='/credentials')
+    bp = AuthorisedBlueprint(True, 'credentials', __name__, url_prefix='/credentials')
 
     signurl_view = SignURL.as_view('signurl')
     bp.add_url_rule('/signurl', view_func=signurl_view, methods=['get', 'options'])
@@ -200,7 +201,6 @@ def blueprint(with_doc=False):
         # yes, /signur ~= '/signurl?$'
         bp.add_url_rule('/signur', view_func=signurl_view, methods=['get', 'options'])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
 
     return bp

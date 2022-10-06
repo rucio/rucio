@@ -15,7 +15,7 @@
 
 from json import dumps
 
-from flask import Flask, Blueprint, Response, request, jsonify
+from flask import Flask, Response, request, jsonify
 
 from rucio.api.account_limit import get_rse_account_usage
 from rucio.api.rse import add_rse, update_rse, list_rses, del_rse, add_rse_attribute, list_rse_attributes, \
@@ -27,8 +27,9 @@ from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RSEOper
     InvalidRSEExpression, RSEAttributeNotFound, CounterNotFound, InvalidPath, ReplicaNotFound, InputValidationError
 from rucio.common.utils import render_json, APIEncoder
 from rucio.rse import rsemanager
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+from rucio.web.ui.flask.bp import AuthorisedBlueprint
 
 
 class RSEs(ErrorHandlingMethodView):
@@ -2159,7 +2160,7 @@ class QoSPolicy(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('rses', __name__, url_prefix='/rses')
+    bp = AuthorisedBlueprint(True, 'rses', __name__, url_prefix='/rses')
 
     attributes_view = Attributes.as_view('attributes')
     bp.add_url_rule('/<rse>/attr/<key>', view_func=attributes_view, methods=['post', 'delete'])
@@ -2190,7 +2191,6 @@ def blueprint():
     rses_view = RSEs.as_view('rses')
     bp.add_url_rule('/', view_func=rses_view, methods=['get', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, Blueprint, request, Response
+from flask import Flask, request, Response
 
 from rucio.api.exporter import export_data
 from rucio.common.utils import render_json
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     ErrorHandlingMethodView
+from rucio.web.ui.flask.bp import AuthorisedBlueprint
 
 
 class Export(ErrorHandlingMethodView):
@@ -57,7 +58,7 @@ class Export(ErrorHandlingMethodView):
 
 
 def blueprint(with_doc=False):
-    bp = Blueprint('export', __name__, url_prefix='/export')
+    bp = AuthorisedBlueprint(True, 'export', __name__, url_prefix='/export')
 
     export_view = Export.as_view('scope')
     if not with_doc:
@@ -65,7 +66,6 @@ def blueprint(with_doc=False):
         bp.add_url_rule('', view_func=export_view, methods=['get', ])
     bp.add_url_rule('/', view_func=export_view, methods=['get', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

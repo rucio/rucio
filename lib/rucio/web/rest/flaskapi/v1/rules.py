@@ -15,7 +15,7 @@
 
 from json import dumps
 
-from flask import Flask, Blueprint, request, Response
+from flask import Flask, request, Response
 
 from rucio.api.lock import get_replica_locks_for_rule_id
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, \
@@ -27,7 +27,8 @@ from rucio.common.exception import InsufficientAccountLimit, RuleNotFound, Acces
     RuleReplaceFailed, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, UnsupportedOperation
 from rucio.common.utils import render_json, APIEncoder
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
-    request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+    response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+from rucio.web.ui.flask.bp import AuthorisedBlueprint
 
 
 class Rule(ErrorHandlingMethodView):
@@ -791,7 +792,7 @@ class RuleAnalysis(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('rules', __name__, url_prefix='/rules')
+    bp = AuthorisedBlueprint(True, 'rules', __name__, url_prefix='/rules')
 
     rule_view = Rule.as_view('rule')
     bp.add_url_rule('/<rule_id>', view_func=rule_view, methods=['get', 'put', 'delete'])
@@ -810,7 +811,6 @@ def blueprint():
     rule_analysis_view = RuleAnalysis.as_view('rule_analysis')
     bp.add_url_rule('/<rule_id>/analysis', view_func=rule_analysis_view, methods=['get', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

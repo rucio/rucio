@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, Blueprint, request
+from flask import Flask, request
 
 from rucio.api.account_limit import set_local_account_limit, delete_local_account_limit, set_global_account_limit, \
     delete_global_account_limit
 from rucio.common.exception import RSENotFound, AccessDenied, AccountNotFound
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, ErrorHandlingMethodView, \
+from rucio.web.rest.flaskapi.v1.common import response_headers, ErrorHandlingMethodView, \
     generate_http_error_flask, json_parameters, param_get
+from rucio.web.ui.flask.bp import AuthorisedBlueprint
 
 
 class LocalAccountLimit(ErrorHandlingMethodView):
@@ -213,7 +214,7 @@ class GlobalAccountLimit(ErrorHandlingMethodView):
 
 
 def blueprint(with_doc=False):
-    bp = Blueprint('accountlimits', __name__, url_prefix='/accountlimits')
+    bp = AuthorisedBlueprint(True, 'accountlimits', __name__, url_prefix='/accountlimits')
 
     local_account_limit_view = LocalAccountLimit.as_view('local_account_limit')
     bp.add_url_rule('/local/<account>/<rse>', view_func=local_account_limit_view, methods=['post', 'delete'])
@@ -222,7 +223,6 @@ def blueprint(with_doc=False):
     global_account_limit_view = GlobalAccountLimit.as_view('global_account_limit')
     bp.add_url_rule('/global/<account>/<rse_expression>', view_func=global_account_limit_view, methods=['post', 'delete'])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

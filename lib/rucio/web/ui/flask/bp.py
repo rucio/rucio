@@ -18,7 +18,7 @@ from flask import Blueprint, request, render_template, make_response
 
 from rucio.api.authentication import get_auth_token_x509
 from rucio.common.config import config_get, config_get_bool
-from rucio.web.rest.flaskapi.v1.common import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import generate_http_error_flask, request_auth_env
 from rucio.web.ui.flask.common.utils import get_token, authenticate, userpass_auth, x509token_auth, saml_auth, oidc_auth, finalize_auth, AUTH_ISSUERS, SAML_SUPPORT
 
 MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
@@ -140,6 +140,18 @@ else:
 
 def view_maker(template, title):
     return lambda: authenticate(template=template, title=title)
+
+
+class AuthorisedBlueprint(Blueprint):
+    """
+    Enforce authorisation of blueprints by default
+    returns a normal blueprint otherwise
+    """
+
+    def __init__(self, enforce_auth: bool = True, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        if enforce_auth:
+            self.before_request(request_auth_env)
 
 
 def blueprint():

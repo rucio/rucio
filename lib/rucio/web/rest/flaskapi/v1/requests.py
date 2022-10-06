@@ -16,7 +16,7 @@
 import json
 
 import flask
-from flask import Flask, Blueprint, Response
+from flask import Flask, Response
 
 from rucio.api import request
 from rucio.common.exception import RequestNotFound
@@ -24,7 +24,8 @@ from rucio.common.utils import APIEncoder, render_json
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_name
 from rucio.db.sqla.constants import RequestState
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
-    request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView
+    response_headers, generate_http_error_flask, ErrorHandlingMethodView
+from rucio.web.ui.flask.bp import AuthorisedBlueprint
 
 
 class RequestGet(ErrorHandlingMethodView):
@@ -820,7 +821,7 @@ class RequestHistoryList(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('requests', __name__, url_prefix='/requests')
+    bp = AuthorisedBlueprint(True, 'requests', __name__, url_prefix='/requests')
 
     request_get_view = RequestGet.as_view('request_get')
     bp.add_url_rule('/<path:scope_name>/<rse>', view_func=request_get_view, methods=['get', ])
@@ -831,7 +832,6 @@ def blueprint():
     request_history_list_view = RequestHistoryList.as_view('request_history_list')
     bp.add_url_rule('/history/list', view_func=request_history_list_view, methods=['get', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

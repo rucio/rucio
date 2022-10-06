@@ -15,7 +15,7 @@
 
 from json import dumps
 
-from flask import Flask, Blueprint, Response, request
+from flask import Flask, Response, request
 
 from rucio.api.rule import list_replication_rules
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, \
@@ -23,8 +23,9 @@ from rucio.api.subscription import list_subscriptions, add_subscription, update_
 from rucio.common.exception import InvalidObject, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound, \
     AccessDenied
 from rucio.common.utils import render_json, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, request_auth_env, \
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, \
     response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+from rucio.web.ui.flask.bp import AuthorisedBlueprint
 
 
 class Subscription(ErrorHandlingMethodView):
@@ -618,7 +619,7 @@ class SubscriptionId(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('subscriptions', __name__, url_prefix='/subscriptions')
+    bp = AuthorisedBlueprint(True, 'subscriptions', __name__, url_prefix='/subscriptions')
 
     subscription_id_view = SubscriptionId.as_view('subscription_id')
     bp.add_url_rule('/Id/<subscription_id>', view_func=subscription_id_view, methods=['get', ])
@@ -634,7 +635,6 @@ def blueprint():
     subscription_name_view = SubscriptionName.as_view('subscription_name')
     bp.add_url_rule('/Name/<name>', view_func=subscription_name_view, methods=['get', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 
