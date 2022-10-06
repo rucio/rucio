@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 import random
 import string
 
@@ -31,55 +30,41 @@ from rucio.common.exception import IdentityNotFound, IdentityError
 
 
 @pytest.mark.noparallel(reason='adds/removes entities with non-unique names')
-class TestIdentity(unittest.TestCase):
+class TestIdentity:
     """
     Test the Identity abstraction layer
     """
 
-    def setUp(self):
-        """ Setup the Test Case """
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
-
-        self.account = InternalAccount(account_name_generator(), **self.vo)
-        add_account(self.account, AccountType.USER, 'rucio@email.com')
-
-    def tearDown(self):
-        """ Tear down the Test Case """
-        del_account(self.account)
-
-    def test_userpass(self):
+    def test_userpass(self, random_account):
         """ IDENTITY (CORE): Test adding and removing username/password authentication """
 
-        add_identity(self.account.external, IdentityType.USERPASS, email='ph-adp-ddm-lab@cern.ch', password='secret')
-        add_account_identity('ddmlab_%s' % self.account, IdentityType.USERPASS, self.account, email='ph-adp-ddm-lab@cern.ch', password='secret')
+        add_identity(random_account.external, IdentityType.USERPASS, email='ph-adp-ddm-lab@cern.ch', password='secret')
+        add_account_identity('ddmlab_%s' % random_account, IdentityType.USERPASS, random_account, email='ph-adp-ddm-lab@cern.ch', password='secret')
 
-        add_identity('/ch/cern/rucio/ddmlab_%s' % self.account, IdentityType.X509, email='ph-adp-ddm-lab@cern.ch')
-        add_account_identity('/ch/cern/rucio/ddmlab_%s' % self.account, IdentityType.X509, self.account, email='ph-adp-ddm-lab@cern.ch')
+        add_identity('/ch/cern/rucio/ddmlab_%s' % random_account, IdentityType.X509, email='ph-adp-ddm-lab@cern.ch')
+        add_account_identity('/ch/cern/rucio/ddmlab_%s' % random_account, IdentityType.X509, random_account, email='ph-adp-ddm-lab@cern.ch')
 
-        add_identity('ddmlab_%s' % self.account, IdentityType.GSS, email='ph-adp-ddm-lab@cern.ch')
-        add_account_identity('ddmlab_%s' % self.account, IdentityType.GSS, self.account, email='ph-adp-ddm-lab@cern.ch')
+        add_identity('ddmlab_%s' % random_account, IdentityType.GSS, email='ph-adp-ddm-lab@cern.ch')
+        add_account_identity('ddmlab_%s' % random_account, IdentityType.GSS, random_account, email='ph-adp-ddm-lab@cern.ch')
 
         list_identities()
 
-        del_account_identity('ddmlab_%s' % self.account, IdentityType.USERPASS, self.account)
-        del_account_identity('/ch/cern/rucio/ddmlab_%s' % self.account, IdentityType.X509, self.account)
-        del_account_identity('ddmlab_%s' % self.account, IdentityType.GSS, self.account)
+        del_account_identity('ddmlab_%s' % random_account, IdentityType.USERPASS, random_account)
+        del_account_identity('/ch/cern/rucio/ddmlab_%s' % random_account, IdentityType.X509, random_account)
+        del_account_identity('ddmlab_%s' % random_account, IdentityType.GSS, random_account)
 
-        del_identity('ddmlab_%s' % self.account, IdentityType.USERPASS)
+        del_identity('ddmlab_%s' % random_account, IdentityType.USERPASS)
 
-    def test_ssh(self):
+    def test_ssh(self, random_account):
         """ IDENTITY (CORE): Test adding and removing SSH public key authentication """
 
-        add_identity(self.account.external, IdentityType.SSH, email='ph-adp-ddm-lab@cern.ch')
-        add_account_identity('my_public_key', IdentityType.SSH, self.account, email='ph-adp-ddm-lab@cern.ch')
+        add_identity(random_account.external, IdentityType.SSH, email='ph-adp-ddm-lab@cern.ch')
+        add_account_identity('my_public_key', IdentityType.SSH, random_account, email='ph-adp-ddm-lab@cern.ch')
 
         list_identities()
 
-        del_account_identity('my_public_key', IdentityType.SSH, self.account)
-        del_identity(self.account.external, IdentityType.SSH)
+        del_account_identity('my_public_key', IdentityType.SSH, random_account)
+        del_identity(random_account.external, IdentityType.SSH)
 
 
 def test_userpass(rest_client, auth_token):
