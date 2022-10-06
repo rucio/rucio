@@ -24,6 +24,7 @@ from multiprocessing.sharedctypes import Value
 from re import match, fullmatch
 from string import Template
 from typing import Dict, Any, Optional
+from uuid import UUID
 
 from dogpile.cache.api import NO_VALUE
 
@@ -1401,8 +1402,10 @@ def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, An
     """
     override = override or {}
 
-    if not bool(fullmatch(r'([a-f]|\d)+', rule_id)): # or whichever regex matches the required format
-        raise RuleReplaceFailed('The rule-id is not of the required format.')
+    try:
+        UUID(rule_id)
+    except ValueError:
+        raise RuleReplaceFailed('badly formed hexadecimal UUID string')
 
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
