@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, Blueprint, request as request, jsonify
+from flask import Flask, request as request, jsonify
 
 from rucio.api import config
 from rucio.common.exception import ConfigurationError, AccessDenied, ConfigNotFound
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     generate_http_error_flask, ErrorHandlingMethodView, json_parameters
 
+from rucio.web.ui.flask.bp import AuthorisedBlueprint
 
 class Config(ErrorHandlingMethodView):
     """ REST API for full configuration. """
@@ -282,7 +283,7 @@ class OptionSet(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('config', __name__, url_prefix='/config')
+    bp = AuthorisedBlueprint(True, 'config', __name__, url_prefix='/config')
 
     option_set_view = OptionSet.as_view('option_set')
     bp.add_url_rule('/<section>/<option>/<value>', view_func=option_set_view, methods=['put', ])
@@ -293,7 +294,6 @@ def blueprint():
     config_view = Config.as_view('config')
     bp.add_url_rule('', view_func=config_view, methods=['get', 'post'])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 
