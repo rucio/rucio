@@ -13,14 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, Blueprint, request
+from flask import Flask, request
 
 from rucio.api.dirac import add_files
 from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DatabaseException, \
     Duplicate, InvalidPath, ResourceTemporaryUnavailable, RSENotFound, UnsupportedOperation
 from rucio.common.utils import parse_response
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, generate_http_error_flask, \
+from rucio.web.rest.flaskapi.v1.common import response_headers, generate_http_error_flask, \
     ErrorHandlingMethodView, json_parameters, param_get
+from rucio.web.ui.flask.bp import AuthenticatedBlueprint
 
 
 class AddFiles(ErrorHandlingMethodView):
@@ -98,13 +99,12 @@ class AddFiles(ErrorHandlingMethodView):
 
 
 def blueprint(with_doc=False):
-    bp = Blueprint('dirac', __name__, url_prefix='/dirac')
+    bp = AuthenticatedBlueprint('dirac', __name__, url_prefix='/dirac')
 
     add_file_view = AddFiles.as_view('addfiles')
     bp.add_url_rule('/addfiles', view_func=add_file_view, methods=['post', ])
     bp.add_url_rule('/addfiles/', view_func=add_file_view, methods=['post', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 
