@@ -15,23 +15,17 @@
 
 from copy import deepcopy
 
-import unittest
-
 import pytest
 
 from rucio.client.didclient import DIDClient
-from rucio.common.config import config_get_bool
 from rucio.common.exception import KeyNotFound
-from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, delete_dids, set_metadata_bulk, set_dids_metadata_bulk
 from rucio.core.did_meta_plugins import list_dids, get_metadata, set_metadata
 from rucio.core.did_meta_plugins.mongo_meta import MongoDidMeta
 from rucio.core.did_meta_plugins.postgres_meta import ExternalPostgresJSONDidMeta
-from rucio.db.sqla.session import get_session
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import skip_rse_tests_with_accounts
-from rucio.tests.common_server import get_vo
 
 
 def skip_without_json():
@@ -39,34 +33,26 @@ def skip_without_json():
         pytest.skip("JSON support is not implemented in this database")
 
 
-class TestDidMetaDidColumn(unittest.TestCase):
-
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
-        self.tmp_scope = InternalScope('mock', **self.vo)
-        self.root = InternalAccount('root', **self.vo)
+class TestDidMetaDidColumn:
 
     @pytest.mark.dirty
-    def test_add_did_meta(self):
+    def test_add_did_meta(self, mock_scope, root_account):
         """ DID Meta (Hardcoded): Add did meta """
         did_name = 'mock_did_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=did_name, did_type='DATASET', account=self.root)
-        set_metadata(scope=self.tmp_scope, name=did_name, key='project', value='data12_8TeV')
-        assert get_metadata(scope=self.tmp_scope, name=did_name)['project'] == 'data12_8TeV'
+        add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
+        set_metadata(scope=mock_scope, name=did_name, key='project', value='data12_8TeV')
+        assert get_metadata(scope=mock_scope, name=did_name)['project'] == 'data12_8TeV'
 
     @pytest.mark.dirty
-    def test_get_did_meta(self):
+    def test_get_did_meta(self, mock_scope, root_account):
         """ DID Meta (Hardcoded): Get did meta """
         did_name = 'mock_did_%s' % generate_uuid()
         dataset_meta = {'project': 'data12_8TeV'}
-        add_did(scope=self.tmp_scope, name=did_name, did_type='DATASET', meta=dataset_meta, account=self.root)
-        assert get_metadata(scope=self.tmp_scope, name=did_name)['project'] == 'data12_8TeV'
+        add_did(scope=mock_scope, name=did_name, did_type='DATASET', meta=dataset_meta, account=root_account)
+        assert get_metadata(scope=mock_scope, name=did_name)['project'] == 'data12_8TeV'
 
     @pytest.mark.dirty
-    def test_list_did_meta(self):
+    def test_list_did_meta(self, mock_scope, root_account):
         """ DID Meta (Hardcoded): List did meta """
         dsns = []
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
@@ -81,20 +67,20 @@ class TestDidMetaDidColumn(unittest.TestCase):
                         'version': 'f392_m920',
                         }
 
-        add_did(scope=self.tmp_scope, name=tmp_dsn1, did_type="DATASET", account=self.root, meta=dataset_meta)
+        add_did(scope=mock_scope, name=tmp_dsn1, did_type="DATASET", account=root_account, meta=dataset_meta)
 
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
         dsns.append(tmp_dsn2)
         dataset_meta['run_number'] = 400001
-        add_did(scope=self.tmp_scope, name=tmp_dsn2, did_type="DATASET", account=self.root, meta=dataset_meta)
+        add_did(scope=mock_scope, name=tmp_dsn2, did_type="DATASET", account=root_account, meta=dataset_meta)
 
         tmp_dsn3 = 'dsn_%s' % generate_uuid()
         dsns.append(tmp_dsn3)
         dataset_meta['stream_name'] = 'physics_Egamma'
         dataset_meta['datatype'] = 'NTUP_SMWZ'
-        add_did(scope=self.tmp_scope, name=tmp_dsn3, did_type="DATASET", account=self.root, meta=dataset_meta)
+        add_did(scope=mock_scope, name=tmp_dsn3, did_type="DATASET", account=root_account, meta=dataset_meta)
 
-        dids = list_dids(self.tmp_scope, {'project': 'data12_8TeV', 'version': 'f392_m920'})
+        dids = list_dids(mock_scope, {'project': 'data12_8TeV', 'version': 'f392_m920'})
         results = []
         for d in dids:
             results.append(d)
@@ -102,7 +88,7 @@ class TestDidMetaDidColumn(unittest.TestCase):
             assert dsn in results
         dsns.remove(tmp_dsn1)
 
-        dids = list_dids(self.tmp_scope, {'project': 'data12_8TeV', 'run_number': 400001})
+        dids = list_dids(mock_scope, {'project': 'data12_8TeV', 'run_number': 400001})
         results = []
         for d in dids:
             results.append(d)
@@ -110,7 +96,7 @@ class TestDidMetaDidColumn(unittest.TestCase):
             assert dsn in results
         dsns.remove(tmp_dsn2)
 
-        dids = list_dids(self.tmp_scope, {'project': 'data12_8TeV', 'stream_name': 'physics_Egamma', 'datatype': 'NTUP_SMWZ'})
+        dids = list_dids(mock_scope, {'project': 'data12_8TeV', 'stream_name': 'physics_Egamma', 'datatype': 'NTUP_SMWZ'})
         results = []
         for d in dids:
             results.append(d)
@@ -121,46 +107,34 @@ class TestDidMetaDidColumn(unittest.TestCase):
         #     list_dids(tmp_scope, {'NotReallyAKey': 'NotReallyAValue'})
 
 
-class TestDidMetaJSON(unittest.TestCase):
-
-    def setUp(self):
-        self.session = get_session()
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
-        self.tmp_scope = InternalScope('mock', **self.vo)
-        self.root = InternalAccount('root', **self.vo)
-
-    def tearDown(self):
-        self.session.commit()  # pylint: disable=no-member
+class TestDidMetaJSON:
 
     @pytest.mark.dirty
-    def test_add_did_meta(self):
+    def test_add_did_meta(self, mock_scope, root_account):
         """ DID Meta (JSON): Add did meta """
         skip_without_json()
 
         did_name = 'mock_did_%s' % generate_uuid()
         meta_key = 'my_key_%s' % generate_uuid()
         meta_value = 'my_value_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=did_name, did_type='DATASET', account=self.root)
-        set_metadata(scope=self.tmp_scope, name=did_name, key=meta_key, value=meta_value)
-        assert get_metadata(scope=self.tmp_scope, name=did_name, plugin='JSON')[meta_key] == meta_value
+        add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
+        set_metadata(scope=mock_scope, name=did_name, key=meta_key, value=meta_value)
+        assert get_metadata(scope=mock_scope, name=did_name, plugin='JSON')[meta_key] == meta_value
 
     @pytest.mark.dirty
-    def test_get_metadata(self):
+    def test_get_metadata(self, mock_scope, root_account):
         """ DID Meta (JSON): Get did meta """
         skip_without_json()
 
         did_name = 'mock_did_%s' % generate_uuid()
         meta_key = 'my_key_%s' % generate_uuid()
         meta_value = 'my_value_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=did_name, did_type='DATASET', account=self.root)
-        set_metadata(scope=self.tmp_scope, name=did_name, key=meta_key, value=meta_value)
-        assert get_metadata(scope=self.tmp_scope, name=did_name, plugin='JSON')[meta_key] == meta_value
+        add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
+        set_metadata(scope=mock_scope, name=did_name, key=meta_key, value=meta_value)
+        assert get_metadata(scope=mock_scope, name=did_name, plugin='JSON')[meta_key] == meta_value
 
     @pytest.mark.dirty
-    def test_list_did_meta(self):
+    def test_list_did_meta(self, mock_scope, root_account):
         """ DID Meta (JSON): List did meta """
         skip_without_json()
 
@@ -170,23 +144,23 @@ class TestDidMetaJSON(unittest.TestCase):
         meta_value2 = 'my_value_%s' % generate_uuid()
 
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=tmp_dsn1, did_type="DATASET", account=self.root)
-        set_metadata(scope=self.tmp_scope, name=tmp_dsn1, key=meta_key1, value=meta_value1)
+        add_did(scope=mock_scope, name=tmp_dsn1, did_type="DATASET", account=root_account)
+        set_metadata(scope=mock_scope, name=tmp_dsn1, key=meta_key1, value=meta_value1)
 
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=tmp_dsn2, did_type="DATASET", account=self.root)
-        set_metadata(scope=self.tmp_scope, name=tmp_dsn2, key=meta_key1, value=meta_value2)
+        add_did(scope=mock_scope, name=tmp_dsn2, did_type="DATASET", account=root_account)
+        set_metadata(scope=mock_scope, name=tmp_dsn2, key=meta_key1, value=meta_value2)
 
         tmp_dsn3 = 'dsn_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=tmp_dsn3, did_type="DATASET", account=self.root)
-        set_metadata(scope=self.tmp_scope, name=tmp_dsn3, key=meta_key2, value=meta_value1)
+        add_did(scope=mock_scope, name=tmp_dsn3, did_type="DATASET", account=root_account)
+        set_metadata(scope=mock_scope, name=tmp_dsn3, key=meta_key2, value=meta_value1)
 
         tmp_dsn4 = 'dsn_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=tmp_dsn4, did_type="DATASET", account=self.root)
-        set_metadata(scope=self.tmp_scope, name=tmp_dsn4, key=meta_key1, value=meta_value1)
-        set_metadata(scope=self.tmp_scope, name=tmp_dsn4, key=meta_key2, value=meta_value2)
+        add_did(scope=mock_scope, name=tmp_dsn4, did_type="DATASET", account=root_account)
+        set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key1, value=meta_value1)
+        set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key2, value=meta_value2)
 
-        dids = list_dids(self.tmp_scope, {meta_key1: meta_value1})
+        dids = list_dids(mock_scope, {meta_key1: meta_value1})
         results = sorted(list(dids))
 
         assert len(results) == 2
@@ -194,7 +168,7 @@ class TestDidMetaJSON(unittest.TestCase):
         expected = sorted([tmp_dsn1, tmp_dsn4])
         assert expected == results
 
-        dids = list_dids(self.tmp_scope, {meta_key1: meta_value2})
+        dids = list_dids(mock_scope, {meta_key1: meta_value2})
         results = []
         for d in dids:
             results.append(d)
@@ -202,7 +176,7 @@ class TestDidMetaJSON(unittest.TestCase):
         # assert [{'scope': (tmp_scope), 'name': str(tmp_dsn2)}] == results
         assert [tmp_dsn2] == results
 
-        dids = list_dids(self.tmp_scope, {meta_key2: meta_value1})
+        dids = list_dids(mock_scope, {meta_key2: meta_value1})
         results = []
         for d in dids:
             results.append(d)
@@ -210,7 +184,7 @@ class TestDidMetaJSON(unittest.TestCase):
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn3}] == results
         assert [tmp_dsn3] == results
 
-        dids = list_dids(self.tmp_scope, {meta_key1: meta_value1, meta_key2: meta_value2})
+        dids = list_dids(mock_scope, {meta_key1: meta_value1, meta_key2: meta_value2})
         results = []
         for d in dids:
             results.append(d)
@@ -219,41 +193,32 @@ class TestDidMetaJSON(unittest.TestCase):
         assert [tmp_dsn4] == results
 
 
+@pytest.fixture
+def mongo_meta():
+    return MongoDidMeta(
+        host='mongo',
+        port=27017,
+        db='test_db',
+        collection='test_collection'
+    )
+
+
 @skip_rse_tests_with_accounts
-class TestDidMetaMongo(unittest.TestCase):
-
-    def setUp(self):
-        self.session = get_session()
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
-        self.tmp_scope = InternalScope('mock', **self.vo)
-        self.root = InternalAccount('root', **self.vo)
-
-        self.mongo_meta = MongoDidMeta(
-            host='mongo',
-            port=27017,
-            db='test_db',
-            collection='test_collection'
-        )
-
-    def tearDown(self):
-        pass
+class TestDidMetaMongo:
 
     @pytest.mark.dirty
-    def test_set_get_metadata(self):
+    def test_set_get_metadata(self, mock_scope, root_account, mongo_meta):
         """ DID Meta (MONGO): Get/set did meta """
 
         did_name = 'mock_did_%s' % generate_uuid()
         meta_key = 'my_key_%s' % generate_uuid()
         meta_value = 'my_value_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=did_name, did_type='DATASET', account=self.root)
-        self.mongo_meta.set_metadata(scope=self.tmp_scope, name=did_name, key=meta_key, value=meta_value)
-        assert self.mongo_meta.get_metadata(scope=self.tmp_scope, name=did_name)[meta_key] == meta_value
+        add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
+        mongo_meta.set_metadata(scope=mock_scope, name=did_name, key=meta_key, value=meta_value)
+        assert mongo_meta.get_metadata(scope=mock_scope, name=did_name)[meta_key] == meta_value
 
     @pytest.mark.dirty
-    def test_list_did_meta(self):
+    def test_list_did_meta(self, mock_scope, root_account, mongo_meta):
         """ DID Meta (MONGO): List did meta """
 
         meta_key1 = 'my_key_%s' % generate_uuid()
@@ -262,23 +227,23 @@ class TestDidMetaMongo(unittest.TestCase):
         meta_value2 = 'my_value_%s' % generate_uuid()
 
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=tmp_dsn1, did_type="DATASET", account=self.root)
-        self.mongo_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn1, key=meta_key1, value=meta_value1)
+        add_did(scope=mock_scope, name=tmp_dsn1, did_type="DATASET", account=root_account)
+        mongo_meta.set_metadata(scope=mock_scope, name=tmp_dsn1, key=meta_key1, value=meta_value1)
 
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=tmp_dsn2, did_type="DATASET", account=self.root)
-        self.mongo_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn2, key=meta_key1, value=meta_value2)
+        add_did(scope=mock_scope, name=tmp_dsn2, did_type="DATASET", account=root_account)
+        mongo_meta.set_metadata(scope=mock_scope, name=tmp_dsn2, key=meta_key1, value=meta_value2)
 
         tmp_dsn3 = 'dsn_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=tmp_dsn3, did_type="DATASET", account=self.root)
-        self.mongo_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn3, key=meta_key2, value=meta_value1)
+        add_did(scope=mock_scope, name=tmp_dsn3, did_type="DATASET", account=root_account)
+        mongo_meta.set_metadata(scope=mock_scope, name=tmp_dsn3, key=meta_key2, value=meta_value1)
 
         tmp_dsn4 = 'dsn_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=tmp_dsn4, did_type="DATASET", account=self.root)
-        self.mongo_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn4, key=meta_key1, value=meta_value1)
-        self.mongo_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn4, key=meta_key2, value=meta_value2)
+        add_did(scope=mock_scope, name=tmp_dsn4, did_type="DATASET", account=root_account)
+        mongo_meta.set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key1, value=meta_value1)
+        mongo_meta.set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key2, value=meta_value2)
 
-        dids = self.mongo_meta.list_dids(self.tmp_scope, {meta_key1: meta_value1})
+        dids = mongo_meta.list_dids(mock_scope, {meta_key1: meta_value1})
         results = sorted(list(dids))
 
         assert len(results) == 2
@@ -286,7 +251,7 @@ class TestDidMetaMongo(unittest.TestCase):
         expected = sorted([tmp_dsn1, tmp_dsn4])
         assert expected == results
 
-        dids = self.mongo_meta.list_dids(self.tmp_scope, {meta_key1: meta_value2})
+        dids = mongo_meta.list_dids(mock_scope, {meta_key1: meta_value2})
         results = []
         for d in dids:
             results.append(d)
@@ -294,7 +259,7 @@ class TestDidMetaMongo(unittest.TestCase):
         # assert [{'scope': (tmp_scope), 'name': str(tmp_dsn2)}] == results
         assert [tmp_dsn2] == results
 
-        dids = self.mongo_meta.list_dids(self.tmp_scope, {meta_key2: meta_value1})
+        dids = mongo_meta.list_dids(mock_scope, {meta_key2: meta_value1})
         results = []
         for d in dids:
             results.append(d)
@@ -302,7 +267,7 @@ class TestDidMetaMongo(unittest.TestCase):
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn3}] == results
         assert [tmp_dsn3] == results
 
-        dids = self.mongo_meta.list_dids(self.tmp_scope, {meta_key1: meta_value1, meta_key2: meta_value2})
+        dids = mongo_meta.list_dids(mock_scope, {meta_key1: meta_value1, meta_key2: meta_value2})
         results = []
         for d in dids:
             results.append(d)
@@ -311,50 +276,41 @@ class TestDidMetaMongo(unittest.TestCase):
         assert [tmp_dsn4] == results
 
 
+@pytest.fixture
+def postgres_json_meta():
+    return ExternalPostgresJSONDidMeta(
+        host='postgres',
+        port=5433,
+        db='metadata',
+        user='rucio',
+        password='secret',
+        db_schema='public',
+        table='dids',
+        table_is_managed=True,
+        table_column_vo='vo',
+        table_column_scope='scope',
+        table_column_name='name',
+        table_column_data='data',
+    )
+
+
 @pytest.mark.noparallel(reason='race condition on try-create table')
 @skip_rse_tests_with_accounts
-class TestDidMetaExternalPostgresJSON(unittest.TestCase):
-
-    def setUp(self):
-        self.session = get_session()
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
-        self.tmp_scope = InternalScope('mock', **self.vo)
-        self.root = InternalAccount('root', **self.vo)
-
-        self.postgres_json_meta = ExternalPostgresJSONDidMeta(
-            host='postgres',
-            port=5433,
-            db='metadata',
-            user='rucio',
-            password='secret',
-            db_schema='public',
-            table='dids',
-            table_is_managed=True,
-            table_column_vo='vo',
-            table_column_scope='scope',
-            table_column_name='name',
-            table_column_data='data',
-        )
-
-    def tearDown(self):
-        pass
+class TestDidMetaExternalPostgresJSON:
 
     @pytest.mark.dirty
-    def test_set_get_metadata(self):
+    def test_set_get_metadata(self, mock_scope, root_account, postgres_json_meta):
         """ DID Meta (POSTGRES_JSON): Get/set did meta """
 
         did_name = 'mock_did_%s' % generate_uuid()
         meta_key = 'my_key_%s' % generate_uuid()
         meta_value = 'my_value_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=did_name, did_type='DATASET', account=self.root)
-        self.postgres_json_meta.set_metadata(scope=self.tmp_scope, name=did_name, key=meta_key, value=meta_value)
-        assert self.postgres_json_meta.get_metadata(scope=self.tmp_scope, name=did_name)[meta_key] == meta_value
+        add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
+        postgres_json_meta.set_metadata(scope=mock_scope, name=did_name, key=meta_key, value=meta_value)
+        assert postgres_json_meta.get_metadata(scope=mock_scope, name=did_name)[meta_key] == meta_value
 
     @pytest.mark.dirty
-    def test_list_did_meta(self):
+    def test_list_did_meta(self, mock_scope, root_account, postgres_json_meta):
         """ DID Meta (POSTGRES_JSON): List did meta """
 
         meta_key1 = 'my_key_%s' % generate_uuid()
@@ -363,23 +319,23 @@ class TestDidMetaExternalPostgresJSON(unittest.TestCase):
         meta_value2 = 'my_value_%s' % generate_uuid()
 
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=tmp_dsn1, did_type="DATASET", account=self.root)
-        self.postgres_json_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn1, key=meta_key1, value=meta_value1)
+        add_did(scope=mock_scope, name=tmp_dsn1, did_type="DATASET", account=root_account)
+        postgres_json_meta.set_metadata(scope=mock_scope, name=tmp_dsn1, key=meta_key1, value=meta_value1)
 
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=tmp_dsn2, did_type="DATASET", account=self.root)
-        self.postgres_json_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn2, key=meta_key1, value=meta_value2)
+        add_did(scope=mock_scope, name=tmp_dsn2, did_type="DATASET", account=root_account)
+        postgres_json_meta.set_metadata(scope=mock_scope, name=tmp_dsn2, key=meta_key1, value=meta_value2)
 
         tmp_dsn3 = 'dsn_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=tmp_dsn3, did_type="DATASET", account=self.root)
-        self.postgres_json_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn3, key=meta_key2, value=meta_value1)
+        add_did(scope=mock_scope, name=tmp_dsn3, did_type="DATASET", account=root_account)
+        postgres_json_meta.set_metadata(scope=mock_scope, name=tmp_dsn3, key=meta_key2, value=meta_value1)
 
         tmp_dsn4 = 'dsn_%s' % generate_uuid()
-        add_did(scope=self.tmp_scope, name=tmp_dsn4, did_type="DATASET", account=self.root)
-        self.postgres_json_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn4, key=meta_key1, value=meta_value1)
-        self.postgres_json_meta.set_metadata(scope=self.tmp_scope, name=tmp_dsn4, key=meta_key2, value=meta_value2)
+        add_did(scope=mock_scope, name=tmp_dsn4, did_type="DATASET", account=root_account)
+        postgres_json_meta.set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key1, value=meta_value1)
+        postgres_json_meta.set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key2, value=meta_value2)
 
-        dids = self.postgres_json_meta.list_dids(self.tmp_scope, {meta_key1: meta_value1})
+        dids = postgres_json_meta.list_dids(mock_scope, {meta_key1: meta_value1})
         results = sorted(list(dids))
 
         assert len(results) == 2
@@ -387,7 +343,7 @@ class TestDidMetaExternalPostgresJSON(unittest.TestCase):
         expected = sorted([tmp_dsn1, tmp_dsn4])
         assert expected == results
 
-        dids = self.postgres_json_meta.list_dids(self.tmp_scope, {meta_key1: meta_value2})
+        dids = postgres_json_meta.list_dids(mock_scope, {meta_key1: meta_value2})
         results = []
         for d in dids:
             results.append(d)
@@ -395,7 +351,7 @@ class TestDidMetaExternalPostgresJSON(unittest.TestCase):
         # assert [{'scope': (tmp_scope), 'name': str(tmp_dsn2)}] == results
         assert [tmp_dsn2] == results
 
-        dids = self.postgres_json_meta.list_dids(self.tmp_scope, {meta_key2: meta_value1})
+        dids = postgres_json_meta.list_dids(mock_scope, {meta_key2: meta_value1})
         results = []
         for d in dids:
             results.append(d)
@@ -403,7 +359,7 @@ class TestDidMetaExternalPostgresJSON(unittest.TestCase):
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn3}] == results
         assert [tmp_dsn3] == results
 
-        dids = self.postgres_json_meta.list_dids(self.tmp_scope, {meta_key1: meta_value1, meta_key2: meta_value2})
+        dids = postgres_json_meta.list_dids(mock_scope, {meta_key1: meta_value1, meta_key2: meta_value2})
         results = []
         for d in dids:
             results.append(d)
@@ -412,33 +368,26 @@ class TestDidMetaExternalPostgresJSON(unittest.TestCase):
         assert [tmp_dsn4] == results
 
 
-class TestDidMetaClient(unittest.TestCase):
-
-    def setUp(self):
-        self.did_client = DIDClient()
-        self.tmp_scope = 'mock'
-        self.session = get_session()
-
-    def tearDown(self):
-        self.session.commit()  # pylint: disable=no-member
+class TestDidMetaClient:
 
     @pytest.mark.dirty
-    def test_set_metadata(self):
+    def test_set_metadata(self, mock_scope, did_client, db_session):
         """ META (CLIENTS) : Adds a fully set json column to a did, updates if some keys present """
         tmp_name = 'name_%s' % generate_uuid()
-        self.did_client.add_did(scope=self.tmp_scope, name=tmp_name, did_type="DATASET")
+        scope = mock_scope.external
+        did_client.add_did(scope=scope, name=tmp_name, did_type="DATASET")
 
         # Test JSON case
-        if json_implemented(session=self.session):
+        if json_implemented(session=db_session):
             # data1 = ["key1": "value_" + str(generate_uuid()), "key2": "value_" + str(generate_uuid()), "key3": "value_" + str(generate_uuid())]
             value1 = "value_" + str(generate_uuid())
             value2 = "value_" + str(generate_uuid())
             value3 = "value_" + str(generate_uuid())
-            self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key1", value=value1)
-            self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key2", value=value2)
-            self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key3", value=value3)
+            did_client.set_metadata(scope=scope, name=tmp_name, key="key1", value=value1)
+            did_client.set_metadata(scope=scope, name=tmp_name, key="key2", value=value2)
+            did_client.set_metadata(scope=scope, name=tmp_name, key="key3", value=value3)
 
-            metadata = self.did_client.get_metadata(scope=self.tmp_scope, name=tmp_name, plugin="JSON")
+            metadata = did_client.get_metadata(scope=scope, name=tmp_name, plugin="JSON")
 
             assert len(metadata) == 3
             assert metadata['key1'] == value1
@@ -446,68 +395,69 @@ class TestDidMetaClient(unittest.TestCase):
             assert metadata['key3'] == value3
 
         # Test DID_COLUMNS case
-        self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key='project', value='data12_12TeV')
-        assert self.did_client.get_metadata(scope=self.tmp_scope, name=tmp_name)['project'] == 'data12_12TeV'
+        did_client.set_metadata(scope=scope, name=tmp_name, key='project', value='data12_12TeV')
+        assert did_client.get_metadata(scope=scope, name=tmp_name)['project'] == 'data12_12TeV'
 
     @pytest.mark.dirty
-    def test_delete_metadata(self):
+    def test_delete_metadata(self, mock_scope, did_client):
         """ META (CLIENTS) : Deletes metadata key """
         skip_without_json()
-
+        scope = mock_scope.external
         tmp_name = 'name_%s' % generate_uuid()
-        self.did_client.add_did(scope=self.tmp_scope, name=tmp_name, did_type="DATASET")
+        did_client.add_did(scope=scope, name=tmp_name, did_type="DATASET")
 
         value1 = "value_" + str(generate_uuid())
         value2 = "value_" + str(generate_uuid())
         value3 = "value_" + str(generate_uuid())
 
-        self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key1", value=value1)
-        self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key2", value=value2)
-        self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key3", value=value3)
+        did_client.set_metadata(scope=scope, name=tmp_name, key="key1", value=value1)
+        did_client.set_metadata(scope=scope, name=tmp_name, key="key2", value=value2)
+        did_client.set_metadata(scope=scope, name=tmp_name, key="key3", value=value3)
 
-        self.did_client.delete_metadata(scope=self.tmp_scope, name=tmp_name, key='key2')
+        did_client.delete_metadata(scope=scope, name=tmp_name, key='key2')
 
-        metadata = self.did_client.get_metadata(scope=self.tmp_scope, name=tmp_name, plugin="JSON")
+        metadata = did_client.get_metadata(scope=scope, name=tmp_name, plugin="JSON")
         assert len(metadata) == 2
         assert metadata['key1'] == value1
         assert metadata['key3'] == value3
         with pytest.raises(KeyNotFound):
-            self.did_client.delete_metadata(scope=self.tmp_scope, name=tmp_name, key="key9")
+            did_client.delete_metadata(scope=scope, name=tmp_name, key="key9")
 
     @pytest.mark.dirty
-    def test_get_metadata(self):
+    def test_get_metadata(self, mock_scope, did_client, db_session):
         """ META (CLIENTS) : Gets all metadata for the given did """
         tmp_name = 'name_%s' % generate_uuid()
-        self.did_client.add_did(scope=self.tmp_scope, name=tmp_name, did_type="DATASET")
+        scope = mock_scope.external
+        did_client.add_did(scope=scope, name=tmp_name, did_type="DATASET")
 
         # Test JSON case
-        if json_implemented(session=self.session):
+        if json_implemented(session=db_session):
             value1 = "value_" + str(generate_uuid())
             value2 = "value_" + str(generate_uuid())
 
-            self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key1", value=value1)
-            self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key2", value=value2)
+            did_client.set_metadata(scope=scope, name=tmp_name, key="key1", value=value1)
+            did_client.set_metadata(scope=scope, name=tmp_name, key="key2", value=value2)
 
-            metadata = self.did_client.get_metadata(scope=self.tmp_scope, name=tmp_name, plugin="JSON")
+            metadata = did_client.get_metadata(scope=scope, name=tmp_name, plugin="JSON")
 
             assert len(metadata) == 2
             assert metadata['key1'] == value1
             assert metadata['key2'] == value2
 
         # Test DID_COLUMNS case
-        self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key='project', value='data12_14TeV')
-        assert self.did_client.get_metadata(scope=self.tmp_scope, name=tmp_name)['project'] == 'data12_14TeV'
+        did_client.set_metadata(scope=scope, name=tmp_name, key='project', value='data12_14TeV')
+        assert did_client.get_metadata(scope=scope, name=tmp_name)['project'] == 'data12_14TeV'
 
         # Test Mixed case
-        if json_implemented(session=self.session):
-            all_metadata = self.did_client.get_metadata(scope=self.tmp_scope, name=tmp_name, plugin="ALL")
+        if json_implemented(session=db_session):
+            all_metadata = did_client.get_metadata(scope=scope, name=tmp_name, plugin="ALL")
             assert all_metadata['key1'] == value1
             assert all_metadata['key2'] == value2
             assert all_metadata['project'] == "data12_14TeV"
 
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='fails when run in parallel')
-    def test_list_dids_extended(self):
+    def test_list_dids_extended(self, did_client, db_session):
         """ META (CLIENTS) : Get all dids matching the values of the provided metadata keys """
 
         # Test did Columns use case
@@ -523,19 +473,19 @@ class TestDidMetaClient(unittest.TestCase):
                         'datatype': 'NTUP_TRIG',
                         'version': 'f392_m920',
                         }
-        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn1, meta=dataset_meta)
+        did_client.add_dataset(scope=tmp_scope, name=tmp_dsn1, meta=dataset_meta)
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
         dsns.append(tmp_dsn2)
         dataset_meta['run_number'] = 400001
-        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn2, meta=dataset_meta)
+        did_client.add_dataset(scope=tmp_scope, name=tmp_dsn2, meta=dataset_meta)
 
         tmp_dsn3 = 'dsn_%s' % generate_uuid()
         dsns.append(tmp_dsn3)
         dataset_meta['stream_name'] = 'physics_Egamma'
         dataset_meta['datatype'] = 'NTUP_SMWZ'
-        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn3, meta=dataset_meta)
+        did_client.add_dataset(scope=tmp_scope, name=tmp_dsn3, meta=dataset_meta)
 
-        dids = self.did_client.list_dids_extended(tmp_scope, {'project': 'data12_8TeV', 'version': 'f392_m920'})
+        dids = did_client.list_dids_extended(tmp_scope, {'project': 'data12_8TeV', 'version': 'f392_m920'})
         results = []
         for d in dids:
             results.append(d)
@@ -543,7 +493,7 @@ class TestDidMetaClient(unittest.TestCase):
             assert dsn in results
         dsns.remove(tmp_dsn1)
 
-        dids = self.did_client.list_dids_extended(tmp_scope, {'project': 'data12_8TeV', 'run_number': 400001})
+        dids = did_client.list_dids_extended(tmp_scope, {'project': 'data12_8TeV', 'run_number': 400001})
         results = []
         for d in dids:
             results.append(d)
@@ -551,7 +501,7 @@ class TestDidMetaClient(unittest.TestCase):
             assert dsn in results
         dsns.remove(tmp_dsn2)
 
-        dids = self.did_client.list_dids_extended(tmp_scope, {'project': 'data12_8TeV', 'stream_name': 'physics_Egamma', 'datatype': 'NTUP_SMWZ'})
+        dids = did_client.list_dids_extended(tmp_scope, {'project': 'data12_8TeV', 'stream_name': 'physics_Egamma', 'datatype': 'NTUP_SMWZ'})
         results = []
         for d in dids:
             results.append(d)
@@ -559,7 +509,7 @@ class TestDidMetaClient(unittest.TestCase):
             assert dsn in results
 
         # Test JSON use case
-        if json_implemented(session=self.session):
+        if json_implemented(session=db_session):
             did1 = 'name_%s' % generate_uuid()
             did2 = 'name_%s' % generate_uuid()
             did3 = 'name_%s' % generate_uuid()
@@ -576,42 +526,42 @@ class TestDidMetaClient(unittest.TestCase):
             value_not_2 = 'value_not_1_%s' % generate_uuid()
             value_unique = 'value_unique_%s' % generate_uuid()
 
-            self.did_client.add_did(scope=tmp_scope, name=did1, did_type="DATASET")
-            self.did_client.add_did(scope=tmp_scope, name=did2, did_type="DATASET")
-            self.did_client.add_did(scope=tmp_scope, name=did3, did_type="DATASET")
-            self.did_client.add_did(scope=tmp_scope, name=did4, did_type="DATASET")
+            did_client.add_did(scope=tmp_scope, name=did1, did_type="DATASET")
+            did_client.add_did(scope=tmp_scope, name=did2, did_type="DATASET")
+            did_client.add_did(scope=tmp_scope, name=did3, did_type="DATASET")
+            did_client.add_did(scope=tmp_scope, name=did4, did_type="DATASET")
 
-            self.did_client.set_metadata(scope=tmp_scope, name=did1, key=key1, value=value1)
-            self.did_client.set_metadata(scope=tmp_scope, name=did1, key=key2, value=value2)
+            did_client.set_metadata(scope=tmp_scope, name=did1, key=key1, value=value1)
+            did_client.set_metadata(scope=tmp_scope, name=did1, key=key2, value=value2)
 
-            self.did_client.set_metadata(scope=tmp_scope, name=did2, key=key1, value=value1)
-            self.did_client.set_metadata(scope=tmp_scope, name=did2, key=key2, value=value_not_2)
-            self.did_client.set_metadata(scope=tmp_scope, name=did2, key=key3, value=value3)
+            did_client.set_metadata(scope=tmp_scope, name=did2, key=key1, value=value1)
+            did_client.set_metadata(scope=tmp_scope, name=did2, key=key2, value=value_not_2)
+            did_client.set_metadata(scope=tmp_scope, name=did2, key=key3, value=value3)
 
-            self.did_client.set_metadata(scope=tmp_scope, name=did3, key=key1, value=value_not_1)
-            self.did_client.set_metadata(scope=tmp_scope, name=did3, key=key2, value=value2)
-            self.did_client.set_metadata(scope=tmp_scope, name=did3, key=key3, value=value3)
+            did_client.set_metadata(scope=tmp_scope, name=did3, key=key1, value=value_not_1)
+            did_client.set_metadata(scope=tmp_scope, name=did3, key=key2, value=value2)
+            did_client.set_metadata(scope=tmp_scope, name=did3, key=key3, value=value3)
 
-            self.did_client.set_metadata(scope=tmp_scope, name=did4, key=key1, value=value1)
-            self.did_client.set_metadata(scope=tmp_scope, name=did4, key=key2, value=value2)
-            self.did_client.set_metadata(scope=tmp_scope, name=did4, key=key3, value=value_unique)
+            did_client.set_metadata(scope=tmp_scope, name=did4, key=key1, value=value1)
+            did_client.set_metadata(scope=tmp_scope, name=did4, key=key2, value=value2)
+            did_client.set_metadata(scope=tmp_scope, name=did4, key=key3, value=value_unique)
 
             # Key not there
-            dids = self.did_client.list_dids_extended(tmp_scope, {'key45': 'value'})
+            dids = did_client.list_dids_extended(tmp_scope, {'key45': 'value'})
             results = []
             for d in dids:
                 results.append(d)
             assert len(results) == 0
 
             # Value not there
-            dids = self.did_client.list_dids_extended(tmp_scope, {key1: 'value_not_there'})
+            dids = did_client.list_dids_extended(tmp_scope, {key1: 'value_not_there'})
             results = []
             for d in dids:
                 results.append(d)
             assert len(results) == 0
 
             # key1 = value1
-            dids = self.did_client.list_dids_extended(tmp_scope, {key1: value1})
+            dids = did_client.list_dids_extended(tmp_scope, {key1: value1})
             results = []
             for d in dids:
                 results.append(d)
@@ -621,7 +571,7 @@ class TestDidMetaClient(unittest.TestCase):
             assert did4 in results
 
             # key1, key2
-            dids = self.did_client.list_dids_extended(tmp_scope, {key1: value1, key2: value2})
+            dids = did_client.list_dids_extended(tmp_scope, {key1: value1, key2: value2})
             results = []
             for d in dids:
                 results.append(d)
@@ -630,14 +580,14 @@ class TestDidMetaClient(unittest.TestCase):
             assert did4 in results
 
             # key1, key2, key 3
-            dids = self.did_client.list_dids_extended(tmp_scope, {key1: value1, key2: value2, key3: value3})
+            dids = did_client.list_dids_extended(tmp_scope, {key1: value1, key2: value2, key3: value3})
             results = []
             for d in dids:
                 results.append(d)
             assert len(results) == 0
 
             # key3 = unique value
-            dids = self.did_client.list_dids_extended(tmp_scope, {key3: value_unique})
+            dids = did_client.list_dids_extended(tmp_scope, {key3: value_unique})
             results = []
             for d in dids:
                 results.append(d)
@@ -646,15 +596,13 @@ class TestDidMetaClient(unittest.TestCase):
 
 
 @pytest.fixture
-def testdid(vo, file_config_mock):
+def testdid(vo, file_config_mock, mock_scope, root_account):
     did_name = 'testdid_%s' % generate_uuid()
-    mock_scope = InternalScope('mock', vo=vo)
     didtype = 'DATASET'
-    account = InternalAccount('root', vo=vo)
 
-    add_did(scope=mock_scope, name=did_name, did_type=didtype, account=account)
+    add_did(scope=mock_scope, name=did_name, did_type=didtype, account=root_account)
     yield {'name': did_name, 'scope': mock_scope}
-    delete_dids(dids=[{'name': did_name, 'scope': mock_scope, 'did_type': didtype, 'purge_replicas': True}], account=account)
+    delete_dids(dids=[{'name': did_name, 'scope': mock_scope, 'did_type': didtype, 'purge_replicas': True}], account=root_account)
 
 
 @pytest.mark.parametrize("file_config_mock", [
