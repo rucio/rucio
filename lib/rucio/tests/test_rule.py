@@ -24,7 +24,7 @@ import rucio.api.rule
 from rucio.api.account import add_account
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get_bool
-from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEWriteBlocked,
+from rucio.common.exception import (RucioException, RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEWriteBlocked,
                                     RSEOverQuota, RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError,
                                     UnsupportedOperation, InvalidValueForKey)
 from rucio.common.policy import get_policy
@@ -864,6 +864,7 @@ class TestCore:
         assert(get_rule(rule_id2)['source_replica_expression'] == source_replica_expression)
 
         pytest.raises(RuleReplaceFailed, move_rule, rule_id, self.rse3)
+        pytest.raises(RucioException, move_rule, 'foo', self.rse3)
 
     def test_add_rule_with_scratchdisk(self, vo, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Add a replication rule for scratchdisk"""
