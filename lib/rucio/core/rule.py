@@ -1401,7 +1401,13 @@ def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, An
     override = override or {}
 
     try:
-        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+        try:
+            rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+
+        except NoResultFound:
+            raise RuleNotFound('No rule with the id %s found' % (rule_id))
+        except StatementError:
+            raise RucioException('Badly formatted rule id (%s)' % (rule_id))
 
         if rule.child_rule_id:
             raise RuleReplaceFailed('The rule must not have a child rule.')
