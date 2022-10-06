@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 from copy import deepcopy
 
 import pytest
 
 from rucio.client.exportclient import ExportClient
 from rucio.client.importclient import ImportClient
-from rucio.common.config import config_set, config_add_section, config_has_section, config_get_bool
+from rucio.common.config import config_set, config_add_section, config_has_section
 from rucio.common.exception import RSENotFound
 from rucio.common.types import InternalAccount
 from rucio.common.utils import render_json, parse_response
@@ -35,7 +34,6 @@ from rucio.core.rse import get_rse_id, get_rse_name, add_rse, get_rse, add_proto
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType, AccountType, IdentityType, AccountStatus
 from rucio.tests.common import rse_name_generator, headers, auth, hdrdict
-from rucio.tests.common_server import get_vo
 
 
 def check_rse(rse_name, test_data, vo='def'):
@@ -460,16 +458,9 @@ def test_importer_rest(vo, rest_client, auth_token, importer_example_data, reset
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel')
-class TestImporterSyncModes(unittest.TestCase):
+class TestImporterSyncModes:
 
-    def setUp(self):
-        # Since test config scenarios are complicated moved the setup inside the individual tests
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
-
-    def test_import_rses_append(self):
+    def test_import_rses_append(self, vo):
         """ IMPORTER (CORE): test import rse (APPEND mode). """
         # In rse sync mode append: New RSEs are created, existing RSEs are not modified, leftover RSEs are not deleted
 
@@ -478,11 +469,11 @@ class TestImporterSyncModes(unittest.TestCase):
 
         # RSE missing from json
         old_rse = rse_name_generator()
-        old_rse_id = add_rse(old_rse, **self.vo)
+        old_rse_id = add_rse(old_rse, vo=vo)
 
         # RSE that was disabled but is active on json
         disabled_rse = rse_name_generator()
-        disabled_rse_id = add_rse(disabled_rse, **self.vo)
+        disabled_rse_id = add_rse(disabled_rse, vo=vo)
         del_rse(disabled_rse_id)
 
         data = {
@@ -559,19 +550,19 @@ class TestImporterSyncModes(unittest.TestCase):
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='append', **self.vo)
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='append', vo=vo)
 
         # Check RSE that did not exist before exists now
-        check_rse(new_rse, data['rses'], **self.vo)
+        check_rse(new_rse, data['rses'], vo=vo)
 
         # Check that old_rse was not disabled after import
-        assert get_rse_id(old_rse, include_deleted=False, **self.vo) == old_rse_id
+        assert get_rse_id(old_rse, include_deleted=False, vo=vo) == old_rse_id
 
         # Check that disabled_rse dit not get enabled
         with pytest.raises(RSENotFound):
             get_rse(rse_id=disabled_rse_id)
 
-    def test_import_rses_edit(self):
+    def test_import_rses_edit(self, vo):
         """ IMPORTER (CORE): test import rse (EDIT mode). """
         # In rse sync mode edit: New RSEs are created, existing RSEs are modified, leftover RSEs are not deleted
 
@@ -580,11 +571,11 @@ class TestImporterSyncModes(unittest.TestCase):
 
         # RSE missing from json
         old_rse = rse_name_generator()
-        old_rse_id = add_rse(old_rse, **self.vo)
+        old_rse_id = add_rse(old_rse, vo=vo)
 
         # RSE that was disabled but is active on json
         disabled_rse = rse_name_generator()
-        disabled_rse_id = add_rse(disabled_rse, **self.vo)
+        disabled_rse_id = add_rse(disabled_rse, vo=vo)
         del_rse(disabled_rse_id)
 
         data = {
@@ -661,35 +652,35 @@ class TestImporterSyncModes(unittest.TestCase):
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', **self.vo)
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', vo=vo)
 
         # Check RSE that did not exist before exists now
-        check_rse(new_rse, data['rses'], **self.vo)
+        check_rse(new_rse, data['rses'], vo=vo)
 
         # Check that old_rse was not disabled after import
-        assert get_rse_id(old_rse, include_deleted=False, **self.vo) == old_rse_id
+        assert get_rse_id(old_rse, include_deleted=False, vo=vo) == old_rse_id
 
         # Check that disabled_rse got enabled
-        assert get_rse_id(disabled_rse, include_deleted=False, **self.vo) == disabled_rse_id
+        assert get_rse_id(disabled_rse, include_deleted=False, vo=vo) == disabled_rse_id
 
-    def test_import_attributes_append(self):
+    def test_import_attributes_append(self, vo):
         """ IMPORTER (CORE): test import attributes (APPEND mode). """
         # In attributes sync mode append: New attributes are created, existing attributes are not modified, leftover attributes are not deleted
 
         # RSE has less attributes than on json
         less_attr_rse = rse_name_generator()
-        less_attr_rse_id = add_rse(less_attr_rse, **self.vo)
+        less_attr_rse_id = add_rse(less_attr_rse, vo=vo)
         add_rse_attribute(rse_id=less_attr_rse_id, key='attr1', value='test')
 
         # RSE has an attribute with different value
         diff_attr_rse = rse_name_generator()
-        diff_attr_rse_id = add_rse(diff_attr_rse, **self.vo)
+        diff_attr_rse_id = add_rse(diff_attr_rse, vo=vo)
         add_rse_attribute(rse_id=diff_attr_rse_id, key='attr1', value='test_original')
         add_rse_attribute(rse_id=diff_attr_rse_id, key='attr2', value='test_original')
 
         # RSE has attributes that are missing from the json
         more_attr_rse = rse_name_generator()
-        more_attr_rse_id = add_rse(more_attr_rse, **self.vo)
+        more_attr_rse_id = add_rse(more_attr_rse, vo=vo)
         add_rse_attribute(rse_id=more_attr_rse_id, key='attr1', value='test_original')
         add_rse_attribute(rse_id=more_attr_rse_id, key='attr2', value='test_original')
         add_rse_attribute(rse_id=more_attr_rse_id, key='attr3', value='test_original')
@@ -718,7 +709,7 @@ class TestImporterSyncModes(unittest.TestCase):
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='append', **self.vo)
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='append', vo=vo)
 
         # Check that attributes were added for less_attr_rse
         assert get_rse_attribute(less_attr_rse_id, 'attr2', use_cache=False) == 'test_new'
@@ -729,24 +720,24 @@ class TestImporterSyncModes(unittest.TestCase):
         # Check that attributes were missing from the json are not deleted
         assert get_rse_attribute(more_attr_rse_id, 'attr3', use_cache=False) == 'test_original'
 
-    def test_import_attributes_edit(self):
+    def test_import_attributes_edit(self, vo):
         """ IMPORTER (CORE): test import attributes (EDIT mode). """
         # In attributes sync mode edit: New attributes are created, existing attributes are modified, leftover attributes are not deleted
 
         # RSE has less attributes than on json
         less_attr_rse = rse_name_generator()
-        less_attr_rse_id = add_rse(less_attr_rse, **self.vo)
+        less_attr_rse_id = add_rse(less_attr_rse, vo=vo)
         add_rse_attribute(rse_id=less_attr_rse_id, key='attr1', value='test')
 
         # RSE has an attribute with different value
         diff_attr_rse = rse_name_generator()
-        diff_attr_rse_id = add_rse(diff_attr_rse, **self.vo)
+        diff_attr_rse_id = add_rse(diff_attr_rse, vo=vo)
         add_rse_attribute(rse_id=diff_attr_rse_id, key='attr1', value='test_original')
         add_rse_attribute(rse_id=diff_attr_rse_id, key='attr2', value='test_original')
 
         # RSE has attributes that are missing from the json
         more_attr_rse = rse_name_generator()
-        more_attr_rse_id = add_rse(more_attr_rse, **self.vo)
+        more_attr_rse_id = add_rse(more_attr_rse, vo=vo)
         add_rse_attribute(rse_id=more_attr_rse_id, key='attr1', value='test_original')
         add_rse_attribute(rse_id=more_attr_rse_id, key='attr2', value='test_original')
         add_rse_attribute(rse_id=more_attr_rse_id, key='attr3', value='test_original')
@@ -775,7 +766,7 @@ class TestImporterSyncModes(unittest.TestCase):
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='edit', **self.vo)
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='edit', vo=vo)
 
         # Check that attributes were added for less_attr_rse
         assert get_rse_attribute(less_attr_rse_id, 'attr2', use_cache=False) == 'test_new'
@@ -786,24 +777,24 @@ class TestImporterSyncModes(unittest.TestCase):
         # Check that attributes that were missing from the json are not deleted
         assert get_rse_attribute(more_attr_rse_id, 'attr3', use_cache=False) == 'test_original'
 
-    def test_import_attributes_hard(self):
+    def test_import_attributes_hard(self, vo):
         """ IMPORTER (CORE): test import attributes (HARD mode). """
         # In attributes sync mode hard: New attributes are created, existing attributes are modified, leftover attributes are deleted
 
         # RSE has less attributes than on json
         less_attr_rse = rse_name_generator()
-        less_attr_rse_id = add_rse(less_attr_rse, **self.vo)
+        less_attr_rse_id = add_rse(less_attr_rse, vo=vo)
         add_rse_attribute(rse_id=less_attr_rse_id, key='attr1', value='test')
 
         # RSE has an attribute with different value
         diff_attr_rse = rse_name_generator()
-        diff_attr_rse_id = add_rse(diff_attr_rse, **self.vo)
+        diff_attr_rse_id = add_rse(diff_attr_rse, vo=vo)
         add_rse_attribute(rse_id=diff_attr_rse_id, key='attr1', value='test_original')
         add_rse_attribute(rse_id=diff_attr_rse_id, key='attr2', value='test_original')
 
         # RSE has attributes that are missing from the json
         more_attr_rse = rse_name_generator()
-        more_attr_rse_id = add_rse(more_attr_rse, **self.vo)
+        more_attr_rse_id = add_rse(more_attr_rse, vo=vo)
         add_rse_attribute(rse_id=more_attr_rse_id, key='attr1', value='test_original')
         add_rse_attribute(rse_id=more_attr_rse_id, key='attr2', value='test_original')
         add_rse_attribute(rse_id=more_attr_rse_id, key='attr3', value='test_original')
@@ -832,7 +823,7 @@ class TestImporterSyncModes(unittest.TestCase):
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='hard', **self.vo)
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='hard', vo=vo)
 
         # Check that attributes were added for less_attr_rse
         assert get_rse_attribute(less_attr_rse_id, 'attr2', use_cache=False) == 'test_new'
@@ -843,20 +834,20 @@ class TestImporterSyncModes(unittest.TestCase):
         # Check that attributes that were missing from the json are deleted
         assert get_rse_attribute(more_attr_rse_id, 'attr3', use_cache=False) is None
 
-    def test_import_protocols_append(self):
+    def test_import_protocols_append(self, vo):
         """ IMPORTER (CORE): test import protocols (APPEND mode). """
         # In protocols sync mode append: New protocols are created, existing protocols are not modified, leftover protocols are not deleted
 
         less_prot_rse = rse_name_generator()
-        less_prot_rse_id = add_rse(less_prot_rse, **self.vo)
+        less_prot_rse_id = add_rse(less_prot_rse, vo=vo)
         add_protocol(less_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
 
         diff_prot_rse = rse_name_generator()
-        diff_prot_rse_id = add_rse(diff_prot_rse, **self.vo)
+        diff_prot_rse_id = add_rse(diff_prot_rse, vo=vo)
         add_protocol(diff_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
 
         more_prot_rse = rse_name_generator()
-        more_prot_rse_id = add_rse(more_prot_rse, **self.vo)
+        more_prot_rse_id = add_rse(more_prot_rse, vo=vo)
         add_protocol(more_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
         add_protocol(more_prot_rse_id, {'scheme': 'scheme2', 'hostname': 'hostname2', 'port': 1000, 'impl': 'TODO'})
         add_protocol(more_prot_rse_id, {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'})
@@ -939,7 +930,7 @@ class TestImporterSyncModes(unittest.TestCase):
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='append', **self.vo)
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='append', vo=vo)
 
         # Check that new protocol was added
         protocols = get_rse_protocols(less_prot_rse_id)
@@ -960,20 +951,20 @@ class TestImporterSyncModes(unittest.TestCase):
         data_protocol_formated = {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'}
         assert data_protocol_formated in protocols_formated
 
-    def test_import_protocols_edit(self):
+    def test_import_protocols_edit(self, vo):
         """ IMPORTER (CORE): test import protocols (EDIT mode). """
         # In protocols sync mode edit: New protocols are created, existing protocols are modified, leftover protocols are not deleted
 
         less_prot_rse = rse_name_generator()
-        less_prot_rse_id = add_rse(less_prot_rse, **self.vo)
+        less_prot_rse_id = add_rse(less_prot_rse, vo=vo)
         add_protocol(less_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
 
         diff_prot_rse = rse_name_generator()
-        diff_prot_rse_id = add_rse(diff_prot_rse, **self.vo)
+        diff_prot_rse_id = add_rse(diff_prot_rse, vo=vo)
         add_protocol(diff_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
 
         more_prot_rse = rse_name_generator()
-        more_prot_rse_id = add_rse(more_prot_rse, **self.vo)
+        more_prot_rse_id = add_rse(more_prot_rse, vo=vo)
         add_protocol(more_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
         add_protocol(more_prot_rse_id, {'scheme': 'scheme2', 'hostname': 'hostname2', 'port': 1000, 'impl': 'TODO'})
         add_protocol(more_prot_rse_id, {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'})
@@ -1056,7 +1047,7 @@ class TestImporterSyncModes(unittest.TestCase):
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='edit', **self.vo)
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='edit', vo=vo)
 
         # Check that new protocol was added
         protocols = get_rse_protocols(less_prot_rse_id)
@@ -1077,20 +1068,20 @@ class TestImporterSyncModes(unittest.TestCase):
         data_protocol_formated = {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'}
         assert data_protocol_formated in protocols_formated
 
-    def test_import_protocols_hard(self):
+    def test_import_protocols_hard(self, vo):
         """ IMPORTER (CORE): test import protocols (HARD mode). """
         # In protocols sync mode hard: New protocols are created, existing protocols are modified, leftover protocols are deleted
 
         less_prot_rse = rse_name_generator()
-        less_prot_rse_id = add_rse(less_prot_rse, **self.vo)
+        less_prot_rse_id = add_rse(less_prot_rse, vo=vo)
         add_protocol(less_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
 
         diff_prot_rse = rse_name_generator()
-        diff_prot_rse_id = add_rse(diff_prot_rse, **self.vo)
+        diff_prot_rse_id = add_rse(diff_prot_rse, vo=vo)
         add_protocol(diff_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
 
         more_prot_rse = rse_name_generator()
-        more_prot_rse_id = add_rse(more_prot_rse, **self.vo)
+        more_prot_rse_id = add_rse(more_prot_rse, vo=vo)
         add_protocol(more_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
         add_protocol(more_prot_rse_id, {'scheme': 'scheme2', 'hostname': 'hostname2', 'port': 1000, 'impl': 'TODO'})
         add_protocol(more_prot_rse_id, {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'})
@@ -1173,7 +1164,7 @@ class TestImporterSyncModes(unittest.TestCase):
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='hard', **self.vo)
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='hard', vo=vo)
 
         # Check that new protocol was added
         protocols = get_rse_protocols(less_prot_rse_id)
