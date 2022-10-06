@@ -13,12 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-
 import pytest
 
-from rucio.client.metaclient import MetaClient
-from rucio.common.exception import InvalidValueForKey, KeyNotFound, UnsupportedValueType, UnsupportedKeyType
+from rucio.common.exception import InvalidValueForKey, RucioException, UnsupportedValueType, UnsupportedKeyType
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.meta import add_key
 from rucio.db.sqla import session, models
@@ -26,70 +23,68 @@ from rucio.db.sqla.constants import DIDType, KeyType
 
 
 @pytest.mark.dirty
-class TestMetaClient(unittest.TestCase):
+class TestMetaClient:
 
-    def setUp(self):
-        self.meta_client = MetaClient()
-
-    def xtest_add_and_list_keys(self):
+    def test_add_and_list_keys(self, rucio_client):
         """ META (CLIENTS): Add a key and List all keys."""
         key = 'key_' + str(uuid())[:20]
-        ret = self.meta_client.add_key(key=key, key_type='ALL')
+        ret = rucio_client.add_key(key=key, key_type='ALL')
         assert ret
-        keys = self.meta_client.list_keys()
+        keys = rucio_client.list_keys()
         assert isinstance(keys, list)
         assert key in keys
 
-    def xtest_add_and_list_values(self):
+    def test_add_and_list_values(self, rucio_client):
         """ META (CLIENTS): Add a value and List all values."""
         key = 'key_' + str(uuid())[:20]
         value = 'value_' + str(uuid())
 
-        ret = self.meta_client.add_key(key=key, key_type='ALL')
+        ret = rucio_client.add_key(key=key, key_type='ALL')
         assert ret
 
-        ret = self.meta_client.add_value(key=key, value=value)
+        ret = rucio_client.add_value(key=key, value=value)
 
-        values = self.meta_client.list_values(key=key)
+        values = rucio_client.list_values(key=key)
         assert isinstance(values, list)
         assert value in values
 
-    def xtest_add_value_with_type(self):
+    def test_add_value_with_type(self, rucio_client):
         """ META (CLIENTS):  Add a new value to a key with a type constraint"""
         key = 'key_' + str(uuid())[:20]
         value = 'value_' + str(uuid())
-        self.meta_client.add_key(key=key, key_type='ALL', value_type=str)
-        self.meta_client.add_value(key=key, value=value)
-        values = self.meta_client.list_values(key=key)
+        rucio_client.add_key(key=key, key_type='ALL', value_type=str)
+        rucio_client.add_value(key=key, value=value)
+        values = rucio_client.list_values(key=key)
         assert value in values
-        self.meta_client.add_value(key=key, value=1234)
+        with pytest.raises(InvalidValueForKey):
+            rucio_client.add_value(key=key, value=1234)
 
-    def xtest_add_value_with_regexp(self):
+    def test_add_value_with_regexp(self, rucio_client):
         """ META (CLIENTS):  Add a new value to a key with a regexp constraint"""
         key = 'guid' + str(uuid())[:20]
         value = str(uuid())
         # regexp for uuid
         regexp = '[a-f0-9]{8}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{12}'
-        self.meta_client.add_key(key=key, key_type='ALL', value_regexp=regexp)
-        self.meta_client.add_value(key=key, value=value)
-        values = self.meta_client.list_values(key=key)
+        rucio_client.add_key(key=key, key_type='ALL', value_regexp=regexp)
+        rucio_client.add_value(key=key, value=value)
+        values = rucio_client.list_values(key=key)
         assert value in values
         with pytest.raises(InvalidValueForKey):
-            self.meta_client.add_value(key=key, value='Nimportnawak')
+            rucio_client.add_value(key=key, value='Nimportnawak')
 
-    def xtest_add_unsupported_type(self):
+    def test_add_unsupported_type(self, rucio_client):
         """ META (CLIENTS):  Add an unsupported value for type """
         key = 'key_' + str(uuid())[:20]
         with pytest.raises(UnsupportedValueType):
-            self.meta_client.add_key(key=key, key_type='ALL', value_type=str)
+            rucio_client.add_key(key=key, key_type='ALL', value_type='bla')
 
-    def xtest_add_value_to_bad_key(self):
+    def test_add_value_to_bad_key(self, rucio_client):
         """ META (CLIENTS):  Add a new value to a non existing key """
         value = 'value_' + str(uuid())
-        with pytest.raises(KeyNotFound):
-            self.meta_client.add_value(key="Nimportnawak", value=value)
+        with pytest.raises(RucioException):
+            rucio_client.add_value(key="Nimportnawak", value=value)
 
-    def test_add_key(self):
+    def test_add_key(self, rucio_client):
         """ META (CLIENTS): Add a new key """
         types = [{'type': 'FILE', 'expected': KeyType.FILE},
                  {'type': 'ALL', 'expected': KeyType.ALL},
@@ -103,12 +98,12 @@ class TestMetaClient(unittest.TestCase):
 
         for key_type in types:
             key_name = 'datatype%s' % str(uuid())
-            self.meta_client.add_key(key_name, key_type['type'])
+            rucio_client.add_key(key_name, key_type['type'])
             stored_key_type = session.get_session().query(models.DIDKey).filter_by(key=key_name).one()['key_type']
             assert stored_key_type, key_type['expected']
 
         with pytest.raises(UnsupportedKeyType):
-            self.meta_client.add_key('datatype', 'A')
+            rucio_client.add_key('datatype', 'A')
 
 
 @pytest.mark.dirty
