@@ -1405,7 +1405,7 @@ def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, An
     try:
         UUID(rule_id)
     except ValueError:
-        raise RuleReplaceFailed('badly formed hexadecimal UUID string')
+        raise RuleReplaceFailed(f'Badly formed hexadecimal UUID string: string extension {rule_id}.')
 
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()

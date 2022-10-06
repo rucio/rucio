@@ -864,11 +864,7 @@ class TestCore:
         assert(get_rule(rule_id2)['source_replica_expression'] == source_replica_expression)
 
         pytest.raises(RuleReplaceFailed, move_rule, rule_id, self.rse3)
-
-    def test_move_rule_check_argument(self, mock_scope, did_factory, jdoe_account):
-        """ REPLICATION RULE (CORE): Move a rule with invalid rule_id and see what happens"""
-        rule_id : str = 'foo'
-        pytest.raises(RuleReplaceFailed, move_rule, rule_id, self.rse3)
+        pytest.raises(RuleReplaceFailed, move_rule, 'foo', self.rse3)
 
     def test_add_rule_with_scratchdisk(self, vo, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Add a replication rule for scratchdisk"""
