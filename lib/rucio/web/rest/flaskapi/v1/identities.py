@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, Blueprint, request, jsonify
+from flask import Flask, request, jsonify
 
 from rucio.api.identity import add_identity, add_account_identity, list_accounts_for_identity
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     ErrorHandlingMethodView
 
+from rucio.web.ui.flask.bp import AuthorisedBlueprint
 
 class UserPass(ErrorHandlingMethodView):
     """ Manage a username/password identity for an account. """
@@ -240,7 +241,7 @@ class Accounts(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('identities', __name__, url_prefix='/identities')
+    bp = AuthorisedBlueprint(True, 'identities', __name__, url_prefix='/identities')
 
     userpass_view = UserPass.as_view('userpass')
     bp.add_url_rule('/<account>/userpass', view_func=userpass_view, methods=['put', ])
@@ -251,7 +252,6 @@ def blueprint():
     accounts_view = Accounts.as_view('accounts')
     bp.add_url_rule('/<identity_key>/<type>/accounts', view_func=accounts_view, methods=['get', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

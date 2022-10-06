@@ -15,14 +15,15 @@
 
 import json
 
-from flask import Flask, Blueprint, Response, request
+from flask import Flask, Response, request
 
 from rucio.api.heartbeat import list_heartbeats, create_heartbeat
 from rucio.common.utils import APIEncoder
 from rucio.common.exception import UnsupportedValueType, UnsupportedKeyType, KeyNotFound, AccessDenied
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     ErrorHandlingMethodView, json_parameters, param_get, generate_http_error_flask
 
+from rucio.web.ui.flask.bp import AuthorisedBlueprint
 
 class Heartbeat(ErrorHandlingMethodView):
     """ REST API for Heartbeats. """
@@ -111,12 +112,11 @@ class Heartbeat(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('heartbeats', __name__, url_prefix='/heartbeats')
+    bp = AuthorisedBlueprint(True, 'heartbeats', __name__, url_prefix='/heartbeats')
 
     heartbeat_view = Heartbeat.as_view('heartbeat')
     bp.add_url_rule('', view_func=heartbeat_view, methods=['get', 'post'])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 
