@@ -15,7 +15,6 @@
 
 import json
 import os
-import unittest
 
 import pytest
 
@@ -23,23 +22,20 @@ from rucio.common.config import config_get, config_get_bool
 from rucio.tests.common import account_name_generator, rse_name_generator, execute, get_long_vo
 
 
-class TestCurlRucio(unittest.TestCase):
+class TestCurlRucio:
     '''
     class TestCurlRucio
     '''
 
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = '-H "X-Rucio-VO: %s"' % get_long_vo()
-        else:
-            self.vo_header = ''
-
-        self.cacert = config_get('test', 'cacert')
-        self.usercert = config_get('test', 'usercert')
-        self.userkey = config_get('test', 'userkey')
-        self.host = config_get('client', 'rucio_host')
-        self.auth_host = config_get('client', 'auth_host')
-        self.marker = '$> '
+    vo_header = ''
+    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        vo_header = '-H "X-Rucio-VO: %s"' % get_long_vo()
+    cacert = config_get('test', 'cacert')
+    usercert = config_get('test', 'usercert')
+    userkey = config_get('test', 'userkey')
+    host = config_get('client', 'rucio_host')
+    auth_host = config_get('client', 'auth_host')
+    marker = '$> '
 
     def test_ping(self):
         """PING (CURL): Get Version"""
