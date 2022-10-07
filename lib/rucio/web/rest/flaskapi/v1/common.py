@@ -29,7 +29,7 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.wrappers import Request, Response
 
 from rucio.api.authentication import validate_auth_token
-from rucio.common.exception import RucioException, CannotAuthenticate, UnsupportedRequestedContentType
+from rucio.common.exception import DatabaseException, RucioException, CannotAuthenticate, UnsupportedRequestedContentType
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, render_json
 from rucio.core.vo import map_vo
@@ -91,6 +91,17 @@ class ErrorHandlingMethodView(MethodView):
             return super(ErrorHandlingMethodView, self).dispatch_request(*args, **kwargs)
         except HTTPException:
             raise
+        except DatabaseException as error:
+            msg = f'DatabaseException in {self.__class__.__module__} {self.__class__.__name__} {flask.request.method}'
+            # logged, because this should be the __exception__
+            logging.debug(msg, exc_info=True)
+            return generate_http_error_flask(
+                status_code=503,
+                exc=error.__class__.__name__,
+                exc_msg='The Rucio database is overloaded. Please try again in a few minutes.',
+                headers=headers
+            )
+
         except RucioException as error:
             # should be caught in the flask view and generate_http_error_flask with a proper HTTP status code returned
             msg = f'Uncaught RucioException in {self.__class__.__module__} {self.__class__.__name__} {flask.request.method}'
