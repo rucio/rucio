@@ -1059,3 +1059,13 @@ class MetadataSchemaMismatchError(RucioException):
         super(MetadataSchemaMismatchError, self).__init__(*args, **kwargs)
         self._message = 'The external table does not match the expected table schema.'
         self.error_code = 102
+
+
+class ServerSSLCertificateExpiredException(RucioException):
+    """
+    Server SSL Certificate has expired, auth is no longer possible
+    """
+    def __init__(self, *args, **kwargs):
+        super(ServerSSLCertificateExpiredException, self).__init__(*args, **kwargs)
+        self._message = 'Server SSL Certificate has expired, auth is no longer possible'
+        self.error_code = 103

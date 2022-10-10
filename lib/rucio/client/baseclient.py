@@ -29,7 +29,7 @@ from tempfile import mkstemp
 
 from dogpile.cache import make_region
 from requests import Session, Response
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError, SSLError
 from requests.status_codes import codes
 from configparser import NoOptionError, NoSectionError
 from urllib.parse import urlparse
@@ -39,7 +39,7 @@ from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupported,
                                     NoAuthInformation, MissingClientParameter,
-                                    MissingModuleException, ServerConnectionException)
+                                    MissingModuleException, ServerConnectionException, ServerSSLCertificateExpiredException)
 from rucio.common.extra import import_extras
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign, setup_logger
 
@@ -390,6 +390,7 @@ class BaseClient(object):
             self.logger.debug("Request data (length=%d): [%s]" % (len(data), text))
 
         result = None
+        SSLvalid: bool = True
         for retry in range(self.AUTH_RETRIES + 1):
             try:
                 if type_ == 'GET':
@@ -410,6 +411,14 @@ class BaseClient(object):
                 if result.status_code // 100 != 2 and result.text:
                     # do not do this for successful requests because the caller may be expecting streamed response
                     self.logger.debug("Response text (length=%d): [%s]" % (len(result.text), result.text))
+            except SSLError as error:
+                # SSLError is a subclass of ConnectionError
+                self.logger.error(f'SSLError: {error}')
+                if retry > self.request_retries:
+                    raise
+                else:
+                    SSLvalid = False
+                continue
             except ConnectionError as error:
                 self.logger.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
@@ -433,7 +442,10 @@ class BaseClient(object):
                 break
 
         if result is None:
-            raise ServerConnectionException
+            if not SSLvalid:
+                raise ServerSSLCertificateExpiredException
+            else:
+                raise ServerConnectionException
         return result
 
     def __get_token_userpass(self):
