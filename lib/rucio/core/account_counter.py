@@ -12,12 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import datetime
 
 from sqlalchemy.orm.exc import NoResultFound
-
-from rucio.common.exception import CounterNotFound
-import rucio.core.account
-import rucio.core.rse
+from sqlalchemy import literal, insert, select
 
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
@@ -36,36 +34,6 @@ def add_counter(rse_id, account, session=None):
     """
 
     models.AccountUsage(rse_id=rse_id, account=account, files=0, bytes=0).save(session=session)
-
-
-@transactional_session
-def create_counters_for_new_account(account, session=None):
-    """
-    Creates all the Account counters when creating a account.
-
-    :param account: The account.
-    :param session: The database session in use.models.RSECounter
-    """
-
-    vo = account.vo
-    for rse in rucio.core.rse.list_rses(session=session):
-        if rse['vo'] == vo:
-            add_counter(rse_id=rse['id'], account=account, session=session)
-
-
-@transactional_session
-def create_counters_for_new_rse(rse_id, session=None):
-    """
-    Creates all the Account counters when creating a new rse.
-
-    :param rse_id:  The rse_id.
-    :param session: The database session in use.models.RSECounter
-    """
-
-    vo = rucio.core.rse.get_rse_vo(rse_id, session=session)
-    for account in rucio.core.account.list_accounts(session=session):
-        if account['account'].vo == vo:
-            add_counter(rse_id=rse_id, account=account['account'], session=session)
 
 
 @transactional_session
@@ -167,21 +135,33 @@ def update_account_counter_history(account, rse_id, session=None):
     :param rse_id:   The rse_id to update.
     :param session:  Database session in use.
     """
-    AccountUsageHistory = models.AccountUsageHistory
-    try:
-        counter = session.query(models.AccountUsage).filter_by(rse_id=rse_id, account=account).one()
-        AccountUsageHistory(rse_id=rse_id, account=account, files=counter.files, bytes=counter.bytes).save(session=session)
-    except NoResultFound:
-        raise CounterNotFound('No usage can be found for account %s on RSE %s' % (account, rucio.core.rse.get_rse_name(rse_id=rse_id, session=session)))
+    counter = session.query(models.AccountUsage).filter_by(rse_id=rse_id, account=account).one_or_none()
+    if counter:
+        models.AccountUsageHistory(rse_id=rse_id, account=account, files=counter.files, bytes=counter.bytes).save(session=session)
+    else:
+        models.AccountUsageHistory(rse_id=rse_id, account=account, files=0, bytes=0).save(session=session)
 
 
 @transactional_session
 def fill_account_counter_history_table(session=None):
     """
-    Fill the account usage history table with the current usage.
+    Make a snapshot of current counters
 
     :param session:  Database session in use.
     """
-    AccountUsageHistory = models.AccountUsageHistory
-    for usage in session.query(models.AccountUsage).all():
-        AccountUsageHistory(rse_id=usage['rse_id'], account=usage['account'], files=usage['files'], bytes=usage['bytes']).save(session=session)
+
+    select_counters_stmt = select(
+        models.AccountUsage.rse_id,
+        models.AccountUsage.account,
+        models.AccountUsage.files,
+        models.AccountUsage.bytes,
+        literal(datetime.datetime.utcnow()),
+    )
+
+    stmt = insert(
+        models.AccountUsageHistory
+    ).from_select(
+        ['rse_id', 'account', 'files', 'bytes', 'updated_at'],
+        select_counters_stmt
+    )
+    session.execute(stmt)

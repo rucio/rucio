@@ -37,7 +37,6 @@ from rucio.common.config import config_get, config_get_list
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid
-from rucio.core.account_counter import create_counters_for_new_account
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType
 from rucio.db.sqla.session import get_engine, get_session, get_dump_engine
@@ -136,11 +135,9 @@ def create_base_vo():
     s.commit()
 
 
-def create_root_account(create_counters=True):
+def create_root_account():
     """
     Inserts the default root account to an existing database. Make sure to change the default password later.
-
-    :param create_counters: If True, create counters for the new account at existing RSEs.
     """
 
     multi_vo = bool(config_get('common', 'multi_vo', False, False))
@@ -199,10 +196,6 @@ def create_root_account(create_counters=True):
     # SSH authentication
     identity4 = models.Identity(identity=ssh_id, identity_type=IdentityType.SSH, email=ssh_email)
     iaa4 = models.IdentityAccountAssociation(identity=identity4.identity, identity_type=identity4.identity_type, account=account.account, is_default=True)
-
-    # Account counters
-    if create_counters:
-        create_counters_for_new_account(account=account.account, session=s)
 
     # Apply
     for identity in [identity1, identity2, identity3, identity4]:

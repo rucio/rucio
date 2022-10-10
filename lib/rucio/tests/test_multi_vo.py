@@ -53,6 +53,7 @@ from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, get_tmp_dir, parse_response, ssh_sign
 from rucio.core import config as config_db
+from rucio.core.account_counter import add_counter
 from rucio.core.replica import add_replica
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
 from rucio.core.rse_expression_parser import parse_expression
@@ -925,40 +926,31 @@ class TestMultiVoClients(unittest.TestCase):
         tst_rse1 = 'TST1_%s' % rse_str
         new_rse1 = 'NEW1_%s' % rse_str
         rse_client.add_rse(tst_rse1)
-        add_rse(new_rse1, 'root', **self.new_vo)
+        new_rse1_vo1_id = add_rse(new_rse1, 'root', **self.vo)
+        new_rse1_vo2_id = add_rse(new_rse1, 'root', **self.new_vo)
 
-        # add an account - should have counters created for RSEs on the same VO
+        # add an account
         usr_uuid = str(generate_uuid()).lower()[:16]
         new_acc_str = 'shr-%s' % usr_uuid
-        new_acc = InternalAccount(new_acc_str, **self.new_vo)
+        add_account(new_acc_str, 'USER', 'rucio@email.com', 'root', **self.vo)
         add_account(new_acc_str, 'USER', 'rucio@email.com', 'root', **self.new_vo)
+        new_acc_vo1 = InternalAccount(new_acc_str, **self.vo)
+        new_acc_vo2 = InternalAccount(new_acc_str, **self.new_vo)
+
+        # Create counters
+        add_counter(new_rse1_vo1_id, new_acc_vo1)
+        add_counter(new_rse1_vo2_id, new_acc_vo2)
 
         query = session.query(models.AccountUsage.account, models.AccountUsage.rse_id).\
             distinct(models.AccountUsage.account, models.AccountUsage.rse_id).\
-            filter_by(account=new_acc)
+            filter_by(account=new_acc_vo2)
         acc_counters = list(query.all())
 
-        assert 0 != len(acc_counters)
+        assert 1 == len(acc_counters)
         for counter in acc_counters:
             rse_id = counter[1]
             vo = get_rse_vo(rse_id)
             assert vo == self.new_vo['vo']
-
-        # add an RSE - should have counters created for accounts on the same VO
-        new_rse2 = 'NEW2_' + rse_str
-        new_rse2_id = add_rse(new_rse2, 'root', **self.new_vo)
-
-        query = session.query(models.AccountUsage.account, models.AccountUsage.rse_id).\
-            distinct(models.AccountUsage.account, models.AccountUsage.rse_id).\
-            filter_by(rse_id=new_rse2_id)
-        rse_counters = list(query.all())
-
-        assert 0 != len(rse_counters)
-        for counter in rse_counters:
-            account = counter[0]
-            assert account.vo == self.new_vo['vo']
-
-        session.commit()
 
 
 class TestMultiVOBinRucio(unittest.TestCase):

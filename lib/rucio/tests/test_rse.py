@@ -22,9 +22,9 @@ from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSuppor
                                     RSEAttributeNotFound, RSEOperationNotSupported,
                                     InputValidationError)
 from rucio.common.schema import get_schema_value
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalScope
 from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_KEY
-from rucio.core.account_limit import set_local_account_limit
+from rucio.core.account_limit import set_local_account_limit, get_rse_account_usage
 from rucio.core.did import add_did, attach_dids
 from rucio.core.rule import add_rule
 from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses,
@@ -1348,11 +1348,10 @@ class TestRSEClient:
         finally:
             rucio_client.delete_rse(protocol_rse)
 
-    def test_get_rse_usage(self, vo, rucio_client, rse_factory):
+    def test_get_rse_usage(self, vo, rucio_client, rse_factory, jdoe_account, root_account):
         """ RSE (CLIENTS): Test getting the RSE usage. """
         file_sizes = 100
         nfiles = 3
-        jdoe_account = InternalAccount('jdoe', vo=vo)
         rse, rse_id = rse_factory.make_posix_rse()
         set_local_account_limit(account=jdoe_account, rse_id=rse_id, bytes_=10000)
         tmp_scope = InternalScope('mock', vo=vo)
@@ -1370,6 +1369,13 @@ class TestRSEClient:
         usages = rucio_client.get_rse_usage(rse=rse)
         for usage in usages:
             assert 'account_usages' not in usage
+        account_usages = {u['account']: u for u in get_rse_account_usage(rse_id)}
+        assert account_usages[jdoe_account]['quota_bytes'] == 10000
+        assert account_usages[jdoe_account]['used_files'] == nfiles
+        assert account_usages[jdoe_account]['used_bytes'] == nfiles * file_sizes
+        assert not account_usages[root_account]['quota_bytes']
+        assert account_usages[root_account]['used_files'] == 0
+        assert account_usages[root_account]['used_bytes'] == 0
 
     @pytest.mark.dirty("creates a new RSE")
     def test_set_rse_usage(self, rucio_client, rse_factory):

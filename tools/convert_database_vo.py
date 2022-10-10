@@ -299,7 +299,7 @@ def convert_to_mvo(new_vo, description, email, create_super_root=False, commit_c
     success = rename_vo('def', new_vo, insert_new_vo=insert_new_vo, description=description, email=email,
                         commit_changes=commit_changes, skip_history=skip_history)
     if create_super_root and success:
-        create_root_account(create_counters=False)
+        create_root_account()
     s.close()
 
 
