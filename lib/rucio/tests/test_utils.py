@@ -20,7 +20,7 @@ from re import match
 import pytest
 
 from rucio.common.exception import InvalidType
-from rucio.common.utils import md5, adler32, parse_did_filter_from_string, Availability
+from rucio.common.utils import md5, adler32, parse_did_filter_from_string, Availability, retrying
 from rucio.common.logging import formatted_logger
 
 
@@ -154,3 +154,30 @@ def test_formatted_logger():
 
     new_log_func(logging.INFO, "b")
     assert result == (logging.INFO, "a b c")
+
+
+def test_retrying():
+
+    attempts = []
+    start_time = datetime.datetime.now()
+
+    @retrying(retry_on_exception=lambda _: True, wait_fixed=550, stop_max_attempt_number=3)
+    def always_retry():
+        attempts.append(True)
+        raise ValueError()
+
+    with pytest.raises(ValueError):
+        always_retry()
+    assert len(attempts) == 3
+    assert datetime.datetime.now() - start_time > datetime.timedelta(seconds=1)
+
+    attempts = []
+
+    @retrying(retry_on_exception=lambda e: isinstance(e, AttributeError), wait_fixed=1, stop_max_attempt_number=3)
+    def retry_on_attribute_error():
+        attempts.append(True)
+        raise ValueError()
+
+    with pytest.raises(ValueError):
+        retry_on_attribute_error()
+    assert len(attempts) == 1

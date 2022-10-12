@@ -18,7 +18,6 @@ import sys
 
 from functools import wraps
 from inspect import isgeneratorfunction
-from retrying import retry
 from threading import Lock
 from os.path import basename
 
@@ -30,6 +29,7 @@ from sqlalchemy.pool import QueuePool, SingletonThreadPool, NullPool
 
 from rucio.common.config import config_get
 from rucio.common.exception import RucioException, DatabaseException, InputValidationError
+from rucio.common.utils import retrying
 from rucio.common.extra import import_extras
 
 EXTRA_MODULES = import_extras(['MySQLdb', 'pymysql'])
@@ -293,10 +293,9 @@ def read_session(function):
     This is useful if only SELECTs and the like are being done; anything involving
     INSERTs, UPDATEs etc should use transactional_session.
     '''
-    @retry(retry_on_exception=retry_if_db_connection_error,
-           wait_fixed=500,
-           stop_max_attempt_number=2,
-           wrap_exception=False)
+    @retrying(retry_on_exception=retry_if_db_connection_error,
+              wait_fixed=500,
+              stop_max_attempt_number=2)
     @wraps(function)
     def new_funct(*args, **kwargs):
         if isgeneratorfunction(function):
@@ -335,10 +334,9 @@ def stream_session(function):
     This is useful if only SELECTs and the like are being done; anything involving
     INSERTs, UPDATEs etc should use transactional_session.
     '''
-    @retry(retry_on_exception=retry_if_db_connection_error,
-           wait_fixed=500,
-           stop_max_attempt_number=2,
-           wrap_exception=False)
+    @retrying(retry_on_exception=retry_if_db_connection_error,
+              wait_fixed=500,
+              stop_max_attempt_number=2)
     @wraps(function)
     def new_funct(*args, **kwargs):
 

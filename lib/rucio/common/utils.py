@@ -36,8 +36,9 @@ import time
 import zlib
 from collections import OrderedDict
 from enum import Enum
-from functools import partial
+from functools import partial, wraps
 from uuid import uuid4 as uuid
+from typing import TYPE_CHECKING
 from xml.etree import ElementTree
 
 import requests
@@ -60,6 +61,12 @@ if EXTRA_MODULES['paramiko']:
         from paramiko import RSAKey
     except Exception:
         EXTRA_MODULES['paramiko'] = False
+
+if TYPE_CHECKING:
+    from typing import Callable, TypeVar
+
+    T = TypeVar('T')
+
 
 # HTTP code dictionary. Not complete. Can be extended if needed.
 codes = {
@@ -1910,3 +1917,32 @@ class Availability:
         delete_value = (self.delete or self.delete is None) * 1
 
         return read_value + write_value + delete_value
+
+
+def retrying(
+        retry_on_exception: "Callable[[Exception], bool]",
+        wait_fixed: int,
+        stop_max_attempt_number: int
+) -> "Callable[[Callable[..., T]], Callable[..., T]]":
+    """
+    Decorator which retries a function multiple times on certain types of exceptions.
+    :param retry_on_exception: Function which takes an exception as argument and returns True if we must retry on this exception
+    :param wait_fixed: the amount of time to wait in-between two tries
+    :param stop_max_attempt_number: maximum number of allowed attempts
+    """
+    def _decorator(fn):
+        @wraps(fn)
+        def _wrapper(*args, **kwargs):
+            attempt = 0
+            while True:
+                attempt += 1
+                try:
+                    return fn(*args, **kwargs)
+                except Exception as e:
+                    if attempt >= stop_max_attempt_number:
+                        raise
+                    if not retry_on_exception(e):
+                        raise
+                time.sleep(wait_fixed / 1000.0)
+        return _wrapper
+    return _decorator

@@ -25,7 +25,6 @@ from abc import abstractmethod
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Iterable, Optional
-from retrying import retry
 from threading import Lock
 
 from prometheus_client import start_http_server, Counter, Gauge, Histogram, REGISTRY, CollectorRegistry, generate_latest, values, multiprocess
@@ -33,6 +32,7 @@ from statsd import StatsClient
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.stopwatch import Stopwatch
+from rucio.common.utils import retrying
 
 PROMETHEUS_MULTIPROC_DIR = os.environ.get('PROMETHEUS_MULTIPROC_DIR', os.environ.get('prometheus_multiproc_dir', None))
 
@@ -118,9 +118,9 @@ def cleanup_old_prometheus_files(logger=logging.log):
         _cleanup_old_prometheus_files(path, file_pattern='*.db', cleanup_delay=timedelta(days=7).total_seconds(), logger=logger)
 
 
-@retry(retry_on_exception=lambda _: True,
-       wait_fixed=500,
-       stop_max_attempt_number=2)
+@retrying(retry_on_exception=lambda _: True,
+          wait_fixed=500,
+          stop_max_attempt_number=2)
 def generate_prometheus_metrics():
     cleanup_old_prometheus_files()
 

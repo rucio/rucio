@@ -74,7 +74,6 @@ server_requirements_table = {
         'statsd',
         'geoip2',
         'google-auth',
-        'retrying',
         'redis',
         'flask',
         'oic',
