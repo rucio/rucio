@@ -18,9 +18,9 @@ import pytest
 
 from rucio.core.distance import get_distances, add_distance
 from rucio.core.replica import add_replicas
-from rucio.core.request import list_transfer_requests_and_source_replicas
+from rucio.core.request import list_transfer_requests_and_source_replicas, set_transfer_limit
 from rucio.core.transfer import get_supported_transfertools
-from rucio.core.rse import set_rse_transfer_limits, add_rse_attribute, RseData
+from rucio.core.rse import add_rse_attribute, RseData
 from rucio.daemons.conveyor import preparer
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState
@@ -96,9 +96,9 @@ def test_listing_preparing_transfers(mock_request):
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
     ('throttler', 'mode', 'DEST_PER_ACT')
 ]}], indirect=True)
-def test_preparer_setting_request_state_waiting(db_session, mock_request, core_config_mock):
-    set_rse_transfer_limits(
-        mock_request['dest_rse_id'],
+def test_preparer_setting_request_state_waiting(db_session, dest_rse, mock_request, core_config_mock):
+    set_transfer_limit(
+        dest_rse['name'],
         activity=mock_request['activity'],
         max_transfers=1,
         strategy='fifo',

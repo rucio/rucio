@@ -26,7 +26,7 @@ from dogpile.cache.api import NO_VALUE
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased, Session
 from sqlalchemy.orm.exc import FlushError
-from sqlalchemy.sql.expression import or_, false, func, case, select
+from sqlalchemy.sql.expression import or_, and_, false, func, case, select
 
 from rucio.common import exception, utils
 from rucio.common.cache import make_region_memcached
@@ -34,7 +34,7 @@ from rucio.common.config import get_lfn2pfn_algorithm_default
 from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import (RSEType, ReplicaState)
+from rucio.db.sqla.constants import RSEType, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 
@@ -941,42 +941,9 @@ def delete_rse_limits(rse_id: str, name: 'Optional[str]' = None,
         raise exception.RucioException(error.args)
 
 
-@transactional_session
-def set_rse_transfer_limits(rse_id, activity, rse_expression=None, max_transfers=0, transfers=0, waitings=0, volume=0, deadline=1, strategy='fifo', direction='destination', session=None):
-    """
-    Set RSE transfer limits.
-
-    :param rse_id: The RSE id.
-    :param activity: The activity.
-    :param rse_expression: RSE expression string.
-    :param max_transfers: Maximum transfers.
-    :param transfers: Current number of tranfers.
-    :param waitings: Current number of waitings.
-    :param volume: Maximum transfer volume in bytes.
-    :param deadline: Maximum waiting time in hours until a datasets gets released.
-    :param strategy: Stragey to handle datasets `fifo` or `grouped_fifo`.
-    :param direction: The direction in which this limit applies (source/destination)
-    :param session: The database session in use.
-
-    :returns: True if successful, otherwise false.
-    """
-    try:
-        rse_tr_limit = models.RSETransferLimit(rse_id=rse_id, activity=activity, rse_expression=rse_expression,
-                                               max_transfers=max_transfers, transfers=transfers,
-                                               waitings=waitings, volume=volume, strategy=strategy,
-                                               deadline=deadline, direction=direction)
-        rse_tr_limit = session.merge(rse_tr_limit)
-        rowcount = rse_tr_limit.save(session=session)
-        return rowcount
-    except IntegrityError as error:
-        raise exception.RucioException(error.args)
-
-
 def _sanitize_rse_transfer_limit_dict(limit_dict):
     if limit_dict['activity'] == 'all_activities':
         limit_dict['activity'] = None
-    if not limit_dict['direction']:
-        limit_dict['direction'] = 'destination'
     return limit_dict
 
 
@@ -992,15 +959,18 @@ def get_rse_transfer_limits(rse_id, activity=None, session=None):
     """
     try:
         stmt = select(
-            models.RSETransferLimit
-        ).where(
-            models.RSETransferLimit.rse_id == rse_id
+            models.TransferLimit
+        ).join_from(
+            models.RSETransferLimit,
+            models.TransferLimit,
+            and_(models.RSETransferLimit.limit_id == models.TransferLimit.id,
+                 models.RSETransferLimit.rse_id == rse_id)
         )
         if activity:
             stmt = stmt.where(
                 or_(
-                    models.RSETransferLimit.activity == activity,
-                    models.RSETransferLimit.activity == 'all_activities',
+                    models.TransferLimit.activity == activity,
+                    models.TransferLimit.activity == 'all_activities',
                 )
             )
 
@@ -1010,24 +980,6 @@ def get_rse_transfer_limits(rse_id, activity=None, session=None):
             limits.setdefault(limit_dict['direction'], {}).setdefault(limit_dict['activity'], limit_dict)
 
         return limits
-    except IntegrityError as error:
-        raise exception.RucioException(error.args)
-
-
-@transactional_session
-def delete_rse_transfer_limits(rse_id, activity=None, session=None):
-    """
-    Delete RSE transfer limits.
-
-    :param rse_id: The RSE id.
-    :param activity: The activity.
-    """
-    try:
-        query = session.query(models.RSETransferLimit).filter_by(rse_id=rse_id)
-        if activity:
-            query = query.filter_by(activity=activity)
-        rowcount = query.delete()
-        return rowcount
     except IntegrityError as error:
         raise exception.RucioException(error.args)
 

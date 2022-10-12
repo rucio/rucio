@@ -27,10 +27,11 @@ from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_KEY
 from rucio.core.account_limit import set_local_account_limit, get_rse_account_usage
 from rucio.core.did import add_did, attach_dids
 from rucio.core.rule import add_rule
+from rucio.core.request import set_transfer_limit, delete_transfer_limit
 from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses,
                             rse_exists, add_rse_attribute, list_rse_attributes,
-                            set_rse_transfer_limits, get_rse_transfer_limits,
-                            delete_rse_transfer_limits, get_rse_protocols,
+                            get_rse_transfer_limits,
+                            get_rse_protocols,
                             del_rse_attribute, get_rse_attribute, get_rse, rse_is_empty,
                             parse_checksum_support_attribute,
                             get_rse_supported_checksums_from_attributes,
@@ -129,23 +130,23 @@ class TestRSECoreApi:
         waitings = 20
         rse_id = add_rse(rse, vo=vo)
 
-        set_rse_transfer_limits(rse_id=rse_id, activity=activity, max_transfers=max_transfers, transfers=transfers, waitings=waitings)
+        set_transfer_limit(rse_expression=rse, activity=activity, max_transfers=max_transfers, transfers=transfers, waitings=waitings)
         limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)
-        limits = limits['destination']
+        [limits] = list(limits.values())
         assert activity in list(limits.keys())
         assert max_transfers == limits[activity]['max_transfers']
         assert transfers == limits[activity]['transfers']
         assert waitings == limits[activity]['waitings']
 
-        set_rse_transfer_limits(rse_id=rse_id, activity=activity, max_transfers=max_transfers + 1, transfers=transfers + 1, waitings=waitings + 1)
+        set_transfer_limit(rse_expression=rse, activity=activity, max_transfers=max_transfers + 1, transfers=transfers + 1, waitings=waitings + 1)
         limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)
-        limits = limits['destination']
+        [limits] = list(limits.values())
         assert activity in list(limits.keys())
         assert max_transfers + 1 == limits[activity]['max_transfers']
         assert transfers + 1 == limits[activity]['transfers']
         assert waitings + 1 == limits[activity]['waitings']
 
-        delete_rse_transfer_limits(rse_id=rse_id, activity=activity)
+        delete_transfer_limit(rse_expression=rse, activity=activity)
         limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)
         assert not limits or activity not in limits or rse_id not in limits[activity]
 

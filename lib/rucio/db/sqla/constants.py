@@ -185,3 +185,8 @@ class SubscriptionState(Enum):
     NEW = 'N'
     UPDATED = 'U'
     BROKEN = 'B'
+
+
+class TransferLimitDirection(Enum):
+    SOURCE = 'S'
+    DESTINATION = 'D'

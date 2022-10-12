@@ -38,7 +38,7 @@ from rucio.core.monitor import record_counter
 from rucio.core.request import set_request_state, RequestWithSources, RequestSource
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, RequestState, RequestType
+from rucio.db.sqla.constants import DIDType, RequestState, RequestType, TransferLimitDirection
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -1150,10 +1150,10 @@ def applicable_rse_transfer_limits(
     """
     source_limits = {}
     if source_rse:
-        source_limits = source_rse.ensure_loaded(load_transfer_limits=True, session=session).transfer_limits.get('source', {})
+        source_limits = source_rse.ensure_loaded(load_transfer_limits=True, session=session).transfer_limits.get(TransferLimitDirection.SOURCE, {})
     dest_limits = {}
     if dest_rse:
-        dest_limits = dest_rse.ensure_loaded(load_transfer_limits=True, session=session).transfer_limits.get('destination', {})
+        dest_limits = dest_rse.ensure_loaded(load_transfer_limits=True, session=session).transfer_limits.get(TransferLimitDirection.DESTINATION, {})
 
     if activity is not None:
         limit = source_limits.get(activity)
