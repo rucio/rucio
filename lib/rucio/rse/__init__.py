@@ -15,7 +15,6 @@
 
 from dogpile.cache import make_region
 
-from rucio.common.cache import make_region_memcached
 from rucio.common.utils import is_client
 from rucio.rse import rsemanager
 
@@ -81,6 +80,7 @@ if rsemanager.CLIENT_MODE:   # pylint:disable=no-member
 if rsemanager.SERVER_MODE:   # pylint:disable=no-member
     from rucio.core.rse import get_rse_protocols, get_rse_id
     from rucio.core.vo import map_vo
+    from rucio.common.cache import make_region_memcached
 
     def tmp_rse_info(rse=None, vo='def', rse_id=None, session=None):
         if rse_id is None:
