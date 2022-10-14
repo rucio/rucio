@@ -131,6 +131,8 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
         else:
             hostcomponents = host.split('.')
             bucket = hostcomponents[0]
+            if len(pathcomponents) < 2:
+                raise UnsupportedOperation('Not a valid Virtual-Style S3 URL')
             key = '/'.join(pathcomponents[1:])
 
         # remove port number from host if present
