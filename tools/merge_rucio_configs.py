@@ -15,6 +15,7 @@
 
 import argparse
 import logging
+from pathlib import Path
 
 import os
 import json
@@ -75,25 +76,36 @@ def merge_configs(source_file_paths, dest_file_path, use_env=True, logger=loggin
     """
 
     parser = configparser.ConfigParser()
-    for file_path in source_file_paths:
-        if not os.path.exists(file_path):
-            logger(logging.WARNING, "Skipping config file {}: file doesn't exist".format(file_path))
+    for path in source_file_paths:
+        path = Path(path)
+
+        if not path.exists():
+            logger(logging.WARNING, "Skipping {}: path doesn't exist".format(path))
             continue
 
-        try:
-            if file_path.endswith('.json'):
-                with open(file_path, 'r') as f:
-                    file_config = fix_multi_word_sections(json.load(f))
-                    parser.read_dict(file_config)
-            else:
-                local_parser = configparser.ConfigParser()
-                local_parser.read(file_path)
-                file_config = {section: {option: value for option, value in section_proxy.items()} for section, section_proxy in local_parser.items()}
+        if path.is_dir():
+            file_paths = sorted(p for p in path.iterdir() if not p.name.startswith(".") and p.is_file())
+        else:
+            file_paths = [path]
 
-            parser.read_dict(file_config)
-            logger(logging.INFO, "Merged {} configuration values from {}".format(config_len(file_config), file_path))
-        except Exception as error:
-            logger(logging.WARNING, "Skipping config file {} due to error: {}".format(file_path, error))
+        for file_path in file_paths:
+            try:
+                if file_path.suffix == '.json':
+                    with open(file_path, 'r') as f:
+                        file_config = fix_multi_word_sections(json.load(f))
+                        parser.read_dict(file_config)
+                elif path.is_file() or file_path.suffix in ['.ini', '.cfg', '.config']:
+                    local_parser = configparser.ConfigParser()
+                    local_parser.read(file_path)
+                    file_config = {section: {option: value for option, value in section_proxy.items()} for section, section_proxy in local_parser.items()}
+                else:
+                    logger(logging.WARNING, "Skipping file {} due to wrong extension".format(file_path))
+                    continue
+
+                parser.read_dict(file_config)
+                logger(logging.INFO, "Merged {} configuration values from {}".format(config_len(file_config), file_path))
+            except Exception as error:
+                logger(logging.WARNING, "Skipping file {} due to error: {}".format(file_path, error))
 
     if use_env:
         # env variables use the following format: "RUCIO_CFG_{section.substitute('-','_').upper}_{option.substitute('-', '_').upper}"
