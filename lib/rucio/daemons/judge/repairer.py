@@ -32,10 +32,11 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import MetricManager
 from rucio.core.rule import repair_rule, get_stuck_rules
 from rucio.daemons.common import run_daemon
 
+METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 
 
@@ -98,16 +99,16 @@ def run_once(paused_rules, delta, heartbeat_handler, **_kwargs):
             if match('.*ORA-00054.*', str(e.args[0])):
                 paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
                 logger(logging.WARNING, 'Locks detected for %s' % (rule_id))
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': 'LocksDetected'})
+                METRICS.counter('exceptions.{exception}').labels(exception='LocksDetected').inc()
             elif match('.*QueuePool.*', str(e.args[0])):
                 logger(logging.WARNING, traceback.format_exc())
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+                METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
             elif match('.*ORA-03135.*', str(e.args[0])):
                 logger(logging.WARNING, traceback.format_exc())
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+                METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
             else:
                 logger(logging.ERROR, traceback.format_exc())
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+                METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
 
 
 def stop(signum=None, frame=None):

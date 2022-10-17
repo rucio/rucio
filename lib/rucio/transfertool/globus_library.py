@@ -19,13 +19,15 @@ import os
 
 from rucio.common.config import config_get, config_get_int, get_config_dirs
 from rucio.common.extra import import_extras
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import MetricManager
 
 EXTRA_MODULES = import_extras(['globus_sdk'])
 
 if EXTRA_MODULES['globus_sdk']:
     from globus_sdk import NativeAppAuthClient, RefreshTokenAuthorizer, TransferClient, TransferData, DeleteData  # pylint: disable=import-error
     import yaml  # pylint: disable=import-error
+
+METRICS = MetricManager(module=__name__)
 
 GLOBUS_AUTH_APP = config_get('conveyor', 'globus_auth_app', False, None)
 
@@ -123,7 +125,7 @@ def bulk_submit_xfer(submitjob, recursive=False, logger=logging.log):
         # md5 = file['metadata']['md5']
         # tdata.add_item(source_path, dest_path, recursive=False, external_checksum=md5)
         tdata.add_item(source_path, dest_path, recursive=False)
-        record_counter('daemons.conveyor.transfer_submitter.globus.transfers.submit.filesize', filesize)
+        METRICS.counter('submit.filesize').inc(filesize)
 
     # logging.info('submitting transfer...')
     transfer_result = tc.submit_transfer(tdata)
@@ -151,8 +153,8 @@ def bulk_check_xfers(task_ids, logger=logging.log):
         logger(logging.DEBUG, 'transfer: %s' % transfer)
         status = str(transfer["status"])
         if status == 'SUCCEEDED':
-            record_counter('daemons.conveyor.transfer_submitter.globus.transfers.bytes_transferred', transfer['bytes_transferred'])
-            record_counter('daemons.conveyor.transfer_submitter.globus.transfers.effective_bytes_per_second', transfer['effective_bytes_per_second'])
+            METRICS.counter('bytes_transferred').inc(transfer['bytes_transferred'])
+            METRICS.counter('effective_bytes_per_second').inc(transfer['effective_bytes_per_second'])
         responses[str(task_id)] = status
 
     logger(logging.DEBUG, 'responses: %s' % responses)

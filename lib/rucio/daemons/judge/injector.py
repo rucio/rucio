@@ -31,10 +31,11 @@ import rucio.db.sqla.util
 from rucio.common.logging import setup_logging
 from rucio.common.exception import (DatabaseException, RuleNotFound, RSEWriteBlocked,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientAccountLimit)
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import MetricManager
 from rucio.core.rule import inject_rule, get_injected_rules, update_rule
 from rucio.daemons.common import run_daemon
 
+METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 
 
@@ -92,25 +93,25 @@ def run_once(paused_rules, heartbeat_handler, **_kwargs):
         except (DatabaseException, DatabaseError) as e:
             if match('.*ORA-00054.*', str(e.args[0])):
                 paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': 'LocksDetected'})
+                METRICS.counter('exceptions.{exception}').labels(exception='LocksDetected').inc()
                 logger(logging.WARNING, 'Locks detected for %s' % rule_id)
             elif match('.*QueuePool.*', str(e.args[0])):
                 logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+                METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
             elif match('.*ORA-03135.*', str(e.args[0])):
                 logger(logging.WARNING, 'DatabaseException', exc_info=True)
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+                METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
             else:
                 logger(logging.ERROR, 'DatabaseException', exc_info=True)
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+                METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
         except (RSEWriteBlocked) as e:
             paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
             logger(logging.WARNING, 'RSEWriteBlocked for rule %s' % rule_id)
-            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+            METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
         except ReplicationRuleCreationTemporaryFailed as e:
             paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
             logger(logging.WARNING, 'ReplicationRuleCreationTemporaryFailed for rule %s' % rule_id)
-            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+            METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
         except RuleNotFound:
             pass
         except InsufficientAccountLimit:

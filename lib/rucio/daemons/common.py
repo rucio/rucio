@@ -24,7 +24,9 @@ import time
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import PriorityQueue
 from rucio.core import heartbeat as heartbeat_core
-from rucio.core import monitor as monitor_core
+from rucio.core.monitor import MetricManager
+
+METRICS = MetricManager(module=__name__)
 
 
 class HeartbeatHandler:
@@ -148,7 +150,7 @@ def run_daemon(once, graceful_stop, executable, logger_prefix, partition_wait_ti
                     # so sleep by default
                     must_sleep = True
             except Exception as e:
-                monitor_core.record_counter('daemons.{daemon}.exceptions.{exception}', labels={'daemon': logger_prefix, 'exception': e.__class__.__name__})
+                METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
                 logger(logging.CRITICAL, "Exception", exc_info=True)
                 if once:
                     raise

@@ -22,7 +22,10 @@ import stomp
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.logging import rucio_log_formatter
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import MetricManager
+
+
+METRICS = MetricManager(module=__name__)
 
 CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
 
@@ -84,6 +87,7 @@ def date_handler(obj):
     return obj.isoformat() if hasattr(obj, 'isoformat') else obj
 
 
+@METRICS.count_it
 def trace(payload):
     """
     Write a trace to the buffer log file and send it to active mq.
@@ -91,7 +95,6 @@ def trace(payload):
     :param payload: Python dictionary with trace report.
     """
 
-    record_counter('trace.trace')
     report = json.dumps(payload, default=date_handler)
     ROTATING_LOGGER.debug(report)
     t_conns = CONNS[:]

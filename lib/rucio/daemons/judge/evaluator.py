@@ -33,10 +33,11 @@ import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalScope
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import MetricManager
 from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did
 from rucio.daemons.common import run_daemon
 
+METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 
 
@@ -118,21 +119,21 @@ def run_once(paused_dids, did_limit, heartbeat_handler, **_kwargs):
             if match('.*ORA-000(01|54).*', str(e.args[0])):
                 paused_dids[(did.scope.internal, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                 logger(logging.WARNING, 'Locks detected for %s:%s', did.scope, did.name)
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': 'LocksDetected'})
+                METRICS.counter('exceptions.{exception}').labels(exception='LocksDetected').inc()
             elif match('.*QueuePool.*', str(e.args[0])):
                 logger(logging.WARNING, traceback.format_exc())
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+                METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
             elif match('.*ORA-03135.*', str(e.args[0])):
                 logger(logging.WARNING, traceback.format_exc())
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+                METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
             else:
                 logger(logging.ERROR, traceback.format_exc())
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+                METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
         except ReplicationRuleCreationTemporaryFailed as e:
-            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+            METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
             logger(logging.WARNING, 'Replica Creation temporary failed, retrying later for %s:%s', did.scope, did.name)
         except FlushError as e:
-            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+            METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
             logger(logging.WARNING, 'Flush error for %s:%s', did.scope, did.name)
 
 
