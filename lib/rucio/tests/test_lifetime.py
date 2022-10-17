@@ -40,8 +40,8 @@ def test_lifetime_creation_core(root_account, rse_factory, mock_scope, did_facto
     """
     nb_datatype = 3
     nb_datasets = 2 * nb_datatype
-    yesterday = datetime.now() - timedelta(days=1)
-    tomorrow = datetime.now() + timedelta(days=1)
+    yesterday = datetime.utcnow() - timedelta(days=1)
+    tomorrow = datetime.utcnow() + timedelta(days=1)
     rse, rse_id = rse_factory.make_posix_rse()
     datasets = [did_factory.make_dataset() for _ in range(nb_datasets)]
     metadata = [str(uuid()) for _ in range(nb_datatype)]
@@ -64,19 +64,19 @@ def test_lifetime_creation_core(root_account, rse_factory, mock_scope, did_facto
         pass
 
     with pytest.raises(UnsupportedOperation):
-        add_exception(datasets, root_account, pattern='wekhewfk', comments='This is a comment', expires_at=datetime.now())
+        add_exception(datasets, root_account, pattern='wekhewfk', comments='This is a comment', expires_at=datetime.utcnow())
 
     # Test with cutoff_date wrongly defined
     config_core.set(section='lifetime_model', option='cutoff_date', value='wrong_value')
     config_core.get(section='lifetime_model', option='cutoff_date', default=None, use_cache=False)
     with pytest.raises(UnsupportedOperation):
-        add_exception(datasets, root_account, pattern='wekhewfk', comments='This is a comment', expires_at=datetime.now())
+        add_exception(datasets, root_account, pattern='wekhewfk', comments='This is a comment', expires_at=datetime.utcnow())
 
     # Test with cutoff_date properly defined
     tomorrow = tomorrow.strftime('%Y-%m-%d')
     config_core.set(section='lifetime_model', option='cutoff_date', value=tomorrow)
     config_core.get(section='lifetime_model', option='cutoff_date', default=None, use_cache=False)
-    result = add_exception(datasets, root_account, pattern='wekhewfk', comments='This is a comment', expires_at=datetime.now())
+    result = add_exception(datasets, root_account, pattern='wekhewfk', comments='This is a comment', expires_at=datetime.utcnow())
 
     # Check if the Not Existing DIDs are identified
     result_unknown = [(entry['scope'], entry['name']) for entry in result['unknown']]
@@ -108,7 +108,7 @@ def test_lifetime_truncate_expiration(root_account, rse_factory, mock_scope, did
     Test the duration of a lifetime exception is truncated if max_extension is defined
     """
     nb_datasets = 2
-    today = datetime.now()
+    today = datetime.utcnow()
     yesterday = today - timedelta(days=1)
     tomorrow = today + timedelta(days=1)
     next_year = today + timedelta(days=365)
@@ -143,8 +143,8 @@ def test_lifetime_creation_client(root_account, rse_factory, mock_scope, did_fac
     """
     nb_datatype = 3
     nb_datasets = 2 * nb_datatype
-    yesterday = datetime.now() - timedelta(days=1)
-    tomorrow = datetime.now() + timedelta(days=1)
+    yesterday = datetime.utcnow() - timedelta(days=1)
+    tomorrow = datetime.utcnow() + timedelta(days=1)
     rse, rse_id = rse_factory.make_posix_rse()
     datasets = [did_factory.make_dataset() for _ in range(nb_datasets)]
     metadata = [str(uuid()) for _ in range(nb_datatype)]
@@ -170,19 +170,19 @@ def test_lifetime_creation_client(root_account, rse_factory, mock_scope, did_fac
     for dataset in datasets:
         client_datasets.append({'scope': dataset['scope'].external, 'name': dataset['name'], 'did_type': 'DATASET'})
     with pytest.raises(UnsupportedOperation):
-        rucio_client.add_exception(client_datasets, account='root', pattern='wekhewfk', comments='This is a comment', expires_at=datetime.now())
+        rucio_client.add_exception(client_datasets, account='root', pattern='wekhewfk', comments='This is a comment', expires_at=datetime.utcnow())
 
     # Test with cutoff_date wrongly defined
     config_core.set(section='lifetime_model', option='cutoff_date', value='wrong_value')
     config_core.get(section='lifetime_model', option='cutoff_date', default=None, use_cache=False)
     with pytest.raises(UnsupportedOperation):
-        rucio_client.add_exception(client_datasets, account='root', pattern='wekhewfk', comments='This is a comment', expires_at=datetime.now())
+        rucio_client.add_exception(client_datasets, account='root', pattern='wekhewfk', comments='This is a comment', expires_at=datetime.utcnow())
 
     # Test with cutoff_date properly defined
     tomorrow = tomorrow.strftime('%Y-%m-%d')
     config_core.set(section='lifetime_model', option='cutoff_date', value=tomorrow)
     config_core.get(section='lifetime_model', option='cutoff_date', default=None, use_cache=False)
-    result = rucio_client.add_exception(client_datasets, account='root', pattern='wekhewfk', comments='This is a comment', expires_at=datetime.now())
+    result = rucio_client.add_exception(client_datasets, account='root', pattern='wekhewfk', comments='This is a comment', expires_at=datetime.utcnow())
 
     # Check if the Not Existing DIDs are identified
     result_unknown = [(entry['scope'], entry['name']) for entry in result['unknown']]
@@ -219,8 +219,8 @@ def test_atropos(root_account, rse_factory, mock_scope, did_factory, rucio_clien
     """
     Test the behaviour of atropos
     """
-    today = datetime.now()
-    check_date = datetime.now() + timedelta(days=365)
+    today = datetime.utcnow()
+    check_date = datetime.utcnow() + timedelta(days=365)
     check_date = check_date.isoformat().split('T')[0]
 
     # Define a policy
@@ -231,7 +231,7 @@ def test_atropos(root_account, rse_factory, mock_scope, did_factory, rucio_clien
         json.dump(lifetime_policy, outfile)
     REGION.invalidate()
     nb_datasets = 2
-    today = datetime.now()
+    today = datetime.utcnow()
     rse, rse_id = rse_factory.make_posix_rse()
     datasets = [did_factory.make_dataset() for _ in range(nb_datasets)]
     rules = list()

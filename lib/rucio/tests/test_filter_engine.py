@@ -599,7 +599,7 @@ class TestFilterEngineReal(unittest.TestCase):
 
     @read_session
     def test_BackwardsCompatibilityCreatedAfter(self, session=None):
-        before = datetime.strftime(datetime.now() - timedelta(seconds=1), "%Y-%m-%dT%H:%M:%S.%fZ")  # w/ -1s buffer
+        before = datetime.strftime(datetime.utcnow() - timedelta(seconds=1), "%Y-%m-%dT%H:%M:%S.%fZ")  # w/ -1s buffer
         did_name = self._create_tmp_DID()
 
         dids = []
@@ -611,7 +611,7 @@ class TestFilterEngineReal(unittest.TestCase):
     @read_session
     def test_BackwardsCompatibilityCreatedBefore(self, session=None):
         did_name = self._create_tmp_DID()
-        after = datetime.strftime(datetime.now() + timedelta(seconds=1), "%Y-%m-%dT%H:%M:%S.%fZ")  # w/ +1s buffer
+        after = datetime.strftime(datetime.utcnow() + timedelta(seconds=1), "%Y-%m-%dT%H:%M:%S.%fZ")  # w/ +1s buffer
 
         dids = []
         q = FilterEngine('created_before={}'.format(after), model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
