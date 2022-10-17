@@ -88,9 +88,9 @@ def generate_didname(metadata: dict, dsn: str, did_type: str) -> str:
     fields = pattern.split(separator)
     file_name = ""
     for field in fields:
-        if field == "date":
-            field_str = str(datetime.now().date())
-        elif field == "did_prefix":
+        if field == 'date':
+            field_str = str(datetime.utcnow().date())
+        elif field == 'did_prefix':
             field_str = did_prefix
         elif field == "dsn":
             field_str = dsn

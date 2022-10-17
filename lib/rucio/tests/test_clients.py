@@ -165,7 +165,7 @@ class TestBaseClient(unittest.TestCase):
             del invocations[:]
             client._send_request(server.base_url)  # noqa
         # The client did back-off multiple times before succeeding: 2 * 0.25s (authentication) + 2 * 0.25s (request) = 1s
-        assert datetime.now() - start_time > timedelta(seconds=0.9)
+        assert datetime.utcnow() - start_time > timedelta(seconds=0.9)
 
 
 class TestRucioClients(unittest.TestCase):

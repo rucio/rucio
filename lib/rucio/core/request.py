@@ -1263,7 +1263,7 @@ def release_waiting_requests_per_deadline(rse_id=None, deadline=1, session=None)
             grouped_requests_subquery.c.scope,
             grouped_requests_subquery.c.oldest_requested_at
         ).where(
-            grouped_requests_subquery.c.oldest_requested_at < datetime.datetime.now() - datetime.timedelta(hours=deadline)
+            grouped_requests_subquery.c.oldest_requested_at < datetime.datetime.utcnow() - datetime.timedelta(hours=deadline)
         ).subquery()
 
         old_requests_subquery = select(

@@ -121,7 +121,7 @@ def main(args):
 
     try:
         while all(p.is_alive() for p in procs):
-            while last_run_month == datetime.now().month:
+            while last_run_month == datetime.utcnow().month:
                 time.sleep(60 * 60 * 24)
 
             for rse in rses:

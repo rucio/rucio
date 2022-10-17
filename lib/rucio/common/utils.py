@@ -27,6 +27,7 @@ import mmap
 import os
 import os.path
 import re
+import signal
 import socket
 import subprocess
 import tempfile
@@ -1349,21 +1350,19 @@ def run_cmd_process(cmd, timeout=3600):
     :return: stdout xor stderr, and errorcode
     """
 
-    time_start = datetime.datetime.now().second
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, preexec_fn=os.setsid, universal_newlines=True)
 
-    running_time = 0
-    while process.poll() is None and running_time < timeout:
-        time_now = datetime.datetime.now().second
-        running_time = int(time_now - time_start)
-        time.sleep(3)
-    if process.poll() is None:
-        process.terminate()
-        time.sleep(3)
-    if process.poll() is None:
-        process.kill()
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            # Kill the whole process group since we're using shell=True.
+            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            stdout, stderr = process.communicate(timeout=3)
+        except subprocess.TimeoutExpired:
+            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+            stdout, stderr = process.communicate()
 
-    stdout, stderr = process.communicate()
     if not stderr:
         stderr = ''
     if not stdout:
