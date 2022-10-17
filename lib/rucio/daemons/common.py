@@ -23,7 +23,8 @@ import time
 
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import PriorityQueue
-from rucio.core import heartbeat
+from rucio.core import heartbeat as heartbeat_core
+from rucio.core import monitor as monitor_core
 
 
 class HeartbeatHandler:
@@ -54,13 +55,13 @@ class HeartbeatHandler:
         self.last_payload = None
 
     def __enter__(self):
-        heartbeat.sanity_check(executable=self.executable, hostname=self.hostname)
+        heartbeat_core.sanity_check(executable=self.executable, hostname=self.hostname)
         self.live()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.last_heart_beat:
-            heartbeat.die(self.executable, self.hostname, self.pid, self.hb_thread)
+            heartbeat_core.die(self.executable, self.hostname, self.pid, self.hb_thread)
             if self.logger:
                 self.logger(logging.INFO, 'Heartbeat cleaned up')
 
@@ -74,9 +75,9 @@ class HeartbeatHandler:
                 or self.last_time < datetime.datetime.now() - datetime.timedelta(seconds=self.renewal_interval) \
                 or self.last_payload != payload:
             if self.older_than:
-                self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread, payload=payload, older_than=self.older_than)
+                self.last_heart_beat = heartbeat_core.live(self.executable, self.hostname, self.pid, self.hb_thread, payload=payload, older_than=self.older_than)
             else:
-                self.last_heart_beat = heartbeat.live(self.executable, self.hostname, self.pid, self.hb_thread, payload=payload)
+                self.last_heart_beat = heartbeat_core.live(self.executable, self.hostname, self.pid, self.hb_thread, payload=payload)
 
             prefix = '%s[%s:%i/%i]: ' % (self.logger_prefix, self.logger_id, self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'])
             self.logger = formatted_logger(logging.log, prefix + '%s')
@@ -146,7 +147,8 @@ def run_daemon(once, graceful_stop, executable, logger_prefix, partition_wait_ti
                     # The run_once_fnc doesn't explicitly return whether we must sleep,
                     # so sleep by default
                     must_sleep = True
-            except Exception:
+            except Exception as e:
+                monitor_core.record_counter('daemons.{daemon}.exceptions.{exception}', labels={'daemon': logger_prefix, 'exception': e.__class__.__name__})
                 logger(logging.CRITICAL, "Exception", exc_info=True)
                 if once:
                     raise

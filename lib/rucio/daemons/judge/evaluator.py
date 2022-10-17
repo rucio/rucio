@@ -64,90 +64,76 @@ def re_evaluator(once=False, sleep_time=30, did_limit=100):
 def run_once(paused_dids, did_limit, heartbeat_handler, **_kwargs):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
-    try:
-        # heartbeat
-        start = time.time()  # NOQA
+    # heartbeat
+    start = time.time()  # NOQA
 
-        # Refresh paused dids
-        iter_paused_dids = copy.copy(paused_dids)
-        for key in iter_paused_dids:
-            if datetime.utcnow() > paused_dids[key]:
-                del paused_dids[key]
+    # Refresh paused dids
+    iter_paused_dids = copy.copy(paused_dids)
+    for key in iter_paused_dids:
+        if datetime.utcnow() > paused_dids[key]:
+            del paused_dids[key]
 
-        # Select a bunch of dids for re evaluation for this worker
-        dids = get_updated_dids(total_workers=total_workers,
-                                worker_number=worker_number,
-                                limit=did_limit,
-                                blocked_dids=[(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids])
-        logger(logging.DEBUG, 'index query time %f fetch size is %d (%d blocked)', time.time() - start, len(dids),
-               len([(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids]))
+    # Select a bunch of dids for re evaluation for this worker
+    dids = get_updated_dids(total_workers=total_workers,
+                            worker_number=worker_number,
+                            limit=did_limit,
+                            blocked_dids=[(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids])
+    logger(logging.DEBUG, 'index query time %f fetch size is %d (%d blocked)', time.time() - start, len(dids),
+           len([(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids]))
 
-        # If the list is empty, sent the worker to sleep
-        if not dids:
-            logger(logging.DEBUG, 'did not get any work (paused_dids=%s)', str(len(paused_dids)))
-            return
+    # If the list is empty, sent the worker to sleep
+    if not dids:
+        logger(logging.DEBUG, 'did not get any work (paused_dids=%s)', str(len(paused_dids)))
+        return
 
-        done_dids = {}
-        for did in dids:
-            _, _, logger = heartbeat_handler.live()
-            if graceful_stop.is_set():
-                break
+    done_dids = {}
+    for did in dids:
+        _, _, logger = heartbeat_handler.live()
+        if graceful_stop.is_set():
+            break
 
-            # Check if this did has already been operated on
-            did_tag = '%s:%s' % (did.scope.internal, did.name)
-            if did_tag in done_dids:
-                if did.rule_evaluation_action in done_dids[did_tag]:
-                    logger(logging.DEBUG, 'evaluation of %s:%s already done', did.scope, did.name)
-                    delete_updated_did(id_=did.id)
-                    continue
-            else:
-                done_dids[did_tag] = []
-
-            # Jump paused dids
-            if (did.scope.internal, did.name) in paused_dids:
+        # Check if this did has already been operated on
+        did_tag = '%s:%s' % (did.scope.internal, did.name)
+        if did_tag in done_dids:
+            if did.rule_evaluation_action in done_dids[did_tag]:
+                logger(logging.DEBUG, 'evaluation of %s:%s already done', did.scope, did.name)
+                delete_updated_did(id_=did.id)
                 continue
-
-            try:
-                start_time = time.time()
-                re_evaluate_did(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action)
-                logger(logging.DEBUG, 'evaluation of %s:%s took %f', did.scope, did.name, time.time() - start_time)
-                delete_updated_did(id_=did.id)
-                done_dids[did_tag].append(did.rule_evaluation_action)
-            except DataIdentifierNotFound:
-                delete_updated_did(id_=did.id)
-            except (DatabaseException, DatabaseError) as e:
-                if match('.*ORA-000(01|54).*', str(e.args[0])):
-                    paused_dids[(did.scope.internal, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
-                    logger(logging.WARNING, 'Locks detected for %s:%s', did.scope, did.name)
-                    record_counter('rule.judge.exceptions.{exception}', labels={'exception': 'LocksDetected'})
-                elif match('.*QueuePool.*', str(e.args[0])):
-                    logger(logging.WARNING, traceback.format_exc())
-                    record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-                elif match('.*ORA-03135.*', str(e.args[0])):
-                    logger(logging.WARNING, traceback.format_exc())
-                    record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-                else:
-                    logger(logging.ERROR, traceback.format_exc())
-                    record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-            except ReplicationRuleCreationTemporaryFailed as e:
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-                logger(logging.WARNING, 'Replica Creation temporary failed, retrying later for %s:%s', did.scope, did.name)
-            except FlushError as e:
-                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-                logger(logging.WARNING, 'Flush error for %s:%s', did.scope, did.name)
-    except (DatabaseException, DatabaseError) as e:
-        if match('.*QueuePool.*', str(e.args[0])):
-            logger(logging.WARNING, traceback.format_exc())
-            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-        elif match('.*ORA-03135.*', str(e.args[0])):
-            logger(logging.WARNING, traceback.format_exc())
-            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
         else:
-            logger(logging.CRITICAL, traceback.format_exc())
+            done_dids[did_tag] = []
+
+        # Jump paused dids
+        if (did.scope.internal, did.name) in paused_dids:
+            continue
+
+        try:
+            start_time = time.time()
+            re_evaluate_did(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action)
+            logger(logging.DEBUG, 'evaluation of %s:%s took %f', did.scope, did.name, time.time() - start_time)
+            delete_updated_did(id_=did.id)
+            done_dids[did_tag].append(did.rule_evaluation_action)
+        except DataIdentifierNotFound:
+            delete_updated_did(id_=did.id)
+        except (DatabaseException, DatabaseError) as e:
+            if match('.*ORA-000(01|54).*', str(e.args[0])):
+                paused_dids[(did.scope.internal, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
+                logger(logging.WARNING, 'Locks detected for %s:%s', did.scope, did.name)
+                record_counter('rule.judge.exceptions.{exception}', labels={'exception': 'LocksDetected'})
+            elif match('.*QueuePool.*', str(e.args[0])):
+                logger(logging.WARNING, traceback.format_exc())
+                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+            elif match('.*ORA-03135.*', str(e.args[0])):
+                logger(logging.WARNING, traceback.format_exc())
+                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+            else:
+                logger(logging.ERROR, traceback.format_exc())
+                record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+        except ReplicationRuleCreationTemporaryFailed as e:
             record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
-    except Exception as e:
-        logger(logging.CRITICAL, traceback.format_exc())
-        record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+            logger(logging.WARNING, 'Replica Creation temporary failed, retrying later for %s:%s', did.scope, did.name)
+        except FlushError as e:
+            record_counter('rule.judge.exceptions.{exception}', labels={'exception': e.__class__.__name__})
+            logger(logging.WARNING, 'Flush error for %s:%s', did.scope, did.name)
 
 
 def stop(signum=None, frame=None):
