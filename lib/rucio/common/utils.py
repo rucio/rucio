@@ -47,7 +47,7 @@ from configparser import NoOptionError, NoSectionError
 
 from rucio.common.config import config_get, config_has_section
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException, \
-    DuplicateCriteriaInDIDFilter, DIDFilterSyntaxError, InvalidAlgorithmName
+    DuplicateCriteriaInDIDFilter, DIDFilterSyntaxError, InvalidAlgorithmName, PolicyPackageVersionError
 
 from rucio.common.extra import import_extras
 from rucio.common.types import InternalAccount, InternalScope
@@ -1772,6 +1772,7 @@ def register_policy_package_algorithms(algorithm_type, dictionary):
                 package = os.environ[env_name]
             else:
                 package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo))
+            check_policy_package_version(package)
             module = importlib.import_module(package)
             if hasattr(module, 'get_algorithms'):
                 all_algorithms = module.get_algorithms()
@@ -1824,6 +1825,28 @@ def register_policy_package_algorithms(algorithm_type, dictionary):
             vos = list_vos()
             for vo in vos:
                 try_importing_policy(algorithm_type, dictionary, vo['vo'])
+
+
+def check_policy_package_version(package):
+    import importlib
+    from rucio.version import version_string
+    '''
+    Checks that the Rucio version supported by the policy package is compatible
+    with this version. Raises an exception if not.
+    :param package: the fully qualified name of the policy package
+    '''
+    try:
+        module = importlib.import_module(package)
+    except ImportError:
+        # package not found. Will be picked up elsewhere
+        return
+    if not hasattr(module, 'SUPPORTED_VERSION'):
+        # package is not versioned
+        return
+    supported_version = module.SUPPORTED_VERSION if isinstance(module.SUPPORTED_VERSION, list) else [module.SUPPORTED_VERSION]
+    current_version = ".".join(version_string().split(".")[:2])
+    if current_version not in supported_version:
+        raise PolicyPackageVersionError(package)
 
 
 class Availability:
