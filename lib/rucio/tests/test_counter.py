@@ -12,33 +12,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import unittest
-
 import pytest
 
-from rucio.common.config import config_get_bool
-from rucio.common.types import InternalAccount
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_usage
-from rucio.core.rse import get_rse_id
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
-from rucio.db.sqla import session, models
-from rucio.tests.common_server import get_vo
+from rucio.db.sqla import models
 
 
-@pytest.mark.noparallel(reason='uses pre-defined RSE, fails when run in parallel')
-class TestCoreRSECounter(unittest.TestCase):
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
+@pytest.mark.noparallel(reason='runs abacus daemons')
+class TestCoreRSECounter:
 
-    def test_inc_dec_get_counter(self):
+    def test_inc_dec_get_counter(self, rse_factory):
         """ RSE COUNTER (CORE): Increase, decrease and get counter """
-        rse_id = get_rse_id(rse='MOCK', **self.vo)
+        _, rse_id = rse_factory.make_mock_rse()
         rse_update(once=True)
         rse_counter.del_counter(rse_id=rse_id)
         rse_counter.add_counter(rse_id=rse_id)
@@ -83,9 +71,8 @@ class TestCoreRSECounter(unittest.TestCase):
             del cnt['updated_at']
             assert cnt == {'files': count, 'bytes': sum_}
 
-    def test_fill_counter_history(self):
+    def test_fill_counter_history(self, db_session):
         """RSE COUNTER (CORE): Fill the usage history with the current value."""
-        db_session = session.get_session()
         db_session.query(models.RSEUsageHistory).delete()
         db_session.commit()
         rse_counter.fill_rse_counter_history_table()
@@ -95,19 +82,14 @@ class TestCoreRSECounter(unittest.TestCase):
             assert usage in current_usage
 
 
-@pytest.mark.noparallel(reason='uses pre-defined RSE, fails when run in parallel')
-class TestCoreAccountCounter(unittest.TestCase):
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
+@pytest.mark.noparallel(reason='runs abacus daemons')
+class TestCoreAccountCounter:
 
-    def test_inc_dec_get_counter(self):
+    def test_inc_dec_get_counter(self, jdoe_account, rse_factory):
         """ACCOUNT COUNTER (CORE): Increase, decrease and get counter """
         account_update(once=True)
-        rse_id = get_rse_id(rse='MOCK', **self.vo)
-        account = InternalAccount('jdoe', **self.vo)
+        _, rse_id = rse_factory.make_mock_rse()
+        account = jdoe_account
         account_counter.del_counter(rse_id=rse_id, account=account)
         account_counter.add_counter(rse_id=rse_id, account=account)
         cnt = get_usage(rse_id=rse_id, account=account)
@@ -151,9 +133,8 @@ class TestCoreAccountCounter(unittest.TestCase):
             del cnt['updated_at']
             assert cnt == {'files': count, 'bytes': sum_}
 
-    def test_fill_counter_history(self):
+    def test_fill_counter_history(self, db_session):
         """ACCOUNT COUNTER (CORE): Fill the usage history with the current value."""
-        db_session = session.get_session()
         db_session.query(models.AccountUsageHistory).delete()
         db_session.commit()
         account_counter.fill_account_counter_history_table()

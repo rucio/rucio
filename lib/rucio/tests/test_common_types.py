@@ -13,62 +13,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-
-from rucio.common.config import config_get_bool
 from rucio.common.types import InternalScope, InternalAccount, InternalType
-from rucio.tests.common_server import get_vo
 
 
-class TestInternalType(unittest.TestCase):
-    ''' Test the base InternalType class '''
+class TestInternalType:
+    """ Test the base InternalType class """
 
-    def setUp(self):
-        ''' INTERNAL TYPES: Setup the tests '''
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
+    def test_equality(self, vo):
+        """ INTERNAL TYPES: Equality """
+        base = InternalType('test', vo=vo)
+        same = InternalType('test', vo=vo)
+        diff = InternalType('different', vo=vo)
 
-        self.base = InternalType('test', **self.vo)
-        self.same = InternalType('test', **self.vo)
-        self.diff = InternalType('different', **self.vo)
+        base_account = InternalAccount('test', vo=vo)
+        base_scope = InternalScope('test', vo=vo)
 
-        self.base_account = InternalAccount('test', **self.vo)
-        self.base_scope = InternalScope('test', **self.vo)
+        assert base == same
+        assert base is not same
+        assert base != diff
+        assert (base.internal == same.internal) \
+               & (base.external == same.external)
+        assert (base.internal != diff.internal) \
+               & (base.external != diff.external)
+        assert base_account != base_scope
 
-    def test_equality(self):
-        ''' INTERNAL TYPES: Equality '''
-        equal = self.base == self.same
-        assert equal
-
-        identical = self.base is self.same
-        assert not identical
-
-        different = self.base != self.diff
-        assert different
-
-        equal = (self.base.internal == self.same.internal) \
-            & (self.base.external == self.same.external)
-        assert equal
-
-        different = (self.base.internal != self.diff.internal) \
-            & (self.base.external != self.diff.external)
-        assert different
-
-        different = self.base_account != self.base_scope
-        assert different
-
-    def test_conversion(self):
-        ''' INTERNAL TYPES: Conversion '''
-        internal = self.base.internal
+    def test_conversion(self, vo):
+        """ INTERNAL TYPES: Conversion """
+        base = InternalType('test', vo=vo)
+        internal = base.internal
         from_internal = InternalType(internal, fromExternal=False)
+        assert base == from_internal
 
-        equal = self.base == from_internal
-        assert equal
-
-    def test_str_rep(self):
-        ''' INTERNAL TYPES: Representation '''
-        base_str = '%s' % self.base
-        equal = base_str == self.base.external
-        assert equal
+    def test_str_rep(self, vo):
+        """ INTERNAL TYPES: Representation """
+        base = InternalType('test', vo=vo)
+        base_str = '%s' % base
+        assert base_str == base.external

@@ -15,10 +15,7 @@
 
 import json
 import os
-import shutil
 import sys
-import tempfile
-import unittest
 from datetime import datetime
 
 from rucio.common.dumper.consistency import Consistency
@@ -73,7 +70,7 @@ def mocked_requests(*args, **kwargs):
         return MockResponse([rucio_dump_2], 200)
 
 
-class TestConsistency(unittest.TestCase):
+class TestConsistency:
     '''
     TestConsistency
     '''
@@ -100,21 +97,15 @@ class TestConsistency(unittest.TestCase):
         'path20,A',
     ]
 
-    def setUp(self):  # pylint: disable=invalid-name
-        self.tmp_dir = tempfile.mkdtemp()
-
-    def tearDown(self):  # pylint: disable=invalid-name
-        shutil.rmtree(self.tmp_dir)
-
     @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
-    def test_consistency_manual_correct_file_default_args(self, mock_get):
+    def test_consistency_manual_correct_file_default_args(self, mock_get, tmp_path):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
         storage_dump = 'user/someuser/aa/bb/user.someuser.filename\n'
 
-        rrdf1 = make_temp_file(self.tmp_dir, rucio_dump)
-        rrdf2 = make_temp_file(self.tmp_dir, rucio_dump)
-        sdf = make_temp_file(self.tmp_dir, storage_dump)
+        rrdf1 = make_temp_file(tmp_path, rucio_dump)
+        rrdf2 = make_temp_file(tmp_path, rucio_dump)
+        sdf = make_temp_file(tmp_path, storage_dump)
 
         mock_get.return_value = RSEPROTOCOL
         consistency = Consistency.dump(
@@ -123,20 +114,20 @@ class TestConsistency(unittest.TestCase):
             sdf,
             prev_date_fname=rrdf1,
             next_date_fname=rrdf2,
-            cache_dir=self.tmp_dir,
+            cache_dir=tmp_path,
         )
         assert len(list(consistency)) == 0
 
     @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
-    def test_consistency_manual_lost_file(self, mock_get):
+    def test_consistency_manual_lost_file(self, mock_get, tmp_path):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
         rucio_dump += 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename2\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename2\t2015-09-20 21:22:17\tA\n'
         storage_dump = 'user/someuser/aa/bb/user.someuser.filename\n'
 
-        rrdf1 = make_temp_file(self.tmp_dir, rucio_dump)
-        rrdf2 = make_temp_file(self.tmp_dir, rucio_dump)
-        sdf = make_temp_file(self.tmp_dir, storage_dump)
+        rrdf1 = make_temp_file(tmp_path, rucio_dump)
+        rrdf2 = make_temp_file(tmp_path, rucio_dump)
+        sdf = make_temp_file(tmp_path, storage_dump)
 
         mock_get.return_value = RSEPROTOCOL
 
@@ -146,7 +137,7 @@ class TestConsistency(unittest.TestCase):
             sdf,
             prev_date_fname=rrdf1,
             next_date_fname=rrdf2,
-            cache_dir=self.tmp_dir,
+            cache_dir=tmp_path,
         )
         consistency = list(consistency)
         assert len(consistency) == 1
@@ -154,16 +145,16 @@ class TestConsistency(unittest.TestCase):
         assert consistency[0].path == 'user/someuser/aa/bb/user.someuser.filename2'
 
     @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
-    def test_consistency_manual_transient_file_is_not_lost(self, mock_get):
+    def test_consistency_manual_transient_file_is_not_lost(self, mock_get, tmp_path):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
         rucio_dump_1 = rucio_dump + 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename2\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename2\t2015-09-20 21:22:17\tU\n'
         rucio_dump_2 = rucio_dump + 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename2\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename2\t2015-09-20 21:22:17\tA\n'
         storage_dump = 'user/someuser/aa/bb/user.someuser.filename\n'
 
-        rrdf1 = make_temp_file(self.tmp_dir, rucio_dump_1)
-        rrdf2 = make_temp_file(self.tmp_dir, rucio_dump_2)
-        sdf = make_temp_file(self.tmp_dir, storage_dump)
+        rrdf1 = make_temp_file(tmp_path, rucio_dump_1)
+        rrdf2 = make_temp_file(tmp_path, rucio_dump_2)
+        sdf = make_temp_file(tmp_path, storage_dump)
 
         mock_get.return_value = RSEPROTOCOL
 
@@ -173,20 +164,20 @@ class TestConsistency(unittest.TestCase):
             sdf,
             prev_date_fname=rrdf1,
             next_date_fname=rrdf2,
-            cache_dir=self.tmp_dir,
+            cache_dir=tmp_path,
         )
         assert len(list(consistency)) == 0
 
     @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
-    def test_consistency_manual_dark_file(self, mock_get):
+    def test_consistency_manual_dark_file(self, mock_get, tmp_path):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
         storage_dump = 'user/someuser/aa/bb/user.someuser.filename\n'
         storage_dump += 'user/someuser/aa/bb/user.someuser.filename2\n'
 
-        rrdf1 = make_temp_file(self.tmp_dir, rucio_dump)
-        rrdf2 = make_temp_file(self.tmp_dir, rucio_dump)
-        sdf = make_temp_file(self.tmp_dir, storage_dump)
+        rrdf1 = make_temp_file(tmp_path, rucio_dump)
+        rrdf2 = make_temp_file(tmp_path, rucio_dump)
+        sdf = make_temp_file(tmp_path, storage_dump)
 
         mock_get.return_value = RSEPROTOCOL
 
@@ -196,7 +187,7 @@ class TestConsistency(unittest.TestCase):
             sdf,
             prev_date_fname=rrdf1,
             next_date_fname=rrdf2,
-            cache_dir=self.tmp_dir,
+            cache_dir=tmp_path,
         )
         consistency = list(consistency)
 
@@ -205,14 +196,14 @@ class TestConsistency(unittest.TestCase):
         assert consistency[0].path == 'user/someuser/aa/bb/user.someuser.filename2'
 
     @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
-    def test_consistency_manual_multiple_slashes_in_storage_dump_do_not_generate_false_positive(self, mock_get):
+    def test_consistency_manual_multiple_slashes_in_storage_dump_do_not_generate_false_positive(self, mock_get, tmp_path):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
         storage_dump = '/example.com:1094////atlasdatadisk/rucio//user/someuser/aa/bb/user.someuser.filename\n'
 
-        rrdf1 = make_temp_file(self.tmp_dir, rucio_dump)
-        rrdf2 = make_temp_file(self.tmp_dir, rucio_dump)
-        sdf = make_temp_file(self.tmp_dir, storage_dump)
+        rrdf1 = make_temp_file(tmp_path, rucio_dump)
+        rrdf2 = make_temp_file(tmp_path, rucio_dump)
+        sdf = make_temp_file(tmp_path, storage_dump)
 
         mock_get.return_value = RSEPROTOCOL
 
@@ -222,7 +213,7 @@ class TestConsistency(unittest.TestCase):
             sdf,
             prev_date_fname=rrdf1,
             next_date_fname=rrdf2,
-            cache_dir=self.tmp_dir,
+            cache_dir=tmp_path,
         )
         consistency = list(consistency)
 
@@ -231,20 +222,20 @@ class TestConsistency(unittest.TestCase):
     @mock.patch('requests.Session.head', side_effect=mocked_requests)
     @mock.patch('requests.Session.get', side_effect=mocked_requests)
     @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol', return_value=RSEPROTOCOL)
-    def test_consistency(self, mock_dumper_get, mock_request_get, mock_request_head):
+    def test_consistency(self, mock_dumper_get, mock_request_get, mock_request_head, tmp_path):
         ''' DUMPER '''
         storage_dump = (
             '//atlasdatadisk/rucio/user/someuser/aa/bb/user.someuser.filename\n'
             '//atlasdatadisk/rucio/user/someuser/aa/bb/user.someuser.dark\n'
         )
-        sd = make_temp_file(self.tmp_dir, storage_dump)
+        sd = make_temp_file(tmp_path, storage_dump)
 
         consistency = Consistency.dump('consistency',
                                        'MOCK_SCRATCHDISK',
                                        storage_dump=sd,
                                        prev_date=datetime(2015, 9, 29),
                                        next_date=datetime(2015, 10, 4),
-                                       cache_dir=self.tmp_dir)
+                                       cache_dir=tmp_path)
         consistency = list(consistency)
 
         assert len(consistency) == 2
@@ -257,14 +248,14 @@ class TestConsistency(unittest.TestCase):
         assert 'user.someuser.dark' in dark
         assert 'user.someuser.lost' in lost
 
-    def test__try_to_advance(self):
+    def test__try_to_advance(self, tmp_path):
         ''' DUMPER '''
         i = iter(['   abc  '])
         assert _try_to_advance(i) == 'abc'
         assert _try_to_advance(i) is None
         assert _try_to_advance(i, 42) == 42
 
-    def test_compare3(self):
+    def test_compare3(self, tmp_path):
         ''' DUMPER '''
         sorted_rdd_1 = sorted(self.case_mixed_rrd_1, key=lambda s: s.split(',')[0])
         sorted_rdd_2 = sorted(self.case_mixed_rrd_2, key=lambda s: s.split(',')[0])
@@ -284,7 +275,7 @@ class TestConsistency(unittest.TestCase):
         ])
         assert value == expected
 
-    def test_compare3_file_name_with_comma_in_storage_dump_ATLDDMOPS_4105(self):
+    def test_compare3_file_name_with_comma_in_storage_dump_ATLDDMOPS_4105(self, tmp_path):
         ''' DUMPER '''
         rucio_replica_dump = 'user/mfauccig/8d/46/user.mfauccig.410000.PowhegPythiaEvtGen.DAOD_TOPQ1.e3698_s2608_s2183_r6630_r6264_p2377.v1.log.6466214.000001.log.tgz,A'
         storage_dump = 'user/mdobre/01/6b/user.mdobre.C1C1bkg.WWVBH,nometcut.0711.log.4374089.000029.log.tgz'
@@ -303,24 +294,24 @@ class TestConsistency(unittest.TestCase):
         ]
         assert value == expected
 
-    def test_min3_simple_strings(self):
+    def test_min3_simple_strings(self, tmp_path):
         ''' DUMPER '''
         assert min3('a', 'b', 'c') == 'a'
 
-    def test_min3_repeated_strings(self):
+    def test_min3_repeated_strings(self, tmp_path):
         ''' DUMPER '''
         assert min3('b', 'a', 'a') == 'a'
 
-    def test_min3_parsing_the_strings_is_not_a_responsability_of_this_function(self):
+    def test_min3_parsing_the_strings_is_not_a_responsability_of_this_function(self, tmp_path):
         ''' DUMPER '''
         assert min3('a,b', 'cab', 'b,a') == 'a,b'
 
-    def test_parse_and_filter_file_default_parameters(self):
+    def test_parse_and_filter_file_default_parameters(self, tmp_path):
         ''' DUMPER '''
         fake_data = 'asd\nasda\n'
-        path = make_temp_file(self.tmp_dir, fake_data)
+        path = make_temp_file(tmp_path, fake_data)
 
-        parsed_file = parse_and_filter_file(path, cache_dir=self.tmp_dir)
+        parsed_file = parse_and_filter_file(path, cache_dir=tmp_path)
         with open(parsed_file) as f:
             data = f.read()
 
@@ -329,12 +320,12 @@ class TestConsistency(unittest.TestCase):
         os.unlink(path)
         os.unlink(parsed_file)
 
-    def test_parse_and_filter_file_parser_function(self):
+    def test_parse_and_filter_file_parser_function(self, tmp_path):
         ''' DUMPER '''
         fake_data = 'asd\nasda\n'
-        path = make_temp_file(self.tmp_dir, fake_data)
+        path = make_temp_file(tmp_path, fake_data)
 
-        parsed_file = parse_and_filter_file(path, parser=str.strip, cache_dir=self.tmp_dir)
+        parsed_file = parse_and_filter_file(path, parser=str.strip, cache_dir=tmp_path)
         with open(parsed_file) as f:
             data = f.read()
         assert fake_data == data
@@ -342,12 +333,12 @@ class TestConsistency(unittest.TestCase):
         os.unlink(path)
         os.unlink(parsed_file)
 
-    def test_parse_and_filter_file_filter_function(self):
+    def test_parse_and_filter_file_filter_function(self, tmp_path):
         ''' DUMPER '''
         fake_data = 'asd\nasda\n'
-        path = make_temp_file(self.tmp_dir, fake_data)
+        path = make_temp_file(tmp_path, fake_data)
 
-        parsed_file = parse_and_filter_file(path, filter_=lambda s: s == 'asd\n', cache_dir=self.tmp_dir)
+        parsed_file = parse_and_filter_file(path, filter_=lambda s: s == 'asd\n', cache_dir=tmp_path)
         with open(parsed_file) as f:
             data = f.read()
 
@@ -356,47 +347,47 @@ class TestConsistency(unittest.TestCase):
         os.unlink(path)
         os.unlink(parsed_file)
 
-    def test_parse_and_filter_file_default_naming(self):
+    def test_parse_and_filter_file_default_naming(self, tmp_path):
         ''' DUMPER '''
-        path = make_temp_file(self.tmp_dir, 'x\n')
+        path = make_temp_file(tmp_path, 'x\n')
 
-        parsed_file = parse_and_filter_file(path, cache_dir=self.tmp_dir)
+        parsed_file = parse_and_filter_file(path, cache_dir=tmp_path)
 
-        assert parsed_file == os.path.join(self.tmp_dir, os.path.basename(path) + '_parsed')
+        assert parsed_file == os.path.join(tmp_path, os.path.basename(path) + '_parsed')
 
         os.unlink(path)
         os.unlink(parsed_file)
 
-    def test_parse_and_filter_file_prefix_specified(self):
+    def test_parse_and_filter_file_prefix_specified(self, tmp_path):
         ''' DUMPER '''
-        path = make_temp_file(self.tmp_dir, 'x\n')
+        path = make_temp_file(tmp_path, 'x\n')
 
-        parsed_file = parse_and_filter_file(path, prefix=path + 'X', cache_dir=self.tmp_dir)
+        parsed_file = parse_and_filter_file(path, prefix=path + 'X', cache_dir=tmp_path)
 
         assert parsed_file == path + 'X_parsed'
 
         os.unlink(path)
         os.unlink(parsed_file)
 
-    def test_parse_and_filter_file_prefix_and_postfix_specified(self):
+    def test_parse_and_filter_file_prefix_and_postfix_specified(self, tmp_path):
         ''' DUMPER '''
-        path = make_temp_file(self.tmp_dir, 'x\n')
+        path = make_temp_file(tmp_path, 'x\n')
 
-        parsed_file = parse_and_filter_file(path, prefix=path + 'X', postfix='Y', cache_dir=self.tmp_dir)
+        parsed_file = parse_and_filter_file(path, prefix=path + 'X', postfix='Y', cache_dir=tmp_path)
 
         assert parsed_file == path + 'X_Y'
 
         os.unlink(path)
         os.unlink(parsed_file)
 
-    def test_gnu_sort_and_the_current_version_of_python_sort_strings_using_byte_value(self):
+    def test_gnu_sort_and_the_current_version_of_python_sort_strings_using_byte_value(self, tmp_path):
         ''' DUMPER '''
         unsorted_data_list = ['z\n', 'a\n', '\xc3\xb1\n']
         unsorted_data = ''.join(unsorted_data_list)
         sorted_data = ''.join(['a\n', 'z\n', '\xc3\xb1\n'])
 
-        path = make_temp_file(self.tmp_dir, unsorted_data)
-        sorted_file = gnu_sort(path, cache_dir=self.tmp_dir)
+        path = make_temp_file(tmp_path, unsorted_data)
+        sorted_file = gnu_sort(path, cache_dir=tmp_path)
 
         assertion_msg = ('GNU Sort must sort comparing byte by byte (export '
                          'LC_ALL=C) to be faster and consistent with Python 2.')
@@ -413,13 +404,13 @@ class TestConsistency(unittest.TestCase):
                          'Python 3 uses unicode by default.')
         assert python_sort == sorted_data, assertion_msg
 
-    def test_gnu_sort_can_sort_by_field(self):
+    def test_gnu_sort_can_sort_by_field(self, tmp_path):
         ''' DUMPER '''
         unsorted_data = ''.join(['1,z\n', '2,a\n', '3,\xc3\xb1\n'])
         sorted_data = ''.join(['2,a\n', '1,z\n', '3,\xc3\xb1\n'])
 
-        path = make_temp_file(self.tmp_dir, unsorted_data)
-        sorted_file = gnu_sort(path, delimiter=',', fieldspec='2', cache_dir=self.tmp_dir)
+        path = make_temp_file(tmp_path, unsorted_data)
+        sorted_file = gnu_sort(path, delimiter=',', fieldspec='2', cache_dir=tmp_path)
 
         with open(sorted_file, encoding='utf-8') as f:
             assert f.read() == sorted_data

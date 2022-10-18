@@ -13,199 +13,145 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 
 import pytest
 
-from rucio.common.config import config_get_bool
 from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs
-from rucio.common.types import InternalAccount
 from rucio.core.account_counter import update_account_counter, increase
 from rucio.core.account_limit import set_local_account_limit, set_global_account_limit
-from rucio.core.rse import get_rse_id
 from rucio.core.rse_selector import RSESelector
-from rucio.db.sqla import session, models
-from rucio.tests.common_server import get_vo
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined rses, deletes database content on setUp and tearDownClass')
-class TestRSESelectorInit(unittest.TestCase):
+@pytest.fixture
+def test_rses(rse_factory):
+    rse1_name, rse1_id = rse_factory.make_mock_rse()
+    rse2_name, rse2_id = rse_factory.make_mock_rse()
 
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
+    rse1 = {'id': rse1_id, 'staging_area': False}
+    rse2 = {'id': rse2_id, 'staging_area': False}
 
-        cls.account = InternalAccount('jdoe', **cls.vo)
-        cls.rse_1_name = 'MOCK4'
-        cls.rse_2_name = 'MOCK5'
-        cls.mock1_id = get_rse_id(cls.rse_1_name, **cls.vo)
-        cls.mock2_id = get_rse_id(cls.rse_2_name, **cls.vo)
-        cls.db_session = session.get_session()
-        cls.rse_1 = {'id': cls.mock1_id, 'staging_area': False}
-        cls.rse_2 = {'id': cls.mock2_id, 'staging_area': False}
+    return rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2
 
-    def setUp(self):
-        self.db_session.query(models.AccountUsage).delete()
-        self.db_session.query(models.AccountLimit).delete()
-        self.db_session.query(models.AccountGlobalLimit).delete()
-        self.db_session.query(models.UpdatedAccountCounter).delete()
-        self.db_session.commit()
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.db_session.query(models.AccountUsage).delete()
-        cls.db_session.query(models.AccountLimit).delete()
-        cls.db_session.query(models.AccountGlobalLimit).delete()
-        cls.db_session.query(models.UpdatedAccountCounter).delete()
-        cls.db_session.commit()
-        cls.db_session.close()
+class TestRSESelectorInit:
 
-    def test_1(self):
+    def test_1(self, random_account, test_rses):
         # more copies than RSEs -> error
-        rses = [self.rse_1]
+        rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
+        rses = [rse1]
         copies = 2
         with pytest.raises(InsufficientTargetRSEs):
-            RSESelector(self.account, rses, None, copies)
+            RSESelector(random_account, rses, None, copies)
 
-    def test_2(self):
+    def test_2(self, random_account, test_rses):
         # local quota not enough -> error
+        rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
         copies = 2
-        rses = [self.rse_1, self.rse_2]
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=10)
-        increase(self.mock1_id, self.account, 10, 10)
-        update_account_counter(account=self.account, rse_id=self.mock1_id)
+        rses = [rse1, rse2]
+        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=10)
+        increase(rse1_id, random_account, 10, 10)
+        update_account_counter(account=random_account, rse_id=rse1_id)
         with pytest.raises(InsufficientAccountLimit):
-            RSESelector(self.account, rses, None, copies)
+            RSESelector(random_account, rses, None, copies)
 
-    def test_3(self):
+    def test_3(self, random_account, test_rses):
         # global quota not enough -> error
+        rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
         copies = 2
-        rses = [self.rse_1, self.rse_2]
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=20)
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=10)
-        increase(self.mock1_id, self.account, 10, 10)
-        update_account_counter(account=self.account, rse_id=self.mock1_id)
+        rses = [rse1, rse2]
+        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
+        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10)
+        increase(rse1_id, random_account, 10, 10)
+        update_account_counter(account=random_account, rse_id=rse1_id)
         with pytest.raises(InsufficientAccountLimit):
-            RSESelector(self.account, rses, None, copies)
+            RSESelector(random_account, rses, None, copies)
 
-    def test_4(self):
+    def test_4(self, random_account, test_rses):
         # enough RSEs, local and global quota -> 2 RSEs
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=20)
-        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes_=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes_=20)
+        rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
+        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=20)
+        set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=20)
+        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
+        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20)
         copies = 2
-        rses = [self.rse_1, self.rse_2]
-        rse_selector = RSESelector(self.account, rses, None, copies)
+        rses = [rse1, rse2]
+        rse_selector = RSESelector(random_account, rses, None, copies)
         assert len(rse_selector.rses) == 2
 
-    def test_5(self):
+    def test_5(self, random_account, test_rses):
         # enough RSEs and local quota, but global quota missing -> 1 RSE
+        rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
         copies = 1
-        rses = [self.rse_1, self.rse_2]
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=10)
-        increase(self.mock1_id, self.account, 10, 10)
-        update_account_counter(account=self.account, rse_id=self.mock1_id)
-        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes_=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=20)
-        rse_selector = RSESelector(self.account, rses, None, copies)
+        rses = [rse1, rse2]
+        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10)
+        increase(rse1_id, random_account, 10, 10)
+        update_account_counter(account=random_account, rse_id=rse1_id)
+        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20)
+        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
+        rse_selector = RSESelector(random_account, rses, None, copies)
         assert len(rse_selector.rses) == 1
 
-    def test_6(self):
+    def test_6(self, random_account, test_rses):
         # enough RSEs and global quota, but local quota missing -> 1 RSE
-        rses = [self.rse_1, self.rse_2]
+        rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
+        rses = [rse1, rse2]
         copies = 1
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=10)
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=10)
-        increase(self.mock1_id, self.account, 10, 10)
-        update_account_counter(account=self.account, rse_id=self.mock1_id)
-        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes_=10)
-        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes_=10)
-        rse_selector = RSESelector(self.account, rses, None, copies)
+        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10)
+        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=10)
+        increase(rse1_id, random_account, 10, 10)
+        update_account_counter(account=random_account, rse_id=rse1_id)
+        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=10)
+        set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=10)
+        rse_selector = RSESelector(random_account, rses, None, copies)
         assert len(rse_selector.rses) == 1
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined rses, deletes database content on setUp and tearDownClass')
-class TestRSESelectorDynamic(unittest.TestCase):
+class TestRSESelectorDynamic:
 
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': get_vo()}
-        else:
-            cls.vo = {}
-
-        cls.account = InternalAccount('jdoe', **cls.vo)
-        cls.rse_1_name = 'MOCK4'
-        cls.rse_2_name = 'MOCK5'
-        cls.mock1_id = get_rse_id(cls.rse_1_name, **cls.vo)
-        cls.mock2_id = get_rse_id(cls.rse_2_name, **cls.vo)
-        cls.db_session = session.get_session()
-        cls.rse_1 = {'id': cls.mock1_id, 'staging_area': False}
-        cls.rse_2 = {'id': cls.mock2_id, 'staging_area': False}
-
-    def setUp(self):
-        self.db_session.query(models.AccountUsage).delete()
-        self.db_session.query(models.AccountLimit).delete()
-        self.db_session.query(models.AccountGlobalLimit).delete()
-        self.db_session.query(models.UpdatedAccountCounter).delete()
-        self.db_session.commit()
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.db_session.query(models.AccountUsage).delete()
-        cls.db_session.query(models.AccountLimit).delete()
-        cls.db_session.query(models.AccountGlobalLimit).delete()
-        cls.db_session.query(models.UpdatedAccountCounter).delete()
-        cls.db_session.commit()
-        cls.db_session.close()
-
-    def test_1(self):
+    def test_1(self, random_account, test_rses):
         # enough RSEs and global quota, but not enough local quota after change -> 1 RSE
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=20)
-        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes_=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=10)
-        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes_=10)
+        rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
+        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=20)
+        set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=20)
+        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=10)
+        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=10)
         copies = 2
-        rses = [self.rse_1, self.rse_2]
-        rse_selector = RSESelector(self.account, rses, None, copies)
+        rses = [rse1, rse2]
+        rse_selector = RSESelector(random_account, rses, None, copies)
         assert len(rse_selector.rses) == 2
-        rse_selector.select_rse(9, [self.mock1_id], copies=1)
+        rse_selector.select_rse(9, [rse1_id], copies=1)
         rses = rse_selector.select_rse(5, [], copies=1)
         assert len(rses) == 1
-        assert rses[0][0] == self.mock2_id
+        assert rses[0][0] == rse2_id
 
-    def test_2(self):
+    def test_2(self, random_account, test_rses):
         # enough RSEs and global quota, but not enough global quota after change -> 1 RSE
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=10)
-        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes_=10)
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes_=20)
+        rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
+        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10)
+        set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=10)
+        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
+        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20)
         copies = 2
-        rses = [self.rse_1, self.rse_2]
-        rse_selector = RSESelector(self.account, rses, None, copies)
+        rses = [rse1, rse2]
+        rse_selector = RSESelector(random_account, rses, None, copies)
         assert len(rse_selector.rses) == 2
-        rse_selector.select_rse(10, [self.mock1_id], copies=1)
+        rse_selector.select_rse(10, [rse1_id], copies=1)
         rses = rse_selector.select_rse(5, [], copies=1)
         assert len(rses) == 1
-        assert rses[0][0] == self.mock2_id
+        assert rses[0][0] == rse2_id
 
-    def test_3(self):
+    def test_3(self, random_account, test_rses):
         # enough RSEs and global quota, also after after change -> 2 RSE
-        set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes_=20)
-        set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes_=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes_=20)
-        set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes_=20)
+        rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
+        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=20)
+        set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=20)
+        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
+        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20)
         copies = 2
-        rses = [self.rse_1, self.rse_2]
-        rse_selector = RSESelector(self.account, rses, None, copies)
+        rses = [rse1, rse2]
+        rse_selector = RSESelector(random_account, rses, None, copies)
         assert len(rse_selector.rses) == 2
-        rse_selector.select_rse(10, [self.mock1_id], copies=1)
-        rse_selector.select_rse(10, [self.mock2_id], copies=1)
+        rse_selector.select_rse(10, [rse1_id], copies=1)
+        rse_selector.select_rse(10, [rse2_id], copies=1)
         rses = rse_selector.select_rse(5, [], copies=2)
         assert len(rses) == 2

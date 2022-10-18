@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import base64
-import unittest
 
 import datetime
 import pytest
@@ -23,7 +22,6 @@ import time
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token, \
     get_auth_token_saml
-from rucio.common.config import config_get_bool
 from rucio.common.exception import Duplicate, AccessDenied
 from rucio.common.types import InternalAccount
 from rucio.common.utils import ssh_sign
@@ -31,7 +29,6 @@ from rucio.core.identity import add_account_identity, del_account_identity
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.tests.common import headers, hdrdict, loginhdr, vohdr
-from rucio.tests.common_server import get_vo
 
 PUBLIC_KEY = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL"\
              "614sulXQ7wnIr1aGhGtl8b+HCB/0FhMSMTHwSjX78UbfqEorZ"\
@@ -81,50 +78,44 @@ VPEtp2ruk2N7rv0DixwcEQlD/DqsfmR2/QWDeDd1xxoTXPhIXQ==
 
 
 @pytest.mark.noparallel(reason='changes identities of the same account')
-class TestAuthCoreApi(unittest.TestCase):
-    '''
+class TestAuthCoreApi:
+    """
     TestAuthCoreApi
-    '''
+    """
 
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
-
-    def test_get_auth_token_user_pass_success(self):
+    def test_get_auth_token_user_pass_success(self, vo):
         """AUTHENTICATION (CORE): Username and password (correct credentials)."""
-        result = get_auth_token_user_pass(account='root', username='ddmlab', password='secret', appid='test', ip='127.0.0.1', **self.vo)
+        result = get_auth_token_user_pass(account='root', username='ddmlab', password='secret', appid='test', ip='127.0.0.1', vo=vo)
         assert result is not None
 
-    def test_get_auth_token_user_pass_fail(self):
+    def test_get_auth_token_user_pass_fail(self, vo):
         """AUTHENTICATION (CORE): Username and password (correct credentials)."""
-        result = get_auth_token_user_pass(account='root', username='ddmlab', password='not_secret', appid='test', ip='127.0.0.1', **self.vo)
+        result = get_auth_token_user_pass(account='root', username='ddmlab', password='not_secret', appid='test', ip='127.0.0.1', vo=vo)
         assert result is None
 
-    def test_get_auth_token_ssh_success(self):
+    def test_get_auth_token_ssh_success(self, vo):
         """AUTHENTICATION (CORE): SSH RSA public key exchange (good signature)."""
 
-        root = InternalAccount('root', **self.vo)
+        root = InternalAccount('root', vo=vo)
         try:
             add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
-        challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', **self.vo).get('token')
+        challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', vo=vo).get('token')
 
         signature = base64.b64decode(ssh_sign(PRIVATE_KEY, challenge_token))
 
-        result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1', **self.vo)
+        result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1', vo=vo)
 
         assert result is not None
 
         del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
 
-    def test_get_auth_token_ssh_fail(self):
+    def test_get_auth_token_ssh_fail(self, vo):
         """AUTHENTICATION (CORE): SSH RSA public key exchange (wrong signature)."""
 
-        root = InternalAccount('root', **self.vo)
+        root = InternalAccount('root', vo=vo)
         try:
             add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
@@ -132,53 +123,53 @@ class TestAuthCoreApi(unittest.TestCase):
 
         signature = ssh_sign(PRIVATE_KEY, 'sign_something_else')
 
-        result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1', **self.vo)
+        result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1', vo=vo)
 
         assert result is None
 
         del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
 
-    def test_invalid_padding(self):
+    def test_invalid_padding(self, vo):
         """AUTHENTICATION (CORE): SSH RSA public key exchange (public key with invalid padding)."""
 
-        root = InternalAccount('root', **self.vo)
+        root = InternalAccount('root', vo=vo)
         try:
             add_account_identity(INVALID_PADDED_PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
-        challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', **self.vo).get('token')
+        challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', vo=vo).get('token')
 
         ssh_sign_string = ssh_sign(PRIVATE_KEY, challenge_token)
         signature = base64.b64decode(ssh_sign_string)
-        result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1', **self.vo)
+        result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1', vo=vo)
         assert result is not None
 
         del_account_identity(INVALID_PADDED_PUBLIC_KEY, IdentityType.SSH, root)
 
-    def test_get_auth_token_saml_success(self):
+    def test_get_auth_token_saml_success(self, vo):
         """AUTHENTICATION (CORE): SAML NameID (correct credentials)."""
-        root = InternalAccount('root', **self.vo)
+        root = InternalAccount('root', vo=vo)
         try:
             add_account_identity('ddmlab', IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
-        result = get_auth_token_saml(account='root', saml_nameid='ddmlab', appid='test', ip='127.0.0.1', **self.vo)
+        result = get_auth_token_saml(account='root', saml_nameid='ddmlab', appid='test', ip='127.0.0.1', vo=vo)
         assert result is not None
 
         del_account_identity('ddmlab', IdentityType.SAML, root)
 
-    def test_get_auth_token_saml_fail(self):
+    def test_get_auth_token_saml_fail(self, vo):
         """AUTHENTICATION (CORE): SAML NameID (wrong credentials)."""
-        root = InternalAccount('root', **self.vo)
+        root = InternalAccount('root', vo=vo)
         try:
             add_account_identity('ddmlab', IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
         with pytest.raises(AccessDenied):
-            get_auth_token_saml(account='root', saml_nameid='not_ddmlab', appid='test', ip='127.0.0.1', **self.vo)
+            get_auth_token_saml(account='root', saml_nameid='not_ddmlab', appid='test', ip='127.0.0.1', vo=vo)
 
         del_account_identity('ddmlab', IdentityType.SAML, root)
 

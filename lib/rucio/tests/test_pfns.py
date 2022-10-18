@@ -13,25 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-
-from rucio.common.config import config_get_bool
 from rucio.rse import rsemanager as rsemgr
-from rucio.tests.common_server import get_vo
 
 
-class TestPFNs(unittest.TestCase):
+class TestPFNs:
 
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
-
-    def test_pfn_srm(self):
+    def test_pfn_srm(self, vo):
         """ PFN (CORE): Test the splitting of PFNs with SRM"""
 
-        rse_info = rsemgr.get_rse_info('MOCK', **self.vo)
+        rse_info = rsemgr.get_rse_info('MOCK', vo=vo)
         proto = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
         pfns = ['srm://mock.com:8443/rucio/tmpdisk/rucio_tests/whatever',
                 'srm://mock.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/whatever',
@@ -45,10 +35,10 @@ class TestPFNs(unittest.TestCase):
             assert ret[pfn]['path'] == '/'
             assert ret[pfn]['name'] == 'whatever'
 
-    def test_pfn_https(self):
+    def test_pfn_https(self, vo):
         """ PFN (CORE): Test the splitting of PFNs with https"""
 
-        rse_info = rsemgr.get_rse_info('MOCK', **self.vo)
+        rse_info = rsemgr.get_rse_info('MOCK', vo=vo)
         proto = rsemgr.create_protocol(rse_info, 'read', scheme='https')
         pfn = 'https://mock.com:2880/pnfs/rucio/disk-only/scratchdisk/whatever'
         ret = proto.parse_pfns([pfn])
@@ -59,9 +49,9 @@ class TestPFNs(unittest.TestCase):
         assert ret[pfn]['path'] == '/'
         assert ret[pfn]['name'] == 'whatever'
 
-    def test_pfn_mock(self):
+    def test_pfn_mock(self, vo):
         """ PFN (CORE): Test the splitting of PFNs with mock"""
-        rse_info = rsemgr.get_rse_info('MOCK', **self.vo)
+        rse_info = rsemgr.get_rse_info('MOCK', vo=vo)
         proto = rsemgr.create_protocol(rse_info, 'read', scheme='mock')
         pfn = 'mock://localhost/tmp/rucio_rse/whatever'
         ret = proto.parse_pfns([pfn])
@@ -72,9 +62,9 @@ class TestPFNs(unittest.TestCase):
         assert ret[pfn]['path'] == '/'
         assert ret[pfn]['name'] == 'whatever'
 
-    def test_pfn_filename_in_dataset(self):
+    def test_pfn_filename_in_dataset(self, vo):
         """ PFN (CORE): Test the splitting of PFNs cornercase: filename in prefix"""
-        rse_info = rsemgr.get_rse_info('MOCK', **self.vo)
+        rse_info = rsemgr.get_rse_info('MOCK', vo=vo)
         proto = rsemgr.create_protocol(rse_info, 'read', scheme='mock')
 
         pfn = 'mock://localhost/tmp/rucio_rse/rucio_rse'

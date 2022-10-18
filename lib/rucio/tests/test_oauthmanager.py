@@ -15,8 +15,6 @@
 
 import datetime
 import json
-import unittest
-from time import sleep
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,14 +22,9 @@ from oic import rndstr
 from sqlalchemy import and_, or_
 from sqlalchemy.sql.expression import true
 
-from rucio.api.account import add_account, del_account
-from rucio.common.config import config_get_bool
-from rucio.common.exception import Duplicate
-from rucio.common.types import InternalAccount
 from rucio.daemons.oauthmanager.oauthmanager import run, stop
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
-from rucio.tests.common_server import get_vo
 
 new_token_dict = {'access_token': '',
                   'expires_in': 3599,
@@ -177,63 +170,10 @@ def side_effect(token_object, token_type):
 
 
 @pytest.mark.dirty
-class TestOAuthManager(unittest.TestCase):
-
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
-
-        self.accountstring = 'test_' + rndstr()
-        self.accountstring = self.accountstring.lower()
-        self.account = InternalAccount(self.accountstring, **self.vo)
-        try:
-            add_account(self.accountstring, 'USER', 'rucio@email.com', 'root', **self.vo)
-        except Duplicate:
-            pass
-        # create 2 sessions that expire in 5 min and 3 that expire 'now'
-        save_oauth_session_params(self.account, 300)
-        save_oauth_session_params(self.account, 300)
-        save_oauth_session_params(self.account, 0)
-        save_oauth_session_params(self.account, 0)
-        save_oauth_session_params(self.account, 0)
-
-        assert get_oauth_session_param_count(self.account) == 5
-
-        # assuming daemon looprate of 10 min
-        # test cases for access tokens without any refresh token
-        save_oidc_token(self.account, 0, 0, None, False, '0_to_be_deleted')
-        save_oidc_token(self.account, 300, 0, None, False, '00_to_be_kept')
-        save_oidc_token(self.account, 1000, 0, None, False, '000_to_be_kept')
-
-        # test cases for access token with refresh token
-        save_oidc_token(self.account, 0, 300, "1_at_inval_rt_val_refresh_False_" + rndstr(), False, "1_to_be_kept_no_refresh")
-        save_oidc_token(self.account, 300, 300, "2_at_val_rt_val_refresh_False_" + rndstr(), False, "2_to_be_kept_no_refresh")
-        save_oidc_token(self.account, 0, 0, "3_at_inval_rt_inval_refresh_False_" + rndstr(), False, "3_to_be_deleted")
-        save_oidc_token(self.account, 300, 0, "4_at_val_rt_inval_refresh_False_" + rndstr(), False, "4_to_be_kept_no_refresh")
-        save_oidc_token(self.account, 0, 1000, "5_at_inval_rt_longval_refresh_False_" + rndstr(), False, "5_to_be_kept_no_refresh")
-        save_oidc_token(self.account, 1000, 1000, "6_at_longval_rt_longval_refresh_False_" + rndstr(), False, "6_to_be_kept_no_refresh")
-        save_oidc_token(self.account, 1000, 0, "7_at_longval_rt_inval_refresh_False_" + rndstr(), False, "7_to_be_kept_no_refresh")
-        save_oidc_token(self.account, 300, 1000, "8_at_val_rt_longval_refresh_False_" + rndstr(), False, "8_to_be_kept_no_refresh")
-        save_oidc_token(self.account, 1000, 300, "9_at_longval_rt_val_refresh_False_" + rndstr(), False, "9_to_be_kept_no_refresh")
-
-        save_oidc_token(self.account, 0, 300, "10_at_inval_rt_val_refresh_True_" + rndstr(), True, "10_original_refreshed_and_deleted")
-        save_oidc_token(self.account, 300, 300, "11_at_val_rt_val_refresh_True_" + rndstr(), True, "11_to_be_kept_and_refreshed")
-        save_oidc_token(self.account, 0, 0, "12_at_inval_rt_inval_refresh_True_" + rndstr(), True, "12_to_be_deleted")
-        save_oidc_token(self.account, 300, 0, "13_at_val_rt_inval_refresh_True_" + rndstr(), True, "13_to_be_kept_no_refresh")
-        save_oidc_token(self.account, 0, 1000, "14_at_inval_rt_longval_refresh_True_" + rndstr(), True, "14_original_refreshed_and_deleted")
-        save_oidc_token(self.account, 1000, 1000, "15_at_longval_rt_longval_refresh_True_" + rndstr(), True, "15_to_be_kept_no_refresh")
-        save_oidc_token(self.account, 1000, 0, "16_at_longval_rt_inval_refresh_True_" + rndstr(), True, "16_to_be_kept_no_refresh")
-        save_oidc_token(self.account, 300, 1000, "17_at_val_rt_longval_refresh_True_" + rndstr(), True, "17_to_be_kept_and_refreshed")
-        save_oidc_token(self.account, 1000, 300, "18_at_longval_rt_val_refresh_True_" + rndstr(), True, "18_to_be_kept_no_refresh")
-
-        assert get_token_count(self.account) == 21
-
-        sleep(1)
+class TestOAuthManager:
 
     @patch('rucio.core.oidc.__get_init_oidc_client')
-    def test_oauthmanager(self, mock_oidc_client):
+    def test_oauthmanager(self, mock_oidc_client, random_account):
 
         """ OAuth Manager: Testing deletion of expired tokens, session parameters and refresh of access tokens.
             Assumes that the OAuth manager first runs token refresh and only then
@@ -255,6 +195,45 @@ class TestOAuthManager(unittest.TestCase):
             - checks if only the expected tokens were refreshed
         """
         mock_oidc_client.side_effect = side_effect
+        account = random_account
+
+        # create 2 sessions that expire in 5 min and 3 that expire 'now'
+        save_oauth_session_params(account, 300)
+        save_oauth_session_params(account, 300)
+        save_oauth_session_params(account, 0)
+        save_oauth_session_params(account, 0)
+        save_oauth_session_params(account, 0)
+
+        assert get_oauth_session_param_count(account) == 5
+
+        # assuming daemon looprate of 10 min
+        # test cases for access tokens without any refresh token
+        save_oidc_token(account, 0, 0, None, False, '0_to_be_deleted')
+        save_oidc_token(account, 300, 0, None, False, '00_to_be_kept')
+        save_oidc_token(account, 1000, 0, None, False, '000_to_be_kept')
+
+        # test cases for access token with refresh token
+        save_oidc_token(account, 0, 300, "1_at_inval_rt_val_refresh_False_" + rndstr(), False, "1_to_be_kept_no_refresh")
+        save_oidc_token(account, 300, 300, "2_at_val_rt_val_refresh_False_" + rndstr(), False, "2_to_be_kept_no_refresh")
+        save_oidc_token(account, 0, 0, "3_at_inval_rt_inval_refresh_False_" + rndstr(), False, "3_to_be_deleted")
+        save_oidc_token(account, 300, 0, "4_at_val_rt_inval_refresh_False_" + rndstr(), False, "4_to_be_kept_no_refresh")
+        save_oidc_token(account, 0, 1000, "5_at_inval_rt_longval_refresh_False_" + rndstr(), False, "5_to_be_kept_no_refresh")
+        save_oidc_token(account, 1000, 1000, "6_at_longval_rt_longval_refresh_False_" + rndstr(), False, "6_to_be_kept_no_refresh")
+        save_oidc_token(account, 1000, 0, "7_at_longval_rt_inval_refresh_False_" + rndstr(), False, "7_to_be_kept_no_refresh")
+        save_oidc_token(account, 300, 1000, "8_at_val_rt_longval_refresh_False_" + rndstr(), False, "8_to_be_kept_no_refresh")
+        save_oidc_token(account, 1000, 300, "9_at_longval_rt_val_refresh_False_" + rndstr(), False, "9_to_be_kept_no_refresh")
+
+        save_oidc_token(account, 0, 300, "10_at_inval_rt_val_refresh_True_" + rndstr(), True, "10_original_refreshed_and_deleted")
+        save_oidc_token(account, 300, 300, "11_at_val_rt_val_refresh_True_" + rndstr(), True, "11_to_be_kept_and_refreshed")
+        save_oidc_token(account, 0, 0, "12_at_inval_rt_inval_refresh_True_" + rndstr(), True, "12_to_be_deleted")
+        save_oidc_token(account, 300, 0, "13_at_val_rt_inval_refresh_True_" + rndstr(), True, "13_to_be_kept_no_refresh")
+        save_oidc_token(account, 0, 1000, "14_at_inval_rt_longval_refresh_True_" + rndstr(), True, "14_original_refreshed_and_deleted")
+        save_oidc_token(account, 1000, 1000, "15_at_longval_rt_longval_refresh_True_" + rndstr(), True, "15_to_be_kept_no_refresh")
+        save_oidc_token(account, 1000, 0, "16_at_longval_rt_inval_refresh_True_" + rndstr(), True, "16_to_be_kept_no_refresh")
+        save_oidc_token(account, 300, 1000, "17_at_val_rt_longval_refresh_True_" + rndstr(), True, "17_to_be_kept_and_refreshed")
+        save_oidc_token(account, 1000, 300, "18_at_longval_rt_val_refresh_True_" + rndstr(), True, "18_to_be_kept_no_refresh")
+
+        assert get_token_count(account) == 21
 
         # Run replica recoverer once
         try:
@@ -263,13 +242,12 @@ class TestOAuthManager(unittest.TestCase):
             stop()
 
         # Checking the outcome
-        assert get_oauth_session_param_count(self.account) == 2
-        assert get_token_count(self.account) == 20
-        assert check_deleted_tokens(self.account) is True
-        assert count_kept_tokens(self.account) == 16
-        assert get_token_count_with_refresh_true(self.account) == 8
-        assert new_tokens_ok(self.account) is True
-        assert count_expired_tokens(self.account) == 2
-        assert count_refresh_tokens_expired_or_none(self.account) == 8
+        assert get_oauth_session_param_count(account) == 2
+        assert get_token_count(account) == 20
+        assert check_deleted_tokens(account) is True
+        assert count_kept_tokens(account) == 16
+        assert get_token_count_with_refresh_true(account) == 8
+        assert new_tokens_ok(account) is True
+        assert count_expired_tokens(account) == 2
+        assert count_refresh_tokens_expired_or_none(account) == 8
         # = 6 from the original setup + 2 original ones that were set expired after refresh
-        del_account(self.accountstring, 'root', **self.vo)
