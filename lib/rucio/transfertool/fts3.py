@@ -186,6 +186,8 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
 
     strict_copy = transfer.dst.rse.attributes.get('strict_copy', False)
     archive_timeout = transfer.dst.rse.attributes.get('archive_timeout', None)
+    src_rse_s3_url_style = transfer.src.rse.attributes.get('s3_url_style', None)
+    dst_rse_s3_url_style = transfer.dst.rse.attributes.get('s3_url_style', None)
 
     verify_checksum, _checksum_to_use = _checksum_validation_strategy(transfer, logger=logger)
 
@@ -212,6 +214,15 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
     if transfer.use_ipv4:
         job_params['ipv4'] = True
         job_params['ipv6'] = False
+    
+    # assume s3alternate True (path-style URL S3 RSEs)
+    job_params['s3alternate'] = True
+    if src_rse_s3_url_style:
+        if src_rse_s3_url_style == "virtual":
+            job_params['s3alternate'] = False
+    if dst_rse_s3_url_style:
+        if dst_rse_s3_url_style == "virtual":
+            job_params['s3alternate'] = False
 
     if archive_timeout and transfer.dst.rse.is_tape():
         try:
