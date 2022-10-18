@@ -214,7 +214,7 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
     if transfer.use_ipv4:
         job_params['ipv4'] = True
         job_params['ipv6'] = False
-    
+
     # assume s3alternate True (path-style URL S3 RSEs)
     job_params['s3alternate'] = True
     if src_rse_s3_url_style:
