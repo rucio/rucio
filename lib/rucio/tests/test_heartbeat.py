@@ -15,7 +15,6 @@
 
 import random
 import threading
-import unittest
 from datetime import datetime, timedelta
 
 import pytest
@@ -25,106 +24,134 @@ from rucio.db.sqla.models import Heartbeats
 from rucio.db.sqla.session import transactional_session
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='using the same executable for multiple tests')
-class TestHeartbeat(unittest.TestCase):
+@pytest.fixture
+def executable_factory(function_scope_prefix, db_session):
+    executables = []
 
-    def __pid(self):
+    def _create_executable():
+        executable = f'{function_scope_prefix}_{len(executables)}'
+        executables.append(executable)
+        return executable
+
+    yield _create_executable
+
+    db_session.query(Heartbeats).where(Heartbeats.executable.in_(executables)).delete()
+
+
+@pytest.fixture
+def thread_factory():
+    created_threads = []
+
+    def _create_thread():
+        th = threading.Thread()
+        created_threads.append(th)
+        th.start()
+        return th
+
+    yield _create_thread
+
+    for thread in created_threads:
+        thread.join()
+
+
+class TestHeartbeat:
+
+    def _pid(self):
         return random.randint(2, 2**16)
 
-    def __thread(self):
-        thread = threading.Thread()
-        self.created_threads.append(thread)
-        thread.start()
-        return thread
-
-    def setUp(self):
-        self.created_threads = []
-        cardiac_arrest()
-
-    def test_heartbeat_0(self):
+    def test_heartbeat_0(self, thread_factory, executable_factory):
         """ HEARTBEAT (CORE): Single instance """
 
-        pid = self.__pid()
-        thread = self.__thread()
-        assert live('test0', 'host0', pid, thread) == {'assign_thread': 0, 'nr_threads': 1}
-        assert live('test0', 'host0', pid, thread) == {'assign_thread': 0, 'nr_threads': 1}
-        assert live('test0', 'host0', pid, thread) == {'assign_thread': 0, 'nr_threads': 1}
+        pid = self._pid()
+        thread = thread_factory()
+        executable = executable_factory()
+        assert live(executable, 'host0', pid, thread) == {'assign_thread': 0, 'nr_threads': 1}
+        assert live(executable, 'host0', pid, thread) == {'assign_thread': 0, 'nr_threads': 1}
+        assert live(executable, 'host0', pid, thread) == {'assign_thread': 0, 'nr_threads': 1}
 
-    def test_heartbeat_1(self):
+    def test_heartbeat_1(self, thread_factory, executable_factory):
         """ HEARTBEAT (CORE): Multiple instance """
 
-        pids = [self.__pid() for _ in range(4)]
-        threads = [self.__thread() for _ in range(4)]
-        assert live('test0', 'host0', pids[0], threads[0]) == {'assign_thread': 0, 'nr_threads': 1}
-        assert live('test0', 'host1', pids[1], threads[1]) == {'assign_thread': 1, 'nr_threads': 2}
-        assert live('test0', 'host0', pids[0], threads[0]) == {'assign_thread': 0, 'nr_threads': 2}
-        assert live('test0', 'host2', pids[2], threads[2]) == {'assign_thread': 2, 'nr_threads': 3}
-        assert live('test0', 'host0', pids[0], threads[0]) == {'assign_thread': 0, 'nr_threads': 3}
-        assert live('test0', 'host3', pids[3], threads[3]) == {'assign_thread': 3, 'nr_threads': 4}
-        assert live('test0', 'host1', pids[1], threads[1]) == {'assign_thread': 1, 'nr_threads': 4}
-        assert live('test0', 'host2', pids[2], threads[2]) == {'assign_thread': 2, 'nr_threads': 4}
-        assert live('test0', 'host3', pids[3], threads[3]) == {'assign_thread': 3, 'nr_threads': 4}
+        pids = [self._pid() for _ in range(4)]
+        threads = [thread_factory() for _ in range(4)]
+        executable = executable_factory()
+        assert live(executable, 'host0', pids[0], threads[0]) == {'assign_thread': 0, 'nr_threads': 1}
+        assert live(executable, 'host1', pids[1], threads[1]) == {'assign_thread': 1, 'nr_threads': 2}
+        assert live(executable, 'host0', pids[0], threads[0]) == {'assign_thread': 0, 'nr_threads': 2}
+        assert live(executable, 'host2', pids[2], threads[2]) == {'assign_thread': 2, 'nr_threads': 3}
+        assert live(executable, 'host0', pids[0], threads[0]) == {'assign_thread': 0, 'nr_threads': 3}
+        assert live(executable, 'host3', pids[3], threads[3]) == {'assign_thread': 3, 'nr_threads': 4}
+        assert live(executable, 'host1', pids[1], threads[1]) == {'assign_thread': 1, 'nr_threads': 4}
+        assert live(executable, 'host2', pids[2], threads[2]) == {'assign_thread': 2, 'nr_threads': 4}
+        assert live(executable, 'host3', pids[3], threads[3]) == {'assign_thread': 3, 'nr_threads': 4}
 
-    def test_heartbeat_2(self):
+    def test_heartbeat_2(self, thread_factory, executable_factory):
         """ HEARTBEAT (CORE): Multiple instance with removal"""
 
-        pids = [self.__pid() for _ in range(4)]
-        threads = [self.__thread() for _ in range(4)]
-        assert live('test0', 'host0', pids[0], threads[0]) == {'assign_thread': 0, 'nr_threads': 1}
-        assert live('test0', 'host1', pids[1], threads[1]) == {'assign_thread': 1, 'nr_threads': 2}
-        assert live('test0', 'host0', pids[0], threads[0]) == {'assign_thread': 0, 'nr_threads': 2}
-        assert live('test0', 'host2', pids[2], threads[2]) == {'assign_thread': 2, 'nr_threads': 3}
-        assert live('test0', 'host0', pids[0], threads[0]) == {'assign_thread': 0, 'nr_threads': 3}
-        die('test0', 'host0', pids[0], threads[0])
-        assert live('test0', 'host3', pids[3], threads[3]) == {'assign_thread': 2, 'nr_threads': 3}
-        assert live('test0', 'host1', pids[1], threads[1]) == {'assign_thread': 0, 'nr_threads': 3}
-        assert live('test0', 'host2', pids[2], threads[2]) == {'assign_thread': 1, 'nr_threads': 3}
-        die('test0', 'host2', pids[2], threads[2])
-        assert live('test0', 'host3', pids[3], threads[3]) == {'assign_thread': 1, 'nr_threads': 2}
+        pids = [self._pid() for _ in range(4)]
+        threads = [thread_factory() for _ in range(4)]
+        executable = executable_factory()
+        assert live(executable, 'host0', pids[0], threads[0]) == {'assign_thread': 0, 'nr_threads': 1}
+        assert live(executable, 'host1', pids[1], threads[1]) == {'assign_thread': 1, 'nr_threads': 2}
+        assert live(executable, 'host0', pids[0], threads[0]) == {'assign_thread': 0, 'nr_threads': 2}
+        assert live(executable, 'host2', pids[2], threads[2]) == {'assign_thread': 2, 'nr_threads': 3}
+        assert live(executable, 'host0', pids[0], threads[0]) == {'assign_thread': 0, 'nr_threads': 3}
+        die(executable, 'host0', pids[0], threads[0])
+        assert live(executable, 'host3', pids[3], threads[3]) == {'assign_thread': 2, 'nr_threads': 3}
+        assert live(executable, 'host1', pids[1], threads[1]) == {'assign_thread': 0, 'nr_threads': 3}
+        assert live(executable, 'host2', pids[2], threads[2]) == {'assign_thread': 1, 'nr_threads': 3}
+        die(executable, 'host2', pids[2], threads[2])
+        assert live(executable, 'host3', pids[3], threads[3]) == {'assign_thread': 1, 'nr_threads': 2}
 
-    def test_heartbeat_3(self):
+    def test_heartbeat_3(self, executable_factory):
         """ HEARTBEAT (CORE): Single instance without thread. """
 
-        pids = [self.__pid() for _ in range(3)]
-        assert live('test0', 'host0', pids[0]) == {'assign_thread': 0, 'nr_threads': 1}
-        assert live('test0', 'host1', pids[1]) == {'assign_thread': 1, 'nr_threads': 2}
-        assert live('test0', 'host0', pids[0]) == {'assign_thread': 0, 'nr_threads': 2}
+        pids = [self._pid() for _ in range(3)]
+        executable = executable_factory()
+        assert live(executable, 'host0', pids[0]) == {'assign_thread': 0, 'nr_threads': 1}
+        assert live(executable, 'host1', pids[1]) == {'assign_thread': 1, 'nr_threads': 2}
+        assert live(executable, 'host0', pids[0]) == {'assign_thread': 0, 'nr_threads': 2}
 
-    def test_heartbeat_payload(self):
+    def test_heartbeat_payload(self, thread_factory, executable_factory):
         """ HEARTBEAT (CORE): Test heartbeat with payload"""
 
-        pids = [self.__pid() for _ in range(6)]
-        threads = [self.__thread() for _ in range(6)]
+        pids = [self._pid() for _ in range(6)]
+        threads = [thread_factory() for _ in range(6)]
+        executable = executable_factory()
 
-        live('test5', 'host0', pids[0], threads[0], payload='payload1')
-        live('test5', 'host0', pids[1], threads[1], payload='payload1')
-        live('test5', 'host0', pids[2], threads[2], payload='payload1')
-        live('test5', 'host1', pids[3], threads[3], payload='payload2')
-        live('test5', 'host2', pids[4], threads[4], payload='payload3')
-        live('test5', 'host3', pids[5], threads[5], payload='payload4')
+        live(executable, 'host0', pids[0], threads[0], payload='payload1')
+        live(executable, 'host0', pids[1], threads[1], payload='payload1')
+        live(executable, 'host0', pids[2], threads[2], payload='payload1')
+        live(executable, 'host1', pids[3], threads[3], payload='payload2')
+        live(executable, 'host2', pids[4], threads[4], payload='payload3')
+        live(executable, 'host3', pids[5], threads[5], payload='payload4')
 
-        assert list_payload_counts('test5') == {'payload4': 1, 'payload2': 1, 'payload3': 1, 'payload1': 3}
+        assert list_payload_counts(executable) == {'payload4': 1, 'payload2': 1, 'payload3': 1, 'payload1': 3}
 
-        die('test5', 'host0', pids[0], threads[0])
-        die('test5', 'host0', pids[1], threads[1])
-        die('test5', 'host0', pids[2], threads[2])
-        die('test5', 'host1', pids[3], threads[3])
-        die('test5', 'host2', pids[4], threads[4])
-        die('test5', 'host3', pids[5], threads[5])
+        die(executable, 'host0', pids[0], threads[0])
+        die(executable, 'host0', pids[1], threads[1])
+        die(executable, 'host0', pids[2], threads[2])
+        die(executable, 'host1', pids[3], threads[3])
+        die(executable, 'host2', pids[4], threads[4])
+        die(executable, 'host3', pids[5], threads[5])
 
         assert list_payload_counts('test5') == {}
 
-    def test_old_heartbeat_cleanup(self):
-        pids = [self.__pid() for _ in range(2)]
-        thread = self.__thread()
+    @pytest.mark.noparallel(reason='performs a heartbeat cardiac_arrest')
+    @pytest.mark.dirty
+    def test_old_heartbeat_cleanup(self, thread_factory, executable_factory):
+        cardiac_arrest()
+        pids = [self._pid() for _ in range(2)]
+        thread = thread_factory()
+        executable1 = executable_factory()
+        executable2 = executable_factory()
 
-        live('test1', 'host0', pids[0], thread)
-        live('test2', 'host0', pids[1], thread)
-        live('test1', 'host1', pids[0], thread)
-        live('test2', 'host1', pids[1], thread)
-        live('test1', 'host2', pids[0], thread)
-        live('test2', 'host2', pids[1], thread)
+        live(executable1, 'host0', pids[0], thread)
+        live(executable2, 'host0', pids[1], thread)
+        live(executable1, 'host1', pids[0], thread)
+        live(executable2, 'host1', pids[1], thread)
+        live(executable1, 'host2', pids[0], thread)
+        live(executable2, 'host2', pids[1], thread)
 
         assert len(list_heartbeats()) == 6
 
@@ -142,10 +169,5 @@ class TestHeartbeat(unittest.TestCase):
         assert len(list_heartbeats()) == 4
 
         # Custom expiration delay. Host2 health checks should get removed too.
-        sanity_check('test2', 'host2', expiration_delay=timedelta(hours=5).total_seconds())
+        sanity_check(executable2, 'host2', expiration_delay=timedelta(hours=5).total_seconds())
         assert len(list_heartbeats()) == 2
-
-    def tearDown(self):
-        cardiac_arrest()
-        for thread in self.created_threads:
-            thread.join()

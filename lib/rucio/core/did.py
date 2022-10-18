@@ -44,7 +44,7 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 from rucio.db.sqla.util import temp_table_mngr
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Tuple, Optional, Sequence, Callable
+    from typing import Any, Dict, Tuple, Optional, Sequence, Callable, Union
     from sqlalchemy.orm import Session
     from sqlalchemy.schema import Table
     from rucio.common.types import InternalAccount, InternalScope
@@ -118,7 +118,7 @@ def list_expired_dids(
 def add_did(
         scope: "InternalScope",
         name: str,
-        did_type: "DIDType",
+        did_type: "Union[str, DIDType]",
         account: "InternalAccount",
         statuses: "Optional[Dict[str, Any]]" = None,
         meta: "Optional[Dict[str, Any]]" = None,
