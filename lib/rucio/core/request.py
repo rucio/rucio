@@ -1183,13 +1183,11 @@ def get_heavy_load_rses(threshold, session=None):
 
 
 @read_session
-def get_stats_by_activity_direction_state(state, all_activities=False, direction='destination', session=None):
+def get_request_stats(state, session=None):
     """
     Retrieve statistics about requests by destination, activity and state.
 
     :param state:           Request state.
-    :param all_activities:  Boolean whether requests are grouped by activity or if activities are ignored.
-    :param direction:       Direction if requests are grouped by source RSE or destination RSE.
     :param session:         Database session to use.
     :returns:               List of (activity, dest_rse_id, state, counter).
     """
@@ -1198,47 +1196,25 @@ def get_stats_by_activity_direction_state(state, all_activities=False, direction
         state = [state]
 
     try:
-        rse_id_column = models.Request.source_rse_id if direction == 'source' else models.Request.dest_rse_id
-
-        additional_columns = []
-        if not all_activities:
-            additional_columns = [
-                models.Request.activity
-            ]
-
-        subquery = select(
+        stmt = select(
             models.Request.account,
             models.Request.state,
+            models.Request.dest_rse_id,
+            models.Request.source_rse_id,
+            models.Request.activity,
             func.count(1).label('counter'),
-            rse_id_column.label('rse_id'),
-            *additional_columns,
         ).with_hint(
             models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle'
         ).where(
-            models.Request.state.in_(state)
+            models.Request.state.in_(state),
+            models.Request.request_type.in_([RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT])
         ).group_by(
             models.Request.account,
             models.Request.state,
-            rse_id_column,
-            *additional_columns,
-        ).subquery()
-
-        stmt = select(
-            subquery.c.account,
-            subquery.c.state,
-            models.RSE.rse,
-            subquery.c.counter,
-            subquery.c.rse_id
-        ).with_hint(
-            models.RSE, "INDEX(RSES RSES_PK)", 'oracle'
-        ).join(
-            models.RSE,
-            models.RSE.id == subquery.c.rse_id,
+            models.Request.dest_rse_id,
+            models.Request.source_rse_id,
+            models.Request.activity,
         )
-        if not all_activities:
-            stmt = stmt.add_columns(
-                subquery.c.activity
-            )
 
         return session.execute(stmt).all()
 
@@ -1247,17 +1223,23 @@ def get_stats_by_activity_direction_state(state, all_activities=False, direction
 
 
 @transactional_session
-def release_waiting_requests_per_deadline(rse_id=None, deadline=1, session=None):
+def release_waiting_requests_per_deadline(
+        dest_rse_id: "Optional[str]" = None,
+        source_rse_id: "Optional[str]" = None,
+        deadline: int = 1,
+        session=None,
+):
     """
     Release waiting requests that were waiting too long and exceeded the maximum waiting time to be released.
     If the DID of a request is attached to a dataset, the oldest requested_at date of all requests related to the dataset will be used for checking and all requests of this dataset will be released.
-    :param rse_id:           The source RSE id.
-    :param deadline:         Maximal waiting time in hours until a dataset gets released.
-    :param session:          The database session.
+    :param dest_rse_id: The destination RSE id.
+    :param source_rse_id: The source RSE id.
+    :param deadline: Maximal waiting time in hours until a dataset gets released.
+    :param session: The database session.
     """
     amount_released_requests = 0
     if deadline:
-        grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(rse_id, filter_by_rse='source', session=session)
+        grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(dest_rse_id=dest_rse_id, source_rse_id=source_rse_id, session=session)
         old_requests_subquery = select(
             grouped_requests_subquery.c.name,
             grouped_requests_subquery.c.scope,
@@ -1287,12 +1269,18 @@ def release_waiting_requests_per_deadline(rse_id=None, deadline=1, session=None)
 
 
 @transactional_session
-def release_waiting_requests_per_free_volume(rse_id, volume=None, session=None):
+def release_waiting_requests_per_free_volume(
+        dest_rse_id: "Optional[str]" = None,
+        source_rse_id: "Optional[str]" = None,
+        volume: int = 0,
+        session=None
+):
     """
     Release waiting requests if they fit in available transfer volume. If the DID of a request is attached to a dataset, the volume will be checked for the whole dataset as all requests related to this dataset will be released.
 
-    :param rse_id:  The destination RSE id.
-    :param volume:  The maximum volume in bytes that should be transfered.
+    :param dest_rse_id: The destination RSE id.
+    :param source_rse_id: The source RSE id
+    :param volume: The maximum volume in bytes that should be transfered.
     :param session: The database session.
     """
 
@@ -1307,13 +1295,19 @@ def release_waiting_requests_per_free_volume(rse_id, volume=None, session=None):
     sum_volume_active_subquery = select(
         coalesce_func(func.sum(models.Request.bytes), 0).label('sum_bytes')
     ).where(
-        and_(
-            or_(models.Request.state == RequestState.SUBMITTED, models.Request.state == RequestState.QUEUED),
-            models.Request.dest_rse_id == rse_id
+        models.Request.state.in_([RequestState.SUBMITTED, RequestState.QUEUED]),
+    )
+    if dest_rse_id is not None:
+        sum_volume_active_subquery = sum_volume_active_subquery.where(
+            models.Request.dest_rse_id == dest_rse_id
         )
-    ).subquery()
+    if source_rse_id is not None:
+        sum_volume_active_subquery = sum_volume_active_subquery.where(
+            models.Request.source_rse_id == source_rse_id
+        )
+    sum_volume_active_subquery = sum_volume_active_subquery.subquery()
 
-    grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(rse_id, filter_by_rse='destination', session=session)
+    grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(dest_rse_id=dest_rse_id, source_rse_id=source_rse_id, session=session)
 
     cumulated_volume_subquery = select(
         grouped_requests_subquery.c.name,
@@ -1346,14 +1340,18 @@ def release_waiting_requests_per_free_volume(rse_id, volume=None, session=None):
 
 
 @read_session
-def create_base_query_grouped_fifo(rse_id, filter_by_rse='destination', session=None):
+def create_base_query_grouped_fifo(
+        dest_rse_id: "Optional[str]" = None,
+        source_rse_id: "Optional[str]" = None,
+        session=None
+):
     """
     Build the sqlalchemy queries to filter relevant requests and to group them in datasets.
     Group requests either by same destination RSE or source RSE.
 
-    :param rse_id:           The RSE id.
-    :param filter_by_rse:    Decide whether to filter by transfer destination or source RSE (`destination`, `source`).
-    :param session:          The database session.
+    :param dest_rse_id: The source RSE id to filter on
+    :param source_rse_id: The destination RSE id to filter on
+    :param session: The database session.
     """
     dialect = session.bind.dialect.name
     if dialect == 'mysql' or dialect == 'sqlite':
@@ -1387,14 +1385,13 @@ def create_base_query_grouped_fifo(rse_id, filter_by_rse='destination', session=
     ).where(
         models.Request.state == RequestState.WAITING,
     )
-    # depending if throttler is used for reading or writing
-    if filter_by_rse == 'source':
+    if source_rse_id is not None:
         requests_subquery_stmt = requests_subquery_stmt.where(
-            models.Request.source_rse_id == rse_id
+            models.Request.source_rse_id == source_rse_id
         )
-    elif filter_by_rse == 'destination':
+    if dest_rse_id is not None:
         requests_subquery_stmt = requests_subquery_stmt.where(
-            models.Request.dest_rse_id == rse_id
+            models.Request.dest_rse_id == dest_rse_id
         )
 
     filtered_requests_subquery = requests_subquery_stmt.add_columns(
@@ -1425,16 +1422,23 @@ def create_base_query_grouped_fifo(rse_id, filter_by_rse='destination', session=
 
 
 @transactional_session
-def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=None, direction='destination', session=None):
+def release_waiting_requests_fifo(
+        dest_rse_id: "Optional[str]" = None,
+        source_rse_id: "Optional[str]" = None,
+        activity: "Optional[str]" = None,
+        count: int = 0,
+        account: "Optional[InternalAccount]" = None,
+        session=None
+):
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
 
-    :param rse_id:           The RSE id.
-    :param activity:         The activity.
-    :param count:            The count to be released.
-    :param account:          The account name whose requests to release.
-    :param direction:        Direction if requests are grouped by source RSE or destination RSE.
-    :param session:          The database session.
+    :param source_rse_id: The source rse id
+    :param dest_rse_id: The destination rse id
+    :param activity: The activity.
+    :param count: The count to be released.
+    :param account: The account name whose requests to release.
+    :param session: The database session.
     """
 
     dialect = session.bind.dialect.name
@@ -1449,14 +1453,14 @@ def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=Non
     ).limit(
         count
     )
-    if direction == 'destination':
-        subquery = subquery.where(models.Request.dest_rse_id == rse_id)
-    elif direction == 'source':
-        subquery = subquery.where(models.Request.source_rse_id == rse_id)
+    if source_rse_id is not None:
+        subquery = subquery.where(models.Request.source_rse_id == source_rse_id)
+    if dest_rse_id is not None:
+        subquery = subquery.where(models.Request.dest_rse_id == dest_rse_id)
 
-    if activity:
+    if activity is not None:
         subquery = subquery.where(models.Request.activity == activity)
-    if account:
+    if account is not None:
         subquery = subquery.where(models.Request.account == account)
 
     subquery = subquery.subquery()
@@ -1488,27 +1492,34 @@ def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=Non
 
 
 @transactional_session
-def release_waiting_requests_grouped_fifo(rse_id, count=None, direction='destination', deadline=1, volume=0, session=None):
+def release_waiting_requests_grouped_fifo(
+        dest_rse_id: "Optional[str]" = None,
+        source_rse_id: "Optional[str]" = None,
+        count: int = 0,
+        deadline: int = 1,
+        volume: int = 0,
+        session=None
+):
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
     Also all requests to DIDs that are attached to the same dataset get released, if one children of the dataset is choosed to be released (Grouped FIFO).
 
-    :param rse_id:           The RSE id.
-    :param count:            The count to be released. If None, release all waiting requests.
-    :param direction:        Direction if requests are grouped by source RSE or destination RSE.
-    :param deadline:         Maximal waiting time in hours until a dataset gets released.
-    :param volume:           The maximum volume in bytes that should be transfered.
-    :param session:          The database session.
+    :param dest_rse_id: The destination rse id
+    :param source_rse_id: The source RSE id.
+    :param count: The count to be released. If None, release all waiting requests.
+    :param deadline: Maximal waiting time in hours until a dataset gets released.
+    :param volume: The maximum volume in bytes that should be transfered.
+    :param session: The database session.
     """
 
     amount_updated_requests = 0
 
     # Release requests that exceeded waiting time
-    if deadline:
-        amount_updated_requests = release_waiting_requests_per_deadline(rse_id=rse_id, deadline=deadline, session=session)
+    if deadline and source_rse_id is not None:
+        amount_updated_requests = release_waiting_requests_per_deadline(dest_rse_id=dest_rse_id, source_rse_id=source_rse_id, deadline=deadline, session=session)
         count = count - amount_updated_requests
 
-    grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(rse_id=rse_id, filter_by_rse=direction, session=session)
+    grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(dest_rse_id=dest_rse_id, source_rse_id=source_rse_id, session=session)
 
     # cumulate amount of children per dataset and combine with each request and only keep requests that dont exceed the limit
     cumulated_children_subquery = select(
@@ -1543,40 +1554,52 @@ def release_waiting_requests_grouped_fifo(rse_id, count=None, direction='destina
     amount_updated_requests += session.execute(stmt).rowcount
 
     # release requests where the whole datasets volume fits in the available volume space
-    if volume:
-        amount_updated_requests += release_waiting_requests_per_free_volume(rse_id=rse_id, volume=volume, session=session)
+    if volume and dest_rse_id is not None:
+        amount_updated_requests += release_waiting_requests_per_free_volume(dest_rse_id=dest_rse_id, volume=volume, session=session)
 
     return amount_updated_requests
 
 
 @transactional_session
-def release_all_waiting_requests(rse_id, activity=None, account=None, direction='destination', session=None):
+def release_all_waiting_requests(
+        dest_rse_id: "Optional[str]" = None,
+        source_rse_id: "Optional[str]" = None,
+        activity: "Optional[str]" = None,
+        account: "Optional[InternalAccount]" = None,
+        session=None
+):
     """
     Release all waiting requests per destination RSE.
 
-    :param rse_id:           The RSE id.
-    :param activity:         The activity.
-    :param account:          The account name whose requests to release.
-    :param direction:        Direction if requests are grouped by source RSE or destination RSE.
-    :param session:          The database session.
+    :param dest_rse_id: The destination rse id.
+    :param source_rse_id: The source rse id.
+    :param activity: The activity.
+    :param account: The account name whose requests to release.
+    :param session: The database session.
     """
     try:
-        rse_id_column = models.Request.source_rse_id if direction == 'source' else models.Request.dest_rse_id
         query = update(
             models.Request
         ).where(
             models.Request.state == RequestState.WAITING,
-            rse_id_column == rse_id
         ).execution_options(
             synchronize_session=False
         ).values(
             {'state': RequestState.QUEUED}
         )
-        if activity:
+        if source_rse_id is not None:
+            query = query.where(
+                models.Request.source_rse_id == source_rse_id
+            )
+        if dest_rse_id is not None:
+            query = query.where(
+                models.Request.dest_rse_id == dest_rse_id
+            )
+        if activity is not None:
             query = query.where(
                 models.Request.activity == activity
             )
-        if account:
+        if account is not None:
             query = query.where(
                 models.Request.account == account
             )

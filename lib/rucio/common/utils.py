@@ -1420,25 +1420,6 @@ def api_update_return_dict(dictionary, session=None):
     return dictionary
 
 
-def get_parsed_throttler_mode(throttler_mode):
-    """ Parse the conveyor-throttler mode string. """
-    direction = None
-    all_activities = None
-    if throttler_mode == 'DEST_PER_ACT':
-        direction = 'destination'
-        all_activities = False
-    elif throttler_mode == 'DEST_PER_ALL_ACT':
-        direction = 'destination'
-        all_activities = True
-    elif throttler_mode == 'SRC_PER_ACT':
-        direction = 'source'
-        all_activities = False
-    elif throttler_mode == 'SRC_PER_ALL_ACT':
-        direction = 'source'
-        all_activities = True
-    return (direction, all_activities)
-
-
 def setup_logger(module_name=None, logger_name=None, logger_level=None, verbose=False):
     '''
     Factory method to set logger with handlers.
