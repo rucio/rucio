@@ -17,18 +17,20 @@ from typing import TYPE_CHECKING
 
 from rucio.common.config import config_get
 from rucio.core.did import get_metadata
+from rucio.core.rse import list_rse_attributes
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.lifetime_exception import list_exceptions
 import rucio.core.scope
-from rucio.core.account import has_account_attribute
+from rucio.core.account import has_account_attribute, list_account_attributes
 from rucio.core.identity import exist_identity_account
 from rucio.core.rule import get_rule
 from rucio.db.sqla.constants import IdentityType
+from rucio.common.types import InternalScope, InternalAccount
 
 
 if TYPE_CHECKING:
     from typing import Optional
     from sqlalchemy.orm import Session
-    from rucio.common.types import InternalAccount
 
 
 def has_permission(issuer: "InternalAccount", action: str, kwargs: dict, *, session: "Optional[Session]" = None) -> bool:
@@ -122,6 +124,18 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict, *, sess
 
 def _is_root(issuer):
     return issuer.external == 'root'
+
+
+def _perm_country(issuer: "InternalAccount", rses: list, roles: list, *, session: "Optional[Session]" = None) -> bool:
+    admin_in_country = []
+    for kv in list_account_attributes(account=issuer, session=session):
+        if kv['key'].startswith('country-') and kv['value'] == 'admin':
+            admin_in_country.append(kv['key'].partition('-')[2])
+    if admin_in_country:
+        for rse in rses:
+            if list_rse_attributes(rse_id=rse['id'], session=session).get('country') in admin_in_country:
+                return True
+    return False
 
 
 def perm_default(issuer: "InternalAccount", kwargs: dict, *, session: "Optional[Session]" = None) -> bool:
@@ -403,10 +417,14 @@ def perm_add_did(issuer: "InternalAccount", kwargs: dict, *, session: "Optional[
         if not perm_add_rule(issuer, kwargs=kwargs_rule, session=session):
             return False
 
+    scope = kwargs['scope']
+    if isinstance(kwargs['scope'], str):
+        scope = InternalScope(kwargs['scope'])
     return perm_default(issuer, kwargs, session=session)\
         or has_account_attribute(account=issuer, key='did_admin', session=session)\
         or has_account_attribute(account=issuer, key='production_account', session=session)\
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
+        or rucio.core.scope.is_scope_owner(scope=scope, account=issuer, session=session)\
+        or (kwargs.get('name', False) and kwargs['name'].startswith('/belle/scout'))
 
 
 def perm_add_dids(issuer: "InternalAccount", kwargs: dict, *, session: "Optional[Session]" = None) -> bool:
@@ -484,6 +502,18 @@ def perm_del_rule(issuer: "InternalAccount", kwargs: dict, *, session: "Optional
     :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
+    rule = get_rule(rule_id=kwargs['rule_id'], session=session)
+    rses = parse_expression(rule['rse_expression'], filter_={'vo': issuer.vo}, session=session)
+    # Check if user is a country admin
+    if _perm_country(issuer=issuer, rses=rses, roles=['admin', ], session=session):
+        return True
+
+    # DELETERS can delete the rule
+    for rse in rses:
+        rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
+        if rse_attr.get('rule_deleters'):
+            if issuer.external in rse_attr.get('rule_deleters').split(','):
+                return True
     return perm_default(issuer, kwargs, session=session)\
         or has_account_attribute(account=issuer, key='rule_admin', session=session)\
         or get_rule(kwargs['rule_id'], session=session)['account'] == issuer
@@ -500,7 +530,7 @@ def perm_update_rule(issuer: "InternalAccount", kwargs: dict, *, session: "Optio
     """
     return perm_default(issuer, kwargs, session=session)\
         or has_account_attribute(account=issuer, key='rule_admin', session=session)\
-        or (kwargs.get('rule_id') and get_rule(kwargs['rule_id'], session=session)['account'] == issuer)
+        or (kwargs.get('rule_id', False) and get_rule(kwargs['rule_id'], session=session)['account'] == issuer)
 
 
 def perm_approve_rule(issuer: "InternalAccount", kwargs: dict, *, session: "Optional[Session]" = None) -> bool:
@@ -690,6 +720,10 @@ def perm_add_replicas(issuer: "InternalAccount", kwargs: dict, *, session: "Opti
     :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
+    rses = [{'id': kwargs['rse_id']}]
+    if str(kwargs.get('rse', '')).endswith('LOCAL-SE')\
+            and _perm_country(issuer=issuer, rses=rses, roles=['admin', 'user'], session=session):
+        return True
     return str(kwargs.get('rse', '')).endswith('TMP-SE')\
         or perm_default(issuer, kwargs, session=session)
 
@@ -825,6 +859,9 @@ def perm_set_local_account_limit(issuer: "InternalAccount", kwargs: dict, *, ses
     :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
+    rses = [{'id': kwargs['rse_id']}]
+    if _perm_country(issuer=issuer, rses=rses, roles=['admin', ], session=session):
+        return True
     return perm_default(issuer, kwargs, session=session)\
         or (has_account_attribute(account=issuer, key='rse_admin', session=session) and has_account_attribute(account=issuer, key='account_admin', session=session))
 
