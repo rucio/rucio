@@ -127,19 +127,19 @@ class TestRSECoreApi:
 
         set_rse_transfer_limits(rse_id=rse_id, activity=activity, max_transfers=max_transfers, transfers=transfers, waitings=waitings)
         limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)
+        limits = limits['destination']
         assert activity in list(limits.keys())
-        assert rse_id in limits[activity]
-        assert max_transfers == limits[activity][rse_id]['max_transfers']
-        assert transfers == limits[activity][rse_id]['transfers']
-        assert waitings == limits[activity][rse_id]['waitings']
+        assert max_transfers == limits[activity]['max_transfers']
+        assert transfers == limits[activity]['transfers']
+        assert waitings == limits[activity]['waitings']
 
         set_rse_transfer_limits(rse_id=rse_id, activity=activity, max_transfers=max_transfers + 1, transfers=transfers + 1, waitings=waitings + 1)
         limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)
+        limits = limits['destination']
         assert activity in list(limits.keys())
-        assert rse_id in limits[activity]
-        assert max_transfers + 1 == limits[activity][rse_id]['max_transfers']
-        assert transfers + 1 == limits[activity][rse_id]['transfers']
-        assert waitings + 1 == limits[activity][rse_id]['waitings']
+        assert max_transfers + 1 == limits[activity]['max_transfers']
+        assert transfers + 1 == limits[activity]['transfers']
+        assert waitings + 1 == limits[activity]['waitings']
 
         delete_rse_transfer_limits(rse_id=rse_id, activity=activity)
         limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)

@@ -655,9 +655,10 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
     throttler(once=True, partition_wait_time=0)
     # Check metrics.
     # This gauge values are recorded at the beginning of the execution. Hence 2 waiting and 0 transfers
-    gauge_name = 'rucio_daemons_conveyor_throttler_set_rse_transfer_limits'
+    gauge_name = 'rucio_daemons_conveyor_throttler_rse_transfer_limits'
+    assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'residual_capacity'}) == 1
     assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'max_transfers'}) == 1
-    assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'transfers'}) == 0
+    assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'active'}) == 0
     assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'waiting'}) == 2
     request1 = request_core.get_request_by_did(rse_id=dst_rse_id1, **did1)
     request2 = request_core.get_request_by_did(rse_id=dst_rse_id1, **did2)
@@ -672,8 +673,9 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
     # Calling the throttler again will not schedule the waiting request, because there is a submitted one
     throttler(once=True, partition_wait_time=0)
     # This gauge values are recorded at the beginning of the execution. Hence 1 waiting and one transfer
+    assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'residual_capacity'}) == 0
     assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'max_transfers'}) == 1
-    assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'transfers'}) == 1
+    assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'active'}) == 1
     assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'waiting'}) == 1
     request = request_core.get_request_by_did(rse_id=dst_rse_id1, **waiting_did)
     assert request['state'] == RequestState.WAITING

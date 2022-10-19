@@ -26,7 +26,7 @@ from dogpile.cache.api import NO_VALUE
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased, Session
 from sqlalchemy.orm.exc import FlushError
-from sqlalchemy.sql.expression import or_, false, func, case
+from sqlalchemy.sql.expression import or_, false, func, case, select
 
 import rucio.core.account_counter
 from rucio.common import exception, utils
@@ -47,7 +47,7 @@ class RseData:
     """
     Helper data class storing rse data grouped in one place.
     """
-    def __init__(self, id_, name=None, columns=None, attributes=None, info=None, usage=None, limits=None):
+    def __init__(self, id_, name=None, columns=None, attributes=None, info=None, usage=None, limits=None, transfer_limits=None):
         self.id = id_
         self.name = name
         self.columns = columns
@@ -55,11 +55,12 @@ class RseData:
         self.info = info
         self.usage = usage
         self.limits = limits
+        self.transfer_limits = transfer_limits
 
     def __hash__(self):
         return hash(self.id)
 
-    def __str__(self):
+    def __repr__(self):
         if self.name is not None:
             return self.name
         return self.id
@@ -81,7 +82,7 @@ class RseData:
 
     @read_session
     def ensure_loaded(self, load_name=False, load_columns=False, load_attributes=False,
-                      load_info=False, load_usage=False, load_limits=False, session=None):
+                      load_info=False, load_usage=False, load_limits=False, load_transfer_limits=False, session=None):
         if self.name is None and load_name:
             self.name = get_rse_name(rse_id=self.id, session=session)
         if self.columns is None and load_columns:
@@ -94,6 +95,8 @@ class RseData:
             self.usage = get_rse_usage(rse_id=self.id, session=session)
         if self.limits is None and load_limits:
             self.limits = get_rse_limits(rse_id=self.id, session=session)
+        if self.transfer_limits is None and load_transfer_limits:
+            self.transfer_limits = get_rse_transfer_limits(rse_id=self.id, session=session)
         return self
 
     @staticmethod
@@ -953,7 +956,7 @@ def delete_rse_limits(rse_id: str, name: 'Optional[str]' = None,
 
 
 @transactional_session
-def set_rse_transfer_limits(rse_id, activity, rse_expression=None, max_transfers=0, transfers=0, waitings=0, volume=0, deadline=1, strategy='fifo', session=None):
+def set_rse_transfer_limits(rse_id, activity, rse_expression=None, max_transfers=0, transfers=0, waitings=0, volume=0, deadline=1, strategy='fifo', direction='destination', session=None):
     """
     Set RSE transfer limits.
 
@@ -966,6 +969,7 @@ def set_rse_transfer_limits(rse_id, activity, rse_expression=None, max_transfers
     :param volume: Maximum transfer volume in bytes.
     :param deadline: Maximum waiting time in hours until a datasets gets released.
     :param strategy: Stragey to handle datasets `fifo` or `grouped_fifo`.
+    :param direction: The direction in which this limit applies (source/destination)
     :param session: The database session in use.
 
     :returns: True if successful, otherwise false.
@@ -973,7 +977,8 @@ def set_rse_transfer_limits(rse_id, activity, rse_expression=None, max_transfers
     try:
         rse_tr_limit = models.RSETransferLimit(rse_id=rse_id, activity=activity, rse_expression=rse_expression,
                                                max_transfers=max_transfers, transfers=transfers,
-                                               waitings=waitings, volume=volume, strategy=strategy, deadline=deadline)
+                                               waitings=waitings, volume=volume, strategy=strategy,
+                                               deadline=deadline, direction=direction)
         rse_tr_limit = session.merge(rse_tr_limit)
         rowcount = rse_tr_limit.save(session=session)
         return rowcount
@@ -981,33 +986,43 @@ def set_rse_transfer_limits(rse_id, activity, rse_expression=None, max_transfers
         raise exception.RucioException(error.args)
 
 
+def _sanitize_rse_transfer_limit_dict(limit_dict):
+    if limit_dict['activity'] == 'all_activities':
+        limit_dict['activity'] = None
+    if not limit_dict['direction']:
+        limit_dict['direction'] = 'destination'
+    return limit_dict
+
+
 @read_session
-def get_rse_transfer_limits(rse_id=None, activity=None, session=None):
+def get_rse_transfer_limits(rse_id, activity=None, session=None):
     """
     Get RSE transfer limits.
 
     :param rse_id: The RSE id.
     :param activity: The activity.
 
-    :returns: A dictionary with the limits {'limit.activity': {'limit.rse_id': {'max_transfers': limit.max_transfers, 'transfers': 0, 'waitings': 0, 'volume': 1}}}.
+    :returns: A dictionary with the limits {'limit.direction': {'limit.activity': limit}}.
     """
     try:
-        query = session.query(models.RSETransferLimit)
-        if rse_id:
-            query = query.filter_by(rse_id=rse_id)
+        stmt = select(
+            models.RSETransferLimit
+        ).where(
+            models.RSETransferLimit.rse_id == rse_id
+        )
         if activity:
-            query = query.filter_by(activity=activity)
+            stmt = stmt.where(
+                or_(
+                    models.RSETransferLimit.activity == activity,
+                    models.RSETransferLimit.activity == 'all_activities',
+                )
+            )
 
         limits = {}
-        for limit in query:
-            if limit.activity not in limits:
-                limits[limit.activity] = {}
-            limits[limit.activity][limit.rse_id] = {'max_transfers': limit.max_transfers,
-                                                    'transfers': limit.transfers,
-                                                    'waitings': limit.waitings,
-                                                    'volume': limit.volume,
-                                                    'strategy': limit.strategy,
-                                                    'deadline': limit.deadline}
+        for limit in session.execute(stmt).scalars():
+            limit_dict = _sanitize_rse_transfer_limit_dict(limit.to_dict())
+            limits.setdefault(limit_dict['direction'], {}).setdefault(limit_dict['activity'], limit_dict)
+
         return limits
     except IntegrityError as error:
         raise exception.RucioException(error.args)

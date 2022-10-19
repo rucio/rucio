@@ -31,12 +31,11 @@ from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (InvalidRSEExpression,
                                     RequestNotFound, RSEProtocolNotSupported,
                                     RucioException, UnsupportedOperation)
-from rucio.common.utils import construct_surl, get_parsed_throttler_mode
+from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.account import list_accounts
 from rucio.core.monitor import record_counter
 from rucio.core.request import set_request_state, RequestWithSources, RequestSource
-from rucio.core.rse import get_rse_transfer_limits
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, RequestType
@@ -1130,8 +1129,8 @@ def prepare_transfers(
         update_dict = {
             models.Request.state: _throttler_request_state(
                 activity=rws.activity,
-                source_rse_id=selected_source.rse.id,
-                dest_rse_id=rws.dest_rse.id,
+                source_rse=selected_source.rse,
+                dest_rse=rws.dest_rse,
                 session=session,
             ),
             models.Request.source_rse_id: selected_source.rse.id,
@@ -1154,34 +1153,50 @@ def prepare_transfers(
     return updated_reqs, reqs_no_transfertool
 
 
-def _throttler_request_state(activity, source_rse_id, dest_rse_id, session: "Optional[Session]" = None) -> RequestState:
+def applicable_rse_transfer_limits(
+        source_rse: "Optional[RseData]" = None,
+        dest_rse: "Optional[RseData]" = None,
+        activity: "Optional[str]" = None,
+        session: "Optional[Session]" = None,
+):
+    """
+    Find all RseTransferLimits which must be enforced for transfers between source and destination RSEs for the given activity.
+    """
+    source_limits = {}
+    if source_rse:
+        source_limits = source_rse.ensure_loaded(load_transfer_limits=True, session=session).transfer_limits.get('source', {})
+    dest_limits = {}
+    if dest_rse:
+        dest_limits = dest_rse.ensure_loaded(load_transfer_limits=True, session=session).transfer_limits.get('destination', {})
+
+    if activity is not None:
+        limit = source_limits.get(activity)
+        if limit:
+            yield limit
+
+        limit = dest_limits.get(activity)
+        if limit:
+            yield limit
+
+    # get "all_activities" limits
+    limit = source_limits.get(None)
+    if limit:
+        yield limit
+
+    limit = dest_limits.get(None)
+    if limit:
+        yield limit
+
+
+def _throttler_request_state(activity, source_rse, dest_rse, session: "Optional[Session]" = None) -> RequestState:
     """
     Takes request attributes to return a new state for the request
     based on throttler settings. Always returns QUEUED,
     if the throttler mode is not set.
     """
-    throttler_mode = config_get('throttler', 'mode', default=None, use_cache=False, raise_exception=False, session=session)
-
     limit_found = False
-    if throttler_mode:
-        transfer_limits = get_rse_transfer_limits(session=session)
-        activity_limit = transfer_limits.get(activity, {})
-        all_activities_limit = transfer_limits.get('all_activities', {})
-        direction, all_activities = get_parsed_throttler_mode(throttler_mode)
-        if direction == 'source':
-            if all_activities:
-                if all_activities_limit.get(source_rse_id):
-                    limit_found = True
-            else:
-                if activity_limit.get(source_rse_id):
-                    limit_found = True
-        elif direction == 'destination':
-            if all_activities:
-                if all_activities_limit.get(dest_rse_id):
-                    limit_found = True
-            else:
-                if activity_limit.get(dest_rse_id):
-                    limit_found = True
+    if any(applicable_rse_transfer_limits(activity=activity, source_rse=source_rse, dest_rse=dest_rse, session=session)):
+        limit_found = True
 
     return RequestState.WAITING if limit_found else RequestState.QUEUED
 
