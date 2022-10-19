@@ -2734,6 +2734,7 @@ def set_status(scope, name, session=None, **kwargs):
     :param kwargs:  Keyword arguments of the form status_name=value.
     """
     statuses = ['open', ]
+    reevaluate_dids_at_close = config_get_bool('subscriptions', 'reevaluate_dids_at_close', raise_exception=False, default=False, session=session)
 
     update_stmt = update(
         models.DataIdentifier
@@ -2784,6 +2785,10 @@ def set_status(scope, name, session=None, **kwargs):
                     message['vo'] = scope.vo
 
                 add_message('CLOSE', message, session=session)
+                if reevaluate_dids_at_close:
+                    set_new_dids(dids=[{'scope': scope, 'name': name}],
+                                 new_flag=True,
+                                 session=session)
 
             else:
                 # Set status to open only for privileged accounts
