@@ -29,7 +29,8 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
                             get_metadata, set_metadata, get_did, get_did_access_cnt, add_did_to_followed,
-                            get_users_following_did, remove_did_from_followed, set_status)
+                            get_users_following_did, remove_did_from_followed, set_status, list_new_dids,
+                            set_new_dids)
 from rucio.core.replica import add_replica, get_replica
 from rucio.db.sqla.constants import DIDType
 from rucio.tests.common import rse_name_generator, scope_name_generator, did_name_generator
@@ -258,6 +259,25 @@ class TestDIDCore:
         attach_dids(dids=[container3], account=root_account, **container2)
         with pytest.raises(UnsupportedOperation, match='Circular attachment detected'):
             attach_dids(dids=[container1], account=root_account, **container3)
+
+    @pytest.mark.dirty
+    @pytest.mark.parametrize("file_config_mock", [
+        {"overrides": [('subscriptions', 'reevaluate_dids_at_close', 'True')]},
+    ], indirect=True)
+    def test_reevaluate_after_close(self, mock_scope, root_account, file_config_mock):
+        """ DATA IDENTIFIERS (CORE): Test that the option reevaluate_close_did set is_new to True """
+        dsn = did_name_generator('dataset')
+        add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+        new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
+        assert {'scope': mock_scope, 'name': dsn, 'did_type': DIDType.DATASET} in new_dids
+
+        set_new_dids([{'scope': mock_scope, 'name': dsn, 'did_type': DIDType.DATASET}], None)
+        new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
+        assert {'scope': mock_scope, 'name': dsn, 'did_type': DIDType.DATASET} not in new_dids
+
+        set_status(mock_scope, dsn, open=False)
+        new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
+        assert {'scope': mock_scope, 'name': dsn, 'did_type': DIDType.DATASET} in new_dids
 
 
 class TestDIDApi:
