@@ -27,6 +27,7 @@ from rucio.db.sqla.constants import IdentityType, BadPFNStatus
 if TYPE_CHECKING:
     from typing import Dict, Optional
     from sqlalchemy.orm import Session
+    from rucio.common.types import InternalAccount
 
 
 def has_permission(issuer, action, kwargs, *, session: "Optional[Session]" = None):
@@ -80,6 +81,7 @@ def has_permission(issuer, action, kwargs, *, session: "Optional[Session]" = Non
             'attach_dids_to_dids': perm_attach_dids_to_dids,
             'create_did_sample': perm_create_did_sample,
             'set_metadata': perm_set_metadata,
+            'set_metadata_bulk': perm_set_metadata_bulk,
             'set_status': perm_set_status,
             'queue_requests': perm_queue_requests,
             'set_rse_usage': perm_set_rse_usage,
@@ -698,6 +700,18 @@ def perm_detach_dids(issuer, kwargs, *, session: "Optional[Session]" = None):
     :returns: True if account is allowed, otherwise False
     """
     return perm_attach_dids(issuer, kwargs, session=session)
+
+
+def perm_set_metadata_bulk(issuer: "InternalAccount", kwargs: dict, *, session: "Optional[Session]" = None) -> bool:
+    """
+    Checks if an account can set a metadata on a data identifier.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    return perm_set_metadata(issuer, kwargs, session=session)
 
 
 def perm_set_metadata(issuer, kwargs, *, session: "Optional[Session]" = None):
