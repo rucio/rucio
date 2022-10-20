@@ -22,7 +22,6 @@ from dogpile.cache import make_region
 from rucio.common.config import config_get
 from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import successful_transfer, failed_transfer, get_replica_locks
@@ -36,7 +35,7 @@ from rucio.daemons.judge.repairer import rule_repairer
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RuleState, ReplicaState
 from rucio.db.sqla.session import get_session
-from rucio.tests.common import rse_name_generator
+from rucio.tests.common import rse_name_generator, did_name_generator
 from rucio.tests.common_server import get_vo
 from rucio.tests.test_rule import create_files, tag_generator
 
@@ -97,7 +96,7 @@ class TestJudgeRepairer:
         rule_repairer(once=True)  # Clean out the repairer
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse4_id, bytes_=100)
-        dataset = 'dataset_' + str(uuid())
+        dataset = did_name_generator('dataset')
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
@@ -124,7 +123,7 @@ class TestJudgeRepairer:
         rule_repairer(once=True)  # Clean out the repairer
         scope = InternalScope('mock', **self.vo)
         files = create_files(4, scope, self.rse4_id, bytes_=100)
-        dataset = 'dataset_' + str(uuid())
+        dataset = did_name_generator('dataset')
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
@@ -148,7 +147,7 @@ class TestJudgeRepairer:
         rule_repairer(once=True)  # Clean out the repairer
         scope = InternalScope('mock', **self.vo)
         files = create_files(4, scope, self.rse4_id, bytes_=100)
-        dataset = 'dataset_' + str(uuid())
+        dataset = did_name_generator('dataset')
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
@@ -170,7 +169,7 @@ class TestJudgeRepairer:
         """ JUDGE EVALUATOR: Test the judge when a rule gets STUCK from re_evaluating and there are missing locks"""
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse4_id)
-        dataset = 'dataset_' + str(uuid())
+        dataset = did_name_generator('dataset')
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
 
         # Add a first rule to the DS
@@ -179,7 +178,7 @@ class TestJudgeRepairer:
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Fake judge
-        re_evaluator(once=True)
+        re_evaluator(once=True, did_limit=10000)
 
         # Check if the Locks are created properly
         for file in files:
@@ -208,7 +207,7 @@ class TestJudgeRepairer:
         """ JUDGE EVALUATOR: Test the judge when a with two rules with source_replica_expression"""
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse4_id)
-        dataset = 'dataset_' + str(uuid())
+        dataset = did_name_generator('dataset')
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
@@ -243,7 +242,7 @@ class TestJudgeRepairer:
         rule_repairer(once=True)  # Clean out the repairer
         scope = InternalScope('mock', **self.vo)
         files = create_files(4, scope, self.rse4_id, bytes_=100)
-        dataset = 'dataset_' + str(uuid())
+        dataset = did_name_generator('dataset')
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
@@ -274,7 +273,7 @@ class TestJudgeRepairer:
         rule_repairer(once=True)  # Clean out the repairer
         scope = InternalScope('mock', **self.vo)
         files = create_files(4, scope, self.rse4_id, bytes_=100)
-        dataset = 'dataset_' + str(uuid())
+        dataset = did_name_generator('dataset')
         add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
@@ -315,7 +314,7 @@ class TestJudgeRepairer:
         for grouping, ignore_availability in itertools.product(["NONE", "DATASET", "ALL"], [True, False]):
             scope = InternalScope('mock', **self.vo)
             files = create_files(1, scope, self.rse4_id, bytes_=100)
-            dataset = 'dataset_' + str(uuid())
+            dataset = did_name_generator('dataset')
             add_did(scope, dataset, DIDType.DATASET, self.jdoe)
             attach_dids(scope, dataset, files, self.jdoe)
 

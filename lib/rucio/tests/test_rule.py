@@ -28,6 +28,7 @@ from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAcco
                                     RSEOverQuota, RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError,
                                     UnsupportedOperation, InvalidValueForKey)
 from rucio.common.policy import get_policy
+from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account_attribute, get_usage
@@ -1166,12 +1167,13 @@ class TestClient:
 
     def test_add_rule(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CLIENT): Add a replication rule and list full history """
+        activity = get_schema_value('ACTIVITY')['enum'][0]
         files = create_files(3, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
         add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset)
         attach_dids(dids=files, account=jdoe_account, **dataset)
 
-        ret = self.rule_client.add_replication_rule(dids=[{'scope': mock_scope.external, 'name': dataset['name']}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE')
+        ret = self.rule_client.add_replication_rule(dids=[{'scope': mock_scope.external, 'name': dataset['name']}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', activity=activity)
         assert isinstance(ret, list)
 
         rep_rules = [rep_rule for rep_rule in self.rule_client.list_replication_rule_full_history(mock_scope.external, dataset['name'])]
@@ -1211,23 +1213,25 @@ class TestClient:
 
     def test_get_rule(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CLIENT): Get Replication Rule by id """
+        activity = get_schema_value('ACTIVITY')['enum'][0]
         files = create_files(3, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
         add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset)
         attach_dids(dids=files, account=jdoe_account, **dataset)
 
-        ret = self.rule_client.add_replication_rule(dids=[{'scope': mock_scope.external, 'name': dataset['name']}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE')
+        ret = self.rule_client.add_replication_rule(dids=[{'scope': mock_scope.external, 'name': dataset['name']}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', activity=activity)
         get = self.rule_client.get_replication_rule(ret[0])
         assert(ret[0] == get['id'])
 
     def test_get_rule_by_account(self, mock_scope, did_factory, jdoe_account, rucio_client):
         """ ACCOUNT (CLIENT): Get Replication Rule by account """
+        activity = get_schema_value('ACTIVITY')['enum'][0]
         files = create_files(3, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
         add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset)
         attach_dids(dids=files, account=jdoe_account, **dataset)
 
-        ret = self.rule_client.add_replication_rule(dids=[{'scope': mock_scope.external, 'name': dataset['name']}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE')
+        ret = self.rule_client.add_replication_rule(dids=[{'scope': mock_scope.external, 'name': dataset['name']}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', activity=activity)
         get = rucio_client.list_account_rules('jdoe')
         rules = [rule['id'] for rule in get]
 

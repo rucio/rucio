@@ -23,15 +23,15 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get_bool
 from rucio.common.exception import InvalidObject
+from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid
 from rucio.core.did import attach_dids, add_dids
 from rucio.core.replica import list_datasets_per_rse, update_collection_replica, \
     get_cleaned_updated_collection_replicas, delete_replicas, add_replicas
 from rucio.core.rse import add_rse, del_rse, add_protocol, get_rse_id
 from rucio.db.sqla import session, models, constants
 from rucio.db.sqla.constants import ReplicaState
-from rucio.tests.common import rse_name_generator
+from rucio.tests.common import rse_name_generator, did_name_generator
 from rucio.tests.common_server import get_vo
 
 
@@ -46,34 +46,36 @@ class TestDatasetReplicaClient(unittest.TestCase):
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_dataset_replicas(self):
         """ REPLICA (CLIENT): List dataset replicas."""
+        activity = get_schema_value('ACTIVITY')['enum'][0]
         replica_client = ReplicaClient()
         rule_client = RuleClient()
         did_client = DIDClient()
         scope = 'mock'
-        dataset = 'dataset_' + str(generate_uuid())
+        dataset = did_name_generator('dataset')
 
         did_client.add_dataset(scope=scope, name=dataset)
         rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}],
                                          account='root', copies=1, rse_expression='MOCK',
-                                         grouping='DATASET')
+                                         grouping='DATASET', activity=activity)
         replicas = [r for r in replica_client.list_dataset_replicas(scope=scope, name=dataset)]
         assert len(replicas) == 1
 
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_dataset_replicas_bulk(self):
         """ REPLICA (CLIENT): List dataset replicas bulk."""
+        activity = get_schema_value('ACTIVITY')['enum'][0]
         replica_client = ReplicaClient()
         rule_client = RuleClient()
         did_client = DIDClient()
         scope = 'mock'
-        did1 = {'scope': scope, 'name': 'dataset_' + str(generate_uuid())}
+        did1 = {'scope': scope, 'name': did_name_generator('dataset')}
         did_client.add_dataset(**did1)
-        did2 = {'scope': scope, 'name': 'dataset_' + str(generate_uuid())}
+        did2 = {'scope': scope, 'name': did_name_generator('dataset')}
         did_client.add_dataset(**did2)
         dids = [did1, did2]
         rule_client.add_replication_rule(dids=dids,
                                          account='root', copies=1, rse_expression='MOCK',
-                                         grouping='DATASET')
+                                         grouping='DATASET', activity=activity)
 
         with pytest.raises(InvalidObject):
             replica_client.list_dataset_replicas_bulk(dids=[{'type': "I'm Different"}])
@@ -89,22 +91,25 @@ class TestDatasetReplicaClient(unittest.TestCase):
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_datasets_per_rse(self):
         """ REPLICA (CLIENT): List datasets in RSE."""
+        activity = get_schema_value('ACTIVITY')['enum'][0]
         rule_client = RuleClient()
         did_client = DIDClient()
         scope = 'mock'
-        dataset = 'dataset_' + str(generate_uuid())
+        dataset = did_name_generator('dataset')
+        pattern = dataset[:-5] + '*'
 
         did_client.add_dataset(scope=scope, name=dataset)
         rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}],
                                          account='root', copies=1, rse_expression='MOCK',
-                                         grouping='DATASET')
+                                         grouping='DATASET', activity=activity)
         replicas = [r for r in list_datasets_per_rse(rse_id=get_rse_id(rse='MOCK', **self.vo),
-                                                     filters={'scope': InternalScope(scope, **self.vo), 'name': 'data*'})]
+                                                     filters={'scope': InternalScope(scope, **self.vo), 'name': pattern})]
         assert replicas != []
 
     def test_list_dataset_replicas_archive(self):
         """ REPLICA (CLIENT): List dataset replicas with archives. """
 
+        activity = get_schema_value('ACTIVITY')['enum'][0]
         replica_client = ReplicaClient()
         did_client = DIDClient()
         rule_client = RuleClient()
@@ -134,22 +139,22 @@ class TestDatasetReplicaClient(unittest.TestCase):
                                                     'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
         # register archive
-        archive = {'scope': scope, 'name': 'another.%s.zip' % generate_uuid(),
+        archive = {'scope': scope, 'name': '%sanother.zip' % did_name_generator('file'),
                    'type': 'FILE', 'bytes': 2596, 'adler32': 'deedbeaf'}
         replica_client.add_replicas(rse=rse, files=[archive])
         replica_client.add_replicas(rse=rse2, files=[archive])
 
-        archived_files = [{'scope': scope, 'name': 'zippedfile-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
+        archived_files = [{'scope': scope, 'name': '%szippedfile-%i' % (did_name_generator('file'), i), 'type': 'FILE',
                            'bytes': 4322, 'adler32': 'deaddead'} for i in range(2)]
         replica_client.add_replicas(rse=rse2, files=archived_files)
         did_client.add_files_to_archive(scope=scope, name=archive['name'], files=archived_files)
 
-        dataset_name = 'find_me.' + str(generate_uuid())
+        dataset_name = did_name_generator('dataset')
         did_client.add_dataset(scope=scope, name=dataset_name)
         did_client.attach_dids(scope=scope, name=dataset_name, dids=archived_files)
         rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset_name}],
                                          account='root', copies=1, rse_expression=rse,
-                                         grouping='DATASET')
+                                         grouping='DATASET', activity=activity)
 
         res = [r for r in replica_client.list_dataset_replicas(scope=scope,
                                                                name=dataset_name)]
@@ -190,8 +195,8 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
 
     def test_clean_and_get_collection_replica_updates(self):
         """ REPLICA (CORE): Get cleaned update requests for collection replicas. """
-        dataset_name_with_collection_replica = 'dataset_with_rse%s' % generate_uuid()
-        dataset_name_without_collection_replica = 'dataset_without_rse%s' % generate_uuid()
+        dataset_name_with_collection_replica = did_name_generator('dataset')
+        dataset_name_without_collection_replica = did_name_generator('dataset')
         add_dids(dids=[{'name': dataset_name_without_collection_replica, 'scope': self.scope, 'type': constants.DIDType.DATASET},
                        {'name': dataset_name_with_collection_replica, 'scope': self.scope, 'type': constants.DIDType.DATASET}], account=self.account, session=self.db_session)
         self.db_session.query(models.UpdatedCollectionReplica).delete()  # pylint: disable=no-member
@@ -221,8 +226,8 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
     def test_update_collection_replica(self):
         """ REPLICA (CORE): Update collection replicas from update requests. """
         file_size = 2
-        files = [{'name': 'file_%s' % generate_uuid(), 'scope': self.scope, 'bytes': file_size} for i in range(0, 2)]
-        dataset_name = 'dataset_test_%s' % generate_uuid()
+        files = [{'name': 'file_%s' % did_name_generator('file'), 'scope': self.scope, 'bytes': file_size} for i in range(0, 2)]
+        dataset_name = 'dataset_test_%s' % did_name_generator('dataset')
         add_replicas(rse_id=self.rse_id, files=files, account=self.account, session=self.db_session)
         add_dids([{'scope': self.scope, 'name': dataset_name, 'type': constants.DIDType.DATASET}], account=self.account, session=self.db_session)
         attach_dids(scope=self.scope, name=dataset_name, dids=files, account=self.account, session=self.db_session)
@@ -276,7 +281,7 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
             update_collection_replica(update_request=update_request.to_dict(), session=self.db_session)
 
         # Update request without rse_id - using two replicas per file -> total 4 replicas
-        dataset_name = 'dataset_test_%s' % generate_uuid()
+        dataset_name = 'dataset_test_%s' % did_name_generator('dataset')
         add_dids([{'scope': self.scope, 'name': dataset_name, 'type': constants.DIDType.DATASET}], account=self.account, session=self.db_session)
         add_replicas(rse_id=self.rse_id, files=files, account=self.account, session=self.db_session)
         add_replicas(rse_id=self.rse2_id, files=files, account=self.account, session=self.db_session)
