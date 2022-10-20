@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
+import os
 
+import unittest
 import pytest
 
 from rucio.common import config
@@ -46,6 +47,7 @@ class TestDeterministicTranslation(unittest.TestCase):
         self.create_translator()
         assert self.translator.path("foo", "bar") == "foo/4e/99/bar"
 
+    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Test ATLAS hash convention')
     def test_default_hash(self):
         """LFN2PFN: Translate to path using default algorithm (Success)"""
         assert self.translator.path("foo", "bar") == "foo/4e/99/bar"
@@ -56,6 +58,7 @@ class TestDeterministicTranslation(unittest.TestCase):
         self.create_translator()
         assert self.translator.path("foo", "bar") == "foo/bar"
 
+    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Test ATLAS hash convention')
     def test_user_scope(self):
         """LFN2PFN: Test special user scope rules (Success)"""
         assert self.translator.path("user.foo", "bar") == "user/foo/13/7f/bar"
