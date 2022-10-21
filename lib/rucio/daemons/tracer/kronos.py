@@ -389,7 +389,8 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, return_values: Dic
             conn.subscribe(destination=config_get('tracer-kronos', 'queue'), ack='client-individual', id=subscription_id, headers={'activemq.prefetchSize': prefetch_size})
 
 
-def kronos_dataset(once: bool = False, dataset_queue: Queue = None, sleep_time: int = 60):
+def kronos_dataset(dataset_queue: Queue, once: bool = False, sleep_time: int = 60):
+    return_values = {'heartbeat_handler': HeartbeatHandler("kronos-dataset", 10)}
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
@@ -400,23 +401,21 @@ def kronos_dataset(once: bool = False, dataset_queue: Queue = None, sleep_time: 
         run_once_fnc=functools.partial(
             run_once_kronos_dataset,
             dataset_queue=dataset_queue,
+            return_values=return_values,
         )
     )
 
-    # once again for the backlog
-    __update_datasets(dataset_queue)
+    # once again for potential backlog
+    run_once_kronos_dataset(dataset_queue=dataset_queue, return_values=return_values, heartbeat_handler=return_values['heartbeat_handler'], sleep_time=sleep_time)
 
 
-def run_once_kronos_dataset(heartbeat_handler: HeartbeatHandler, dataset_queue: Queue, **kwargs):
+def run_once_kronos_dataset(dataset_queue: Queue, return_values: dict, heartbeat_handler: HeartbeatHandler, **kwargs):
+    if heartbeat_handler is None:
+        if "heartbeat_handler" not in return_values.keys():
+            return_values["heartbeat_handler"] = HeartbeatHandler("kronos-dataset", 10)
+        heartbeat_handler = return_values["heartbeat_handler"]
+
     _, _, logger = heartbeat_handler.live()
-    dataset_wait = config_get_int('tracer-kronos', 'dataset_wait')
-    start = datetime.now()
-    if (datetime.now() - start).seconds > dataset_wait:
-        __update_datasets(dataset_queue=dataset_queue, logger=logger)
-        start = datetime.now()
-
-
-def __update_datasets(dataset_queue, logger=logging.log):
     len_ds = dataset_queue.qsize()
     datasets = {}
     dslocks = {}
