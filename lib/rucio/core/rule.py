@@ -1450,6 +1450,8 @@ def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, An
 
         return new_rule_id[0]
 
+    except StatementError:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
 
