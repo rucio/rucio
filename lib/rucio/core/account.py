@@ -57,8 +57,6 @@ def add_account(account, type_, email, session=None):
         new_account.save(session=session)
     except IntegrityError:
         raise exception.Duplicate('Account ID \'%s\' already exists!' % account)
-    # Create the account counters for this account
-    rucio.core.account_counter.create_counters_for_new_account(account=account, session=session)
 
 
 @read_session

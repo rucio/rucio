@@ -28,7 +28,6 @@ from sqlalchemy.orm import aliased, Session
 from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.sql.expression import or_, false, func, case, select
 
-import rucio.core.account_counter
 from rucio.common import exception, utils
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import get_lfn2pfn_algorithm_default
@@ -264,9 +263,6 @@ def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region
 
     # Add counter to monitor the space usage
     add_counter(rse_id=new_rse.id, session=session)
-
-    # Add account counter
-    rucio.core.account_counter.create_counters_for_new_rse(rse_id=new_rse.id, session=session)
 
     return new_rse.id
 

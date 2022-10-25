@@ -12,6 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import random
+from time import sleep
+
 import pytest
 
 from rucio.core import account_counter, rse_counter
@@ -82,10 +85,10 @@ class TestCoreRSECounter:
             assert usage in current_usage
 
 
-@pytest.mark.noparallel(reason='runs abacus daemons')
+@pytest.mark.noparallel(reason='runs abacus daemons; deletes all account_usage_history rows')
 class TestCoreAccountCounter:
 
-    def test_inc_dec_get_counter(self, jdoe_account, rse_factory):
+    def test_inc_dec_get_counter(self, jdoe_account, rse_factory, db_session):
         """ACCOUNT COUNTER (CORE): Increase, decrease and get counter """
         account_update(once=True)
         _, rse_id = rse_factory.make_mock_rse()
@@ -133,12 +136,21 @@ class TestCoreAccountCounter:
             del cnt['updated_at']
             assert cnt == {'files': count, 'bytes': sum_}
 
-    def test_fill_counter_history(self, db_session):
-        """ACCOUNT COUNTER (CORE): Fill the usage history with the current value."""
+        # check that the counters are correctly copied into the history table
         db_session.query(models.AccountUsageHistory).delete()
         db_session.commit()
         account_counter.fill_account_counter_history_table()
-        history_usage = [(usage['rse_id'], usage['files'], usage['account'], usage['bytes']) for usage in db_session.query(models.AccountUsageHistory)]
-        current_usage = [(usage['rse_id'], usage['files'], usage['account'], usage['bytes']) for usage in db_session.query(models.AccountUsage)]
-        for usage in history_usage:
-            assert usage in current_usage
+        history_usage = {(usage['rse_id'], usage['files'], usage['account'], usage['bytes']) for usage in db_session.query(models.AccountUsageHistory)}
+        current_usage = {(usage['rse_id'], usage['files'], usage['account'], usage['bytes']) for usage in db_session.query(models.AccountUsage)}
+        assert history_usage
+        assert history_usage == current_usage
+
+        # The granularity of our updated_at field in the database is 1 second, so we may get a duplicate key error if we don't wait
+        sleep(1)
+        new_count = random.randint(count + 1, count * 1000)
+        db_session.query(models.AccountUsage).filter_by(rse_id=rse_id, account=account).update({'files': new_count})
+        db_session.commit()
+        account_counter.fill_account_counter_history_table()
+        history_usage = {(usage['rse_id'], usage['files'], usage['account'], usage['bytes']) for usage in db_session.query(models.AccountUsageHistory)}
+        assert (rse_id, count, account, sum_) in history_usage
+        assert (rse_id, new_count, account, sum_) in history_usage
