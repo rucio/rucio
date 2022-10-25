@@ -33,6 +33,7 @@ import subprocess
 import tempfile
 import threading
 import time
+from typing import Tuple
 import zlib
 from collections import OrderedDict
 from enum import Enum
@@ -434,7 +435,7 @@ def parse_response(data):
     return json.loads(data, object_hook=datetime_parser)
 
 
-def execute(cmd, blocking=True):
+def execute(cmd) -> Tuple[int, str, str]:
     """
     Executes a command in a subprocess. Returns a tuple
     of (exitcode, out, err), where out is the string output
@@ -450,12 +451,10 @@ def execute(cmd, blocking=True):
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
 
-    if blocking:
-        result = process.communicate()
-        (out, err) = result
-        exitcode = process.returncode
-        return exitcode, out.decode(encoding='utf-8'), err.decode(encoding='utf-8')
-    return process
+    result = process.communicate()
+    (out, err) = result
+    exitcode = process.returncode
+    return exitcode, out.decode(encoding='utf-8'), err.decode(encoding='utf-8')
 
 
 def rse_supported_protocol_operations():
