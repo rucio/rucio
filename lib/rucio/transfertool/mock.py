@@ -28,6 +28,7 @@ class MockTransfertool(Transfertool):
     """
 
     external_name = 'mock'
+    required_rse_attrs = ()
 
     def __init__(self, external_host, logger=logging.log):
         super(MockTransfertool, self).__init__(external_host, logger)

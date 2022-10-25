@@ -20,10 +20,10 @@ import traceback
 from collections import namedtuple
 from typing import TYPE_CHECKING
 
-from sqlalchemy import and_, or_, func, update, select, delete
+from sqlalchemy import and_, or_, update, select, delete, exists
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
-from sqlalchemy.sql.expression import asc, true, false, null
+from sqlalchemy.sql.expression import asc, true, false, null, func
 
 from rucio.common.config import config_get_bool
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
@@ -40,7 +40,9 @@ from rucio.db.sqla.util import temp_table_mngr
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List, Optional, Union
+    from typing import Any, Dict, List, Optional, Sequence, Union
+
+    from sqlalchemy.orm import Session
 
 """
 The core request.py is specifically for handling requests.
@@ -340,36 +342,36 @@ def queue_requests(requests, session=None, logger=logging.log):
 
 @read_session
 def list_transfer_requests_and_source_replicas(
-        total_workers=0,
-        worker_number=0,
-        partition_hash_var=None,
-        limit=None,
-        activity=None,
-        older_than=None,
-        rses=None,
-        use_multihop=False,
-        request_type=RequestType.TRANSFER,
-        request_state=None,
-        ignore_availability=False,
-        transfertool=None,
-        session=None,
+        total_workers: int = 0,
+        worker_number: int = 0,
+        partition_hash_var: "Optional[str]" = None,
+        limit: "Optional[int]" = None,
+        activity: "Optional[str]" = None,
+        older_than: "Optional[datetime.datetime]" = None,
+        rses: "Optional[Sequence[str]]" = None,
+        request_type: RequestType = RequestType.TRANSFER,
+        request_state: "Optional[RequestState]" = None,
+        required_source_rse_attrs: "Optional[List[str]]" = None,
+        ignore_availability: bool = False,
+        transfertool: "Optional[str]" = None,
+        session: "Optional[Session]" = None,
 ) -> "Dict[str, RequestWithSources]":
     """
     List requests with source replicas
-    :param total_workers:      Number of total workers.
-    :param worker_number:      Id of the executing worker.
-    :param partition_hash_var  The hash variable used for partitioning thread work
-    :param limit:              Integer of requests to retrieve.
-    :param activity:           Activity to be selected.
-    :param older_than:         Only select requests older than this DateTime.
-    :param rses:               List of rse_id to select requests.
-    :param use_multihop:       If multi-hop is enabled or not
-    :param request_type:       Filter on the given request type.
-    :param request_state:      Filter on the given request state
-    :param transfertool:       The transfer tool as specified in rucio.cfg.
-    :param ignore_availability Ignore blocklisted RSEs
-    :param session:            Database session to use.
-    :returns:                  List of RequestWithSources objects.
+    :param total_workers: Number of total workers.
+    :param worker_number: Id of the executing worker.
+    :param partition_hash_var: The hash variable used for partitioning thread work
+    :param limit: Integer of requests to retrieve.
+    :param activity: Activity to be selected.
+    :param older_than: Only select requests older than this DateTime.
+    :param rses: List of rse_id to select requests.
+    :param request_type: Filter on the given request type.
+    :param request_state: Filter on the given request state
+    :param transfertool: The transfer tool as specified in rucio.cfg.
+    :param required_source_rse_attrs: Only select source RSEs having these attributes set
+    :param ignore_availability: Ignore blocklisted RSEs
+    :param session: Database session to use.
+    :returns: List of RequestWithSources objects.
     """
 
     if partition_hash_var is None:
@@ -499,13 +501,17 @@ def list_transfer_requests_and_source_replicas(
         models.Distance, "INDEX(DISTANCES DISTANCES_PK)", 'oracle'
     )
 
-    # if transfertool specified, select only the requests where the source rses are set up for the transfer tool
-    if transfertool and not use_multihop:
-        stmt = stmt.join(
-            models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == models.RSE.id,  # source_rse_id
-        ).where(
-            models.RSEAttrAssociation.key == 'transfertool',
-            models.RSEAttrAssociation.value.like('%' + transfertool + '%')
+    for attribute in required_source_rse_attrs or ():
+        rse_attr_alias = aliased(models.RSEAttrAssociation)
+        stmt = stmt.where(
+            exists(
+                select(
+                    [1]
+                ).where(
+                    rse_attr_alias.rse_id == models.RSE.id,
+                    rse_attr_alias.key == attribute
+                )
+            )
         )
 
     requests_by_id = {}

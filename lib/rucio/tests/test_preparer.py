@@ -142,15 +142,15 @@ def test_preparer_for_request_without_source(db_session, mock_request_no_source)
 
 
 @pytest.mark.noparallel(reason='uses preparer')
-def test_preparer_for_request_without_matching_transfertool_source(db_session, source_rse, dest_rse, mock_request):
-    add_rse_attribute(source_rse['id'], 'transfertool', 'fts3')
-    add_rse_attribute(dest_rse['id'], 'transfertool', 'globus')
+def test_preparer_without_and_with_mat(db_session, source_rse, dest_rse, mock_request):
+    add_rse_attribute(source_rse['id'], 'fts', 'a')
+    add_rse_attribute(dest_rse['id'], 'globus_endpoint_id', 'b')
 
     from rucio.core.rse import REGION
 
     REGION.invalidate()
 
-    preparer.run_once(logger=print)
+    preparer.run_once(logger=print, transfertools=['fts3', 'globus'])
 
     db_session.expunge_all()
     updated_mock_request = db_session.query(models.Request).filter_by(id=mock_request['id']).one()  # type: models.Request
@@ -185,9 +185,25 @@ def test_two_sources_one_destination(rse_factory, source_rse, db_session, vo, fi
     assert updated_mock_request.source_rse_id == source_rse2_id  # distance 2 < 5
 
 
-def test_get_supported_transfertools_default(vo, rse_factory):
-    rse_name, rse_id = rse_factory.make_mock_rse()
-    transfertools = get_supported_transfertools(rse_data=RseData(rse_id))
+def test_get_supported_transfertools_none(vo, rse_factory):
+    source_rse, source_rse_id = rse_factory.make_mock_rse()
+    dest_rse, dest_rse_id = rse_factory.make_mock_rse()
+
+    transfertools = get_supported_transfertools(source_rse=RseData(source_rse_id), dest_rse=RseData(dest_rse_id), transfertools=['fts3', 'globus'])
+
+    assert not transfertools
+
+
+def test_get_supported_transfertools_fts_globus(vo, rse_factory):
+    source_rse, source_rse_id = rse_factory.make_mock_rse()
+    dest_rse, dest_rse_id = rse_factory.make_mock_rse()
+
+    add_rse_attribute(source_rse_id, 'fts', 'a')
+    add_rse_attribute(dest_rse_id, 'fts', 'b')
+    add_rse_attribute(source_rse_id, 'globus_endpoint_id', 'a')
+    add_rse_attribute(dest_rse_id, 'globus_endpoint_id', 'b')
+
+    transfertools = get_supported_transfertools(source_rse=RseData(source_rse_id), dest_rse=RseData(dest_rse_id), transfertools=['fts3', 'globus'])
 
     assert len(transfertools) == 2
     assert 'fts3' in transfertools

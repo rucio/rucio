@@ -44,6 +44,7 @@ from rucio.db.sqla.constants import RequestState
 
 if TYPE_CHECKING:
     from rucio.core.transfer import DirectTransferDefinition
+    from rucio.core.rse import RseData
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 disable_warnings()
@@ -639,6 +640,7 @@ class FTS3Transfertool(Transfertool):
     """
 
     external_name = 'fts3'
+    required_rse_attrs = ('fts', )
 
     def __init__(self, external_host, oidc_account=None, vo=None, group_bulk=1, group_policy='rule', source_strategy=None,
                  max_time_in_queue=None, bring_online=43200, default_lifetime=172800, archive_timeout_override=None,
@@ -693,6 +695,28 @@ class FTS3Transfertool(Transfertool):
             self.verify = True  # True is the default setting of a requests.* method
 
     @classmethod
+    def _pick_fts_servers(cls, source_rse: "RseData", dest_rse: "RseData"):
+        """
+        Pick fts servers to use for submission between the two given rse
+        """
+        source_servers = source_rse.attributes.get('fts', None)
+        dest_servers = dest_rse.attributes.get('fts', None)
+        if source_servers is None or dest_servers is None:
+            return None
+
+        servers_to_use = dest_servers
+        if source_rse.attributes.get('sign_url', None) == 'gcs':
+            servers_to_use = source_servers
+
+        return servers_to_use.split(',')
+
+    @classmethod
+    def can_perform_transfer(cls, source_rse: "RseData", dest_rse: "RseData"):
+        if cls._pick_fts_servers(source_rse, dest_rse):
+            return True
+        return False
+
+    @classmethod
     def submission_builder_for_path(cls, transfer_path, logger=logging.log):
         vo = None
         if config_get_bool('common', 'multi_vo', False, None):
@@ -701,13 +725,8 @@ class FTS3Transfertool(Transfertool):
         sub_path = []
         fts_hosts = []
         for hop in transfer_path:
-            src_and_dst_have_fts_attribute = hop.src.rse.attributes.get('fts', None) is not None and hop.dst.rse.attributes.get('fts', None) is not None
-            hosts = hop.dst.rse.attributes.get('fts', None)
-            if hop.src.rse.attributes.get('sign_url', None) == 'gcs':
-                hosts = hop.src.rse.attributes.get('fts', None)
-            hosts = hosts.split(",") if hosts else []
-
-            if src_and_dst_have_fts_attribute and hosts:
+            hosts = cls._pick_fts_servers(hop.src.rse, hop.dst.rse)
+            if hosts:
                 fts_hosts = hosts
                 sub_path.append(hop)
             else:

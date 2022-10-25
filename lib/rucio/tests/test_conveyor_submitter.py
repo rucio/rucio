@@ -97,7 +97,7 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account, file
         # Record the order of requests passed to MockTranfertool.submit()
         mock_transfertool_submit.side_effect = lambda transfers, job_params, timeout: requests_id_in_submission_order.extend([t.rws.request_id for t in transfers])
 
-        submitter(once=True, rses=[{'id': rse_id} for _, rse_id in dst_rses], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
+        submitter(once=True, rses=[{'id': rse_id} for _, rse_id in dst_rses], partition_wait_time=None, transfertools=['mock'], transfertype='single', filter_transfertool=None)
 
     for request in requests:
         assert request_core.get_request(request_id=request['id'])['state'] == RequestState.SUBMITTED
@@ -165,7 +165,7 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
     did = did_factory.upload_test_file(src_rse_name)
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertools=['mock'], transfertype='single', filter_transfertool=None)
 
     # Ensure that each intermediate request was correctly created
     for rse_id in jump_rses:
@@ -244,7 +244,7 @@ def test_source_avoid_deletion(caches_mock, core_config_mock, rse_factory, did_f
     assert len(replica['pfns']) == 2
 
     # Submit the transfer. This will create the sources.
-    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertool='mock', transfertype='single', filter_transfertool=None)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertools=['mock'], transfertype='single', filter_transfertool=None)
 
     # None of the replicas will be removed. They are protected by an entry in the sources table
     reaper_region.invalidate()
@@ -291,12 +291,12 @@ def test_ignore_availability(rse_factory, did_factory, root_account, core_config
         return src_rse_id, dst_rse_id, did
 
     src_rse_id, dst_rse_id, did = __setup_test()
-    submitter(once=True, rses=[{'id': rse_id} for rse_id in (src_rse_id, dst_rse_id)], partition_wait_time=None, transfertool='mock', transfertype='single')
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in (src_rse_id, dst_rse_id)], partition_wait_time=None, transfertools=['mock'], transfertype='single')
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
     assert request['state'] == RequestState.NO_SOURCES
 
     src_rse_id, dst_rse_id, did = __setup_test()
-    submitter(once=True, rses=[{'id': rse_id} for rse_id in (src_rse_id, dst_rse_id)], partition_wait_time=None, transfertool='mock', transfertype='single', ignore_availability=True)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in (src_rse_id, dst_rse_id)], partition_wait_time=None, transfertools=['mock'], transfertype='single', ignore_availability=True)
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
     assert request['state'] == RequestState.SUBMITTED
 
@@ -336,7 +336,7 @@ def test_globus(rse_factory, did_factory, root_account):
     rule_core.add_rule(dids=[did2], account=root_account, copies=1, rse_expression=rse4, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
     with patch('rucio.transfertool.globus.bulk_submit_xfer') as mock_bulk_submit:
         mock_bulk_submit.return_value = 0
-        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertool='globus', transfertype='single', filter_transfertool=None)
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertools=['globus'], transfertype='single', filter_transfertool=None)
         # Called separately for each job
         assert len(mock_bulk_submit.call_args_list) == 2
         (submitjob,), _kwargs = mock_bulk_submit.call_args_list[0]
@@ -349,7 +349,7 @@ def test_globus(rse_factory, did_factory, root_account):
     rule_core.add_rule(dids=[did2], account=root_account, copies=1, rse_expression=rse4, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
     with patch('rucio.transfertool.globus.bulk_submit_xfer') as mock_bulk_submit:
         mock_bulk_submit.return_value = 0
-        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertool='globus', transfertype='bulk', filter_transfertool=None)
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertools=['globus'], transfertype='bulk', filter_transfertool=None)
 
         mock_bulk_submit.assert_called_once()
         (submitjob,), _kwargs = mock_bulk_submit.call_args_list[0]
@@ -426,7 +426,7 @@ def test_hop_penalty(rse_factory, did_factory, root_account, file_config_mock, c
     replica_core.add_replica(rse_id=rse4_id, account=root_account, bytes_=1, **did)
 
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
-    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertool='mock', transfertype='single', ignore_availability=True)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertools=['mock'], transfertype='single', ignore_availability=True)
 
     # Ensure the path was created through the correct middle hop
     request_core.get_request_by_did(rse_id=rse2_id, **did)

@@ -42,14 +42,14 @@ from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from typing import Callable, Dict, List, Optional, Set, Tuple, Type, Sequence
+    from typing import Callable, Dict, List, Optional, Set, Tuple, Sequence
     from rucio.core.transfer import DirectTransferDefinition
-    from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
+    from rucio.transfertool.transfertool import TransferToolBuilder
     from sqlalchemy.orm import Session
 
 
 def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                             failover_schemes=None, filter_transfertool=None, transfertool_classes=None, request_type=RequestType.TRANSFER,
+                             failover_schemes=None, filter_transfertool=None, transfertools=None, request_type=RequestType.TRANSFER,
                              ignore_availability=False, logger=logging.log):
     """
     Get next transfers to be submitted; grouped by transfertool which can submit them
@@ -62,7 +62,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
     :param rses:                  Include RSES.
     :param schemes:               Include schemes.
     :param failover_schemes:      Failover schemes.
-    :param transfertool_classes:  List of transfertool classes which can be used by this submitter
+    :param transfertools:         List of transfertool names which can be used by this submitter
     :param filter_transfertool:   The transfer tool to filter requests on.
     :param request_type           The type of requests to retrieve (Transfer/Stagein)
     :param ignore_availability:   Ignore blocklisted RSEs
@@ -73,7 +73,13 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
     admin_accounts = list_transfer_admin_accounts()
 
     topology = Topology.create_from_config(ignore_availability=ignore_availability)
-    active_transfertools = {t.external_name for t in transfertool_classes} if transfertool_classes is not None else None
+
+    required_source_rse_attrs = None
+    # if filter_transfertool specified, select only the source rses which are configured for this transfertool
+    if filter_transfertool:
+        # if multihop is configured, we want all possible source rses. To allow multi-hopping between transfertools
+        if not topology.multihop_rses:
+            required_source_rse_attrs = transfer_core.TRANSFERTOOL_CLASSES_BY_NAME[filter_transfertool].required_rse_attrs
 
     # retrieve (from the database) the transfer requests with their possible source replicas
     requests_with_sources = request_core.list_transfer_requests_and_source_replicas(
@@ -84,11 +90,11 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
         activity=activity,
         older_than=older_than,
         rses=rses,
-        use_multihop=len(topology.multihop_rses) > 0,
         request_type=request_type,
         request_state=RequestState.QUEUED,
         ignore_availability=ignore_availability,
         transfertool=filter_transfertool,
+        required_source_rse_attrs=required_source_rse_attrs,
     )
 
     # for each source, compute the (possibly multihop) path between it and the transfer destination
@@ -98,7 +104,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
         schemes=schemes,
         failover_schemes=failover_schemes,
         admin_accounts=admin_accounts,
-        active_transfertools=active_transfertools,
+        transfertools=transfertools,
         logger=logger,
     )
 
@@ -106,7 +112,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
     # if the chosen best path is a multihop, create intermediate replicas and the intermediate transfer requests
     _assign_path_fnc = functools.partial(
         assign_paths_to_transfertool_and_create_hops,
-        transfertool_classes=transfertool_classes,
+        transfertools=transfertools,
         logger=logger,
     )
 
@@ -163,7 +169,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
 
 def __assign_to_transfertool(
         transfer_path: "List[DirectTransferDefinition]",
-        transfertool_classes: "List[Type[Transfertool]]",
+        transfertools: "Optional[List[str]]",
         logger: "Callable",
 ) -> "List[Tuple[List[DirectTransferDefinition], Optional[TransferToolBuilder]]]":
     """
@@ -175,7 +181,7 @@ def __assign_to_transfertool(
     For example, for a path A->B->C->D->E, A->B->C may be assigned to transfertool1; while C->D->E to transfertool2.
     This even if transfertool2 could submit the full path in one step without splitting it.
     """
-    if transfertool_classes is None:
+    if transfertools is None:
         return [(transfer_path, None)]
 
     remaining_hops = transfer_path
@@ -183,7 +189,10 @@ def __assign_to_transfertool(
     while remaining_hops:
         tt_builder = None
         assigned_hops = []
-        for transfertool_cls in transfertool_classes:
+        for tt_name in transfertools:
+            transfertool_cls = transfer_core.TRANSFERTOOL_CLASSES_BY_NAME.get(tt_name)
+            if not transfertool_cls:
+                continue
             assigned_hops, tt_builder = transfertool_cls.submission_builder_for_path(remaining_hops, logger=logger)
             if assigned_hops:
                 break
@@ -203,7 +212,7 @@ def __assign_to_transfertool(
 
 def assign_paths_to_transfertool_and_create_hops(
         candidate_paths_by_request_id: "Dict[str: List[DirectTransferDefinition]]",
-        transfertool_classes: "Optional[List[Type[Transfertool]]]" = None,
+        transfertools: "Optional[List[str]]" = None,
         logger: "Callable" = logging.log,
 ) -> "Tuple[Dict[TransferToolBuilder, List[DirectTransferDefinition]], Set[str]]":
     """
@@ -219,7 +228,7 @@ def assign_paths_to_transfertool_and_create_hops(
                 request_id,
                 candidate_paths,
                 default_tombstone_delay=default_tombstone_delay,
-                transfertool_classes=transfertool_classes,
+                transfertools=transfertools,
                 logger=logger,
             )
         except DatabaseException as e:
@@ -244,7 +253,7 @@ def __assign_paths_to_transfertool_and_create_hops(
         request_id: str,
         candidate_paths: "Sequence[List[DirectTransferDefinition]]",
         default_tombstone_delay: int,
-        transfertool_classes: "Optional[List[Type[Transfertool]]]" = None,
+        transfertools: "Optional[List[str]]" = None,
         logger: "Callable" = logging.log,
         session: "Optional[Session]" = None,
 ) -> "Tuple[Optional[List[DirectTransferDefinition]], Optional[TransferToolBuilder]]":
@@ -263,13 +272,13 @@ def __assign_paths_to_transfertool_and_create_hops(
     hops_to_submit = None
     must_skip_submission = False
 
-    tt_assignments = [(transfer_path, __assign_to_transfertool(transfer_path, transfertool_classes, logger=logger))
+    tt_assignments = [(transfer_path, __assign_to_transfertool(transfer_path, transfertools, logger=logger))
                       for transfer_path in candidate_paths]
     # Prioritize the paths which need less transfertool transitions.
     # Ideally, the entire path should be submitted to a single transfertool
     for transfer_path, tt_assignment in sorted(tt_assignments, key=lambda t: len(t[1])):
         if not tt_assignment:
-            logger(logging.INFO, '%s: None of the transfertools can submit the request: %s', request_id, [c.__name__ for c in transfertool_classes])
+            logger(logging.INFO, '%s: None of the transfertools can submit the request: %s', request_id, transfertools)
             continue
 
         # Set the 'transfertool' field on the intermediate hops which should be created in the database
