@@ -109,13 +109,13 @@ for src in rses_over_ratio:
 
 print('Excluding RSEs as desetinations which are blocklisted:')
 for des in rses_under_ratio:
-    if des['availability'] != 7:
+    if not (des['availability_read'] and des['availability_write'] and des['availability_delete']):
         print('  %s' % (des['rse']))
         rses_under_ratio.remove(des)
 
 print('Excluding RSEs as sources which are blocklisted:')
 for src in rses_over_ratio:
-    if src['availability'] != 7:
+    if not (src['availability_read'] and src['availability_write'] and src['availability_delete']):
         print('  %s' % (src['rse']))
         rses_over_ratio.remove(src)
 
