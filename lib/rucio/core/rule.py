@@ -1288,6 +1288,9 @@ def update_rule(rule_id, options, session=None):
                 child_rule = session.query(models.ReplicationRule).filter_by(id=options[key]).one()
                 if rule.scope != child_rule.scope or rule.name != child_rule.name:
                     raise InputValidationError('Parent and child rule must be set on the same dataset.')
+
+                if rule.id == options[key]:
+                    raise InputValidationError('Self-referencing parent/child-relationship.')
                 if child_rule.state != RuleState.OK:
                     rule.child_rule_id = options[key]
 
