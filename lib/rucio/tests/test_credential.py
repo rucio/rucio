@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
+import os
 
+import unittest
 import pytest
 
 from rucio.client import client
@@ -122,6 +123,7 @@ class TestCredential(unittest.TestCase):
         assert value == expected
 
     @pytest.mark.noparallel(reason='fails when run in parallel')
+    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Test ATLAS hash convention')
     def test_list_replicas_sign_url(self):
         """ CREDENTIAL: List replicas for an RSE where signature is enabled """
 

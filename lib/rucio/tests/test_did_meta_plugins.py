@@ -25,7 +25,7 @@ from rucio.core.did_meta_plugins import list_dids, get_metadata, set_metadata
 from rucio.core.did_meta_plugins.mongo_meta import MongoDidMeta
 from rucio.core.did_meta_plugins.postgres_meta import ExternalPostgresJSONDidMeta
 from rucio.db.sqla.util import json_implemented
-from rucio.tests.common import skip_rse_tests_with_accounts
+from rucio.tests.common import skip_rse_tests_with_accounts, did_name_generator
 
 
 def skip_without_json():
@@ -38,7 +38,7 @@ class TestDidMetaDidColumn:
     @pytest.mark.dirty
     def test_add_did_meta(self, mock_scope, root_account):
         """ DID Meta (Hardcoded): Add did meta """
-        did_name = 'mock_did_%s' % generate_uuid()
+        did_name = did_name_generator('dataset')
         add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
         set_metadata(scope=mock_scope, name=did_name, key='project', value='data12_8TeV')
         assert get_metadata(scope=mock_scope, name=did_name)['project'] == 'data12_8TeV'
@@ -46,7 +46,7 @@ class TestDidMetaDidColumn:
     @pytest.mark.dirty
     def test_get_did_meta(self, mock_scope, root_account):
         """ DID Meta (Hardcoded): Get did meta """
-        did_name = 'mock_did_%s' % generate_uuid()
+        did_name = did_name_generator('dataset')
         dataset_meta = {'project': 'data12_8TeV'}
         add_did(scope=mock_scope, name=did_name, did_type='DATASET', meta=dataset_meta, account=root_account)
         assert get_metadata(scope=mock_scope, name=did_name)['project'] == 'data12_8TeV'
@@ -55,7 +55,7 @@ class TestDidMetaDidColumn:
     def test_list_did_meta(self, mock_scope, root_account):
         """ DID Meta (Hardcoded): List did meta """
         dsns = []
-        tmp_dsn1 = 'dsn_%s' % generate_uuid()
+        tmp_dsn1 = did_name_generator('dataset')
 
         dsns.append(tmp_dsn1)
 
@@ -69,12 +69,12 @@ class TestDidMetaDidColumn:
 
         add_did(scope=mock_scope, name=tmp_dsn1, did_type="DATASET", account=root_account, meta=dataset_meta)
 
-        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+        tmp_dsn2 = did_name_generator('dataset')
         dsns.append(tmp_dsn2)
         dataset_meta['run_number'] = 400001
         add_did(scope=mock_scope, name=tmp_dsn2, did_type="DATASET", account=root_account, meta=dataset_meta)
 
-        tmp_dsn3 = 'dsn_%s' % generate_uuid()
+        tmp_dsn3 = did_name_generator('dataset')
         dsns.append(tmp_dsn3)
         dataset_meta['stream_name'] = 'physics_Egamma'
         dataset_meta['datatype'] = 'NTUP_SMWZ'
@@ -114,7 +114,7 @@ class TestDidMetaJSON:
         """ DID Meta (JSON): Add did meta """
         skip_without_json()
 
-        did_name = 'mock_did_%s' % generate_uuid()
+        did_name = did_name_generator('dataset')
         meta_key = 'my_key_%s' % generate_uuid()
         meta_value = 'my_value_%s' % generate_uuid()
         add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
@@ -126,7 +126,7 @@ class TestDidMetaJSON:
         """ DID Meta (JSON): Get did meta """
         skip_without_json()
 
-        did_name = 'mock_did_%s' % generate_uuid()
+        did_name = did_name_generator('dataset')
         meta_key = 'my_key_%s' % generate_uuid()
         meta_value = 'my_value_%s' % generate_uuid()
         add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
@@ -143,19 +143,19 @@ class TestDidMetaJSON:
         meta_value1 = 'my_value_%s' % generate_uuid()
         meta_value2 = 'my_value_%s' % generate_uuid()
 
-        tmp_dsn1 = 'dsn_%s' % generate_uuid()
+        tmp_dsn1 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn1, did_type="DATASET", account=root_account)
         set_metadata(scope=mock_scope, name=tmp_dsn1, key=meta_key1, value=meta_value1)
 
-        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+        tmp_dsn2 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn2, did_type="DATASET", account=root_account)
         set_metadata(scope=mock_scope, name=tmp_dsn2, key=meta_key1, value=meta_value2)
 
-        tmp_dsn3 = 'dsn_%s' % generate_uuid()
+        tmp_dsn3 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn3, did_type="DATASET", account=root_account)
         set_metadata(scope=mock_scope, name=tmp_dsn3, key=meta_key2, value=meta_value1)
 
-        tmp_dsn4 = 'dsn_%s' % generate_uuid()
+        tmp_dsn4 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn4, did_type="DATASET", account=root_account)
         set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key1, value=meta_value1)
         set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key2, value=meta_value2)
@@ -210,7 +210,7 @@ class TestDidMetaMongo:
     def test_set_get_metadata(self, mock_scope, root_account, mongo_meta):
         """ DID Meta (MONGO): Get/set did meta """
 
-        did_name = 'mock_did_%s' % generate_uuid()
+        did_name = did_name_generator('dataset')
         meta_key = 'my_key_%s' % generate_uuid()
         meta_value = 'my_value_%s' % generate_uuid()
         add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
@@ -226,19 +226,19 @@ class TestDidMetaMongo:
         meta_value1 = 'my_value_%s' % generate_uuid()
         meta_value2 = 'my_value_%s' % generate_uuid()
 
-        tmp_dsn1 = 'dsn_%s' % generate_uuid()
+        tmp_dsn1 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn1, did_type="DATASET", account=root_account)
         mongo_meta.set_metadata(scope=mock_scope, name=tmp_dsn1, key=meta_key1, value=meta_value1)
 
-        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+        tmp_dsn2 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn2, did_type="DATASET", account=root_account)
         mongo_meta.set_metadata(scope=mock_scope, name=tmp_dsn2, key=meta_key1, value=meta_value2)
 
-        tmp_dsn3 = 'dsn_%s' % generate_uuid()
+        tmp_dsn3 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn3, did_type="DATASET", account=root_account)
         mongo_meta.set_metadata(scope=mock_scope, name=tmp_dsn3, key=meta_key2, value=meta_value1)
 
-        tmp_dsn4 = 'dsn_%s' % generate_uuid()
+        tmp_dsn4 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn4, did_type="DATASET", account=root_account)
         mongo_meta.set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key1, value=meta_value1)
         mongo_meta.set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key2, value=meta_value2)
@@ -302,7 +302,7 @@ class TestDidMetaExternalPostgresJSON:
     def test_set_get_metadata(self, mock_scope, root_account, postgres_json_meta):
         """ DID Meta (POSTGRES_JSON): Get/set did meta """
 
-        did_name = 'mock_did_%s' % generate_uuid()
+        did_name = did_name_generator('dataset')
         meta_key = 'my_key_%s' % generate_uuid()
         meta_value = 'my_value_%s' % generate_uuid()
         add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
@@ -318,19 +318,19 @@ class TestDidMetaExternalPostgresJSON:
         meta_value1 = 'my_value_%s' % generate_uuid()
         meta_value2 = 'my_value_%s' % generate_uuid()
 
-        tmp_dsn1 = 'dsn_%s' % generate_uuid()
+        tmp_dsn1 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn1, did_type="DATASET", account=root_account)
         postgres_json_meta.set_metadata(scope=mock_scope, name=tmp_dsn1, key=meta_key1, value=meta_value1)
 
-        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+        tmp_dsn2 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn2, did_type="DATASET", account=root_account)
         postgres_json_meta.set_metadata(scope=mock_scope, name=tmp_dsn2, key=meta_key1, value=meta_value2)
 
-        tmp_dsn3 = 'dsn_%s' % generate_uuid()
+        tmp_dsn3 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn3, did_type="DATASET", account=root_account)
         postgres_json_meta.set_metadata(scope=mock_scope, name=tmp_dsn3, key=meta_key2, value=meta_value1)
 
-        tmp_dsn4 = 'dsn_%s' % generate_uuid()
+        tmp_dsn4 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn4, did_type="DATASET", account=root_account)
         postgres_json_meta.set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key1, value=meta_value1)
         postgres_json_meta.set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key2, value=meta_value2)
@@ -373,7 +373,7 @@ class TestDidMetaClient:
     @pytest.mark.dirty
     def test_set_metadata(self, mock_scope, did_client, db_session):
         """ META (CLIENTS) : Adds a fully set json column to a did, updates if some keys present """
-        tmp_name = 'name_%s' % generate_uuid()
+        tmp_name = did_name_generator('dataset')
         scope = mock_scope.external
         did_client.add_did(scope=scope, name=tmp_name, did_type="DATASET")
 
@@ -403,7 +403,7 @@ class TestDidMetaClient:
         """ META (CLIENTS) : Deletes metadata key """
         skip_without_json()
         scope = mock_scope.external
-        tmp_name = 'name_%s' % generate_uuid()
+        tmp_name = did_name_generator('dataset')
         did_client.add_did(scope=scope, name=tmp_name, did_type="DATASET")
 
         value1 = "value_" + str(generate_uuid())
@@ -426,7 +426,7 @@ class TestDidMetaClient:
     @pytest.mark.dirty
     def test_get_metadata(self, mock_scope, did_client, db_session):
         """ META (CLIENTS) : Gets all metadata for the given did """
-        tmp_name = 'name_%s' % generate_uuid()
+        tmp_name = did_name_generator('dataset')
         scope = mock_scope.external
         did_client.add_did(scope=scope, name=tmp_name, did_type="DATASET")
 
@@ -463,7 +463,7 @@ class TestDidMetaClient:
         # Test did Columns use case
         dsns = []
         tmp_scope = 'mock'
-        tmp_dsn1 = 'dsn_%s' % generate_uuid()
+        tmp_dsn1 = did_name_generator('dataset')
         dsns.append(tmp_dsn1)
 
         dataset_meta = {'project': 'data12_8TeV',
@@ -474,12 +474,12 @@ class TestDidMetaClient:
                         'version': 'f392_m920',
                         }
         did_client.add_dataset(scope=tmp_scope, name=tmp_dsn1, meta=dataset_meta)
-        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+        tmp_dsn2 = did_name_generator('dataset')
         dsns.append(tmp_dsn2)
         dataset_meta['run_number'] = 400001
         did_client.add_dataset(scope=tmp_scope, name=tmp_dsn2, meta=dataset_meta)
 
-        tmp_dsn3 = 'dsn_%s' % generate_uuid()
+        tmp_dsn3 = did_name_generator('dataset')
         dsns.append(tmp_dsn3)
         dataset_meta['stream_name'] = 'physics_Egamma'
         dataset_meta['datatype'] = 'NTUP_SMWZ'
@@ -510,10 +510,10 @@ class TestDidMetaClient:
 
         # Test JSON use case
         if json_implemented(session=db_session):
-            did1 = 'name_%s' % generate_uuid()
-            did2 = 'name_%s' % generate_uuid()
-            did3 = 'name_%s' % generate_uuid()
-            did4 = 'name_%s' % generate_uuid()
+            did1 = did_name_generator('dataset')
+            did2 = did_name_generator('dataset')
+            did3 = did_name_generator('dataset')
+            did4 = did_name_generator('dataset')
 
             key1 = 'key_1_%s' % generate_uuid()
             key2 = 'key_2_%s' % generate_uuid()
@@ -597,7 +597,7 @@ class TestDidMetaClient:
 
 @pytest.fixture
 def testdid(vo, file_config_mock, mock_scope, root_account):
-    did_name = 'testdid_%s' % generate_uuid()
+    did_name = did_name_generator('dataset')
     didtype = 'DATASET'
 
     add_did(scope=mock_scope, name=did_name, did_type=didtype, account=root_account)
