@@ -135,9 +135,9 @@ class RequestGrouper:
         src_info = self.rse_stats[source_rse]
         dst_info = self.rse_stats[dest_rse]
 
-        if dest_rse and not dest_rse.columns.availability & 2:
+        if dest_rse and not dest_rse.columns.availability_write:
             src_info.unavailable_destinations.add(dest_rse)
-        if source_rse and not source_rse.columns.availability & 4:
+        if source_rse and not source_rse.columns.availability_read:
             dst_info.unavailable_sources.add(source_rse)
         for limit_stat in applicable_limits:
             limit = limit_stat['limit']
@@ -400,9 +400,9 @@ def _release_requests(rse_collection: RseCollection, release_groups, logger, ses
     for (source_rse, dest_rse, activity), applicable_limits in release_groups.items():
 
         # Skip if dest_rse is blocklisted for write or src_rse is blocklisted for read
-        if dest_rse and not dest_rse.columns.availability & 2:
+        if dest_rse and not dest_rse.columns.availability_write:
             continue
-        if source_rse and not source_rse.columns.availability & 4:
+        if source_rse and not source_rse.columns.availability_read:
             continue
 
         source_rse_id = source_rse.id if source_rse else None

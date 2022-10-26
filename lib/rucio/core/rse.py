@@ -206,7 +206,8 @@ class RseCollection:
 
 @transactional_session
 def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
-            ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability: Optional[int] = 7, session=None):
+            ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability_read: Optional[bool] = None,
+            availability_write: Optional[bool] = None, availability_delete: Optional[bool] = None, session=None):
     """
     Add a rse with the given location name.
 
@@ -225,7 +226,6 @@ def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region
     :param latitude: Latitude coordinate of RSE.
     :param longitude: Longitude coordinate of RSE.
     :param ASN: Access service network. Accessed by `locals()`.
-    :param availability: Availability.
     :param availability_read: If the RSE is readable.
     :param availability_write: If the RSE is writable.
     :param availability_delete: If the RSE is deletable.
@@ -234,11 +234,11 @@ def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region
     if isinstance(rse_type, str):
         rse_type = RSEType(rse_type)
 
-    availability_values = Availability.from_integer(availability)
+    availability = Availability(availability_read, availability_write, availability_delete).integer
     new_rse = models.RSE(rse=rse, vo=vo, deterministic=deterministic, volatile=volatile,
                          staging_area=staging_area, rse_type=rse_type, longitude=longitude,
-                         latitude=latitude, availability=availability, availability_read=availability_values.read,
-                         availability_write=availability_values.write, availability_delete=availability_values.delete,
+                         latitude=latitude, availability=availability, availability_read=availability_read,
+                         availability_write=availability_write, availability_delete=availability_delete,
 
                          # The following fields will be deprecated, they are RSE attributes now.
                          # (Still in the code for backwards compatibility)
@@ -524,9 +524,6 @@ def list_rses(filters={}, session=None):
     """
 
     rse_list = []
-    availability_mask1 = 0
-    availability_mask2 = 7
-    availability_mapping = {'availability_read': 4, 'availability_write': 2, 'availability_delete': 1}
     false_value = False  # To make pep8 checker happy ...
 
     if filters and filters.get('vo'):
@@ -538,6 +535,14 @@ def list_rses(filters={}, session=None):
     if filters:
         if 'availability' in filters and ('availability_read' in filters or 'availability_write' in filters or 'availability_delete' in filters):
             raise exception.InvalidObject('Cannot use availability and read, write, delete filter at the same time.')
+
+        if 'availability' in filters:
+            availability = Availability.from_integer(filters['availability'])
+            filters['availability_read'] = availability.read
+            filters['availability_write'] = availability.write
+            filters['availability_delete'] = availability.delete
+            del filters['availability']
+
         query = session.query(models.RSE).\
             join(models.RSEAttrAssociation, models.RSE.id == models.RSEAttrAssociation.rse_id).\
             filter(models.RSE.deleted == false_value).group_by(models.RSE)
@@ -548,28 +553,13 @@ def list_rses(filters={}, session=None):
                     query = query.filter(getattr(models.RSE, k) == RSEType[v])
                 else:
                     query = query.filter(getattr(models.RSE, k) == v)
-            elif k in ['availability_read', 'availability_write', 'availability_delete']:
-                if v:
-                    availability_mask1 = availability_mask1 | availability_mapping[k]
-                else:
-                    availability_mask2 = availability_mask2 & ~availability_mapping[k]
             else:
                 t = aliased(models.RSEAttrAssociation)
                 query = query.join(t, t.rse_id == models.RSEAttrAssociation.rse_id)
                 query = query.filter(t.key == k,
                                      t.value == v)
 
-        condition1, condition2 = [], []
-        for i in range(0, 8):
-            if i | availability_mask1 == i:
-                condition1.append(models.RSE.availability == i)
-            if i & availability_mask2 == i:
-                condition2.append(models.RSE.availability == i)
-
-        if 'availability' not in filters:
-            query = query.filter(sqlalchemy.and_(sqlalchemy.or_(*condition1), sqlalchemy.or_(*condition2)))
     else:
-
         query = session.query(models.RSE).filter_by(deleted=False).order_by(models.RSE.rse)
 
     if vo:
@@ -1179,13 +1169,9 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
     # Copy sign_url from the attributes
     sign_url = get_rse_attribute(_rse.id, 'sign_url', session=session)
 
-    read = True if _rse.availability & 4 else False
-    write = True if _rse.availability & 2 else False
-    delete = True if _rse.availability & 1 else False
-
-    info = {'availability_delete': delete,
-            'availability_read': read,
-            'availability_write': write,
+    info = {'availability_delete': _rse.availability_delete,
+            'availability_read': _rse.availability_read,
+            'availability_write': _rse.availability_write,
             'credentials': None,
             'deterministic': _rse.deterministic,
             'domain': utils.rse_supported_protocol_domains(),
@@ -1482,34 +1468,21 @@ def update_rse(rse_id: str, parameters: 'Dict[str, Any]', session=None):
         query = session.query(models.RSE).filter_by(id=rse_id).one()
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE with ID \'%s\' cannot be found' % rse_id)
-    availability = 0
     rse = query.rse
-    for column in query:
-        if column[0] == 'availability':
-            availability = column[1] or availability
 
     param = {}
-    availability_mapping = {'availability_read': 4, 'availability_write': 2, 'availability_delete': 1}
+
+    if 'availability' in parameters:
+        availability = Availability.from_integer(parameters['availability'])
+        param['availability_read'] = availability.read
+        param['availability_write'] = availability.write
+        param['availability_delete'] = availability.delete
 
     for key in parameters:
         if key == 'name' and parameters['name'] != rse:  # Needed due to wrongly setting name in pre1.22.7 clients
             param['rse'] = parameters['name']
-        elif key in ['availability_read', 'availability_write', 'availability_delete']:
-            if parameters[key] is True:
-                availability = availability | availability_mapping[key]
-            else:
-                availability = availability & ~availability_mapping[key]
-        elif key in MUTABLE_RSE_PROPERTIES - {'name', 'availability_read', 'availability_write', 'availability_delete'}:
+        elif key in MUTABLE_RSE_PROPERTIES - {'name'}:
             param[key] = parameters[key]
-
-    if 'availability' not in param:
-        param['availability'] = availability
-
-    if 'availability' in param:
-        availability_values = Availability.from_integer(param['availability'])
-        param['availability_read'] = availability_values.read
-        param['availability_write'] = availability_values.write
-        param['availability_delete'] = availability_values.delete
 
     # handle null-able keys
     for key in parameters:
