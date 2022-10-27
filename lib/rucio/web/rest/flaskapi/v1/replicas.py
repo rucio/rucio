@@ -827,6 +827,9 @@ class BadReplicas(ErrorHandlingMethodView):
                   reason:
                     description: The reason for the declaration.
                     type: string
+                  force:
+                    description: If true, ignore existing replica status in the bad_replicas table.
+                    type: boolean
         responses:
           201:
             description: OK
@@ -845,9 +848,12 @@ class BadReplicas(ErrorHandlingMethodView):
         parameters = json_parameters()
         replicas = param_get(parameters, 'replicas', default=[]) or param_get(parameters, 'pfns', default=[])
         reason = param_get(parameters, 'reason', default=None)
+        force = param_get(parameters, 'force', default=False)
 
         try:
-            not_declared_files = declare_bad_file_replicas(replicas, reason=reason, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            not_declared_files = declare_bad_file_replicas(replicas, reason=reason,
+                                                           issuer=request.environ.get('issuer'), vo=request.environ.get('vo'),
+                                                           force=force)
             return not_declared_files, 201
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
