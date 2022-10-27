@@ -19,9 +19,9 @@ import traceback
 import warnings
 from typing import TYPE_CHECKING
 
-import py
 import pytest
 import xdist
+from xdist.remote import Producer
 from xdist.scheduler import LoadScheduling
 
 if TYPE_CHECKING:
@@ -129,10 +129,8 @@ class NoParallelAndLoadScheduling(LoadScheduling):
 
 class NoParallelXDist:
     def __init__(self, config):
-        self.log = py.log.Producer('noparallelxdist')  # pylint: disable-msg=E1101
+        self.log = Producer('noparallelxdist', enabled=config.option.debug)
         self.config = config
-        if not config.option.debug:
-            py.log.setconsumer(self.log._keywords, None)  # pylint: disable-msg=E1101
 
     @pytest.hookimpl
     def pytest_xdist_make_scheduler(self, config, log):
