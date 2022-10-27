@@ -295,10 +295,8 @@ class FilterEngine:
                         elif oper == operator.ne:
                             expression = {
                                 key: {
-                                    {
-                                        '$not': {
-                                            '$regex': fnmatch.translate(value)              # translate partial wildcard expression to regex
-                                        }
+                                    '$not': {
+                                        '$regex': fnmatch.translate(value)                  # translate partial wildcard expression to regex
                                     }
                                 }
                             }

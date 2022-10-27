@@ -381,7 +381,7 @@ def get_token_oidc(auth_query_string: str, ip: str = None, session=None):
         req_url = urlparse(oauth_req_params.redirect_msg)
         issuer = req_url.scheme + "://" + req_url.netloc
         req_params = parse_qs(req_url.query)
-        for key in req_params:
+        for key in list(req_params):
             req_params[key] = val_to_space_sep_str(req_params[key])
 
         oidc_client = __get_init_oidc_client(issuer=issuer, code=code, **req_params)['client']

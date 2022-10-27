@@ -52,7 +52,7 @@ def get_data_distribution(inputfile: str):
     for key in data:
         probability += data[key]["probability"]
         probabilities[key] = probability
-    for key in probabilities:
+    for key in list(probabilities):
         probabilities[key] = float(probabilities[key]) / probability
     return probabilities, data
 

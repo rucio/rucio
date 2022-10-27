@@ -24,7 +24,7 @@ from rucio.db.sqla.constants import IdentityType
 
 try:
     # Python 2: "unicode" is built-in
-    unicode
+    unicode  # noqa
 except NameError:
     unicode = str
     basestring = str
@@ -181,7 +181,7 @@ def perm_add_rule(issuer, kwargs, session=None):
     if _is_root(issuer) and repr(kwargs['account']).startswith('sync_'):
         return True
 
-    if isinstance(repr(issuer), basestring) and repr(issuer).startswith('sync_'):
+    if isinstance(repr(issuer), basestring) and repr(issuer).startswith('sync_'):  # noqa
         return True
 
     # Anyone can use _Temp RSEs if a lifetime is set and under a month
