@@ -15,6 +15,7 @@
 
 import json as json_lib
 import operator
+from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import DataError
 from sqlalchemy.orm.exc import NoResultFound
@@ -27,6 +28,9 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.db.sqla.util import json_implemented
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 class JSONDidMeta(DidMetaPlugin):
     """
@@ -38,7 +42,7 @@ class JSONDidMeta(DidMetaPlugin):
         self.plugin_name = "JSON"
 
     @read_session
-    def get_metadata(self, scope, name, session=None):
+    def get_metadata(self, scope, name, *, session: "Session"):
         """
         Get data identifier metadata (JSON)
 
@@ -56,11 +60,12 @@ class JSONDidMeta(DidMetaPlugin):
         except NoResultFound:
             return {}
 
-    def set_metadata(self, scope, name, key, value, recursive=False, session=None):
+    @transactional_session
+    def set_metadata(self, scope, name, key, value, recursive=False, *, session: "Session"):
         self.set_metadata_bulk(scope=scope, name=name, metadata={key: value}, recursive=recursive, session=session)
 
     @transactional_session
-    def set_metadata_bulk(self, scope, name, metadata, recursive=False, session=None):
+    def set_metadata_bulk(self, scope, name, metadata, recursive=False, *, session: "Session"):
         if not json_implemented(session=session):
             raise NotImplementedError
 
@@ -96,13 +101,14 @@ class JSONDidMeta(DidMetaPlugin):
         row_did_meta.save(session=session, flush=True)
 
     @transactional_session
-    def delete_metadata(self, scope, name, key, session=None):
+    def delete_metadata(self, scope, name, key, *, session: "Session"):
         """
         Delete a key from the metadata column
 
         :param scope: the scope of did
         :param name: the name of the did
         :param key: the key to be deleted
+        :param session: The database session in use.
         """
         if not json_implemented(session=session):
             raise NotImplementedError
@@ -132,7 +138,7 @@ class JSONDidMeta(DidMetaPlugin):
 
     @stream_session
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
-                  offset=None, long=False, recursive=False, ignore_dids=None, session=None):
+                  offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Session"):
         if not json_implemented(session=session):
             raise NotImplementedError
 
@@ -198,7 +204,7 @@ class JSONDidMeta(DidMetaPlugin):
             raise exception.InvalidMetadata("Database query failed: {}. This can be raised when the datatype of a key is inconsistent between dids.".format(e))
 
     @read_session
-    def manages_key(self, key, session=None):
+    def manages_key(self, key, *, session: "Session"):
         return json_implemented(session=session)
 
     def get_plugin_name(self):

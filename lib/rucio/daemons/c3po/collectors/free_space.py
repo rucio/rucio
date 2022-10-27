@@ -33,7 +33,7 @@ class FreeSpaceCollector(object):
             self.rses = {}
 
         @read_session
-        def _collect_free_space(self, session=None):
+        def _collect_free_space(self, *, session=None):
             """
             Retrieve free space from database
             """

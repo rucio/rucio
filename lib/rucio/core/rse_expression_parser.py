@@ -15,6 +15,7 @@
 
 import abc
 import re
+from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NoValue
 from hashlib import sha256
@@ -23,6 +24,9 @@ from rucio.common.cache import make_region_memcached
 from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
 from rucio.core.rse import list_rses, get_rses_with_attribute, get_rse_attribute
 from rucio.db.sqla.session import transactional_session
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 DEFAULT_RSE_ATTRIBUTE = r'([A-Za-z0-9]+([_-][A-Za-z0-9]+)*)'
@@ -38,7 +42,7 @@ REGION = make_region_memcached(expiration_time=600)
 
 
 @transactional_session
-def parse_expression(expression, filter_=None, session=None):
+def parse_expression(expression, filter_=None, *, session: "Session"):
     """
     Parse a RSE expression and return the list of RSE dictionaries.
 

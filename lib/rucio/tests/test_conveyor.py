@@ -108,7 +108,7 @@ def set_query_parameters(url, params):
 
 
 @read_session
-def __get_source(request_id, src_rse_id, scope, name, session=None):
+def __get_source(request_id, src_rse_id, scope, name, *, session=None):
     return session.query(models.Source) \
         .filter(models.Source.request_id == request_id) \
         .filter(models.Source.scope == scope) \
@@ -186,7 +186,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         # The ranking of this source should remain at 0 till the end.
 
         @transactional_session
-        def __fake_source_ranking(session=None):
+        def __fake_source_ranking(*, session=None):
             models.Source(request_id=request['id'],
                           scope=request['scope'],
                           name=request['name'],
@@ -237,7 +237,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
     finally:
 
         @transactional_session
-        def _cleanup_all_usage_and_limits(rse_id, session=None):
+        def _cleanup_all_usage_and_limits(rse_id, *, session=None):
             session.query(models.RSELimit).filter_by(rse_id=rse_id).delete()
             session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='storage').delete()
 
@@ -382,7 +382,7 @@ def test_multisource(vo, did_factory, root_account, replica_client, core_config_
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
     @read_session
-    def __source_exists(src_rse_id, scope, name, session=None):
+    def __source_exists(src_rse_id, scope, name, *, session=None):
         return session.query(models.Source) \
             .filter(models.Source.rse_id == src_rse_id) \
             .filter(models.Source.scope == scope) \
@@ -1073,7 +1073,7 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
     @transactional_session
-    def __update_request(request_id, session=None, **kwargs):
+    def __update_request(request_id, *, session=None, **kwargs):
         session.query(models.Request).filter_by(id=request_id).update(kwargs, synchronize_session=False)
 
     # Fake that the transfer is submitted and lost

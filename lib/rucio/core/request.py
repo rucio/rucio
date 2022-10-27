@@ -158,7 +158,7 @@ def should_retry_request(req, retry_protocol_mismatches):
 
 
 @transactional_session
-def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mismatches=False, session=None, logger=logging.log):
+def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mismatches=False, *, session: "Session", logger=logging.log):
     """
     Requeue and archive a failed request.
     TODO: Multiple requeue.
@@ -203,7 +203,7 @@ def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mism
 
 
 @transactional_session
-def queue_requests(requests, session=None, logger=logging.log):
+def queue_requests(requests, *, session: "Session", logger=logging.log):
     """
     Submit transfer requests on destination RSEs for data identifiers.
 
@@ -355,7 +355,8 @@ def list_transfer_requests_and_source_replicas(
         required_source_rse_attrs: "Optional[List[str]]" = None,
         ignore_availability: bool = False,
         transfertool: "Optional[str]" = None,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ) -> "Dict[str, RequestWithSources]":
     """
     List requests with source replicas
@@ -547,7 +548,7 @@ def list_transfer_requests_and_source_replicas(
 
 
 @read_session
-def fetch_paths(request_id, session=None):
+def fetch_paths(request_id, *, session: "Session"):
     """
     Find the paths for which the provided request is a constituent hop.
 
@@ -584,7 +585,7 @@ def fetch_paths(request_id, session=None):
 @read_session
 def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activity=None,
              total_workers=0, worker_number=0, mode_all=False, hash_variable='id',
-             activity_shares=None, include_dependent=True, transfertool=None, session=None):
+             activity_shares=None, include_dependent=True, transfertool=None, *, session: "Session"):
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -699,7 +700,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
 
 @transactional_session
 def set_request_state(request_id, state, external_id=None, transferred_at=None, started_at=None, staging_started_at=None,
-                      staging_finished_at=None, source_rse_id=None, err_msg=None, attributes=None, session=None, logger=logging.log):
+                      staging_finished_at=None, source_rse_id=None, err_msg=None, attributes=None, *, session: "Session", logger=logging.log):
     """
     Update the state of a request.
 
@@ -763,7 +764,7 @@ def set_request_state(request_id, state, external_id=None, transferred_at=None, 
 
 
 @transactional_session
-def set_requests_state_if_possible(request_ids, new_state, session=None, logger=logging.log):
+def set_requests_state_if_possible(request_ids, new_state, *, session: "Session", logger=logging.log):
     """
     Bulk update the state of requests. Skips silently if the request_id does not exist.
 
@@ -786,7 +787,7 @@ def set_requests_state_if_possible(request_ids, new_state, session=None, logger=
 
 
 @transactional_session
-def touch_requests_by_rule(rule_id, session=None):
+def touch_requests_by_rule(rule_id, *, session: "Session"):
     """
     Update the update time of requests in a rule. Fails silently if no requests on this rule.
 
@@ -816,7 +817,7 @@ def touch_requests_by_rule(rule_id, session=None):
 
 
 @read_session
-def get_request(request_id, session=None):
+def get_request(request_id, *, session: "Session"):
     """
     Retrieve a request by its ID.
 
@@ -845,7 +846,7 @@ def get_request(request_id, session=None):
 
 
 @read_session
-def get_requests_by_transfer(external_host, transfer_id, session=None):
+def get_requests_by_transfer(external_host, transfer_id, *, session: "Session"):
     """
     Retrieve requests by its transfer ID.
 
@@ -878,7 +879,7 @@ def get_requests_by_transfer(external_host, transfer_id, session=None):
 
 
 @read_session
-def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
+def get_request_by_did(scope, name, rse_id, request_type=None, *, session: "Session"):
     """
     Retrieve a request by its DID for a destination RSE.
 
@@ -921,7 +922,7 @@ def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
 
 
 @read_session
-def get_request_history_by_did(scope, name, rse_id, request_type=None, session=None):
+def get_request_history_by_did(scope, name, rse_id, request_type=None, *, session: "Session"):
     """
     Retrieve a historical request by its DID for a destination RSE.
 
@@ -977,7 +978,7 @@ def is_intermediate_hop(request):
 
 
 @transactional_session
-def handle_failed_intermediate_hop(request, session=None):
+def handle_failed_intermediate_hop(request, *, session: "Session"):
     """
     Perform housekeeping behind a failed intermediate hop
     """
@@ -1007,7 +1008,7 @@ def handle_failed_intermediate_hop(request, session=None):
 
 
 @transactional_session
-def archive_request(request_id, session=None):
+def archive_request(request_id, *, session: "Session"):
     """
     Move a request to the history table.
 
@@ -1083,7 +1084,7 @@ def archive_request(request_id, session=None):
 
 
 @transactional_session
-def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSFER, session=None, logger=logging.log):
+def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSFER, *, session: "Session", logger=logging.log):
     """
     Cancel a request based on a DID and request type.
 
@@ -1125,7 +1126,7 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
 
 
 @read_session
-def get_sources(request_id, rse_id=None, session=None):
+def get_sources(request_id, rse_id=None, *, session: "Session"):
     """
     Retrieve sources by its ID.
 
@@ -1161,7 +1162,7 @@ def get_sources(request_id, rse_id=None, session=None):
 
 
 @read_session
-def get_heavy_load_rses(threshold, session=None):
+def get_heavy_load_rses(threshold, *, session: "Session"):
     """
     Retrieve heavy load rses.
 
@@ -1195,7 +1196,7 @@ def get_heavy_load_rses(threshold, session=None):
 
 
 @read_session
-def get_request_stats(state, session=None):
+def get_request_stats(state, *, session: "Session"):
     """
     Retrieve statistics about requests by destination, activity and state.
 
@@ -1239,7 +1240,8 @@ def release_waiting_requests_per_deadline(
         dest_rse_id: "Optional[str]" = None,
         source_rse_id: "Optional[str]" = None,
         deadline: int = 1,
-        session=None,
+        *,
+        session: "Session",
 ):
     """
     Release waiting requests that were waiting too long and exceeded the maximum waiting time to be released.
@@ -1285,7 +1287,8 @@ def release_waiting_requests_per_free_volume(
         dest_rse_id: "Optional[str]" = None,
         source_rse_id: "Optional[str]" = None,
         volume: int = 0,
-        session=None
+        *,
+        session: "Session"
 ):
     """
     Release waiting requests if they fit in available transfer volume. If the DID of a request is attached to a dataset, the volume will be checked for the whole dataset as all requests related to this dataset will be released.
@@ -1355,7 +1358,8 @@ def release_waiting_requests_per_free_volume(
 def create_base_query_grouped_fifo(
         dest_rse_id: "Optional[str]" = None,
         source_rse_id: "Optional[str]" = None,
-        session=None
+        *,
+        session: "Session"
 ):
     """
     Build the sqlalchemy queries to filter relevant requests and to group them in datasets.
@@ -1440,7 +1444,8 @@ def release_waiting_requests_fifo(
         activity: "Optional[str]" = None,
         count: int = 0,
         account: "Optional[InternalAccount]" = None,
-        session=None
+        *,
+        session: "Session"
 ):
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
@@ -1510,7 +1515,8 @@ def release_waiting_requests_grouped_fifo(
         count: int = 0,
         deadline: int = 1,
         volume: int = 0,
-        session=None
+        *,
+        session: "Session"
 ):
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
@@ -1578,7 +1584,8 @@ def release_all_waiting_requests(
         source_rse_id: "Optional[str]" = None,
         activity: "Optional[str]" = None,
         account: "Optional[InternalAccount]" = None,
-        session=None
+        *,
+        session: "Session"
 ):
     """
     Release all waiting requests per destination RSE.
@@ -1623,7 +1630,8 @@ def release_all_waiting_requests(
 
 @stream_session
 def list_transfer_limits(
-        session=None,
+        *,
+        session: "Session",
 ):
     stmt = select(
         models.TransferLimit
@@ -1637,7 +1645,8 @@ def list_transfer_limits(
 def _sync_rse_transfer_limit(
         limit_id: str,
         desired_rse_ids: "Set[str]",
-        session=None
+        *,
+        session: "Optional[Session]" = None,
 ):
     """
     Ensure that an RSETransferLimit exists in the database for each of the given rses (and only for these rses)
@@ -1675,7 +1684,8 @@ def _sync_rse_transfer_limit(
 @transactional_session
 def re_sync_all_transfer_limits(
         delete_empty: bool = False,
-        session=None
+        *,
+        session: "Session",
 ):
     """
     For each TransferLimit in the database, re-evaluate the rse expression and ensure that the
@@ -1708,7 +1718,8 @@ def set_transfer_limit(
         strategy: "Optional[str]" = None,
         transfers: "Optional[int]" = None,
         waitings: "Optional[int]" = None,
-        session=None
+        *,
+        session: "Session",
 ):
     """
     Create or update a transfer limit
@@ -1792,7 +1803,8 @@ def set_transfer_limit_stats(
         limit_id: str,
         waitings: int,
         transfers: int,
-        session=None
+        *,
+        session: "Session",
 ):
     """
     Set the statistics of the TransferLimit
@@ -1813,7 +1825,8 @@ def delete_transfer_limit(
         rse_expression: str,
         activity: "Optional[str]" = None,
         direction: TransferLimitDirection = TransferLimitDirection.DESTINATION,
-        session=None
+        *,
+        session: "Session",
 ):
 
     if activity is None:
@@ -1848,7 +1861,8 @@ def delete_transfer_limit(
 @transactional_session
 def delete_transfer_limit_by_id(
         limit_id: str,
-        session=None
+        *,
+        session: "Session",
 ):
     stmt = delete(
         models.RSETransferLimit
@@ -1866,7 +1880,7 @@ def delete_transfer_limit_by_id(
 
 
 @transactional_session
-def update_requests_priority(priority, filter_, session=None, logger=logging.log):
+def update_requests_priority(priority, filter_, *, session: "Session", logger=logging.log):
     """
     Update priority of requests.
 
@@ -1926,7 +1940,7 @@ def update_requests_priority(priority, filter_, session=None, logger=logging.log
 
 
 @transactional_session
-def update_request_state(tt_status_report, session=None, logger=logging.log):
+def update_request_state(tt_status_report, *, session: "Session", logger=logging.log):
     """
     Used by poller and consumer to update the internal state of requests,
     after the response by the external transfertool.
@@ -1966,7 +1980,7 @@ def update_request_state(tt_status_report, session=None, logger=logging.log):
 
 
 @read_session
-def add_monitor_message(new_state, request, additional_fields, session=None):
+def add_monitor_message(new_state, request, additional_fields, *, session: "Session"):
     """
     Create a message for hermes from a request
 
@@ -2087,7 +2101,7 @@ def get_transfer_error(state, reason=None):
 
 
 @transactional_session
-def __touch_request(request_id, session=None):
+def __touch_request(request_id, *, session: "Session"):
     """
     Update the timestamp of a request. Fails silently if the request_id does not exist.
 
@@ -2115,7 +2129,7 @@ def __touch_request(request_id, session=None):
 
 
 @read_session
-def get_source_rse(request_id, src_url, session=None, logger=logging.log):
+def get_source_rse(request_id, src_url, *, session: "Session", logger=logging.log):
     """
     Based on a request, and src_url extract the source rse name and id.
 
@@ -2146,7 +2160,7 @@ def get_source_rse(request_id, src_url, session=None, logger=logging.log):
 
 
 @stream_session
-def list_requests(src_rse_ids, dst_rse_ids, states=None, session=None):
+def list_requests(src_rse_ids, dst_rse_ids, states=None, *, session: "Session"):
     """
     List all requests in a specific state from a source RSE to a destination RSE.
 
@@ -2170,7 +2184,7 @@ def list_requests(src_rse_ids, dst_rse_ids, states=None, session=None):
 
 
 @stream_session
-def list_requests_history(src_rse_ids, dst_rse_ids, states=None, offset=None, limit=None, session=None):
+def list_requests_history(src_rse_ids, dst_rse_ids, states=None, offset=None, limit=None, *, session: "Session"):
     """
     List all historical requests in a specific state from a source RSE to a destination RSE.
 

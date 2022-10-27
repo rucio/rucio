@@ -16,6 +16,7 @@
 from re import match
 from sqlalchemy.exc import IntegrityError
 from traceback import format_exc
+from typing import TYPE_CHECKING
 
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException, VONotFound
 from rucio.core.vo import vo_exists
@@ -23,9 +24,12 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, ScopeStatus
 from rucio.db.sqla.session import read_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def add_scope(scope, account, session=None):
+def add_scope(scope, account, *, session: "Session"):
     """ add a scope for the given account name.
 
     :param scope: the name for the new scope.
@@ -58,7 +62,7 @@ def add_scope(scope, account, session=None):
 
 
 @read_session
-def bulk_add_scopes(scopes, account, skipExisting=False, session=None):
+def bulk_add_scopes(scopes, account, skipExisting=False, *, session: "Session"):
     """ add a group of scopes, this call should not be exposed to users.
 
     :param scopes: a list of scopes to be added.
@@ -75,7 +79,7 @@ def bulk_add_scopes(scopes, account, skipExisting=False, session=None):
 
 
 @read_session
-def list_scopes(filter_={}, session=None):
+def list_scopes(filter_={}, *, session: "Session"):
     """
     Lists all scopes.
     :param filter_: Dictionary of attributes by which the input data should be filtered
@@ -99,7 +103,7 @@ def list_scopes(filter_={}, session=None):
 
 
 @read_session
-def get_scopes(account, session=None):
+def get_scopes(account, *, session: "Session"):
     """ get all scopes defined for an account.
 
     :param account: the account name to list the scopes of.
@@ -122,7 +126,7 @@ def get_scopes(account, session=None):
 
 
 @read_session
-def check_scope(scope_to_check, session=None):
+def check_scope(scope_to_check, *, session: "Session"):
     """ check to see if scope exists.
 
     :param scope: the scope to check.
@@ -135,7 +139,7 @@ def check_scope(scope_to_check, session=None):
 
 
 @read_session
-def is_scope_owner(scope, account, session=None):
+def is_scope_owner(scope, account, *, session: "Session"):
     """ check to see if account owns the scope.
 
     :param scope: the scope to check.

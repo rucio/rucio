@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import logging
+from typing import TYPE_CHECKING
 
 from datetime import datetime
 
@@ -31,9 +32,12 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE
 from rucio.db.sqla.session import transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
+def apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], *, session: "Session"):
     """
     Apply rule grouping to files.
 
@@ -93,7 +97,7 @@ def apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselec
 
 
 @transactional_session
-def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None):
+def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, *, session: "Session"):
     """
     Apply rule grouping to files.
 
@@ -149,7 +153,7 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, so
 
 
 @transactional_session
-def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None, bytes_=None, md5=None, adler32=None, ds_scope=None, ds_name=None, copy_pin_lifetime=None, activity=None, retry_count=None, session=None):
+def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None, bytes_=None, md5=None, adler32=None, ds_scope=None, ds_name=None, copy_pin_lifetime=None, activity=None, retry_count=None, *, session: "Session"):
     """
     This method creates a transfer dictionary and returns it
 
@@ -193,7 +197,7 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None
 
 
 @transactional_session
-def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
+def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], *, session: "Session"):
     """
     Apply a rule to files with NONE grouping.
 
@@ -274,7 +278,7 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
 
 
 @transactional_session
-def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
+def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], *, session: "Session"):
     """
     Apply a rule to files with ALL grouping.
 
@@ -394,7 +398,7 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
 
 
 @transactional_session
-def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
+def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], *, session: "Session"):
     """
     Apply a rule to files with ALL grouping.
 
@@ -512,7 +516,7 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
 
 
 @transactional_session
-def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None, logger=logging.log):
+def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, *, session: "Session", logger=logging.log):
     """
     Apply a rule to files with NONE grouping.
 
@@ -619,7 +623,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
 
 
 @transactional_session
-def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None, logger=logging.log):
+def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, *, session: "Session", logger=logging.log):
     """
     Apply a rule to files with ALL grouping.
 
@@ -695,7 +699,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
 
 
 @transactional_session
-def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None, logger=logging.log):
+def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, *, session: "Session", logger=logging.log):
     """
     Apply a rule to files with DATASET grouping.
 
@@ -803,7 +807,7 @@ def __is_retry_required(lock, activity):
 
 
 @transactional_session
-def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availability_write, locks_to_create, locks, source_rses, replicas_to_create, replicas, source_replicas, transfers_to_create, session=None, logger=logging.log):
+def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availability_write, locks_to_create, locks, source_rses, replicas_to_create, replicas, source_replicas, transfers_to_create, *, session: "Session", logger=logging.log):
     """
     This method creates a lock and if necessary a new replica and fills the corresponding dictionaries.
 
@@ -1087,7 +1091,7 @@ def __create_replica(rse_id, scope, name, bytes_, state, md5, adler32, logger=lo
 
 
 @transactional_session
-def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, transfers_to_create, session=None, logger=logging.log):
+def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, transfers_to_create, *, session: "Session", logger=logging.log):
     """
     This method updates a lock and replica and fills the corresponding dictionaries.
 
@@ -1145,7 +1149,7 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
 
 
 @transactional_session
-def __set_replica_unavailable(replica, session=None):
+def __set_replica_unavailable(replica, *, session: "Session"):
     """
     This method updates a replica and sets it to UNAVAILABLE.
 
@@ -1186,7 +1190,7 @@ def __set_replica_unavailable(replica, session=None):
 
 
 @transactional_session
-def apply_rule(did, rule, rses, source_rses, rseselector, session=None, logger=logging.log):
+def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session", logger=logging.log):
     """
     Apply a replication rule to one did.
 

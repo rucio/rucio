@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from copy import deepcopy
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import permission
@@ -20,9 +22,12 @@ from rucio.core.rse import get_rse_id
 from rucio.common.exception import RSENotFound
 from rucio.db.sqla.session import read_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @read_session
-def has_permission(issuer, action, kwargs, vo='def', session=None):
+def has_permission(issuer, action, kwargs, vo='def', *, session: "Session"):
     """
     Checks if an account has the specified permission to
     execute an action with parameters.

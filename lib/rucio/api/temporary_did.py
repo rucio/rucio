@@ -13,14 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import temporary_did
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.session import transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def add_temporary_dids(dids, issuer, vo='def', session=None):
+def add_temporary_dids(dids, issuer, vo='def', *, session: "Session"):
     """
     Bulk add temporary data identifiers.
 

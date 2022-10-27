@@ -15,11 +15,15 @@
 
 from dogpile.cache.api import NoValue
 from sqlalchemy import func
+from typing import TYPE_CHECKING
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.exception import ConfigNotFound
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 REGION = make_region_memcached(expiration_time=900)
@@ -48,7 +52,7 @@ def _value_cache_key(section, option):
 
 
 @read_session
-def sections(use_cache=True, expiration_time=900, session=None):
+def sections(use_cache=True, expiration_time=900, *, session: "Session"):
     """
     Return a list of the sections available.
 
@@ -70,7 +74,7 @@ def sections(use_cache=True, expiration_time=900, session=None):
 
 
 @transactional_session
-def add_section(section, session=None):
+def add_section(section, *, session: "Session"):
     """
     Add a section to the configuration.
     :param session: The database session in use.
@@ -81,7 +85,7 @@ def add_section(section, session=None):
 
 
 @read_session
-def has_section(section, use_cache=True, expiration_time=900, session=None):
+def has_section(section, use_cache=True, expiration_time=900, *, session: "Session"):
     """
     Indicates whether the named section is present in the configuration.
 
@@ -103,7 +107,7 @@ def has_section(section, use_cache=True, expiration_time=900, session=None):
 
 
 @read_session
-def options(section, use_cache=True, expiration_time=900, session=None):
+def options(section, use_cache=True, expiration_time=900, *, session: "Session"):
     """
     Returns a list of options available in the specified section.
 
@@ -125,7 +129,7 @@ def options(section, use_cache=True, expiration_time=900, session=None):
 
 
 @read_session
-def has_option(section, option, use_cache=True, expiration_time=900, session=None):
+def has_option(section, option, use_cache=True, expiration_time=900, *, session: "Session"):
     """
     Check if the given section exists and contains the given option.
 
@@ -148,7 +152,7 @@ def has_option(section, option, use_cache=True, expiration_time=900, session=Non
 
 
 @read_session
-def get(section, option, default=None, use_cache=True, expiration_time=900, session=None):
+def get(section, option, default=None, use_cache=True, expiration_time=900, *, session: "Session"):
     """
     Get an option value for the named section. Value can be auto-coerced to string, int, float, bool, None.
 
@@ -183,7 +187,7 @@ def get(section, option, default=None, use_cache=True, expiration_time=900, sess
 
 
 @read_session
-def items(section, use_cache=True, expiration_time=900, session=None):
+def items(section, use_cache=True, expiration_time=900, *, session: "Session"):
     """
     Return a list of (option, value) pairs for each option in the given section. Values are auto-coerced as in get().
 
@@ -204,7 +208,7 @@ def items(section, use_cache=True, expiration_time=900, session=None):
 
 
 @transactional_session
-def set(section, option, value, session=None):
+def set(section, option, value, *, session: "Session"):
     """
     Set the given option to the specified value. If the option doesn't exist, it is created.
 
@@ -240,7 +244,7 @@ def set(section, option, value, session=None):
 
 
 @transactional_session
-def remove_section(section, session=None):
+def remove_section(section, *, session: "Session"):
     """
     Remove the specified section from the specified section.
 
@@ -267,7 +271,7 @@ def remove_section(section, session=None):
 
 
 @transactional_session
-def remove_option(section, option, session=None):
+def remove_option(section, option, *, session: "Session"):
     """
     Remove the specified option from the configuration.
 

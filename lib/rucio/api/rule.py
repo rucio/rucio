@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from rucio.api.permission import has_permission
 from rucio.common.config import config_get_bool
 from rucio.common.exception import AccessDenied
@@ -22,9 +24,12 @@ from rucio.common.utils import api_update_return_dict
 from rucio.core import rule
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @read_session
-def is_multi_vo(session=None):
+def is_multi_vo(*, session: "Session"):
     """
     Check whether this instance is configured for multi-VO
     returns: Boolean True if running in multi-VO
@@ -35,7 +40,7 @@ def is_multi_vo(session=None):
 @transactional_session
 def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression,
                          activity, notify, purge_replicas, ignore_availability, comment, ask_approval, asynchronous, delay_injection, priority,
-                         split_container, meta, issuer, vo='def', session=None):
+                         split_container, meta, issuer, vo='def', *, session: "Session"):
     """
     Adds a replication rule.
 
@@ -113,7 +118,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
 
 
 @read_session
-def get_replication_rule(rule_id, issuer, vo='def', session=None):
+def get_replication_rule(rule_id, issuer, vo='def', *, session: "Session"):
     """
     Get replication rule by it's id.
 
@@ -130,7 +135,7 @@ def get_replication_rule(rule_id, issuer, vo='def', session=None):
 
 
 @stream_session
-def list_replication_rules(filters={}, vo='def', session=None):
+def list_replication_rules(filters={}, vo='def', *, session: "Session"):
     """
     Lists replication rules based on a filter.
 
@@ -160,7 +165,7 @@ def list_replication_rules(filters={}, vo='def', session=None):
 
 
 @read_session
-def list_replication_rule_history(rule_id, issuer, vo='def', session=None):
+def list_replication_rule_history(rule_id, issuer, vo='def', *, session: "Session"):
     """
     Lists replication rule history..
 
@@ -176,7 +181,7 @@ def list_replication_rule_history(rule_id, issuer, vo='def', session=None):
 
 
 @stream_session
-def list_replication_rule_full_history(scope, name, vo='def', session=None):
+def list_replication_rule_full_history(scope, name, vo='def', *, session: "Session"):
     """
     List the rule history of a DID.
 
@@ -192,7 +197,7 @@ def list_replication_rule_full_history(scope, name, vo='def', session=None):
 
 
 @stream_session
-def list_associated_replication_rules_for_file(scope, name, vo='def', session=None):
+def list_associated_replication_rules_for_file(scope, name, vo='def', *, session: "Session"):
     """
     Lists associated replication rules by file.
 
@@ -208,7 +213,7 @@ def list_associated_replication_rules_for_file(scope, name, vo='def', session=No
 
 
 @transactional_session
-def delete_replication_rule(rule_id, purge_replicas, issuer, vo='def', session=None):
+def delete_replication_rule(rule_id, purge_replicas, issuer, vo='def', *, session: "Session"):
     """
     Deletes a replication rule and all associated locks.
 
@@ -228,7 +233,7 @@ def delete_replication_rule(rule_id, purge_replicas, issuer, vo='def', session=N
 
 
 @transactional_session
-def update_replication_rule(rule_id, options, issuer, vo='def', session=None):
+def update_replication_rule(rule_id, options, issuer, vo='def', *, session: "Session"):
     """
     Update lock state of a replication rule.
 
@@ -260,7 +265,7 @@ def update_replication_rule(rule_id, options, issuer, vo='def', session=None):
 
 
 @transactional_session
-def reduce_replication_rule(rule_id, copies, exclude_expression, issuer, vo='def', session=None):
+def reduce_replication_rule(rule_id, copies, exclude_expression, issuer, vo='def', *, session: "Session"):
     """
     Reduce the number of copies for a rule by atomically replacing the rule.
 
@@ -282,7 +287,7 @@ def reduce_replication_rule(rule_id, copies, exclude_expression, issuer, vo='def
 
 
 @read_session
-def examine_replication_rule(rule_id, issuer, vo='def', session=None):
+def examine_replication_rule(rule_id, issuer, vo='def', *, session: "Session"):
     """
     Examine a replication rule.
 
@@ -302,7 +307,7 @@ def examine_replication_rule(rule_id, issuer, vo='def', session=None):
 
 
 @transactional_session
-def move_replication_rule(rule_id, rse_expression, override, issuer, vo='def', session=None):
+def move_replication_rule(rule_id, rse_expression, override, issuer, vo='def', *, session: "Session"):
     """
     Move a replication rule to another RSE and, once done, delete the original one.
 

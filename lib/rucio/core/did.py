@@ -57,7 +57,8 @@ def list_expired_dids(
         worker_number: int = None,
         total_workers: int = None,
         limit: int = None,
-        session: "Optional[Session]" = None
+        *,
+        session: "Session"
 ):
     """
     List expired data identifiers.
@@ -126,7 +127,8 @@ def add_did(
         lifetime: "Optional[int]" = None,
         dids: "Optional[Sequence[Dict[str, Any]]]" = None,
         rse_id: "Optional[str]" = None,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ):
     """
     Add data identifier.
@@ -154,7 +156,8 @@ def add_did(
 def add_dids(
         dids: "Sequence[Dict[str, Any]]",
         account: "InternalAccount",
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ):
     """
     Bulk add data identifiers.
@@ -250,7 +253,8 @@ def attach_dids(
         dids: "Sequence[Dict[str, Any]]",
         account: "InternalAccount",
         rse_id: "Optional[str]" = None,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ):
     """
     Append data identifier.
@@ -270,7 +274,8 @@ def attach_dids_to_dids(
         attachments: "Dict[str, Any]",
         account: "InternalAccount",
         ignore_duplicate: bool = False,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ):
     """
     Append content to dids.
@@ -292,7 +297,8 @@ def _attach_dids_to_dids(
         attachments: "Dict[str, Any]",
         account: "InternalAccount",
         ignore_duplicate: bool = False,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ):
     """
     Append content to dids.
@@ -369,7 +375,7 @@ def _attach_dids_to_dids(
     session.bulk_insert_mappings(models.UpdatedDID, parent_dids)
 
 
-def __add_files_to_archive(parent_did, files_temp_table, files, account, ignore_duplicate=False, session=None):
+def __add_files_to_archive(parent_did, files_temp_table, files, account, ignore_duplicate=False, *, session: "Session"):
     """
     Add files to archive.
 
@@ -524,7 +530,7 @@ def __add_files_to_archive(parent_did, files_temp_table, files, account, ignore_
 
 
 @transactional_session
-def __add_files_to_dataset(parent_did, files_temp_table, files, account, rse_id, ignore_duplicate=False, session=None):
+def __add_files_to_dataset(parent_did, files_temp_table, files, account, rse_id, ignore_duplicate=False, *, session: "Session"):
     """
     Add files to dataset.
 
@@ -648,7 +654,7 @@ def __add_files_to_dataset(parent_did, files_temp_table, files, account, rse_id,
 
 
 @transactional_session
-def __add_collections_to_container(parent_did, collections_temp_table, collections, account, session):
+def __add_collections_to_container(parent_did, collections_temp_table, collections, account, *, session: "Session"):
     """
     Add collections (datasets or containers) to container.
 
@@ -748,7 +754,7 @@ def __add_collections_to_container(parent_did, collections_temp_table, collectio
         raise exception.RucioException(error.args)
 
 
-def __add_files_to_archive_without_temp_tables(scope, name, files, account, ignore_duplicate=False, session=None):
+def __add_files_to_archive_without_temp_tables(scope, name, files, account, ignore_duplicate=False, *, session: "Session"):
     """
     Add files to archive.
 
@@ -905,7 +911,7 @@ def __add_files_to_archive_without_temp_tables(scope, name, files, account, igno
 
 
 @transactional_session
-def __add_files_to_dataset_without_temp_tables(scope, name, files, account, rse_id, ignore_duplicate=False, session=None):
+def __add_files_to_dataset_without_temp_tables(scope, name, files, account, rse_id, ignore_duplicate=False, *, session: "Session"):
     """
     Add files to dataset.
 
@@ -1011,7 +1017,7 @@ def __add_files_to_dataset_without_temp_tables(scope, name, files, account, rse_
 
 
 @transactional_session
-def __add_collections_to_container_without_temp_tables(scope, name, collections, account, session):
+def __add_collections_to_container_without_temp_tables(scope, name, collections, account, *, session: "Session"):
     """
     Add collections (datasets or containers) to container.
 
@@ -1113,7 +1119,7 @@ def __add_collections_to_container_without_temp_tables(scope, name, collections,
 
 
 @transactional_session
-def _attach_dids_to_dids_without_temp_tables(attachments, account, ignore_duplicate=False, session=None):
+def _attach_dids_to_dids_without_temp_tables(attachments, account, ignore_duplicate=False, *, session: "Session"):
     """
     Append content to dids.
 
@@ -1188,7 +1194,8 @@ def delete_dids(
         dids: "Sequence[Dict[str, Any]]",
         account: "InternalAccount",
         expire_rules: bool = False,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
         logger: "LoggerFunction" = logging.log,
 ):
     """
@@ -1204,16 +1211,17 @@ def delete_dids(
     """
     use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False, session=session)
     if use_temp_tables:
-        return _delete_dids(dids, account, expire_rules, session, logger)
+        return _delete_dids(dids, account, expire_rules, session=session, logger=logger)
     else:
-        return _delete_dids_wo_temp_tables(dids, account, expire_rules, session, logger)
+        return _delete_dids_wo_temp_tables(dids, account, expire_rules, session=session, logger=logger)
 
 
 def _delete_dids(
         dids: "Sequence[Dict[str, Any]]",
         account: "InternalAccount",
         expire_rules: bool = False,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
         logger: "LoggerFunction" = logging.log,
 ):
     if not dids:
@@ -1542,7 +1550,8 @@ def _delete_dids_wo_temp_tables(
         dids: "Sequence[Dict[str, Any]]",
         account: "InternalAccount",
         expire_rules: bool = False,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
         logger: "LoggerFunction" = logging.log,
 ):
     rule_id_clause, content_clause = [], []
@@ -1816,7 +1825,7 @@ def _delete_dids_wo_temp_tables(
 
 
 @transactional_session
-def detach_dids(scope, name, dids, session=None):
+def detach_dids(scope, name, dids, *, session: "Session"):
     """
     Detach data identifier
 
@@ -1936,7 +1945,7 @@ def detach_dids(scope, name, dids, session=None):
 
 
 @stream_session
-def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, session=None):
+def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, *, session: "Session"):
     """
     List recent identifiers.
 
@@ -1985,7 +1994,7 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
 
 
 @transactional_session
-def set_new_dids(dids, new_flag, session=None):
+def set_new_dids(dids, new_flag, *, session: "Session"):
     """
     Set/reset the flag new
 
@@ -2022,7 +2031,7 @@ def set_new_dids(dids, new_flag, session=None):
 
 
 @stream_session
-def list_content(scope, name, session=None):
+def list_content(scope, name, *, session: "Session"):
     """
     List data identifier contents.
 
@@ -2047,7 +2056,7 @@ def list_content(scope, name, session=None):
 
 
 @stream_session
-def list_content_history(scope, name, session=None):
+def list_content_history(scope, name, *, session: "Session"):
     """
     List data identifier contents history.
 
@@ -2073,7 +2082,7 @@ def list_content_history(scope, name, session=None):
 
 
 @stream_session
-def list_parent_dids(scope, name, session=None):
+def list_parent_dids(scope, name, *, session: "Session"):
     """
     List parent datasets and containers of a did.
 
@@ -2097,7 +2106,7 @@ def list_parent_dids(scope, name, session=None):
 
 
 @stream_session
-def list_all_parent_dids(scope, name, session=None):
+def list_all_parent_dids(scope, name, *, session: "Session"):
     """
     List all parent datasets and containers of a did, no matter on what level.
 
@@ -2240,7 +2249,8 @@ def list_one_did_childs_stmt(
 def list_child_datasets(
         scope: "InternalScope",
         name: str,
-        session: "Optional[Session]" = None
+        *,
+        session: "Session"
 ):
     """
     List all child datasets of a container.
@@ -2260,7 +2270,7 @@ def list_child_datasets(
 
 
 @stream_session
-def list_files(scope, name, long=False, session=None):
+def list_files(scope, name, long=False, *, session: "Session"):
     """
     List data identifier file contents.
 
@@ -2366,7 +2376,7 @@ def list_files(scope, name, long=False, session=None):
 
 
 @stream_session
-def scope_list(scope, name=None, recursive=False, session=None):
+def scope_list(scope, name=None, recursive=False, *, session: "Session"):
     """
     List data identifiers in a scope.
 
@@ -2450,7 +2460,7 @@ def scope_list(scope, name=None, recursive=False, session=None):
 
 
 @read_session
-def __get_did(scope, name, session=None):
+def __get_did(scope, name, *, session: "Session"):
     try:
         stmt = select(
             models.DataIdentifier
@@ -2466,7 +2476,7 @@ def __get_did(scope, name, session=None):
 
 
 @read_session
-def get_did(scope: "InternalScope", name: str, dynamic_depth: "Optional[DIDType]" = None, session: "Optional[Session]" = None) -> "Dict[str, Any]":
+def get_did(scope: "InternalScope", name: str, dynamic_depth: "Optional[DIDType]" = None, *, session: "Session") -> "Dict[str, Any]":
     """
     Retrieve a single data identifier.
 
@@ -2495,7 +2505,7 @@ def get_did(scope: "InternalScope", name: str, dynamic_depth: "Optional[DIDType]
 
 
 @read_session
-def get_files(files, session=None):
+def get_files(files, *, session: "Session"):
     """
     Retrieve a list of files.
 
@@ -2551,7 +2561,7 @@ def get_files(files, session=None):
 
 @transactional_session
 def set_metadata(scope, name, key, value, did_type=None, did=None,
-                 recursive=False, session=None):
+                 recursive=False, *, session: "Session"):
     """
     Add single metadata to a data identifier.
 
@@ -2567,7 +2577,7 @@ def set_metadata(scope, name, key, value, did_type=None, did=None,
 
 
 @transactional_session
-def set_metadata_bulk(scope, name, meta, recursive=False, session=None):
+def set_metadata_bulk(scope, name, meta, recursive=False, *, session: "Session"):
     """
     Add metadata to a data identifier.
 
@@ -2581,7 +2591,7 @@ def set_metadata_bulk(scope, name, meta, recursive=False, session=None):
 
 
 @transactional_session
-def set_dids_metadata_bulk(dids, recursive=False, session=None):
+def set_dids_metadata_bulk(dids, recursive=False, *, session: "Session"):
     """
     Add metadata to a list of data identifiers.
 
@@ -2595,7 +2605,7 @@ def set_dids_metadata_bulk(dids, recursive=False, session=None):
 
 
 @read_session
-def get_metadata(scope, name, plugin='DID_COLUMN', session=None):
+def get_metadata(scope, name, plugin='DID_COLUMN', *, session: "Session"):
     """
     Get data identifier metadata
 
@@ -2609,7 +2619,7 @@ def get_metadata(scope, name, plugin='DID_COLUMN', session=None):
 
 
 @stream_session
-def list_parent_dids_bulk(dids, session=None):
+def list_parent_dids_bulk(dids, *, session: "Session"):
     """
     List parent datasets and containers of a did.
 
@@ -2641,7 +2651,7 @@ def list_parent_dids_bulk(dids, session=None):
 
 
 @stream_session
-def get_metadata_bulk(dids, inherit=False, session=None):
+def get_metadata_bulk(dids, inherit=False, *, session: "Session"):
     """
     Get metadata for a list of dids
     :param dids:               A list of dids.
@@ -2712,7 +2722,7 @@ def get_metadata_bulk(dids, inherit=False, session=None):
 
 
 @transactional_session
-def delete_metadata(scope, name, key, session=None):
+def delete_metadata(scope, name, key, *, session: "Session"):
     """
     Delete a key from the metadata column
 
@@ -2724,7 +2734,7 @@ def delete_metadata(scope, name, key, session=None):
 
 
 @transactional_session
-def set_status(scope, name, session=None, **kwargs):
+def set_status(scope, name, *, session: "Session", **kwargs):
     """
     Set data identifier status
 
@@ -2834,7 +2844,7 @@ def set_status(scope, name, session=None, **kwargs):
 
 @stream_session
 def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=None,
-              offset=None, long=False, recursive=False, ignore_dids=None, session=None):
+              offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Session"):
     """
     Search data identifiers.
 
@@ -2931,7 +2941,7 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
 
 @read_session
 def list_dids_extended(scope, filters, did_type='collection', ignore_case=False, limit=None,
-                       offset=None, long=False, recursive=False, ignore_dids=None, session=None):
+                       offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Session"):
     """
     Search data identifiers.
 
@@ -2950,7 +2960,7 @@ def list_dids_extended(scope, filters, did_type='collection', ignore_case=False,
 
 
 @read_session
-def get_did_atime(scope, name, session=None):
+def get_did_atime(scope, name, *, session: "Session"):
     """
     Get the accessed_at timestamp for a did. Just for testing.
     :param scope: the scope name.
@@ -2969,7 +2979,7 @@ def get_did_atime(scope, name, session=None):
 
 
 @read_session
-def get_did_access_cnt(scope, name, session=None):
+def get_did_access_cnt(scope, name, *, session: "Session"):
     """
     Get the access_cnt for a did. Just for testing.
     :param scope: the scope name.
@@ -2988,7 +2998,7 @@ def get_did_access_cnt(scope, name, session=None):
 
 
 @stream_session
-def get_dataset_by_guid(guid, session=None):
+def get_dataset_by_guid(guid, *, session: "Session"):
     """
     Get the parent datasets for a given GUID.
     :param guid: The GUID.
@@ -3023,7 +3033,7 @@ def get_dataset_by_guid(guid, session=None):
 
 
 @transactional_session
-def touch_dids(dids, session=None):
+def touch_dids(dids, *, session: "Session"):
     """
     Update the accessed_at timestamp and the access_cnt of the given dids.
 
@@ -3058,7 +3068,7 @@ def touch_dids(dids, session=None):
 
 
 @transactional_session
-def create_did_sample(input_scope, input_name, output_scope, output_name, account, nbfiles, session=None):
+def create_did_sample(input_scope, input_name, output_scope, output_name, account, nbfiles, *, session: "Session"):
     """
     Create a sample from an input collection.
 
@@ -3080,7 +3090,7 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, accoun
 def __resolve_bytes_length_events_did(
         did: models.DataIdentifier,
         dynamic_depth: "DIDType" = DIDType.FILE,
-        session: "Optional[Session]" = None,
+        *, session: "Session",
 ) -> "Tuple[int, int, int]":
     """
     Resolve bytes, length and events of a did
@@ -3144,7 +3154,7 @@ def __resolve_bytes_length_events_did(
 
 
 @transactional_session
-def resurrect(dids, session=None):
+def resurrect(dids, *, session: "Session"):
     """
     Resurrect data identifiers.
 
@@ -3204,7 +3214,7 @@ def resurrect(dids, session=None):
 
 
 @stream_session
-def list_archive_content(scope, name, session=None):
+def list_archive_content(scope, name, *, session: "Session"):
     """
     List archive contents.
 
@@ -3230,7 +3240,7 @@ def list_archive_content(scope, name, session=None):
 
 
 @transactional_session
-def add_did_to_followed(scope, name, account, session=None):
+def add_did_to_followed(scope, name, account, *, session: "Session"):
     """
     Mark a did as followed by the given account
 
@@ -3244,7 +3254,7 @@ def add_did_to_followed(scope, name, account, session=None):
 
 
 @transactional_session
-def add_dids_to_followed(dids, account, session=None):
+def add_dids_to_followed(dids, account, *, session: "Session"):
     """
     Bulk mark datasets as followed
 
@@ -3274,7 +3284,7 @@ def add_dids_to_followed(dids, account, session=None):
 
 
 @stream_session
-def get_users_following_did(scope, name, session=None):
+def get_users_following_did(scope, name, *, session: "Session"):
     """
     Return list of users following a did
 
@@ -3298,7 +3308,7 @@ def get_users_following_did(scope, name, session=None):
 
 
 @transactional_session
-def remove_did_from_followed(scope, name, account, session=None):
+def remove_did_from_followed(scope, name, account, *, session: "Session"):
     """
     Mark a did as not followed
 
@@ -3312,7 +3322,7 @@ def remove_did_from_followed(scope, name, account, session=None):
 
 
 @transactional_session
-def remove_dids_from_followed(dids, account, session=None):
+def remove_dids_from_followed(dids, account, *, session: "Session"):
     """
     Bulk mark datasets as not followed
 
@@ -3337,7 +3347,7 @@ def remove_dids_from_followed(dids, account, session=None):
 
 
 @transactional_session
-def trigger_event(scope, name, event_type, payload, session=None):
+def trigger_event(scope, name, event_type, payload, *, session: "Session"):
     """
     Records changes occuring in the did to the FollowEvents table
 
@@ -3366,7 +3376,7 @@ def trigger_event(scope, name, event_type, payload, session=None):
 
 
 @read_session
-def create_reports(total_workers, worker_number, session=None):
+def create_reports(total_workers, worker_number, *, session: "Session"):
     """
     Create a summary report of the events affecting a dataset, for its followers.
 
@@ -3428,7 +3438,7 @@ def create_reports(total_workers, worker_number, session=None):
 
 
 @transactional_session
-def insert_content_history(filter_, did_created_at, session=None):
+def insert_content_history(filter_, did_created_at, *, session: "Session"):
     """
     Insert into content history a list of did
 
@@ -3479,7 +3489,7 @@ def insert_content_history(filter_, did_created_at, session=None):
 
 
 @transactional_session
-def insert_deleted_dids(filter_, session=None):
+def insert_deleted_dids(filter_, *, session: "Session"):
     """
     Insert into deleted_dids a list of did
 

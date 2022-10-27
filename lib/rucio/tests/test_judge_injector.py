@@ -127,7 +127,7 @@ class TestJudgeEvaluator:
 
         # simulate that time to inject the rule has arrived
         @transactional_session
-        def __update_created_at(session=None):
+        def __update_created_at(*, session=None):
             session.query(ReplicationRule).filter_by(id=rule_id).one().created_at = datetime.utcnow()
         __update_created_at()
 

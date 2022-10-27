@@ -13,10 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from rucio.api import permission
 from rucio.common import exception
 from rucio.core import config
 from rucio.db.sqla.session import read_session, transactional_session
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 """
 ConfigParser compatible interface.
@@ -27,7 +32,7 @@ ConfigParser compatible interface.
 
 
 @read_session
-def sections(issuer=None, vo='def', session=None):
+def sections(issuer=None, vo='def', *, session: "Session"):
     """
     Return a list of the sections available.
 
@@ -44,7 +49,7 @@ def sections(issuer=None, vo='def', session=None):
 
 
 @transactional_session
-def add_section(section, issuer=None, vo='def', session=None):
+def add_section(section, issuer=None, vo='def', *, session: "Session"):
     """
     Add a section to the configuration.
 
@@ -61,7 +66,7 @@ def add_section(section, issuer=None, vo='def', session=None):
 
 
 @read_session
-def has_section(section, issuer=None, vo='def', session=None):
+def has_section(section, issuer=None, vo='def', *, session: "Session"):
     """
     Indicates whether the named section is present in the configuration.
 
@@ -79,7 +84,7 @@ def has_section(section, issuer=None, vo='def', session=None):
 
 
 @read_session
-def options(section, issuer=None, vo='def', session=None):
+def options(section, issuer=None, vo='def', *, session: "Session"):
     """
     Returns a list of options available in the specified section.
 
@@ -97,7 +102,7 @@ def options(section, issuer=None, vo='def', session=None):
 
 
 @read_session
-def has_option(section, option, issuer=None, vo='def', session=None):
+def has_option(section, option, issuer=None, vo='def', *, session: "Session"):
     """
     Check if the given section exists and contains the given option.
 
@@ -116,7 +121,7 @@ def has_option(section, option, issuer=None, vo='def', session=None):
 
 
 @read_session
-def get(section, option, issuer=None, vo='def', session=None):
+def get(section, option, issuer=None, vo='def', *, session: "Session"):
     """
     Get an option value for the named section. Value can be auto-coerced to int, float, and bool; string otherwise.
 
@@ -138,7 +143,7 @@ def get(section, option, issuer=None, vo='def', session=None):
 
 
 @read_session
-def items(section, issuer=None, vo='def', session=None):
+def items(section, issuer=None, vo='def', *, session: "Session"):
     """
     Return a list of (option, value) pairs for each option in the given section. Values are auto-coerced as in get().
 
@@ -157,7 +162,7 @@ def items(section, issuer=None, vo='def', session=None):
 
 
 @transactional_session
-def set(section, option, value, issuer=None, vo='def', session=None):
+def set(section, option, value, issuer=None, vo='def', *, session: "Session"):
     """
     Set the given option to the specified value.
 
@@ -176,7 +181,7 @@ def set(section, option, value, issuer=None, vo='def', session=None):
 
 
 @transactional_session
-def remove_section(section, issuer=None, vo='def', session=None):
+def remove_section(section, issuer=None, vo='def', *, session: "Session"):
     """
     Remove the specified option from the specified section.
 
@@ -194,7 +199,7 @@ def remove_section(section, issuer=None, vo='def', session=None):
 
 
 @transactional_session
-def remove_option(section, option, issuer=None, vo='def', session=None):
+def remove_option(section, option, issuer=None, vo='def', *, session: "Session"):
     """
     Remove the specified section from the configuration.
 

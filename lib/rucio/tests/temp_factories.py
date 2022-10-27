@@ -55,7 +55,7 @@ class TemporaryRSEFactory:
         self._cleanup_db_deps()
 
     @transactional_session
-    def _cleanup_db_deps(self, session=None):
+    def _cleanup_db_deps(self, *, session=None):
         cleanup_db_deps(
             model=models.RSE,
             select_rows_stmt=models.RSE.id.in_(self.created_rses),
@@ -159,7 +159,7 @@ class TemporaryDidFactory:
         return self._upload_client
 
     @transactional_session
-    def cleanup(self, session=None):
+    def cleanup(self, *, session=None):
         if not self.created_dids:
             return
 

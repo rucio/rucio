@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 
 @stream_session
-def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def', session=None):
+def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def', *, session: "Session"):
     """
     List dids in a scope.
 
@@ -65,7 +65,7 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
 
 
 @stream_session
-def list_dids_extended(scope, filters, did_type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def', session=None):
+def list_dids_extended(scope, filters, did_type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def', *, session: "Session"):
     """
     List dids in a scope.
 
@@ -97,7 +97,7 @@ def list_dids_extended(scope, filters, did_type='collection', ignore_case=False,
 
 
 @transactional_session
-def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None, vo='def', session=None):
+def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None, vo='def', *, session: "Session"):
     """
     Add data did.
 
@@ -157,7 +157,7 @@ def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, r
 
 
 @transactional_session
-def add_dids(dids, issuer, vo='def', session=None):
+def add_dids(dids, issuer, vo='def', *, session: "Session"):
     """
     Bulk Add did.
 
@@ -189,7 +189,7 @@ def add_dids(dids, issuer, vo='def', session=None):
 
 
 @transactional_session
-def attach_dids(scope, name, attachment, issuer, vo='def', session=None):
+def attach_dids(scope, name, attachment, issuer, vo='def', *, session: "Session"):
     """
     Append content to data did.
 
@@ -230,7 +230,7 @@ def attach_dids(scope, name, attachment, issuer, vo='def', session=None):
 
 
 @transactional_session
-def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def', session=None):
+def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def', *, session: "Session"):
     """
     Append content to dids.
 
@@ -265,7 +265,7 @@ def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def', s
 
 
 @transactional_session
-def detach_dids(scope, name, dids, issuer, vo='def', session=None):
+def detach_dids(scope, name, dids, issuer, vo='def', *, session: "Session"):
     """
     Detach data identifier
 
@@ -288,7 +288,7 @@ def detach_dids(scope, name, dids, issuer, vo='def', session=None):
 
 
 @stream_session
-def list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=1000, vo='def', session=None):
+def list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=1000, vo='def', *, session: "Session"):
     """
     List recent identifiers.
 
@@ -306,7 +306,7 @@ def list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100
 
 
 @transactional_session
-def set_new_dids(dids, new_flag=True, vo='def', session=None):
+def set_new_dids(dids, new_flag=True, vo='def', *, session: "Session"):
     """
     Set/reset the flag new
 
@@ -323,7 +323,7 @@ def set_new_dids(dids, new_flag=True, vo='def', session=None):
 
 
 @stream_session
-def list_content(scope, name, vo='def', session=None):
+def list_content(scope, name, vo='def', *, session: "Session"):
     """
     List data identifier contents.
 
@@ -341,7 +341,7 @@ def list_content(scope, name, vo='def', session=None):
 
 
 @stream_session
-def list_content_history(scope, name, vo='def', session=None):
+def list_content_history(scope, name, vo='def', *, session: "Session"):
     """
     List data identifier contents history.
 
@@ -360,7 +360,7 @@ def list_content_history(scope, name, vo='def', session=None):
 
 
 @stream_session
-def list_files(scope, name, long, vo='def', session=None):
+def list_files(scope, name, long, vo='def', *, session: "Session"):
     """
     List data identifier file contents.
 
@@ -380,7 +380,7 @@ def list_files(scope, name, long, vo='def', session=None):
 
 
 @stream_session
-def scope_list(scope, name=None, recursive=False, vo='def', session=None):
+def scope_list(scope, name=None, recursive=False, vo='def', *, session: "Session"):
     """
     List data identifiers in a scope.
 
@@ -404,7 +404,7 @@ def scope_list(scope, name=None, recursive=False, vo='def', session=None):
 
 
 @read_session
-def get_did(scope: str, name: str, dynamic_depth: "Optional[DIDType]" = None, vo: str = 'def', session: "Optional[Session]" = None) -> "Dict[str, Any]":
+def get_did(scope: str, name: str, dynamic_depth: "Optional[DIDType]" = None, vo: str = 'def', *, session: "Session") -> "Dict[str, Any]":
     """
     Retrieve a single data did.
 
@@ -425,7 +425,7 @@ def get_did(scope: str, name: str, dynamic_depth: "Optional[DIDType]" = None, vo
 
 
 @transactional_session
-def set_metadata(scope, name, key, value, issuer, recursive=False, vo='def', session=None):
+def set_metadata(scope, name, key, value, issuer, recursive=False, vo='def', *, session: "Session"):
     """
     Add metadata to data did.
 
@@ -451,7 +451,7 @@ def set_metadata(scope, name, key, value, issuer, recursive=False, vo='def', ses
 
 
 @transactional_session
-def set_metadata_bulk(scope, name, meta, issuer, recursive=False, vo='def', session=None):
+def set_metadata_bulk(scope, name, meta, issuer, recursive=False, vo='def', *, session: "Session"):
     """
     Add metadata to data did.
 
@@ -477,7 +477,7 @@ def set_metadata_bulk(scope, name, meta, issuer, recursive=False, vo='def', sess
 
 
 @transactional_session
-def set_dids_metadata_bulk(dids, issuer, recursive=False, vo='def', session=None):
+def set_dids_metadata_bulk(dids, issuer, recursive=False, vo='def', *, session: "Session"):
     """
     Add metadata to a list of data identifiers.
 
@@ -502,7 +502,7 @@ def set_dids_metadata_bulk(dids, issuer, recursive=False, vo='def', session=None
 
 
 @read_session
-def get_metadata(scope, name, plugin='DID_COLUMN', vo='def', session=None):
+def get_metadata(scope, name, plugin='DID_COLUMN', vo='def', *, session: "Session"):
     """
     Get data identifier metadata
 
@@ -519,7 +519,7 @@ def get_metadata(scope, name, plugin='DID_COLUMN', vo='def', session=None):
 
 
 @stream_session
-def get_metadata_bulk(dids, inherit=False, vo='def', session=None):
+def get_metadata_bulk(dids, inherit=False, vo='def', *, session: "Session"):
     """
     Get metadata for a list of dids
     :param dids:               A list of dids.
@@ -537,7 +537,7 @@ def get_metadata_bulk(dids, inherit=False, vo='def', session=None):
 
 
 @transactional_session
-def delete_metadata(scope, name, key, vo='def', session=None):
+def delete_metadata(scope, name, key, vo='def', *, session: "Session"):
     """
     Delete a key from the metadata column
 
@@ -553,7 +553,7 @@ def delete_metadata(scope, name, key, vo='def', session=None):
 
 
 @transactional_session
-def set_status(scope, name, issuer, vo='def', session=None, **kwargs):
+def set_status(scope, name, issuer, vo='def', *, session: "Session", **kwargs):
     """
     Set data identifier status
 
@@ -574,7 +574,7 @@ def set_status(scope, name, issuer, vo='def', session=None, **kwargs):
 
 
 @stream_session
-def get_dataset_by_guid(guid, vo='def', session=None):
+def get_dataset_by_guid(guid, vo='def', *, session: "Session"):
     """
     Get the parent datasets for a given GUID.
     :param guid: The GUID.
@@ -592,7 +592,7 @@ def get_dataset_by_guid(guid, vo='def', session=None):
 
 
 @stream_session
-def list_parent_dids(scope, name, vo='def', session=None):
+def list_parent_dids(scope, name, vo='def', *, session: "Session"):
     """
     List parent datasets and containers of a did.
 
@@ -611,7 +611,7 @@ def list_parent_dids(scope, name, vo='def', session=None):
 
 
 @transactional_session
-def create_did_sample(input_scope, input_name, output_scope, output_name, issuer, nbfiles, vo='def', session=None):
+def create_did_sample(input_scope, input_name, output_scope, output_name, issuer, nbfiles, vo='def', *, session: "Session"):
     """
     Create a sample from an input collection.
 
@@ -639,7 +639,7 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, issuer
 
 
 @transactional_session
-def resurrect(dids, issuer, vo='def', session=None):
+def resurrect(dids, issuer, vo='def', *, session: "Session"):
     """
     Resurrect DIDs.
 
@@ -660,7 +660,7 @@ def resurrect(dids, issuer, vo='def', session=None):
 
 
 @stream_session
-def list_archive_content(scope, name, vo='def', session=None):
+def list_archive_content(scope, name, vo='def', *, session: "Session"):
     """
     List archive contents.
 
@@ -678,7 +678,7 @@ def list_archive_content(scope, name, vo='def', session=None):
 
 
 @transactional_session
-def add_did_to_followed(scope, name, account, session=None, vo='def'):
+def add_did_to_followed(scope, name, account, *, session: "Session", vo='def'):
     """
     Mark a did as followed by the given account
 
@@ -693,7 +693,7 @@ def add_did_to_followed(scope, name, account, session=None, vo='def'):
 
 
 @transactional_session
-def add_dids_to_followed(dids, account, session=None, vo='def'):
+def add_dids_to_followed(dids, account, *, session: "Session", vo='def'):
     """
     Bulk mark datasets as followed
 
@@ -706,7 +706,7 @@ def add_dids_to_followed(dids, account, session=None, vo='def'):
 
 
 @stream_session
-def get_users_following_did(name, scope, session=None, vo='def'):
+def get_users_following_did(name, scope, *, session: "Session", vo='def'):
     """
     Return list of users following a did
 
@@ -722,7 +722,7 @@ def get_users_following_did(name, scope, session=None, vo='def'):
 
 
 @transactional_session
-def remove_did_from_followed(scope, name, account, issuer, session=None, vo='def'):
+def remove_did_from_followed(scope, name, account, issuer, *, session: "Session", vo='def'):
     """
     Mark a did as not followed
 
@@ -742,7 +742,7 @@ def remove_did_from_followed(scope, name, account, issuer, session=None, vo='def
 
 
 @transactional_session
-def remove_dids_from_followed(dids, account, issuer, session=None, vo='def'):
+def remove_dids_from_followed(dids, account, issuer, *, session: "Session", vo='def'):
     """
     Bulk mark datasets as not followed
 

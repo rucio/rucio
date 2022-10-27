@@ -374,7 +374,7 @@ def __handle_terminated_replicas(replicas, logger=logging.log):
 
 
 @transactional_session
-def __update_bulk_replicas(replicas, session=None, logger=logging.log):
+def __update_bulk_replicas(replicas, *, session, logger=logging.log):
     """
     Used by finisher to handle available and unavailable replicas blongs to same rule in bulk way.
 
@@ -396,7 +396,7 @@ def __update_bulk_replicas(replicas, session=None, logger=logging.log):
 
 
 @transactional_session
-def __update_replica(replica, session=None, logger=logging.log):
+def __update_replica(replica, *, session, logger=logging.log):
     """
     Used by finisher to update a replica to a finished state.
 

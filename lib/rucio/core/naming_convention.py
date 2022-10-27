@@ -16,6 +16,7 @@
 from re import match, compile, error
 from sqlalchemy.exc import IntegrityError
 from traceback import format_exc
+from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NO_VALUE
 
@@ -25,11 +26,14 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import KeyType
 from rucio.db.sqla.session import read_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 REGION = make_region_memcached(expiration_time=900)
 
 
 @transactional_session
-def add_naming_convention(scope, regexp, convention_type, session=None):
+def add_naming_convention(scope, regexp, convention_type, *, session: "Session"):
     """
     add a naming convention for a given scope
 
@@ -56,7 +60,7 @@ def add_naming_convention(scope, regexp, convention_type, session=None):
 
 
 @read_session
-def get_naming_convention(scope, convention_type, session=None):
+def get_naming_convention(scope, convention_type, *, session: "Session"):
     """
     Get the naming convention for a given scope
 
@@ -74,7 +78,7 @@ def get_naming_convention(scope, convention_type, session=None):
 
 
 @transactional_session
-def delete_naming_convention(scope, convention_type, session=None):
+def delete_naming_convention(scope, convention_type, *, session: "Session"):
     """
     delete a naming convention for a given scope
 
@@ -90,7 +94,7 @@ def delete_naming_convention(scope, convention_type, session=None):
 
 
 @read_session
-def list_naming_conventions(session=None):
+def list_naming_conventions(*, session: "Session"):
     """
     List all naming conventions.
 
@@ -104,7 +108,7 @@ def list_naming_conventions(session=None):
 
 
 @read_session
-def validate_name(scope, name, did_type, session=None):
+def validate_name(scope, name, did_type, *, session: "Session"):
     """
     Validate a name according to a naming convention.
 

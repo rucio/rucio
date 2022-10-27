@@ -14,12 +14,17 @@
 # limitations under the License.
 
 from os import environ
+from typing import TYPE_CHECKING
 
 from configparser import NoOptionError, NoSectionError
 from rucio.common import config, exception
 from rucio.common.utils import check_policy_package_version
 
 import importlib
+
+if TYPE_CHECKING:
+    from typing import Optional
+    from sqlalchemy.orm import Session
 
 # dictionary of permission modules for each VO
 permission_modules = {}
@@ -97,7 +102,7 @@ def load_permission_for_vo(vo):
     permission_modules[vo] = module
 
 
-def has_permission(issuer, action, kwargs, session=None):
+def has_permission(issuer, action, kwargs, *, session: "Optional[Session]" = None):
     if issuer.vo not in permission_modules:
         load_permission_for_vo(issuer.vo)
     return permission_modules[issuer.vo].has_permission(issuer, action, kwargs, session=session)

@@ -316,7 +316,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     did_core.attach_dids(dids=[c_first_archive_only, c_with_expired_replica], account=account, **dataset2)
 
     @read_session
-    def __get_archive_contents_history_count(archive, session=None):
+    def __get_archive_contents_history_count(archive, *, session=None):
         return session.query(ConstituentAssociationHistory).filter_by(**archive).count()
 
     # Run reaper the first time.

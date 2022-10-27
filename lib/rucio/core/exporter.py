@@ -13,12 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from rucio.core import rse as rse_module, distance as distance_module
 from rucio.db.sqla.session import transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def export_rses(vo='def', session=None):
+def export_rses(vo='def', *, session: "Session"):
     """
     Export RSE data.
 
@@ -34,7 +39,7 @@ def export_rses(vo='def', session=None):
 
 
 @transactional_session
-def export_data(vo='def', distance=True, session=None):
+def export_data(vo='def', distance=True, *, session: "Session"):
     """
     Export data.
 

@@ -15,6 +15,7 @@
 
 import logging
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import DatabaseError
 from sqlalchemy.sql.expression import and_, or_
@@ -31,9 +32,12 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 
 from rucio.common.types import InternalScope
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @stream_session
-def get_dataset_locks(scope, name, session=None):
+def get_dataset_locks(scope, name, *, session: "Session"):
     """
     Get the dataset locks of a dataset
 
@@ -67,7 +71,7 @@ def get_dataset_locks(scope, name, session=None):
 
 
 @stream_session
-def get_dataset_locks_bulk(dids, session=None):
+def get_dataset_locks_bulk(dids, *, session: "Session"):
     """
     Get the dataset locks of a list of datasets or containers, recursively
 
@@ -100,7 +104,7 @@ def get_dataset_locks_bulk(dids, session=None):
 
 
 @stream_session
-def get_dataset_locks_by_rse_id(rse_id, session=None):
+def get_dataset_locks_by_rse_id(rse_id, *, session: "Session"):
     """
     Get the dataset locks of an RSE.
 
@@ -133,7 +137,7 @@ def get_dataset_locks_by_rse_id(rse_id, session=None):
 
 
 @read_session
-def get_replica_locks(scope, name, nowait=False, restrict_rses=None, session=None):
+def get_replica_locks(scope, name, nowait=False, restrict_rses=None, *, session: "Session"):
     """
     Get the active replica locks for a file
 
@@ -158,7 +162,7 @@ def get_replica_locks(scope, name, nowait=False, restrict_rses=None, session=Non
 
 
 @read_session
-def get_replica_locks_for_rule_id(rule_id, session=None):
+def get_replica_locks_for_rule_id(rule_id, *, session: "Session"):
     """
     Get the active replica locks for a rule_id.
 
@@ -184,7 +188,7 @@ def get_replica_locks_for_rule_id(rule_id, session=None):
 
 
 @read_session
-def get_replica_locks_for_rule_id_per_rse(rule_id, session=None):
+def get_replica_locks_for_rule_id_per_rse(rule_id, *, session: "Session"):
     """
     Get the active replica locks for a rule_id per rse.
 
@@ -208,7 +212,7 @@ def get_replica_locks_for_rule_id_per_rse(rule_id, session=None):
 @read_session
 def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_rses=None, only_stuck=False,
                                            total_threads=None, thread_id=None,
-                                           session=None):
+                                           *, session: "Session"):
     """
     Get all the files of a dataset and, if existing, all locks of the file.
 
@@ -314,7 +318,7 @@ def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_r
 
 
 @transactional_session
-def successful_transfer(scope, name, rse_id, nowait, session=None, logger=logging.log):
+def successful_transfer(scope, name, rse_id, nowait, *, session: "Session", logger=logging.log):
     """
     Update the state of all replica locks because of an successful transfer
 
@@ -383,7 +387,7 @@ def successful_transfer(scope, name, rse_id, nowait, session=None, logger=loggin
 
 
 @transactional_session
-def failed_transfer(scope, name, rse_id, error_message=None, broken_rule_id=None, broken_message=None, nowait=True, session=None, logger=logging.log):
+def failed_transfer(scope, name, rse_id, error_message=None, broken_rule_id=None, broken_message=None, nowait=True, *, session: "Session", logger=logging.log):
     """
     Update the state of all replica locks because of a failed transfer.
     If a transfer is permanently broken for a rule, the broken_rule_id should be filled which puts this rule into the SUSPENDED state.
@@ -448,7 +452,7 @@ def failed_transfer(scope, name, rse_id, error_message=None, broken_rule_id=None
 
 
 @transactional_session
-def touch_dataset_locks(dataset_locks, session=None):
+def touch_dataset_locks(dataset_locks, *, session: "Session"):
     """
     Update the accessed_at timestamp of the given dataset locks + eol_at.
 

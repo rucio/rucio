@@ -63,7 +63,7 @@ class Topology:
 
     @classmethod
     @read_session
-    def create_from_config(cls, ignore_availability: bool = False, session: "Optional[Session]" = None, logger: "LoggerFunction" = logging.log):
+    def create_from_config(cls, ignore_availability: bool = False, *, session: "Session", logger: "LoggerFunction" = logging.log):
 
         include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
 
@@ -114,7 +114,7 @@ class Topology:
             domain: str,
             limit_dest_schemes: "List[str]",
             inbound_links_by_node: "Optional[Dict[str, Dict[str, str]]]" = None,
-            session: "Optional[Session]" = None
+            *, session: "Session"
     ) -> "Dict[str, List[Dict[str, Any]]]":
         """
         Find the shortest paths from multiple sources towards dest_rse_id.
@@ -150,7 +150,7 @@ class Topology:
                 break
 
             current_distance = next_hop[current_node]['cumulated_distance']
-            inbound_links = _load_inbound_distances_node(rse_id=current_node)
+            inbound_links = _load_inbound_distances_node(rse_id=current_node, session=session)
             if inbound_links_by_node is not None:
                 inbound_links_by_node[current_node] = inbound_links
             for adjacent_node, link_distance in sorted(inbound_links.items(),
@@ -217,7 +217,7 @@ def get_hops(
         dest_rse_id: str,
         multihop_rses: "Optional[Set[str]]" = None,
         limit_dest_schemes: "Optional[List[str]]" = None,
-        session: "Optional[Session]" = None,
+        *, session: "Session",
 ):
     """
     Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
@@ -256,7 +256,7 @@ def get_hops(
 
 
 @transactional_session
-def _load_outgoing_distances_node(rse_id: str, session: "Optional[Session]" = None):
+def _load_outgoing_distances_node(rse_id: str, *, session: "Session"):
     """
     Loads the outgoing edges of the distance graph for one node.
     :param rse_id:    RSE id to load the edges for.
@@ -287,7 +287,7 @@ def _load_outgoing_distances_node(rse_id: str, session: "Optional[Session]" = No
 
 
 @transactional_session
-def _load_inbound_distances_node(rse_id: str, session: "Optional[Session]" = None):
+def _load_inbound_distances_node(rse_id: str, *, session: "Session"):
     """
     Loads the inbound edges of the distance graph for one node.
     :param rse_id:    RSE id to load the edges for.
@@ -318,7 +318,7 @@ def _load_inbound_distances_node(rse_id: str, session: "Optional[Session]" = Non
 
 
 @read_session
-def _get_unavailable_rse_ids(operation: str, session: "Optional[Session]" = None, logger: "LoggerFunction" = logging.log):
+def _get_unavailable_rse_ids(operation: str, *, session: "Session", logger: "LoggerFunction" = logging.log):
     """
     :param logger:   Optional decorated logger that can be passed from the calling daemons or servers.
     Get unavailable rse ids for a given operation : read, write, delete

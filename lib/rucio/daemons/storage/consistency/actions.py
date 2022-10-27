@@ -57,7 +57,7 @@ graceful_stop = threading.Event()
 
 @transactional_session
 def declare_bad_file_replicas(dids, rse_id, reason, issuer,
-                              status=BadFilesStatus.BAD, scheme=None, session=None):
+                              status=BadFilesStatus.BAD, scheme=None, *, session=None):
     """
     Declare a list of bad replicas.
 

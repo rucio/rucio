@@ -77,7 +77,7 @@ class Receiver(object):
                 self._perform_request_update(msg)
 
     @transactional_session
-    def _perform_request_update(self, msg, session=None, logger=logging.log):
+    def _perform_request_update(self, msg, *, session=None, logger=logging.log):
         external_host = msg.get('endpnt', None)
         request_id = msg['file_metadata'].get('request_id', None)
         try:

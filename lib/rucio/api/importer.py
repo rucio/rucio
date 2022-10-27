@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from rucio.api import permission
 from rucio.common import exception
 from rucio.common.schema import validate_schema
@@ -20,9 +22,12 @@ from rucio.common.types import InternalAccount
 from rucio.core import importer
 from rucio.db.sqla.session import transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def import_data(data, issuer, vo='def', session=None):
+def import_data(data, issuer, vo='def', *, session: "Session"):
     """
     Import data to add/update/delete records in Rucio.
 

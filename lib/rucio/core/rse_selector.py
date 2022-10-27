@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from random import uniform, shuffle
+from typing import TYPE_CHECKING
 
 from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs, InvalidRuleWeight, RSEOverQuota
 from rucio.core.account import has_account_attribute, get_usage, get_all_rse_usages_per_account
@@ -23,6 +24,9 @@ from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.session import read_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 class RSESelector():
     """
@@ -30,7 +34,7 @@ class RSESelector():
     """
 
     @read_session
-    def __init__(self, account, rses, weight, copies, ignore_account_limit=False, session=None):
+    def __init__(self, account, rses, weight, copies, ignore_account_limit=False, *, session: "Session"):
         """
         Initialize the RSE Selector.
 
@@ -242,7 +246,7 @@ class RSESelector():
 
 
 @read_session
-def resolve_rse_expression(rse_expression, account, weight=None, copies=1, ignore_account_limit=False, size=0, preferred_rses=[], blocklist=[], prioritize_order_over_weight=False, existing_rse_size=None, session=None):
+def resolve_rse_expression(rse_expression, account, weight=None, copies=1, ignore_account_limit=False, size=0, preferred_rses=[], blocklist=[], prioritize_order_over_weight=False, existing_rse_size=None, *, session: "Session"):
     """
     Resolve a potentially complex RSE expression into `copies` single-RSE expressions. Uses `parse_expression()`
     to decompose the expression, then `RSESelector.select_rse()` to pick the target RSEs.

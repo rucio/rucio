@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from rucio.api import permission
 from rucio.core import lifetime_exception
 from rucio.common import exception
@@ -20,9 +22,12 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict
 from rucio.db.sqla.session import stream_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @stream_session
-def list_exceptions(exception_id=None, states=None, vo='def', session=None):
+def list_exceptions(exception_id=None, states=None, vo='def', *, session: "Session"):
     """
     List exceptions to Lifetime Model.
 
@@ -39,7 +44,7 @@ def list_exceptions(exception_id=None, states=None, vo='def', session=None):
 
 
 @transactional_session
-def add_exception(dids, account, pattern, comments, expires_at, vo='def', session=None):
+def add_exception(dids, account, pattern, comments, expires_at, vo='def', *, session: "Session"):
     """
     Add exceptions to Lifetime Model.
 
@@ -74,7 +79,7 @@ def add_exception(dids, account, pattern, comments, expires_at, vo='def', sessio
 
 
 @transactional_session
-def update_exception(exception_id, state, issuer, vo='def', session=None):
+def update_exception(exception_id, state, issuer, vo='def', *, session: "Session"):
     """
     Update exceptions state to Lifetime Model.
 

@@ -86,7 +86,7 @@ def tag_generator(size=8, chars=string.ascii_uppercase):
 
 
 @transactional_session
-def check_dataset_ok_callback(scope, name, rse, rse_id, rule_id, session=None):
+def check_dataset_ok_callback(scope, name, rse, rse_id, rule_id, *, session=None):
     message = {'scope': scope.external,
                'name': name,
                'rse': rse,
@@ -102,7 +102,7 @@ def check_dataset_ok_callback(scope, name, rse, rse_id, rule_id, session=None):
 
 
 @transactional_session
-def check_rule_progress_callback(scope, name, progress, rule_id, session=None):
+def check_rule_progress_callback(scope, name, progress, rule_id, *, session=None):
     message = {'scope': scope.external,
                'name': name,
                'rule_id': rule_id,

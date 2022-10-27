@@ -15,6 +15,7 @@
 
 import json
 import operator
+from typing import TYPE_CHECKING
 
 import psycopg2
 import psycopg2.extras
@@ -24,6 +25,10 @@ from rucio.common import exception
 from rucio.common.types import InternalScope
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
+
+if TYPE_CHECKING:
+    from typing import Optional
+    from sqlalchemy.orm import Session
 
 
 class ExternalPostgresDidMeta(DidMetaPlugin):
@@ -172,7 +177,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         cur.close()
         self.client.commit()
 
-    def get_metadata(self, scope, name, session=None):
+    def get_metadata(self, scope, name, *, session: "Optional[Session]" = None):
         """
         Get data identifier metadata.
 
@@ -193,7 +198,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
 
         return metadata[0]
 
-    def set_metadata(self, scope, name, key, value, recursive=False, session=None):
+    def set_metadata(self, scope, name, key, value, recursive=False, *, session: "Optional[Session]" = None):
         """
         Set single metadata key.
 
@@ -206,7 +211,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         """
         self.set_metadata_bulk(scope=scope, name=name, meta={key: value}, recursive=recursive, session=session)
 
-    def set_metadata_bulk(self, scope, name, meta, recursive=False, session=None):
+    def set_metadata_bulk(self, scope, name, meta, recursive=False, *, session: "Optional[Session]" = None):
         """
         Bulk set metadata keys.
 
@@ -225,7 +230,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         cur.close()
         self.client.commit()
 
-    def delete_metadata(self, scope, name, key, session=None):
+    def delete_metadata(self, scope, name, key, *, session: "Optional[Session]" = None):
         """
         Delete a key from metadata.
 
@@ -242,7 +247,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         self.client.commit()
 
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
-                  offset=None, long=False, recursive=False, ignore_dids=None, session=None):
+                  offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Optional[Session]" = None):
 
         if not ignore_dids:
             ignore_dids = set()
@@ -299,7 +304,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                     ignore_dids.add(did)
                     yield row['name']
 
-    def manages_key(self, key, session=None):
+    def manages_key(self, key, *, session: "Optional[Session]" = None):
         return True
 
     def get_plugin_name(self):
