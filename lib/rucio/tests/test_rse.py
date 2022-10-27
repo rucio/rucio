@@ -1011,7 +1011,7 @@ class TestRSEClient:
             rucio_client.add_protocol(protocol_rse, p)
 
         resp = mgr.get_rse_info(rse=protocol_rse, vo=vo)['protocols']
-        assert((not resp[0]['extended_attributes']['more']['value2']) and resp[0]['extended_attributes']['more']['value1'])
+        assert ((not resp[0]['extended_attributes']['more']['value2']) and resp[0]['extended_attributes']['more']['value1'])
 
     def test_get_protocols_operations_not_supported(self, vo, rucio_client):
         """ RSE (CLIENTS): get protocols for operations of rse (RSEOperationNotSupported)."""
@@ -1259,13 +1259,13 @@ class TestRSEClient:
                 if p['domains']['lan']['read'] != 3:
                     print('MOCKA with unexpected priority')
                     print(prots)
-                    assert(False)
+                    assert False
             if p['scheme'] == 'MOCKC':
                 if p['domains']['lan']['read'] != 1:
                     print('MOCKC with unexpected priority')
                     print(prots)
-                    assert(False)
-        assert(True)
+                    assert False
+        assert True
 
     def test_update_protocols_rse_not_found(self, rucio_client):
         """ RSE (CLIENTS): update all protocols with specific identifier of rse (RSENotFound)."""

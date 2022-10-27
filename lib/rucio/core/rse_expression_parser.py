@@ -119,11 +119,11 @@ def __resolve_term_expression(expression):
     operator = None
     original_expression = expression
 
-    while(True):
+    while True:
         if len(expression) == 0:
             return (left_term, original_expression)
         elif expression[0] == "(":
-            if (left_term is None):
+            if left_term is None:
                 left_term, termexpression = __resolve_term_expression(__extract_term(expression))
                 expression = expression[len(termexpression) + 2:]
                 continue
