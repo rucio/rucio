@@ -28,13 +28,6 @@ if TYPE_CHECKING:
     from typing import Optional
     from sqlalchemy.orm import Session
 
-try:
-    # Python 2: "unicode" is built-in
-    unicode  # noqa
-except NameError:
-    unicode = str
-    basestring = str
-
 
 def has_permission(issuer, action, kwargs, *, session: "Optional[Session]" = None):
     """
@@ -187,7 +180,7 @@ def perm_add_rule(issuer, kwargs, *, session: "Optional[Session]" = None):
     if _is_root(issuer) and repr(kwargs['account']).startswith('sync_'):
         return True
 
-    if isinstance(repr(issuer), basestring) and repr(issuer).startswith('sync_'):  # noqa
+    if isinstance(repr(issuer), str) and repr(issuer).startswith('sync_'):  # noqa
         return True
 
     # Anyone can use _Temp RSEs if a lifetime is set and under a month
