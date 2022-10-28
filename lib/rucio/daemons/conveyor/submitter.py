@@ -64,7 +64,7 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
         filter_transfertool=filter_transfertool,
         transfertools=transfertools,
         older_than=None,
-        request_type=RequestType.TRANSFER,
+        request_type=[RequestType.TRANSFER],
         ignore_availability=ignore_availability,
         logger=logger,
     )
