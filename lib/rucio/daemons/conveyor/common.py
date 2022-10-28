@@ -37,7 +37,7 @@ from rucio.core.topology import Topology
 from rucio.core.transfer import list_transfer_admin_accounts, build_transfer_paths
 from rucio.core.vo import list_vos
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState
+from rucio.db.sqla.constants import RequestState, ReplicaState
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
 
@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 
 
 def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                             failover_schemes=None, filter_transfertool=None, transfertools=None, request_type=RequestType.TRANSFER,
+                             failover_schemes=None, filter_transfertool=None, transfertools=None, request_type=None,
                              ignore_availability=False, logger=logging.log):
     """
     Get next transfers to be submitted; grouped by transfertool which can submit them
@@ -64,7 +64,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
     :param failover_schemes:      Failover schemes.
     :param transfertools:         List of transfertool names which can be used by this submitter
     :param filter_transfertool:   The transfer tool to filter requests on.
-    :param request_type           The type of requests to retrieve (Transfer/Stagein)
+    :param request_type           List of types of requests to retrieve (Transfer/Stagein)
     :param ignore_availability:   Ignore blocklisted RSEs
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:                     Dict: {TransferToolBuilder: <list of transfer paths (possibly multihop) to be submitted>}

@@ -50,7 +50,7 @@ def run_once(bulk, group_bulk, rse_ids, scheme, failover_scheme, transfertool_kw
         schemes=scheme,
         transfertools=[FTS3Transfertool.external_name],
         older_than=None,
-        request_type=RequestType.STAGEIN,
+        request_type=[RequestType.STAGEIN],
         logger=logger,
     )
     total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))

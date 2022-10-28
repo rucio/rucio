@@ -349,7 +349,7 @@ def list_transfer_requests_and_source_replicas(
         activity: "Optional[str]" = None,
         older_than: "Optional[datetime.datetime]" = None,
         rses: "Optional[Sequence[str]]" = None,
-        request_type: RequestType = RequestType.TRANSFER,
+        request_type: "Optional[List[RequestType]]" = None,
         request_state: "Optional[RequestState]" = None,
         required_source_rse_attrs: "Optional[List[str]]" = None,
         ignore_availability: bool = False,
@@ -380,8 +380,12 @@ def list_transfer_requests_and_source_replicas(
     if request_state is None:
         request_state = RequestState.QUEUED
 
+    if request_type is None:
+        request_type = [RequestType.TRANSFER]
+
     sub_requests = select(
         models.Request.id,
+        models.Request.request_type,
         models.Request.rule_id,
         models.Request.scope,
         models.Request.name,
@@ -403,7 +407,7 @@ def list_transfer_requests_and_source_replicas(
         models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle'
     ).where(
         models.Request.state == request_state,
-        models.Request.request_type == request_type
+        models.Request.request_type.in_(request_type)
     ).join(
         models.RSE,
         models.RSE.id == models.Request.dest_rse_id
@@ -451,6 +455,7 @@ def list_transfer_requests_and_source_replicas(
 
     stmt = select(
         sub_requests.c.id,
+        sub_requests.c.request_type,
         sub_requests.c.rule_id,
         sub_requests.c.scope,
         sub_requests.c.name,
@@ -515,7 +520,7 @@ def list_transfer_requests_and_source_replicas(
         )
 
     requests_by_id = {}
-    for (request_id, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, source_rse_id, dest_rse_id, account, retry_count,
+    for (request_id, req_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, source_rse_id, dest_rse_id, account, retry_count,
          priority, transfertool, requested_at, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance_ranking) in session.execute(stmt):
 
         # If we didn't pre-filter using temporary tables on database side, perform the filtering here
@@ -524,7 +529,7 @@ def list_transfer_requests_and_source_replicas(
 
         request = requests_by_id.get(request_id)
         if not request:
-            request = RequestWithSources(id_=request_id, request_type=request_type, rule_id=rule_id, scope=scope, name=name,
+            request = RequestWithSources(id_=request_id, request_type=req_type, rule_id=rule_id, scope=scope, name=name,
                                          md5=md5, adler32=adler32, byte_count=byte_count, activity=activity, attributes=attributes,
                                          previous_attempt_id=previous_attempt_id, dest_rse_data=RseData(id_=dest_rse_id),
                                          account=account, retry_count=retry_count, priority=priority, transfertool=transfertool,
