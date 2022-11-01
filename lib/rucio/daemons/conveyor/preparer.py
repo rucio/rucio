@@ -28,7 +28,7 @@ from rucio.core import transfer as transfer_core
 from rucio.core.request import set_requests_state_if_possible, list_transfer_requests_and_source_replicas
 from rucio.core.transfer import prepare_transfers, list_transfer_admin_accounts, build_transfer_paths
 from rucio.core.topology import Topology
-from rucio.db.sqla.constants import RequestState
+from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
@@ -130,6 +130,7 @@ def run_once(
             worker_number=worker_number,
             limit=bulk,
             request_state=RequestState.PREPARING,
+            request_type=[RequestType.TRANSFER, RequestType.STAGEIN],
             session=session
         )
         ret = build_transfer_paths(
