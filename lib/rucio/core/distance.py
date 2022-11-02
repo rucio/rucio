@@ -95,9 +95,8 @@ def get_distances(src_rse_id=None, dest_rse_id=None, *, session: "Session") -> "
         tmp = query.all()
         if tmp:
             for t in tmp:
-                t2 = dict(t)
+                t2 = t.to_dict()
                 t2['distance'] = t2['agis_distance']
-                t2.pop('_sa_instance_state')
                 distances.append(t2)
         return distances
     except IntegrityError as error:
@@ -190,7 +189,6 @@ def export_distances(vo='def', *, session: "Session"):
             distances[src_id][dst_id] = {}
             distance['distance'] = distance['agis_distance']
             distances[src_id][dst_id] = distance.to_dict()
-            del distances[src_id][dst_id]['_sa_instance_state']
         return distances
     except IntegrityError as error:
         raise exception.RucioException(error.args)

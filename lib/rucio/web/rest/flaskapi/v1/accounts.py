@@ -347,8 +347,6 @@ class AccountParameter(ErrorHandlingMethodView):
             if isinstance(value, datetime):
                 accdict[key] = value.strftime('%Y-%m-%dT%H:%M:%S')
 
-        del accdict['_sa_instance_state']
-
         return Response(render_json(**accdict), content_type="application/json")
 
     def put(self, account):

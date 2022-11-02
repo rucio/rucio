@@ -680,8 +680,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
         if query_result:
             if mode_all:
                 for res in query_result:
-                    res_dict = dict(res)
-                    res_dict.pop('_sa_instance_state')
+                    res_dict = res.to_dict()
                     res_dict['request_id'] = res_dict['id']
                     res_dict['attributes'] = json.loads(str(res_dict['attributes'] or '{}'))
 
@@ -837,8 +836,7 @@ def get_request(request_id, *, session: "Session"):
         if not tmp:
             return
         else:
-            tmp = dict(tmp)
-            tmp.pop('_sa_instance_state')
+            tmp = tmp.to_dict()
             tmp['attributes'] = json.loads(str(tmp['attributes'] or '{}'))
             return tmp
     except IntegrityError as error:
@@ -867,8 +865,7 @@ def get_requests_by_transfer(external_host, transfer_id, *, session: "Session"):
         if tmp:
             result = []
             for t in tmp:
-                t2 = dict(t)
-                t2.pop('_sa_instance_state')
+                t2 = t.to_dict()
                 t2['request_id'] = t2['id']
                 t2['attributes'] = json.loads(str(t2['attributes'] or '{}'))
                 result.append(t2)
@@ -909,8 +906,7 @@ def get_request_by_did(scope, name, rse_id, request_type=None, *, session: "Sess
         if not tmp:
             raise RequestNotFound(f'No request found for DID {scope}:{name} at RSE {rse_id}')
         else:
-            tmp = dict(tmp)
-            tmp.pop('_sa_instance_state')
+            tmp = tmp.to_dict()
 
             tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
             tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
@@ -952,8 +948,7 @@ def get_request_history_by_did(scope, name, rse_id, request_type=None, *, sessio
         if not tmp:
             raise RequestNotFound(f'No request found for DID {scope}:{name} at RSE {rse_id}')
         else:
-            tmp = dict(tmp)
-            tmp.pop('_sa_instance_state')
+            tmp = tmp.to_dict()
 
             tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
             tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
@@ -1152,8 +1147,7 @@ def get_sources(request_id, rse_id=None, *, session: "Session"):
         else:
             result = []
             for t in tmp:
-                t2 = dict(t)
-                t2.pop('_sa_instance_state')
+                t2 = t.to_dict()
                 result.append(t2)
 
             return result

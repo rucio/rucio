@@ -3197,7 +3197,6 @@ def resurrect(dids, *, session: "Session"):
         kargs = del_did.to_dict()
         if kargs['expired_at']:
             kargs['expired_at'] = None
-        kargs.pop("_sa_instance_state", None)
 
         stmt = delete(
             models.DeletedDataIdentifier

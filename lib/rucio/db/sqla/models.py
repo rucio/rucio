@@ -273,7 +273,9 @@ class ModelBase(object):
         return list(self.__dict__.items())
 
     def to_dict(self):
-        return self.__dict__.copy()
+        dictionary = self.__dict__.copy()
+        dictionary.pop('_sa_instance_state')
+        return dictionary
 
     next = __next__
 
