@@ -19,6 +19,7 @@ import logging
 import os
 import re
 import subprocess
+from typing import Optional
 import urllib.parse as urlparse
 
 from threading import Timer
@@ -420,7 +421,7 @@ class Default(protocol.RSEProtocol):
         if ctx:
             ctx.cancel()
 
-    def __gfal2_copy(self, src, dest, src_spacetoken=None, dest_spacetoken=None, transfer_timeout=None):
+    def __gfal2_copy(self, src, dest, src_spacetoken=Optional[str], dest_spacetoken=Optional[str], transfer_timeout=Optional[int]):
         """
         Uses gfal2 to copy file from src to dest.
 
@@ -445,13 +446,8 @@ class Default(protocol.RSEProtocol):
             params.timeout = int(transfer_timeout)
             watchdog = Timer(params.timeout + 60, self.__gfal2_cancel)
 
-        if not (self.renaming and dest[:5] == 'https'):
-            dir_name = os.path.dirname(dest)
-            # This function will be removed soon. gfal2 will create parent dir automatically.
-            try:
-                ctx.mkdir_rec(str(dir_name), 0o775)
-            except:
-                pass
+        if not (self.renaming and dest.startswith('https')):
+            params.create_parent = True
 
         if not self.renaming:
             params.strict_copy = True
