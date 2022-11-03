@@ -364,7 +364,7 @@ class BaseClient(object):
         :param get_token: (optional) if it is called from a _get_token function.
         :param cert: (optional) if String, path to the SSL client cert file (.pem). If Tuple, (cert, key) pair.
         :param auth: (optional) auth tuple to enable Basic/Digest/Custom HTTP Auth.
-        :param verify: (optional) either a boolean, in which case it controls whether we verify the server’s TLS
+        :param verify: (optional) either a boolean, in which case it controls whether we verify the server's TLS
                        certificate, or a string, in which case it must be a path to a CA bundle to use.
         :return: the HTTP return body.
         """
