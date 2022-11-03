@@ -189,19 +189,19 @@ def __split_rule_select_rses(
             # Now including the blocklisted sites
             blocklisted_rse_id = []
             monitor.record_counter(
-               name="transmogrifier.addnewrule.errortype.{exception}",
-               labels={"exception": str(error.__class__.__name__)},
+                name="transmogrifier.addnewrule.errortype.{exception}",
+                labels={"exception": str(error.__class__.__name__)},
             )
             wont_reevaluate = True
         except Exception as error:
-           logger(
-               logging.ERROR,
-               "Problem resolving RSE expression %s : %s"
-               % (
-                   rse_expression,
-                   str(error),
-                 )
-               )
+            logger(
+                logging.ERROR,
+                "Problem resolving RSE expression %s : %s"
+                % (
+                    rse_expression,
+                    str(error),
+                )
+            )
     if len(preferred_rses) - len(preferred_unmatched) >= copies:
         create_rule = False
     return selected_rses, create_rule, wont_reevaluate
@@ -375,7 +375,7 @@ def __is_matching_subscription(subscription, did, metadata):
     return True
 
 
-def select_algorithm(algorithm: str, rule_ids: list, params: dict) -> dict:
+def select_algorithm(algorithm: str, rule_ids: list, params: dict, logger: "Callable") -> dict:
     """
     Method used in case of chained subscriptions
 
@@ -385,15 +385,15 @@ def select_algorithm(algorithm: str, rule_ids: list, params: dict) -> dict:
     :param params: Dictionary of rules parameters to be used by the algorithm
     """
     selected_rses = {}
-    if algorithm == "associated_site":
-        for rule_id in rule_ids:
-            rule = get_rule(rule_id)
-            logging.debug("In select_algorithm, %s", str(rule))
-            rse = rule["rse_expression"]
-            vo = rule["account"].vo
-            if rse_exists(rse, vo=vo):
-                rse_id = get_rse_id(rse, vo=vo)
-                rse_attributes = list_rse_attributes(rse_id)
+    for rule_id in rule_ids:
+        rule = get_rule(rule_id)
+        logging.debug("In select_algorithm, %s", str(rule))
+        rse = rule["rse_expression"]
+        vo = rule["account"].vo
+        if rse_exists(rse, vo=vo):
+            rse_id = get_rse_id(rse, vo=vo)
+            rse_attributes = list_rse_attributes(rse_id)
+            if algorithm == "associated_site":
                 associated_sites = rse_attributes.get("associated_sites", None)
                 associated_site_idx = params.get("associated_site_idx", None)
                 if not associated_site_idx:
@@ -411,14 +411,40 @@ def select_algorithm(algorithm: str, rule_ids: list, params: dict) -> dict:
                         "source_replica_expression": rse,
                         "weight": None,
                     }
-            else:
-                raise SubscriptionWrongParameter(
-                    "Algorithm associated_site only works with split_rule"
+            if algorithm == "exclude_site":
+                site = rse_attributes.get("site", None)
+                rse_expression = params['rse_expression'] + '\\site=%s' % site
+                (
+                    selected_rses,
+                    create_rule,
+                    wont_reevaluate,
+                ) = __split_rule_select_rses(
+                    subscription_id=params["subscription_id"],
+                    subscription_name=params["subscription_name"],
+                    scope=rule["scope"],
+                    name=rule["name"],
+                    account=rule.get("account"),
+                    weight=rule.get("weight"),
+                    rse_expression=rse_expression,
+                    copies=rule.get('copies'),
+                    blocklisted_rse_id=params['blocklisted_rse_id'],
+                    logger=logger,
                 )
-            if rule["copies"] != 1:
-                raise SubscriptionWrongParameter(
-                    "Algorithm associated_site only works with split_rule"
-                )
+                dict_selected_rses = {}
+                for entry in selected_rses:
+                    dict_selected_rses[entry] = {
+                        "source_replica_expression": rse,
+                        "weight": None,
+                    }
+                selected_rses = dict_selected_rses
+        else:
+            raise SubscriptionWrongParameter(
+                "Algorithm %s only works with split_rule" % algorithm
+            )
+        if rule["copies"] != 1:
+            raise SubscriptionWrongParameter(
+                "Algorithm %s only works with split_rule" % algorithm
+            )
     return selected_rses
 
 
@@ -511,6 +537,10 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     if chained_idx:
                         #  In the case of chained subscription, don't use rseselector but use the rses returned by the algorithm
                         params = {}
+                        params['rse_expression'] = rule_dict.get("rse_expression")
+                        params['subscription_id'] = subscription["id"]
+                        params['subscription_name'] = subscription["name"]
+                        params['blocklisted_rse_id'] = blocklisted_rse_id
                         if rule_dict.get("associated_site_idx", None):
                             params["associated_site_idx"] = rule_dict.get(
                                 "associated_site_idx", None
@@ -522,7 +552,10 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                         )
                         algorithm = rule_dict.get("algorithm", None)
                         selected_rses = select_algorithm(
-                            algorithm, created_rules[chained_idx], params
+                            algorithm,
+                            created_rules[chained_idx],
+                            params,
+                            logger
                         )
                         copies = 1
                     elif split_rule:

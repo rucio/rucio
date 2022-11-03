@@ -439,8 +439,8 @@ class TestSubscriptionClient:
 
 @pytest.mark.noparallel(reason='uses daemon')
 class TestDaemon:
-    def test_run_transmogrifier_chained_subscription(self, rse_factory, vo, rucio_client, root_account):
-        """ SUBSCRIPTION (DAEMON): Test the transmogrifier with chained subscriptions """
+    def test_run_transmogrifier_chained_subscription_associated_sites_algo(self, rse_factory, vo, rucio_client, root_account):
+        """ SUBSCRIPTION (DAEMON): Test the transmogrifier with chained subscriptions and associated_sites algorithm"""
         activity = get_schema_value('ACTIVITY')['enum'][0]
         rse1, rse1_id = rse_factory.make_mock_rse()
         rse2, rse2_id = rse_factory.make_mock_rse()
@@ -735,3 +735,67 @@ class TestDaemon:
         rule_max_size = [rule for rule in rucio_client.list_did_rules(scope=mock_scope.external, name=dsn[1])]
         assert len(rule_max_size) == 1
         assert rule_max_size[0]['subscription_id'] == str(subid1)
+
+    def test_run_transmogrifier_chained_subscription_exclude_site_algo(self, rse_factory, vo, rucio_client, root_account):
+        """ SUBSCRIPTION (DAEMON): Test the transmogrifier with chained subscriptions and exclude_site algorithm"""
+        activity = get_schema_value('ACTIVITY')['enum'][0]
+        tag_test = uuid()[:8]
+        dict_rse = {}
+        sites = [uuid() for _ in range(3)]
+        for cnt in range(6):
+            rse, rse_id = rse_factory.make_mock_rse()
+            site = sites[cnt // 2]
+            if cnt % 2:
+                rse_type = 'disk'
+            else:
+                rse_type = 'tape'
+            add_rse_attribute(rse_id=rse_id, key='tag', value=tag_test)
+            add_rse_attribute(rse_id=rse_id, key=rse_type, value='True')
+            add_rse_attribute(rse_id=rse_id, key='site', value=site)
+            dict_rse[rse] = {'rse_id': rse_id, 'rse_type': rse_type, 'site': site}
+
+        tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
+        add_scope(tmp_scope, root_account)
+        subscription_name = uuid()
+        dsn_prefix = did_name_generator('dataset')
+
+        rule1 = {'rse_expression': 'tag=%s&disk=True' % tag_test,
+                 'copies': 1,
+                 'activity': activity}
+        rule2 = {'rse_expression': 'tag=%s&tape=True' % tag_test,
+                 'copies': 1,
+                 'activity': activity,
+                 'algorithm': 'exclude_site',
+                 'chained_idx': 1,
+                 'associated_site_idx': 2}
+
+        subid = rucio_client.add_subscription(name=subscription_name,
+                                              account=root_account.external,
+                                              filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
+                                              replication_rules=[rule1, rule2],
+                                              lifetime=None,
+                                              retroactive=False,
+                                              dry_run=False,
+                                              comments='Test exclude_site algorithm',
+                                              priority=1)
+
+        # Run a few times to check the site is always properly chosen
+        for _ in range(5):
+            dsn = '%sdataset-%s' % (dsn_prefix, uuid())
+            add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+            run(threads=1, bulk=1000000, once=True)
+            rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
+            if rules[0]['source_replica_expression']:
+                rules.reverse()
+            print(rules, dict_rse)
+            assert len(rules) == 2
+            chosen_rse = rules[0]['rse_expression']
+            chosen_site = dict_rse[chosen_rse]['site']
+            chosen_rse_type = dict_rse[chosen_rse]['rse_type']
+            assert chosen_rse_type == 'disk'
+
+            chained_rse = rules[1]['rse_expression']
+            chained_site = dict_rse[chained_rse]['site']
+            chained_rse_type = dict_rse[chained_rse]['rse_type']
+            assert chained_rse_type == 'tape'
+            assert chained_site != chosen_site
