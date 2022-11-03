@@ -13,4 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ALEMBIC_REVISION = '83f991c63a93'  # the current alembic head revision
+ALEMBIC_REVISION = '13d4f70c66a9'  # the current alembic head revision

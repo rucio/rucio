@@ -22,12 +22,34 @@ from rucio.common.utils import generate_uuid
 from rucio.core.did import attach_dids, add_did
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replica
-from rucio.core.request import queue_requests, get_request_by_did, release_waiting_requests_per_deadline, release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo, release_waiting_requests_per_free_volume
-from rucio.core.rse import set_rse_transfer_limits
+from rucio.core.request import (queue_requests, get_request_by_did, release_waiting_requests_per_deadline,
+                                release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo,
+                                release_waiting_requests_per_free_volume, delete_transfer_limit)
 from rucio.daemons.conveyor import throttler, preparer
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, RequestType, RequestState
+from rucio.db.sqla.constants import DIDType, RequestType, RequestState, TransferLimitDirection
 from rucio.tests.common import skiplimitedsql
+
+
+@pytest.fixture
+def transfer_limit_factory(db_session):
+    """
+    Thin wrapper around request_core.set_transfer_limit, which cleans up
+    the created limits at the end of the test.
+    """
+    created_limits = []
+
+    from rucio.core import request as request_core
+
+    def wrapped_fnc(*args, **kwargs):
+        limit = request_core.set_transfer_limit(*args, **kwargs)
+        created_limits.append(limit)
+        return limit
+
+    yield wrapped_fnc
+
+    for limit_id in created_limits:
+        request_core.delete_transfer_limit_by_id(limit_id=limit_id, session=db_session)
 
 
 @pytest.fixture
@@ -139,12 +161,12 @@ class TestSimpleLimits:
             ]
         )
 
-    def test_dest_all_act_grouped_fifo_all(self, mock_scope, db_session, root_account, connected_rse_pair):
+    def test_dest_all_act_grouped_fifo_all(self, mock_scope, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ THROTTLER (CLIENTS): throttler release all waiting requests (DEST - ALL ACT - GFIFO). """
         source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
 
         # no threshold when releasing -> release all waiting requests
-        set_rse_transfer_limits(dest_rse_id, max_transfers=1, activity=self.all_activities, strategy='grouped_fifo', session=db_session)
+        transfer_limit_factory(dest_rse, max_transfers=4, activity=self.all_activities, strategy='grouped_fifo', session=db_session)
 
         name1, name2, name3, name4 = self._add_replicas_and_request(source_rse_id, dest_rse_id, scope=mock_scope, account=root_account, session=db_session)
         dataset_1_name = generate_uuid()
@@ -164,14 +186,7 @@ class TestSimpleLimits:
         request_4 = get_request_by_did(mock_scope, name4, dest_rse_id)
         assert request_4['state'] == RequestState.WAITING
 
-        db_session.execute(
-            delete(
-                models.RSETransferLimit
-            ).where(
-                models.RSETransferLimit.rse_id.in_([source_rse_id, dest_rse_id])
-            )
-        )
-        db_session.commit()
+        delete_transfer_limit(dest_rse, activity=self.all_activities, session=db_session)
 
         throttler.run_once(logger=print, session=db_session)
         db_session.commit()
@@ -185,13 +200,13 @@ class TestSimpleLimits:
         request_4 = get_request_by_did(mock_scope, name4, dest_rse_id)
         assert request_4['state'] == RequestState.QUEUED
 
-    def test_dest_all_act_grouped_fifo_nothing(self, mock_scope, db_session, root_account, connected_rse_pair):
+    def test_dest_all_act_grouped_fifo_nothing(self, mock_scope, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ THROTTLER (CLIENTS): throttler release nothing (DEST - ALL ACT - GFIFO). """
         source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
 
         # four waiting requests and one active requests but threshold is 1
         # more than 80% of the transfer limit are already used -> release nothing
-        set_rse_transfer_limits(dest_rse_id, max_transfers=1, activity=self.all_activities, strategy='grouped_fifo', session=db_session)
+        transfer_limit_factory(dest_rse, max_transfers=1, activity=self.all_activities, strategy='grouped_fifo', session=db_session)
         request = models.Request(dest_rse_id=dest_rse_id, bytes=2, activity=self.user_activity, state=RequestState.SUBMITTED)
         request.save(session=db_session)
         name1, name2, name3, name4 = self._add_replicas_and_request(source_rse_id, dest_rse_id, scope=mock_scope, account=root_account, session=db_session)
@@ -214,11 +229,11 @@ class TestSimpleLimits:
         assert request_4['state'] == RequestState.WAITING
 
     @skiplimitedsql
-    def test_dest_all_act_grouped_fifo_subset(self, mock_scope, db_session, root_account, connected_rse_pair):
+    def test_dest_all_act_grouped_fifo_subset(self, mock_scope, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (DEST - ALL ACT - GFIFO). """
         source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
 
-        set_rse_transfer_limits(dest_rse_id, self.all_activities, volume=10, max_transfers=1, deadline=1, strategy='grouped_fifo', session=db_session)
+        transfer_limit_factory(dest_rse, self.all_activities, volume=10, max_transfers=1, deadline=1, strategy='grouped_fifo', session=db_session)
         name1, name2, name3, name4 = self._add_replicas_and_request(source_rse_id, dest_rse_id, scope=mock_scope, account=root_account, session=db_session)
         dataset_1_name = generate_uuid()
         add_did(mock_scope, dataset_1_name, DIDType.DATASET, root_account, session=db_session)
@@ -243,7 +258,7 @@ class TestSimpleLimits:
         assert request_4['state'] == RequestState.WAITING
         # deadline check should not work for destination RSEs - only for reading
 
-    def test_dest_per_act_fifo_release_all(self, mock_scope, db_session, root_account, connected_rse_pair):
+    def test_dest_per_act_fifo_release_all(self, mock_scope, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ THROTTLER (CLIENTS): throttler release all waiting requests (DEST - ACT - FIFO). """
         if db_session.bind.dialect.name == 'mysql':
             return True
@@ -251,7 +266,7 @@ class TestSimpleLimits:
         source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
 
         # all activities limit applies to each activity -> release only one transfer
-        set_rse_transfer_limits(dest_rse_id, max_transfers=1, activity=self.all_activities, strategy='fifo', session=db_session)
+        transfer_limit_factory(dest_rse, max_transfers=1, activity=self.all_activities, strategy='fifo', session=db_session)
         name1, name2 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -270,8 +285,8 @@ class TestSimpleLimits:
 
         # active transfers + waiting requests are less than the threshold -> release all waiting requests
         _delete_requests(mock_scope, [name1, name2], session=db_session)
-        set_rse_transfer_limits(dest_rse_id, activity=self.user_activity, max_transfers=3, strategy='fifo', session=db_session)
-        set_rse_transfer_limits(dest_rse_id, max_transfers=3, activity=self.all_activities, strategy='fifo', session=db_session)
+        transfer_limit_factory(dest_rse, activity=self.user_activity, max_transfers=3, strategy='fifo', session=db_session)
+        transfer_limit_factory(dest_rse, activity=self.all_activities, max_transfers=3, strategy='fifo', session=db_session)
         request = models.Request(dest_rse_id=dest_rse_id, activity=self.user_activity, state=RequestState.SUBMITTED)
         request.save(session=db_session)
         name1, = _add_test_replicas_and_request(
@@ -287,7 +302,7 @@ class TestSimpleLimits:
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
 
-    def test_dest_per_act_fifo_release_nothing(self, mock_scope, db_session, root_account, connected_rse_pair):
+    def test_dest_per_act_fifo_release_nothing(self, mock_scope, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ THROTTLER (CLIENTS): throttler release nothing (DEST - ACT - FIFO). """
         if db_session.bind.dialect.name == 'mysql':
             return True
@@ -296,7 +311,7 @@ class TestSimpleLimits:
 
         # two waiting requests and one active requests but threshold is 1
         # more than 80% of the transfer limit are already used -> release nothing
-        set_rse_transfer_limits(dest_rse_id, max_transfers=1, activity=self.user_activity, strategy='fifo', session=db_session)
+        transfer_limit_factory(dest_rse, max_transfers=1, activity=self.user_activity, strategy='fifo', session=db_session)
         request = models.Request(dest_rse_id=dest_rse_id, bytes=2, activity=self.user_activity, state=RequestState.SUBMITTED)
         request.save(session=db_session)
         name1, name2 = _add_test_replicas_and_request(
@@ -315,7 +330,7 @@ class TestSimpleLimits:
         request2 = get_request_by_did(mock_scope, name2, dest_rse_id)
         assert request2['state'] == RequestState.WAITING
 
-    def test_dest_per_act_fifo_release_subset(self, mock_scope, db_session, root_account, connected_rse_pair):
+    def test_dest_per_act_fifo_release_subset(self, mock_scope, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (DEST - ACT - FIFO). """
         if db_session.bind.dialect.name == 'mysql':
             return True
@@ -323,7 +338,7 @@ class TestSimpleLimits:
         source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
 
         # two waiting requests and no active requests but threshold is 1 -> release only 1 request
-        set_rse_transfer_limits(dest_rse_id, activity=self.user_activity, max_transfers=1, strategy='fifo', session=db_session)
+        transfer_limit_factory(dest_rse, activity=self.user_activity, max_transfers=1, strategy='fifo', session=db_session)
         name1, name2 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -341,13 +356,13 @@ class TestSimpleLimits:
         request2 = get_request_by_did(mock_scope, name2, dest_rse_id)
         assert request2['state'] == RequestState.WAITING
 
-    def test_source_per_act_fifo_release_subset(self, rse_factory, mock_scope, vo, root_account, db_session):
+    def test_source_per_act_fifo_release_subset(self, rse_factory, mock_scope, vo, root_account, db_session, transfer_limit_factory):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (SRC - ACT - FIFO). """
 
         if db_session.bind.dialect.name == 'mysql':
             return True
 
-        _, source_rse_id = rse_factory.make_mock_rse()
+        source_rse, source_rse_id = rse_factory.make_mock_rse()
         _, dest_rse_id = rse_factory.make_mock_rse()
         _, dest_rse_id2 = rse_factory.make_mock_rse()
         _, dest_rse_id3 = rse_factory.make_mock_rse()
@@ -355,8 +370,8 @@ class TestSimpleLimits:
             add_distance(source_rse_id, rse_id, ranking=10)
         # two waiting requests and no active requests but threshold is 1 for one activity
         # one waiting request and no active requests but threshold is 0 for other activity -> release only 1 request for one activity
-        set_rse_transfer_limits(source_rse_id, activity=self.user_activity, max_transfers=1, strategy='fifo', direction='source')
-        set_rse_transfer_limits(source_rse_id, activity=self.user_activity2, max_transfers=0, strategy='fifo', direction='source')
+        transfer_limit_factory(source_rse, activity=self.user_activity, max_transfers=1, strategy='fifo', direction=TransferLimitDirection.SOURCE)
+        transfer_limit_factory(source_rse, activity=self.user_activity2, max_transfers=0, strategy='fifo', direction=TransferLimitDirection.SOURCE)
         name1, name2, name3 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -390,7 +405,7 @@ class TestSimpleLimits:
         request3 = get_request_by_did(mock_scope, name3, dest_rse_id3)
         assert request3['state'] == RequestState.WAITING
 
-    def test_source_all_act_fifo_release_subset(self, mock_scope, db_session, root_account, connected_rse_pair):
+    def test_source_all_act_fifo_release_subset(self, mock_scope, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (SRC - ALL ACT - FIFO). """
         if db_session.bind.dialect.name == 'mysql':
             return True
@@ -398,7 +413,7 @@ class TestSimpleLimits:
         source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
 
         # two waiting requests and no active requests but threshold is 1 -> release only 1 request
-        set_rse_transfer_limits(source_rse_id, activity=self.all_activities, max_transfers=1, strategy='fifo', direction='source', session=db_session)
+        transfer_limit_factory(source_rse, activity=self.all_activities, max_transfers=1, strategy='fifo', direction=TransferLimitDirection.SOURCE, session=db_session)
         name1, name2 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -415,7 +430,7 @@ class TestSimpleLimits:
         request2 = get_request_by_did(mock_scope, name2, dest_rse_id)
         assert request2['state'] == RequestState.WAITING
 
-    def test_dest_all_act_fifo_release_subset(self, rse_factory, mock_scope, db_session, root_account, connected_rse_pair):
+    def test_dest_all_act_fifo_release_subset(self, rse_factory, mock_scope, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (DEST - ALL ACT - FIFO). """
         if db_session.bind.dialect.name == 'mysql':
             return True
@@ -423,15 +438,15 @@ class TestSimpleLimits:
         source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
 
         _, source_rse_id2 = rse_factory.make_mock_rse()
-        _, dest_rse_id2 = rse_factory.make_mock_rse()
+        dest_rse2, dest_rse_id2 = rse_factory.make_mock_rse()
         add_distance(source_rse_id, dest_rse_id2, ranking=10)
         add_distance(source_rse_id2, dest_rse_id, ranking=10)
         add_distance(source_rse_id2, dest_rse_id2, ranking=10)
 
         # two waiting requests and no active requests but threshold 1 for one dest RSE
         # one waiting request and no active requests but threshold 0 for another dest RSE -> release only 1 request on one dest RSE
-        set_rse_transfer_limits(dest_rse_id, activity=self.all_activities, max_transfers=1, strategy='fifo', session=db_session)
-        set_rse_transfer_limits(dest_rse_id2, activity=self.all_activities, max_transfers=0, strategy='fifo', session=db_session)
+        transfer_limit_factory(dest_rse, activity=self.all_activities, max_transfers=1, strategy='fifo', session=db_session)
+        transfer_limit_factory(dest_rse2, activity=self.all_activities, max_transfers=0, strategy='fifo', session=db_session)
         name1, name2, name3 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -467,7 +482,7 @@ class TestSimpleLimits:
         assert request3['state'] == RequestState.WAITING
 
     @skiplimitedsql
-    def test_source_all_act_grouped_fifo_subset(self, rse_factory, mock_scope, db_session, root_account, connected_rse_pair):
+    def test_source_all_act_grouped_fifo_subset(self, rse_factory, mock_scope, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (SRC - ALL ACT - GFIFO). """
         if db_session.bind.dialect.name == 'mysql':
             return True
@@ -477,7 +492,7 @@ class TestSimpleLimits:
         _, dest_rse_id2 = rse_factory.make_mock_rse()
         add_distance(source_rse_id, dest_rse_id2, ranking=10)
 
-        set_rse_transfer_limits(source_rse_id, self.all_activities, volume=10, max_transfers=1, deadline=0, direction='source', strategy='grouped_fifo', session=db_session)
+        transfer_limit_factory(source_rse, self.all_activities, volume=10, max_transfers=1, deadline=0, direction=TransferLimitDirection.SOURCE, strategy='grouped_fifo', session=db_session)
         name1, name2, name3, name4 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -546,25 +561,25 @@ class TestOverlappingLimits:
     user_activity3 = 'User Subscription3'
     all_activities = 'all_activities'
 
-    def test_source_dest_mixed_act(self, rse_factory, mock_scope, vo, root_account, db_session):
+    def test_source_dest_mixed_act(self, rse_factory, mock_scope, vo, root_account, db_session, transfer_limit_factory):
         """
         """
 
         if db_session.bind.dialect.name == 'mysql':
             return True
 
-        _, source_rse_id = rse_factory.make_mock_rse()
-        _, dest_rse_id = rse_factory.make_mock_rse()
+        source_rse, source_rse_id = rse_factory.make_mock_rse()
+        dest_rse, dest_rse_id = rse_factory.make_mock_rse()
         _, dest_rse_id2 = rse_factory.make_mock_rse()
         _, dest_rse_id3 = rse_factory.make_mock_rse()
         for rse_id in (dest_rse_id, dest_rse_id2, dest_rse_id3):
             add_distance(source_rse_id, rse_id, ranking=10)
         # two waiting requests and no active requests but threshold is 1 for one activity
         # one waiting request and no active requests but threshold is 0 for other activity -> release only 1 request for one activity
-        set_rse_transfer_limits(source_rse_id, activity=self.user_activity, max_transfers=1, strategy='fifo', direction='source')
-        set_rse_transfer_limits(source_rse_id, activity=self.all_activities, max_transfers=3, strategy='fifo', direction='source')
-        set_rse_transfer_limits(dest_rse_id, activity=self.user_activity2, max_transfers=1, strategy='fifo', direction='destination')
-        set_rse_transfer_limits(dest_rse_id, activity=self.all_activities, max_transfers=4, strategy='fifo', direction='destination')
+        transfer_limit_factory(source_rse, activity=self.user_activity, max_transfers=1, strategy='fifo', direction=TransferLimitDirection.SOURCE)
+        transfer_limit_factory(source_rse, activity=self.all_activities, max_transfers=3, strategy='fifo', direction=TransferLimitDirection.SOURCE)
+        transfer_limit_factory(dest_rse, activity=self.user_activity2, max_transfers=1, strategy='fifo', direction=TransferLimitDirection.DESTINATION)
+        transfer_limit_factory(dest_rse, activity=self.all_activities, max_transfers=4, strategy='fifo', direction=TransferLimitDirection.DESTINATION)
         name1, name2, name3, name4, name5 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -625,7 +640,7 @@ class TestRequestCoreRelease:
     all_activities = 'all_activities'
 
     @skiplimitedsql
-    def test_release_waiting_requests_per_free_volume(self, mock_scope, db_session, root_account, connected_rse_pair):
+    def test_release_waiting_requests_per_free_volume(self, mock_scope, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ REQUEST (CORE): release waiting requests that fit grouped in available volume."""
         # release unattached requests that fit in available volume with respect to already submitted transfers
 
@@ -634,8 +649,8 @@ class TestRequestCoreRelease:
         dummy_request = models.Request(dest_rse_id=dest_rse_id, bytes=2, activity=self.all_activities, state=RequestState.SUBMITTED)
         dummy_request.save(session=db_session)
         volume = 10
-        set_rse_transfer_limits(dest_rse_id, self.user_activity, max_transfers=1, session=db_session)
-        set_rse_transfer_limits(dest_rse_id, self.all_activities, volume=volume, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.user_activity, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.all_activities, volume=volume, max_transfers=1, session=db_session)
         name1, name2, name3 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -675,7 +690,7 @@ class TestRequestCoreRelease:
         dummy_request = models.Request(dest_rse_id=dest_rse_id, bytes=2, activity=self.all_activities, state=RequestState.SUBMITTED)
         dummy_request.save(session=db_session)
         volume = 10
-        set_rse_transfer_limits(dest_rse_id, self.all_activities, volume=volume, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.all_activities, volume=volume, max_transfers=1, session=db_session)
         name1, name2, name3, name4 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -725,7 +740,7 @@ class TestRequestCoreRelease:
         # release requests with no available volume -> release nothing
         _delete_requests(mock_scope, [name1, name2, name3, name4], ids=[dummy_request['id']], session=db_session)
         volume = 0
-        set_rse_transfer_limits(dest_rse_id, self.all_activities, volume=volume, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.all_activities, volume=volume, max_transfers=1, session=db_session)
         name1, = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -740,14 +755,14 @@ class TestRequestCoreRelease:
         assert request['state'] == RequestState.WAITING
 
     @skiplimitedsql
-    def test_release_waiting_requests_grouped_fifo(self, mock_scope, db_session, root_account, connected_rse_pair):
+    def test_release_waiting_requests_grouped_fifo(self, mock_scope, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ REQUEST (CORE): release waiting requests based on grouped FIFO. """
 
         source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
 
         # set volume and deadline to 0 to check first without releasing extra requests
-        set_rse_transfer_limits(dest_rse_id, self.user_activity, max_transfers=1, session=db_session)
-        set_rse_transfer_limits(dest_rse_id, self.all_activities, volume=0, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.user_activity, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.all_activities, volume=0, max_transfers=1, session=db_session)
 
         # one request with an unattached DID -> one request should be released
         name, = _add_test_replicas_and_request(
@@ -829,7 +844,7 @@ class TestRequestCoreRelease:
         add_did(mock_scope, dataset_1_name, DIDType.DATASET, root_account, session=db_session)
         attach_dids(mock_scope, dataset_1_name, [{'name': name1, 'scope': mock_scope}], root_account, session=db_session)
         attach_dids(mock_scope, dataset_1_name, [{'name': name2, 'scope': mock_scope}], root_account, session=db_session)
-        set_rse_transfer_limits(dest_rse_id, self.all_activities, volume=10, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.all_activities, volume=10, max_transfers=1, session=db_session)
 
         preparer.run_once(session=db_session, logger=print)
         db_session.commit()
@@ -865,7 +880,7 @@ class TestRequestCoreRelease:
         add_did(mock_scope, dataset_1_name, DIDType.DATASET, root_account, session=db_session)
         attach_dids(mock_scope, dataset_1_name, [{'name': name1, 'scope': mock_scope}], root_account, session=db_session)
         attach_dids(mock_scope, dataset_1_name, [{'name': name2, 'scope': mock_scope}], root_account, session=db_session)
-        set_rse_transfer_limits(dest_rse_id, self.all_activities, volume=5, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.all_activities, volume=5, max_transfers=1, session=db_session)
         preparer.run_once(session=db_session, logger=print)
         db_session.commit()
         release_waiting_requests_grouped_fifo(dest_rse_id, count=1, deadline=0, volume=5, session=db_session)
@@ -901,15 +916,15 @@ class TestRequestCoreRelease:
         request = get_request_by_did(mock_scope, name2, dest_rse_id, session=db_session)
         assert request['state'] == RequestState.WAITING
 
-    def test_release_waiting_requests_fifo(self, mock_scope, jdoe_account, db_session, root_account, connected_rse_pair):
+    def test_release_waiting_requests_fifo(self, mock_scope, jdoe_account, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ REQUEST (CORE): release waiting requests based on FIFO. """
         source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
 
         # without account and activity check
         # two requests -> release one request -> request with oldest requested_at date should be released
-        set_rse_transfer_limits(dest_rse_id, self.user_activity, max_transfers=1, session=db_session)
-        set_rse_transfer_limits(dest_rse_id, self.all_activities, max_transfers=1, session=db_session)
-        set_rse_transfer_limits(dest_rse_id, 'ignore', max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.user_activity, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.all_activities, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, 'ignore', max_transfers=1, session=db_session)
         name1, name2 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -964,12 +979,12 @@ class TestRequestCoreRelease:
         request = get_request_by_did(mock_scope, name4, dest_rse_id, session=db_session)
         assert request['state'] == RequestState.QUEUED
 
-    def test_release_waiting_requests_all(self, mock_scope, db_session, root_account, connected_rse_pair):
+    def test_release_waiting_requests_all(self, mock_scope, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ REQUEST (CORE): release all waiting requests. """
         source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
 
-        set_rse_transfer_limits(dest_rse_id, self.user_activity, max_transfers=1, session=db_session)
-        set_rse_transfer_limits(dest_rse_id, self.all_activities, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.user_activity, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.all_activities, max_transfers=1, session=db_session)
         name1, name2 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -986,13 +1001,13 @@ class TestRequestCoreRelease:
         assert request['state'] == RequestState.QUEUED
 
     @skiplimitedsql
-    def test_release_waiting_requests_per_deadline(self, mock_scope, db_session, root_account, connected_rse_pair):
+    def test_release_waiting_requests_per_deadline(self, mock_scope, db_session, root_account, connected_rse_pair, transfer_limit_factory):
         """ REQUEST (CORE): release grouped waiting requests that exceeded waiting time."""
         source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
 
         # a request that exceeded the maximal waiting time to be released (1 hour) -> release one request -> only the exceeded request should be released
-        set_rse_transfer_limits(dest_rse_id, self.user_activity, max_transfers=1, session=db_session)
-        set_rse_transfer_limits(dest_rse_id, self.all_activities, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.user_activity, max_transfers=1, session=db_session)
+        transfer_limit_factory(dest_rse, self.all_activities, max_transfers=1, session=db_session)
         two_hours = timedelta(hours=2)
         name1, name2 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,

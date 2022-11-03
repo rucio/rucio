@@ -621,7 +621,7 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
     distance_core.add_distance(src_rse_id, dst_rse_id1, ranking=10)
     distance_core.add_distance(src_rse_id, dst_rse_id2, ranking=10)
     # Set limits only for one of the RSEs
-    rse_core.set_rse_transfer_limits(dst_rse_id1, max_transfers=1, activity='all_activities', strategy='fifo')
+    request_core.set_transfer_limit(dst_rse1, max_transfers=1, activity='all_activities', strategy='fifo')
 
     did1 = did_factory.upload_test_file(src_rse)
     did2 = did_factory.upload_test_file(src_rse)

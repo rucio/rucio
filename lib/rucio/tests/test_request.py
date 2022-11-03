@@ -20,8 +20,8 @@ import pytest
 from rucio.common.config import config_get_bool
 from rucio.common.utils import generate_uuid, parse_response
 from rucio.core.replica import add_replica
-from rucio.core.request import queue_requests, get_request_by_did, list_requests, list_requests_history
-from rucio.core.rse import set_rse_transfer_limits, add_rse_attribute
+from rucio.core.request import queue_requests, get_request_by_did, list_requests, list_requests_history, set_transfer_limit
+from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla import models, constants
 from rucio.db.sqla.constants import RequestType, RequestState
 from rucio.tests.common import vohdr, hdrdict, headers, auth
@@ -59,10 +59,10 @@ def test_queue_requests_state(vo, file_config_mock, rse_factory, mock_scope, roo
     add_replica(source_rse_id2, mock_scope, name2, 1, root_account, session=db_session)
     add_replica(source_rse_id, mock_scope, name3, 1, root_account, session=db_session)
 
-    set_rse_transfer_limits(dest_rse_id, user_activity, max_transfers=1, session=db_session)
-    set_rse_transfer_limits(dest_rse_id2, user_activity, max_transfers=1, session=db_session)
-    set_rse_transfer_limits(source_rse_id, user_activity, max_transfers=1, session=db_session)
-    set_rse_transfer_limits(source_rse_id2, user_activity, max_transfers=1, session=db_session)
+    set_transfer_limit(dest_rse, user_activity, max_transfers=1, session=db_session)
+    set_transfer_limit(dest_rse2, user_activity, max_transfers=1, session=db_session)
+    set_transfer_limit(source_rse, user_activity, max_transfers=1, session=db_session)
+    set_transfer_limit(source_rse2, user_activity, max_transfers=1, session=db_session)
 
     requests = [{
         'dest_rse_id': dest_rse_id,

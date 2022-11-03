@@ -32,7 +32,7 @@ from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability
                                      KeyType, IdentityType, LockState, RuleGrouping, BadFilesStatus,
                                      RuleState, ReplicaState, RequestState, RequestType, RSEType,
                                      ScopeStatus, SubscriptionState, RuleNotification, LifetimeExceptionsState,
-                                     BadPFNStatus)
+                                     BadPFNStatus, TransferLimitDirection)
 from rucio.db.sqla.session import BASE
 from rucio.db.sqla.types import GUID, BooleanString, JSON
 from rucio.db.sqla.types import InternalAccountString as _InternalAccountString
@@ -783,21 +783,36 @@ class RSELimit(BASE, ModelBase):
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_LIMIT_RSE_ID_FK'), )
 
 
-class RSETransferLimit(BASE, ModelBase):
-    """Represents RSE limits"""
-    __tablename__ = 'rse_transfer_limits'
-    rse_id = Column(GUID())
-    activity = Column(String(50))
+class TransferLimit(BASE, ModelBase):
+    """Represents limits used to throttle transfer requests"""
+    __tablename__ = 'transfer_limits'
+    id = Column(GUID(), default=utils.generate_uuid)
     rse_expression = Column(String(3000))
+    activity = Column(String(50))
+    direction = Column(Enum(TransferLimitDirection, name='TRANSFER_LIMITS_DIRECTION_TYPE_CHK',
+                            create_constraint=True,
+                            values_callable=lambda obj: [e.value for e in obj]),
+                       default=TransferLimitDirection.DESTINATION)
     max_transfers = Column(BigInteger)
     volume = Column(BigInteger)
     deadline = Column(BigInteger)
     strategy = Column(String(25))
-    direction = Column(String(25))
     transfers = Column(BigInteger)
     waitings = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('rse_id', 'activity', name='RSE_TRANSFER_LIMITS_PK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_TRANSFER_LIMITS_RSE_ID_FK'), )
+    _table_args = (PrimaryKeyConstraint('id', name='TRANSFER_LIMITS_PK'),
+                   Index('TRANSFER_LIMITS_SELECTORS_IDX', 'rse_expression', 'activity'),
+                   CheckConstraint('RSE_EXPRESSION IS NOT NULL', name='TRANSFER_LIMITS_RSE_EXPRESSION_NN'), )
+
+
+class RSETransferLimit(BASE, ModelBase):
+    """Represents the binding of a transfer limit to an RSE as result of TransferLimit.rse_expression dereference"""
+    __tablename__ = 'rse_transfer_limits'
+    rse_id = Column(GUID())
+    limit_id = Column(GUID())
+    _table_args = (PrimaryKeyConstraint('rse_id', 'limit_id', name='RSE_TRANSFER_LIMITS_PK'),
+                   Index('RSE_TRANSFER_LIMITS_LIMIT_ID_IDX', 'limit_id', 'rse_id'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_TRANSFER_LIMITS_RSE_ID_FK'),
+                   ForeignKeyConstraint(['limit_id'], ['transfer_limits.id'], name='RSE_TRANSFER_LIMITS_LIMIT_ID_FK'), )
 
 
 class RSEUsage(BASE, ModelBase):

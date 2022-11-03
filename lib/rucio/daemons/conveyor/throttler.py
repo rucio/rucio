@@ -28,11 +28,12 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import record_counter, record_gauge
-from rucio.core.request import get_request_stats, release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo
+from rucio.core.request import (get_request_stats, release_all_waiting_requests, release_waiting_requests_fifo,
+                                release_waiting_requests_grouped_fifo, set_transfer_limit_stats, re_sync_all_transfer_limits)
 from rucio.core.transfer import applicable_rse_transfer_limits
 from rucio.core.rse import RseCollection
 from rucio.daemons.common import run_daemon
-from rucio.db.sqla.constants import RequestState
+from rucio.db.sqla.constants import RequestState, TransferLimitDirection
 
 graceful_stop = threading.Event()
 
@@ -103,6 +104,7 @@ def run_once(worker_number=0, logger=logging.log, session=None, heartbeat_handle
         return True
     logger(logging.INFO, "Throttler - schedule requests")
     try:
+        re_sync_all_transfer_limits(session=session)
         rse_collection = RseCollection()
         release_groups = _get_request_stats(rse_collection, logger=logger, session=session)
         _release_requests(rse_collection, release_groups, logger=logger, session=session)
@@ -142,7 +144,7 @@ class RequestGrouper:
         for limit_stat in applicable_limits:
             limit = limit_stat['limit']
             limit_is_per_activity = limit['activity'] is not None
-            if source_rse and source_rse.id == limit['rse_id']:
+            if source_rse and limit['direction'] == TransferLimitDirection.SOURCE:
                 src_info.has_any_per_activity_limit |= limit_is_per_activity
                 dst_info.sources_with_limits.add(source_rse)
                 dst_info.any_source_has_per_activity_limit |= limit_is_per_activity
@@ -240,7 +242,7 @@ def _get_request_stats(rse_collection: RseCollection, logger=logging.log, sessio
         if counter and (limits or state == RequestState.WAITING):
             applicable_limits = []
             for limit in limits:
-                limit_stat = limit_stats.setdefault(id(limit), {})
+                limit_stat = limit_stats.setdefault(limit['id'], {})
                 applicable_limits.append(limit_stat)
 
                 if not limit_stat:
@@ -288,8 +290,8 @@ def _get_request_stats(rse_collection: RseCollection, logger=logging.log, sessio
 
         max_transfers = limit['max_transfers']
 
-        rse = rse_collection[limit['rse_id']]
-        log_str = f'limit {"from" if limit["direction"] == "source" else "to"} {rse.name} activity {limit["activity"]}'
+        rse_expression = limit['rse_expression']
+        log_str = f'limit {"from" if limit["direction"] == "source" else "to"} {rse_expression} activity {limit["activity"]}'
 
         if max_transfers is None:
             # The limit was explicitly set to NULL. Release all waiting requests.
@@ -305,13 +307,16 @@ def _get_request_stats(rse_collection: RseCollection, logger=logging.log, sessio
         stat['residual_capacity'] = residual_capacity
 
         activity = limit['activity'] or 'all_activities'
-        record_gauge('daemons.conveyor.throttler.rse_transfer_limits.{activity}.{rse}.{limit_attr}', residual_capacity, labels={'activity': activity, 'rse': rse.name, 'limit_attr': 'residual_capacity'})
-        record_gauge('daemons.conveyor.throttler.rse_transfer_limits.{activity}.{rse}.{limit_attr}', max_transfers, labels={'activity': activity, 'rse': rse.name, 'limit_attr': 'max_transfers'})
-        record_gauge('daemons.conveyor.throttler.rse_transfer_limits.{activity}.{rse}.{limit_attr}', active, labels={'activity': activity, 'rse': rse.name, 'limit_attr': 'active'})
-        record_gauge('daemons.conveyor.throttler.rse_transfer_limits.{activity}.{rse}.{limit_attr}', waiting, labels={'activity': activity, 'rse': rse.name, 'limit_attr': 'waiting'})
+        record_gauge('daemons.conveyor.throttler.rse_transfer_limits.{activity}.{rse}.{limit_attr}', residual_capacity, labels={'activity': activity, 'rse': rse_expression, 'limit_attr': 'residual_capacity'})
+        record_gauge('daemons.conveyor.throttler.rse_transfer_limits.{activity}.{rse}.{limit_attr}', max_transfers, labels={'activity': activity, 'rse': rse_expression, 'limit_attr': 'max_transfers'})
+        record_gauge('daemons.conveyor.throttler.rse_transfer_limits.{activity}.{rse}.{limit_attr}', active, labels={'activity': activity, 'rse': rse_expression, 'limit_attr': 'active'})
+        record_gauge('daemons.conveyor.throttler.rse_transfer_limits.{activity}.{rse}.{limit_attr}', waiting, labels={'activity': activity, 'rse': rse_expression, 'limit_attr': 'waiting'})
 
         if waiting:
             logger(logging.DEBUG, "%s: can release %s out of %s waiting requests", log_str, residual_capacity, waiting)
+
+        if waiting != limit['waitings'] or active != limit['transfers']:
+            set_transfer_limit_stats(limit['id'], waitings=waiting, transfers=active, session=session)
 
         for account, to_release_for_account in _split_threshold_per_account(stat['accounts'], total_to_release=residual_capacity):
             stat['accounts'][account]['residual_capacity'] = to_release_for_account
@@ -462,6 +467,6 @@ def _release_requests(rse_collection: RseCollection, release_groups, logger, ses
 
         if total_released:
             for limit_stat in applicable_limits:
-                rse = rse_collection[limit_stat['limit']['rse_id']]
+                rse_expression = limit_stat['limit']['rse_expression']
                 limit_stat['stat']['residual_capacity'] -= total_released
-                record_counter('daemons.conveyor.throttler.released_waiting_requests.{activity}.{rse}', total_released, labels={'activity': activity, 'rse': rse.name})
+                record_counter('daemons.conveyor.throttler.released_waiting_requests.{activity}.{rse}', total_released, labels={'activity': activity, 'rse': rse_expression})

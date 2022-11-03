@@ -26,21 +26,22 @@ from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import asc, true, false, null, func
 
 from rucio.common.config import config_get_bool
-from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
+from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation, InvalidRSEExpression
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks
 from rucio.core.message import add_message, add_messages
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_vo, RseData
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg, ReplicaState
+from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg, ReplicaState, TransferLimitDirection
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.db.sqla.util import temp_table_mngr
 
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List, Optional, Sequence, Union
+    from typing import Any, Dict, List, Optional, Sequence, Set, Union
 
     from sqlalchemy.orm import Session
 
@@ -1618,6 +1619,250 @@ def release_all_waiting_requests(
         return rowcount
     except IntegrityError as error:
         raise RucioException(error.args)
+
+
+@stream_session
+def list_transfer_limits(
+        session=None,
+):
+    stmt = select(
+        models.TransferLimit
+    )
+    for limit in session.execute(stmt).scalars():
+        dict_resp = limit.to_dict()
+        dict_resp.pop('_sa_instance_state')
+        yield dict_resp
+
+
+def _sync_rse_transfer_limit(
+        limit_id: str,
+        desired_rse_ids: "Set[str]",
+        session=None
+):
+    """
+    Ensure that an RSETransferLimit exists in the database for each of the given rses (and only for these rses)
+    """
+
+    stmt = select(
+        models.RSETransferLimit.rse_id,
+    ).where(
+        models.RSETransferLimit.limit_id == limit_id
+    )
+    existing_rse_ids = set(session.execute(stmt).scalars())
+
+    rse_limits_to_add = desired_rse_ids.difference(existing_rse_ids)
+    rse_limits_to_delete = existing_rse_ids.difference(desired_rse_ids)
+
+    if rse_limits_to_add:
+        session.bulk_insert_mappings(
+            models.RSETransferLimit,
+            [
+                {'rse_id': rse_id, 'limit_id': limit_id}
+                for rse_id in rse_limits_to_add
+            ]
+        )
+
+    if rse_limits_to_delete:
+        stmt = delete(
+            models.RSETransferLimit
+        ).where(
+            models.RSETransferLimit.limit_id == limit_id,
+            models.RSETransferLimit.rse_id.in_(rse_limits_to_delete)
+        )
+        session.execute(stmt)
+
+
+@transactional_session
+def re_sync_all_transfer_limits(
+        delete_empty: bool = False,
+        session=None
+):
+    """
+    For each TransferLimit in the database, re-evaluate the rse expression and ensure that the
+    correct RSETransferLimits are in the database
+    :param delete_empty: if True, when rse_expression evaluates to an empty set or is invalid, the limit is completely removed
+    """
+    stmt = select(
+        models.TransferLimit,
+    )
+    for limit in session.execute(stmt).scalars():
+        try:
+            desired_rse_ids = {rse['id'] for rse in parse_expression(expression=limit.rse_expression, session=session)}
+        except InvalidRSEExpression:
+            desired_rse_ids = set()
+
+        if not desired_rse_ids and delete_empty:
+            delete_transfer_limit_by_id(limit_id=limit.id, session=session)
+        else:
+            _sync_rse_transfer_limit(limit_id=limit.id, desired_rse_ids=desired_rse_ids, session=session)
+
+
+@transactional_session
+def set_transfer_limit(
+        rse_expression: str,
+        activity: "Optional[str]" = None,
+        direction: TransferLimitDirection = TransferLimitDirection.DESTINATION,
+        max_transfers: "Optional[int]" = None,
+        volume: "Optional[int]" = None,
+        deadline: "Optional[int]" = None,
+        strategy: "Optional[str]" = None,
+        transfers: "Optional[int]" = None,
+        waitings: "Optional[int]" = None,
+        session=None
+):
+    """
+    Create or update a transfer limit
+
+    :param rse_expression: RSE expression string.
+    :param activity: The activity.
+    :param direction: The direction in which this limit applies (source/destination)
+    :param max_transfers: Maximum transfers.
+    :param volume: Maximum transfer volume in bytes.
+    :param deadline: Maximum waiting time in hours until a datasets gets released.
+    :param strategy: defines how to handle datasets: `fifo` (each file released separately) or `grouped_fifo` (wait for the entire dataset to fit)
+    :param transfers: Current number of active transfers
+    :param waitings: Current number of waiting transfers
+    :param session: The database session in use.
+
+    :return: the limit id
+    """
+    if activity is None:
+        activity = 'all_activities'
+
+    stmt = select(
+        models.TransferLimit
+    ).where(
+        models.TransferLimit.rse_expression == rse_expression,
+        models.TransferLimit.activity == activity,
+        models.TransferLimit.direction == direction
+    )
+    limit = session.execute(stmt).scalar_one_or_none()
+
+    if not limit:
+        if max_transfers is None:
+            max_transfers = 0
+        if volume is None:
+            volume = 0
+        if deadline is None:
+            deadline = 1
+        if strategy is None:
+            strategy = 'fifo'
+        limit = models.TransferLimit(
+            rse_expression=rse_expression,
+            activity=activity,
+            direction=direction,
+            max_transfers=max_transfers,
+            volume=volume,
+            deadline=deadline,
+            strategy=strategy,
+            transfers=transfers,
+            waitings=waitings
+        )
+        limit.save(session=session)
+    else:
+        changed = False
+        if max_transfers is not None and limit.max_transfers != max_transfers:
+            limit.max_transfers = max_transfers
+            changed = True
+        if volume is not None and limit.volume != volume:
+            limit.volume = volume
+            changed = True
+        if deadline is not None and limit.deadline != deadline:
+            limit.deadline = deadline
+            changed = True
+        if strategy is not None and limit.strategy != strategy:
+            limit.strategy = strategy
+            changed = True
+        if transfers is not None and limit.transfers != transfers:
+            limit.transfers = transfers
+            changed = True
+        if waitings is not None and limit.waitings != waitings:
+            limit.waitings = waitings
+            changed = True
+        if changed:
+            limit.save(session=session)
+
+    desired_rse_ids = {rse['id'] for rse in parse_expression(expression=rse_expression, session=session)}
+    _sync_rse_transfer_limit(limit_id=limit.id, desired_rse_ids=desired_rse_ids, session=session)
+    return limit.id
+
+
+@transactional_session
+def set_transfer_limit_stats(
+        limit_id: str,
+        waitings: int,
+        transfers: int,
+        session=None
+):
+    """
+    Set the statistics of the TransferLimit
+    """
+    stmt = update(
+        models.TransferLimit
+    ).where(
+        models.TransferLimit.id == limit_id
+    ).values(
+        waitings=waitings,
+        transfers=transfers
+    )
+    session.execute(stmt)
+
+
+@transactional_session
+def delete_transfer_limit(
+        rse_expression: str,
+        activity: "Optional[str]" = None,
+        direction: TransferLimitDirection = TransferLimitDirection.DESTINATION,
+        session=None
+):
+
+    if activity is None:
+        activity = 'all_activities'
+
+    stmt = delete(
+        models.RSETransferLimit
+    ).where(
+        exists(
+            select([1])
+        ).where(
+            models.RSETransferLimit.limit_id == models.TransferLimit.id,
+            models.TransferLimit.rse_expression == rse_expression,
+            models.TransferLimit.activity == activity,
+            models.TransferLimit.direction == direction
+        )
+    ).execution_options(
+        synchronize_session=False
+    )
+    session.execute(stmt)
+
+    stmt = delete(
+        models.TransferLimit
+    ).where(
+        models.TransferLimit.rse_expression == rse_expression,
+        models.TransferLimit.activity == activity,
+        models.TransferLimit.direction == direction
+    )
+    session.execute(stmt)
+
+
+@transactional_session
+def delete_transfer_limit_by_id(
+        limit_id: str,
+        session=None
+):
+    stmt = delete(
+        models.RSETransferLimit
+    ).where(
+        models.RSETransferLimit.limit_id == limit_id
+    )
+    session.execute(stmt)
+
+    stmt = delete(
+        models.TransferLimit
+    ).where(
+        models.TransferLimit.id == limit_id
+    )
+    session.execute(stmt)
 
 
 @transactional_session
