@@ -23,7 +23,7 @@ import pytest
 
 from rucio.common.config import config_add_section, config_has_section, config_set, config_remove_option
 from rucio.common.types import InternalScope
-from rucio.core.did import list_dids, list_files
+from rucio.core.did import list_dids, list_files, get_metadata
 from rucio.core.scope import add_scope
 from rucio.daemons.automatix.automatix import automatix
 from rucio.rse import rsemanager as rsemgr
@@ -76,6 +76,10 @@ def test_automatix(vo, root_account, rse_factory):
             )
         ]
         assert len(dids) == 1
+        meta = get_metadata(InternalScope(scope, vo), dids[0])
+        assert meta["project"] == project
+        assert meta["datatype"] == 'AOD'
+        assert meta["prod_step"] == 'recon'
         rse_info = rsemgr.get_rse_info(rse, vo)
         files = [file_ for file_ in list_files(InternalScope(scope, vo), dids[0])]
         for file_ in files:
