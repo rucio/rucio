@@ -20,6 +20,8 @@ from time import sleep
 
 from urllib.parse import urlparse
 
+from typing import List, Dict
+
 from rucio.common import exception, utils, constants
 from rucio.common.config import config_get_int
 from rucio.common.constraints import STRING_TYPES
@@ -67,7 +69,7 @@ def get_rse_info(rse=None, vo='def', rse_id=None, session=None):
     return rse_info
 
 
-def _get_possible_protocols(rse_settings, operation, scheme=None, domain=None, impl=None):
+def _get_possible_protocols(rse_settings, operation, scheme=None, domain=None, impl=None) -> List[Dict]:
     """
     Filter the list of available protocols or provided by the supported ones.
 
