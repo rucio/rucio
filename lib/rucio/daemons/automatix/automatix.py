@@ -217,23 +217,19 @@ def run_once(heartbeat_handler: "HeartbeatHandler", inputfile: str, **_kwargs) -
                 "rse": rse,
                 "path": physical_fname,
             }
+            if set_metadata:
+                file_["dataset_meta"] = metadata
+                if dataset_lifetime:
+                    file_["dataset_meta"]["lifetime"] = dataset_lifetime
             files.append(file_)
         logger(logging.INFO, "Upload %s:%s to %s", scope, dsn, rse)
         upload_client = UploadClient(client)
         ret = upload_client.upload(files)
         if ret == 0:
             logger(logging.INFO, "%s sucessfully registered" % dsn)
-            if set_metadata:
-                client.set_metadata_bulk(
-                    scope=scope, name=dsn, meta=metadata, recursive=False
-                )
-                monitor.record_counter(name="automatix.addnewdataset.done", delta=1)
-                monitor.record_counter(name="automatix.addnewfile.done", delta=nbfiles)
-                timer.record('automatix.datasetinjection')
-            if dataset_lifetime:
-                client.set_metadata(
-                    scope=scope, name=dsn, key="lifetime", value=dataset_lifetime
-                )
+            monitor.record_counter(name="automatix.addnewdataset.done", delta=1)
+            monitor.record_counter(name="automatix.addnewfile.done", delta=nbfiles)
+            timer.record('automatix.datasetinjection')
         else:
             logger(logging.INFO, "Error uploading files")
         for physical_fname in physical_fnames:

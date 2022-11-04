@@ -77,6 +77,7 @@ class UploadClient:
             did_name              - Optional: custom did name (Default: name of the file)
             dataset_scope         - Optional: custom dataset scope
             dataset_name          - Optional: custom dataset name
+            dataset_meta          - Optional: custom metadata for dataset
             impl                  - Optional: name of the protocol implementation to be used to upload this item.
             force_scheme          - Optional: force a specific scheme (if PFN upload this will be overwritten) (Default: None)
             pfn                   - Optional: use a given PFN (this sets no_register to True, and no_register becomes mandatory)
@@ -371,6 +372,7 @@ class UploadClient:
                 logger(logging.DEBUG, 'Trying to create dataset: %s' % dataset_did_str)
                 self.client.add_dataset(scope=file['dataset_scope'],
                                         name=file['dataset_name'],
+                                        meta=file.get('dataset_meta'),
                                         rules=[{'account': self.client.account,
                                                 'copies': 1,
                                                 'rse_expression': rse,
