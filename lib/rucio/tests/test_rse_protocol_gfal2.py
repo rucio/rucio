@@ -158,7 +158,46 @@ class TestRseGFAL2(unittest.TestCase):
         """
         GFAL2 (RSE/PROTOCOLS): Removing created directories and files
         """
-        raise NotImplementedError
+        # TODO: check if this line is necessary
+        cls.sample_conffile(cls.rse_id)
+
+        # clear tmpdir
+        shutil.rmtree(cls.tmpdir)
+
+        # TODO: find out what happens here
+        clean_raw = f'{cls.prefix}/data.raw'
+        if cls.port > 0:
+            srm_path = (f"srm://{cls.hostname}:{cls.port}"
+                        f"{cls.web_service_path}")
+        else:
+            srm_path = (f"srm://{cls.hostname}"
+                        f"{cls.web_service_path}")
+
+        # list files that need to be cleaned
+        clean_files: list[str] = []
+        for who in ["user", "group"]:
+            list_files_cmd_user = (
+                "srmls -2 --debug=false -retry_num=0 -recursion_depth=3 "
+                f"{srm_path}{cls.prefix}/{who}/{cls.user}"
+            )
+            clean_files += str(execute(list_files_cmd_user)[1]).split('\n')
+
+        clean_files.append(f"1024  {clean_raw}")
+
+        # remove these files
+        for files in clean_files:
+            if len(files.strip()) > 0:
+                file = files.split()[1]
+                if not file.endswith("/"):
+                    clean_cmd = ("srmrm -2 --debug=false -retry_num=0 "
+                                 f"{srm_path}/{file}")
+                    execute(clean_cmd)
+
+        # remove directories
+        for who in ["user", "group"]:
+            clean_cmd = ("srmrmdir -2 --debug=false -retry_num=0 "
+                         f"-recursive {srm_path}{cls.prefix}/{who}/{cls.user}")
+            execute(clean_cmd)
 
     def setUp(self) -> None:
         """
