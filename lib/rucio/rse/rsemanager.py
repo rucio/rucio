@@ -20,7 +20,7 @@ from time import sleep
 
 from urllib.parse import urlparse
 
-from typing import List, Dict
+from typing import List, Dict, Any
 
 from rucio.common import exception, utils, constants
 from rucio.common.config import config_get_int
@@ -29,7 +29,7 @@ from rucio.common.logging import formatted_logger
 from rucio.common.utils import make_valid_did, GLOBALLY_SUPPORTED_CHECKSUMS
 
 
-def get_rse_info(rse=None, vo='def', rse_id=None, session=None):
+def get_rse_info(rse=None, vo='def', rse_id=None, session=None) -> Dict[str, Any]:
     """
         Returns all protocol related RSE attributes.
         Call with either rse and vo, or (in server mode) rse_id
@@ -194,7 +194,7 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_tok
     return protocol
 
 
-def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan', auth_token=None, logger=logging.log, impl=None):
+def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan', auth_token=None, logger=logging.log, impl=None) -> dict:
     """
         Convert the lfn to a pfn
 
