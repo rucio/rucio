@@ -47,22 +47,64 @@ class RseData:
     """
     Helper data class storing rse data grouped in one place.
     """
-    def __init__(self, id_, name=None, columns=None, attributes=None, info=None, usage=None, limits=None, transfer_limits=None):
+    def __init__(self, id_, name: "Optional[str]" = None, columns=None, attributes=None, info=None, usage=None, limits=None, transfer_limits=None):
         self.id = id_
-        self.name = name
-        self.columns = columns
-        self.attributes = attributes
-        self.info = info
-        self.usage = usage
-        self.limits = limits
-        self.transfer_limits = transfer_limits
+        self._name = name
+        self._columns = columns
+        self._attributes = attributes
+        self._info = info
+        self._usage = usage
+        self._limits = limits
+        self._transfer_limits = transfer_limits
+
+    @property
+    def name(self) -> str:
+        if self._name is None:
+            raise ValueError(f'name not loaded for rse {self}')
+        return self._name
+
+    @property
+    def columns(self) -> 'Dict[str, Any]':
+        if self._columns is None:
+            raise ValueError(f'columns not loaded for rse {self}')
+        return self._columns
+
+    @property
+    def attributes(self) -> 'Dict[str, Any]':
+        if self._attributes is None:
+            raise ValueError(f'attributes not loaded for rse {self}')
+        return self._attributes
+
+    @property
+    def info(self) -> 'Dict[str, Any]':
+        if self._info is None:
+            raise ValueError(f'info not loaded for rse {self}')
+        return self._info
+
+    @property
+    def usage(self) -> 'List[Dict[str, Any]]':
+        if self._usage is None:
+            raise ValueError(f'usage not loaded for rse {self}')
+        return self._usage
+
+    @property
+    def limits(self) -> 'Dict[str, Any]':
+        if self._limits is None:
+            raise ValueError(f'limits not loaded for rse {self}')
+        return self._limits
+
+    @property
+    def transfer_limits(self):
+        if self._transfer_limits is None:
+            raise ValueError(f'transfer_limits not loaded for rse {self}')
+        return self._transfer_limits
 
     def __hash__(self):
         return hash(self.id)
 
     def __repr__(self):
-        if self.name is not None:
-            return self.name
+        if self._name is not None:
+            return self._name
         return self.id
 
     def __eq__(self, other):
@@ -83,20 +125,22 @@ class RseData:
     @read_session
     def ensure_loaded(self, load_name=False, load_columns=False, load_attributes=False,
                       load_info=False, load_usage=False, load_limits=False, load_transfer_limits=False, session=None):
-        if self.name is None and load_name:
-            self.name = get_rse_name(rse_id=self.id, session=session)
-        if self.columns is None and load_columns:
-            self.columns = get_rse(rse_id=self.id, session=session)
-        if self.attributes is None and load_attributes:
-            self.attributes = get_rse_attributes(self.id, session=session)
-        if self.info is None and load_info:
-            self.info = get_rse_info(self.id, session=session)
-        if self.usage is None and load_usage:
-            self.usage = get_rse_usage(rse_id=self.id, session=session)
-        if self.limits is None and load_limits:
-            self.limits = get_rse_limits(rse_id=self.id, session=session)
-        if self.transfer_limits is None and load_transfer_limits:
-            self.transfer_limits = get_rse_transfer_limits(rse_id=self.id, session=session)
+        if self._columns is None and load_columns:
+            self._columns = get_rse(rse_id=self.id, session=session)
+            self._name = self._columns['rse']
+        if self._attributes is None and load_attributes:
+            self._attributes = get_rse_attributes(self.id, session=session)
+        if self._info is None and load_info:
+            self._info = get_rse_info(self.id, session=session)
+            self._name = self._info['rse']
+        if self._usage is None and load_usage:
+            self._usage = get_rse_usage(rse_id=self.id, session=session)
+        if self._limits is None and load_limits:
+            self._limits = get_rse_limits(rse_id=self.id, session=session)
+        if self._transfer_limits is None and load_transfer_limits:
+            self._transfer_limits = get_rse_transfer_limits(rse_id=self.id, session=session)
+        if self._name is None and load_name:
+            self._name = get_rse_name(rse_id=self.id, session=session)
         return self
 
     @staticmethod
@@ -117,48 +161,50 @@ class RseData:
         for rse_data in rse_datas:
             rse_id = rse_data.id
             rse_datas_by_id.setdefault(rse_id, []).append(rse_data)
-            if load_name and rse_data.name is None:
+            if load_name and rse_data._name is None:
                 names_to_load.add(rse_id)
-            if load_columns and rse_data.columns is None:
+            if load_columns and rse_data._columns is None:
                 columns_to_load.add(rse_id)
-            if load_attributes and rse_data.attributes is None:
+            if load_attributes and rse_data._attributes is None:
                 attributes_to_load.add(rse_id)
-            if load_info and rse_data.info is None:
+            if load_info and rse_data._info is None:
                 infos_to_load.add(rse_id)
-            if load_usage and rse_data.usage is None:
+            if load_usage and rse_data._usage is None:
                 usages_to_load.add(rse_id)
-            if load_limits and rse_data.limits is None:
+            if load_limits and rse_data._limits is None:
                 limits_to_load.add(rse_id)
 
         for rse_id in names_to_load:
             name = get_rse_name(rse_id=rse_id, session=session)
             for rse_data in rse_datas_by_id[rse_id]:
-                rse_data.name = name
+                rse_data._name = name
 
         for rse_id in columns_to_load:
             rse = get_rse(rse_id=rse_id, session=session)
             for rse_data in rse_datas_by_id[rse_id]:
-                rse_data.columns = rse
+                rse_data._columns = rse
+                rse_data._name = rse['rse']
 
         for rse_id in attributes_to_load:
             attributes = get_rse_attributes(rse_id=rse_id, session=session)
             for rse_data in rse_datas_by_id[rse_id]:
-                rse_data.attributes = attributes
+                rse_data._attributes = attributes
 
         for rse_id in infos_to_load:
             info = get_rse_info(rse_id=rse_id, session=session)
             for rse_data in rse_datas_by_id[rse_id]:
-                rse_data.info = info
+                rse_data._info = info
+                rse_data._name = info['rse']
 
         for rse_id in usages_to_load:
             usage = get_rse_usage(rse_id=rse_id, session=session)
             for rse_data in rse_datas_by_id[rse_id]:
-                rse_data.usage = usage
+                rse_data._usage = usage
 
         for rse_id in limits_to_load:
             limits = get_rse_limits(rse_id=rse_id, session=session)
             for rse_data in rse_datas_by_id[rse_id]:
-                rse_data.limits = limits
+                rse_data._limits = limits
 
 
 class RseCollection:
