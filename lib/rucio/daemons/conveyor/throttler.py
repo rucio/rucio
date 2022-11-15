@@ -339,17 +339,11 @@ def _split_threshold_per_account(per_account_stats, total_to_release):
     nr_accounts = len(per_account_stats)
     remaining_to_release = total_to_release
     remaining_accounts = nr_accounts
-    for account, account_stat in sorted(per_account_stats.items(), key=lambda i: i[1]['active']):
+    for account, account_stat in sorted(per_account_stats.items(), key=lambda i: i[1]['waiting']):
         threshold_per_account = math.ceil(remaining_to_release / remaining_accounts)
 
         waiting = account_stat['waiting']
-        active = account_stat['active']
-        if active > threshold_per_account:
-            to_release_for_account = 0
-        elif active + waiting <= threshold_per_account:
-            to_release_for_account = waiting
-        else:
-            to_release_for_account = threshold_per_account - active
+        to_release_for_account = min(waiting, threshold_per_account)
 
         yield account, to_release_for_account
 
