@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import os
 
-import unittest
 import pytest
 
 from rucio.common import config
@@ -25,43 +25,61 @@ from configparser import NoOptionError, NoSectionError
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE, changes global configuration value')
-class TestDeterministicTranslation(unittest.TestCase):
+class TestDeterministicTranslation:
     """
     Verify the deterministic translator.
     """
 
-    def setUp(self):
-        """LFN2PFN: Creating RSEDeterministicTranslation instance"""
-        self.rse = 'Mock'
-        self.rse_attributes = {"rse": "Mock"}
-        self.protocol_attributes = {"protocol": "test"}
-        self.create_translator()
-
-    def create_translator(self):
-        """Create a new RSEDeterministicTranslation for use with tests."""
-        self.translator = RSEDeterministicTranslation(self.rse, self.rse_attributes, self.protocol_attributes)
+    rse = 'Mock'
+    protocol_attributes = {"protocol": "test"}
 
     def test_hash(self):
         """LFN2PFN: Translate to path using a hash (Success)"""
-        self.rse_attributes['lfn2pfn_algorithm'] = 'hash'
-        self.create_translator()
-        assert self.translator.path("foo", "bar") == "foo/4e/99/bar"
+        translator = RSEDeterministicTranslation(
+            rse=self.rse,
+            rse_attributes={
+                'rse': self.rse,
+                'lfn2pfn_algorithm': 'hash',
+            },
+            protocol_attributes=self.protocol_attributes,
+        )
+        assert translator.path("foo", "bar") == "foo/4e/99/bar"
 
     @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Test ATLAS hash convention')
     def test_default_hash(self):
         """LFN2PFN: Translate to path using default algorithm (Success)"""
-        assert self.translator.path("foo", "bar") == "foo/4e/99/bar"
+        translator = RSEDeterministicTranslation(
+            rse=self.rse,
+            rse_attributes={
+                'rse': self.rse,
+            },
+            protocol_attributes=self.protocol_attributes,
+        )
+        assert translator.path("foo", "bar") == "foo/4e/99/bar"
 
     def test_identity(self):
         """LFN2PFN: Translate to path using identity (Success)"""
-        self.rse_attributes['lfn2pfn_algorithm'] = 'identity'
-        self.create_translator()
-        assert self.translator.path("foo", "bar") == "foo/bar"
+        translator = RSEDeterministicTranslation(
+            rse=self.rse,
+            rse_attributes={
+                'rse': self.rse,
+                'lfn2pfn_algorithm': 'identity',
+            },
+            protocol_attributes=self.protocol_attributes,
+        )
+        assert translator.path("foo", "bar") == "foo/bar"
 
     @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Test ATLAS hash convention')
     def test_user_scope(self):
         """LFN2PFN: Test special user scope rules (Success)"""
-        assert self.translator.path("user.foo", "bar") == "user/foo/13/7f/bar"
+        translator = RSEDeterministicTranslation(
+            rse=self.rse,
+            rse_attributes={
+                'rse': self.rse,
+            },
+            protocol_attributes=self.protocol_attributes,
+        )
+        assert translator.path("user.foo", "bar") == "user/foo/13/7f/bar"
 
     def test_register_func(self):
         """LFN2PFN: Verify we can register a custom function (Success)"""
@@ -85,12 +103,26 @@ class TestDeterministicTranslation(unittest.TestCase):
 
         RSEDeterministicTranslation.register(static_register_test1)
         RSEDeterministicTranslation.register(static_register_test2, name="static_register_custom_name")
-        self.rse_attributes['lfn2pfn_algorithm'] = 'static_register_test1'
-        self.create_translator()
-        assert self.translator.path("foo", "bar") == "static_register_value1"
-        self.rse_attributes['lfn2pfn_algorithm'] = 'static_register_custom_name'
-        self.create_translator()
-        assert self.translator.path("foo", "bar") == "static_register_value2"
+
+        translator = RSEDeterministicTranslation(
+            rse=self.rse,
+            rse_attributes={
+                'rse': self.rse,
+                'lfn2pfn_algorithm': 'static_register_test1',
+            },
+            protocol_attributes=self.protocol_attributes,
+        )
+        assert translator.path("foo", "bar") == "static_register_value1"
+
+        translator = RSEDeterministicTranslation(
+            rse=self.rse,
+            rse_attributes={
+                'rse': self.rse,
+                'lfn2pfn_algorithm': 'static_register_custom_name',
+            },
+            protocol_attributes=self.protocol_attributes,
+        )
+        assert translator.path("foo", "bar") == "static_register_value2"
 
     def test_attr_mapping(self):
         """LFN2PFN: Verify we can map using rse and attrs (Successs)"""
@@ -100,18 +132,26 @@ class TestDeterministicTranslation(unittest.TestCase):
             scheme = proto_attrs.get("scheme", "http")
             return "%s://%s_%s/%s/%s" % (scheme, tier, rse, scope, name)
         RSEDeterministicTranslation.register(rse_algorithm)
-        self.rse_attributes['lfn2pfn_algorithm'] = 'rse_algorithm'
-        self.create_translator()
-        assert self.translator.path("foo", "bar") == "http://T1_Mock/foo/bar"
-        self.rse_attributes['tier'] = 'T2'
-        self.create_translator()
-        assert self.translator.path("foo", "bar") == "http://T2_Mock/foo/bar"
-        self.protocol_attributes['scheme'] = 'https'
-        self.create_translator()
-        assert self.translator.path("foo", "bar") == "https://T2_Mock/foo/bar"
-        self.protocol_attributes['scheme'] = 'srm'
-        self.create_translator()
-        assert self.translator.path("foo", "bar") == "srm://T2_Mock/foo/bar"
+
+        rse_attributes = {
+            'lfn2pfn_algorithm': 'rse_algorithm',
+            'rse': self.rse
+        }
+        protocol_attributes = copy.copy(self.protocol_attributes)
+        translator = RSEDeterministicTranslation(self.rse, rse_attributes, protocol_attributes)
+        assert translator.path("foo", "bar") == "http://T1_Mock/foo/bar"
+
+        rse_attributes['tier'] = 'T2'
+        translator = RSEDeterministicTranslation(self.rse, rse_attributes, protocol_attributes)
+        assert translator.path("foo", "bar") == "http://T2_Mock/foo/bar"
+
+        protocol_attributes['scheme'] = 'https'
+        translator = RSEDeterministicTranslation(self.rse, rse_attributes, protocol_attributes)
+        assert translator.path("foo", "bar") == "https://T2_Mock/foo/bar"
+
+        protocol_attributes['scheme'] = 'srm'
+        translator = RSEDeterministicTranslation(self.rse, rse_attributes, protocol_attributes)
+        assert translator.path("foo", "bar") == "srm://T2_Mock/foo/bar"
 
     def test_module_load(self):
         """LFN2PFN: Test ability to provide LFN2PFN functions via module (Success)"""
@@ -119,9 +159,15 @@ class TestDeterministicTranslation(unittest.TestCase):
             config.config_add_section('policy')
         config.config_set('policy', 'lfn2pfn_module', 'rucio.tests.lfn2pfn_module_test')
         RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
-        self.rse_attributes['lfn2pfn_algorithm'] = 'lfn2pfn_module_algorithm'
-        self.create_translator()
-        assert self.translator.path("foo", "bar") == "lfn2pfn_module_algorithm_value"
+        translator = RSEDeterministicTranslation(
+            rse=self.rse,
+            rse_attributes={
+                'lfn2pfn_algorithm': 'lfn2pfn_module_algorithm',
+                'rse': self.rse,
+            },
+            protocol_attributes=self.protocol_attributes,
+        )
+        assert translator.path("foo", "bar") == "lfn2pfn_module_algorithm_value"
 
     def test_config_default_override(self):
         """LFN2PFN: Test override of default LFN2PFN algorithm via config (Success)"""
@@ -145,7 +191,12 @@ class TestDeterministicTranslation(unittest.TestCase):
         try:
             config.config_set('policy', 'lfn2pfn_algorithm_default', 'static_test')
             RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
-            assert self.translator.path("foo", "bar") == "static_test_value"
+            translator = RSEDeterministicTranslation(
+                rse=self.rse,
+                rse_attributes={'rse': self.rse},
+                protocol_attributes=self.protocol_attributes,
+            )
+            assert translator.path("foo", "bar") == "static_test_value"
         finally:
             if orig_value is None:
                 config.config_remove_option('policy', 'lfn2pfn_algorithm_default')
