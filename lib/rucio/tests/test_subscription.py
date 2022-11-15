@@ -27,7 +27,7 @@ from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account
-from rucio.core.did import add_did, set_new_dids, list_new_dids, attach_dids
+from rucio.core.did import add_did, set_new_dids, list_new_dids, attach_dids, set_status
 from rucio.core.rule import add_rule
 from rucio.core.rse import add_rse_attribute
 from rucio.core.scope import add_scope
@@ -665,3 +665,73 @@ class TestDaemon:
         new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
         assert new_dids == []
         subscription_core.delete_subscription(sub_id)
+
+    @pytest.mark.dirty
+    @pytest.mark.parametrize("file_config_mock", [
+        {"overrides": [('subscriptions', 'reevaluate_dids_at_close', 'True')]},
+    ], indirect=True)
+    def test_avg_file_size_filtering(self, rse_factory, vo, rucio_client, root_account, mock_scope, file_config_mock):
+        """ SUBSCRIPTION (DAEMON): Test that the transmogrifier can handle min_avg_file_size and max_avg_file_size"""
+        activity = get_schema_value('ACTIVITY')['enum'][0]
+        nbfiles = 3
+        file_size_threshold = 500
+        min_file_size = 100
+        max_file_size = 1000
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
+        rse3, rse3_id = rse_factory.make_mock_rse()
+        dsn_prefix = did_name_generator('dataset')
+        subscription_name = uuid()
+
+        subid1 = rucio_client.add_subscription(name=subscription_name + 'min_avg_file_size',
+                                               account=root_account.external,
+                                               filter_={'scope': [mock_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': False, 'did_type': ['DATASET', ], 'min_avg_file_size': file_size_threshold},
+                                               replication_rules=[{'rse_expression': rse1, 'copies': 1, 'activity': activity}],
+                                               lifetime=None,
+                                               retroactive=False,
+                                               dry_run=False,
+                                               comments='Test min_avg_file_size filtering',
+                                               priority=1)
+        subid2 = rucio_client.add_subscription(name=subscription_name + 'max_avg_file_size',
+                                               account=root_account.external,
+                                               filter_={'scope': [mock_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': False, 'did_type': ['DATASET', ], 'max_avg_file_size': file_size_threshold},
+                                               replication_rules=[{'rse_expression': rse2, 'copies': 1, 'activity': activity}],
+                                               lifetime=None,
+                                               retroactive=False,
+                                               dry_run=False,
+                                               comments='Test max_avg_file_size filtering',
+                                               priority=1)
+
+        # First run, the DIDs are not closed, so avg_file_size cannot be computed
+        # min_avg_file_size and max_avg_file_size are ignored
+        # For each DID 2 rules are generated for the 2 subscriptions
+        dsn = []
+        for file_size in [min_file_size, max_file_size]:
+            dsn.append('%sdataset-%s' % (dsn_prefix, uuid()))
+            files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': file_size, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+            add_did(scope=mock_scope, name=dsn[-1], did_type=DIDType.DATASET, account=root_account)
+            attach_dids(scope=mock_scope, name=dsn[-1], rse_id=rse3_id, dids=files, account=root_account)
+
+        run(threads=1, bulk=1000000, once=True)
+        rule_min_size = [rule for rule in rucio_client.list_did_rules(scope=mock_scope.external, name=dsn[0])]
+        assert len(rule_min_size) == 2
+        rule_max_size = [rule for rule in rucio_client.list_did_rules(scope=mock_scope.external, name=dsn[1])]
+        assert len(rule_max_size) == 2
+
+        # Now the DIDs are closed and avg_file_size is known
+        # min_avg_file_size and max_avg_file_size are taken into account in the filtering
+        dsn = []
+        for file_size in [min_file_size, max_file_size]:
+            dsn.append('%sdataset-%s' % (dsn_prefix, uuid()))
+            files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': file_size, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+            add_did(scope=mock_scope, name=dsn[-1], did_type=DIDType.DATASET, account=root_account)
+            attach_dids(scope=mock_scope, name=dsn[-1], rse_id=rse3_id, dids=files, account=root_account)
+            set_status(mock_scope, dsn[-1], open=False)
+
+        run(threads=1, bulk=1000000, once=True)
+        rule_min_size = [rule for rule in rucio_client.list_did_rules(scope=mock_scope.external, name=dsn[0])]
+        assert len(rule_min_size) == 1
+        assert rule_min_size[0]['subscription_id'] == str(subid2)
+        rule_max_size = [rule for rule in rucio_client.list_did_rules(scope=mock_scope.external, name=dsn[1])]
+        assert len(rule_max_size) == 1
+        assert rule_max_size[0]['subscription_id'] == str(subid1)

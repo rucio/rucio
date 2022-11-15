@@ -325,6 +325,19 @@ def __is_matching_subscription(subscription, did, metadata):
                     break
             if not match_did_type:
                 return False
+        elif key in ["min_avg_file_size", "max_avg_file_size"]:
+            length = metadata["length"]
+            size = metadata["bytes"]
+            if length and size:
+                avg_file_size = size / length
+                if key == "min_avg_file_size" and avg_file_size < values:
+                    return False
+                if key == "max_avg_file_size" and avg_file_size > values:
+                    return False
+            else:
+                # If the DID is evaluated at the creation, length and bytes are not set yet
+                # In that case, just ignore min_avg_file_size and max_avg_file_size filter
+                continue
         else:
             if not isinstance(values, list):
                 values = [
