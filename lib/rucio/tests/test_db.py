@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import pytest
+from unittest.mock import patch, Mock
 
 from rucio.db.sqla.session import get_session, _get_engine_poolclass, NullPool, QueuePool, SingletonThreadPool
 from rucio.common.exception import InputValidationError
@@ -36,3 +37,36 @@ def test_config_poolclass():
 
     with pytest.raises(InputValidationError, match='Unknown poolclass: unknown'):
         _get_engine_poolclass('unknown')
+
+
+@pytest.mark.noparallel(reason='Changes an internal method of MethodView.')
+def test_pooloverload():
+    """ DB (WEB): Test response to a DatabaseException due to Pool Overflow """
+    from rucio.web.rest.flaskapi.v1.ping import Ping
+    from rucio.common.exception import DatabaseException
+
+    # Create a new ErrorHandlingMethodView as_view
+    ping_view = Ping.as_view('ping')
+
+    # need to specify the patch more closely here
+    # for python >= 3.8, which leads to errors
+    flaskmock = Mock()
+    flaskmock.method = 'replacement string!'
+    patch_flask = patch('flask.request', spec=flaskmock)
+
+    patch_getheaders = patch('rucio.web.rest.flaskapi.v1.ping.Ping.get_headers')
+    patch_dispatch = patch(
+        'flask.views.MethodView.dispatch_request',
+        side_effect=DatabaseException("QueuePool Exception Somehow")
+    )
+
+    patch_flask.start()
+    patch_getheaders.start()
+    patch_dispatch.start()
+
+    response = ping_view.view_class.dispatch_request(ping_view.view_class)
+    # Assert the correct error is raised.
+    assert ('Currently there are too many requests for the Rucio servers to handle. '
+            'Please try again in a few minutes.' in response.data.decode())
+
+    patch.stopall()
