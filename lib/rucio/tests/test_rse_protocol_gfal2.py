@@ -14,14 +14,9 @@
 # limitations under the License.
 
 import os
-import shutil
-import tempfile
-import unittest
-from uuid import uuid4 as uuid
 
 import pytest
 
-from rucio.common import exception
 from rucio.common.utils import execute
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
@@ -29,47 +24,31 @@ from rucio.tests.rsemgr_api_test import MgrTestCases
 
 
 @skip_rse_tests_with_accounts
-class TestRseGFAL2(unittest.TestCase):
-    tmpdir = None
-    user = None
-    impl = 'gfal'
+class TestRseGFAL2(MgrTestCases):
 
     @classmethod
-    def setUpClass(cls):
+    @pytest.fixture(scope='class')
+    def setup_rse_and_files(cls, vo, tmp_path_factory):
         """GFAL2 (RSE/PROTOCOLS): Creating necessary directories and files """
-        # Creating local files
-        cls.tmpdir = tempfile.mkdtemp()
-        cls.user = uuid()
-
-        with open("%s/data.raw" % cls.tmpdir, "wb") as out:
-            out.seek((1024 * 1024) - 1)  # 1 MB
-            out.write(b'\0')
-        for f in MgrTestCases.files_local:
-            shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
+        rse_name = 'FZK-LCG2_SCRATCHDISK'
+        rse_settings, tmpdir, user = cls.setup_common_test_env(rse_name, vo, tmp_path_factory)
 
         data = load_test_conf_file('rse_repository.json')
-        prefix = data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['prefix']
-        hostname = data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['hostname']
+        prefix = data[rse_name]['protocols']['supported']['srm']['prefix']
+        hostname = data[rse_name]['protocols']['supported']['srm']['hostname']
         if hostname.count("://"):
             hostname = hostname.split("://")[1]
-        if 'port' in data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm'].keys():
-            port = int(data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['port'])
+        if 'port' in data[rse_name]['protocols']['supported']['srm'].keys():
+            port = int(data[rse_name]['protocols']['supported']['srm']['port'])
         else:
             port = 0
-        if 'extended_attributes' in data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm'].keys() and 'web_service_path' in data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['extended_attributes'].keys():
-            web_service_path = data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['extended_attributes']['web_service_path']
+        if 'extended_attributes' in data[rse_name]['protocols']['supported']['srm'].keys() and 'web_service_path' in data[rse_name]['protocols']['supported']['srm']['extended_attributes'].keys():
+            web_service_path = data[rse_name]['protocols']['supported']['srm']['extended_attributes']['web_service_path']
         else:
             web_service_path = ''
 
-        os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % cls.tmpdir)
-        if port > 0:
-            cls.static_file = 'srm://%s:%s%s%s/data.raw' % (hostname, port, web_service_path, prefix)
-        else:
-            cls.static_file = 'srm://%s%s%s/data.raw' % (hostname, web_service_path, prefix)
-        cmd = 'srmcp -2 --debug=false -retry_num=0 file:///%s/data.raw %s' % (cls.tmpdir, cls.static_file)
-        execute(cmd)
+        os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % tmpdir)
 
-        rse_settings = mgr.get_rse_info('FZK-LCG2_SCRATCHDISK')
         for protocol in rse_settings['protocols']:
             if protocol['scheme'] != "srm":
                 rse_settings['protocols'].remove(protocol)
@@ -77,28 +56,11 @@ class TestRseGFAL2(unittest.TestCase):
             rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.gfal.Default'
 
         for f in MgrTestCases.files_remote:
-            tmp = mgr.lfns2pfns(rse_settings, {'name': f, 'scope': 'user.%s' % cls.user}, scheme='srm').values()[0]
-            cmd = 'srmcp -2 --debug=false -retry_num=0  file:///%s/data.raw %s' % (cls.tmpdir, tmp)
+            tmp = next(iter(mgr.lfns2pfns(rse_settings, {'name': f, 'scope': 'user.%s' % user}, scheme='srm').values()))
+            cmd = 'srmcp -2 --debug=false -retry_num=0  file:///%s/data.raw %s' % (tmpdir, tmp)
             execute(cmd)
 
-    @classmethod
-    def tearDownClass(cls):
-        """GFAL2 (RSE/PROTOCOLS): Removing created directorie s and files"""
-        data = load_test_conf_file('rse_repository.json')
-        prefix = data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['prefix']
-        hostname = data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['hostname']
-        if hostname.count("://"):
-            hostname = hostname.split("://")[1]
-        if 'port' in data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm'].keys():
-            port = int(data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['port'])
-        else:
-            port = 0
-        if 'extended_attributes' in data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm'].keys() and 'web_service_path' in data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['extended_attributes'].keys():
-            web_service_path = data['FZK-LCG2_SCRATCHDISK']['protocols']['supported']['srm']['extended_attributes']['web_service_path']
-        else:
-            web_service_path = ''
-
-        shutil.rmtree(cls.tmpdir)
+        yield rse_settings, tmpdir, user
 
         clean_raw = '%s/data.raw' % prefix
         if int(port) > 0:
@@ -106,9 +68,9 @@ class TestRseGFAL2(unittest.TestCase):
         else:
             srm_path = ''.join(["srm://", hostname, web_service_path])
 
-        list_files_cmd_user = 'srmls -2 --debug=false -retry_num=0 -recursion_depth=3 %s%s/user/%s' % (srm_path, prefix, cls.user)
+        list_files_cmd_user = 'srmls -2 --debug=false -retry_num=0 -recursion_depth=3 %s%s/user/%s' % (srm_path, prefix, user)
         clean_files = str(execute(list_files_cmd_user)[1]).split('\n')
-        list_files_cmd_user = 'srmls -2 --debug=false -retry_num=0 -recursion_depth=3 %s%s/group/%s' % (srm_path, prefix, cls.user)
+        list_files_cmd_user = 'srmls -2 --debug=false -retry_num=0 -recursion_depth=3 %s%s/group/%s' % (srm_path, prefix, user)
         clean_files += str(execute(list_files_cmd_user)[1]).split('\n')
         clean_files.append("1024  " + clean_raw)
         for files in clean_files:
@@ -120,165 +82,11 @@ class TestRseGFAL2(unittest.TestCase):
 
         clean_directory = ['user', 'group']
         for directory in clean_directory:
-            clean_cmd = 'srmrmdir -2 --debug=false -retry_num=0 -recursive %s%s/%s/%s' % (srm_path, prefix, directory, cls.user)
+            clean_cmd = 'srmrmdir -2 --debug=false -retry_num=0 -recursive %s%s/%s/%s' % (srm_path, prefix, directory, user)
             execute(clean_cmd)
 
-    def setUp(self):
-        """GFAL2 (RSE/PROTOCOLS): Creating Mgr-instance """
-        self.tmpdir = TestRseGFAL2.tmpdir
-        self.rse_id = 'FZK-LCG2_SCRATCHDISK'
-        self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', TestRseGFAL2.user, TestRseGFAL2.static_file, impl=TestRseGFAL2.impl)
-        # self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', TestRseGFAL2.user, "srm://atlassrm-fzk.gridka.de/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/user/wguan/rucio.test.2")
-        self.mtc.setup_scheme('srm')
-
-    # Mgr-Tests: GET
-    def test_multi_get_mgr_ok(self):
-        """GFAL2 (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (Success)"""
-        self.mtc.test_multi_get_mgr_ok()
-
-    def test_get_mgr_ok_single_lfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Get a single file from storage providing LFN (Success)"""
-        self.mtc.test_get_mgr_ok_single_lfn()
-
-    def test_get_mgr_ok_single_pfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Get a single file from storage providing PFN (Success)"""
-        self.mtc.test_get_mgr_ok_single_pfn()
-
-    def test_get_mgr_SourceNotFound_multi(self):
-        """GFAL2 (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (SourceNotFound)"""
-        with pytest.raises(exception.SourceNotFound):
-            self.mtc.test_get_mgr_SourceNotFound_multi()
-
-    def test_get_mgr_SourceNotFound_single_lfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNotFound)"""
-        with pytest.raises(exception.SourceNotFound):
-            self.mtc.test_get_mgr_SourceNotFound_single_lfn()
-
-    def test_get_mgr_SourceNotFound_single_pfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
-        with pytest.raises(exception.SourceNotFound):
-            self.mtc.test_get_mgr_SourceNotFound_single_pfn()
-
-    # Mgr-Tests: PUT
-    def test_put_mgr_ok_multi(self):
-        """GFAL2 (RSE/PROTOCOLS): Put multiple files to storage providing LFNs and PFNs (Success)"""
-        self.mtc.test_put_mgr_ok_multi()
-
-    def test_put_mgr_ok_single(self):
-        """GFAL2 (RSE/PROTOCOLS): Put a single file to storage (Success)"""
-        self.mtc.test_put_mgr_ok_single()
-
-    def test_put_mgr_SourceNotFound_multi(self):
-        """GFAL2 (RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
-        with pytest.raises(exception.SourceNotFound):
-            self.mtc.test_put_mgr_SourceNotFound_multi()
-
-    def test_put_mgr_SourceNotFound_single(self):
-        """GFAL2 (RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
-        with pytest.raises(exception.SourceNotFound):
-            self.mtc.test_put_mgr_SourceNotFound_single()
-
-    def test_put_mgr_FileReplicaAlreadyExists_multi(self):
-        """GFAL2 (RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
-        with pytest.raises(exception.FileReplicaAlreadyExists):
-            self.mtc.test_put_mgr_FileReplicaAlreadyExists_multi()
-
-    def test_put_mgr_FileReplicaAlreadyExists_single(self):
-        """GFAL2 (RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
-        with pytest.raises(exception.FileReplicaAlreadyExists):
-            self.mtc.test_put_mgr_FileReplicaAlreadyExists_single()
-
-    # MGR-Tests: DELETE
-    def test_delete_mgr_ok_multi(self):
-        """GFAL2 (RSE/PROTOCOLS): Delete multiple files from storage (Success)"""
-        self.mtc.test_delete_mgr_ok_multi()
-
-    def test_delete_mgr_ok_single(self):
-        """GFAL2 (RSE/PROTOCOLS): Delete a single file from storage (Success)"""
-        self.mtc.test_delete_mgr_ok_single()
-
-    def test_delete_mgr_SourceNotFound_multi(self):
-        """GFAL2 (RSE/PROTOCOLS): Delete multiple files from storage (SourceNotFound)"""
-        with pytest.raises(exception.SourceNotFound):
-            self.mtc.test_delete_mgr_SourceNotFound_multi()
-
-    def test_delete_mgr_SourceNotFound_single(self):
-        """GFAL2 (RSE/PROTOCOLS): Delete a single file from storage (SourceNotFound)"""
-        with pytest.raises(exception.SourceNotFound):
-            self.mtc.test_delete_mgr_SourceNotFound_single()
-
-    # MGR-Tests: EXISTS
-    def test_exists_mgr_ok_multi(self):
-        """GFAL2 (RSE/PROTOCOLS): Check multiple files on storage (Success)"""
-        self.mtc.test_exists_mgr_ok_multi()
-
-    def test_exists_mgr_ok_single_lfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Check a single file on storage using LFN (Success)"""
-        self.mtc.test_exists_mgr_ok_single_lfn()
-
-    def test_exists_mgr_ok_single_pfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Check a single file on storage using PFN (Success)"""
-        self.mtc.test_exists_mgr_ok_single_pfn()
-
-    def test_exists_mgr_false_multi(self):
-        """GFAL2 (RSE/PROTOCOLS): Check multiple files on storage (Fail)"""
-        self.mtc.test_exists_mgr_false_multi()
-
-    def test_exists_mgr_false_single(self):
-        """GFAL2 (RSE/PROTOCOLS): Check a single file on storage using LFN (Fail)"""
-        self.mtc.test_exists_mgr_false_single_lfn()
-
-    def test_exists_mgr_false_single_pfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Check a single file on storage using PFN (Fail)"""
-        self.mtc.test_exists_mgr_false_single_pfn()
-
-    # MGR-Tests: RENAME
-    def test_rename_mgr_ok_multi(self):
-        """GFAL2 (RSE/PROTOCOLS): Rename multiple files on storage (Success)"""
-        self.mtc.test_rename_mgr_ok_multi()
-
-    def test_rename_mgr_ok_single_lfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Rename a single file on storage using LFN (Success)"""
-        self.mtc.test_rename_mgr_ok_single_lfn()
-
-    def test_rename_mgr_ok_single_pfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Rename a single file on storage using PFN (Success)"""
-        self.mtc.test_rename_mgr_ok_single_pfn()
-
-    def test_rename_mgr_FileReplicaAlreadyExists_multi(self):
-        """GFAL2 (RSE/PROTOCOLS): Rename multiple files on storage (FileReplicaAlreadyExists)"""
-        with pytest.raises(exception.FileReplicaAlreadyExists):
-            self.mtc.test_rename_mgr_FileReplicaAlreadyExists_multi()
-
-    def test_rename_mgr_FileReplicaAlreadyExists_single_lfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Rename a single file on storage using LFN(FileReplicaAlreadyExists)"""
-        with pytest.raises(exception.FileReplicaAlreadyExists):
-            self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_lfn()
-
-    def test_rename_mgr_FileReplicaAlreadyExists_single_pfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Rename a single file on storage using PFN (FileReplicaAlreadyExists)"""
-        with pytest.raises(exception.FileReplicaAlreadyExists):
-            self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_pfn()
-
-    def test_rename_mgr_SourceNotFound_multi(self):
-        """GFAL2 (RSE/PROTOCOLS): Rename multiple files on storage (SourceNotFound)"""
-        with pytest.raises(exception.SourceNotFound):
-            self.mtc.test_rename_mgr_SourceNotFound_multi()
-
-    def test_rename_mgr_SourceNotFound_single_lfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Rename a single file on storage using LFN (SourceNotFound)"""
-        with pytest.raises(exception.SourceNotFound):
-            self.mtc.test_rename_mgr_SourceNotFound_single_lfn()
-
-    def test_rename_mgr_SourceNotFound_single_pfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Rename a single file on storage using PFN (SourceNotFound)"""
-        with pytest.raises(exception.SourceNotFound):
-            self.mtc.test_rename_mgr_SourceNotFound_single_pfn()
-
-    def test_change_scope_mgr_ok_single_lfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Change the scope of a single file on storage using LFN (Success)"""
-        self.mtc.test_change_scope_mgr_ok_single_lfn()
-
-    def test_change_scope_mgr_ok_single_pfn(self):
-        """GFAL2 (RSE/PROTOCOLS): Change the scope of a single file on storage using PFN (Success)"""
-        self.mtc.test_change_scope_mgr_ok_single_pfn()
+    @pytest.fixture(autouse=True)
+    def setup_obj(self, setup_rse_and_files, vo):
+        rse_settings, tmpdir, user = setup_rse_and_files
+        self.init(tmpdir=tmpdir, rse_settings=rse_settings, user=user, vo=vo, impl='gfal')
+        self.setup_scheme('srm')
