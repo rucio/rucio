@@ -13,113 +13,105 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-
-import pytest
-
 from rucio.client.baseclient import BaseClient
-from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid
 from rucio.tests.common import execute, get_long_vo
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-class TestReplicaHeaderRedirection(unittest.TestCase):
+class TestReplicaHeaderRedirection:
 
-    def setUp(self):
+    def test_replica_header_redirection(self, rse_factory, replica_client):
+        rse1, rse1_id = rse_factory.make_rse(scheme='https', protocol_impl='rucio.rse.protocols.mock.Default')
+        rse2, rse2_id = rse_factory.make_rse(scheme='https', protocol_impl='rucio.rse.protocols.mock.Default')
+
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = '-H "X-Rucio-VO: %s"' % get_long_vo()
+            vo_header = '-H "X-Rucio-VO: %s"' % get_long_vo()
         else:
-            self.vo_header = ''
+            vo_header = ''
 
-        self.cacert = config_get('test', 'cacert')
-        self.host = config_get('client', 'rucio_host')
-        self.auth_host = config_get('client', 'auth_host')
+        cacert = config_get('test', 'cacert')
+        host = config_get('client', 'rucio_host')
 
-        self.base_client = BaseClient()
-        self.token = self.base_client.headers['X-Rucio-Auth-Token']
-        self.replica_client = ReplicaClient()
+        base_client = BaseClient()
+        token = base_client.headers['X-Rucio-Auth-Token']
 
-    def test_replica_header_redirection(self):
         """ REDIRECT: header to replica"""
         tmp_scope = 'mock'
         tmp_name = 'file_%s' % generate_uuid()
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s''' % (self.cacert,
-                                                                                                    self.token,
-                                                                                                    self.vo_header,
-                                                                                                    self.host,
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s''' % (cacert,
+                                                                                                    token,
+                                                                                                    vo_header,
+                                                                                                    host,
                                                                                                     tmp_scope,
                                                                                                     tmp_name)
         _, out, _ = execute(cmd)
         assert '404 Not Found'.lower() in out.lower()
 
-        self.replica_client.add_replicas(rse='MOCK', files=[{'scope': tmp_scope,
-                                                             'name': tmp_name,
-                                                             'bytes': 1,
-                                                             'adler32': '0cc737eb'}])
-        self.replica_client.add_replicas(rse='MOCK3', files=[{'scope': tmp_scope,
-                                                              'name': tmp_name,
-                                                              'bytes': 1,
-                                                              'adler32': '0cc737eb'}])
+        replica_client.add_replicas(rse=rse1, files=[{'scope': tmp_scope,
+                                                      'name': tmp_name,
+                                                      'bytes': 1,
+                                                      'adler32': '0cc737eb'}])
+        replica_client.add_replicas(rse=rse2, files=[{'scope': tmp_scope,
+                                                      'name': tmp_name,
+                                                      'bytes': 1,
+                                                      'adler32': '0cc737eb'}])
         _, out, _ = execute(cmd)
         assert '303 See Other'.lower() in out.lower()
-        assert 'Location: https://mock' in out
+        assert f'Location: https://{rse1_id}.cern.ch' in out \
+               or f'Location: https://{rse2_id}.cern.ch' in out
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-class TestReplicaMetalinkRedirection(unittest.TestCase):
+class TestReplicaMetalinkRedirection:
 
-    def setUp(self):
+    def test_replica_meta_redirection(self, rse_factory, replica_client):
+        rse1, _ = rse_factory.make_rse(scheme='https', protocol_impl='rucio.rse.protocols.mock.Default')
+        rse2, _ = rse_factory.make_rse(scheme='https', protocol_impl='rucio.rse.protocols.mock.Default')
+
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = '-H "X-Rucio-VO: %s"' % get_long_vo()
+            vo_header = '-H "X-Rucio-VO: %s"' % get_long_vo()
         else:
-            self.vo_header = ''
+            vo_header = ''
 
-        self.cacert = config_get('test', 'cacert')
-        self.host = config_get('client', 'rucio_host')
-        self.auth_host = config_get('client', 'auth_host')
+        cacert = config_get('test', 'cacert')
+        host = config_get('client', 'rucio_host')
 
-        self.base_client = BaseClient()
-        self.token = self.base_client.headers['X-Rucio-Auth-Token']
-        self.replica_client = ReplicaClient()
+        base_client = BaseClient()
+        token = base_client.headers['X-Rucio-Auth-Token']
 
-    def test_replica_meta_redirection(self):
         """ REDIRECT: metalink to replica"""
         tmp_scope = 'mock'
         tmp_name = 'file_%s' % generate_uuid()
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s' % (self.cacert,
-                                                                                                  self.token,
-                                                                                                  self.vo_header,
-                                                                                                  self.host,
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s' % (cacert,
+                                                                                                  token,
+                                                                                                  vo_header,
+                                                                                                  host,
                                                                                                   tmp_scope,
                                                                                                   tmp_name)
         _, out, _ = execute(cmd)
         assert '404 Not Found'.lower() in out.lower()
 
-        self.replica_client.add_replicas(rse='MOCK', files=[{'scope': tmp_scope,
-                                                             'name': tmp_name,
-                                                             'bytes': 1,
-                                                             'adler32': '0cc737eb'}])
-        self.replica_client.add_replicas(rse='MOCK3', files=[{'scope': tmp_scope,
-                                                              'name': tmp_name,
-                                                              'bytes': 1,
-                                                              'adler32': '0cc737eb'}])
+        replica_client.add_replicas(rse=rse1, files=[{'scope': tmp_scope,
+                                                      'name': tmp_name,
+                                                      'bytes': 1,
+                                                      'adler32': '0cc737eb'}])
+        replica_client.add_replicas(rse=rse2, files=[{'scope': tmp_scope,
+                                                      'name': tmp_name,
+                                                      'bytes': 1,
+                                                      'adler32': '0cc737eb'}])
         _, out, _ = execute(cmd)
         assert '303 See Other'.lower() in out.lower()
         assert 'Link: </redirect/%s/%s/metalink' % (tmp_scope, tmp_name) in out
 
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s/metalink' % (self.cacert,
-                                                                                                           self.token,
-                                                                                                           self.vo_header,
-                                                                                                           self.host,
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s/metalink' % (cacert,
+                                                                                                           token,
+                                                                                                           vo_header,
+                                                                                                           host,
                                                                                                            tmp_scope,
                                                                                                            tmp_name)
         _, out, _ = execute(cmd)
         assert '200 OK'.lower() in out.lower()
         assert '<?xml' in out
         assert '<metalink' in out
-        assert '<url location="MOCK"' in out
-        assert '<url location="MOCK3"' in out
+        assert f'<url location="{rse1}"' in out
+        assert f'<url location="{rse2}"' in out
