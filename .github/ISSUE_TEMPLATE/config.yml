@@ -1,0 +1,23 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 Documentation
+    url: https://rucio.cern.ch/documentation/
+    about: The Rucio Documentation might give you some information related to the problem.
+  - name: ❓ Question - Ask us
+    url: https://rucio.cern.ch/contact.html
+    about: This issue tracker is not for technical support. Please use one of our dedicated channels, and ask the community for help.
+  - name: 🖋️  Issue related to the Documentation
+    url: https://github.com/rucio/documentation
+    about: If the issue is in or related to the documentation, please open it in the dedicated `rucio/documentation` repository.
+  - name: 🚢 Issue related to the Containers
+    url: https://github.com/rucio/containers
+    about: If the issue is in or related to the containers, please open it in the dedicated `rucio/containers` repository.
+  - name: 📈 Issue related to the Helm Charts
+    url: https://github.com/rucio/helm-charts
+    about: If the issue is in or related to the helm-charts, please open it in the dedicated `rucio/helm-charts` repository.
+  - name: 🔬 Issue related to the Rucio JupyterLab Extension
+    url: https://github.com/rucio/jupyterlab-extension
+    about: If the issue is in or related to the jupyterlab-extension, please open it in the dedicated `rucio/jupyterlab-extension` repository.
+  - name: 📐 Issue related to the Probes
+    url: https://github.com/rucio/probes
+    about: If the issue is in or related to the probes, please open it in the dedicated `rucio/probes` repository.
