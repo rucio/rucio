@@ -291,6 +291,7 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
     :raises:                   InsufficientQuota, InsufficientTargetRSEs
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
+
     locks_to_create = {}            # {'rse_id': [locks]}
     replicas_to_create = {}         # {'rse_id': [replicas]}
     transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
@@ -1300,7 +1301,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, session=None, logger=l
         # sort alphabetically for deterministic order
         try:
             datasets = sorted(datasets)
-        except:
+        except Exception:
             pass
 
         # prnt(datasets)
