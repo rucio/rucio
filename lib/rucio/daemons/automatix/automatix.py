@@ -154,7 +154,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", inputfile: str, **_kwargs) -
             return True
 
     set_metadata = config_get_bool(
-        "automatix", "set_metadata", raise_exception=False, default=True
+        "automatix", "set_metadata", raise_exception=False, default=False
     )
     dataset_lifetime = config_get_int(
         "automatix", "dataset_lifetime", raise_exception=False, default=0
