@@ -1397,7 +1397,10 @@ def update_rule(args):
     if args.priority:
         options['priority'] = int(args.priority)
     if args.child_rule_id:
-        options['child_rule_id'] = args.child_rule_id
+        if args.child_rule_id.lower() == 'none':
+            options['child_rule_id'] = None
+        else:
+            options['child_rule_id'] = args.child_rule_id
     if args.boost_rule:
         options['boost_rule'] = args.boost_rule
     client.update_replication_rule(rule_id=args.rule_id, options=options)
@@ -2496,7 +2499,7 @@ You can filter by account::
     update_rule_parser.add_argument('--comment', dest='comment', action='store', help="Update comment for the rule")
     update_rule_parser.add_argument('--cancel-requests', dest='cancel_requests', action='store_true', help='Cancel requests when setting rules to stuck.')
     update_rule_parser.add_argument('--priority', dest='priority', action='store', help='Priority of the requests of the rule.')
-    update_rule_parser.add_argument('--child-rule-id', dest='child_rule_id', action='store', help='Child rule id of the rule.')
+    update_rule_parser.add_argument('--child-rule-id', dest='child_rule_id', action='store', help='Child rule id of the rule. Use "None" to remove an existing parent/child relationship.')
     update_rule_parser.add_argument('--boost-rule', dest='boost_rule', action='store_true', help='Quickens the transition of a rule from STUCK to REPLICATING.')
 
     # The move_rule command

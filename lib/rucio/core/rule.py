@@ -1290,14 +1290,23 @@ def update_rule(rule_id, options, *, session: "Session"):
 
             elif key == 'child_rule_id':
                 # Check if the child rule has the same scope/name as the parent rule
-                child_rule = session.query(models.ReplicationRule).filter_by(id=options[key]).one()
-                if rule.scope != child_rule.scope or rule.name != child_rule.name:
-                    raise InputValidationError('Parent and child rule must be set on the same dataset.')
-
-                if rule.id == options[key]:
-                    raise InputValidationError('Self-referencing parent/child-relationship.')
-                if child_rule.state != RuleState.OK:
-                    rule.child_rule_id = options[key]
+                child_id: Optional[str] = options[key]
+                if child_id is None:
+                    if not rule.child_rule_id:
+                        raise InputValidationError('Cannot detach child when no such relationship exists')
+                    # dissolve relationship
+                    rule.child_rule_id = None  # type: ignore
+                    # remove expiration date
+                    rule.expires_at = None  # type: ignore
+                else:
+                    child_rule = (session.query(models.ReplicationRule).
+                                  filter_by(id=child_id).one())
+                    if rule.scope != child_rule.scope or rule.name != child_rule.name:
+                        raise InputValidationError('Parent and child rule must be set on the same dataset.')
+                    if rule.id == options[key]:
+                        raise InputValidationError('Self-referencing parent/child-relationship.')
+                    if child_rule.state != RuleState.OK:
+                        rule.child_rule_id = child_id  # type: ignore
 
             elif key == 'meta':
                 # Need to json.dump the metadata

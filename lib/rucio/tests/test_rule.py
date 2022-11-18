@@ -952,6 +952,39 @@ class TestCore:
         with pytest.raises(UnsupportedOperation):
             delete_rule(rule_id_1)
 
+    def test_update_rule_unset_child_rule(self, mock_scope, did_factory, jdoe_account):
+        """ REPLICATION RULE (CORE): Update a replication rule with a child_rule"""
+        files = create_files(3, mock_scope, self.rse1_id)
+        dataset1 = did_factory.random_dataset_did()
+        dataset2 = did_factory.random_dataset_did()
+        add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset1)
+        attach_dids(dids=files, account=jdoe_account, **dataset1)
+        add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset2)
+        attach_dids(dids=files, account=jdoe_account, **dataset2)
+
+        parent_id: str = add_rule(
+            rse_expression=self.rse1,
+            dids=[dataset1], account=jdoe_account, copies=1,
+            grouping='DATASET', weight=None, lifetime=None,
+            locked=False, subscription_id=None
+        )[0]
+
+        # assign a child rule id
+        # with move_rule: this sets an expiry date
+        child_id = move_rule(parent_id, self.rse3)
+        assert child_id
+        assert get_rule(parent_id)['child_rule_id']
+        assert get_rule(parent_id)['expires_at']
+
+        # detach this child
+        update_rule(parent_id, {'child_rule_id': None})
+        assert not get_rule(parent_id)['child_rule_id']
+        assert not get_rule(parent_id)['expires_at']
+
+        # test detaching when there is no more attached child
+        with pytest.raises(InputValidationError):
+            update_rule(parent_id, {'child_rule_id': None})
+
     def test_rule_priority_set_and_update(self, mock_scope, did_factory, jdoe_account):
         files = create_files(1, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
