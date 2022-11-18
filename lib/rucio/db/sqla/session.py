@@ -200,7 +200,9 @@ def get_engine():
                 params[param] = param_type(config_get(DATABASE_SECTION, param, check_config_table=False))
             except:
                 pass
-        _ENGINE = create_engine(sql_connection, **params)
+        # Using sqlAlchemy 2.0 with future=True.
+        # if backing up from 2.0, need to remove future=True .
+        _ENGINE = create_engine(sql_connection, future=True, **params)
         if 'mysql' in sql_connection:
             event.listen(_ENGINE, 'checkout', mysql_ping_listener)
         elif 'postgresql' in sql_connection:
@@ -247,7 +249,8 @@ def get_maker():
     global _MAKER, _ENGINE
     assert _ENGINE
     if not _MAKER:
-        _MAKER = sessionmaker(bind=_ENGINE, autocommit=False, autoflush=True, expire_on_commit=True)
+        # turn on sqlAlchemy 2.0 with future=True.
+        _MAKER = sessionmaker(bind=_ENGINE, autocommit=False, autoflush=True, expire_on_commit=True, future=True)
     return _MAKER
 
 
@@ -302,7 +305,9 @@ def read_session(function):
             raise RucioException('read_session decorator should not be used with generator. Use stream_session instead.')
 
         if not kwargs.get('session'):
-            session = get_session()
+            session_scoped = get_session()
+            session = session_scoped()
+            session.begin()
             try:
                 kwargs['session'] = session
                 return function(*args, **kwargs)
@@ -316,7 +321,7 @@ def read_session(function):
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise
             finally:
-                session.remove()
+                session_scoped.remove()
         try:
             return function(*args, **kwargs)
         except Exception:
@@ -344,22 +349,22 @@ def stream_session(function):
             raise RucioException('stream_session decorator should be used only with generator. Use read_session instead.')
 
         if not kwargs.get('session'):
-            session = get_session()
+            session_scoped = get_session()
             try:
-                kwargs['session'] = session
+                kwargs['session'] = session_scoped
                 for row in function(*args, **kwargs):
                     yield row
             except TimeoutError as error:
-                session.rollback()  # pylint: disable=maybe-no-member
+                session_scoped.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except DatabaseError as error:
-                session.rollback()  # pylint: disable=maybe-no-member
+                session_scoped.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except:
-                session.rollback()  # pylint: disable=maybe-no-member
+                session_scoped.rollback()  # pylint: disable=maybe-no-member
                 raise
             finally:
-                session.remove()
+                session_scoped.remove()
         else:
             try:
                 for row in function(*args, **kwargs):
@@ -380,7 +385,9 @@ def transactional_session(function):
     @wraps(function)
     def new_funct(*args, **kwargs):
         if not kwargs.get('session'):
-            session = get_session()
+            session_scoped = get_session()
+            session = session_scoped()
+            session.begin()
             try:
                 kwargs['session'] = session
                 result = function(*args, **kwargs)
@@ -395,7 +402,7 @@ def transactional_session(function):
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise
             finally:
-                session.remove()  # pylint: disable=maybe-no-member
+                session_scoped.remove()  # pylint: disable=maybe-no-member
         else:
             result = function(*args, **kwargs)
         return result
