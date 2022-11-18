@@ -305,22 +305,24 @@ def scope_factory():
     return create_scopes
 
 
+class _TagFactory:
+    def __init__(self, prefix):
+        self.prefix = prefix
+        self.index = 0
+
+    def new_tag(self):
+        self.index += 1
+        return f'{self.prefix}-{self.index}'
+
+
 @pytest.fixture
 def tag_factory(function_scope_prefix):
+    return _TagFactory(prefix=f'{function_scope_prefix}{"".join(choice(ascii_uppercase) for _ in range(6))}'.replace('_', '-'))
 
-    import string
-    import random
 
-    class _Factory:
-        def __init__(self):
-            self.prefix = f'{function_scope_prefix}-{"".join(random.choice(string.ascii_uppercase) for _ in range(6))}'
-            self.index = 0
-
-        def new_tag(self):
-            self.index += 1
-            return f'{self.prefix}-{self.index}'
-
-    return _Factory()
+@pytest.fixture(scope='class')
+def tag_factory_class(class_scope_prefix):
+    return _TagFactory(prefix=f'{class_scope_prefix}{"".join(choice(ascii_uppercase) for _ in range(6))}'.replace('_', '-'))
 
 
 @pytest.fixture
