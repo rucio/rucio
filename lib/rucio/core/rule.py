@@ -1175,7 +1175,7 @@ def get_rule(rule_id, *, session: "Session"):
 
 
 @transactional_session
-def update_rule(rule_id, options, *, session: "Session"):
+def update_rule(rule_id: str, options: Dict[str, Any], *, session: "Session") -> None:
     """
     Update a rules options.
 
@@ -1185,7 +1185,10 @@ def update_rule(rule_id, options, *, session: "Session"):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['comment', 'locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta', 'purge_replicas', 'boost_rule']
+    valid_options = ['comment', 'locked', 'lifetime', 'account', 'state',
+                     'activity', 'source_replica_expression', 'cancel_requests',
+                     'priority', 'child_rule_id', 'eol_at', 'meta',
+                     'purge_replicas', 'boost_rule']
 
     for key in options:
         if key not in valid_options:
