@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import Any, Dict, TYPE_CHECKING
 
 from rucio.api.permission import has_permission
 from rucio.common.config import config_get_bool
@@ -233,7 +233,7 @@ def delete_replication_rule(rule_id, purge_replicas, issuer, vo='def', *, sessio
 
 
 @transactional_session
-def update_replication_rule(rule_id, options, issuer, vo='def', *, session: "Session"):
+def update_replication_rule(rule_id: str, options: Dict[str, Any], issuer: str, vo: str = 'def', *, session: "Session"):
     """
     Update lock state of a replication rule.
 
@@ -251,11 +251,11 @@ def update_replication_rule(rule_id, options, issuer, vo='def', *, session: "Ses
         if not has_permission(issuer=issuer, vo=vo, action='approve_rule', kwargs=kwargs, session=session):
             raise AccessDenied('Account %s can not approve/deny this replication rule.' % (issuer))
 
-        issuer = InternalAccount(issuer, vo=vo)
+        issuer_ia = InternalAccount(issuer, vo=vo)
         if options['approve']:
-            rule.approve_rule(rule_id=rule_id, approver=issuer, session=session)
+            rule.approve_rule(rule_id=rule_id, approver=issuer_ia, session=session)
         else:
-            rule.deny_rule(rule_id=rule_id, approver=issuer, reason=options.get('comment', None), session=session)
+            rule.deny_rule(rule_id=rule_id, approver=issuer_ia, reason=options.get('comment', None), session=session)
     else:
         if not has_permission(issuer=issuer, vo=vo, action='update_rule', kwargs=kwargs, session=session):
             raise AccessDenied('Account %s can not update this replication rule.' % (issuer))
