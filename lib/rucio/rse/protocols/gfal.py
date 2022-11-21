@@ -19,6 +19,7 @@ import logging
 import os
 import re
 import subprocess
+import sys
 import urllib.parse as urlparse
 
 from threading import Timer
@@ -167,6 +168,12 @@ class Default(protocol.RSEProtocol):
         else:
             return path
 
+    def event_callback(self, event):
+        self.logger(logging.DEBUG, "[%s] %s %s %s" % (event.timestamp, event.domain, event.stage, event.description))
+
+    def monitor_callback(self, src, dst, average, instant, transferred, elapsed):
+        self.logger(logging.DEBUG, "[%4d] %.2fMB (%.2fKB/s)\r" % (elapsed, transferred / 1048576, average / 1024))
+
     def connect(self):
         """
         Establishes the actual connection to the referred RSE.
@@ -176,15 +183,20 @@ class Default(protocol.RSEProtocol):
         """
         self.logger(logging.DEBUG, 'connecting to storage')
 
-        if 'RUCIO_CLIENT_MODE' in os.environ:
-            gfal2.set_verbose(gfal2.verbose_level.verbose)
-        else:
-            gfal2.set_verbose(gfal2.verbose_level.warning)
-
         self.__ctx = gfal2.creat_context()  # pylint: disable=no-member
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
         self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
+
+        if 'RUCIO_CLIENT_MODE' in os.environ:
+            gfal2.set_verbose(gfal2.verbose_level.verbose)
+            params = self.__ctx.transfer_parameters()
+            params.event_callback = self.event_callback
+            params.monitor_callback = self.monitor_callback
+            params.overwrite = True
+        else:
+            gfal2.set_verbose(gfal2.verbose_level.warning)
+
         auth_configured = False
         if self.auth_token:
             self.__ctx.set_opt_string("BEARER", "TOKEN", self.auth_token)
