@@ -154,6 +154,8 @@ def __split_rule_select_rses(
         ):
             preferred_rses.add(rse_dict["rse"])
     preferred_rses = list(preferred_rses)
+    preferred_unmatched = list()
+    selected_rses = list()
 
     for attempt in range(0, 2):
         # First attempt excludes blocklisted RSEs
