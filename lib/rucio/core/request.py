@@ -52,10 +52,10 @@ Requests accessed by external_id (So called transfers), are covered in the core 
 
 
 class RequestSource:
-    def __init__(self, rse_data, source_ranking=None, distance_ranking=None, file_path=None, scheme=None, url=None):
+    def __init__(self, rse_data, ranking=None, distance=None, file_path=None, scheme=None, url=None):
         self.rse = rse_data
-        self.distance_ranking = distance_ranking if distance_ranking is not None else 9999
-        self.source_ranking = source_ranking if source_ranking is not None else 0
+        self.distance = distance if distance is not None else 9999
+        self.ranking = ranking if ranking is not None else 0
         self.file_path = file_path
         self.scheme = scheme
         self.url = url
@@ -479,7 +479,7 @@ def list_transfer_requests_and_source_replicas(
         models.RSEFileAssociation.path,
         models.Source.ranking.label("source_ranking"),
         models.Source.url.label("source_url"),
-        models.Distance.ranking.label("distance_ranking")
+        models.Distance.distance
     ).order_by(
         sub_requests.c.created_at
     ).outerjoin(
@@ -523,7 +523,7 @@ def list_transfer_requests_and_source_replicas(
 
     requests_by_id = {}
     for (request_id, req_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, source_rse_id, dest_rse_id, account, retry_count,
-         priority, transfertool, requested_at, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance_ranking) in session.execute(stmt):
+         priority, transfertool, requested_at, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance) in session.execute(stmt):
 
         # If we didn't pre-filter using temporary tables on database side, perform the filtering here
         if not use_temp_tables and rses and dest_rse_id not in rses:
@@ -540,7 +540,7 @@ def list_transfer_requests_and_source_replicas(
 
         if replica_rse_id is not None:
             source = RequestSource(rse_data=RseData(id_=replica_rse_id, name=replica_rse_name), file_path=file_path,
-                                   source_ranking=source_ranking, distance_ranking=distance_ranking, url=source_url)
+                                   ranking=source_ranking, distance=distance, url=source_url)
             request.sources.append(source)
             if source_rse_id == replica_rse_id:
                 request.requested_source = source

@@ -35,7 +35,7 @@ def dest_rse(vo, rse_factory):
 @pytest.fixture
 def source_rse(vo, rse_factory, dest_rse):
     rse_name, rse_id = rse_factory.make_mock_rse()
-    add_distance(rse_id, dest_rse['id'], ranking=5)
+    add_distance(rse_id, dest_rse['id'], distance=5)
     yield {'name': rse_name, 'id': rse_id}
 
 
@@ -161,7 +161,7 @@ def test_preparer_without_and_with_mat(db_session, source_rse, dest_rse, mock_re
 @pytest.mark.noparallel(reason='uses preparer')
 def test_two_sources_one_destination(rse_factory, source_rse, db_session, vo, file, mock_request):
     _, source_rse2_id = rse_factory.make_mock_rse()
-    add_distance(source_rse2_id, mock_request['dest_rse_id'], ranking=2)
+    add_distance(source_rse2_id, mock_request['dest_rse_id'], distance=2)
     add_replicas(rse_id=source_rse2_id, files=[file], account=mock_request['account'])
 
     src1_distance, src2_distance = (
@@ -171,8 +171,8 @@ def test_two_sources_one_destination(rse_factory, source_rse, db_session, vo, fi
         )
         for src_rse in (source_rse['id'], source_rse2_id)
     )
-    assert src1_distance and len(src1_distance) == 1 and src1_distance[0]['ranking'] == 5
-    assert src2_distance and len(src2_distance) == 1 and src2_distance[0]['ranking'] == 2
+    assert src1_distance and len(src1_distance) == 1 and src1_distance[0]['distance'] == 5
+    assert src2_distance and len(src2_distance) == 1 and src2_distance[0]['distance'] == 2
 
     preparer.run_once(logger=print)
 

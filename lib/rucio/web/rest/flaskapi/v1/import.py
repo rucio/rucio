@@ -59,29 +59,12 @@ class Import(ErrorHandlingMethodView):
                         description: Distance for two rses.
                         type: object
                         properties:
-                          ranking:
+                          distance:
                             description: The distance between the rses.
                             type: integer
-                          agis_distance:
-                            description: The agis distance between the rses.
-                            type: integer
-                          geoip_distance:
-                            description: The geoip distance between the rses.
-                            type: integer
-                          active:
-                            description: Active FTS transfer.
-                            type: integer
-                          submitted:
-                            description: Submitted FTS transfer.
-                            type: integer
-                          transfer_speed:
-                            description: FTS transfer speed.
-                            type: integer
-                          finished:
-                            description: Finished FTS transfer.
-                            type: integer
-                          failed:
-                            description: Failed fts transfer.
+                          ranking:
+                            deprecated: true
+                            description: Same as distance
                             type: integer
                   accounts:
                     description: Account data.

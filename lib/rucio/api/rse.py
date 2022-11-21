@@ -455,9 +455,7 @@ def update_rse(rse, parameters, issuer, vo='def', *, session: "Session"):
 
 
 @transactional_session
-def add_distance(source, destination, issuer, vo='def', ranking=None, distance=None,
-                 geoip_distance=None, active=None, submitted=None, finished=None,
-                 failed=None, transfer_speed=None, *, session: "Session"):
+def add_distance(source, destination, issuer, vo='def', distance=None, *, session: "Session"):
     """
     Add a src-dest distance.
 
@@ -465,14 +463,7 @@ def add_distance(source, destination, issuer, vo='def', ranking=None, distance=N
     :param destination: The destination.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
-    :param ranking: Ranking as an integer.
     :param distance: Distance as an integer.
-    :param geoip_distance: GEOIP Distance as an integer.
-    :param active: Active FTS transfers as an integer.
-    :param submitted: Submitted FTS transfers as an integer.
-    :param finished: Finished FTS transfers as an integer.
-    :param failed: Failed FTS transfers as an integer.
-    :param transfer_speed: FTS transfer speed as an integer.
     :param session: The database session in use.
     """
     kwargs = {'source': source, 'destination': destination}
@@ -481,38 +472,31 @@ def add_distance(source, destination, issuer, vo='def', ranking=None, distance=N
     try:
         return distance_module.add_distance(src_rse_id=rse_module.get_rse_id(source, vo=vo, session=session),
                                             dest_rse_id=rse_module.get_rse_id(destination, vo=vo, session=session),
-                                            ranking=ranking, agis_distance=distance,
-                                            geoip_distance=geoip_distance, active=active,
-                                            submitted=submitted, finished=finished,
-                                            failed=failed, transfer_speed=transfer_speed, session=session)
+                                            distance=distance, session=session)
     except exception.Duplicate:
         # use source and destination RSE names
         raise exception.Duplicate('Distance from %s to %s already exists!' % (source, destination))
 
 
 @transactional_session
-def update_distance(source, destination, parameters, issuer, vo='def', *, session: "Session"):
+def update_distance(source, destination, distance, issuer, vo='def', *, session: "Session"):
     """
     Update distances with the given RSE ids.
 
     :param source: The source RSE.
     :param destination: The destination RSE.
-    :param  parameters: A dictionnary with property
-    :param session: The database session to use.
+    :param distance: The new distance to set
     :param issuer: The issuer account.
     :param vo: The VO to act on.
-    :param session: The database session in use.
+    :param session: The database session to use.
     """
     kwargs = {'source': source, 'destination': destination}
     if not permission.has_permission(issuer=issuer, vo=vo, action='update_distance', kwargs=kwargs, session=session):
         raise exception.AccessDenied('Account %s can not update RSE distances' % (issuer))
-    if 'distance' in parameters:
-        parameters['agis_distance'] = parameters['distance']
-        parameters.pop('distance', None)
 
     return distance_module.update_distances(src_rse_id=rse_module.get_rse_id(source, vo=vo, session=session),
                                             dest_rse_id=rse_module.get_rse_id(destination, vo=vo, session=session),
-                                            parameters=parameters, session=session)
+                                            distance=distance, session=session)
 
 
 @read_session

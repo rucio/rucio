@@ -33,7 +33,7 @@ Upload a file and create a replication rule::
 
   $ rucio upload --scope mock --rse MOCK --name file filename.txt
   $ rucio add-rule mock:file 1 MOCK2
-  $ rucio-admin rse add-distance MOCK2 MOCK --distance 1 --ranking 1
+  $ rucio-admin rse add-distance MOCK2 MOCK --distance 1
 
 The rule should replicate the file from RSE MOCK to RSE MOCK2. Therefor a distance between these RSEs is needed.
 

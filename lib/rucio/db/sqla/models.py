@@ -1425,21 +1425,7 @@ class Distance(BASE, ModelBase):
     __tablename__ = 'distances'
     src_rse_id = Column(GUID())
     dest_rse_id = Column(GUID())
-    ranking = Column(Integer())
-    agis_distance = Column(Integer())
-    geoip_distance = Column(Integer())
-    active = Column(Integer())
-    submitted = Column(Integer())
-    finished = Column(Integer())
-    failed = Column(Integer())
-    transfer_speed = Column(Integer())
-    packet_loss = Column(Integer())
-    latency = Column(Integer())
-    mbps_file = Column(Integer())
-    mbps_link = Column(Integer())
-    queued_total = Column(Integer())
-    done_1h = Column(Integer())
-    done_6h = Column(Integer())
+    distance = Column(Integer())
     _table_args = (PrimaryKeyConstraint('src_rse_id', 'dest_rse_id', name='DISTANCES_PK'),
                    ForeignKeyConstraint(['src_rse_id'], ['rses.id'], name='DISTANCES_SRC_RSES_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='DISTANCES_DEST_RSES_FK'),
