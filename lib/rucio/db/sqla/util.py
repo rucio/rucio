@@ -58,7 +58,9 @@ def build_database():
     if schema:
         print('Schema set in config, trying to create schema:', schema)
         try:
-            engine.execute(CreateSchema(schema))
+            with engine.connect() as conn:
+                with conn.begin():
+                    conn.execute(CreateSchema(schema))
         except Exception as e:
             print('Cannot create schema, please validate manually if schema creation is needed, continuing:', e)
 
@@ -96,7 +98,8 @@ def drop_everything():
 
     # the transaction only applies if the DB supports
     # transactional DDL, i.e. Postgresql, MS SQL Server
-    with engine.begin() as conn:
+
+    with engine.connect() as conn:
 
         inspector = inspect(conn)  # type: Union[Inspector, PGInspector]
 
@@ -127,12 +130,12 @@ def drop_everything():
 def create_base_vo():
     """ Creates the base VO """
 
-    s = get_session()
+    session_scoped = get_session()
 
     vo = models.VO(vo='def', description='Default base VO', email='N/A')
-
-    s.add_all([vo])
-    s.commit()
+    with session_scoped() as s:
+        with s.begin():
+            s.add_all([vo])
 
 
 def create_root_account():
@@ -170,7 +173,7 @@ def create_root_account():
         pass
         # print 'Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.'
 
-    s = get_session()
+    session_scoped = get_session()
 
     if multi_vo:
         access = 'super_root'
@@ -197,42 +200,45 @@ def create_root_account():
     identity4 = models.Identity(identity=ssh_id, identity_type=IdentityType.SSH, email=ssh_email)
     iaa4 = models.IdentityAccountAssociation(identity=identity4.identity, identity_type=identity4.identity_type, account=account.account, is_default=True)
 
-    # Apply
-    for identity in [identity1, identity2, identity3, identity4]:
-        try:
-            s.add(identity)
-            s.commit()
-        except IntegrityError:
-            # Identities may already be in the DB when running multi-VO conversion
-            s.rollback()
-    s.add(account)
-    s.commit()
-    s.add_all([iaa1, iaa2, iaa3, iaa4])
-    s.commit()
+    with session_scoped() as s:
+        s.begin()
+        # Apply
+        for identity in [identity1, identity2, identity3, identity4]:
+            try:
+                s.add(identity)
+                s.commit()
+            except IntegrityError:
+                # Identities may already be in the DB when running multi-VO conversion
+                s.rollback()
+        s.add(account)
+        s.flush()
+        s.add_all([iaa1, iaa2, iaa3, iaa4])
+        s.commit()
 
 
 def get_db_time():
     """ Gives the utc time on the db. """
-    s = get_session()
+    session_scoped = get_session()
     try:
         storage_date_format = None
-        if s.bind.dialect.name == 'oracle':
+        if session_scoped.bind.dialect.name == 'oracle':
             query = select([text("sys_extract_utc(systimestamp)")])
-        elif s.bind.dialect.name == 'mysql':
+        elif session_scoped.bind.dialect.name == 'mysql':
             query = select([text("utc_timestamp()")])
-        elif s.bind.dialect.name == 'sqlite':
+        elif session_scoped.bind.dialect.name == 'sqlite':
             query = select([text("datetime('now', 'utc')")])
             storage_date_format = '%Y-%m-%d  %H:%M:%S'
         else:
             query = select([func.current_date()])
 
-        for now, in s.execute(query):
+        session = session_scoped()
+        session.begin()
+        for now, in session.execute(query):
             if storage_date_format:
                 return datetime.strptime(now, storage_date_format)
             return now
-
     finally:
-        s.remove()
+        session_scoped.remove()
 
 
 def get_count(q):
@@ -255,12 +261,17 @@ def is_old_db():
     schema = config_get('database', 'schema', raise_exception=False)
 
     # checks if alembic is being used by looking up the AlembicVersion table
-    if not get_engine().has_table(models.AlembicVersion.__tablename__, schema):
+    inspector = inspect(get_engine())
+    if not inspector.has_table(models.AlembicVersion.__tablename__, schema):
         return False
 
-    s = get_session()
-    query = s.query(models.AlembicVersion.version_num)
-    return query.count() != 0 and str(query.first()[0]) != alembicrevision.ALEMBIC_REVISION
+    session_scoped = get_session()
+    with session_scoped() as s:
+        with s.begin():
+            # query = s.query(models.AlembicVersion.version_num)
+            query = s.execute(select(models.AlembicVersion)).scalars().all()
+            # return query.count() != 0 and str(query.first()[0]) != alembicrevision.ALEMBIC_REVISION
+            return (len(query) != 0 and str(query[0].version_num) != alembicrevision.ALEMBIC_REVISION)
 
 
 def json_implemented(session=None):
