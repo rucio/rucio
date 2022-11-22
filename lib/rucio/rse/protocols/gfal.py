@@ -19,7 +19,6 @@ import logging
 import os
 import re
 import subprocess
-import sys
 import urllib.parse as urlparse
 
 from threading import Timer
