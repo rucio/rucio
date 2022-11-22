@@ -1029,9 +1029,6 @@ class x509(ErrorHandlingMethodView):
         dn = request.environ.get('SSL_CLIENT_S_DN')
         if not dn:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot get DN', headers=headers)
-        if not dn.startswith('/'):
-            dn = '/' + '/'.join(dn.split(',')[::-1])
-
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
