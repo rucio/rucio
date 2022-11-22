@@ -88,6 +88,14 @@ VPEtp2ruk2N7rv0DixwcEQlD/DqsfmR2/QWDeDd1xxoTXPhIXQ==
     ('/DC=com/DC=example/OU=Users/CN=John Doe/CN=limited proxy/CN=123456789', '/DC=com/DC=example/OU=Users/CN=John Doe'),
     ('/DC=com/DC=example/OU=Users/CN=John Doe/CN=proxy/CN=123456789', '/DC=com/DC=example/OU=Users/CN=John Doe'),
     ('/DC=com/DC=example/OU=Users/CN=John Doe/CN=123456789/CN=123456789', '/DC=com/DC=example/OU=Users/CN=John Doe'),
+    ('CN=John Doe,OU=Users,DC=example,DC=com', 'CN=John Doe,OU=Users,DC=example,DC=com'),
+    ('CN=John Doe,CN=123456789,OU=Users,DC=example,DC=com', 'CN=John Doe,CN=123456789,OU=Users,DC=example,DC=com'),
+    ('CN=limited proxy,CN=John Doe,OU=Users,DC=example,DC=com', 'CN=John Doe,OU=Users,DC=example,DC=com'),
+    ('CN=proxy,CN=John Doe,OU=Users,DC=example,DC=com', 'CN=John Doe,OU=Users,DC=example,DC=com'),
+    ('CN=123456789,CN=John Doe,OU=Users,DC=example,DC=com', 'CN=John Doe,OU=Users,DC=example,DC=com'),
+    ('CN=123456789,CN=limited proxy,CN=John Doe,OU=Users,DC=example,DC=com', 'CN=John Doe,OU=Users,DC=example,DC=com'),
+    ('CN=123456789,CN=proxy,CN=John Doe,OU=Users,DC=example,DC=com', 'CN=John Doe,OU=Users,DC=example,DC=com'),
+    ('CN=123456789,CN=123456789,CN=John Doe,OU=Users,DC=example,DC=com', 'CN=John Doe,OU=Users,DC=example,DC=com'),
 ])
 def test_strip_x509_proxy_attributes(vo, dn, stripped_dn):
     """ AUTHENTICATION (CORE): Test the stripping of X509-proxy attributes"""
