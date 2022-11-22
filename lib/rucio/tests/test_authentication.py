@@ -26,6 +26,7 @@ from rucio.common.exception import Duplicate, AccessDenied
 from rucio.common.types import InternalAccount
 from rucio.common.utils import ssh_sign
 from rucio.core.identity import add_account_identity, del_account_identity
+from rucio.core.authentication import strip_x509_proxy_attributes
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.tests.common import headers, hdrdict, loginhdr, vohdr
@@ -75,6 +76,22 @@ mQKBgQDTinWi2THxJhzYloxupcgW0kI+htxOr5QcXUxIPh4zc7lsHyzZ4IqNISaa
 AYkc9cZ+tulIOvu5mTS6OwfMIv8ql5j4xjyrCEYs9zG1vc+0IB5r0tea2unn+bxE
 VPEtp2ruk2N7rv0DixwcEQlD/DqsfmR2/QWDeDd1xxoTXPhIXQ==
 -----END RSA PRIVATE KEY-----"""
+
+
+@pytest.mark.parametrize('dn, stripped_dn', [
+    ('', ''),
+    ('/DC=com/DC=example/OU=Users/CN=John Doe', '/DC=com/DC=example/OU=Users/CN=John Doe'),
+    ('/DC=com/DC=example/OU=Users/CN=123456789/CN=John Doe', '/DC=com/DC=example/OU=Users/CN=123456789/CN=John Doe'),
+    ('/DC=com/DC=example/OU=Users/CN=John Doe/CN=limited proxy', '/DC=com/DC=example/OU=Users/CN=John Doe'),
+    ('/DC=com/DC=example/OU=Users/CN=John Doe/CN=proxy', '/DC=com/DC=example/OU=Users/CN=John Doe'),
+    ('/DC=com/DC=example/OU=Users/CN=John Doe/CN=123456789', '/DC=com/DC=example/OU=Users/CN=John Doe'),
+    ('/DC=com/DC=example/OU=Users/CN=John Doe/CN=limited proxy/CN=123456789', '/DC=com/DC=example/OU=Users/CN=John Doe'),
+    ('/DC=com/DC=example/OU=Users/CN=John Doe/CN=proxy/CN=123456789', '/DC=com/DC=example/OU=Users/CN=John Doe'),
+    ('/DC=com/DC=example/OU=Users/CN=John Doe/CN=123456789/CN=123456789', '/DC=com/DC=example/OU=Users/CN=John Doe'),
+])
+def test_strip_x509_proxy_attributes(vo, dn, stripped_dn):
+    """ AUTHENTICATION (CORE): Test the stripping of X509-proxy attributes"""
+    assert strip_x509_proxy_attributes(dn) == stripped_dn
 
 
 @pytest.mark.noparallel(reason='changes identities of the same account')

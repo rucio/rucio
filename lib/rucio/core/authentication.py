@@ -19,6 +19,7 @@ import random
 import sys
 import traceback
 from base64 import b64decode
+from re import search
 
 import paramiko
 from dogpile.cache.api import NO_VALUE
@@ -35,6 +36,27 @@ from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
+
+
+def strip_x509_proxy_attributes(dn: str) -> str:
+    """
+    If we get a valid proxy certificate we have to strip this postfix,
+    otherwise we would have to store the proxy DN in the database as well.
+    Alternative: use the SSL_CLIENT_I_DN, but that would require a separate
+    endpoint as you cannot programmatically decide, by examining the SSL variables,
+    if you got a proxy or regular certificate
+    """
+    while True:
+        if dn.endswith('/CN=limited proxy'):
+            dn = dn[:-17]
+        elif dn.endswith('/CN=proxy'):
+            dn = dn[:-9]
+        elif search('/CN=[0-9]*$', dn):
+            dn = dn.rpartition('/')[0]
+        else:
+            break
+
+    return dn
 
 
 def token_key_generator(namespace, fni, **kwargs):

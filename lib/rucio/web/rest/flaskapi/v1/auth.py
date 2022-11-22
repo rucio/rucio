@@ -17,7 +17,6 @@ import base64
 import logging
 import time
 import json
-from re import search
 from typing import TYPE_CHECKING
 
 from flask import Flask, Blueprint, request, Response, redirect, render_template
@@ -31,6 +30,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, IdentityNotFound, CannotAuthenticate, CannotAuthorize
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
+from rucio.core.authentication import strip_x509_proxy_attributes
 from rucio.api.identity import list_accounts_for_identity, get_default_account, verify_identity
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, error_headers, \
     extract_vo, generate_http_error_flask, ErrorHandlingMethodView
@@ -1029,23 +1029,9 @@ class x509(ErrorHandlingMethodView):
         dn = request.environ.get('SSL_CLIENT_S_DN')
         if not dn:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot get DN', headers=headers)
+        dn = strip_x509_proxy_attributes(dn)
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
-
-        # If we get a valid proxy certificate we have to strip this postfix,
-        # otherwise we would have to store the proxy DN in the database as well.
-        # Alternative: use the SSL_CLIENT_I_DN, but that would require a separate
-        # endpoint as you cannot programmatically decide, by examining the SSL variables,
-        # if you got a proxy or regular certificate
-        while True:
-            if dn.endswith('/CN=limited proxy'):
-                dn = dn[:-17]
-            elif dn.endswith('/CN=proxy'):
-                dn = dn[:-9]
-            elif search('/CN=[0-9]*$', dn):
-                dn = dn.rpartition('/')[0]
-            else:
-                break
 
         try:
             result = get_auth_token_x509(account, dn, appid, ip, vo=vo)
