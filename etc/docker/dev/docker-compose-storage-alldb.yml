@@ -1,36 +1,8 @@
 services:
   rucio:
     image: docker.io/rucio/rucio-dev
-    extra_hosts:
-      - "ruciomy8:127.0.0.1"
-      - "oracle:127.0.0.1"
-      - "ruciodb:127.0.0.1"
-      - "graphite:127.0.0.1"
-      - "fts:127.0.0.1"
-      - "ftsdb:127.0.0.1"
-      - "xrd1:127.0.0.1"
-      - "xrd2:127.0.0.1"
-      - "xrd3:127.0.0.1"
-      - "xrd4:127.0.0.1"
-      - "minio:127.0.0.1"
-      - "activemq:127.0.0.1"
-      - "ssh1:127.0.0.1"
     ports:
-      - "127.0.0.1:8443:443"
-      - "127.0.0.1:3308:3308"
-      - "127.0.0.1:1521:1521"
-      - "127.0.0.1:5432:5432"
-      - "127.0.0.1:8080:80"
-      - "127.0.0.1:8446:8446"
-      - "127.0.0.1:8449:8449"
-      - "127.0.0.1:3306:3306"
-      - "127.0.0.1:1094:1094"
-      - "127.0.0.1:1095:1095"
-      - "127.0.0.1:1096:1096"
-      - "127.0.0.1:1097:1097"
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:61613:61613"
-      - "127.0.0.1:2222:22"
+      - "8443:443"
     volumes:
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
@@ -41,7 +13,6 @@ services:
       - RDBMS=postgres14
   ruciomy8:
     image: docker.io/mysql:8
-    network_mode: "service:rucio"
     environment:
       - MYSQL_USER=rucio
       - MYSQL_PASSWORD=rucio
@@ -50,7 +21,6 @@ services:
       - MYSQL_TCP_PORT=3308
   oracle:
     image: docker.io/gvenzl/oracle-xe:21-slim
-    network_mode: "service:rucio"
     environment:
       - ORACLE_PASSWORD=rucio
       - ORACLE_ALLOW_REMOTE=true
@@ -60,21 +30,21 @@ services:
       - transactions=1215
   ruciodb:
     image: docker.io/postgres:14
-    network_mode: "service:rucio"
     environment:
       - POSTGRES_USER=rucio
       - POSTGRES_DB=rucio
       - POSTGRES_PASSWORD=secret
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
+    ports:
+      - "5432:5432"
   graphite:
     image: docker.io/graphiteapp/graphite-statsd
-    network_mode: "service:rucio"
+    ports:
+      - "8080:80"
   fts:
     image: docker.io/rucio/fts
-    network_mode: "service:rucio"
   ftsdb:
     image: docker.io/mysql:8
-    network_mode: "service:rucio"
     command: --default-authentication-plugin=mysql_native_password
     environment:
       - MYSQL_USER=fts
@@ -83,7 +53,6 @@ services:
       - MYSQL_DATABASE=fts
   xrd1:
     image: docker.io/rucio/xrootd
-    network_mode: "service:rucio"
     environment:
       - XRDPORT=1094
     volumes:
@@ -91,7 +60,6 @@ services:
       - ../../certs/hostcert_xrd1.key.pem:/tmp/xrdkey.pem:Z
   xrd2:
     image: docker.io/rucio/xrootd
-    network_mode: "service:rucio"
     environment:
       - XRDPORT=1095
     volumes:
@@ -99,7 +67,6 @@ services:
       - ../../certs/hostcert_xrd2.key.pem:/tmp/xrdkey.pem:Z
   xrd3:
     image: docker.io/rucio/xrootd
-    network_mode: "service:rucio"
     environment:
       - XRDPORT=1096
     volumes:
@@ -107,7 +74,6 @@ services:
       - ../../certs/hostcert_xrd3.key.pem:/tmp/xrdkey.pem:Z
   xrd4:
     image: docker.io/rucio/xrootd
-    network_mode: "service:rucio"
     environment:
       - XRDPORT=1097
     volumes:
@@ -115,7 +81,6 @@ services:
       - ../../certs/hostcert_xrd4.key.pem:/tmp/xrdkey.pem:Z
   minio:
     image: docker.io/minio/minio
-    network_mode: "service:rucio"
     environment:
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password
@@ -125,7 +90,6 @@ services:
     command: ["server", "/data"]
   activemq:
     image: docker.io/webcenter/activemq:latest
-    network_mode: "service:rucio"
     environment:
       - ACTIVEMQ_CONFIG_NAME=activemq
       - ACTIVEMQ_CONFIG_DEFAULTACCOUNT=false
@@ -134,8 +98,9 @@ services:
       - ACTIVEMQ_USERS_receiver=supersecret
       - ACTIVEMQ_GROUPS_reads=receiver
       - ACTIVEMQ_CONFIG_SCHEDULERENABLED=true
+    ports:
+      - "8161:8161"
   ssh1:
     image: docker.io/rucio/ssh
-    network_mode: "service:rucio"
     volumes:
       - ../../certs/ssh/ruciouser_sshkey.pub:/tmp/sshkey.pub:Z
