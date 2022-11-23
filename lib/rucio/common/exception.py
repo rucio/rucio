@@ -22,6 +22,7 @@
 """
 
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
+from typing import Optional
 
 
 class RucioException(Exception):
@@ -1055,6 +1056,7 @@ class MetadataSchemaMismatchError(RucioException):
     """
     External table does not match expected table schema.
     """
+
     def __init__(self, *args, **kwargs):
         super(MetadataSchemaMismatchError, self).__init__(*args, **kwargs)
         self._message = 'The external table does not match the expected table schema.'
@@ -1069,3 +1071,14 @@ class PolicyPackageVersionError(RucioException):
         super(PolicyPackageVersionError, self).__init__(*args, **kwargs)
         self._message = 'Policy package %s is not compatible with this Rucio version' % package
         self.error_code = 103
+
+
+class ServerSSLCertificateExpiredException(RucioException):
+    """
+    Server SSL Certificate has expired, auth is no longer possible
+    """
+
+    def __init__(self, enddatetime: Optional[str], *args, **kwargs):
+        super(ServerSSLCertificateExpiredException, self).__init__(*args, **kwargs)
+        self._message = f'Server SSL Certificate has expired on {enddatetime}, auth is no longer possible'
+        self.error_code = 104
