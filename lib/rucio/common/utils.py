@@ -33,7 +33,7 @@ import subprocess
 import tempfile
 import threading
 import time
-from typing import Tuple
+from typing import Optional, Tuple
 import zlib
 from collections import OrderedDict
 from enum import Enum
@@ -371,7 +371,7 @@ def val_to_space_sep_str(vallist):
         return str('')
 
 
-def date_to_str(date):
+def date_to_str(date: datetime.datetime) -> Optional[str]:
     """ Converts a datetime value to the corresponding RFC-1123 string.
 
     :param date: the datetime value to convert.
