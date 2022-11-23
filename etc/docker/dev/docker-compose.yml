@@ -2,20 +2,8 @@ version: "3"
 services:
   rucio:
     image: docker.io/rucio/rucio-dev
-    extra_hosts:
-      - "ruciodb:127.0.0.1"
-      - "graphite:127.0.0.1"
-      - "influxdb:127.0.0.1"
-      - "elasticsearch:127.0.0.1"
-      - "activemq:127.0.0.1"
     ports:
       - "127.0.0.1:8443:443"
-      - "127.0.0.1:5432:5432"
-      - "127.0.0.1:8080:80"
-      - "127.0.0.1:8086:8086"
-      - "127.0.0.1:9200:9200"
-      - "127.0.0.1:9300:9300"
-      - "127.0.0.1:61613:61613"
     volumes:
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
@@ -26,7 +14,8 @@ services:
       - RDBMS=postgres14
   ruciodb:
     image: docker.io/postgres:14
-    network_mode: "service:rucio"
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       - POSTGRES_USER=rucio
       - POSTGRES_DB=rucio
@@ -34,10 +23,12 @@ services:
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
   graphite:
     image: docker.io/graphiteapp/graphite-statsd
-    network_mode: "service:rucio"
+    ports:
+      - "127.0.0.1:8080:80"
   influxdb:
     image: docker.io/influxdb:latest
-    network_mode: "service:rucio"
+    ports:
+      - "127.0.0.1:8086:8086"
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=myusername
@@ -47,12 +38,16 @@ services:
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
   elasticsearch:
     image: docker.io/elasticsearch:7.4.0
-    network_mode: "service:rucio"
+    ports:
+      - "127.0.0.1:9200:9200"
+      - "127.0.0.1:9300:9300"
     environment:
       - discovery.type=single-node
   activemq:
     image: docker.io/webcenter/activemq:latest
-    network_mode: "service:rucio"
+    ports:
+      - "127.0.0.1:61613:61613"
+      - "127.0.0.1:8161:8161"
     environment:
       - ACTIVEMQ_CONFIG_NAME=activemq
       - ACTIVEMQ_CONFIG_DEFAULTACCOUNT=false
