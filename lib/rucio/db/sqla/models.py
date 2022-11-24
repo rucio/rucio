@@ -17,7 +17,7 @@ import datetime
 import sys
 import uuid
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, Float, Integer, SmallInteger, String as _String, Text, event, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, Float, Integer, SmallInteger, String as _String, Text, event, UniqueConstraint, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
@@ -33,7 +33,7 @@ from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability
                                      RuleState, ReplicaState, RequestState, RequestType, RSEType,
                                      ScopeStatus, SubscriptionState, RuleNotification, LifetimeExceptionsState,
                                      BadPFNStatus, TransferLimitDirection)
-from rucio.db.sqla.session import BASE
+from rucio.db.sqla.session import BASE, get_engine
 from rucio.db.sqla.types import GUID, BooleanString, JSON
 from rucio.db.sqla.types import InternalAccountString as _InternalAccountString
 from rucio.db.sqla.types import InternalScopeString as _InternalScopeString
@@ -1420,12 +1420,24 @@ class SourceHistory(BASE, ModelBase):
                    )
 
 
+# Compatibility code to permit 1.30 to run with a distances table from the 1.29 database schema
+# TODO: remove this code in rucio 1.31
+_distance_column_name = 'distance'
+_engine = get_engine()
+if _engine.dialect.name in ['oracle', 'mysql', 'postgresql']:
+    _insp = inspect(_engine)
+    if _engine.dialect.name in ['oracle', 'postgresql'] or BASE.metadata.schema in _insp.get_schema_names():
+        if 'distances' in _insp.get_table_names(schema=BASE.metadata.schema):
+            if any(c['name'] == 'ranking' for c in _insp.get_columns(table_name='distances', schema=BASE.metadata.schema)):
+                _distance_column_name = 'ranking'
+
+
 class Distance(BASE, ModelBase):
     """Represents distance between rses"""
     __tablename__ = 'distances'
     src_rse_id = Column(GUID())
     dest_rse_id = Column(GUID())
-    distance = Column(Integer())
+    distance = Column(_distance_column_name, Integer())
     _table_args = (PrimaryKeyConstraint('src_rse_id', 'dest_rse_id', name='DISTANCES_PK'),
                    ForeignKeyConstraint(['src_rse_id'], ['rses.id'], name='DISTANCES_SRC_RSES_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='DISTANCES_DEST_RSES_FK'),

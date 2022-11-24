@@ -33,13 +33,6 @@ from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator, get_long_vo
 
 
-@pytest.fixture
-def setup_test(request, rse_factory):
-    request.instance.rse_factory = rse_factory
-    request.instance.setUp()
-
-
-@pytest.mark.usefixtures("setup_test")
 class TestBinRucio:
 
     def conf_vo(self):
@@ -58,7 +51,8 @@ class TestBinRucio:
                 if error.args[0] != 2:
                     raise error
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def setup_obj(self, vo, function_scope_prefix):
         self.conf_vo()
         try:
             remove(get_tmp_dir() + '/.rucio_root/auth_token_for_account_root')
@@ -74,8 +68,12 @@ class TestBinRucio:
         self.replica_client = ReplicaClient()
         self.rule_client = RuleClient()
         self.account_client = AccountLimitClient()
+        rse_factory = None
         if environ.get('SUITE', 'remote_dbs') != 'client':
-            self.def_rse, self.def_rse_id = self.rse_factory.make_posix_rse()
+            from rucio.tests.temp_factories import TemporaryRSEFactory
+
+            rse_factory = TemporaryRSEFactory(vo=vo, name_prefix=function_scope_prefix)
+            self.def_rse, self.def_rse_id = rse_factory.make_posix_rse()
         else:
             self.def_rse = 'MOCK4'
             self.def_rse_id = self.rse_client.get_rse(rse=self.def_rse)['id']
@@ -84,6 +82,11 @@ class TestBinRucio:
         self.rse_client.add_rse_attribute(self.def_rse, 'istape', 'False')
 
         self.upload_success_str = 'Successfully uploaded file %s'
+
+        yield
+
+        if rse_factory:
+            rse_factory.cleanup()
 
     def test_rucio_version(self):
         """CLIENT(USER): Rucio version"""
