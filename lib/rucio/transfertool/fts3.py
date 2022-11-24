@@ -71,6 +71,7 @@ QUERY_DETAILS_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query_details
 ALLOW_USER_OIDC_TOKENS = config_get_bool('conveyor', 'allow_user_oidc_tokens', False, False)
 REQUEST_OIDC_SCOPE = config_get('conveyor', 'request_oidc_scope', False, 'fts:submit-transfer')
 REQUEST_OIDC_AUDIENCE = config_get('conveyor', 'request_oidc_audience', False, 'fts:example')
+REWRITE_HTTPS_TO_DAVS = config_get_bool('transfers', 'rewrite_https_to_davs', default=False)
 
 # https://fts3-docs.web.cern.ch/fts3-docs/docs/state_machine.html
 FINAL_FTS_JOB_STATES = (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHED, FTS_STATE.FINISHEDDIRTY)
@@ -811,21 +812,23 @@ class FTS3Transfertool(Transfertool):
             if not transfer_file['sources'] or transfer_file['sources'] == []:
                 raise Exception('No sources defined')
 
-            new_src_urls = []
-            new_dst_urls = []
-            for url in transfer_file['sources']:
-                if url.startswith('https'):
-                    new_src_urls.append(':'.join(['davs'] + url.split(':')[1:]))
-                else:
-                    new_src_urls.append(url)
-            for url in transfer_file['destinations']:
-                if url.startswith('https'):
-                    new_dst_urls.append(':'.join(['davs'] + url.split(':')[1:]))
-                else:
-                    new_dst_urls.append(url)
+            # TODO: remove the following logic in rucio 1.31
+            if REWRITE_HTTPS_TO_DAVS:
+                new_src_urls = []
+                new_dst_urls = []
+                for url in transfer_file['sources']:
+                    if url.startswith('https'):
+                        new_src_urls.append(':'.join(['davs'] + url.split(':')[1:]))
+                    else:
+                        new_src_urls.append(url)
+                for url in transfer_file['destinations']:
+                    if url.startswith('https'):
+                        new_dst_urls.append(':'.join(['davs'] + url.split(':')[1:]))
+                    else:
+                        new_dst_urls.append(url)
 
-            transfer_file['sources'] = new_src_urls
-            transfer_file['destinations'] = new_dst_urls
+                transfer_file['sources'] = new_src_urls
+                transfer_file['destinations'] = new_dst_urls
 
         transfer_id = None
         expected_transfer_id = None
