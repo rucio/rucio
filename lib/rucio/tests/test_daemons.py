@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
+from unittest import mock
 
 import pytest
 
@@ -35,12 +35,6 @@ from rucio.daemons.replicarecoverer import suspicious_replica_recoverer
 from rucio.daemons.tracer import kronos
 from rucio.daemons.transmogrifier import transmogrifier
 from rucio.daemons.undertaker import undertaker
-
-if sys.version_info >= (3, 3):
-    from unittest import mock
-else:
-    import mock
-
 
 DAEMONS = [
     account,

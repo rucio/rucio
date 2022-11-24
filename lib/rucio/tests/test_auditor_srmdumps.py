@@ -13,19 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
+from configparser import ConfigParser
 from datetime import datetime
+from unittest import mock
 
 import pytest
 
 from rucio.daemons.auditor import srmdumps
-
-from configparser import ConfigParser
-
-if sys.version_info >= (3, 3):
-    from unittest import mock
-else:
-    import mock
 
 
 def test_patterns_on_file_names():
