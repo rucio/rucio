@@ -16,6 +16,7 @@
 import datetime
 import hashlib
 import random
+import re
 import sys
 import traceback
 from base64 import b64decode
@@ -39,6 +40,38 @@ from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+
+def strip_x509_proxy_attributes(dn: str) -> str:
+    """Strip X509 proxy attributes from a DN.
+
+    When an X509 VOMS proxy certificate is produced, an additional Common Name
+    attribute is added to the subject of the original certificate.  Its value
+    can take different forms.  For proxy versions 3 and later (the default), the
+    value is a numeric.  For previous versions, the value is exclusively one of
+    'limited proxy' or 'proxy', depending on how it was produced (the most
+    trustworthy documentation on this seems to be the VOMS source code itself;
+    refer to the file sslutils.c).  Note that this addition might happen more
+    than once (e.g. if a limited proxy is used to produce a full proxy).
+
+    By default, the Apache server will return the DN in an RFC-compliant format,
+    which can look like this:
+        CN=John Doe,OU=Users,DC=example,DC=com
+    However, in case the LegacyDNStringFormat of mod_ssl is enabled, then it can
+    look like this instead:
+        /DC=com/DC=example/OU=Users/CN=John Doe
+    In the first case, the Common Name attributes added by VOMS are prepended,
+    whereas in the second case, they are appended.
+
+    The motivation for stripping these attributes is to avoid having to store
+    multiple DNs in the database (as different identities).
+    """
+    if dn.startswith('/'):
+        regexp = r'(/CN=(limited proxy|proxy|[0-9]+))+$'
+    else:
+        regexp = r'^(CN=(limited proxy|proxy|[0-9]+),)+'
+
+    return re.sub(regexp, '', dn)
 
 
 def token_key_generator(namespace, fni, **kwargs):
