@@ -1220,7 +1220,9 @@ def update_rule(rule_id: str, options: Dict[str, Any], *, session: "Session") ->
                 rule.comments = options['comment']
 
             if key == 'activity':
-                validate_schema('activity', options['activity'], vo=rule.account.vo)
+                validate_schema(
+                    'activity', options['activity'], vo=rule.account.vo
+                )
                 rule.activity = options['activity']
                 # Cancel transfers and re-submit them:
                 query = select(
@@ -1230,7 +1232,12 @@ def update_rule(rule_id: str, options: Dict[str, Any], *, session: "Session") ->
                     models.ReplicaLock.state == LockState.REPLICATING
                 )
                 for lock in session.execute(query).scalars().all():
-                    transfers_to_cancel = request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                    transfers_to_cancel = request_core.cancel_request_did(
+                        scope=lock.scope,
+                        name=lock.name,
+                        dest_rse_id=lock.rse_id,
+                        session=session
+                    )
                     transfer_core.cancel_transfers(transfers_to_cancel)
                     query = select(
                         models.RSEFileAssociation.md5,
@@ -1243,10 +1250,24 @@ def update_rule(rule_id: str, options: Dict[str, Any], *, session: "Session") ->
                     )
                     md5, bytes_, adler32 = session.execute(query).one()
                     session.flush()
-                    request_core.queue_requests(requests=[create_transfer_dict(dest_rse_id=lock.rse_id,
-                                                                               request_type=RequestType.TRANSFER,
-                                                                               scope=lock.scope, name=lock.name, rule=rule, lock=lock, bytes_=bytes_, md5=md5, adler32=adler32,
-                                                                               ds_scope=rule.scope, ds_name=rule.name, copy_pin_lifetime=None, activity=rule.activity, session=session)], session=session)
+
+                    requests = create_transfer_dict(
+                        dest_rse_id=lock.rse_id,
+                        request_type=RequestType.TRANSFER,
+                        scope=lock.scope,
+                        name=lock.name,
+                        rule=rule,
+                        lock=lock,
+                        bytes_=bytes_,
+                        md5=md5,
+                        adler32=adler32,
+                        ds_scope=rule.scope,
+                        ds_name=rule.name,
+                        copy_pin_lifetime=None,
+                        activity=rule.activity,
+                        session=session
+                    )
+                    request_core.queue_requests([requests], session=session)
 
             elif key == 'account':
                 # Check if the account exists
@@ -1275,8 +1296,20 @@ def update_rule(rule_id: str, options: Dict[str, Any], *, session: "Session") ->
 
                 # Update counters
                 for rse_id in counter_rses:
-                    account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(counter_rses[rse_id]), bytes_=sum(counter_rses[rse_id]), session=session)
-                    account_counter.increase(rse_id=rse_id, account=options['account'], files=len(counter_rses[rse_id]), bytes_=sum(counter_rses[rse_id]), session=session)
+                    account_counter.decrease(
+                        rse_id=rse_id,
+                        account=rule.account,
+                        files=len(counter_rses[rse_id]),
+                        bytes_=sum(counter_rses[rse_id]),
+                        session=session
+                    )
+                    account_counter.increase(
+                        rse_id=rse_id,
+                        account=options['account'],
+                        files=len(counter_rses[rse_id]),
+                        bytes_=sum(counter_rses[rse_id]),
+                        session=session
+                    )
                 # Update rule
                 rule.account = options['account']
                 session.flush()
@@ -1303,7 +1336,12 @@ def update_rule(rule_id: str, options: Dict[str, Any], *, session: "Session") ->
                         for lock2 in session.execute(query).scalars().all():
                             lock2.state = LockState.STUCK
                             rule_ids_to_stuck.add(lock2.rule_id)
-                        transfers_to_cancel = request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                        transfers_to_cancel = request_core.cancel_request_did(
+                            scope=lock.scope,
+                            name=lock.name,
+                            dest_rse_id=lock.rse_id,
+                            session=session
+                        )
                         transfer_core.cancel_transfers(transfers_to_cancel)
                         query = select(
                             models.RSEFileAssociation
@@ -1415,8 +1453,15 @@ def update_rule(rule_id: str, options: Dict[str, Any], *, session: "Session") ->
             )
             for lock in session.execute(query).scalars().all():
                 lock['updated_at'] -= timedelta(days=1)
+
             rule['updated_at'] -= timedelta(days=1)
-            insert_rule_history(rule, recent=True, longterm=False, session=session)
+
+            insert_rule_history(
+                rule,
+                recent=True,
+                longterm=False,
+                session=session
+            )
 
     except IntegrityError as error:
         if match('.*ORA-00001.*', str(error.args[0])) \
