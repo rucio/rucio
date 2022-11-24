@@ -15,33 +15,20 @@
 
 import os
 
-import unittest
 import pytest
 
-from rucio.client import client
-from rucio.common.config import config_get_bool
 from rucio.common.exception import UnsupportedOperation
-from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.credential import get_signed_url
-from rucio.core.replica import add_replicas, delete_replicas
-from rucio.core.rse import add_rse, del_rse, add_protocol, add_rse_attribute
-from rucio.tests.common import rse_name_generator
-from rucio.tests.common_server import get_vo
+from rucio.core.replica import add_replicas
+from rucio.core.rse import add_protocol, add_rse_attribute
 
 
-class TestCredential(unittest.TestCase):
+class TestCredential:
 
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
-
-        self.rc = client.ReplicaClient()
-        self.rse1 = rse_name_generator()
-        self.rse2 = rse_name_generator()
-        self.rse1_id = add_rse(self.rse1, **self.vo)
-        self.rse2_id = add_rse(self.rse2, **self.vo)
+    @pytest.fixture(autouse=True)
+    def setup_obj(self, rse_factory):
+        self.rse1, self.rse1_id = rse_factory.make_rse()
+        self.rse2, self.rse2_id = rse_factory.make_rse()
 
         add_protocol(self.rse1_id, {'scheme': 'https',
                                     'hostname': 'storage.googleapis.com',
@@ -60,28 +47,6 @@ class TestCredential(unittest.TestCase):
                                     'domains': {
                                         'lan': {'read': 1, 'write': 1, 'delete': 1},
                                         'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy_read': 1, 'third_party_copy_write': 1}}})
-
-        # register some files there
-        self.files = [{'scope': InternalScope('mock', **self.vo),
-                       'name': 'file-on-gcs_%s' % i,
-                       'bytes': 1234,
-                       'adler32': 'deadbeef',
-                       'meta': {'events': 666}} for i in range(0, 3)]
-        root = InternalAccount('root', **self.vo)
-        add_replicas(rse_id=self.rse1_id,
-                     files=self.files,
-                     account=root,
-                     ignore_availability=True)
-        add_replicas(rse_id=self.rse2_id,
-                     files=self.files,
-                     account=root,
-                     ignore_availability=True)
-
-    def tearDown(self):
-        delete_replicas(rse_id=self.rse1_id, files=self.files)
-        delete_replicas(rse_id=self.rse2_id, files=self.files)
-        del_rse(rse_id=self.rse1_id)
-        del_rse(rse_id=self.rse2_id)
 
     def test_sign_url_gcs(self):
         """ CREDENTIAL: Sign a URL for Google Cloud Storage """
@@ -124,23 +89,39 @@ class TestCredential(unittest.TestCase):
 
     @pytest.mark.noparallel(reason='fails when run in parallel')
     @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Test ATLAS hash convention')
-    def test_list_replicas_sign_url(self):
+    def test_list_replicas_sign_url(self, replica_client, root_account, mock_scope, did_factory):
         """ CREDENTIAL: List replicas for an RSE where signature is enabled """
 
+        # register some files there
+        files = [{'scope': mock_scope,
+                  'name': 'file-on-gcs_%s' % i,
+                  'bytes': 1234,
+                  'adler32': 'deadbeef',
+                  'meta': {'events': 666}} for i in range(0, 3)]
+        did_factory.register_dids([{'scope': mock_scope, 'name': file['name']} for file in files])
+        add_replicas(rse_id=self.rse1_id,
+                     files=files,
+                     account=root_account,
+                     ignore_availability=True)
+        add_replicas(rse_id=self.rse2_id,
+                     files=files,
+                     account=root_account,
+                     ignore_availability=True)
+
         add_rse_attribute(rse_id=self.rse1_id, key='sign_url', value='gcs')
-        replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
-                                                            'name': f['name'],
-                                                            'type': 'FILE'} for f in self.files],
-                                                     rse_expression=self.rse1)]
+        replicas = [r for r in replica_client.list_replicas(dids=[{'scope': 'mock',
+                                                                   'name': f['name'],
+                                                                   'type': 'FILE'} for f in files],
+                                                            rse_expression=self.rse1)]
         found_pfns = [list(replica['pfns'].keys())[0] for replica in replicas]
         for pfn in found_pfns:
             assert '&Signature=' in pfn
             assert len(pfn) > 120
 
-        replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
-                                                            'name': f['name'],
-                                                            'type': 'FILE'} for f in self.files],
-                                                     rse_expression=self.rse2)]
+        replicas = [r for r in replica_client.list_replicas(dids=[{'scope': 'mock',
+                                                                   'name': f['name'],
+                                                                   'type': 'FILE'} for f in files],
+                                                            rse_expression=self.rse2)]
         found_pfns = [list(replica['pfns'].keys())[0] for replica in replicas]
         expected_pfns = ['https://storage.googleapis.com:443/atlas-europe-east1/mock/04/92/file-on-gcs_0',
                          'https://storage.googleapis.com:443/atlas-europe-east1/mock/c6/5f/file-on-gcs_1',

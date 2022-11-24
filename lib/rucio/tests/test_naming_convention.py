@@ -13,12 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-
 import pytest
 
-from rucio.client.didclient import DIDClient
-from rucio.common.config import config_get_bool
 from rucio.common.exception import InvalidObject
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
@@ -27,37 +23,27 @@ from rucio.core.naming_convention import (add_naming_convention,
                                           list_naming_conventions,
                                           delete_naming_convention)
 from rucio.db.sqla.constants import KeyType
-from rucio.tests.common_server import get_vo
 
 
 @pytest.mark.noparallel(reason='changes global naming conventions, breaks other tests')
-class TestNamingConventionCore(unittest.TestCase):
+class TestNamingConventionCore:
     '''
     Class to test naming convention enforcement.
     '''
 
-    def setUp(self):
-        """ Constructor."""
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
-
-        self.did_client = DIDClient()
-
-    def test_naming_convention(self):
+    def test_naming_convention(self, vo, mock_scope, did_client):
         """ NAMING_CONVENTION(CORE): Add and validate naming convention."""
         conventions = {}
         for convention in list_naming_conventions():
             conventions[convention['scope']] = convention['regexp']
 
-        scope = InternalScope('mock', **self.vo)
+        scope = mock_scope
         if scope not in conventions:
             add_naming_convention(scope=scope,
                                   regexp=r'^(?P<project>mock)\.(?P<datatype>\w+)\.\w+$',
                                   convention_type=KeyType.DATASET)
 
-        meta = validate_name(scope=InternalScope('mck', **self.vo), name='mock.DESD.yipeeee', did_type='D')
+        meta = validate_name(scope=InternalScope('mck', vo=vo), name='mock.DESD.yipeeee', did_type='D')
         assert meta is None
 
         meta = validate_name(scope=scope, name='mock.DESD.yipeeee', did_type='D')
@@ -69,14 +55,14 @@ class TestNamingConventionCore(unittest.TestCase):
         # Register a dataset
         tmp_dataset = 'mock.AD.' + str(generate_uuid())
         with pytest.raises(InvalidObject):
-            self.did_client.add_dataset(scope='mock', name=tmp_dataset, meta={'datatype': 'DESD'})
+            did_client.add_dataset(scope='mock', name=tmp_dataset, meta={'datatype': 'DESD'})
 
         with pytest.raises(InvalidObject):
-            self.did_client.add_dataset(scope='mock', name=tmp_dataset)
+            did_client.add_dataset(scope='mock', name=tmp_dataset)
 
         tmp_dataset = 'mock.AOD.' + str(generate_uuid())
-        self.did_client.add_dataset(scope='mock', name=tmp_dataset)
-        observed_datatype = self.did_client.get_metadata(scope='mock', name=tmp_dataset)['datatype']
+        did_client.add_dataset(scope='mock', name=tmp_dataset)
+        observed_datatype = did_client.get_metadata(scope='mock', name=tmp_dataset)['datatype']
         assert observed_datatype == 'AOD'
 
         delete_naming_convention(scope=scope, convention_type=KeyType.DATASET)
