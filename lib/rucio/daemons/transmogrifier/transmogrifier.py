@@ -20,7 +20,7 @@ import threading
 import time
 from datetime import datetime
 from json import loads, dumps
-from typing import TYPE_CHECKING, List, Dict, Callable
+from typing import TYPE_CHECKING, List, Dict, Callable, Tuple
 
 import rucio.db.sqla.util
 from rucio.db.sqla.constants import DIDType, SubscriptionState
@@ -122,7 +122,7 @@ def __split_rule_select_rses(
     copies: int,
     blocklisted_rse_id: list,
     logger: "Callable",
-) -> List[Dict]:
+) -> Tuple[List, bool, bool]:
     """
     Internal method to create a list of RSEs that match RSE expression for subscriptions with split_rule.
 
@@ -136,8 +136,10 @@ def __split_rule_select_rses(
     :param copies: The number of copies.
     :param blocklisted_rse_id: The list of blocklisted_rse_id.
     :param logger: The logger.
-    :return: A tuple of list selected_rses, preferred_rses, preferred_unmatched.
+    :return: A tuple with list selected_rses, and 2 booleans create_rule, wont_reevaluate.
     """
+    wont_reevaluate = False
+    create_rule = True
     preferred_rses = set()
     for rule in list_rules(
         filters={
@@ -152,43 +154,59 @@ def __split_rule_select_rses(
         ):
             preferred_rses.add(rse_dict["rse"])
     preferred_rses = list(preferred_rses)
+    preferred_unmatched = list()
+    selected_rses = list()
 
-    try:
-        (selected_rses, preferred_unmatched,) = resolve_rse_expression(
-            rse_expression,
-            account,
-            weight=weight,
-            copies=copies,
-            size=0,
-            preferred_rses=preferred_rses,
-            blocklist=blocklisted_rse_id,
-        )
-
-    except (
-        InsufficientTargetRSEs,
-        InsufficientAccountLimit,
-        InvalidRuleWeight,
-        RSEOverQuota,
-    ) as error:
-        logger(
-            logging.WARNING,
-            'Problem getting RSEs for subscription "%s" for account %s : %s. Try including blocklisted sites'
-            % (
-                subscription_name,
+    for attempt in range(0, 2):
+        # First attempt excludes blocklisted RSEs
+        # Second attempt includes blocklisted RSEs
+        try:
+            (selected_rses, preferred_unmatched,) = resolve_rse_expression(
+                rse_expression,
                 account,
-                str(error),
-            ),
-        )
-        # Now including the blocklisted sites
-        (selected_rses, preferred_unmatched,) = resolve_rse_expression(
-            rse_expression,
-            account,
-            weight=weight,
-            copies=copies,
-            size=0,
-            preferred_rses=preferred_rses,
-        )
-    return selected_rses, preferred_rses, preferred_unmatched
+                weight=weight,
+                copies=copies,
+                size=0,
+                preferred_rses=preferred_rses,
+                blocklist=blocklisted_rse_id,
+            )
+            wont_reevaluate = True
+            break
+        except (
+            InsufficientTargetRSEs,
+            InsufficientAccountLimit,
+            InvalidRuleWeight,
+            RSEOverQuota,
+        ) as error:
+            logger(
+                logging.WARNING,
+                'Problem getting RSEs for subscription "%s" for account %s : %s. %s'
+                % (
+                    subscription_name,
+                    account,
+                    str(error),
+                    'Try including blocklisted sites' if attempt == 0 else 'Skipping rule creation.'
+                ),
+            )
+            # Now including the blocklisted sites
+            blocklisted_rse_id = []
+            monitor.record_counter(
+                name="transmogrifier.addnewrule.errortype.{exception}",
+                labels={"exception": str(error.__class__.__name__)},
+            )
+            wont_reevaluate = True
+        except Exception as error:
+            logger(
+                logging.ERROR,
+                "Problem resolving RSE expression %s : %s"
+                % (
+                    rse_expression,
+                    str(error),
+                )
+            )
+    if len(preferred_rses) - len(preferred_unmatched) >= copies:
+        create_rule = False
+    return selected_rses, create_rule, wont_reevaluate
 
 
 def get_subscriptions(logger: "Callable" = logging.log) -> List[Dict]:
@@ -359,7 +377,7 @@ def __is_matching_subscription(subscription, did, metadata):
     return True
 
 
-def select_algorithm(algorithm: str, rule_ids: list, params: dict) -> dict:
+def select_algorithm(algorithm: str, rule_ids: list, params: dict, logger: "Callable") -> dict:
     """
     Method used in case of chained subscriptions
 
@@ -369,15 +387,15 @@ def select_algorithm(algorithm: str, rule_ids: list, params: dict) -> dict:
     :param params: Dictionary of rules parameters to be used by the algorithm
     """
     selected_rses = {}
-    if algorithm == "associated_site":
-        for rule_id in rule_ids:
-            rule = get_rule(rule_id)
-            logging.debug("In select_algorithm, %s", str(rule))
-            rse = rule["rse_expression"]
-            vo = rule["account"].vo
-            if rse_exists(rse, vo=vo):
-                rse_id = get_rse_id(rse, vo=vo)
-                rse_attributes = list_rse_attributes(rse_id)
+    for rule_id in rule_ids:
+        rule = get_rule(rule_id)
+        logging.debug("In select_algorithm, %s", str(rule))
+        rse = rule["rse_expression"]
+        vo = rule["account"].vo
+        if rse_exists(rse, vo=vo):
+            rse_id = get_rse_id(rse, vo=vo)
+            rse_attributes = list_rse_attributes(rse_id)
+            if algorithm == "associated_site":
                 associated_sites = rse_attributes.get("associated_sites", None)
                 associated_site_idx = params.get("associated_site_idx", None)
                 if not associated_site_idx:
@@ -395,14 +413,40 @@ def select_algorithm(algorithm: str, rule_ids: list, params: dict) -> dict:
                         "source_replica_expression": rse,
                         "weight": None,
                     }
-            else:
-                raise SubscriptionWrongParameter(
-                    "Algorithm associated_site only works with split_rule"
+            if algorithm == "exclude_site":
+                site = rse_attributes.get("site", None)
+                rse_expression = params['rse_expression'] + '\\site=%s' % site
+                (
+                    selected_rses,
+                    create_rule,
+                    wont_reevaluate,
+                ) = __split_rule_select_rses(
+                    subscription_id=params["subscription_id"],
+                    subscription_name=params["subscription_name"],
+                    scope=rule["scope"],
+                    name=rule["name"],
+                    account=rule.get("account"),
+                    weight=rule.get("weight"),
+                    rse_expression=rse_expression,
+                    copies=rule.get('copies'),
+                    blocklisted_rse_id=params['blocklisted_rse_id'],
+                    logger=logger,
                 )
-            if rule["copies"] != 1:
-                raise SubscriptionWrongParameter(
-                    "Algorithm associated_site only works with split_rule"
-                )
+                dict_selected_rses = {}
+                for entry in selected_rses:
+                    dict_selected_rses[entry] = {
+                        "source_replica_expression": rse,
+                        "weight": None,
+                    }
+                selected_rses = dict_selected_rses
+        else:
+            raise SubscriptionWrongParameter(
+                "Algorithm %s only works with split_rule" % algorithm
+            )
+        if rule["copies"] != 1:
+            raise SubscriptionWrongParameter(
+                "Algorithm %s only works with split_rule" % algorithm
+            )
     return selected_rses
 
 
@@ -495,6 +539,10 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     if chained_idx:
                         #  In the case of chained subscription, don't use rseselector but use the rses returned by the algorithm
                         params = {}
+                        params['rse_expression'] = rule_dict.get("rse_expression")
+                        params['subscription_id'] = subscription["id"]
+                        params['subscription_name'] = subscription["name"]
+                        params['blocklisted_rse_id'] = blocklisted_rse_id
                         if rule_dict.get("associated_site_idx", None):
                             params["associated_site_idx"] = rule_dict.get(
                                 "associated_site_idx", None
@@ -506,56 +554,38 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                         )
                         algorithm = rule_dict.get("algorithm", None)
                         selected_rses = select_algorithm(
-                            algorithm, created_rules[chained_idx], params
+                            algorithm,
+                            created_rules[chained_idx],
+                            params,
+                            logger
                         )
                         copies = 1
                     elif split_rule:
-                        try:
-                            (
-                                selected_rses,
-                                preferred_rses,
-                                preferred_unmatched,
-                            ) = __split_rule_select_rses(
-                                subscription_id=subscription["id"],
-                                subscription_name=subscription["name"],
-                                scope=did["scope"],
-                                name=did["name"],
-                                account=rule_dict.get("account"),
-                                weight=weight,
-                                rse_expression=rule_dict.get("rse_expression"),
-                                copies=copies,
-                                blocklisted_rse_id=blocklisted_rse_id,
-                                logger=logger,
-                            )
-                            copies = 1
-                        except (
-                            InsufficientTargetRSEs,
-                            InsufficientAccountLimit,
-                            InvalidRuleWeight,
-                            RSEOverQuota,
-                        ) as error:
-                            logger(
-                                logging.WARNING,
-                                'Problem getting RSEs for subscription "%s" for account %s : %s. Skipping rule creation.'
-                                % (
-                                    subscription["name"],
-                                    rule_dict.get("account"),
-                                    str(error),
-                                ),
-                            )
-                            monitor.record_counter(
-                                name="transmogrifier.addnewrule.errortype.{exception}",
-                                labels={"exception": str(error.__class__.__name__)},
-                            )
-                            # The DID won't be reevaluated at the next cycle
-                            did_success = did_success and True
+                        (
+                            selected_rses,
+                            create_rule,
+                            wont_reevaluate,
+                        ) = __split_rule_select_rses(
+                            subscription_id=subscription["id"],
+                            subscription_name=subscription["name"],
+                            scope=did["scope"],
+                            name=did["name"],
+                            account=rule_dict.get("account"),
+                            weight=weight,
+                            rse_expression=rule_dict.get("rse_expression"),
+                            copies=copies,
+                            blocklisted_rse_id=blocklisted_rse_id,
+                            logger=logger,
+                        )
+                        copies = 1
+                        if not create_rule:
                             continue
-
-                        if len(preferred_rses) - len(preferred_unmatched) >= copies:
-                            continue
+                        # The DID won't be reevaluated at the next cycle
+                        did_success = did_success and wont_reevaluate
 
                     nb_rule = 0
                     #  Try to create the rule
+                    logger(logging.DEBUG, 'selected_rses : %s' % selected_rses)
                     try:
                         for rse in selected_rses:
                             if isinstance(selected_rses, dict):
